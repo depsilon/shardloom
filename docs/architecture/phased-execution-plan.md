@@ -71,261 +71,72 @@ Status reading order:
 - This file is the mutable source of truth for planned sequence, deferred work, and CG closeout
   ordering.
 - `docs/architecture/phased-execution-completed-ledger.md` is the mutable source of truth for
-  detailed completed session and historical phase ledgers.
-- Supporting architecture docs may contain rationale, inventories, traceability, and historical
-  ledgers, but they must not introduce a second "current" queue.
+  detailed session history and historical phase ledgers.
+- Supporting docs may contain rationale, inventories, traceability, and historical notes, but they
+  must not introduce a second current queue.
 - If a supporting doc discovers new work, add the actionable checklist item here before
   implementation begins.
-- If a supporting doc records completed history, keep it clearly labeled as a completed ledger or
-  historical note, and do not let it become a current queue.
 - Supporting docs must not keep unchecked implementation checklists outside this file and
   `docs/architecture/global-architecture-review.md`. Scope-boundary lists may remain, but real work
   must be carried by a `GAR-*` item below.
 
-Supporting docs:
-- `README.md`
-  - Role: project entry point, stable orientation, and compact core-concepts doorway.
-  - Status rule: points to this phase plan and the completed ledger for current planned/completed
-    state; must not duplicate working checklists or become the full glossary.
-- `docs/architecture/phased-execution-completed-ledger.md`
-  - Role: detailed completed session ledger and historical phase provenance split out of this phase
-    plan.
-  - Status rule: may record completed work only; it must not introduce planned work or a second
-    current queue.
-- `docs/architecture/rfc-phase-traceability.md`
-  - Role: maps phases and CG work to governing RFCs.
-  - Status rule: may record traceability history, but this file owns current work state.
-- `docs/architecture/global-architecture-review.md`
-  - Role: checkbox audit of every RFC plus the compute-engine flow against the repo.
-  - Status rule: every unchecked item in that review must be mirrored into this Planned queue before
-    implementation; checking a review item requires checking off the corresponding phase-plan item
-    or moving the completed session to the ledger.
-- `docs/architecture/compute-engine-flow-reference.md`
-  - Role: canonical end-to-end flow for users, CLI/Python/REST access, adapters, I/O, execution
-    modes, sinks, downstream consumers, evidence, and claim gates.
-  - Status rule: planned nodes in the flow do not authorize implementation or claims until the
-    corresponding item exists in this Planned queue and is completed with evidence.
-- `docs/architecture/compute-engine-flow-overhaul-review.md`,
-  `benchmark-persistent-runner-decision.md`, and
-  `performance-attribution-and-execution-structure.md`
-  - Role: historical P7.5 repo-alignment review, persistent-runner decision, and benchmark timing
-    attribution reference.
-  - Status rule: these files record completed alignment decisions only; current compute-flow follow-up
-    is represented by the GAR flow items in this Planned queue.
-- `docs/architecture/runtime-evidence-level-tiering.md`
-  - Role: GAR-PERF-2A reference for evidence-level runtime tiering across
-    `minimal_runtime`, `certified`, and `full_replay`.
-  - Status rule: the scoped `traditional-analytics-vortex-batch-run` path now emits first-class
-    evidence-level fields. Future Python/API capability views and broader execution envelopes must
-    remain represented by later evidence-bearing slices before broader support can be claimed.
-- `docs/architecture/evidence-aware-logical-optimizer.md`
-  - Role: GAR-PERF-2B reference for the completed report-only optimizer rule registry and optimizer
-    trace contract.
-  - Status rule: records current rule families, CLI/Python/benchmark trace fields, report-only
-    before/after plan-digest placeholders, and no-fallback/claim boundaries. Future runtime
-    rewrites, correctness smoke, and claim-grade optimizer promotion must remain represented by
-    later evidence-bearing slices.
-- `docs/architecture/vortex-scan-pushdown-completion.md`
-  - Role: report-only GAR-PERF-2C reference for Vortex Scan API filter/projection/limit pushdown
-    completion across prepared/native scenario families.
-  - Status rule: defines pushdown evidence and deterministic blocker requirements only. Scan
-    request builder work, filter expression lowering, projection mask computation, limit/slice
-    pushdown, capability matrix projection, and benchmark row schema changes must remain
-    represented by `GAR-PERF-2C` or later evidence-bearing slices.
-- `docs/architecture/compressed-encoded-kernel-registry.md`
-  - Role: GAR-PERF-2D reference for scoped compressed/encoded kernel registry evidence over
-    selective-filter prepared/native rows.
-  - Status rule: scoped bitpacked and sequence reader-generated encoded inputs now emit registry
-    evidence with deterministic blockers for the remaining initial pairs. Broader encoded-native
-    operator coverage, capability-matrix promotion, and claim-grade use must remain represented by
-    later evidence-bearing slices.
-- `docs/architecture/fused-operator-pipeline.md`
-  - Role: GAR-PERF-2E reference for scoped fused local prepared/native operator-pipeline evidence.
-  - Status rule: scoped filter/projection/limit, filter/aggregate, and top-k/projection evidence is
-    complete with deterministic filter/group-by blockers. Stronger independent unfused runtime
-    certificates, broader families, encoded-native promotion, and claim-grade use must remain
-    represented by later evidence-bearing slices.
-- `docs/architecture/in-process-session-runtime.md`
-  - Role: GAR-PERF-2F reference for scoped in-process session-backed prepared/native local-artifact
-    runtime evidence and future public `ShardLoomSession` boundaries.
-  - Status rule: scoped CLI batch runtime evidence is complete and recorded in the ledger. Python
-    client exposure, broader public session APIs, buffer-pool ownership, and claim-grade use must
-    remain represented by later evidence-bearing slices.
-- `docs/architecture/io-reuse-and-fanout-architecture.md`
-  - Role: report-only GAR-IOREUSE-1 reference for universal source-state reuse, decoupled
-    Vortex-prepared-state reuse, output-plan reuse, cross-format local fanout, cache invalidation,
-    evidence-safe reuse levels, and Foundry generated-output fanout posture.
-  - Status rule: defines the
-    `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`
-    architecture and benchmark field vocabulary. GAR-IOREUSE-1A through GAR-IOREUSE-1E have
-    established SourceState, VortexPreparedState, OutputPlan, and report-only fanout benchmark row
-    contracts plus cache/fingerprint invalidation evidence. Runtime state caches, fanout writers,
-    evidence-safe reuse levels, Foundry generated-output smoke, object-store I/O, table commits,
-    and claim-grade use must remain represented by `GAR-IOREUSE-1*` or later evidence-bearing
-    slices.
-- `docs/architecture/allocation-buffer-pool-optimization.md`
-  - Role: GAR-PERF-2G reference for scoped allocation/resource-profile evidence and buffer-pool
-    blocker semantics across prepared/native local runtime paths.
-  - Status rule: current session-backed batch rows emit allocation/resource fields and deterministic
-    blockers. Runtime buffer pools, allocator hooks, safe reuse implementation, memory-efficiency
-    claims, and claim-grade use remain unclaimed until represented by later evidence-bearing
-    slices.
-- `docs/architecture/optimized-build-profiles-pgo-benchmark-lane.md`
-  - Role: GAR-PERF-2H reference for optimized Cargo build profiles and a reproducible PGO/native
-    benchmark lane.
-  - Status rule: build-profile vocabulary, Cargo profiles, benchmark row fields, PGO helper flow,
-    target-CPU-native boundaries, and release portability rules are complete and recorded in the
-    ledger. Actual PGO profile artifacts, benchmark reruns under optimized profiles, and any
-    claim-grade use must remain represented by later evidence-bearing slices.
-- `docs/architecture/bayesian-performance-layout-advisor.md`
-  - Role: GAR-PERF-1D reference for the report-only Bayesian performance and layout advisor
-    contract.
-  - Status rule: benchmark artifacts now emit `bayesian_advisor_*` fields for advisory-only
-    confidence/uncertainty and future mode/reuse/sizing/layout decision surfaces. Runtime
-    decisioning, automatic layout writes, fitted posterior models, and claim-grade confidence use
-    must remain represented by later evidence-bearing slices before they can affect behavior or
-    public claims.
-- `docs/architecture/capability-certification-sequencing.md`
-  - Role: CG-20 sequencing ledger and implementation-order reference.
-  - Status rule: phase-plan checklist owns planned CG-20 work items. Remaining approximate/sketch
-    function and certification-scope coverage details are carried by `GAR-0021` and `GAR-0032`.
-- `docs/architecture/vortex-public-api-inventory.md`
-  - Role: Vortex public API evidence and adapter-boundary inventory.
-  - Status rule: API findings inform CG-1/CG-2/CG-3 queue items here.
-- `docs/architecture/vortex-runtime-utilization-audit.md`
-  - Role: Vortex-first runtime utilization audit for arrays, execution layers, Scan
-    Source/Sink/Split, layouts, I/O, sessions/registries, device posture, extension types, and
-    benchmark discipline.
-  - Status rule: report/code surfaces here do not authorize runtime provider promotion; actionable
-    provider or benchmark work must remain represented in this phase plan.
-- `docs/architecture/vortex-adapter-integration-plan.md`
-  - Role: Vortex adapter rationale, boundaries, and historical integration notes.
-  - Status rule: adapter work is actionable only after represented in this phase plan.
-- `docs/architecture/repo-cleanup-backlog.md`, `diagnostics-normalization-backlog.md`,
-  `terminology-consolidation-backlog.md`, and `feature-footprint-doctor-plan.md`
-  - Role: cleanup inventories and completed cleanup ledgers.
-  - Status rule: cleanup must be promoted into this file as a concrete checklist item. Remaining
-    diagnostic, terminology, command-registry, traceability, and acceptance-checker details are
-    carried by `GAR-0012`, `GAR-0039`, and `GAR-0043`.
-- `docs/architecture/canonical-terminology.md`
-  - Role: authoritative glossary and concept index for ShardLoom vocabulary.
-  - Status rule: defines terms and links to governing RFCs, but does not mark current phase or CG
-    completion.
-- `docs/architecture/systems-learning-map.md`
-  - Role: technique-transfer map from external systems and design references into ShardLoom-native
-    contracts.
-  - Status rule: records lessons and guardrails only; it does not authorize dependencies, runtime
-    behavior, or CG completion.
-- `docs/architecture/benchmark-suite-catalog.md`
-  - Role: CG-6.25 benchmark-suite catalog and Priority 2.7 source-backed correctness/benchmark
-    matrix orientation.
-  - Status rule: records matrix/catalog report surfaces, the executable local taxonomy runner
-    status, and claim blockers; full comparative benchmark reruns and performance claims remain
-    separate planned/release-readiness actions.
-- `docs/architecture/crate-posture-public-exports.md`
-  - Role: Priority 2.8 crate posture and public export grouping reference.
-  - Status rule: documents current executable/report-only/unsupported/planned/prohibited-fallback export
-    posture only; it does not authorize runtime or dependency expansion.
-- `docs/architecture/workspace-feature-build-matrix.md`
-  - Role: Priority 3.5 workspace feature/build validation matrix reference.
-  - Status rule: records required validation rows and release blockers; it does not authorize
-    package publication, dependency expansion, runtime expansion, or fallback execution.
-- `docs/architecture/universal-import-deployment-baseline-harness.md`
-  - Role: Priority 3.5 / CG-18 universal import, deployment, and baseline harness maturity
-    reference.
-  - Status rule: records required local/CI/container/optional Foundry/optional benchmark harness
-    rows and comparison-only baseline environment boundaries; it does not authorize harness
-    execution, package publication, external engine invocation, or fallback execution.
-- `docs/architecture/rfc-coverage-followthrough.md`
-  - Role: Priority 3.6 RFC coverage follow-through reference for RFC 0010, RFC 0011, RFC 0020,
-    RFC 0022, and RFC 0023 before broader user/runtime expansion.
-  - Status rule: records report-only coverage gates for developer/agent usability, modular
-    extensibility, table/catalog compatibility, plan interop, and extension sandboxing; it does not
-    authorize parser expansion, dependency expansion, imported-plan execution, extension execution,
-    external effects, external engine invocation, or fallback execution.
-- `docs/architecture/typed-command-result-envelope.md`
-  - Role: Priority 3.9 typed command/result envelope reference for the `shardloom.output.v2`
-    protocol slice and remaining command-family migration work.
-  - Status rule: records the typed envelope slots and temporary legacy field mirror; it does not
-    authorize runtime expansion, command effects, external engine invocation, REST/server behavior,
-    or fallback execution.
-- `docs/architecture/incumbent-gap-opportunity-map.md`, `lakehouse-value-prop-compatibility.md`,
-  `universal-input-contract.md`, and `spill-reservation-lifecycle-integration.md`
-  - Role: reference maps and constraints.
-  - Status rule: they guide design decisions but do not mark CG completion.
-- `docs/architecture/operational-evidence-policy-hardening.md`
-  - Role: shared evidence, policy, workload, lifecycle, protocol-parity, benchmark-constitution, and
-    artifact-safety contracts for CG-20 through CG-23.
-  - Status rule: contract reference only; actionable implementation work must be represented in the
-    Planned queue.
-- `docs/architecture/evidence-native-generated-execution-observability-confidence.md`
-  - Role: report-only GAR-NOVEL-1 reference for generated-source evidence, OpenLineage facets,
-    OpenTelemetry trace mapping, and Bayesian confidence.
-  - Status rule: describes export and confidence contracts only. Generated-output runtime,
-    lineage/telemetry exporters, Bayesian release blockers, and any dependency changes must remain
-    represented by `GAR-NOVEL-1`, `GAR-GEN-1`, `GAR-PERF-1D`, `GAR-0018`, `GAR-0029`, or
-    release-gate slices before implementation.
-- `docs/architecture/adoption-commercial-readiness-friction-reduction.md`
-  - Role: report-only GAR-COMMERCIAL-1 reference for adoption friction, one-command local proof,
-    package-channel readiness, buyer-facing status, enterprise evidence export, Foundry starter, and
-    workflow recipes.
-  - Status rule: describes adoption/commercial readiness only. Package publication, release tags,
-    OCI pushes, package-channel submissions, Foundry runtime proof, export backends, recipe runtime
-    expansion, and public readiness claims must remain represented by `GAR-COMMERCIAL-1`,
-    `GAR-0024`, `GAR-0033`, `GAR-0036`, `GAR-NOVEL-1`, or release-gate slices before
-    implementation.
-- `docs/use-cases/README.md`, `docs/use-cases/use-case-index.yml`, and
-  `docs/use-cases/templates/use-case-template.md`
-  - Role: non-expert Use Case Atlas for answering "Can ShardLoom do my thing?", "How do I try it?",
-    "What evidence do I get?", and "What is not supported yet?" without reading the phase plan,
-    RFCs, or benchmark internals.
-  - Status rule: may describe current supported, smoke-supported, report-only, planned, blocked, and
-    unsupported use-case posture only. Runtime expansion, website status projection, generated page
-    output, recipe implementation, and all-capability coverage enforcement must remain represented by
-    `GAR-DOCS-1*` or later evidence-bearing slices before implementation.
-- `docs/architecture/object-store-request-planner.md`
-  - Role: CG-10 request-planning, range/coalescing/scheduling/checkpoint/retry/commit evidence
-    reference.
-  - Status rule: object-store runtime work is represented by `GAR-0008`, `GAR-0028`, `GAR-0031`,
-    and the GAR-COMPAT-1C admission ladder projection in the universal compatibility scoreboard.
-- `docs/architecture/table-intelligence-layer.md`
-  - Role: CG-9 schema/table/catalog/CDC/layout/compaction evidence reference.
-  - Status rule: table/catalog runtime work is represented by `GAR-0020`, `GAR-0028`, and the
-    GAR-COMPAT-1D table-format boundary projection in the universal compatibility scoreboard.
-- `docs/architecture/universal-compatibility-coverage-scoreboard.md`
-  - Role: report-only universal source/sink/adapter/user-surface compatibility map covering local
-    files, Vortex, generated/source-free output, databases, warehouses, object stores, table
-    formats, REST/Flight/ADBC, and Foundry.
-  - Status rule: scoreboard rows classify runtime-supported, smoke-supported, report-only, blocked,
-    or not-planned posture only. Actionable compatibility/runtime work remains represented by
-    `GAR-COMPAT-1`, `GAR-GEN-1`, `GAR-0008`, `GAR-0020`, `GAR-0028`, `GAR-0031`, and related
-    evidence-bearing slices. GAR-COMPAT-1E adds the database/warehouse boundary projection without
-    connector runtime.
-- `docs/architecture/dynamic-work-shaping.md`,
-  `spill-reservation-lifecycle-integration.md`, and `effect-budget-plan.md`
-  - Role: runtime shaping, memory/spill lifecycle, and side-effect policy references.
-  - Status rule: runtime implementation must be represented by `GAR-0014`, `GAR-0016`,
-    `GAR-0019`, or `GAR-0011` before code changes.
-- `docs/architecture/correctness-differential-harness.md`,
-  `benchmark-competitive-claim-evidence.md`, and `benchmark-suite-catalog.md`
-  - Role: correctness, benchmark, claim-evidence, and catalog references.
-  - Status rule: claim-grade execution, fuzz/property expansion, comparative reruns, and public
-    claims are represented by `GAR-0015`, `GAR-0029`, `GAR-0040`, and `GAR-0041`.
-- `docs/architecture/agent-contract-pack.md`
-  - Role: agent protocol and no-fallback task contract reference.
-  - Status rule: protocol changes must remain represented by `GAR-0010`, `GAR-0037`, or `GAR-0039`.
-- `docs/architecture/vortex-upstream-alignment-hardening.md`
-  - Role: Vortex compatibility, Scan API, compute-provider, residual-boundary, device,
-    extension-type, object-store telemetry, integration-boundary, and benchmark-interoperability
-    contract reference.
-  - Status rule: contract reference only; provider promotion, Vortex-native execution, and
-    dependency changes must remain represented by the relevant GAR provider/runtime/release item
-    before implementation.
-- `docs/skills/vortex/vortex-first-provider-check.md`
-  - Role: Vortex-adjacent implementation guard requiring agents to check upstream Vortex concepts
-    and classify decisions before inventing new ShardLoom abstractions.
-  - Status rule: process guard only; it does not authorize new Vortex API use, dependency changes,
-    runtime behavior, support claims, external engine invocation, or fallback execution.
+Reference index:
+- Status source: `README.md`, `docs/architecture/phased-execution-completed-ledger.md`,
+  `docs/architecture/rfc-phase-traceability.md`, `docs/architecture/global-architecture-review.md`,
+  and `docs/architecture/compute-engine-flow-reference.md`.
+- Compute-flow and benchmark references:
+  `docs/architecture/compute-engine-flow-overhaul-review.md`,
+  `docs/architecture/benchmark-persistent-runner-decision.md`,
+  `docs/architecture/performance-attribution-and-execution-structure.md`,
+  `docs/architecture/benchmark-suite-catalog.md`,
+  `docs/architecture/benchmark-competitive-claim-evidence.md`, and `docs/benchmarks/*`.
+- Runtime architecture references:
+  `docs/architecture/runtime-evidence-level-tiering.md`,
+  `docs/architecture/evidence-aware-logical-optimizer.md`,
+  `docs/architecture/vortex-scan-pushdown-completion.md`,
+  `docs/architecture/compressed-encoded-kernel-registry.md`,
+  `docs/architecture/fused-operator-pipeline.md`,
+  `docs/architecture/in-process-session-runtime.md`,
+  `docs/architecture/io-reuse-and-fanout-architecture.md`,
+  `docs/architecture/allocation-buffer-pool-optimization.md`,
+  `docs/architecture/optimized-build-profiles-pgo-benchmark-lane.md`,
+  `docs/architecture/dynamic-work-shaping.md`,
+  `docs/architecture/spill-reservation-lifecycle-integration.md`, and
+  `docs/architecture/effect-budget-plan.md`.
+- Claim, release, and adoption references:
+  `docs/architecture/bayesian-performance-layout-advisor.md`,
+  `docs/architecture/operational-evidence-policy-hardening.md`,
+  `docs/architecture/evidence-native-generated-execution-observability-confidence.md`,
+  `docs/architecture/adoption-commercial-readiness-friction-reduction.md`,
+  `docs/architecture/workspace-feature-build-matrix.md`,
+  `docs/architecture/universal-import-deployment-baseline-harness.md`,
+  `docs/architecture/rfc-coverage-followthrough.md`,
+  `docs/architecture/typed-command-result-envelope.md`,
+  `docs/architecture/crate-posture-public-exports.md`, and `docs/release/*`.
+- Compatibility, adapters, and platform references:
+  `docs/architecture/universal-input-contract.md`,
+  `docs/architecture/universal-compatibility-coverage-scoreboard.md`,
+  `docs/architecture/object-store-request-planner.md`,
+  `docs/architecture/table-intelligence-layer.md`,
+  `docs/architecture/lakehouse-value-prop-compatibility.md`,
+  `docs/architecture/incumbent-gap-opportunity-map.md`,
+  `docs/architecture/agent-contract-pack.md`, and `docs/use-cases/*`.
+- Vortex and project hygiene references:
+  `docs/architecture/vortex-public-api-inventory.md`,
+  `docs/architecture/vortex-runtime-utilization-audit.md`,
+  `docs/architecture/vortex-adapter-integration-plan.md`,
+  `docs/architecture/vortex-upstream-alignment-hardening.md`,
+  `docs/architecture/canonical-terminology.md`, `docs/architecture/systems-learning-map.md`,
+  `docs/architecture/repo-cleanup-backlog.md`,
+  `docs/architecture/diagnostics-normalization-backlog.md`,
+  `docs/architecture/terminology-consolidation-backlog.md`,
+  `docs/architecture/feature-footprint-doctor-plan.md`, and
+  `docs/skills/vortex/vortex-first-provider-check.md`.
+
+Reference-doc rule: these files are evidence, guardrails, or inventories. They do not authorize
+runtime behavior, support claims, dependency expansion, package publication, external effects, or
+fallback execution unless a matching unchecked item below is completed with evidence and moved to
+the ledger.
 
 ## Planned
 
@@ -383,7 +194,9 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 Complete these documentation, capability, security, release, and claim-gate items before starting
 new runtime implementation work unless the user explicitly reprioritizes. These items must not add
-runtime behavior or support claims.
+runtime behavior or support claims. The GAR-P0/P4/P5 groups in this section are the active
+non-runtime queue; do not start the runtime implementation queue below until these are closed or
+explicitly reprioritized.
 
 - [ ] GAR-0022-A Substrait import/export report-only contract
   - Source: RFC 0022; plan IR docs; rfc-coverage followthrough.
@@ -429,7 +242,7 @@ runtime behavior or support claims.
   - Non-goals: no Foundry invocation, publication, or platform credential.
   - Fallback/claim boundary: Foundry remains optional integration, not a fallback engine.
   - Dependencies/blockers: package publication and credentials gates.
-#### GAR-P4 - Extension, Governance, And Runtime Policy
+##### Non-Runtime GAR-P4 - Extension, Governance, And Runtime Policy
 
 - [ ] GAR-0011-A extension manifest and external-effect capability matrix
   - Source: RFC 0011; effect budget plan; RFC 0019.
@@ -486,7 +299,7 @@ runtime behavior or support claims.
   - Fallback/claim boundary: plugin support remains report-only.
   - Dependencies/blockers: GAR-0019 sandbox and credential gates.
 
-#### GAR-P5 - Correctness, Benchmarks, Claims, And Release
+##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
 - [ ] GAR-0001B-A engine-replacement claim inventory
   - Source: RFC 0001; RFC 0025; global architecture review.
@@ -640,6 +453,8 @@ Runtime completion rule:
 
 - Every runtime item must enable a concrete runtime behavior, runtime admission/blocker, or
   runtime-claim validator that directly protects a usable workflow.
+- Every runtime item below must include a `Runtime enablement:` field naming the behavior,
+  admission/blocker, or validator it enables.
 - A docs-only or report-only update cannot complete a runtime item unless the item explicitly says
   it is a runtime-safety blocker or validator.
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
@@ -659,6 +474,8 @@ or documentation updates alone are insufficient.
     broad typed casts, null predicates, string predicates, and date/time helpers.
   - Next slice outcome: add one implementation PR per expression family: numeric casts,
     null/is-not-null, string equality/prefix/contains where admitted, and date extraction/literals.
+  - Runtime enablement: executable ShardLoom-native expression families or deterministic runtime
+    blockers for unsupported operators.
   - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.
   - Implementation scope: expression IR, type coercion policy, null semantics, parser lowering,
     native evaluators, diagnostics.
@@ -682,6 +499,8 @@ or documentation updates alone are insufficient.
     public runtime surface.
   - Next slice outcome: implement generated-source builders across CLI/Python/SQL with local JSONL
     or Vortex output where admitted.
+  - Runtime enablement: end-user generated-source execution that writes local output and emits a
+    GeneratedSourceCertificate.
   - User-visible surface: Python `ctx.range`, `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`,
     SQL `VALUES`, generated-output recipes.
   - Implementation scope: generator nodes, schema inference, deterministic seed/row-count handling,
@@ -707,6 +526,8 @@ or documentation updates alone are insufficient.
     and ORC do not all have ordinary user-facing SourceState runtime parity.
   - Next slice outcome: promote one local input format at a time into the adapter registry with
     SourceState evidence and deterministic blockers for unsupported formats/features.
+  - Runtime enablement: admitted local input adapters that create reusable SourceState evidence for
+    actual user reads.
   - User-visible surface: CLI/Python read helpers, use cases, capability/status matrix, benchmark
     source-format rows.
   - Implementation scope: format detection, local reader, schema/dtype inference, fingerprinting,
@@ -730,6 +551,8 @@ or documentation updates alone are insufficient.
     and multi-output fanout are not ordinary user-facing runtime features.
   - Next slice outcome: add local writer registry and fanout for admitted formats, with per-output
     digest, replay status, and metadata fidelity/loss.
+  - Runtime enablement: local output writers and fanout execution with OutputPlan evidence and
+    replay proof where admitted.
   - User-visible surface: CLI/Python `.write` and `.fanout`, recipes, benchmark
     `io_reuse_and_fanout`, website status.
   - Implementation scope: OutputPlan builder, writers, schema translation, output digests, replay
@@ -754,6 +577,8 @@ or documentation updates alone are insufficient.
     incomplete.
   - Next slice outcome: implement a documented local Vortex lifecycle command and Python helper
     for one admitted operator family.
+  - Runtime enablement: user-facing local Vortex prepare/write/reopen/scan lifecycle for admitted
+    operators.
   - User-visible surface: CLI, Python helper, benchmark rows, compute-flow, Field Guide/status.
   - Implementation scope: VortexPreparedState, local Vortex writer, reopen verifier,
     source-backed scan bridge, digest/certificate reporting.
@@ -776,6 +601,8 @@ or documentation updates alone are insufficient.
     complete across admitted prepared/native scenarios.
   - Next slice outcome: lower filter, projection, and limit into Vortex Scan where admitted, and
     emit deterministic blockers when a predicate/projection cannot be pushed down.
+  - Runtime enablement: prepared/native Vortex Scan pushdown for admitted filters, projections, and
+    limits, with fail-closed blockers for unsupported shapes.
   - User-visible surface: prepared/native benchmark rows, explain output, capability matrix.
   - Implementation scope: scan request builder, filter expression lowering, projection mask, limit/
     slice pushdown, evidence fields.
@@ -799,6 +626,8 @@ or documentation updates alone are insufficient.
   - Next slice outcome: implement or block one encoding/operator pair at a time, starting with
     bitpacked boolean/integer filters, sequence equality/range, dictionary equality/group-by, and
     constant array count/filter.
+  - Runtime enablement: executable encoded-kernel pairs backed by decoded-reference correctness, or
+    deterministic blockers.
   - User-visible surface: benchmark evidence, explain output, capability matrix.
   - Implementation scope: kernel registry, admission policy, encoded evaluator, decoded reference
     comparison, blockers.
@@ -821,6 +650,8 @@ or documentation updates alone are insufficient.
     envelopes can diverge.
   - Next slice outcome: add a versioned execution-envelope schema and validators for every runtime
     path.
+  - Runtime enablement: runtime-claim validator that rejects paths missing certificate,
+    materialization/decode, claim-gate, or no-fallback fields.
   - User-visible surface: CLI JSON, Python typed reports, benchmark artifacts, website evidence,
     release readiness.
   - Implementation scope: shared schema, adapters, aliases/migrations, readiness checks, website
@@ -845,6 +676,8 @@ or documentation updates alone are insufficient.
     reusable session/cache lifecycle.
   - Next slice outcome: implement a scoped in-process `ShardLoomSession` that reuses SourceState,
     VortexPreparedState, schema/dictionary state, and OutputPlan where fingerprints remain valid.
+  - Runtime enablement: scoped in-process session runtime with safe source/prepared/output reuse and
+    explicit invalidation.
   - User-visible surface: CLI batch/session command, Python context/session, benchmark timing rows.
   - Implementation scope: session lifecycle, cache keys/fingerprints, invalidation policy, cache
     hit/miss evidence, explicit close/cleanup.
@@ -867,6 +700,8 @@ or documentation updates alone are insufficient.
     fresh artifact, scenario coverage, and public claim boundary update.
   - Next slice outcome: require every runtime-promotion PR to update or attach a focused benchmark/
     correctness/evidence artifact and refresh website/docs only when the artifact is claim-safe.
+  - Runtime enablement: runtime-promotion validator that blocks stale or missing evidence before a
+    path is represented as supported.
   - User-visible surface: website benchmarks, docs/benchmarks, release readiness, status matrix.
   - Implementation scope: artifact freshness checker, runtime claim matrix, benchmark page
     ingestion, release validators.
@@ -889,6 +724,8 @@ or documentation updates alone are insufficient.
   - Next slice outcome: implement URI parse, credential/effect policy, optional listing, byte-range
     read, streaming/full-file read, and SourceState evidence in an approved emulator or public
     no-credential fixture profile.
+  - Runtime enablement: provider/profile-scoped object-store read admission with policy gates and
+    SourceState evidence.
   - User-visible surface: CLI/Python object-store diagnostics, capability/status pages, use cases.
   - Implementation scope: provider abstraction, effect gate, credential policy, request planner,
     byte-range adapter, local cache boundary, tests.
@@ -913,6 +750,8 @@ or documentation updates alone are insufficient.
   - Next slice outcome: after read proof, implement staged write/commit/recovery in an approved
     provider/emulator, then one fixture-backed table metadata/snapshot operation and one append or
     commit rehearsal where admitted.
+  - Runtime enablement: staged object-store write/table operation runtime in declared fixture
+    profiles, with commit and rollback evidence.
   - User-visible surface: table/object-store capability views, CLI/Python diagnostics, status/use
     cases, scale benchmark rows.
   - Implementation scope: write staging, commit protocol, idempotency, cleanup/retry, table metadata
@@ -938,6 +777,8 @@ or documentation updates alone are insufficient.
   - Next slice outcome: implement a declared-resource local scale profile with SplitManifest,
     bounded memory checks, per-split execution, spill/backpressure where admitted, one shuffle
     family, retry/idempotency, and output commit evidence.
+  - Runtime enablement: local scale-grade execution under a declared resource envelope, including
+    split, memory, spill, shuffle, retry, and commit gates.
   - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
   - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
     cancellation/recovery, output commit status, scale benchmark rows.
@@ -961,6 +802,8 @@ or documentation updates alone are insufficient.
     distributed execution are scoped, blocked, or report-only.
   - Next slice outcome: implement engine-mode diagnostics, a local in-memory live/hybrid fixture if
     admitted, opt-in loopback control-plane lifecycle, and fail-closed distributed worker blockers.
+  - Runtime enablement: engine-mode admission and loopback-only runtime controls, plus fail-closed
+    distributed blockers.
   - User-visible surface: CLI/Python engine-mode status, optional local API, compute-flow, website
     status/use cases.
   - Implementation scope: engine-mode admission, local control-plane lifecycle, fixture scheduler,
@@ -986,6 +829,8 @@ or documentation updates alone are insufficient.
   - Next slice outcome: implement local SQLite import/export if admitted, typed adapter manifests,
     extension inspection, one pure deterministic local scalar UDF fixture if approved, and
     fail-closed diagnostics for networked/effectful paths.
+  - Runtime enablement: scoped local adapter/UDF execution or inspection with effectful/networked
+    paths blocked by runtime policy.
   - User-visible surface: capability views, Python/CLI adapter and extension commands, use cases,
     website status.
   - Implementation scope: connector registry, credential/effect policy, local fixture adapter,
@@ -1014,6 +859,8 @@ or documentation updates alone are insufficient.
   - Next slice outcome: run a no-publication technical-preview rehearsal from clean checkout or
     local package artifact through CLI/Python workflows, unsupported diagnostics, benchmarks,
     website/status, security/legal, and release metadata.
+  - Runtime enablement: end-to-end usability validator proving admitted runtime paths from clean
+    install through evidence inspection.
   - User-visible surface: README, docs/getting-started, website, package metadata, release report.
   - Implementation scope: clean venv install/run script, package dry-run, example smoke matrix,
     benchmark artifact completeness, website build/readiness, security/legal checks.
@@ -1049,6 +896,8 @@ entry.
     DataFrame-style source-free output are not complete as ordinary end-user runtime workflows.
   - Next slice outcome: promote one coherent local generated-source workflow set across CLI,
     Python, and SQL/DataFrame admission, writing local output with generated-source evidence.
+  - Runtime enablement: ordinary end-user generated-source workflows that execute locally and write
+    evidence-backed outputs.
   - User-visible surface: `ctx.range(...)`, `ctx.from_rows(...)`, `ctx.literal_table(...)`,
     `ctx.calendar(...)`, SQL `VALUES`/literal `SELECT`, CLI generated-source command, recipes,
     website status.
@@ -1079,6 +928,8 @@ entry.
     outer/semi/anti/cross joins, and broad planner behavior remain incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
     and emits stable blockers for unsupported syntax.
+  - Runtime enablement: ShardLoom-native SQL execution for admitted syntax families plus stable
+    runtime blockers for unsupported SQL.
   - User-visible surface: CLI SQL command, SQL explain/capability output, docs/use-cases, website
     status.
   - Implementation scope: parser/binder/planner admission, local logical plan lowering, expression
@@ -1106,6 +957,8 @@ entry.
     ordinary user-grade coverage.
   - Next slice outcome: make one import path support generated, local file, and prepared/native
     Vortex workflows with select/filter/project/limit/aggregate/group/order/write where admitted.
+  - Runtime enablement: ordinary Python context/query-builder workflows that invoke ShardLoom
+    runtime instead of external Python engines.
   - User-visible surface: `import shardloom`, context/session object, `LazyFrame`, typed reports,
     getting-started docs, recipes, website use cases.
   - Implementation scope: Python builders, method admission matrix, CLI lowering, typed report
@@ -1133,6 +986,8 @@ entry.
     runtime SourceState adapters.
   - Next slice outcome: promote one local input format at a time into a SourceState adapter registry
     with deterministic blockers for unsupported formats.
+  - Runtime enablement: local SourceState adapter runtime for admitted file formats and explicit
+    blockers for unsupported formats.
   - User-visible surface: CLI/Python read APIs, capability/status views, benchmark rows, use cases.
   - Implementation scope: adapter registry, format detection, schema/dtype inference, fingerprints,
     row-count posture, parse/decode planning, diagnostics.
@@ -1156,6 +1011,7 @@ entry.
     complete as ordinary user workflows.
   - Next slice outcome: implement local OutputPlan-backed writes for admitted formats and a
     cross-format fanout smoke with replay/correctness proof.
+  - Runtime enablement: local OutputPlan writer and fanout runtime with replay evidence.
   - User-visible surface: CLI/Python `write(...)`, recipes, benchmark fanout rows, website status.
   - Implementation scope: OutputPlan registry, writer adapters, schema compatibility, replay proof,
     output digest, fanout benchmark harness.
@@ -1179,6 +1035,8 @@ entry.
     complete prepare/read/write/reopen/scan/pushdown lifecycle is still not broad runtime support.
   - Next slice outcome: make local Vortex artifacts a first-class runtime path with explicit
     preparation, write/reopen, scan, pushdown, materialization/decode, and output evidence.
+  - Runtime enablement: first-class local Vortex artifact runtime lifecycle from preparation through
+    scan and output evidence.
   - User-visible surface: CLI/Python Vortex workflows, benchmark rows, compute-flow docs, status
     matrix.
   - Implementation scope: Vortex preparation manager, artifact registry, scan request builder,
@@ -1204,6 +1062,8 @@ entry.
     join/window/top-k, fused, and encoded-kernel coverage remains incomplete.
   - Next slice outcome: promote operator families one at a time with decoded-reference correctness,
     unsupported diagnostics, and encoded-kernel admission where available.
+  - Runtime enablement: ShardLoom-native operator/function execution coverage with deterministic
+    blockers for unsupported families.
   - User-visible surface: CLI/Python/SQL/DataFrame workflows, benchmark rows, capability matrix.
   - Implementation scope: expression IR, scalar/aggregate operators, join/window/top-k operators,
     type coercion, null/string/date policy, encoded kernel registry, blockers.
@@ -1227,6 +1087,8 @@ entry.
     release gates can still diverge as runtime surfaces expand.
   - Next slice outcome: add a versioned execution-envelope schema, evidence levels, and validators
     that every runtime path must satisfy.
+  - Runtime enablement: shared runtime evidence validator that blocks unsupported/report-only rows
+    from being treated as supported runtime.
   - User-visible surface: CLI JSON, Python typed reports, benchmark artifacts, website evidence,
     release readiness.
   - Implementation scope: shared schema, report adapters, typed aliases/migrations, readiness
@@ -1253,6 +1115,8 @@ entry.
     forms; ordinary workflows do not yet have a reusable session/cache lifecycle.
   - Next slice outcome: implement a scoped in-process session with optimizer trace, SourceState/
     VortexPreparedState/OutputPlan reuse, invalidation, and buffer reuse evidence.
+  - Runtime enablement: scoped optimizer/session/cache runtime that safely reuses work across
+    admitted local workflows.
   - User-visible surface: CLI batch/session command, Python context/session, explain output,
     benchmark timing rows.
   - Implementation scope: session lifecycle, optimizer rule registry, cache keys/fingerprints,
@@ -1278,6 +1142,8 @@ entry.
     promotion still needs fresh, profile-scoped evidence and public website/docs rendering.
   - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
     promoted runtime path and block stale or incomplete public claims.
+  - Runtime enablement: runtime-claim publishing validator that keeps public support status tied to
+    fresh evidence.
   - User-visible surface: website benchmarks, docs/benchmarks, status page, release readiness.
   - Implementation scope: artifact freshness checker, profile matrix, runtime claim matrix,
     benchmark page ingestion, release validators.
@@ -1303,6 +1169,8 @@ entry.
   - Next slice outcome: implement provider URI parse, effect/credential policy, optional listing,
     byte-range/full-file read, local cache boundary, and SourceState evidence in an approved
     emulator or public no-credential fixture profile.
+  - Runtime enablement: provider/profile-scoped object-store read runtime with credential/network
+    admission and no-default-effect policy.
   - User-visible surface: CLI/Python object-store diagnostics, capability/status pages, use cases.
   - Implementation scope: provider abstraction, policy gate, credential redaction, request planner,
     byte-range adapter, cache boundary, emulator/public-fixture tests.
@@ -1328,6 +1196,8 @@ entry.
   - Next slice outcome: after read proof, implement staged write/commit/recovery in an approved
     profile, then one fixture-backed table metadata/snapshot operation and one append or commit
     rehearsal where admitted.
+  - Runtime enablement: staged object-store write and table/lakehouse operation runtime for declared
+    fixture profiles only.
   - User-visible surface: table/object-store capability views, CLI/Python diagnostics, status/use
     cases, scale benchmark rows.
   - Implementation scope: write staging, commit protocol, idempotency, cleanup/retry, table metadata
@@ -1353,6 +1223,8 @@ entry.
   - Next slice outcome: implement a declared-resource local scale profile with SplitManifest,
     bounded memory checks, per-split execution, spill/backpressure where admitted, one shuffle
     family, retry/idempotency, and output commit evidence.
+  - Runtime enablement: local scale-grade runtime under declared resource envelopes with real-byte
+    correctness proof.
   - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
   - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
     cancellation/recovery, output commit status, scale benchmark rows.
@@ -1377,6 +1249,8 @@ entry.
     distributed execution are scoped, blocked, or report-only.
   - Next slice outcome: implement engine-mode diagnostics, a local in-memory live/hybrid fixture if
     admitted, opt-in loopback control-plane lifecycle, and fail-closed distributed worker blockers.
+  - Runtime enablement: admitted local live/hybrid/control-plane runtime plus distributed execution
+    blockers.
   - User-visible surface: CLI/Python engine-mode status, optional local API, compute-flow, website
     status/use cases.
   - Implementation scope: engine-mode admission, local control-plane lifecycle, fixture scheduler,
@@ -1402,6 +1276,8 @@ entry.
   - Next slice outcome: implement local SQLite import/export if admitted, typed adapter manifests,
     extension inspection, one pure deterministic local scalar UDF fixture if approved, and
     fail-closed diagnostics for networked/effectful paths.
+  - Runtime enablement: scoped adapter/UDF runtime or safe inspection, with all effectful external
+    paths denied by default.
   - User-visible surface: capability views, Python/CLI adapter and extension commands, use cases,
     website status.
   - Implementation scope: connector registry, credential/effect policy, local fixture adapter,
@@ -1430,6 +1306,8 @@ entry.
     resolves the CLI, runs source-free generated output and one staged-input transform, writes a
     result dataset and evidence dataset through Foundry-style output APIs, and preserves blocked
     flags.
+  - Runtime enablement: local/dev-stack Foundry-style transform proof that runs ShardLoom locally
+    and writes evidence datasets without Spark fallback.
   - User-visible surface: Foundry proof docs, examples, capability/status pages, release readiness.
   - Implementation scope: local Foundry-style transform wrapper, generated-source workflow,
     staged-input workflow, evidence dataset writer, runtime flag reporting.
@@ -1455,6 +1333,8 @@ entry.
   - Next slice outcome: run a no-publication technical-preview rehearsal from clean checkout/local
     artifact through CLI/Python workflows, unsupported diagnostics, benchmarks, website/status,
     SECURITY/LICENSE/NOTICE checks, and release metadata.
+  - Runtime enablement: final technical-preview usability validator across install, examples,
+    runtime evidence, unsupported diagnostics, and website learning paths.
   - User-visible surface: README, docs/getting-started, website Field Guide/Use Case Atlas/status,
     package metadata, release report.
   - Implementation scope: clean venv install/run script, package dry-run, example smoke matrix,
