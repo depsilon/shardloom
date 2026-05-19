@@ -330,7 +330,10 @@ One scoped local CSV query-builder workflow family is executable through the
 same typed CLI bridge. A workflow shaped as
 `read_csv(...).select(...).filter(...).limit(...)` lowers to ShardLoom's
 `sql-local-source-smoke` path, runs ShardLoom-owned projection/filter/limit
-semantics, and returns a typed evidence report. The same bridge admits scoped
+semantics, and returns a typed evidence report. Filters admit scoped comparison,
+cast, date-literal, string `LIKE`, null, and logical `AND` predicates over
+already admitted leaves; `OR` remains a deterministic unsupported path. The
+same bridge admits scoped
 scalar aggregates shaped as
 `read_csv(...).filter(...).aggregate(...).limit(1)` for `COUNT`, `SUM`, `AVG`,
 `MIN`, and `MAX`, and one-column grouped aggregates shaped as
@@ -356,7 +359,7 @@ ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
 workflow = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
-    .filter("amount >= 10")
+    .filter("amount >= 10 AND label LIKE '%ta'")
     .limit(1)
 )
 
@@ -390,6 +393,7 @@ print(collected.result_jsonl)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
+print(collected.logical_predicate_operator, collected.logical_predicate_leaf_count)
 print(aggregate.result_jsonl)
 print(aggregate.aggregate_operator_family)
 print(aggregate.aggregate_functions)
@@ -451,7 +455,8 @@ print(join.join_matched_row_count, join.join_rows_output)
 
 That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
 generality, grouped aliases, multi-key sorts, null ordering, collation parity,
-Python/DataFrame joins, outer/semi/anti/cross joins, multi-key or expression
+`OR`/`NOT` predicate completeness, Python/DataFrame joins, outer/semi/anti/cross joins,
+multi-key or expression
 joins, broad SQL/DataFrame planning, and production query support remain blocked
 until later runtime slices.
 

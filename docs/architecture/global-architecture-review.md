@@ -529,6 +529,9 @@ plan before coding.
   `date_year` / `date_month` / `date_day`, UTF-8/Date32 casts, local SQL
   `DATE 'YYYY-MM-DD'` predicates, CSV ISO date inference, and deterministic invalid-date or
   non-Date32 operand blockers with no fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D-S3 adds scoped local SQL logical `AND` predicate runtime over already
+  admitted predicate leaves, recursive evidence for string/date/cast leaves, logical predicate
+  evidence fields, and deterministic `OR` blockers with no fallback/external engine invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 
