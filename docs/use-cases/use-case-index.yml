@@ -133,20 +133,20 @@ use_cases:
     references: [python/README.md, docs/architecture/compute-engine-flow-reference.md, docs/architecture/canonical-terminology.md, README.md]
     related_use_cases: [python-wrapper-client-smoke, source-free-generated-output-boundary]
   - id: sql-local-source-csv-smoke
-    title: SQL local CSV projection/filter/limit and scalar aggregate smoke
+    title: SQL local CSV projection/filter/limit, scalar aggregate, and group-by smoke
     capability_family: sql_dataframe_report_only
     audience: "user who wants to try one tiny SQL query over a local CSV without fallback"
     status: smoke_supported
     execution_mode: direct_compatibility_transient
     engine_mode: batch
     inputs: [local_csv]
-    outputs: [inline_jsonl_result, optional_local_jsonl_output, scalar_aggregate_result, sql_local_source_evidence]
-    evidence_fields: [schema_version=shardloom.sql_local_source_smoke.v1, sql_parser_executed=true, sql_binder_executed=true, sql_planner_executed=true, source_io_performed=true, source_format=csv, aggregate_runtime_execution, aggregate_operator_family, output_io_performed, output_native_io_certificate_status, materialization_boundary, fallback_attempted=false, external_engine_invoked=false, claim_gate_status=fixture_smoke_only]
-    claim_boundary: "Scoped local CSV SELECT projection/filter/limit and scalar aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, grouped aggregate, external fallback, or performance claim."
-    runnable_example: "New-Item -ItemType Directory -Force target | Out-Null; \"id,label,amount`n1,alpha,8`n2,beta,15`n3,gamma,`n\" | Set-Content -Encoding utf8 target\\sql-local-source-smoke.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke \"SELECT id,label FROM 'target/sql-local-source-smoke.csv' WHERE amount >= 10 LIMIT 1\" --output target\\sql-local-source-result.jsonl --allow-overwrite --format json"
-    blocked_explanation: "Parquet/Vortex SQL sources, joins, grouped aggregates, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices."
-    expected_output_evidence: "A JSON envelope with inline JSONL result, optional local JSONL output path/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, scalar aggregate fields when requested, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only."
-    common_mistakes: [treating_smoke_as_sql_compatibility, expecting_parquet_or_s3_sql_sources, expecting_join_or_grouped_aggregate_support]
+    outputs: [inline_jsonl_result, optional_local_jsonl_output, scalar_aggregate_result, grouped_aggregate_result, sql_local_source_evidence]
+    evidence_fields: [schema_version=shardloom.sql_local_source_smoke.v1, sql_parser_executed=true, sql_binder_executed=true, sql_planner_executed=true, source_io_performed=true, source_format=csv, aggregate_runtime_execution, aggregate_operator_family, group_by_runtime_execution, group_by_columns, group_by_group_count, output_io_performed, output_native_io_certificate_status, materialization_boundary, fallback_attempted=false, external_engine_invoked=false, claim_gate_status=fixture_smoke_only]
+    claim_boundary: "Scoped local CSV SELECT projection/filter/limit, scalar aggregate, and one-column group-by aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, external fallback, or performance claim."
+    runnable_example: "New-Item -ItemType Directory -Force target | Out-Null; \"id,region,amount`n1,east,10`n2,west,5`n3,east,12`n4,west,`n5,north,3`n\" | Set-Content -Encoding utf8 target\\sql-local-source-group-by.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke \"SELECT region,count(*),sum(amount) FROM 'target/sql-local-source-group-by.csv' WHERE amount >= 0 GROUP BY region LIMIT 10\" --format json"
+    blocked_explanation: "Parquet/Vortex SQL sources, joins, multi-key/grouped aggregate generality, functions, subqueries, catalogs, object stores, table/lakehouse sources, Python group_by().agg(...), broader output sinks, and production SQL/DataFrame support require later runtime slices."
+    expected_output_evidence: "A JSON envelope with inline JSONL result, optional local JSONL output path/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, scalar/grouped aggregate fields when requested, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only."
+    common_mistakes: [treating_smoke_as_sql_compatibility, expecting_parquet_or_s3_sql_sources, expecting_join_or_general_grouped_aggregate_support]
     references: [README.md, docs/getting-started/examples.md, docs/architecture/compute-engine-flow-reference.md, docs/architecture/phased-execution-plan.md]
     related_use_cases: [python-local-csv-query-builder-smoke, sql-dataframe-capability-posture, source-free-generated-output-boundary, local-file-etl-cleanup-smoke]
   - id: python-local-csv-query-builder-smoke

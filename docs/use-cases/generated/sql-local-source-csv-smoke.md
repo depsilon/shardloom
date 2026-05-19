@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# SQL local CSV projection/filter/limit and scalar aggregate smoke
+# SQL local CSV projection/filter/limit, scalar aggregate, and group-by smoke
 
 ## Quick Answer
 
@@ -8,29 +8,29 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV SELECT projection/filter/limit and scalar aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, grouped aggregate, external fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV SELECT projection/filter/limit, scalar aggregate, and one-column group-by aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-SQL local CSV projection/filter/limit and scalar aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+SQL local CSV projection/filter/limit, scalar aggregate, and group-by smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped local CSV SELECT projection/filter/limit and scalar aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, grouped aggregate, external fallback, or performance claim.
+Scoped local CSV SELECT projection/filter/limit, scalar aggregate, and one-column group-by aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, external fallback, or performance claim.
 
 ## How To Try It
 
 ```powershell
-New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n3,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT id,label FROM 'target/sql-local-source-smoke.csv' WHERE amount >= 10 LIMIT 1" --output target\sql-local-source-result.jsonl --allow-overwrite --format json
+New-Item -ItemType Directory -Force target | Out-Null; "id,region,amount`n1,east,10`n2,west,5`n3,east,12`n4,west,`n5,north,3`n" | Set-Content -Encoding utf8 target\sql-local-source-group-by.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT region,count(*),sum(amount) FROM 'target/sql-local-source-group-by.csv' WHERE amount >= 0 GROUP BY region LIMIT 10" --format json
 ```
 
 ## Blocker
 
-Parquet/Vortex SQL sources, joins, grouped aggregates, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
+Parquet/Vortex SQL sources, joins, multi-key/grouped aggregate generality, functions, subqueries, catalogs, object stores, table/lakehouse sources, Python group_by().agg(...), broader output sinks, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 
-`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, optional_local_jsonl_output, scalar_aggregate_result, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, optional_local_jsonl_output, scalar_aggregate_result, grouped_aggregate_result, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -42,6 +42,9 @@ Parquet/Vortex SQL sources, joins, grouped aggregates, functions, subqueries, ca
 - `source_format=csv`
 - `aggregate_runtime_execution`
 - `aggregate_operator_family`
+- `group_by_runtime_execution`
+- `group_by_columns`
+- `group_by_group_count`
 - `output_io_performed`
 - `output_native_io_certificate_status`
 - `materialization_boundary`
@@ -51,13 +54,13 @@ Parquet/Vortex SQL sources, joins, grouped aggregates, functions, subqueries, ca
 
 ## Expected Output Or Evidence
 
-A JSON envelope with inline JSONL result, optional local JSONL output path/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, scalar aggregate fields when requested, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope with inline JSONL result, optional local JSONL output path/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, scalar/grouped aggregate fields when requested, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
 - `treating_smoke_as_sql_compatibility`
 - `expecting_parquet_or_s3_sql_sources`
-- `expecting_join_or_grouped_aggregate_support`
+- `expecting_join_or_general_grouped_aggregate_support`
 
 ## Reference Files
 

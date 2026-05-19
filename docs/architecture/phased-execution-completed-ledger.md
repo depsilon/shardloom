@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-1E local CSV one-column group-by aggregate operator family
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/generated/sql-local-source-csv-smoke.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `website/use-cases/sql-local-source-csv-smoke.html`
+    - `website/assets/data/compute-engine-flow-reference.md`
+  - Scope: promote the first grouped aggregate operator family into the admitted local CSV
+    `sql-local-source-smoke` runtime path.
+  - Checklist:
+    - [x] Add `GROUP BY` parsing for the scoped
+          `SELECT <group-column>, aggregate(...) FROM '<local.csv>' WHERE <predicate> GROUP BY
+          <group-column> LIMIT <n>` shape.
+    - [x] Execute grouped aggregates after the existing local CSV source read and simple `WHERE`
+          predicate, producing bounded JSONL group rows.
+    - [x] Emit group-by evidence fields including `group_by_runtime_execution=true`,
+          `aggregate_operator_family=grouped_aggregate`, `group_by_columns`, group count, grouped
+          aggregate function labels, correctness digest, materialization/decode status,
+          no-fallback fields, and
+          `execution_certificate_ref=sql-local-source.csv.group-by-aggregate-filter-limit.execution.v1`.
+    - [x] Keep Python `group_by().agg(...)`, multi-key group-by generality, joins, windows, functions,
+          subqueries, object-store/table sources, and broad SQL/DataFrame support blocked.
+    - [x] Update README, getting-started examples, Use Case Atlas, generated website pages,
+          compute-flow reference, and phase-plan current-state notes.
+    - [x] Add `GAR-RUNTIME-IMPL-4` as the final implementation-ready full-runtime leaf queue so
+          broad remaining runtime gaps have explicit PR-sized implementation slices with evidence,
+          dependencies, verification, claim boundaries, fallback boundaries, and ledger rules.
+  - Evidence and verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - use-case and website readiness checks
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This admits one scoped local CSV one-column group-by aggregate family only. It does not add
+      Python grouped aggregation, multi-key group-by generality, joins, windows, top-N, broad
+      SQL/DataFrame runtime, prepared/native aggregate promotion, object-store/table support,
+      production support, or performance claims.
+  - Fallback boundary:
+    - Grouping and aggregate accumulation are ShardLoom-owned. No pandas, Polars, DuckDB,
+      DataFusion, Spark, SQLite, Vortex query-engine integration, or other external engine is
+      invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-2D / GAR-RUNTIME-IMPL-3E Python scalar aggregate query-builder surface
   - Primary files:
     - `python/src/shardloom/query.py`
