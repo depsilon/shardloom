@@ -371,6 +371,57 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             sl.range(0, 10, column="", binary=["definitely-missing-shardloom"])
 
+    def test_sql_source_free_write_invokes_generated_source_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-sql-smoke",
+                    "target/sql-values.jsonl",
+                    "VALUES (1, 'alpha')",
+                    "--output-format",
+                    "jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-sql-smoke",
+                    "status": "success",
+                    "summary": "generated sql",
+                    "human_text": "generated sql",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/sql-values.jsonl"},
+                        {"key": "generated_source_kind", "value": "sql_values"},
+                        {"key": "generated_source_row_count", "value": "1"},
+                        {"key": "generated_source_created", "value": "true"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql_values("VALUES (1, 'alpha')").write("target/sql-values.jsonl")
+
+        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.generated_source_kind, "sql_values")
+        self.assertEqual(report.generated_source_row_count, 1)
+        self.assertEqual(report.generated_source_certificate_status, "present")
+        self.assertEqual(report.output_native_io_certificate_status, "certified_local_file_sink")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_context_readers_reuse_context_client_for_plan_inspection(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -730,15 +781,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.preview(limit=5),
             workflow.display(),
             ctx.sequence(0, 10),
-            ctx.sql_values("VALUES (1)"),
-            ctx.sql_literal_select("SELECT 1 AS value"),
             ctx.dataframe_source_free_projection("lit(1).alias('value')"),
             ctx.dataframe_generated_with_column("value", "lit(1)"),
             ctx.generated_output_to_object_store("s3://bucket/out.jsonl"),
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 41)
+        self.assertEqual(len(reports), 39)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -825,14 +874,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             by_operation["source-free-sequence"].envelope.field("target_ref"),
             "start=0;end=10;step=1;column=value",
-        )
-        self.assertEqual(
-            by_operation["sql-values"].envelope.field("workflow_operation"),
-            "sql_values",
-        )
-        self.assertEqual(
-            by_operation["sql-literal-select"].envelope.field("workflow_operation"),
-            "sql_literal_select",
         )
         self.assertEqual(
             by_operation["dataframe-source-free-projection"].envelope.field("workflow_operation"),
@@ -1087,8 +1128,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ("python_ctx_calendar", "Python ctx.calendar(start,end).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_calendar_jsonl_smoke_only"),
                     ("python_generated_source_write", "Generated-source write path", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_supported_generated_source_write_smokes_only"),
                     ("local_output_only_generated_source_posture", "Generated-source local-output-only posture", "output_boundary", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "local_output_certificate_required", "not_emitted_report_only", "not_claim_grade", "gar-compat-1b.non_local_generated_output_blocked"),
-                    ("sql_literal_select", "SQL SELECT literal expressions", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_literal_select_runtime_not_implemented"),
-                    ("sql_values", "SQL VALUES (...)", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_values_runtime_not_implemented"),
+                    ("sql_literal_select", "SQL SELECT literal expressions", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_literal_select_jsonl_smoke_only"),
+                    ("sql_values", "SQL VALUES (...)", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_values_jsonl_smoke_only"),
                     ("sql_source_free_projection", "SQL source-free projection", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_source_free_projection_runtime_not_implemented"),
                     ("sql_generate_series_range", "SQL generate_series/range", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_generate_series_range_runtime_not_implemented"),
                     ("dataframe_source_free_projection", "DataFrame source-free projection", "dataframe_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented"),
@@ -1118,7 +1159,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 for row_id, surface, family, direction, status, runtime, report_only, credential, network, source_io, output_io, native_status, generated_status, claim_status, blocker, claim_boundary in [
                     ("vortex", "Vortex", "native_file_layout", "read_write", "runtime-supported", "true", "false", "false", "false", "true", "true", "scoped_local_vortex_evidence_backed", "not_applicable", "fixture_smoke_only", "gar-compat-1a.vortex_universal_runtime_evidence_missing", "scoped local Vortex evidence only"),
                     ("object_store_s3_gcs_adls", "S3 / GCS / ADLS", "object_store", "read_write", "blocked", "false", "false", "true", "true", "false", "false", "not_emitted", "not_applicable", "not_claim_grade", "gar-compat-1c.object_store_runtime_blocked", "no object-store runtime claim"),
-                    ("sql_values_literals", "SQL VALUES / literals", "sql_frontend", "api", "report-only", "false", "true", "false", "false", "false", "false", "not_emitted", "not_emitted_report_only", "not_claim_grade", "gar-compat-1b.sql_source_free_runtime_blocked", "no SQL runtime claim"),
+                    ("sql_values_literals", "SQL VALUES / literals", "sql_frontend", "api", "smoke-supported", "false", "false", "false", "false", "false", "true", "local_output_certificate_required", "scoped_local_jsonl_smoke", "fixture_smoke_only", "none_scoped_local_sql_values_literals_jsonl_smoke_only", "source-free SQL VALUES/literal local JSONL fixture smoke only"),
                     ("foundry", "Foundry", "platform_integration", "api", "report-only", "false", "true", "true", "true", "false", "false", "not_emitted", "not_emitted_report_only", "not_claim_grade", "gar-compat-1a.foundry_platform_proof_missing", "future validation target only"),
                 ]:
                     prefix = f"universal_compatibility_row_{row_id}"
@@ -1201,8 +1242,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(generated.row("python_ctx_from_rows").generated_source_created)
         self.assertTrue(generated.row("python_ctx_literal_table").fixture_smoke_supported)
         self.assertTrue(generated.row("python_ctx_calendar").runtime_execution)
-        self.assertTrue(generated.row("sql_values").report_only)
-        self.assertFalse(generated.row("sql_values").runtime_execution)
+        self.assertTrue(generated.row("sql_values").fixture_smoke_supported)
+        self.assertTrue(generated.row("sql_values").runtime_execution)
         self.assertEqual(
             generated.row("local_output_only_generated_source_posture").blocker_id,
             "gar-compat-1b.non_local_generated_output_blocked",

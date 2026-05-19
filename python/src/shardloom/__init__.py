@@ -96,6 +96,7 @@ from .query import (
     GroupedLazyFrame,
     GeneratedRangeSource,
     GeneratedRowsSource,
+    GeneratedSqlSource,
     literal_table,
     range,
     read_csv,
@@ -103,6 +104,8 @@ from .query import (
     read_parquet,
     read_vortex,
     from_rows,
+    sql_literal_select,
+    sql_values,
 )
 
 __all__ = [
@@ -180,6 +183,7 @@ __all__ = [
     "GroupedLazyFrame",
     "GeneratedRangeSource",
     "GeneratedRowsSource",
+    "GeneratedSqlSource",
     "LazyFrame",
     "UnsupportedWorkflowOperationReport",
     "UnsupportedWorkflowReport",
@@ -190,6 +194,8 @@ __all__ = [
     "from_rows",
     "literal_table",
     "range",
+    "sql_literal_select",
+    "sql_values",
     "from_pandas",
     "from_arrow_table",
     "from_arrow_ipc",

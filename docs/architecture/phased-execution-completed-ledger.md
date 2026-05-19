@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-1A SQL source-free literals and `VALUES` local-output runtime
+  - Primary files:
+    - `shardloom-cli/src/generated_source_runtime.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/query.py`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.json`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `website/status.html`
+    - `website/compute-engine-flow.html`
+  - Scope: promote the first SQL generated-output runtime slice from deterministic unsupported
+    posture into scoped local source-free SQL fixture smokes.
+  - Checklist:
+    - [x] Add CLI `generated-source-sql-smoke <local-output-path> <sql-statement>` for local JSONL
+          source-free SQL output.
+    - [x] Admit only SQL `VALUES (...)` and source-free `SELECT` literal expressions over int64,
+          finite float64, bool, and single-quoted UTF-8 string literals.
+    - [x] Reject `FROM`, functions, joins, subqueries, UDFs, object-store paths, table writes,
+          `NULL`, and broader SQL with deterministic no-fallback diagnostics.
+    - [x] Emit generated-source, output Native I/O, execution certificate, schema digest, plan
+          digest, correctness digest, materialization boundary, no-fallback, and claim-gate fields.
+    - [x] Add Python `ctx.sql_values(...).write(...)`,
+          `ctx.sql_literal_select(...).write(...)`, and top-level `shardloom.sql_values` /
+          `shardloom.sql_literal_select` helpers.
+    - [x] Update CLI/Python capability matrices, compatibility scoreboard, generated use-case
+          pages, website status, rendered README, and compute-flow website snapshot.
+    - [x] Move GAR-RUNTIME-IMPL-1A out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m unittest discover python/tests`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - This admits only scoped local source-free SQL `VALUES` and literal `SELECT` JSONL fixture
+      smokes. It does not add SQL over input datasets, broad SQL parser/binder/planner support,
+      SQL functions, joins, UDFs, SQL/DataFrame production support, object-store/lakehouse output,
+      Foundry runtime, package publication, performance claims, or Spark-replacement claims.
+  - Fallback boundary:
+    - SQL runtime is implemented inside ShardLoom for the admitted literal/VALUES subset only.
+      It does not invoke DataFusion, DuckDB, SQLite, Spark, Polars, pandas, Vortex query-engine
+      integrations, object-store providers, or any external fallback engine.
+
 - [x] Session label: GAR-RUNTIME-COMPLETE-1A source-free generated-output runtime completion
   - Primary files:
     - `shardloom-cli/src/workflow_planning.rs`

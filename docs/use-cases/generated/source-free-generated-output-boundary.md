@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `source_free_generated_output`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local user-row, literal-table, calendar/date-dimension, and range JSONL fixture smokes only; no SQL/DataFrame runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
+- **Claim boundary:** Scoped local user-row, literal-table, calendar/date-dimension, range, SQL VALUES, and SQL literal SELECT JSONL fixture smokes only; no broad SQL/DataFrame runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,21 +16,21 @@ Source-free generated output boundary has a scoped local path. Treat it as techn
 
 ## Claim Boundary
 
-Scoped local user-row, literal-table, calendar/date-dimension, and range JSONL fixture smokes only; no SQL/DataFrame runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
+Scoped local user-row, literal-table, calendar/date-dimension, range, SQL VALUES, and SQL literal SELECT JSONL fixture smokes only; no broad SQL/DataFrame runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
 
 ## How To Try It
 
 ```powershell
-$env:PYTHONPATH = "python\src"; python -c "from shardloom import context; ctx=context(repo_root='.'); a=ctx.from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); b=ctx.literal_table([{'code':'A','weight':1.5}]).write('target/generated-literal.jsonl', allow_overwrite=True); c=ctx.calendar('2026-05-18','2026-05-20', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); d=ctx.range(0, 5, column='id').write('target/generated-range.jsonl', allow_overwrite=True); print(a.claim_gate_status, b.generated_source_kind, c.generated_source_row_count, d.generated_source_kind)"
+$env:PYTHONPATH = "python\src"; python -c "from shardloom import context; ctx=context(repo_root='.'); a=ctx.from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); b=ctx.literal_table([{'code':'A','weight':1.5}]).write('target/generated-literal.jsonl', allow_overwrite=True); c=ctx.calendar('2026-05-18','2026-05-20', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); d=ctx.range(0, 5, column='id').write('target/generated-range.jsonl', allow_overwrite=True); e=ctx.sql_values("VALUES (1, 'alpha'), (2, 'beta')").write('target/generated-sql-values.jsonl', allow_overwrite=True); f=ctx.sql_literal_select("SELECT 1 AS id, 'alpha' AS label").write('target/generated-sql-select.jsonl', allow_overwrite=True); print(a.claim_gate_status, b.generated_source_kind, c.generated_source_row_count, d.generated_source_kind, e.generated_source_kind, f.generated_source_kind)"
 ```
 
 ## Blocker
 
-The source-free API admission matrix and Python context unsupported helpers keep SQL literal SELECT, SQL VALUES, SQL source-free projection, SQL generate_series/range vocabulary, DataFrame source-free projection, generated with_column, engine-native sequence/values/synthetic profiles, object-store writes, and Foundry generated-output runtime blocked/report-only until separate evidence lands.
+The source-free API admission matrix and Python context unsupported helpers keep SQL source-free projection beyond the admitted literal SELECT/VALUES smoke subset, SQL generate_series/range vocabulary, DataFrame source-free projection, generated with_column, engine-native sequence/values/synthetic profiles, object-store writes, and Foundry generated-output runtime blocked/report-only until separate evidence lands.
 
 ## Internal Flow
 
-`none, generated_rows, literal_table_rows, calendar_dimension, range, values -> source_free_generated_output -> batch -> local_jsonl_output_artifact, generated_source_certificate, output_native_io_certificate -> evidence -> claim gate`
+`none, generated_rows, literal_table_rows, calendar_dimension, range, sql_values, sql_literal_select -> source_free_generated_output -> batch -> local_jsonl_output_artifact, generated_source_certificate, output_native_io_certificate -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -52,7 +52,7 @@ The source-free API admission matrix and Python context unsupported helpers keep
 
 ## Expected Output Or Evidence
 
-A local JSONL output plus fields including generated_source_kind=user_rows, literal_table, calendar, or range; generated_source_certificate_status=present; output_native_io_certificate_status=certified_local_file_sink; fallback_attempted=false; and external_engine_invoked=false.
+A local JSONL output plus fields including generated_source_kind=user_rows, literal_table, calendar, range, sql_values, or sql_literal_select; generated_source_certificate_status=present; output_native_io_certificate_status=certified_local_file_sink; fallback_attempted=false; and external_engine_invoked=false.
 
 ## Common Mistakes
 

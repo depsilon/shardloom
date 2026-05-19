@@ -47,8 +47,8 @@ python -c "from shardloom import context; r=context(repo_root='.').calendar('202
 
 Use these for scoped source-free Python helpers that generate local JSONL output and emit the same
 generated-source/output/no-fallback evidence family as `ctx.from_rows(...).write(...)`. They are not
-SQL `VALUES` execution, broad DataFrame runtime, object-store output, Foundry output, production
-support, or performance claims.
+SQL `VALUES` execution; use the dedicated source-free SQL smoke below for that. They are not broad
+DataFrame runtime, object-store output, Foundry output, production support, or performance claims.
 
 ## Source-Free Range Local Output Smoke
 
@@ -61,6 +61,19 @@ Use this for the scoped GAR-GEN-1D path that executes one ShardLoom-native range
 local JSONL output, and emits generated-source/output/no-fallback evidence. It is not SQL
 `VALUES`/literal execution, broad DataFrame runtime, other generator-node support, object-store
 output, Foundry output, production support, or a performance claim.
+
+## Source-Free SQL Literal/VALUES Local Output Smoke
+
+```powershell
+$env:PYTHONPATH = "python\src"
+python -c "from shardloom import context; r=context(repo_root='.').sql_values(\"VALUES (1, 'alpha'), (2, 'beta')\").write('target/generated-sql-values.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+python -c "from shardloom import context; r=context(repo_root='.').sql_literal_select(\"SELECT 1 AS id, 'alpha' AS label, true AS active\").write('target/generated-sql-select.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+```
+
+Use this for the scoped GAR-RUNTIME-IMPL-1A path that parses ShardLoom's tiny source-free SQL smoke
+subset, writes local JSONL output, and emits generated-source/output/no-fallback evidence. It is not
+broad SQL runtime, SQL over input datasets, functions, joins, SQL/DataFrame production support,
+object-store output, Foundry output, or a performance claim.
 
 ## Foundry Lightweight Transform
 

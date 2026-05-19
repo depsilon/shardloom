@@ -1059,8 +1059,8 @@ class ShardLoomClientTests(unittest.TestCase):
                             ("python_ctx_literal_table", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_literal_table_jsonl_smoke_only", "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("python_ctx_calendar", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_calendar_jsonl_smoke_only", "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("python_generated_source_write", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_supported_generated_source_write_smokes_only", "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
-                            ("sql_literal_select", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_literal_select_runtime_not_implemented", "sql_parser,sql_binder,sql_planner,literal_projection_semantics,generated_source_certificate,output_native_io_certificate", "not_claim_grade"),
-                            ("sql_values", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_values_runtime_not_implemented", "sql_parser,sql_binder,values_table_semantics,generated_source_certificate,output_native_io_certificate", "not_claim_grade"),
+                            ("sql_literal_select", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_literal_select_jsonl_smoke_only", "sql_parser,sql_binder,sql_planner,literal_projection_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("sql_values", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_values_jsonl_smoke_only", "sql_parser,sql_binder,values_table_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("sql_source_free_projection", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_source_free_projection_runtime_not_implemented", "sql_expression_semantics,projection_plan_digest,generated_source_certificate,execution_certificate", "not_claim_grade"),
                             ("sql_generate_series_range", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_generate_series_range_runtime_not_implemented", "sql_table_function_contract,range_generator_semantics,generated_source_certificate,output_native_io_certificate", "not_claim_grade"),
                             ("dataframe_source_free_projection", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented", "typed_expression_contract,projection_plan_digest,generated_source_certificate,execution_certificate", "not_claim_grade"),
@@ -1610,17 +1610,17 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(api_admission.row("python_ctx_range").runtime_execution)
         self.assertTrue(api_admission.row("python_generated_source_write").write_io)
-        self.assertTrue(api_admission.row("sql_values").report_only)
-        self.assertFalse(api_admission.row("sql_values").runtime_execution)
+        self.assertTrue(api_admission.row("sql_values").fixture_smoke_supported)
+        self.assertTrue(api_admission.row("sql_values").runtime_execution)
         self.assertEqual(
             api_admission.row("sql_values").blocker_id,
-            "gar-gen-1.sql_values_runtime_not_implemented",
+            "none_scoped_local_sql_values_jsonl_smoke_only",
         )
         self.assertEqual(
             capabilities.sql_support.generated_source_api_admission.row(
                 "sql_literal_select"
             ).support_status,
-            "report_only",
+            "fixture_smoke_supported",
         )
         self.assertEqual(
             capabilities.dataframe.generated_source_api_admission.row(

@@ -220,6 +220,32 @@ class GeneratedRangeSource:
 
 
 @dataclass(frozen=True, slots=True)
+class GeneratedSqlSource:
+    """Scoped source-free SQL literal/VALUES query that can write local JSONL smoke output."""
+
+    statement: str
+    client: ShardLoomClient
+
+    def write(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Write admitted source-free SQL generated rows to a scoped local output sink."""
+
+        return self.client.generated_source_sql_smoke(
+            target_uri,
+            self.statement,
+            output_format=output_format,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class UnsupportedWorkflowOperationReport:
     """Report-only unsupported diagnostic for a single workflow affordance."""
 
@@ -876,6 +902,36 @@ def range(
         end=normalized_end,
         step=normalized_step,
         column=normalized_column,
+        client=_client_from_config(client, client_config),
+    )
+
+
+def sql_values(
+    values_clause: object,
+    *,
+    client: ShardLoomClient | None = None,
+    **client_config: object,
+) -> GeneratedSqlSource:
+    """Create a scoped source-free SQL VALUES generated source for local output smokes."""
+
+    statement = _require_non_empty("SQL VALUES clause", values_clause)
+    return GeneratedSqlSource(
+        statement=statement,
+        client=_client_from_config(client, client_config),
+    )
+
+
+def sql_literal_select(
+    expression: object,
+    *,
+    client: ShardLoomClient | None = None,
+    **client_config: object,
+) -> GeneratedSqlSource:
+    """Create a scoped source-free SQL literal SELECT generated source for local output smokes."""
+
+    statement = _require_non_empty("SQL literal SELECT expression", expression)
+    return GeneratedSqlSource(
+        statement=statement,
         client=_client_from_config(client, client_config),
     )
 

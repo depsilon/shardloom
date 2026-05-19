@@ -59,8 +59,10 @@ python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'
 This is source-free generated-output execution, not no-dataset smoke. The current runtime support
 is scoped to local JSONL output from Python `ctx.from_rows(...).write(...)`,
 `ctx.literal_table(...).write(...)`, `ctx.calendar(...).write(...)`, and
-`ctx.range(...).write(...)` smokes. SQL `VALUES`, broad DataFrame runtime,
-object-store/lakehouse output, and Foundry generated-output runtime remain unclaimed.
+`ctx.range(...).write(...)` smokes plus source-free SQL `VALUES` and literal `SELECT` local JSONL
+smokes through `ctx.sql_values(...).write(...)` and `ctx.sql_literal_select(...).write(...)`. Broad
+SQL/DataFrame runtime, object-store/lakehouse output, and Foundry generated-output runtime remain
+unclaimed.
 
 ## 6. Try A Local Compatibility/Prepared-Vortex Benchmark Smoke
 

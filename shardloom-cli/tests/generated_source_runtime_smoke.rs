@@ -361,3 +361,147 @@ fn range_smoke_blocks_remote_outputs_and_zero_step() {
     assert!(zero_step_stdout.contains("step must not be zero"));
     assert!(zero_step_stdout.contains("\"attempted\":false"));
 }
+
+#[test]
+fn sql_smoke_writes_literal_select_jsonl_and_emits_generated_source_evidence() {
+    let output_path = unique_output_path("generated-sql-select");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "SELECT 1 AS id, 'alpha' AS label, true AS active, 1.5 AS score",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(
+        written,
+        "{\"id\":1,\"label\":\"alpha\",\"active\":true,\"score\":1.5}\n"
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "schema_version",
+        "shardloom.generated_source_sql_smoke.v1"
+    )));
+    assert!(stdout.contains(&field("command_family", "workflow_planning")));
+    assert!(stdout.contains(&field("execution_mode", "source_free_generated_output")));
+    assert!(stdout.contains(&field("runtime_execution", "true")));
+    assert!(stdout.contains(&field("input_dataset_count", "0")));
+    assert!(stdout.contains(&field("source_io_performed", "false")));
+    assert!(stdout.contains(&field("sql_parser_executed", "true")));
+    assert!(stdout.contains(&field("sql_binder_executed", "true")));
+    assert!(stdout.contains(&field("sql_planner_executed", "true")));
+    assert!(stdout.contains(&field("sql_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sql_statement_kind", "sql_literal_select")));
+    assert!(stdout.contains(&field("generated_source_created", "true")));
+    assert!(stdout.contains(&field("generated_source_kind", "sql_literal_select")));
+    assert!(stdout.contains(&field("generated_source_row_count", "1")));
+    assert!(stdout.contains(&field("generated_source_certificate_status", "present")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("write_io", "true")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_file_sink"
+    )));
+    assert!(stdout.contains(&field("execution_certificate_status", "certified")));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "sql_literal_select_to_local_jsonl_sink"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(&field(
+        "claim_gate_reason",
+        "one_scoped_local_sql_literal_select_generated_output_smoke"
+    )));
+    assert!(stdout.contains(&field("sql_source_free_runtime_smoke_supported", "true")));
+    assert!(stdout.contains(&field("sql_production_runtime_claim_allowed", "false")));
+    assert!(stdout.contains(&field("performance_claim_allowed", "false")));
+    assert!(stdout.contains("\"generated_source_schema_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"generated_source_plan_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"correctness_digest\",\"value\":\"fnv64:"));
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
+fn sql_smoke_writes_values_jsonl_and_rejects_broader_sql() {
+    let output_path = unique_output_path("generated-sql-values");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "VALUES (1, 'alpha'), (2, 'beta')",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(
+        written,
+        "{\"column_1\":1,\"column_2\":\"alpha\"}\n{\"column_1\":2,\"column_2\":\"beta\"}\n"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("generated_source_kind", "sql_values")));
+    assert!(stdout.contains(&field("generated_source_row_count", "2")));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "sql_values_to_local_jsonl_sink"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    fs::remove_file(output_path).expect("remove output jsonl");
+
+    let blocked_path = unique_output_path("generated-sql-blocked");
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            blocked_path.to_str().expect("temp path is utf8"),
+            "SELECT id FROM events",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+    assert!(
+        !blocked.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    let blocked_stdout = String::from_utf8(blocked.stdout).expect("stdout is utf8");
+    assert!(blocked_stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(blocked_stdout.contains("\"status\":\"error\""));
+    assert!(blocked_stdout.contains("does not admit FROM clauses"));
+    assert!(blocked_stdout.contains("no fallback engine was invoked"));
+    assert!(blocked_stdout.contains("\"attempted\":false"));
+}
