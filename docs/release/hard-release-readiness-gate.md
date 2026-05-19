@@ -34,6 +34,8 @@ The gate aggregates:
 - package-channel readiness matrix and channel-specific install/smoke/provenance/rollback proof
 - per-claim evidence attachment matrix for release, package, performance, Spark-displacement,
   engine-replacement, production SQL/DataFrame, object-store/lakehouse, and Foundry/platform claims
+- release architecture tracker report for unchecked Global Architecture Review, phased-plan,
+  traceability, unsupported-path, security, provenance, and per-claim evidence blockers
 - publication/API/schema stability gate for public compatibility windows, package identities,
   signing policy, checksums, SBOM, and publication approval
 - feature/build matrix execution evidence
@@ -53,6 +55,7 @@ python -m build python
 python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 cargo run -q -p shardloom-cli -- global-architecture-gate --format json
 python scripts\check_release_security_gate.py
+python scripts\check_release_architecture_tracker.py --allow-blocked
 python scripts\check_package_channel_readiness.py
 ```
 
@@ -155,6 +158,40 @@ Every public claim row must name `required_test_evidence`, `required_benchmark_e
 `required_provenance_evidence`, `required_unsupported_path_evidence`,
 `required_no_fallback_evidence`, and `required_release_approval`. Any missing attachment keeps the
 claim gate blocked.
+
+`GAR-0043-A` adds the release architecture tracker with schema
+`shardloom.release_architecture_tracker_report.v1`. The hard release gate consumes:
+
+```text
+target/release-architecture-tracker-report.json
+```
+
+The tracker is expected to remain blocked while unchecked Global Architecture Review or phased-plan
+items exist:
+
+```text
+architecture_tracker_status=blocked
+claim_gate_status=not_claim_grade
+public_release_claim_allowed=false
+public_package_claim_allowed=false
+unchecked_global_architecture_review_count
+unchecked_phase_plan_count
+traceability_matrix_present
+known_unsupported_paths_present
+release_security_refs_present
+release_provenance_refs_present
+per_claim_evidence_matrix_present
+publication_attempted=false
+tag_created=false
+secrets_required=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Unchecked GAR IDs must be visible in the active phased plan or completed ledger, and every missing
+release/security/provenance/unsupported-path marker remains a release blocker. This validation does
+not close the unchecked work; it prevents the release gate from passing while the architecture
+tracker is still blocked.
 
 `GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. Portable release artifacts
 remain the normal `release` profile artifacts unless a separate release gate explicitly admits a

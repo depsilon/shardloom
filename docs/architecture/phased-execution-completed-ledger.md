@@ -16,6 +16,59 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0043-A hard release-readiness validators and architecture tracker
+  - Branch/PR: `codex/gar-0043a-release-architecture-tracker-validator` / #769.
+  - Primary files:
+    - `scripts/check_release_architecture_tracker.py`
+    - `scripts/check_release_readiness.py`
+    - `scripts/run_release_validation_evidence.py`
+    - `docs/release/release-architecture-tracker-gate.md`
+    - `docs/release/hard-release-readiness-gate.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0043-A by adding a fail-closed release architecture tracker that makes
+    unchecked Global Architecture Review rows, unchecked phased-plan rows, RFC traceability,
+    unsupported-path refs, release security refs, provenance refs, and per-claim evidence refs part
+    of hard release-readiness validation.
+  - Checklist:
+    - [x] Add `shardloom.release_architecture_tracker_report.v1`.
+    - [x] Emit a deterministic blocked report while unchecked architecture or phased-plan items
+          remain.
+    - [x] Wire the tracker into `scripts/check_release_readiness.py`.
+    - [x] Record the tracker in `scripts/run_release_validation_evidence.py`.
+    - [x] Move GAR-0043-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `release_architecture_tracker_schema_version=shardloom.release_architecture_tracker_report.v1`
+    - `release_architecture_tracker_status=blocked`
+    - `release_architecture_tracker_claim_gate_status=not_claim_grade`
+    - `release_architecture_tracker_unchecked_global_architecture_review_count=54`
+    - `release_architecture_tracker_unchecked_phase_plan_count=34`
+    - `release_architecture_tracker_public_release_claim_allowed=false`
+    - `release_architecture_tracker_public_package_claim_allowed=false`
+    - `release_architecture_tracker_publication_attempted=false`
+    - `release_architecture_tracker_tag_created=false`
+    - `release_architecture_tracker_secrets_required=false`
+    - `release_architecture_tracker_fallback_attempted=false`
+    - `release_architecture_tracker_external_engine_invoked=false`
+    - `release_architecture_tracker_report_ref=target/release-architecture-tracker-report.json`
+    - `release_architecture_tracker_doc_ref=docs/release/release-architecture-tracker-gate.md`
+  - Verification:
+    - `python scripts\check_release_architecture_tracker.py --allow-blocked`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that release architecture tracking now fails closed
+    against unchecked architecture/release state. It may not claim release/package readiness,
+    publication, final attestation, stable API/schema windows, performance, production support,
+    external engine execution, or fallback execution.
+
 - [x] Session label: GAR-0041-A per-claim evidence attachment matrix
   - Branch/PR: `codex/gar-0041a-per-claim-evidence-matrix` / #768.
   - Primary files:

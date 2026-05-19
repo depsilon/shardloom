@@ -1757,6 +1757,137 @@ fn gar_0041_a_per_claim_evidence_attachment_matrix_fails_closed() {
 }
 
 #[test]
+fn gar_0043_a_release_architecture_tracker_gate_fails_closed() {
+    let tracker = read_repo_file("scripts/check_release_architecture_tracker.py");
+    for required in [
+        "shardloom.release_architecture_tracker_report.v1",
+        "unchecked_global_architecture_review_count",
+        "unchecked_phase_plan_count",
+        "unchecked_global_architecture_review_items",
+        "unchecked_phase_plan_items",
+        "architecture_tracker_status",
+        "public_release_claim_allowed",
+        "public_package_claim_allowed",
+        "per_claim_evidence_matrix_present",
+        "publication_attempted",
+        "tag_created",
+        "secrets_required",
+        "fallback_attempted",
+        "external_engine_invoked",
+        "--allow-blocked",
+    ] {
+        assert!(
+            tracker.contains(required),
+            "missing GAR-0043-A tracker marker {required}"
+        );
+    }
+
+    let readiness_script = read_repo_file("scripts/check_release_readiness.py");
+    for required in [
+        "--architecture-tracker-report",
+        "release-architecture-tracker-report.json",
+        "architecture_tracker_report_ref",
+        "architecture_tracker_validation",
+        "shardloom.release_architecture_tracker_report.v1",
+        "python scripts/check_release_architecture_tracker.py --allow-blocked",
+    ] {
+        assert!(
+            readiness_script.contains(required),
+            "missing GAR-0043-A hard release readiness marker {required}"
+        );
+    }
+
+    let validation_script = read_repo_file("scripts/run_release_validation_evidence.py");
+    for required in [
+        "release_architecture_tracker",
+        "scripts/check_release_architecture_tracker.py",
+        "--allow-blocked",
+    ] {
+        assert!(
+            validation_script.contains(required),
+            "missing GAR-0043-A validation-evidence marker {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/release/release-architecture-tracker-gate.md");
+    for required in [
+        "GAR-0043-A",
+        "shardloom.release_architecture_tracker_report.v1",
+        "target/release-architecture-tracker-report.json",
+        "architecture_tracker_status=blocked",
+        "claim_gate_status=not_claim_grade",
+        "public_release_claim_allowed=false",
+        "public_package_claim_allowed=false",
+        "unchecked_global_architecture_review_count",
+        "unchecked_phase_plan_count",
+        "release_security_refs_present",
+        "release_provenance_refs_present",
+        "per_claim_evidence_matrix_present",
+        "publication_attempted=false",
+        "tag_created=false",
+        "secrets_required=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0043-A doc marker {required}"
+        );
+    }
+
+    let hard_gate = read_repo_file("docs/release/hard-release-readiness-gate.md");
+    for required in [
+        "shardloom.release_architecture_tracker_report.v1",
+        "target/release-architecture-tracker-report.json",
+        "architecture_tracker_status=blocked",
+        "release architecture tracker report",
+    ] {
+        assert!(
+            hard_gate.contains(required),
+            "missing GAR-0043-A hard gate doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(
+        !plan.contains(
+            "- [ ] GAR-0043-A hard release-readiness validators and architecture tracker"
+        )
+    );
+    assert!(plan.contains("docs/release/release-architecture-tracker-gate.md"));
+    assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for required in [
+        "GAR-0043-A hard release-readiness validators and architecture tracker",
+        "shardloom.release_architecture_tracker_report.v1",
+        "release_architecture_tracker_status=blocked",
+        "release_architecture_tracker_claim_gate_status=not_claim_grade",
+        "release_architecture_tracker_public_release_claim_allowed=false",
+        "release_architecture_tracker_public_package_claim_allowed=false",
+        "release_architecture_tracker_publication_attempted=false",
+        "release_architecture_tracker_tag_created=false",
+        "release_architecture_tracker_secrets_required=false",
+        "release_architecture_tracker_fallback_attempted=false",
+        "release_architecture_tracker_external_engine_invoked=false",
+    ] {
+        assert!(
+            completed.contains(required),
+            "missing GAR-0043-A completed-ledger marker {required}"
+        );
+    }
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0043-A` adds `shardloom.release_architecture_tracker_report.v1`"));
+    assert!(gar.contains("Actual publication and final attestation remain incomplete"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("GAR-0043-A"));
+    assert!(traceability.contains("shardloom.release_architecture_tracker_report.v1"));
+    assert!(traceability.contains("Actual publication, release tags, signing, package upload"));
+}
+
+#[test]
 fn cg5_cg6_stateful_reuse_evidence_expansion_remains_fail_closed() {
     let core = read_repo_file("shardloom-core/src/correctness.rs");
     for required in [
