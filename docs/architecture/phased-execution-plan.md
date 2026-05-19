@@ -276,10 +276,12 @@ or documentation updates alone are insufficient.
     `column IN (<literal>,...)` predicates are runtime-admitted with `in_predicate_*` evidence and
     blockers for empty, NULL, mixed DATE/non-DATE, oversized, and subquery-backed lists, and scoped
     local SQL logical `AND`/`OR`/`NOT` predicates plus balanced grouping parentheses are
-    runtime-admitted over already admitted leaf predicates, but user workflows still lack broad
-    typed coercions, timestamp/timezone helpers, date arithmetic, NULL/subquery-backed IN semantics,
-    arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader
-    expression-family coverage.
+    runtime-admitted over already admitted leaf predicates. Python now exposes `sl.col(...)`
+    predicate helpers that lower admitted comparison, null, string `LIKE`, bounded `IN`, cast/date,
+    and logical predicates into the same local SQL smoke path. User workflows still lack broad typed
+    coercions, timestamp/timezone helpers, date arithmetic, NULL/subquery-backed IN semantics,
+    arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
+    family coverage.
   - Next slice outcome: add one implementation PR per expression family: null/is-not-null hardening
     where gaps remain, remaining admitted string predicates, richer IN semantics only where
     evidence-backed, timestamp/timezone helpers, date arithmetic where admitted, and broader typed

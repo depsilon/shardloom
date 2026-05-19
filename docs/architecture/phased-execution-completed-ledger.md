@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D Python column predicate helper runtime surface
+  - Branch/PR: `codex/python-expression-builder` / #803.
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/phased-execution-plan.md`
+    - generated use-case/readme website pages.
+  - Scope: add a PySpark-like scoped Python predicate helper surface for already admitted
+    ShardLoom local-source SQL runtime predicates.
+  - Runtime behavior:
+    - `sl.col(...)` and `sl.column(...)` return column expressions that lower to the existing
+      ShardLoom-owned `sql-local-source-smoke` runtime through `LazyFrame.filter(...)`.
+    - The helper admits comparisons, `is_null()`, `is_not_null()`, `contains()`, `startswith()`,
+      `endswith()`, `like(...)`, bounded `isin(...)`, `cast(dtype)` comparisons, `datetime.date`
+      literals, and logical `&` / `|` / `~` composition over admitted leaves.
+    - Column references are restricted to CLI-compatible bare identifiers or `alias.column`
+      references; invalid SQL fragments, empty IN lists, NULL IN values, wildcard helper needles,
+      non-finite floats, and unsupported cast dtypes block before runtime execution.
+  - Evidence:
+    - Python tests assert exact SQL lowering into `sql-local-source-smoke`, typed report fields for
+      logical/string/null predicate runtime execution, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+    - Docs and use-case surfaces now show `sl.col(...)` as a convenience front door over the same
+      ShardLoom runtime, not a Python execution engine or external backend.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_lowers_to_sql_filter_predicates python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: this is a scoped Python predicate helper for admitted local-source runtime
+    expressions only. It is not broad SQL/DataFrame parity, a Python execution engine, Python
+    join support, object-store/table runtime, external fallback, production support, or a
+    performance claim.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E/4G scoped generated-source CSV output smokes
   - Branch/PR: `codex/generated-source-csv-output` / #802.
   - Primary files:
