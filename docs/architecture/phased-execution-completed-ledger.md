@@ -16,6 +16,76 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E/4G scoped generated-source CSV output smokes
+  - Branch/PR: `codex/generated-source-csv-output` / #802.
+  - Primary files:
+    - `shardloom-cli/src/generated_source_runtime.rs`
+    - `shardloom-cli/tests/generated_source_runtime_smoke.rs`
+    - `shardloom-core/src/generated_source.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/tests/test_query_builder.py`
+    - `python/tests/test_cli_client.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/recipes/README.md`
+    - generated website/use-case/status/readme pages.
+  - Scope: promote scoped generated-source local output from JSONL-only to JSONL/CSV for the
+    existing user-row, literal-table, calendar, range, sequence, and source-free SQL fixture-smoke
+    paths.
+  - Runtime behavior:
+    - `generated-source-user-rows-smoke`, `generated-source-range-smoke`,
+      `generated-source-sequence-smoke`, and `generated-source-sql-smoke` now accept
+      `--output-format csv` in addition to JSONL aliases.
+    - Python generated-source wrappers expose `write_csv(...)` helpers for `ctx.from_rows(...)`,
+      `ctx.literal_table(...)`, `ctx.calendar(...)`, `ctx.range(...)`, `ctx.sequence(...)`,
+      `ctx.sql_values(...)`, `ctx.sql_literal_select(...)`, and admitted
+      `ctx.sql("SELECT * FROM generate_series/range(...)")` sources.
+    - CSV rendering is ShardLoom-owned, includes a header row, preserves deterministic schema
+      column order, and quotes fields containing commas, quotes, CR, or LF with doubled quotes.
+    - Unsupported output formats, remote/object-store paths, broad SQL/DataFrame forms, and
+      Foundry/object-store sinks still block before execution.
+  - Evidence:
+    - CSV rows emit `output_format=csv`, format-specific materialization boundaries such as
+      `python_user_rows_to_local_csv_sink`, `engine_native_range_generator_to_local_csv_sink`, and
+      `sql_values_to_local_csv_sink`, generated-source schema/row/plan digest fields,
+      `output_native_io_certificate_status=certified_local_file_sink`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+    - Capability/status rows and use-case surfaces now use JSONL/CSV blocker IDs and claim
+      boundaries for the scoped generated-output paths.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke -- --nocapture`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots -- --nocapture`
+    - `cargo test -p shardloom-core generated_source -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python website/build_static_pages.py --benchmark-manifest website/assets/benchmarks/latest/manifest.json`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python -m py_compile website/build_static_pages.py`
+    - `git diff --check`
+  - Claim boundary: this is scoped local JSONL/CSV generated-output fixture-smoke support only. It
+    does not add broad SQL/DataFrame runtime, arbitrary SQL table functions, broader output/fanout
+    sinks, object-store/lakehouse/Foundry output, production support, package-publication readiness,
+    Spark replacement, or performance claims.
+  - Fallback boundary: generation, CSV/JSONL rendering, local file writing, and evidence emission
+    are ShardLoom-owned local operations; no pandas, Polars, Spark, DataFusion, DuckDB, or external
+    fallback engine is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E scoped SQL generate_series/range generated-output runtime
   - Branch/PR: `codex/sql-generate-series-source-free` / #801.
   - Primary files:

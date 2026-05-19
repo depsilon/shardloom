@@ -313,13 +313,13 @@
       "source_io_performed": false,
       "output_io_performed": true,
       "native_io_certificate_status": "local_output_certificate_required",
-      "generated_source_certificate_status": "scoped_local_jsonl_smoke",
+      "generated_source_certificate_status": "scoped_local_jsonl_csv_smoke",
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "gar-compat-1b.generated_output_broader_api_evidence_missing",
       "required_future_evidence": "synthetic_sql_dataframe_object_store_foundry_output_evidence",
-      "claim_boundary": "Local user-row, literal-table, calendar, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL fixture-smoke generated-output runtime only."
+      "claim_boundary": "Local user-row, literal-table, calendar, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV fixture-smoke generated-output runtime only."
     },
     {
       "surface_id": "python_rows_dataframe",
@@ -335,7 +335,7 @@
       "source_io_performed": false,
       "output_io_performed": true,
       "native_io_certificate_status": "local_output_certificate_required",
-      "generated_source_certificate_status": "scoped_local_jsonl_smoke",
+      "generated_source_certificate_status": "scoped_local_jsonl_csv_smoke",
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
@@ -357,13 +357,13 @@
       "source_io_performed": false,
       "output_io_performed": true,
       "native_io_certificate_status": "local_output_certificate_required",
-      "generated_source_certificate_status": "scoped_local_jsonl_smoke",
+      "generated_source_certificate_status": "scoped_local_jsonl_csv_smoke",
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
-      "blocker_id": "none_scoped_local_sql_values_literals_jsonl_smoke_only",
+      "blocker_id": "none_scoped_local_sql_values_literals_jsonl_csv_smoke_only",
       "required_future_evidence": "broader_sql_parser_binder_planner_local_source_operator_evidence",
-      "claim_boundary": "Only source-free SQL VALUES/literal/range-generator local JSONL fixture smokes are admitted; no broad SQL runtime claim."
+      "claim_boundary": "Only source-free SQL VALUES/literal/range-generator local JSONL/CSV fixture smokes are admitted; no broad SQL runtime claim."
     },
     {
       "surface_id": "rest_flight_adbc",
@@ -463,7 +463,7 @@
     "fallback_attempted": false,
     "external_engine_invoked": false,
     "claim_gate_status": "fixture_smoke_only",
-    "claim_boundary": "Only scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL generated-output smokes are admitted; broad SQL/DataFrame, object-store, lakehouse, Foundry, production, package, and performance claims remain blocked or report-only.",
+    "claim_boundary": "Only scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV generated-output smokes are admitted; broad SQL/DataFrame, object-store, lakehouse, Foundry, production, package, and performance claims remain blocked or report-only.",
     "rows": [
       {
         "row_id": "no_dataset_smoke",
@@ -488,7 +488,7 @@
       },
       {
         "row_id": "python_ctx_from_rows",
-        "user_visible_surface": "Python ctx.from_rows([...]).write(local_jsonl)",
+        "user_visible_surface": "Python ctx.from_rows([...]).write(local_jsonl_or_csv)",
         "surface_family": "python_generated_source",
         "support_status": "smoke-supported",
         "runtime_execution": true,
@@ -502,14 +502,14 @@
         "generated_source_certificate_status": "required_for_runtime",
         "fallback_attempted": false,
         "external_engine_invoked": false,
-        "blocker_id": "none_scoped_local_jsonl_smoke_only",
+        "blocker_id": "none_scoped_local_jsonl_csv_smoke_only",
         "required_evidence": "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         "claim_gate_status": "fixture_smoke_only",
-        "claim_boundary": "Only scoped local user-row JSONL generated-output fixture smoke is admitted."
+        "claim_boundary": "Only scoped local user-row JSONL/CSV generated-output fixture smoke is admitted."
       },
       {
         "row_id": "python_ctx_range",
-        "user_visible_surface": "Python ctx.range(...).write(local_jsonl)",
+        "user_visible_surface": "Python ctx.range(...).write(local_jsonl_or_csv)",
         "surface_family": "python_generated_source",
         "support_status": "smoke-supported",
         "runtime_execution": true,
@@ -523,14 +523,14 @@
         "generated_source_certificate_status": "required_for_runtime",
         "fallback_attempted": false,
         "external_engine_invoked": false,
-        "blocker_id": "none_scoped_local_range_jsonl_smoke_only",
+        "blocker_id": "none_scoped_local_range_jsonl_csv_smoke_only",
         "required_evidence": "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         "claim_gate_status": "fixture_smoke_only",
-        "claim_boundary": "Only scoped local range JSONL generated-output fixture smoke is admitted."
+        "claim_boundary": "Only scoped local range JSONL/CSV generated-output fixture smoke is admitted."
       },
       {
         "row_id": "python_ctx_sequence",
-        "user_visible_surface": "Python ctx.sequence(...).write(local_jsonl)",
+        "user_visible_surface": "Python ctx.sequence(...).write(local_jsonl_or_csv)",
         "surface_family": "python_generated_source",
         "support_status": "smoke-supported",
         "runtime_execution": true,
@@ -544,14 +544,14 @@
         "generated_source_certificate_status": "required_for_runtime",
         "fallback_attempted": false,
         "external_engine_invoked": false,
-        "blocker_id": "none_scoped_local_sequence_jsonl_smoke_only",
+        "blocker_id": "none_scoped_local_sequence_jsonl_csv_smoke_only",
         "required_evidence": "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         "claim_gate_status": "fixture_smoke_only",
-        "claim_boundary": "Only scoped local sequence JSONL generated-output fixture smoke is admitted."
+        "claim_boundary": "Only scoped local sequence JSONL/CSV generated-output fixture smoke is admitted."
       },
       {
         "row_id": "python_ctx_literal_table",
-        "user_visible_surface": "Python ctx.literal_table([...]).write(local_jsonl)",
+        "user_visible_surface": "Python ctx.literal_table([...]).write(local_jsonl_or_csv)",
         "surface_family": "python_generated_source",
         "support_status": "smoke-supported",
         "runtime_execution": true,
@@ -565,14 +565,14 @@
         "generated_source_certificate_status": "required_for_runtime",
         "fallback_attempted": false,
         "external_engine_invoked": false,
-        "blocker_id": "none_scoped_local_literal_table_jsonl_smoke_only",
+        "blocker_id": "none_scoped_local_literal_table_jsonl_csv_smoke_only",
         "required_evidence": "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         "claim_gate_status": "fixture_smoke_only",
-        "claim_boundary": "Only scoped local literal-table JSONL generated-output fixture smoke is admitted."
+        "claim_boundary": "Only scoped local literal-table JSONL/CSV generated-output fixture smoke is admitted."
       },
       {
         "row_id": "python_ctx_calendar",
-        "user_visible_surface": "Python ctx.calendar(start,end).write(local_jsonl)",
+        "user_visible_surface": "Python ctx.calendar(start,end).write(local_jsonl_or_csv)",
         "surface_family": "python_generated_source",
         "support_status": "smoke-supported",
         "runtime_execution": true,
@@ -586,14 +586,14 @@
         "generated_source_certificate_status": "required_for_runtime",
         "fallback_attempted": false,
         "external_engine_invoked": false,
-        "blocker_id": "none_scoped_local_calendar_jsonl_smoke_only",
+        "blocker_id": "none_scoped_local_calendar_jsonl_csv_smoke_only",
         "required_evidence": "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         "claim_gate_status": "fixture_smoke_only",
-        "claim_boundary": "Only scoped local calendar/date-dimension JSONL generated-output fixture smoke is admitted."
+        "claim_boundary": "Only scoped local calendar/date-dimension JSONL/CSV generated-output fixture smoke is admitted."
       },
       {
         "row_id": "python_generated_source_write",
-        "user_visible_surface": "Python GeneratedRowsSource/GeneratedRangeSource.write(local_jsonl)",
+        "user_visible_surface": "Python GeneratedRowsSource/GeneratedRangeSource.write(local_jsonl_or_csv)",
         "surface_family": "python_generated_source",
         "support_status": "smoke-supported",
         "runtime_execution": true,
@@ -610,7 +610,7 @@
         "blocker_id": "none_supported_generated_source_write_smokes_only",
         "required_evidence": "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         "claim_gate_status": "fixture_smoke_only",
-        "claim_boundary": "Generated-source write is admitted only for supported local user_rows, literal_table, calendar, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL smokes."
+        "claim_boundary": "Generated-source write is admitted only for supported local user_rows, literal_table, calendar, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV smokes."
       },
       {
         "row_id": "local_output_only_generated_source_posture",
@@ -631,7 +631,7 @@
         "blocker_id": "gar-compat-1b.non_local_generated_output_blocked",
         "required_evidence": "local_output_sink_evidence,output_native_io_certificate,object_store_admission_blocker,foundry_output_api_blocker",
         "claim_gate_status": "not_claim_grade",
-        "claim_boundary": "Generated output support is local JSONL fixture-smoke only; object-store, lakehouse, and Foundry sinks remain blocked/report-only."
+        "claim_boundary": "Generated output support is local JSONL/CSV fixture-smoke only; object-store, lakehouse, and Foundry sinks remain blocked/report-only."
       },
       {
         "row_id": "sql_literal_select",
@@ -649,10 +649,10 @@
         "generated_source_certificate_status": "required_for_runtime",
         "fallback_attempted": false,
         "external_engine_invoked": false,
-        "blocker_id": "none_scoped_local_sql_literal_select_jsonl_smoke_only",
+        "blocker_id": "none_scoped_local_sql_literal_select_jsonl_csv_smoke_only",
         "required_evidence": "sql_parser,sql_binder,sql_planner,literal_projection_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         "claim_gate_status": "fixture_smoke_only",
-        "claim_boundary": "Only source-free SQL literal SELECT local JSONL fixture smokes are admitted; no broad SQL runtime or production claim."
+        "claim_boundary": "Only source-free SQL literal SELECT local JSONL/CSV fixture smokes are admitted; no broad SQL runtime or production claim."
       },
       {
         "row_id": "sql_values",
@@ -670,10 +670,10 @@
         "generated_source_certificate_status": "required_for_runtime",
         "fallback_attempted": false,
         "external_engine_invoked": false,
-        "blocker_id": "none_scoped_local_sql_values_jsonl_smoke_only",
+        "blocker_id": "none_scoped_local_sql_values_jsonl_csv_smoke_only",
         "required_evidence": "sql_parser,sql_binder,sql_planner,values_table_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         "claim_gate_status": "fixture_smoke_only",
-        "claim_boundary": "Only source-free SQL VALUES local JSONL fixture smokes are admitted; no broad SQL runtime or production claim."
+        "claim_boundary": "Only source-free SQL VALUES local JSONL/CSV fixture smokes are admitted; no broad SQL runtime or production claim."
       },
       {
         "row_id": "sql_source_free_projection",
@@ -712,10 +712,10 @@
         "generated_source_certificate_status": "required_for_runtime",
         "fallback_attempted": false,
         "external_engine_invoked": false,
-        "blocker_id": "none_scoped_local_sql_generate_series_range_jsonl_smoke_only",
+        "blocker_id": "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only",
         "required_evidence": "sql_parser,sql_binder,sql_table_function_contract,range_generator_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         "claim_gate_status": "fixture_smoke_only",
-        "claim_boundary": "SQL generate_series/range is admitted only for SELECT * FROM generate_series/range(...) scoped local JSONL generated-output fixture smokes; no broad SQL runtime claim."
+        "claim_boundary": "SQL generate_series/range is admitted only for SELECT * FROM generate_series/range(...) scoped local JSONL/CSV generated-output fixture smokes; no broad SQL runtime claim."
       },
       {
         "row_id": "dataframe_source_free_projection",

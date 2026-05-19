@@ -74,13 +74,14 @@ claim boundary inspection
 ```
 
 Current generated/source-free runtime is intentionally narrow rather than absent:
-`ctx.from_rows(...).write(local_jsonl)` and `ctx.range(...).write(local_jsonl)` can run scoped local
-fixture-smoke output paths with generated-source and output evidence. The one-command proof must run
-those paths from the clean installed wheel and keep them separate from no-dataset smoke.
+`ctx.from_rows(...).write(local_jsonl_or_csv)` and `ctx.range(...).write(local_jsonl_or_csv)` can
+run scoped local fixture-smoke output paths with generated-source and output evidence. The
+one-command proof must run those paths from the clean installed wheel and keep them separate from
+no-dataset smoke.
 
 It must not pretend no-dataset smoke is generated-output execution, and it must not promote the
-scoped local JSONL smokes into SQL `VALUES`, broad DataFrame runtime, object-store/lakehouse output,
-Foundry output, production support, or performance claims.
+scoped local JSONL/CSV smokes into broad DataFrame runtime, object-store/lakehouse output, Foundry
+output, production support, or performance claims.
 
 ## Package Channel Readiness Matrix
 

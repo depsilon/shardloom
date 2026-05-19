@@ -33,7 +33,7 @@ $env:PYTHONPATH = "python\src"
 python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); print(r.claim_gate_status)"
 ```
 
-Use this for the scoped GAR-GEN-1C path that writes caller-provided rows to a local JSONL output and
+Use this for the scoped GAR-GEN-1C path that writes caller-provided rows to a local JSONL/CSV output and
 emits generated-source and output evidence. It is not SQL/VALUES execution, broad DataFrame
 runtime, object-store output, Foundry output, production support, or a performance claim.
 
@@ -57,7 +57,7 @@ python -c "from shardloom import context; r=context(repo_root='.').literal_table
 python -c "from shardloom import context; r=context(repo_root='.').calendar('2026-05-18','2026-05-21', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
 ```
 
-Use these for scoped source-free Python helpers that generate local JSONL output and emit the same
+Use these for scoped source-free Python helpers that generate local JSONL/CSV output and emit the same
 generated-source/output/no-fallback evidence family as `ctx.from_rows(...).write(...)`. They are not
 SQL `VALUES` execution; use the dedicated source-free SQL smoke below for that. They are not broad
 DataFrame runtime, object-store output, Foundry output, production support, or performance claims.
@@ -70,7 +70,7 @@ python -c "from shardloom import context; r=context(repo_root='.').range(0, 5, c
 ```
 
 Use this for the scoped GAR-GEN-1D path that executes one ShardLoom-native range generator, writes
-local JSONL output, and emits generated-source/output/no-fallback evidence. The sequence helper uses
+local JSONL/CSV output, and emits generated-source/output/no-fallback evidence. The sequence helper uses
 the same scoped integer-generator contract while reporting `generated_source_kind=sequence`:
 
 ```powershell
@@ -98,7 +98,7 @@ python -c "from shardloom import context; r=context(repo_root='.').sql(\"SELECT 
 ```
 
 Use this for the scoped GAR-RUNTIME-IMPL-1A path that parses ShardLoom's tiny source-free SQL smoke
-subset, writes local JSONL output through either the explicit source-free helpers or scoped
+subset, writes local JSONL/CSV output through either the explicit source-free helpers or scoped
 `ctx.sql(...).write(...)`, and emits generated-source/output/no-fallback evidence. It is not broad
 SQL runtime, SQL over input datasets, functions, joins, SQL/DataFrame production support,
 object-store output, Foundry output, or a performance claim. Source-free `ctx.sql(...).collect()`

@@ -291,7 +291,7 @@ _WRITE_BOUNDARY = (
 )
 _GENERATED_OUTPUT_BOUNDARY = (
     "Scoped local generated-output smokes only; user rows, engine-native range/sequence, and "
-    "source-free SQL VALUES/literal SELECT/generate_series/range write local JSONL with "
+    "source-free SQL VALUES/literal SELECT/generate_series/range write local JSONL/CSV with "
     "generated-source and output evidence, but no broad DataFrame runtime, broad SQL runtime, "
     "object-store/lakehouse, Foundry, performance, or production claim."
 )
@@ -1045,52 +1045,52 @@ ETL_WORKFLOW_CAPABILITY_ROWS: tuple[ETLWorkflowCapabilityRow, ...] = (
         claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
     ),
     _etl_workflow_row(
-        "source_free_user_rows_jsonl",
-        "Source-free user rows JSONL",
+        "source_free_user_rows_jsonl_csv",
+        "Source-free user rows JSONL/CSV",
         "smoke_supported",
         "source_free_generated_output",
         "batch",
         inputs=("python_rows",),
-        outputs=("local_jsonl_output", "generated_source_certificate"),
+        outputs=("local_jsonl_or_csv_output", "generated_source_certificate"),
         evidence_fields=("input_dataset_count=0", "generated_source_created=true"),
         runtime_execution=True,
         write_io=True,
         claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
     ),
     _etl_workflow_row(
-        "source_free_range_jsonl",
-        "Source-free range JSONL",
+        "source_free_range_jsonl_csv",
+        "Source-free range JSONL/CSV",
         "smoke_supported",
         "source_free_generated_output",
         "batch",
         inputs=("range_generator",),
-        outputs=("local_jsonl_output", "generated_source_certificate"),
+        outputs=("local_jsonl_or_csv_output", "generated_source_certificate"),
         evidence_fields=("generated_source_kind=range", "output_native_io_certificate_status"),
         runtime_execution=True,
         write_io=True,
         claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
     ),
     _etl_workflow_row(
-        "source_free_literal_table_jsonl",
-        "Source-free literal table JSONL",
+        "source_free_literal_table_jsonl_csv",
+        "Source-free literal table JSONL/CSV",
         "smoke_supported",
         "source_free_generated_output",
         "batch",
         inputs=("literal_table_rows",),
-        outputs=("local_jsonl_output", "generated_source_certificate"),
+        outputs=("local_jsonl_or_csv_output", "generated_source_certificate"),
         evidence_fields=("generated_source_kind=literal_table", "output_native_io_certificate_status"),
         runtime_execution=True,
         write_io=True,
         claim_boundary=_LOCAL_TECHNICAL_PREVIEW_BOUNDARY,
     ),
     _etl_workflow_row(
-        "source_free_calendar_jsonl",
-        "Source-free calendar JSONL",
+        "source_free_calendar_jsonl_csv",
+        "Source-free calendar JSONL/CSV",
         "smoke_supported",
         "source_free_generated_output",
         "batch",
         inputs=("calendar_generator",),
-        outputs=("local_jsonl_output", "generated_source_certificate"),
+        outputs=("local_jsonl_or_csv_output", "generated_source_certificate"),
         evidence_fields=("generated_source_kind=calendar", "output_native_io_certificate_status"),
         runtime_execution=True,
         write_io=True,

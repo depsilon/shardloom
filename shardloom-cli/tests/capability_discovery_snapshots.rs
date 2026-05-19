@@ -2939,7 +2939,7 @@ fn generated_source_capability_contract_separates_no_dataset_smoke() {
         )));
         assert!(output.contains(&string_field_pair(
             "user_generated_source_blocker_id",
-            "none_scoped_local_jsonl_smoke_only"
+            "none_scoped_local_jsonl_csv_smoke_only"
         )));
         assert!(output.contains(&string_field_pair(
             "user_generated_source_claim_gate_status",
@@ -2951,7 +2951,7 @@ fn generated_source_capability_contract_separates_no_dataset_smoke() {
         )));
         assert!(output.contains(&string_field_pair(
             "engine_native_generated_source_blocker_id",
-            "none_scoped_local_range_sequence_jsonl_smoke_only"
+            "none_scoped_local_range_sequence_jsonl_csv_smoke_only"
         )));
         assert!(output.contains(&string_field_pair("input_dataset_count", "0")));
         assert!(output.contains(&field_pair("source_io_performed", false)));
@@ -3029,16 +3029,16 @@ fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
         )));
         assert!(output.contains(&string_field_pair(
             "python_ctx_range_blocker_id",
-            "none_scoped_local_range_jsonl_smoke_only"
+            "none_scoped_local_range_jsonl_csv_smoke_only"
         )));
         assert!(output.contains(&string_field_pair(
             "python_ctx_sequence_blocker_id",
-            "none_scoped_local_sequence_jsonl_smoke_only"
+            "none_scoped_local_sequence_jsonl_csv_smoke_only"
         )));
         assert!(output.contains(&field_pair("python_ctx_sequence_runtime_execution", true)));
         assert!(output.contains(&string_field_pair(
             "python_ctx_literal_table_blocker_id",
-            "none_scoped_local_literal_table_jsonl_smoke_only"
+            "none_scoped_local_literal_table_jsonl_csv_smoke_only"
         )));
         assert!(output.contains(&string_field_pair(
             "python_ctx_calendar_support_status",
@@ -3047,13 +3047,13 @@ fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
         assert!(output.contains(&field_pair("python_ctx_calendar_runtime_execution", true)));
         assert!(output.contains(&string_field_pair(
             "sql_values_blocker_id",
-            "none_scoped_local_sql_values_jsonl_smoke_only"
+            "none_scoped_local_sql_values_jsonl_csv_smoke_only"
         )));
         assert!(output.contains(&field_pair("sql_values_runtime_execution", true)));
         assert!(output.contains(&field_pair("sql_values_generated_source_created", true)));
         assert!(output.contains(&string_field_pair(
             "sql_generate_series_range_blocker_id",
-            "none_scoped_local_sql_generate_series_range_jsonl_smoke_only"
+            "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only"
         )));
         assert!(output.contains(&field_pair(
             "sql_generate_series_range_runtime_execution",
@@ -3417,7 +3417,7 @@ fn cross_cg_capability_parity_surfaces_shared_blocker_contracts() {
     )));
     assert!(workflow.contains(&string_field_pair(
         "etl_workflow_row_order",
-        "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,source_free_literal_table_jsonl,source_free_calendar_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"
+        "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl_csv,source_free_range_jsonl_csv,source_free_literal_table_jsonl_csv,source_free_calendar_jsonl_csv,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"
     )));
     assert!(workflow.contains(&string_field_pair(
         "etl_workflow_supported_local_count",
