@@ -821,9 +821,61 @@ fn eval_function_call(
         "date_day" | "day" => eval_date_extract(name, args, row, |days| {
             i32::try_from(date32_day(days)).expect("day fits i32")
         }),
+        "date_add_days" => eval_date_add_days(name, args, row, 1),
+        "date_sub_days" => eval_date_add_days(name, args, row, -1),
         _ => Err(EvalFailure::unsupported(
             "function_call",
             format!("function {name:?} is not admitted by the current native semantics baseline"),
+        )),
+    }
+}
+
+fn eval_date_add_days(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    multiplier: i32,
+) -> EvalResult<EvalValue> {
+    if args.len() != 2 {
+        return Err(EvalFailure::invalid(
+            "date_arithmetic",
+            format!("function {name:?} requires Date32 and int64 day-count arguments"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let days = eval_expression(&args[1], row)?;
+    let data_materialized = value.data_materialized || days.data_materialized;
+    if value.value.is_null() || days.value.is_null() {
+        return Ok(
+            EvalValue::null(LogicalDType::Date32, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    match (value.value, days.value) {
+        (ScalarValue::Date32(date_days), ScalarValue::Int64(day_count)) => {
+            let signed_day_count = i32::try_from(day_count).map_err(|_| {
+                EvalFailure::invalid("date_arithmetic", "day-count argument exceeds i32 range")
+            })?;
+            let offset = signed_day_count.checked_mul(multiplier).ok_or_else(|| {
+                EvalFailure::invalid("date_arithmetic", "day-count multiplication overflow")
+            })?;
+            let result = date_days.checked_add(offset).ok_or_else(|| {
+                EvalFailure::invalid("date_arithmetic", "date32 day arithmetic overflow")
+            })?;
+            Ok(EvalValue::new(
+                ScalarValue::Date32(result),
+                LogicalDType::Date32,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        (value, days) => Err(EvalFailure::unsupported(
+            "date_arithmetic",
+            format!(
+                "function {name:?} supports Date32/null and int64/null operands only, got {} and {}",
+                value.dtype().as_str(),
+                days.dtype().as_str()
+            ),
         )),
     }
 }
@@ -1250,6 +1302,7 @@ fn function_operator_family(name: &str) -> &'static str {
         "utf8_starts_with" | "starts_with" | "utf8_contains" | "contains" | "utf8_ends_with"
         | "ends_with" => "string_predicate",
         "date_year" | "year" | "date_month" | "month" | "date_day" | "day" => "date_extract",
+        "date_add_days" | "date_sub_days" => "date_arithmetic",
         _ => "function",
     }
 }
@@ -2263,6 +2316,69 @@ mod tests {
         assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_date_add_days_without_fallback() {
+        let expression = Expression::new(
+            expr_id("date-add"),
+            ExpressionKind::FunctionCall {
+                name: "date_add_days".to_string(),
+                args: vec![
+                    Expression::column(expr_id("event_date"), col("event_date")),
+                    Expression::literal(expr_id("days"), ScalarValue::Int64(3)),
+                ],
+            },
+        );
+        let base_date = parse_iso_date32("2026-05-19").expect("date parses");
+        let expected = parse_iso_date32("2026-05-22").expect("date parses");
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("event_date", ScalarValue::Date32(base_date))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "date_arithmetic");
+        assert_eq!(report.value, Some(ScalarValue::Date32(expected)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Date32));
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_date_sub_days_and_nulls_without_fallback() {
+        let expression = Expression::new(
+            expr_id("date-sub"),
+            ExpressionKind::FunctionCall {
+                name: "date_sub_days".to_string(),
+                args: vec![
+                    Expression::column(expr_id("event_date"), col("event_date")),
+                    Expression::literal(expr_id("days"), ScalarValue::Int64(2)),
+                ],
+            },
+        );
+        let base_date = parse_iso_date32("2026-05-19").expect("date parses");
+        let expected = parse_iso_date32("2026-05-17").expect("date parses");
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("event_date", ScalarValue::Date32(base_date))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "date_arithmetic");
+        assert_eq!(report.value, Some(ScalarValue::Date32(expected)));
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+
+        let null_report =
+            evaluate_expression(&expression, &row(&[("event_date", ScalarValue::Null)]));
+        assert_eq!(null_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(null_report.value, Some(ScalarValue::Null));
+        assert_eq!(null_report.output_dtype, Some(LogicalDType::Date32));
+        assert_eq!(null_report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!null_report.fallback_attempted);
+        assert!(!null_report.external_engine_invoked);
     }
 
     #[test]

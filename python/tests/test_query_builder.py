@@ -380,6 +380,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ),
             "(CAST(event_dt AS date32) >= DATE '2026-05-01' AND CAST(event_dt AS date32) <= DATE '2026-05-31')",
         )
+        self.assertEqual(
+            str(sl.col("event_dt").date_add_days(7) >= date(2026, 5, 26)),
+            "DATE_ADD_DAYS(event_dt, 7) >= DATE '2026-05-26'",
+        )
+        self.assertEqual(
+            str(sl.col("event_dt").date_sub_days("1") == date(2026, 5, 18)),
+            "DATE_SUB_DAYS(event_dt, 1) = DATE '2026-05-18'",
+        )
+        self.assertEqual(
+            str(sl.col("event_dt").cast("date32").date_add_days(-2) < date(2026, 5, 20)),
+            "DATE_ADD_DAYS(CAST(event_dt AS date32), -2) < DATE '2026-05-20'",
+        )
         self.assertEqual(str(sl.col("f.amount") >= 10), "f.amount >= 10")
         self.assertEqual(str(sl.col("label").startswith("al")), "label LIKE 'al%'")
         self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
@@ -397,6 +409,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.col("amount>=10")
         with self.assertRaises(ValueError):
             sl.col("too.many.parts")
+        with self.assertRaises(ValueError):
+            sl.col("event_dt").date_add_days(True)
+        with self.assertRaises(ValueError):
+            sl.col("event_dt").date_add_days("1 day")
+        with self.assertRaises(ValueError):
+            sl.col("event_dt").date_add_days(366_001)
 
     def test_local_csv_query_builder_where_between_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(

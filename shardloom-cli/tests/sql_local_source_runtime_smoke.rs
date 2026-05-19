@@ -964,6 +964,49 @@ fn sql_local_source_smoke_executes_date_literal_filters_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_date_arithmetic_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-date-arithmetic", "csv");
+    fs::write(
+        &source_path,
+        "id,event_date,label\n1,2026-05-18,old\n2,2026-05-19,today\n3,2026-05-20,next\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,event_date FROM '{}' WHERE DATE_ADD_DAYS(CAST(event_date AS date32), 1) >= DATE '2026-05-20' LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "date_arithmetic")));
+    assert!(stdout.contains(&field("date_literal_runtime_execution", "true")));
+    assert!(stdout.contains(&field("date_arithmetic_runtime_execution", "true")));
+    assert!(stdout.contains(&field("date_arithmetic_operator", "date_add_days")));
+    assert!(stdout.contains(&field("date_arithmetic_days", "1")));
+    assert!(stdout.contains(&field("date_arithmetic_source_column", "event_date")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"event_date\\\":\\\"2026-05-19\\\"}\\n{\\\"id\\\":3,\\\"event_date\\\":\\\"2026-05-20\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_date_in_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-date-in-predicate", "csv");
     fs::write(

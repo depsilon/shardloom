@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D Date32 day arithmetic predicate runtime slice
+  - Branch/PR: `codex/runtime-expression-date-arithmetic` / #816.
+  - Primary files:
+    - `shardloom-core/src/expression.rs`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add scoped ShardLoom-native Date32 day arithmetic predicates for local SQL/Python
+    source smokes without introducing external execution fallback.
+  - Runtime behavior:
+    - Core expression semantics now evaluates `date_add_days(Date32, Int64)` and
+      `date_sub_days(Date32, Int64)` with null propagation, checked day arithmetic, explicit
+      unsupported diagnostics for non-Date32/non-int operands, and `operator_family=date_arithmetic`.
+    - SQL local-source smoke now admits
+      `DATE_ADD_DAYS(<column-or-CAST-date32>, <days>) <op> DATE 'YYYY-MM-DD'` and
+      `DATE_SUB_DAYS(<column-or-CAST-date32>, <days>) <op> DATE 'YYYY-MM-DD'`, including
+      deterministic blockers for malformed day counts and oversized offsets.
+    - Python `sl.col(...)` now exposes `date_add_days(days)` and `date_sub_days(days)` helpers
+      that lower to the same admitted SQL smoke path.
+  - Evidence:
+    - SQL local-source reports emit `date_arithmetic_runtime_execution`,
+      `date_arithmetic_operator`, `date_arithmetic_days`, and `date_arithmetic_source_column`.
+    - Existing `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only` fields remain visible.
+  - Verification:
+    - `cargo test -p shardloom-core expression_semantics_evaluates_date --lib`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_date_arithmetic_predicates_without_fallback`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families`
+  - Claim boundary: scoped local Date32 day-add/day-sub predicate runtime only. This does not add
+    timestamp/timezone completeness, ANSI interval arithmetic, broad SQL/DataFrame runtime,
+    object-store/lakehouse support, Foundry support, package publication, performance/superiority
+    claims, or Spark-displacement claims.
+
 - [x] Session label: GAR-WEB-ATLAS-2C atlas content consistency and concision gate
   - Branch/PR: `codex/atlas-consistency-gate` / #815.
   - Primary files:
