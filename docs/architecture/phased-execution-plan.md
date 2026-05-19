@@ -229,20 +229,6 @@ Current non-runtime sequence:
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0024-A publication and API/schema stability gate
-  - Source: RFC 0024; release docs; workspace feature build matrix.
-  - Current state: dry-run package proof exists; first public publication, stable API/schema windows,
-    and signing decisions are not complete.
-  - Next slice outcome: release gate rows for API/schema compatibility, package identities, signing,
-    checksums, SBOM, and publication approval.
-  - User-visible surface: release readiness check, docs.
-  - Implementation scope: release scripts/docs/tests.
-  - Evidence required: release/provenance/security refs, no-fallback refs.
-  - Acceptance: gate fails closed without explicit publication evidence.
-  - Verification: release readiness tests, dependency audit gate, provenance dry-run tests.
-  - Non-goals: no package publication, tags, or signing key use.
-  - Fallback/claim boundary: no public release claim.
-  - Dependencies/blockers: security/provenance gates.
 - [ ] GAR-0025-A competitive replacement sufficiency gate
   - Source: RFC 0025; RFC 0029; RFC 0041.
   - Current state: full competitive replacement is not supported by broad evidence.

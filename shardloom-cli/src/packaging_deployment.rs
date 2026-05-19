@@ -9,8 +9,9 @@ use shardloom_core::{
     AgentContractPack, CommandStatus, CondaBuildInstallCertificationReport,
     EngineReplacementClaimInventoryReport, EngineReplacementClaimInventoryRow, OutputFormat,
     PythonWrapperFoundationReport, ReleaseEvidenceRequirementKind, ReleasePlan,
-    ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
-    ReleaseReadinessEvidenceReport, plan_engine_replacement_claim_inventory,
+    ReleasePublicationApiSchemaGateReport, ReleasePublicationBoundaryKind,
+    ReleasePublicationBoundaryReport, ReleaseReadinessEvidenceReport,
+    plan_engine_replacement_claim_inventory,
 };
 
 use crate::cli_output::emit;
@@ -42,6 +43,7 @@ fn emit_release_or_package_plan(
     let plan = ReleasePlan::default_foundation_plan();
     let evidence = plan.release_readiness_evidence();
     let publication = plan.publication_boundary_report();
+    let publication_api_schema = plan.publication_api_schema_stability_gate();
     emit(
         command,
         format,
@@ -54,7 +56,13 @@ fn emit_release_or_package_plan(
             publication.to_human_text()
         ),
         plan.diagnostics.clone(),
-        release_plan_fields(&plan, &evidence, &publication, mode),
+        release_plan_fields(
+            &plan,
+            &evidence,
+            &publication,
+            &publication_api_schema,
+            mode,
+        ),
     );
     ExitCode::SUCCESS
 }
@@ -171,6 +179,7 @@ pub(crate) fn release_plan_fields(
     plan: &ReleasePlan,
     evidence: &ReleaseReadinessEvidenceReport,
     publication: &ReleasePublicationBoundaryReport,
+    publication_api_schema: &ReleasePublicationApiSchemaGateReport,
     mode: &str,
 ) -> Vec<(String, String)> {
     let mut fields = vec![];
@@ -224,6 +233,7 @@ pub(crate) fn release_plan_fields(
     push_count_field(&mut fields, "release_checklist_count", plan.checklist.len());
     append_release_evidence_requirement_fields(&mut fields, evidence);
     append_release_publication_boundary_fields(&mut fields, publication);
+    append_publication_api_schema_gate_fields(&mut fields, publication_api_schema);
     append_conda_build_install_certification_fields(
         &mut fields,
         &plan.conda_build_install_certification(),
@@ -780,6 +790,169 @@ fn append_release_evidence_requirement_fields(
         ),
     ] {
         push_field(fields, field, evidence.status_for(kind).as_str());
+    }
+}
+
+fn append_publication_api_schema_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ReleasePublicationApiSchemaGateReport,
+) {
+    append_publication_api_schema_gate_summary_fields(fields, report);
+    append_publication_api_schema_gate_row_fields(fields, report);
+}
+
+fn append_publication_api_schema_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ReleasePublicationApiSchemaGateReport,
+) {
+    push_field(
+        fields,
+        "publication_api_schema_gate_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "publication_api_schema_gate_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "publication_api_schema_gate_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "publication_api_schema_gate_status",
+        report.gate_status,
+    );
+    push_field(
+        fields,
+        "publication_api_schema_gate_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_count_field(
+        fields,
+        "publication_api_schema_gate_row_count",
+        report.rows.len(),
+    );
+    push_count_field(
+        fields,
+        "publication_api_schema_gate_blocking_row_count",
+        report.blocking_row_count(),
+    );
+    push_field(
+        fields,
+        "publication_api_schema_gate_row_ids",
+        &report.row_ids().join(","),
+    );
+    append_publication_api_schema_gate_claim_fields(fields, report);
+}
+
+fn append_publication_api_schema_gate_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ReleasePublicationApiSchemaGateReport,
+) {
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_api_schema_stability_claim_allowed",
+        report.api_schema_stability_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_public_release_claim_allowed",
+        report.public_release_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_public_package_claim_allowed",
+        report.public_package_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_package_publication_performed",
+        report.package_publication_performed,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_tag_created",
+        report.tag_created,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_signing_key_used",
+        report.signing_key_used,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_checksum_manifest_publication_grade",
+        report.checksum_manifest_publication_grade,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_sbom_publication_grade",
+        report.sbom_publication_grade,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_runtime_execution",
+        report.runtime_execution,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_fails_closed",
+        report.fails_closed(),
+    );
+    push_bool_field(
+        fields,
+        "publication_api_schema_gate_side_effect_free",
+        report.side_effect_free(),
+    );
+}
+
+fn append_publication_api_schema_gate_row_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ReleasePublicationApiSchemaGateReport,
+) {
+    for row in &report.rows {
+        let prefix = format!("publication_api_schema_gate_row_{}", row.gate_id);
+        push_field(fields, &format!("{prefix}_status"), row.current_status);
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            row.required_evidence,
+        );
+        push_field(fields, &format!("{prefix}_evidence_ref"), row.evidence_ref);
+        push_field(fields, &format!("{prefix}_blocker"), row.blocker);
+        push_bool_field(
+            fields,
+            &format!("{prefix}_public_release_claim_allowed"),
+            row.public_release_claim_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_public_package_claim_allowed"),
+            row.public_package_claim_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_fallback_attempted"),
+            row.fallback_attempted,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_external_engine_invoked"),
+            row.external_engine_invoked,
+        );
     }
 }
 

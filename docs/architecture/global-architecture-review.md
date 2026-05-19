@@ -592,8 +592,16 @@ plan before coding.
   TestPyPI, PyPI, Homebrew, Scoop/winget, conda-forge, GHCR, and future public Rust API crates. No
   channel may be marked ready without install/uninstall, clean install, smoke, SBOM/checksum,
   provenance, and rollback/yank evidence; PyPI must use Trusted Publisher/OIDC.
-- [ ] First public release/package publication, stable API/schema windows, and signing decisions
-  remain incomplete.
+- [x] `GAR-0024-A` adds `shardloom.publication_api_schema_stability_gate.v1`; `release-plan`
+  exposes fail-closed rows for `api_compatibility_window`, `schema_compatibility_window`,
+  `package_identity_approval`, `signing_policy_decision`, `checksum_manifest`, `sbom_bundle`, and
+  `publication_approval` with `publication_api_schema_gate_status=blocked`,
+  `claim_gate_status=not_claim_grade`, `public_release_claim_allowed=false`,
+  `public_package_claim_allowed=false`, `package_publication_performed=false`, `tag_created=false`,
+  `signing_key_used=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
+- [ ] First public release/package publication remains incomplete and is carried by
+  `GAR-0043-B`; stable API/schema windows and signing decisions now have explicit fail-closed gate
+  rows but are not approved for public claims.
 
 ### RFC 0025 - Competitive Engine Track and No-Fallback Replacement Strategy
 

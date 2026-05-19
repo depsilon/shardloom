@@ -1295,6 +1295,15 @@ fn hard_release_readiness_gate_docs_are_present() {
         "target/package-channel-readiness-report.json",
         "Trusted Publisher/OIDC",
         "Internal Rust crates remain unpublished",
+        "shardloom.publication_api_schema_stability_gate.v1",
+        "publication_api_schema_gate_status=blocked",
+        "api_compatibility_window",
+        "schema_compatibility_window",
+        "package_identity_approval",
+        "signing_policy_decision",
+        "checksum_manifest",
+        "sbom_bundle",
+        "publication_approval",
         "global-architecture-gate",
         "public_release_claim_allowed=false",
         "status=blocked",
@@ -1304,6 +1313,128 @@ fn hard_release_readiness_gate_docs_are_present() {
             "missing hard release gate doc field {required}"
         );
     }
+}
+
+#[test]
+fn gar_0024_a_publication_api_schema_gate_fails_closed() {
+    let core = read_repo_file("shardloom-core/src/release.rs");
+    for required in [
+        "ReleasePublicationApiSchemaGateReport",
+        "ReleasePublicationApiSchemaGateRow",
+        "shardloom.publication_api_schema_stability_gate.v1",
+        "gar-0024-a.publication_api_schema_stability_gate",
+        "api_compatibility_window",
+        "schema_compatibility_window",
+        "package_identity_approval",
+        "signing_policy_decision",
+        "checksum_manifest",
+        "sbom_bundle",
+        "publication_approval",
+        "current_status != \"present\"",
+        "api_schema_stability_claim_allowed: false",
+        "public_release_claim_allowed: false",
+        "public_package_claim_allowed: false",
+        "package_publication_performed: false",
+        "tag_created: false",
+        "signing_key_used: false",
+        "checksum_manifest_publication_grade: false",
+        "sbom_publication_grade: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+    ] {
+        assert!(
+            core.contains(required),
+            "missing GAR-0024-A core release gate marker {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/packaging_deployment.rs");
+    for required in [
+        "append_publication_api_schema_gate_fields",
+        "publication_api_schema_gate_schema_version",
+        "publication_api_schema_gate_status",
+        "publication_api_schema_gate_claim_gate_status",
+        "publication_api_schema_gate_blocking_row_count",
+        "publication_api_schema_gate_api_schema_stability_claim_allowed",
+        "publication_api_schema_gate_public_release_claim_allowed",
+        "publication_api_schema_gate_public_package_claim_allowed",
+        "publication_api_schema_gate_signing_key_used",
+        "publication_api_schema_gate_fallback_attempted",
+        "publication_api_schema_gate_external_engine_invoked",
+        "publication_api_schema_gate_fails_closed",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing GAR-0024-A CLI release gate marker {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/release/publication-api-schema-stability-gate.md");
+    for required in [
+        "GAR-0024-A",
+        "shardloom.publication_api_schema_stability_gate.v1",
+        "publication_api_schema_gate_status=blocked",
+        "claim_gate_status=not_claim_grade",
+        "api_schema_stability_claim_allowed=false",
+        "public_release_claim_allowed=false",
+        "public_package_claim_allowed=false",
+        "package_publication_performed=false",
+        "tag_created=false",
+        "signing_key_used=false",
+        "checksum_manifest_publication_grade=false",
+        "sbom_publication_grade=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "api_compatibility_window",
+        "schema_compatibility_window",
+        "package_identity_approval",
+        "signing_policy_decision",
+        "checksum_manifest",
+        "sbom_bundle",
+        "publication_approval",
+        "publication/API/schema stability gate remains blocked",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0024-A doc marker {required}"
+        );
+    }
+
+    let script = read_repo_file("scripts/check_release_readiness.py");
+    for required in [
+        "publication_api_schema_stability_gate",
+        "docs/release/publication-api-schema-stability-gate.md",
+        "publication_api_schema_gate_status=blocked",
+        "publication/API/schema stability gate remains blocked",
+        "public_package_claim_allowed=false",
+        "signing_key_used=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            script.contains(required),
+            "missing GAR-0024-A hard release script marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0024-A publication and API/schema stability gate"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0024-A publication and API/schema stability gate"));
+    assert!(completed.contains("shardloom.publication_api_schema_stability_gate.v1"));
+    assert!(completed.contains("publication_api_schema_gate_status=blocked"));
+    assert!(completed.contains("public_package_claim_allowed=false"));
+    assert!(completed.contains("signing_key_used=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0024-A` adds `shardloom.publication_api_schema_stability_gate.v1`"));
+    assert!(gar.contains("First public release/package publication remains incomplete"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("GAR-0024-A"));
+    assert!(traceability.contains("shardloom.publication_api_schema_stability_gate.v1"));
+    assert!(traceability.contains("No package publication"));
 }
 
 #[test]
@@ -4259,9 +4390,13 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("Planned Item Detail Standard"));
     assert!(plan.contains("claim_gate_status=not_claim_grade"));
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
-    assert!(plan.contains("GAR-0024-A publication and API/schema stability gate"));
+    assert!(!plan.contains("- [ ] GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("GAR-0043-B publication attestation and final release rehearsal"));
     let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(
+        completed_ledger.contains("GAR-0024-A publication and API/schema stability gate"),
+        "GAR-0024-A should be moved from Planned to the completed ledger"
+    );
     let planned_gar_slices = planned_gar_slices(&plan);
     assert!(planned_gar_slices.len() + completed_gar_session_count(&completed_ledger) >= 32);
     assert!(
