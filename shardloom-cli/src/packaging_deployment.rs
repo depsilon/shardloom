@@ -6,12 +6,13 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    AgentContractPack, CommandStatus, CondaBuildInstallCertificationReport,
+    AgentContractPack, CommandStatus, CompetitiveReplacementSufficiencyGateReport,
+    CompetitiveReplacementSufficiencyGateRow, CondaBuildInstallCertificationReport,
     EngineReplacementClaimInventoryReport, EngineReplacementClaimInventoryRow, OutputFormat,
     PythonWrapperFoundationReport, ReleaseEvidenceRequirementKind, ReleasePlan,
     ReleasePublicationApiSchemaGateReport, ReleasePublicationBoundaryKind,
     ReleasePublicationBoundaryReport, ReleaseReadinessEvidenceReport,
-    plan_engine_replacement_claim_inventory,
+    plan_competitive_replacement_sufficiency_gate, plan_engine_replacement_claim_inventory,
 };
 
 use crate::cli_output::emit;
@@ -241,6 +242,10 @@ pub(crate) fn release_plan_fields(
     append_engine_replacement_claim_inventory_fields(
         &mut fields,
         &plan_engine_replacement_claim_inventory(),
+    );
+    append_competitive_replacement_sufficiency_gate_fields(
+        &mut fields,
+        &plan_competitive_replacement_sufficiency_gate(),
     );
     push_field(&mut fields, "published", "false");
     push_field(&mut fields, "write_io", "false");
@@ -520,6 +525,184 @@ fn append_engine_replacement_claim_inventory_row_status_fields(
         fields,
         &format!("{prefix}_claim_boundary"),
         row.claim_boundary,
+    );
+}
+
+fn append_competitive_replacement_sufficiency_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CompetitiveReplacementSufficiencyGateReport,
+) {
+    append_competitive_replacement_sufficiency_gate_summary_fields(fields, report);
+    append_competitive_replacement_sufficiency_gate_row_fields(fields, report);
+}
+
+fn append_competitive_replacement_sufficiency_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CompetitiveReplacementSufficiencyGateReport,
+) {
+    push_field(
+        fields,
+        "competitive_replacement_sufficiency_gate_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "competitive_replacement_sufficiency_gate_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "competitive_replacement_sufficiency_gate_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "competitive_replacement_sufficiency_gate_support_status",
+        report.support_status,
+    );
+    push_field(
+        fields,
+        "competitive_replacement_sufficiency_gate_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_count_field(
+        fields,
+        "competitive_replacement_sufficiency_gate_row_count",
+        report.rows.len(),
+    );
+    push_count_field(
+        fields,
+        "competitive_replacement_sufficiency_gate_blocking_row_count",
+        report.blocking_row_count(),
+    );
+    push_field(
+        fields,
+        "competitive_replacement_sufficiency_gate_row_ids",
+        &report.row_ids().join(","),
+    );
+    append_competitive_replacement_sufficiency_gate_claim_fields(fields, report);
+}
+
+fn append_competitive_replacement_sufficiency_gate_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CompetitiveReplacementSufficiencyGateReport,
+) {
+    for (field, value) in [
+        (
+            "competitive_replacement_sufficiency_gate_correctness_sufficient",
+            report.correctness_sufficient,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_benchmark_sufficient",
+            report.benchmark_sufficient,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_native_io_sufficient",
+            report.native_io_sufficient,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_execution_certificate_sufficient",
+            report.execution_certificate_sufficient,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_capability_coverage_sufficient",
+            report.capability_coverage_sufficient,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_no_fallback_sufficient",
+            report.no_fallback_sufficient,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_release_evidence_sufficient",
+            report.release_evidence_sufficient,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_all_claims_blocked",
+            report.all_claims_blocked(),
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_side_effect_free",
+            report.side_effect_free(),
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_public_engine_replacement_claim_allowed",
+            report.public_engine_replacement_claim_allowed,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_spark_displacement_claim_allowed",
+            report.spark_displacement_claim_allowed,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_superiority_claim_allowed",
+            report.superiority_claim_allowed,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_production_platform_claim_allowed",
+            report.production_platform_claim_allowed,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_fallback_attempted",
+            report.fallback_attempted,
+        ),
+        (
+            "competitive_replacement_sufficiency_gate_external_engine_invoked",
+            report.external_engine_invoked,
+        ),
+    ] {
+        push_bool_field(fields, field, value);
+    }
+}
+
+fn append_competitive_replacement_sufficiency_gate_row_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &CompetitiveReplacementSufficiencyGateReport,
+) {
+    for row in &report.rows {
+        let prefix = format!(
+            "competitive_replacement_sufficiency_gate_row_{}",
+            row.evidence_id
+        );
+        append_competitive_replacement_sufficiency_gate_row(fields, &prefix, row);
+    }
+}
+
+fn append_competitive_replacement_sufficiency_gate_row(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &CompetitiveReplacementSufficiencyGateRow,
+) {
+    push_field(fields, &format!("{prefix}_family"), row.evidence_family);
+    push_field(fields, &format!("{prefix}_status"), row.status);
+    push_field(
+        fields,
+        &format!("{prefix}_required_evidence"),
+        row.required_evidence,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_current_evidence_ref"),
+        row.current_evidence_ref,
+    );
+    push_field(fields, &format!("{prefix}_blocker"), row.blocker);
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        row.claim_gate_status,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_public_claim_allowed"),
+        row.public_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_attempted"),
+        row.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_engine_invoked"),
+        row.external_engine_invoked,
     );
 }
 

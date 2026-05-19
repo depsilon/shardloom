@@ -615,8 +615,16 @@ plan before coding.
 - [x] Competitive-gate language, no-fallback requirements, and claim publication blockers are
   represented.
 - [x] Claim publication is tied to workload-specific evidence rather than broad marketing language.
-- [ ] Full competitive replacement remains incomplete until correctness, benchmark, Native I/O,
-  certificate, capability, and no-fallback evidence is broad enough.
+- [x] `GAR-0025-A` adds `shardloom.competitive_replacement_sufficiency_gate.v1`; `release-plan`
+  exposes fail-closed rows for `correctness_evidence`, `benchmark_evidence`, `native_io_evidence`,
+  `execution_certificate_evidence`, `capability_coverage_evidence`, `no_fallback_policy_evidence`,
+  and `release_publication_evidence` with `claim_gate_status=not_claim_grade`,
+  `competitive_replacement_sufficiency_gate_all_claims_blocked=true`,
+  `public_engine_replacement_claim_allowed=false`, `spark_displacement_claim_allowed=false`,
+  `superiority_claim_allowed=false`, `production_platform_claim_allowed=false`,
+  `fallback_attempted=false`, and `external_engine_invoked=false`.
+- [ ] Full competitive replacement remains incomplete until every sufficiency row has
+  workload-scoped evidence broad enough for the exact public claim.
 
 ### RFC 0026 - Encoded-Native Reads, Query Primitives, and Compressed Execution
 

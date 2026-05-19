@@ -264,7 +264,8 @@ pub use output::{
 };
 
 pub use release::{
-    ApiStabilityTier, ChecklistStatus, CondaBuildInstallCertificationReport,
+    ApiStabilityTier, ChecklistStatus, CompetitiveReplacementSufficiencyGateReport,
+    CompetitiveReplacementSufficiencyGateRow, CondaBuildInstallCertificationReport,
     CondaPackageBuildInstallEntry, CondaPackageKind, DependencyLicenseClass, DependencyReview,
     DependencyReviewStatus, EngineReplacementClaimInventoryReport,
     EngineReplacementClaimInventoryRow, MachineReadableSchemaKind, NoFallbackReleaseCheck,
@@ -277,7 +278,8 @@ pub use release::{
     ReleaseReadinessEvidenceReport, ReleaseReadinessStatus, ReleaseReport, SchemaCompatibilityPlan,
     SchemaStability, WorkspaceFeatureBuildMatrixFeatureSet, WorkspaceFeatureBuildMatrixReport,
     WorkspaceFeatureBuildMatrixRow, WorkspaceFeatureBuildMatrixRowStatus,
-    plan_engine_replacement_claim_inventory, plan_workspace_feature_build_matrix,
+    plan_competitive_replacement_sufficiency_gate, plan_engine_replacement_claim_inventory,
+    plan_workspace_feature_build_matrix,
 };
 pub use remote_api::{
     RestApiAuditPolicyContract, RestApiAuthPostureContract, RestApiContractReport,
