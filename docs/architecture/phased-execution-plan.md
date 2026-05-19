@@ -111,6 +111,7 @@ Reference index:
   `docs/architecture/adoption-commercial-readiness-friction-reduction.md`,
   `docs/architecture/workspace-feature-build-matrix.md`,
   `docs/architecture/engine-replacement-claim-inventory.md`,
+  `docs/architecture/spark-displacement-benchmark-evidence-matrix.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
   `docs/architecture/credential-policy-enforcement-gate.md`,
@@ -228,20 +229,6 @@ Current non-runtime sequence:
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0009-A Spark-displacement benchmark evidence matrix
-  - Source: RFC 0009; benchmark competitive claim evidence; benchmark-suite catalog.
-  - Current state: local benchmark evidence exists; broad Spark-displacement evidence and public
-    performance claims are gated.
-  - Next slice outcome: evidence matrix tying workloads, baselines/oracles, correctness, timing,
-    environment, mode, and claim status.
-  - User-visible surface: benchmark report, docs, release claim gate.
-  - Implementation scope: benchmark metadata/report, docs, contract tests.
-  - Evidence required: correctness refs, benchmark refs, policy/no-fallback refs, environment refs.
-  - Acceptance: every claim row says claim-grade or not-claim-grade and explains why.
-  - Verification: benchmark contract tests, release readiness metadata tests.
-  - Non-goals: no public performance claim.
-  - Fallback/claim boundary: external engines are comparison baselines/oracles only.
-  - Dependencies/blockers: reproducible benchmark reruns and release gate.
 - [ ] GAR-0015-A fuzz/property and semantic differential expansion
   - Source: RFC 0015; correctness differential harness; correctness fixture manifest.
   - Current state: selected correctness fixtures exist; fuzz/property expansion is not broad.

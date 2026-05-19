@@ -239,6 +239,13 @@ plan before coding.
   `shardloom-cli/tests/traditional_benchmark_harness.rs`
 - [x] Benchmark scenario catalog, methodology reports, and harness snapshots exist.
 - [x] External engines are labeled as comparison-only baselines, not execution fallback.
+- [x] `GAR-0009-A` adds `shardloom.spark_displacement_benchmark_evidence_matrix.v1`, a
+  report-only matrix tying compatibility-import, prepared/native, messy-data ETL, scale/table
+  boundary, and public-claim attachment rows to workload refs, baseline/oracle lanes, correctness
+  refs, timing refs, environment refs, execution-mode refs, missing evidence, and claim status.
+  Every row remains `claim_gate_status=not_claim_grade`; external engines are
+  baseline/oracle-only; no benchmark rerun, public performance claim, Spark-displacement claim,
+  external engine invocation, or fallback execution is authorized.
 - [ ] Broad claim-grade Spark-displacement evidence and public performance claims remain gated.
 
 ### RFC 0010 - Developer Experience, API Ergonomics, and Agent Usability
