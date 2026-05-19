@@ -638,7 +638,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "fixture_smoke_supported",
         required_evidence=(
             "sql_local_source_smoke",
-            "local_jsonl_output",
+            "local_jsonl_or_csv_output",
             "output_native_io_certificate",
         ),
         runtime_execution=True,
@@ -648,8 +648,46 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Scoped local CSV and flat JSONL/NDJSON projection/optional-filter/limit, "
             "scalar aggregate, one-column group-by aggregate, and single-key "
-            "top-N JSONL output smoke only; no broad DataFrame runtime, object-store/table "
+            "top-N JSONL/CSV output smoke only; no broad DataFrame runtime, object-store/table "
             "sink, external engine, fallback, or production claim."
+        ),
+    ),
+    _df_method(
+        "write_jsonl",
+        "write",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "local_jsonl_output",
+            "output_native_io_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Alias over scoped local JSONL output smokes for admitted local CSV and flat "
+            "JSONL/NDJSON workflows; no broad DataFrame runtime, object-store/table sink, "
+            "external engine, fallback, or production claim."
+        ),
+    ),
+    _df_method(
+        "write_csv",
+        "write",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "local_csv_output",
+            "output_native_io_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Alias over scoped local CSV output smokes for admitted local CSV and flat "
+            "JSONL/NDJSON workflows; no broad DataFrame runtime, object-store/table sink, "
+            "external engine, fallback, or production claim."
         ),
     ),
     _df_method(

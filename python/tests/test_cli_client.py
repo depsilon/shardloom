@@ -1978,6 +1978,32 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(dataframe_methods.row("head").runtime_execution)
         self.assertTrue(dataframe_methods.row("take").data_read)
         self.assertEqual(
+            dataframe_methods.row("write").required_evidence,
+            (
+                "sql_local_source_smoke",
+                "local_jsonl_or_csv_output",
+                "output_native_io_certificate",
+            ),
+        )
+        self.assertEqual(
+            dataframe_methods.row("write_jsonl").required_evidence,
+            (
+                "sql_local_source_smoke",
+                "local_jsonl_output",
+                "output_native_io_certificate",
+            ),
+        )
+        self.assertEqual(
+            dataframe_methods.row("write_csv").required_evidence,
+            (
+                "sql_local_source_smoke",
+                "local_csv_output",
+                "output_native_io_certificate",
+            ),
+        )
+        self.assertTrue(dataframe_methods.row("write_csv").runtime_execution)
+        self.assertTrue(dataframe_methods.row("write_jsonl").write_io)
+        self.assertEqual(
             dataframe_methods.row("join").blocker_id,
             "cg21.workflow.join.operator_unsupported",
         )
