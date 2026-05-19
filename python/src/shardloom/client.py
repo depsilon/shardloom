@@ -328,6 +328,19 @@ class SqlLocalSourceSmokeReport:
         return _required_field(self.envelope, "result_jsonl")
 
     @property
+    def result_rows(self) -> tuple[Mapping[str, Any], ...]:
+        """Return bounded inline JSONL rows as Python mappings."""
+
+        return _jsonl_object_rows(self.result_jsonl, field_name="result_jsonl")
+
+    @property
+    def first_result_row(self) -> Mapping[str, Any] | None:
+        """Return the first bounded result row, if one was emitted."""
+
+        rows = self.result_rows
+        return rows[0] if rows else None
+
+    @property
     def output_path(self) -> str | None:
         """Return the local output path when the smoke wrote one."""
 
@@ -5281,6 +5294,26 @@ def _required_field(envelope: OutputEnvelope, key: str) -> str:
             f"ShardLoom command {envelope.command!r} did not emit required field {key!r}"
         )
     return value
+
+
+def _jsonl_object_rows(value: str, *, field_name: str) -> tuple[Mapping[str, Any], ...]:
+    rows: list[Mapping[str, Any]] = []
+    for line_number, line in enumerate(value.splitlines(), start=1):
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ShardLoomProtocolError(
+                f"ShardLoom field {field_name} contains invalid JSONL at line {line_number}"
+            ) from exc
+        if not isinstance(payload, Mapping):
+            raise ShardLoomProtocolError(
+                f"ShardLoom field {field_name} line {line_number} is not a JSON object"
+            )
+        rows.append(dict(payload))
+    return tuple(rows)
 
 
 def _csv_values(value: str | None) -> tuple[str, ...]:

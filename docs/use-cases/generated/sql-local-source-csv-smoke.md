@@ -30,7 +30,7 @@ Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV i
 
 ## Internal Flow
 
-`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, optional_local_jsonl_output, optional_local_csv_output, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, sql_local_source_evidence, evidence_summary, claim_summary -> evidence -> claim gate`
+`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, optional_local_jsonl_output, optional_local_csv_output, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, sql_local_source_evidence, evidence_summary, claim_summary -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -77,7 +77,7 @@ Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV i
 
 ## Expected Output Or Evidence
 
-A JSON envelope and typed Python report with inline JSONL result, optional local JSONL or CSV output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, in_predicate_runtime_execution and in_list_value_count when requested, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL or CSV output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, in_predicate_runtime_execution and in_list_value_count when requested, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

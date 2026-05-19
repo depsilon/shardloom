@@ -117,7 +117,7 @@ id,label,amount
 "@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv
 cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT id,label FROM 'target/sql-local-source-smoke.csv' WHERE amount >= 10 LIMIT 1" --format json
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; r=context(repo_root='.').sql(\"SELECT id,label FROM 'target/sql-local-source-smoke.csv' WHERE amount >= 10 LIMIT 1\").collect(); print(r.result_jsonl, r.fallback_attempted, r.external_engine_invoked)"
+python -c "from shardloom import context; r=context(repo_root='.').sql(\"SELECT id,label FROM 'target/sql-local-source-smoke.csv' WHERE amount >= 10 LIMIT 1\").collect(); print(r.result_rows, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 Use this for the scoped GAR-RUNTIME-IMPL-1B path that parses, binds, plans, and executes one local
@@ -316,27 +316,27 @@ joined = (
     .collect()
 )
 
-print(collected.result_jsonl)
-print(predicate_builder.result_jsonl)
-print(literal_column.result_jsonl)
-print(head.result_jsonl)
-print(take.result_jsonl)
+print(collected.result_rows)
+print(predicate_builder.result_rows)
+print(literal_column.result_rows)
+print(head.result_rows)
+print(take.result_rows)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
 print(written.evidence_summary.output_native_io_certificate_status)
 print(written.claim_summary.claim_gate_status)
-print(aggregate.result_jsonl)
+print(aggregate.first_result_row)
 print(aggregate.aggregate_operator_family)
 print(aggregate.aggregate_functions)
-print(row_count.result_jsonl)
+print(row_count.first_result_row)
 print(row_count.aggregate_functions)
-print(grouped.result_jsonl)
+print(grouped.result_rows)
 print(grouped.aggregate_operator_family)
 print(grouped.group_by_columns)
-print(topn.result_jsonl)
+print(topn.result_rows)
 print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
-print(joined.result_jsonl)
+print(joined.result_rows)
 print(joined.join_runtime_execution, joined.join_type)
 print(joined.evidence_summary.command)
 print(joined.claim_summary.public_performance_claim_allowed)
@@ -358,8 +358,9 @@ bounded `IN`, cast/date, and logical predicates; it lowers into ShardLoom's exis
 runtime rather than a Python engine. It is not a pandas/Polars backend, broad DataFrame runtime,
 non-literal `with_column`, generalized grouped aggregate,
 ordering, or join runtime, object-store/table path, production SQL support, or performance claim.
-Runtime reports also expose `evidence_summary` and `claim_summary` helpers so users can inspect the
-output sink, no-fallback fields, external-engine boundary, and claim gate without scraping raw JSON.
+Runtime reports also expose `result_rows` / `first_result_row` plus `evidence_summary` and
+`claim_summary` helpers so users can inspect bounded rows, the output sink, no-fallback fields,
+external-engine boundary, and claim gate without parsing raw JSONL or scraping raw JSON.
 
 ## Foundry Lightweight Transform
 

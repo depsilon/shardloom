@@ -1378,7 +1378,9 @@ runnable, documented, tested, and claim-safe.
     benchmark claim-boundary docs.
   - Current state: runtime reports expose rich evidence fields, and Python typed reports now expose
     compact `evidence_summary`/`claim_summary` helpers for scoped SQL/generated-source surfaces.
-    Remaining result families still need the same ergonomic coverage and examples.
+    Scoped SQL local-source reports also expose `result_rows` and `first_result_row` helpers so
+    users do not need to parse bounded inline JSONL manually. Remaining result families still need
+    the same ergonomic coverage and examples.
   - Next slice outcome: make every Python runtime result expose simple row/output access plus a
     compact evidence summary and stable full evidence object.
   - Runtime enablement: user-facing evidence ergonomics for every admitted runtime workflow.

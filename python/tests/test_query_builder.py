@@ -288,6 +288,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         self.assertEqual(report.envelope.command, "sql-local-source-smoke")
         self.assertEqual(report.result_jsonl, '{"id":2,"label":"beta"}\n')
+        self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
+        self.assertEqual(report.first_result_row, {"id": 2, "label": "beta"})
         self.assertEqual(report.output_row_count, 1)
         self.assertEqual(report.selected_row_count, 2)
         self.assertFalse(report.output_io_performed)
@@ -927,6 +929,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         self.assertEqual(report.envelope.command, "sql-local-source-smoke")
         self.assertEqual(report.result_jsonl, '{"count_all":2}\n')
+        self.assertEqual(report.first_result_row, {"count_all": 2})
         self.assertTrue(report.aggregate_runtime_execution)
         self.assertEqual(report.aggregate_operator_family, "scalar_aggregate")
         self.assertEqual(report.aggregate_functions, ("count(*)",))
