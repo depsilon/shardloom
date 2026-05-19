@@ -331,8 +331,8 @@ same typed CLI bridge. A workflow shaped as
 `read_csv(...).select(...).filter(...).limit(...)` lowers to ShardLoom's
 `sql-local-source-smoke` path, runs ShardLoom-owned projection/filter/limit
 semantics, and returns a typed evidence report. Filters admit scoped comparison, cast,
-date-literal, string `LIKE`, null, and logical `AND`/`OR`/`NOT` predicates over already admitted
-leaves. The same bridge admits scoped
+date-literal, string `LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over
+already admitted leaves. The same bridge admits scoped
 scalar aggregates shaped as
 `read_csv(...).filter(...).aggregate(...).limit(1)` for `COUNT`, `SUM`, `AVG`,
 `MIN`, and `MAX`, and one-column grouped aggregates shaped as
@@ -358,7 +358,7 @@ ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
 workflow = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
-    .filter("amount >= 10 AND label LIKE '%ta'")
+    .filter("amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%')")
     .limit(1)
 )
 
@@ -453,10 +453,10 @@ print(join.join_matched_row_count, join.join_rows_output)
 ```
 
 That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
-generality, grouped aliases, multi-key sorts, null ordering, collation parity, parentheses,
-arbitrary predicate-tree completeness, Python/DataFrame joins, outer/semi/anti/cross joins,
-multi-key or expression joins, broad SQL/DataFrame planning, and production query support remain blocked
-until later runtime slices.
+generality, grouped aliases, multi-key sorts, null ordering, collation parity, arbitrary
+predicate-tree completeness beyond the admitted parenthesized leaves, Python/DataFrame joins,
+outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and
+production query support remain blocked until later runtime slices.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A
 future Python `explain()` trace should expose optimizer rule status, before/after plan digests,

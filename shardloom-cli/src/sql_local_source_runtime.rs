@@ -3040,6 +3040,7 @@ fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
 }
 
 fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
+    let raw = trim_enclosing_predicate_parentheses(raw)?;
     if let Some(predicate) = parse_logical_predicate(raw)? {
         return Ok(predicate);
     }
@@ -3100,17 +3101,17 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             }
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, or admitted predicates joined by AND/OR",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
 
 fn parse_logical_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
-    if let Some(or_index) = find_keyword_outside_quotes(raw, "or") {
+    if let Some(or_index) = find_keyword_outside_quotes_and_parentheses(raw, "or")? {
         return parse_logical_binary_predicate(raw, or_index, "or", LogicalPredicateOp::Or)
             .map(Some);
     }
-    let Some(and_index) = find_keyword_outside_quotes(raw, "and") else {
+    let Some(and_index) = find_keyword_outside_quotes_and_parentheses(raw, "and")? else {
         let trimmed = raw.trim_start();
         if trimmed
             .get(..3)
@@ -3130,6 +3131,30 @@ fn parse_logical_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
         return Ok(None);
     };
     parse_logical_binary_predicate(raw, and_index, "and", LogicalPredicateOp::And).map(Some)
+}
+
+fn trim_enclosing_predicate_parentheses(mut raw: &str) -> Result<&str, ShardLoomError> {
+    raw = raw.trim();
+    loop {
+        validate_balanced_predicate_parentheses(raw)?;
+        if !raw.starts_with('(') {
+            return Ok(raw);
+        }
+        let Some(close_index) = matching_closing_parenthesis(raw, 0)? else {
+            return Err(unsupported_sql_error(
+                "WHERE predicate grouping parentheses must be balanced",
+            ));
+        };
+        if close_index != raw.len() - 1 {
+            return Ok(raw);
+        }
+        raw = raw[1..close_index].trim();
+        if raw.is_empty() {
+            return Err(unsupported_sql_error(
+                "WHERE predicate grouping parentheses must contain a predicate",
+            ));
+        }
+    }
 }
 
 fn parse_logical_binary_predicate(
@@ -3478,6 +3503,60 @@ fn find_keyword_outside_quotes(raw: &str, keyword: &str) -> Option<usize> {
     None
 }
 
+fn find_keyword_outside_quotes_and_parentheses(
+    raw: &str,
+    keyword: &str,
+) -> Result<Option<usize>, ShardLoomError> {
+    let lower_keyword = keyword.to_ascii_lowercase();
+    let mut chars = raw.char_indices().peekable();
+    let mut in_quote = false;
+    let mut depth = 0_u32;
+    while let Some((index, ch)) = chars.next() {
+        if ch == '\'' {
+            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                let _ = chars.next();
+            } else {
+                in_quote = !in_quote;
+            }
+            continue;
+        }
+        if in_quote {
+            continue;
+        }
+        match ch {
+            '(' => {
+                depth += 1;
+                continue;
+            }
+            ')' => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("WHERE predicate grouping parentheses must be balanced")
+                })?;
+                continue;
+            }
+            _ => {}
+        }
+        if depth == 0 {
+            let remaining = &raw[index..];
+            if remaining.len() >= lower_keyword.len()
+                && remaining[..lower_keyword.len()].eq_ignore_ascii_case(&lower_keyword)
+                && keyword_boundary(raw, index, lower_keyword.len())
+            {
+                return Ok(Some(index));
+            }
+        }
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    if depth != 0 {
+        return Err(unsupported_sql_error(
+            "WHERE predicate grouping parentheses must be balanced",
+        ));
+    }
+    Ok(None)
+}
+
 fn contains_keyword_outside_quotes(raw: &str, keyword: &str) -> bool {
     find_keyword_outside_quotes(raw, keyword).is_some()
 }
@@ -3486,6 +3565,56 @@ fn keyword_boundary(raw: &str, index: usize, len: usize) -> bool {
     let before = raw[..index].chars().next_back();
     let after = raw[index + len..].chars().next();
     !before.is_some_and(is_identifier_char) && !after.is_some_and(is_identifier_char)
+}
+
+fn validate_balanced_predicate_parentheses(raw: &str) -> Result<(), ShardLoomError> {
+    let _ = find_keyword_outside_quotes_and_parentheses(raw, "__shardloom_never_matches__")?;
+    Ok(())
+}
+
+fn matching_closing_parenthesis(
+    raw: &str,
+    open_index: usize,
+) -> Result<Option<usize>, ShardLoomError> {
+    let mut chars = raw.char_indices().peekable();
+    let mut in_quote = false;
+    let mut depth = 0_u32;
+    let mut seen_open = false;
+    while let Some((index, ch)) = chars.next() {
+        if index < open_index {
+            continue;
+        }
+        if ch == '\'' {
+            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                let _ = chars.next();
+            } else {
+                in_quote = !in_quote;
+            }
+            continue;
+        }
+        if in_quote {
+            continue;
+        }
+        match ch {
+            '(' => {
+                depth += 1;
+                seen_open = true;
+            }
+            ')' => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("WHERE predicate grouping parentheses must be balanced")
+                })?;
+                if seen_open && depth == 0 {
+                    return Ok(Some(index));
+                }
+            }
+            _ => {}
+        }
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    Ok(None)
 }
 
 fn validate_sql_identifier(value: &str) -> Result<(), ShardLoomError> {
@@ -3842,6 +3971,73 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn parses_parenthesized_scoped_logical_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%') LIMIT 5",
+        )
+        .expect("parenthesized logical statement parses");
+
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
+        assert!(parsed.predicate.uses_logical_predicate());
+        assert_eq!(parsed.predicate.logical_operator(), "and");
+        assert_eq!(parsed.predicate.logical_leaf_count(), 3);
+        assert_eq!(parsed.predicate.string_operator(), "ends_with,starts_with");
+        assert_eq!(parsed.predicate.columns(), vec!["amount", "label", "label"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::Logical {
+                op: LogicalPredicateOp::And,
+                right,
+                ..
+            } if matches!(
+                *right,
+                ParsedPredicate::Logical {
+                    op: LogicalPredicateOp::Or,
+                    ..
+                }
+            )
+        ));
+    }
+
+    #[test]
+    fn parenthesized_logical_predicates_override_default_precedence_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE (id >= 1 OR amount >= 10) AND label LIKE '%ta' LIMIT 5",
+        )
+        .expect("parenthesized logical statement parses");
+
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
+        assert_eq!(parsed.predicate.logical_operator(), "and");
+        assert_eq!(parsed.predicate.logical_leaf_count(), 3);
+        assert_eq!(parsed.predicate.columns(), vec!["id", "amount", "label"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::Logical {
+                op: LogicalPredicateOp::And,
+                left,
+                ..
+            } if matches!(
+                *left,
+                ParsedPredicate::Logical {
+                    op: LogicalPredicateOp::Or,
+                    ..
+                }
+            )
+        ));
+    }
+
+    #[test]
+    fn parser_blocks_unbalanced_predicate_parentheses_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.csv' WHERE (id >= 1 OR amount >= 10 LIMIT 5",
+        )
+        .expect_err("unbalanced predicate parentheses remain blocked");
+
+        assert!(error.to_string().contains("parentheses must be balanced"));
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]

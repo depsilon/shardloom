@@ -545,6 +545,51 @@ fn sql_local_source_smoke_executes_logical_or_predicates_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_parenthesized_logical_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-logical-parentheses", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,5\n5,zeta,10\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%') LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("logical_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("logical_predicate_operator", "and")));
+    assert!(stdout.contains(&field("logical_predicate_leaf_count", "3")));
+    assert!(stdout.contains(&field("string_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("string_predicate_operator", "ends_with,starts_with")));
+    assert!(stdout.contains(&field("selected_row_count", "3")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\"}\\n{\\\"id\\\":5,\\\"label\\\":\\\"zeta\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_date_literal_filters_without_fallback() {
     let source_path = unique_path("sql-local-source-date-literal", "csv");
     fs::write(
