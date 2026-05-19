@@ -188,8 +188,9 @@ pub use expression::{
     FunctionCategory, FunctionSignature, KernelCapability, KernelDescriptor, KernelEvalMode,
     KernelId, KernelKind, KernelRegistrySnapshot, KernelSelectionRequest, KernelSelectionResult,
     KernelSelectionStatus, LimitEvaluationReport, NullBehavior, ProjectedExpressionValue,
-    ProjectionEvaluationReport, ScalarValue, UnaryOp, evaluate_expression, evaluate_filter,
-    evaluate_limit, evaluate_projection,
+    ProjectionEvaluationReport, ScalarValue, UnaryOp, date32_day, date32_month, date32_year,
+    evaluate_expression, evaluate_filter, evaluate_limit, evaluate_projection, format_iso_date32,
+    parse_iso_date32,
 };
 
 pub use input::{

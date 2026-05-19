@@ -1,7 +1,8 @@
 use shardloom_core::{
     BinaryOp, ColumnRef, ComparisonOp, ExprId, Expression, ExpressionEvaluationStatus,
     ExpressionInputRow, ExpressionKind, LogicalDType, NullBehavior, ScalarValue, UnaryOp,
-    evaluate_expression, evaluate_filter, evaluate_limit, evaluate_projection,
+    date32_day, date32_month, date32_year, evaluate_expression, evaluate_filter, evaluate_limit,
+    evaluate_projection, format_iso_date32, parse_iso_date32,
 };
 
 fn expr_id(value: &str) -> ExprId {
@@ -194,6 +195,130 @@ fn expression_semantics_string_predicates_propagate_nulls_and_block_non_utf8() {
             .diagnostics
             .iter()
             .any(|d| d.feature.as_deref() == Some("string_predicate"))
+    );
+}
+
+#[test]
+fn expression_semantics_parses_formats_and_extracts_date32_without_fallback() {
+    assert_eq!(parse_iso_date32("1970-01-01").expect("epoch date"), 0);
+    assert_eq!(parse_iso_date32("1970-01-02").expect("next date"), 1);
+    assert_eq!(parse_iso_date32("1969-12-31").expect("previous date"), -1);
+    assert!(parse_iso_date32("2023-02-29").is_err());
+
+    let value = parse_iso_date32("2026-05-19").expect("valid date");
+    assert_eq!(format_iso_date32(value), "2026-05-19");
+    assert_eq!(date32_year(value), 2026);
+    assert_eq!(date32_month(value), 5);
+    assert_eq!(date32_day(value), 19);
+
+    let row = row(&[("event_date", ScalarValue::Date32(value))]);
+    for (name, expected) in [
+        ("date_year", 2026_i64),
+        ("date_month", 5_i64),
+        ("date_day", 19_i64),
+    ] {
+        let expression = Expression::new(
+            expr_id(&format!("{name}-expr")),
+            ExpressionKind::FunctionCall {
+                name: name.to_string(),
+                args: vec![Expression::column(
+                    expr_id(&format!("{name}-column")),
+                    col("event_date"),
+                )],
+            },
+        );
+        let report = evaluate_expression(&expression, &row);
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.value, Some(ScalarValue::Int64(expected)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(report.operator_family, "date_extract");
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(report.data_materialized);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+}
+
+#[test]
+fn expression_semantics_casts_iso_utf8_and_date32_without_fallback() {
+    let value = parse_iso_date32("2026-05-19").expect("valid date");
+    let utf8_to_date = Expression::cast(
+        expr_id("utf8-to-date32"),
+        Expression::literal(
+            expr_id("date-text"),
+            ScalarValue::Utf8("2026-05-19".to_string()),
+        ),
+        LogicalDType::Date32,
+    );
+    let date_report = evaluate_expression(&utf8_to_date, &ExpressionInputRow::new());
+
+    assert_eq!(date_report.status, ExpressionEvaluationStatus::Evaluated);
+    assert_eq!(date_report.value, Some(ScalarValue::Date32(value)));
+    assert_eq!(date_report.output_dtype, Some(LogicalDType::Date32));
+    assert_eq!(date_report.operator_family, "cast");
+    assert!(!date_report.fallback_attempted);
+    assert!(!date_report.external_engine_invoked);
+
+    let date_to_utf8 = Expression::cast(
+        expr_id("date32-to-utf8"),
+        Expression::literal(expr_id("date32"), ScalarValue::Date32(value)),
+        LogicalDType::Utf8,
+    );
+    let utf8_report = evaluate_expression(&date_to_utf8, &ExpressionInputRow::new());
+
+    assert_eq!(utf8_report.status, ExpressionEvaluationStatus::Evaluated);
+    assert_eq!(
+        utf8_report.value,
+        Some(ScalarValue::Utf8("2026-05-19".to_string()))
+    );
+    assert_eq!(utf8_report.output_dtype, Some(LogicalDType::Utf8));
+    assert_eq!(utf8_report.operator_family, "cast");
+    assert!(!utf8_report.fallback_attempted);
+    assert!(!utf8_report.external_engine_invoked);
+}
+
+#[test]
+fn expression_semantics_date_extract_nulls_and_blockers_are_deterministic() {
+    let expression = Expression::new(
+        expr_id("date-year-null"),
+        ExpressionKind::FunctionCall {
+            name: "date_year".to_string(),
+            args: vec![Expression::column(expr_id("event-date"), col("event_date"))],
+        },
+    );
+    let null_report = evaluate_expression(&expression, &row(&[("event_date", ScalarValue::Null)]));
+
+    assert_eq!(null_report.status, ExpressionEvaluationStatus::Evaluated);
+    assert_eq!(null_report.value, Some(ScalarValue::Null));
+    assert_eq!(null_report.output_dtype, Some(LogicalDType::Int64));
+    assert_eq!(null_report.operator_family, "date_extract");
+    assert!(!null_report.fallback_attempted);
+    assert!(!null_report.external_engine_invoked);
+
+    let invalid_report = evaluate_expression(
+        &expression,
+        &row(&[("event_date", ScalarValue::Utf8("2026-05-19".to_string()))]),
+    );
+
+    assert_eq!(
+        invalid_report.status,
+        ExpressionEvaluationStatus::Unsupported
+    );
+    assert!(invalid_report.has_errors());
+    assert!(!invalid_report.fallback_attempted);
+    assert!(!invalid_report.external_engine_invoked);
+    assert!(
+        invalid_report
+            .diagnostics
+            .iter()
+            .all(|d| !d.fallback.attempted)
+    );
+    assert!(
+        invalid_report
+            .diagnostics
+            .iter()
+            .any(|d| d.feature.as_deref() == Some("date_extract"))
     );
 }
 

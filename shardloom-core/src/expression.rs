@@ -811,9 +811,52 @@ fn eval_function_call(
         "utf8_contains" | "contains" => {
             eval_string_predicate(name, args, row, |value, needle| value.contains(needle))
         }
+        "date_year" | "year" => eval_date_extract(name, args, row, date32_year),
+        "date_month" | "month" => eval_date_extract(name, args, row, |days| {
+            i32::try_from(date32_month(days)).expect("month fits i32")
+        }),
+        "date_day" | "day" => eval_date_extract(name, args, row, |days| {
+            i32::try_from(date32_day(days)).expect("day fits i32")
+        }),
         _ => Err(EvalFailure::unsupported(
             "function_call",
             format!("function {name:?} is not admitted by the current native semantics baseline"),
+        )),
+    }
+}
+
+fn eval_date_extract(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    extract: impl FnOnce(i32) -> i32,
+) -> EvalResult<EvalValue> {
+    if args.len() != 1 {
+        return Err(EvalFailure::invalid(
+            "date_extract",
+            format!("function {name:?} requires exactly one Date32 argument"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let data_materialized = value.data_materialized;
+    match value.value {
+        ScalarValue::Null => Ok(EvalValue::null(
+            LogicalDType::Int64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        ScalarValue::Date32(days) => Ok(EvalValue::new(
+            ScalarValue::Int64(i64::from(extract(days))),
+            LogicalDType::Int64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        other => Err(EvalFailure::unsupported(
+            "date_extract",
+            format!(
+                "function {name:?} supports Date32/null operands only, got {}",
+                other.dtype().as_str()
+            ),
         )),
     }
 }
@@ -1122,6 +1165,14 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
             ScalarValue::Utf8(value.to_string())
         }
         (ScalarValue::Boolean(value), LogicalDType::Utf8) => ScalarValue::Utf8(value.to_string()),
+        (ScalarValue::Date32(value), LogicalDType::Utf8) => {
+            ScalarValue::Utf8(format_iso_date32(*value))
+        }
+        (ScalarValue::Utf8(value), LogicalDType::Date32) => {
+            ScalarValue::Date32(parse_iso_date32(value).map_err(|_| {
+                EvalFailure::invalid("cast", "utf8 value cannot be parsed as ISO date32")
+            })?)
+        }
         (ScalarValue::Utf8(value), LogicalDType::Int64) => {
             ScalarValue::Int64(value.parse::<i64>().map_err(|_| {
                 EvalFailure::invalid("cast", "utf8 value cannot be parsed as int64")
@@ -1194,8 +1245,130 @@ fn expression_operator_family(expression: &Expression) -> &'static str {
 fn function_operator_family(name: &str) -> &'static str {
     match name.trim().to_ascii_lowercase().as_str() {
         "utf8_starts_with" | "starts_with" | "utf8_contains" | "contains" => "string_predicate",
+        "date_year" | "year" | "date_month" | "month" | "date_day" | "day" => "date_extract",
         _ => "function",
     }
+}
+
+/// Parses an ISO `YYYY-MM-DD` date into Arrow-compatible Date32 days since 1970-01-01.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the input is not an admitted ISO date.
+pub fn parse_iso_date32(value: &str) -> Result<i32> {
+    let (year, month, day) = parse_iso_ymd(value)?;
+    Ok(days_from_civil(year, month, day))
+}
+
+/// Formats Arrow-compatible Date32 days since 1970-01-01 as ISO `YYYY-MM-DD`.
+#[must_use]
+pub fn format_iso_date32(days: i32) -> String {
+    let (year, month, day) = civil_from_days(days);
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
+/// Returns the UTC-calendar year component of an admitted Date32 value.
+#[must_use]
+pub fn date32_year(days: i32) -> i32 {
+    civil_from_days(days).0
+}
+
+/// Returns the UTC-calendar month component of an admitted Date32 value.
+#[must_use]
+pub fn date32_month(days: i32) -> u32 {
+    civil_from_days(days).1
+}
+
+/// Returns the UTC-calendar day-of-month component of an admitted Date32 value.
+#[must_use]
+pub fn date32_day(days: i32) -> u32 {
+    civil_from_days(days).2
+}
+
+fn parse_iso_ymd(value: &str) -> Result<(i32, u32, u32)> {
+    let text = value.trim();
+    let mut parts = text.split('-');
+    let (Some(year), Some(month), Some(day), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return Err(ShardLoomError::InvalidOperation(
+            "ISO date32 literals must use YYYY-MM-DD".to_string(),
+        ));
+    };
+    if year.len() != 4 || month.len() != 2 || day.len() != 2 {
+        return Err(ShardLoomError::InvalidOperation(
+            "ISO date32 literals must use zero-padded YYYY-MM-DD".to_string(),
+        ));
+    }
+    let year = year.parse::<i32>().map_err(|_| {
+        ShardLoomError::InvalidOperation("ISO date32 year must be numeric".to_string())
+    })?;
+    let month = month.parse::<u32>().map_err(|_| {
+        ShardLoomError::InvalidOperation("ISO date32 month must be numeric".to_string())
+    })?;
+    let day = day.parse::<u32>().map_err(|_| {
+        ShardLoomError::InvalidOperation("ISO date32 day must be numeric".to_string())
+    })?;
+    if !(1..=9999).contains(&year) {
+        return Err(ShardLoomError::InvalidOperation(
+            "ISO date32 year must be in 0001..=9999".to_string(),
+        ));
+    }
+    if !(1..=12).contains(&month) {
+        return Err(ShardLoomError::InvalidOperation(
+            "ISO date32 month must be in 01..=12".to_string(),
+        ));
+    }
+    let max_day = days_in_month(year, month);
+    if day == 0 || day > max_day {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "ISO date32 day must be in 01..={max_day:02} for the given month"
+        )));
+    }
+    Ok((year, month, day))
+}
+
+const fn days_in_month(year: i32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if is_leap_year(year) => 29,
+        2 => 28,
+        _ => 0,
+    }
+}
+
+const fn is_leap_year(year: i32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
+fn days_from_civil(year: i32, month: u32, day: u32) -> i32 {
+    let month = i32::try_from(month).expect("month fits i32");
+    let day = i32::try_from(day).expect("day fits i32");
+    let year = year - i32::from(month <= 2);
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let year_of_era = year - era * 400;
+    let day_of_year = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146_097 + day_of_era - 719_468
+}
+
+fn civil_from_days(days: i32) -> (i32, u32, u32) {
+    let days = days + 719_468;
+    let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
+    let day_of_era = days - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let mut year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    year += i32::from(month <= 2);
+    (
+        year,
+        u32::try_from(month).expect("month is positive"),
+        u32::try_from(day).expect("day is positive"),
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
