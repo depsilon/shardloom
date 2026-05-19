@@ -410,6 +410,48 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("top_n_limit", 0) or 0
 
     @property
+    def join_runtime_execution(self) -> bool:
+        """Whether this smoke executed the admitted inner equi-join path."""
+
+        return self.envelope.field_bool("join_runtime_execution", False) is True
+
+    @property
+    def join_type(self) -> str | None:
+        """Return the scoped join type emitted by the smoke."""
+
+        return self.envelope.field("join_type")
+
+    @property
+    def join_left_key(self) -> str | None:
+        """Return the left join key emitted by the smoke."""
+
+        return self.envelope.field("join_left_key")
+
+    @property
+    def join_right_key(self) -> str | None:
+        """Return the right join key emitted by the smoke."""
+
+        return self.envelope.field("join_right_key")
+
+    @property
+    def join_matched_row_count(self) -> int:
+        """Return the number of matched join rows before filtering."""
+
+        return self.envelope.field_int("join_matched_row_count", 0) or 0
+
+    @property
+    def join_rows_output(self) -> int:
+        """Return the number of output rows emitted by the join smoke."""
+
+        return self.envelope.field_int("join_rows_output", 0) or 0
+
+    @property
+    def join_memory_estimate_bytes(self) -> int:
+        """Return the scoped in-memory join estimate emitted by the smoke."""
+
+        return self.envelope.field_int("join_memory_estimate_bytes", 0) or 0
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether the smoke command attempted fallback execution."""
 

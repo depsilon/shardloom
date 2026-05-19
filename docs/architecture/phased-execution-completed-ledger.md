@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4C SQL local equi-join smoke and blocker matrix
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+  - Scope: promote one explicit local CSV inner equi-join fixture smoke through the SQL
+    local-source command, while keeping Python/DataFrame join builders and broader join families
+    blocked.
+  - Checklist:
+    - [x] Add parser/binder support for
+          `FROM '<left.csv>' AS f [INNER] JOIN '<right.csv>' AS d ON f.key = d.key` with qualified
+          projections and predicates.
+    - [x] Execute the scoped local CSV inner equi-join through ShardLoom-owned code without
+          DataFusion, DuckDB, Spark, Polars, pandas, SQLite, or another fallback engine.
+    - [x] Emit `join_runtime_execution`, `join_type`, left/right source refs, join keys,
+          scanned/matched/output row counts, `join_memory_estimate_bytes`, correctness digest,
+          materialization/decode status, no-fallback fields, and
+          `execution_certificate_ref=sql-local-source.csv.inner-equi-join-filter-limit.execution.v1`.
+    - [x] Add typed Python report accessors for direct `client.sql_local_source_smoke(...)` join
+          evidence without admitting Python/DataFrame join builders.
+    - [x] Preserve non-equi, outer, semi/anti, cross, multi-key, expression, missing-alias,
+          alias-mismatch, distributed, broadcast/shuffle, database/object-store/table, broad
+          SQL/DataFrame, production, and performance join claims as blocked.
+  - Evidence and verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - real local CLI smoke:
+      `sql-local-source-smoke "SELECT f.id,d.segment FROM 'target/sql-local-join-fact.csv' AS f INNER JOIN 'target/sql-local-join-dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10" --format json`
+    - pending before merge: generated website/use-case checks, release readiness metadata, compile,
+      clippy/workspace tests, and diff checks.
+  - Claim boundary:
+    - This admits one scoped local CSV inner equi-join fixture smoke only. It does not add
+      Python/DataFrame join support, multi-key/expression/outer/semi/anti/cross joins, broad SQL
+      planning, prepared/native join promotion, distributed/broadcast/shuffle joins,
+      database/object-store/table sources, production support, or performance claims.
+  - Fallback boundary:
+    - Execution is ShardLoom-owned. No pandas, Polars, DuckDB, DataFusion, Spark, SQLite, Vortex
+      query-engine integration, database engine, or other external engine is invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4B SQL order-by/top-N local runtime
   - Primary files:
     - `shardloom-cli/src/sql_local_source_runtime.rs`
