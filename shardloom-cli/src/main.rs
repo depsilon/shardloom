@@ -4034,10 +4034,12 @@ mod tests {
         let plan = shardloom_core::ReleasePlan::default_foundation_plan();
         let evidence = plan.release_readiness_evidence();
         let publication = plan.publication_boundary_report();
+        let publication_api_schema = plan.publication_api_schema_stability_gate();
         let fields = packaging_deployment::release_plan_fields(
             &plan,
             &evidence,
             &publication,
+            &publication_api_schema,
             "release_plan",
         );
 
@@ -4095,14 +4097,95 @@ mod tests {
     }
 
     #[test]
-    fn release_plan_fields_expose_engine_replacement_inventory() {
+    fn release_plan_fields_expose_publication_api_schema_gate_without_publish() {
         let plan = shardloom_core::ReleasePlan::default_foundation_plan();
         let evidence = plan.release_readiness_evidence();
         let publication = plan.publication_boundary_report();
+        let publication_api_schema = plan.publication_api_schema_stability_gate();
         let fields = packaging_deployment::release_plan_fields(
             &plan,
             &evidence,
             &publication,
+            &publication_api_schema,
+            "release_plan",
+        );
+
+        assert_eq!(
+            output_field(&fields, "publication_api_schema_gate_schema_version"),
+            "shardloom.publication_api_schema_stability_gate.v1"
+        );
+        assert_eq!(
+            output_field(&fields, "publication_api_schema_gate_status"),
+            "blocked"
+        );
+        assert_eq!(
+            output_field(&fields, "publication_api_schema_gate_claim_gate_status"),
+            "not_claim_grade"
+        );
+        assert_eq!(
+            output_field(&fields, "publication_api_schema_gate_blocking_row_count"),
+            "7"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "publication_api_schema_gate_api_schema_stability_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "publication_api_schema_gate_public_release_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "publication_api_schema_gate_package_publication_performed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "publication_api_schema_gate_signing_key_used"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&fields, "publication_api_schema_gate_fails_closed"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&fields, "publication_api_schema_gate_side_effect_free"),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "publication_api_schema_gate_row_api_compatibility_window_status"
+            ),
+            "blocked"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "publication_api_schema_gate_row_checksum_manifest_status"
+            ),
+            "dry_run_only"
+        );
+    }
+
+    #[test]
+    fn release_plan_fields_expose_engine_replacement_inventory() {
+        let plan = shardloom_core::ReleasePlan::default_foundation_plan();
+        let evidence = plan.release_readiness_evidence();
+        let publication = plan.publication_boundary_report();
+        let publication_api_schema = plan.publication_api_schema_stability_gate();
+        let fields = packaging_deployment::release_plan_fields(
+            &plan,
+            &evidence,
+            &publication,
+            &publication_api_schema,
             "release_plan",
         );
 
@@ -4166,10 +4249,12 @@ mod tests {
         let plan = shardloom_core::ReleasePlan::default_foundation_plan();
         let evidence = plan.release_readiness_evidence();
         let publication = plan.publication_boundary_report();
+        let publication_api_schema = plan.publication_api_schema_stability_gate();
         let fields = packaging_deployment::release_plan_fields(
             &plan,
             &evidence,
             &publication,
+            &publication_api_schema,
             "package_plan",
         );
 

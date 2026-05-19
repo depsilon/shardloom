@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0024-A publication and API/schema stability gate
+  - Branch/PR: `codex/gar-0024a-publication-api-schema-gate` / #764.
+  - Primary files:
+    - `shardloom-core/src/release.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/packaging_deployment.rs`
+    - `shardloom-cli/src/main.rs`
+    - `scripts/check_release_readiness.py`
+    - `docs/release/publication-api-schema-stability-gate.md`
+    - `docs/release/hard-release-readiness-gate.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0024-A by adding a fail-closed publication/API/schema stability gate that
+    exposes public API compatibility, schema compatibility, package identity, signing, checksum,
+    SBOM, and publication-approval blockers without publishing packages, creating tags, using
+    signing keys, adding secrets, executing runtime workloads, invoking external engines, or
+    allowing fallback execution.
+  - Checklist:
+    - [x] Add `shardloom.publication_api_schema_stability_gate.v1`.
+    - [x] Emit gate fields through `release-plan` and `package-plan`.
+    - [x] Add hard release-readiness script integration that blocks while the gate is blocked.
+    - [x] Add release docs for API/schema/package/signing/checksum/SBOM/publication rows.
+    - [x] Move GAR-0024-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `publication_api_schema_gate_schema_version=shardloom.publication_api_schema_stability_gate.v1`
+    - `publication_api_schema_gate_status=blocked`
+    - `claim_gate_status=not_claim_grade`
+    - `publication_api_schema_gate_blocking_row_count=7`
+    - `api_compatibility_window`
+    - `schema_compatibility_window`
+    - `package_identity_approval`
+    - `signing_policy_decision`
+    - `checksum_manifest`
+    - `sbom_bundle`
+    - `publication_approval`
+    - `api_schema_stability_claim_allowed=false`
+    - `public_release_claim_allowed=false`
+    - `public_package_claim_allowed=false`
+    - `package_publication_performed=false`
+    - `tag_created=false`
+    - `signing_key_used=false`
+    - `checksum_manifest_publication_grade=false`
+    - `sbom_publication_grade=false`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-core publication_api_schema_gate_fails_closed_without_publication_evidence --lib`
+    - `cargo test -p shardloom-cli release_plan_fields_expose_release_readiness_blockers_without_publish`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that public release/package, API/schema stability,
+    package identity, signing, checksum, SBOM, and publication-approval blockers are represented
+    and fail closed. It may not claim package publication, public API/schema stability, public
+    release readiness, production support, performance, Spark displacement, external engine
+    execution, or fallback execution.
+
 - [x] Session label: GAR-0015-A fuzz/property and semantic differential expansion
   - Branch/PR: `codex/gar-0015a-string-property-fuzz-correctness` / #763.
   - Primary files:

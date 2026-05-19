@@ -177,6 +177,40 @@ def main() -> int:
         )
     )
 
+    api_schema_gate_doc = repo_root / "docs/release/publication-api-schema-stability-gate.md"
+    api_schema_gate_blockers: list[str] = []
+    api_schema_gate_text = read_text(api_schema_gate_doc)
+    for required in [
+        "shardloom.publication_api_schema_stability_gate.v1",
+        "publication_api_schema_gate_status=blocked",
+        "claim_gate_status=not_claim_grade",
+        "api_compatibility_window",
+        "schema_compatibility_window",
+        "package_identity_approval",
+        "signing_policy_decision",
+        "checksum_manifest",
+        "sbom_bundle",
+        "publication_approval",
+        "public_release_claim_allowed=false",
+        "public_package_claim_allowed=false",
+        "package_publication_performed=false",
+        "tag_created=false",
+        "signing_key_used=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ]:
+        if required not in api_schema_gate_text:
+            api_schema_gate_blockers.append(f"missing publication/API/schema gate field: {required}")
+    if "publication_api_schema_gate_status=blocked" in api_schema_gate_text:
+        api_schema_gate_blockers.append("publication/API/schema stability gate remains blocked")
+    checks.append(
+        check(
+            "publication_api_schema_stability_gate",
+            "docs/release/publication-api-schema-stability-gate.md",
+            api_schema_gate_blockers,
+        )
+    )
+
     feature_matrix_doc = repo_root / "docs/architecture/workspace-feature-build-matrix.md"
     feature_blockers = []
     matrix_text = read_text(feature_matrix_doc)

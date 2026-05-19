@@ -32,6 +32,8 @@ The gate aggregates:
 - release security gate report
 - package metadata, license, repository, and homepage metadata
 - package-channel readiness matrix and channel-specific install/smoke/provenance/rollback proof
+- publication/API/schema stability gate for public compatibility windows, package identities,
+  signing policy, checksums, SBOM, and publication approval
 - feature/build matrix execution evidence
 - typed-envelope compatibility posture
 - required validation command evidence
@@ -108,6 +110,26 @@ until each channel has channel-specific install, uninstall, clean-install, smoke
 provenance, rollback/yank/delete/deprecate, and authorization evidence. PyPI and TestPyPI require
 Trusted Publisher/OIDC posture. Internal Rust crates remain unpublished; crates.io is limited to
 future stable public API crates.
+
+`GAR-0024-A` adds the publication/API/schema stability gate with schema
+`shardloom.publication_api_schema_stability_gate.v1`. The current gate intentionally reports:
+
+```text
+publication_api_schema_gate_status=blocked
+claim_gate_status=not_claim_grade
+public_release_claim_allowed=false
+public_package_claim_allowed=false
+package_publication_performed=false
+tag_created=false
+signing_key_used=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+The gate rows are `api_compatibility_window`, `schema_compatibility_window`,
+`package_identity_approval`, `signing_policy_decision`, `checksum_manifest`, `sbom_bundle`, and
+`publication_approval`. `scripts\check_release_readiness.py` must keep the hard release gate
+blocked while this gate reports `publication_api_schema_gate_status=blocked`.
 
 `GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. Portable release artifacts
 remain the normal `release` profile artifacts unless a separate release gate explicitly admits a

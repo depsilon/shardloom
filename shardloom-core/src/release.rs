@@ -662,6 +662,195 @@ impl ReleaseEvidenceRequirement {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
+pub struct ReleasePublicationApiSchemaGateRow {
+    pub gate_id: &'static str,
+    pub current_status: &'static str,
+    pub required_evidence: &'static str,
+    pub evidence_ref: &'static str,
+    pub blocker: &'static str,
+    pub required_before_publication: bool,
+    pub public_release_claim_allowed: bool,
+    pub public_package_claim_allowed: bool,
+    pub package_publication_performed: bool,
+    pub tag_created: bool,
+    pub signing_key_used: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl ReleasePublicationApiSchemaGateRow {
+    const fn blocked(
+        gate_id: &'static str,
+        current_status: &'static str,
+        required_evidence: &'static str,
+        evidence_ref: &'static str,
+        blocker: &'static str,
+    ) -> Self {
+        Self {
+            gate_id,
+            current_status,
+            required_evidence,
+            evidence_ref,
+            blocker,
+            required_before_publication: true,
+            public_release_claim_allowed: false,
+            public_package_claim_allowed: false,
+            package_publication_performed: false,
+            tag_created: false,
+            signing_key_used: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    pub fn is_blocking(&self) -> bool {
+        self.required_before_publication
+            && (self.current_status != "present")
+            && (self.current_status != "not_applicable")
+    }
+
+    pub fn side_effect_free(&self) -> bool {
+        !self.public_release_claim_allowed
+            && !self.public_package_claim_allowed
+            && !self.package_publication_performed
+            && !self.tag_created
+            && !self.signing_key_used
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ReleasePublicationApiSchemaGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub docs_ref: &'static str,
+    pub source_refs: &'static str,
+    pub gate_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<ReleasePublicationApiSchemaGateRow>,
+    pub api_schema_stability_claim_allowed: bool,
+    pub public_release_claim_allowed: bool,
+    pub public_package_claim_allowed: bool,
+    pub package_publication_performed: bool,
+    pub tag_created: bool,
+    pub signing_key_used: bool,
+    pub checksum_manifest_publication_grade: bool,
+    pub sbom_publication_grade: bool,
+    pub runtime_execution: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl ReleasePublicationApiSchemaGateReport {
+    pub fn foundation() -> Self {
+        let rows = vec![
+            ReleasePublicationApiSchemaGateRow::blocked(
+                "api_compatibility_window",
+                "blocked",
+                "published API stability tiers, compatibility window, deprecation policy, breaking-change approval",
+                "ReleasePlan.public_surfaces; docs/rfcs/0024-release-engineering-api-compatibility-packaging.md",
+                "current CLI/Rust/Python surfaces are experimental and do not have a public compatibility window",
+            ),
+            ReleasePublicationApiSchemaGateRow::blocked(
+                "schema_compatibility_window",
+                "blocked",
+                "schema version registry, compatibility window, migration notes, golden fixtures",
+                "ReleasePlan.schemas; typed-envelope contract fixtures",
+                "machine-readable schemas are versioned/experimental but not approved as stable public contracts",
+            ),
+            ReleasePublicationApiSchemaGateRow::blocked(
+                "package_identity_approval",
+                "blocked",
+                "approved package identities, channel ownership, naming, install/uninstall/rollback proof",
+                "docs/release/package-channel-readiness-matrix.json",
+                "package channels are represented but none is approved for public publication",
+            ),
+            ReleasePublicationApiSchemaGateRow::blocked(
+                "signing_policy_decision",
+                "blocked",
+                "artifact signing policy, maintainer approval, key custody, signing workflow evidence",
+                "docs/release/release-provenance-dry-run.md",
+                "no signing key may be used and no signing mechanism is approved before publication",
+            ),
+            ReleasePublicationApiSchemaGateRow::blocked(
+                "checksum_manifest",
+                "dry_run_only",
+                "publication-grade checksum manifest tied to release artifacts and source revision",
+                "target/release-provenance-dry-run/checksums.sha256",
+                "local dry-run checksum evidence exists, but publication-grade checksums are not attached",
+            ),
+            ReleasePublicationApiSchemaGateRow::blocked(
+                "sbom_bundle",
+                "dry_run_only",
+                "publication-grade Rust, Python, CLI, and optional image SBOM bundle",
+                "docs/release/sbom-generation-plan.md",
+                "local dry-run SBOM evidence exists, but publication-grade SBOM approval is missing",
+            ),
+            ReleasePublicationApiSchemaGateRow::blocked(
+                "publication_approval",
+                "blocked",
+                "explicit maintainer approval, release notes, tag approval, package-channel gate pass",
+                "docs/release/hard-release-readiness-gate.md",
+                "no human has approved a public package release, release tag, or publication event",
+            ),
+        ];
+        Self {
+            schema_version: "shardloom.publication_api_schema_stability_gate.v1",
+            report_id: "gar-0024-a.publication_api_schema_stability_gate",
+            docs_ref: "docs/release/publication-api-schema-stability-gate.md",
+            source_refs: "RFC 0024; release readiness gate; package-channel matrix; provenance dry run",
+            gate_status: "blocked",
+            claim_gate_status: "not_claim_grade",
+            rows,
+            api_schema_stability_claim_allowed: false,
+            public_release_claim_allowed: false,
+            public_package_claim_allowed: false,
+            package_publication_performed: false,
+            tag_created: false,
+            signing_key_used: false,
+            checksum_manifest_publication_grade: false,
+            sbom_publication_grade: false,
+            runtime_execution: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    pub fn blocking_row_count(&self) -> usize {
+        self.rows.iter().filter(|row| row.is_blocking()).count()
+    }
+
+    pub fn row_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.gate_id).collect()
+    }
+
+    pub fn fails_closed(&self) -> bool {
+        self.gate_status == "blocked"
+            && self.claim_gate_status == "not_claim_grade"
+            && self.blocking_row_count() > 0
+            && !self.api_schema_stability_claim_allowed
+            && !self.public_release_claim_allowed
+            && !self.public_package_claim_allowed
+    }
+
+    pub fn side_effect_free(&self) -> bool {
+        !self.package_publication_performed
+            && !self.tag_created
+            && !self.signing_key_used
+            && !self.runtime_execution
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .rows
+                .iter()
+                .all(ReleasePublicationApiSchemaGateRow::side_effect_free)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct EngineReplacementClaimInventoryRow {
     pub claim_id: &'static str,
     pub claim_family: &'static str,
@@ -1083,6 +1272,9 @@ impl ReleasePlan {
     }
     pub fn publication_boundary_report(&self) -> ReleasePublicationBoundaryReport {
         ReleasePublicationBoundaryReport::from_plan(self)
+    }
+    pub fn publication_api_schema_stability_gate(&self) -> ReleasePublicationApiSchemaGateReport {
+        ReleasePublicationApiSchemaGateReport::foundation()
     }
     pub fn conda_build_install_certification(&self) -> CondaBuildInstallCertificationReport {
         CondaBuildInstallCertificationReport::foundation()
@@ -2119,6 +2311,51 @@ mod tests {
         assert!(!evidence.public_release_claim_allowed);
         assert!(!evidence.external_publish_performed);
         assert!(!evidence.fallback_attempted);
+    }
+
+    #[test]
+    fn publication_api_schema_gate_fails_closed_without_publication_evidence() {
+        let plan = ReleasePlan::default_foundation_plan();
+        let report = plan.publication_api_schema_stability_gate();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.publication_api_schema_stability_gate.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "gar-0024-a.publication_api_schema_stability_gate"
+        );
+        assert_eq!(report.gate_status, "blocked");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.rows.len(), 7);
+        assert_eq!(report.blocking_row_count(), 7);
+        assert!(report.fails_closed());
+        assert!(report.side_effect_free());
+        assert!(report.row_ids().contains(&"api_compatibility_window"));
+        assert!(report.row_ids().contains(&"schema_compatibility_window"));
+        assert!(report.row_ids().contains(&"package_identity_approval"));
+        assert!(report.row_ids().contains(&"signing_policy_decision"));
+        assert!(report.row_ids().contains(&"checksum_manifest"));
+        assert!(report.row_ids().contains(&"sbom_bundle"));
+        assert!(report.row_ids().contains(&"publication_approval"));
+        assert!(!report.api_schema_stability_claim_allowed);
+        assert!(!report.public_release_claim_allowed);
+        assert!(!report.public_package_claim_allowed);
+        assert!(!report.package_publication_performed);
+        assert!(!report.tag_created);
+        assert!(!report.signing_key_used);
+        assert!(!report.checksum_manifest_publication_grade);
+        assert!(!report.sbom_publication_grade);
+        assert!(!report.runtime_execution);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(
+            report
+                .rows
+                .iter()
+                .all(ReleasePublicationApiSchemaGateRow::side_effect_free)
+        );
     }
 
     #[test]
