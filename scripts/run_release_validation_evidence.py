@@ -78,6 +78,10 @@ REQUIRED_VALIDATION_COMMANDS = [
         ["cargo", "run", "-q", "-p", "shardloom-cli", "--", "global-architecture-gate", "--format", "json"],
     ),
     ("release_security_gate", [sys.executable, "scripts/check_release_security_gate.py"]),
+    (
+        "release_architecture_tracker",
+        [sys.executable, "scripts/check_release_architecture_tracker.py", "--allow-blocked"],
+    ),
     ("package_channel_readiness", [sys.executable, "scripts/check_package_channel_readiness.py"]),
 ]
 

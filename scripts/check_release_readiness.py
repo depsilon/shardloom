@@ -50,6 +50,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("docs/release/per-claim-evidence-attachment-matrix.md"),
     )
     parser.add_argument(
+        "--architecture-tracker-report",
+        type=Path,
+        default=Path("target/release-architecture-tracker-report.json"),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("target/hard-release-readiness-gate.json"),
@@ -85,6 +90,7 @@ def main() -> int:
     validation_evidence_path = resolve(repo_root, args.validation_evidence)
     package_channel_matrix_path = resolve(repo_root, args.package_channel_matrix)
     per_claim_evidence_matrix_path = resolve(repo_root, args.per_claim_evidence_matrix)
+    architecture_tracker_report_path = resolve(repo_root, args.architecture_tracker_report)
 
     checks: list[dict[str, Any]] = []
 
@@ -260,6 +266,44 @@ def main() -> int:
         )
     )
 
+    architecture_tracker = load_json(architecture_tracker_report_path)
+    architecture_tracker_blockers: list[str] = []
+    if architecture_tracker is None:
+        architecture_tracker_blockers.append("missing release architecture tracker report")
+    else:
+        if architecture_tracker.get("schema_version") != "shardloom.release_architecture_tracker_report.v1":
+            architecture_tracker_blockers.append(
+                f"schema_version={architecture_tracker.get('schema_version', 'missing')}"
+            )
+        if architecture_tracker.get("architecture_tracker_status") != "passed":
+            architecture_tracker_blockers.append(
+                f"architecture_tracker_status={architecture_tracker.get('architecture_tracker_status', 'missing')}"
+            )
+        if architecture_tracker.get("status") != "passed":
+            architecture_tracker_blockers.extend(
+                architecture_tracker.get("blockers", ["release architecture tracker blocked"])
+            )
+            for field in ["public_release_claim_allowed", "public_package_claim_allowed"]:
+                if architecture_tracker.get(field) is not False:
+                    architecture_tracker_blockers.append(f"blocked architecture tracker {field} must be false")
+        for field in [
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            expected = False
+            if architecture_tracker.get(field) is not expected:
+                architecture_tracker_blockers.append(f"architecture tracker {field} must be false")
+    checks.append(
+        check(
+            "architecture_tracker_validation",
+            str(args.architecture_tracker_report).replace("\\", "/"),
+            architecture_tracker_blockers,
+        )
+    )
+
     feature_matrix_doc = repo_root / "docs/architecture/workspace-feature-build-matrix.md"
     feature_blockers = []
     matrix_text = read_text(feature_matrix_doc)
@@ -309,6 +353,7 @@ def main() -> int:
         "python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
         "cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
         "python scripts/check_release_security_gate.py",
+        "python scripts/check_release_architecture_tracker.py --allow-blocked",
         "python scripts/check_package_channel_readiness.py",
     ]
     validation_blockers = []
@@ -342,6 +387,7 @@ def main() -> int:
         "public_package_claim_allowed": passed,
         "package_channel_matrix_ref": str(args.package_channel_matrix).replace("\\", "/"),
         "per_claim_evidence_matrix_ref": str(args.per_claim_evidence_matrix).replace("\\", "/"),
+        "architecture_tracker_report_ref": str(args.architecture_tracker_report).replace("\\", "/"),
         "checks": checks,
         "blockers": blockers,
         "required_validation_commands": validation_commands,

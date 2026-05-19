@@ -116,6 +116,7 @@ Reference index:
   `docs/architecture/spark-displacement-benchmark-evidence-matrix.md`,
   `docs/architecture/comparative-rerun-managed-platform-posture-gate.md`,
   `docs/release/per-claim-evidence-attachment-matrix.md`,
+  `docs/release/release-architecture-tracker-gate.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
   `docs/architecture/credential-policy-enforcement-gate.md`,
@@ -233,22 +234,6 @@ Current non-runtime sequence:
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0043-A hard release-readiness validators and architecture tracker
-  - Source: RFC 0043; release security gate; global architecture review.
-  - Current state: hard release-readiness gate exists, but final publication/attestation and
-    architecture tracker validation need full evidence.
-  - Next slice outcome: validator that checks traceability matrix, RFC acceptance, architecture
-    tracker status, unsupported paths, and security/provenance evidence.
-  - User-visible surface: release readiness script/report, docs.
-  - Implementation scope: release scripts, contract tests, docs.
-  - Evidence required: release/security/provenance refs, no-fallback refs, architecture review refs.
-  - Acceptance: release gate fails closed when global review unchecked items or missing evidence block
-    a claim.
-  - Verification: release readiness metadata tests, release security gate tests, default GAR
-    verification.
-  - Non-goals: no publication, tags, secrets, or package upload.
-  - Fallback/claim boundary: no final release/public claim.
-  - Dependencies/blockers: every required claim/evidence slice.
 - [ ] GAR-0043-B publication attestation and final release rehearsal
   - Source: RFC 0043; RFC 0024; release provenance docs.
   - Current state: dry-run/provenance scaffolding exists; actual publication and final attestation

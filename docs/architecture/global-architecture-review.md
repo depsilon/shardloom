@@ -1432,16 +1432,24 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md`](../rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md)
-- Current read: Security hardening is substantially represented; final hard release gate and
-  publication remain incomplete.
+- Current read: Security hardening and fail-closed release architecture tracking are substantially
+  represented; publication and final attestation remain incomplete.
 - Evidence: `SECURITY.md`, `shardloom-core/src/security.rs`, `scripts/check_dependency_audit.py`,
   `scripts/release_provenance_dry_run.py`, `scripts/check_release_security_gate.py`,
-  `.github/workflows`
+  `scripts/check_release_architecture_tracker.py`, `.github/workflows`
 - [x] Security reports, malicious-input/path/redaction tests, dependency/provenance/security gates,
   CodeQL/Scorecard workflows, and OSS security docs exist.
 - [x] Release metadata preserves no-fallback and supply-chain evidence requirements.
-- [ ] Full hard release-readiness gate, actual publication, and final attestation remain
-  incomplete.
+- [x] `GAR-0043-A` adds `shardloom.release_architecture_tracker_report.v1` and hard
+  release-readiness integration. The tracker checks unchecked Global Architecture Review rows,
+  unchecked phased-plan rows, RFC traceability, known unsupported paths, release security refs,
+  provenance refs, and per-claim evidence refs while keeping
+  `architecture_tracker_status=blocked`, `claim_gate_status=not_claim_grade`,
+  `public_release_claim_allowed=false`, `public_package_claim_allowed=false`,
+  `publication_attempted=false`, `tag_created=false`, `secrets_required=false`,
+  `fallback_attempted=false`, and `external_engine_invoked=false` until every required item and
+  evidence attachment is closed.
+- [ ] Actual publication and final attestation remain incomplete.
 
 ## Compute Engine Flow Review
 

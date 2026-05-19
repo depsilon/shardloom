@@ -1319,7 +1319,13 @@ fn compute_engine_flow_overhaul_review_declares_repo_gaps_and_phase_steps() {
     );
     assert!(completed_ledger.contains("GAR-0014-A spill/OOM enforcement promotion gate closeout"));
     assert!(completed_ledger.contains("GAR-0032-A SQL parser/binder report-only readiness"));
-    assert!(plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker"));
+    assert!(
+        completed_ledger
+            .contains("GAR-0043-A hard release-readiness validators and architecture tracker")
+    );
+    assert!(
+        !plan.contains("GAR-0043-A hard release-readiness validators and architecture tracker")
+    );
     let planned_gar_slices = planned_gar_slices(&plan);
     assert!(planned_gar_slices.len() + completed_gar_session_count(&completed_ledger) >= 32);
     for required_field in [
