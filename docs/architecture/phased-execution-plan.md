@@ -385,20 +385,6 @@ Complete these documentation, capability, security, release, and claim-gate item
 new runtime implementation work unless the user explicitly reprioritizes. These items must not add
 runtime behavior or support claims.
 
-- [ ] GAR-0010-B DataFrame/notebook and package surface readiness report
-  - Source: RFC 0010; RFC 0024; RFC 0032.
-  - Current state: package dry-run docs exist; mature DataFrame/notebook surfaces and publication are
-    not claimable.
-  - Next slice outcome: report-only readiness matrix for DataFrame/notebook APIs, package surface,
-    examples, and unsupported diagnostics.
-  - User-visible surface: docs, Python capability view, release gate.
-  - Implementation scope: docs/report fields, Python package metadata checks, tests.
-  - Evidence required: release/package refs and diagnostic/no-fallback refs.
-  - Acceptance: readiness report distinguishes installed package smoke from runtime support.
-  - Verification: release readiness metadata tests, Python compileall, default GAR verification.
-  - Non-goals: no PyPI/Conda publication or DataFrame execution.
-  - Fallback/claim boundary: no package-release or DataFrame-runtime claim.
-  - Dependencies/blockers: GAR-0024 release/package slices.
 - [ ] GAR-0022-A Substrait import/export report-only contract
   - Source: RFC 0022; plan IR docs; rfc-coverage followthrough.
   - Current state: native Plan IR exists; real Substrait import/export and imported-plan execution

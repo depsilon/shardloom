@@ -95,6 +95,117 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
 );
 const WORKFLOW_REQUIRED_EVIDENCE: &str = "execution_certificate,native_io_certificate,operator_capability_matrix,semantic_conformance_suite,sql_parser,binder,write_intent,rest_api_contract,decoded_columnar_boundary,python_object_boundary,schema_metadata_report,data_quality_report,notebook_display_boundary,object_store_capability_policy,credential_policy,no_fallback_policy";
 const WORKFLOW_SUGGESTED_NEXT_ACTION: &str = "Use workflow-unsupported-plan for method-specific blocker details before requesting execution.";
+
+#[allow(clippy::struct_excessive_bools)]
+struct DataFrameNotebookPackageReadinessRow {
+    id: &'static str,
+    family: &'static str,
+    surface: &'static str,
+    support_status: &'static str,
+    local_install_smoke: bool,
+    package_publication_allowed: bool,
+    dataframe_runtime_supported: bool,
+    notebook_runtime_supported: bool,
+    deterministic_diagnostic_code: &'static str,
+    blocker_id: &'static str,
+    required_evidence: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+}
+
+const DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROWS: &[DataFrameNotebookPackageReadinessRow] = &[
+    DataFrameNotebookPackageReadinessRow {
+        id: "python_package_metadata",
+        family: "package",
+        surface: "Python package metadata and source-tree import",
+        support_status: "ready_local",
+        local_install_smoke: true,
+        package_publication_allowed: false,
+        dataframe_runtime_supported: false,
+        notebook_runtime_supported: false,
+        deterministic_diagnostic_code: "SL_PACKAGE_METADATA_LOCAL_READY",
+        blocker_id: "none_local_metadata_only",
+        required_evidence: "pyproject_metadata,python_readme,package_metadata_audit,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Local package metadata and source-tree import readiness only; no public package publication or broad DataFrame/notebook runtime claim.",
+    },
+    DataFrameNotebookPackageReadinessRow {
+        id: "editable_install_smoke",
+        family: "package",
+        surface: "Editable/source-tree local install smoke",
+        support_status: "smoke_supported",
+        local_install_smoke: true,
+        package_publication_allowed: false,
+        dataframe_runtime_supported: false,
+        notebook_runtime_supported: false,
+        deterministic_diagnostic_code: "SL_EDITABLE_INSTALL_SMOKE_ONLY",
+        blocker_id: "gar-0024.public_package_publication_gate_required",
+        required_evidence: "release_dry_run_proof,package_channel_matrix,clean_install_smoke,rollback_policy",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Editable local smoke is distinct from TestPyPI/PyPI/Conda publication readiness and does not certify runtime support.",
+    },
+    DataFrameNotebookPackageReadinessRow {
+        id: "dataframe_method_matrix",
+        family: "dataframe",
+        surface: "DataFrame/query-builder method capability matrix",
+        support_status: "report_only",
+        local_install_smoke: false,
+        package_publication_allowed: false,
+        dataframe_runtime_supported: false,
+        notebook_runtime_supported: false,
+        deterministic_diagnostic_code: "SL_DATAFRAME_METHOD_MATRIX_REPORT_ONLY",
+        blocker_id: "gar-0010-b.broad_dataframe_runtime_evidence_missing",
+        required_evidence: "dataframe_method_matrix,workflow_unsupported_diagnostics,execution_certificate,native_io_certificate,semantic_conformance",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "DataFrame method posture is inspectable; broad DataFrame runtime remains unclaimed beyond separately evidenced scoped smokes.",
+    },
+    DataFrameNotebookPackageReadinessRow {
+        id: "notebook_display_surface",
+        family: "notebook",
+        surface: "Notebook rich display and materialization boundary",
+        support_status: "blocked",
+        local_install_smoke: false,
+        package_publication_allowed: false,
+        dataframe_runtime_supported: false,
+        notebook_runtime_supported: false,
+        deterministic_diagnostic_code: "SL_NOTEBOOK_DISPLAY_UNSUPPORTED",
+        blocker_id: "cg21.workflow.display.rich_display_unsupported",
+        required_evidence: "notebook_display_boundary,materialization_boundary,decode_evidence,execution_certificate,no_fallback_evidence",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Notebook display/runtime materialization is blocked; no rich display, decoded DataFrame, or notebook production experience is claimed.",
+    },
+    DataFrameNotebookPackageReadinessRow {
+        id: "public_package_publication",
+        family: "package",
+        surface: "TestPyPI, PyPI, Conda, Homebrew, and installer channels",
+        support_status: "blocked",
+        local_install_smoke: false,
+        package_publication_allowed: false,
+        dataframe_runtime_supported: false,
+        notebook_runtime_supported: false,
+        deterministic_diagnostic_code: "SL_PUBLIC_PACKAGE_PUBLICATION_BLOCKED",
+        blocker_id: "gar-0024.package_publication_gate_required",
+        required_evidence: "trusted_publishing_oidc,sbom,checksum,provenance,clean_install_smoke,yank_rollback_policy",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Public package channels remain blocked until release gates pass; package availability does not imply production readiness.",
+    },
+    DataFrameNotebookPackageReadinessRow {
+        id: "unsupported_diagnostics",
+        family: "diagnostics",
+        surface: "Deterministic unsupported diagnostics for DataFrame/notebook/package requests",
+        support_status: "ready_local",
+        local_install_smoke: false,
+        package_publication_allowed: false,
+        dataframe_runtime_supported: false,
+        notebook_runtime_supported: false,
+        deterministic_diagnostic_code: "SL_UNSUPPORTED_WORKFLOW_DIAGNOSTIC_READY",
+        blocker_id: "none_diagnostics_ready",
+        required_evidence: "workflow_unsupported_plan,capability_view,no_fallback_policy,external_engine_invoked_false",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "Unsupported paths are discoverable and deterministic; diagnostics do not execute runtime work or upgrade support claims.",
+    },
+];
+
 #[allow(clippy::struct_excessive_bools)]
 struct UnstructuredAdapterCapabilityRow {
     id: &'static str,
@@ -4451,6 +4562,29 @@ fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     push_field(fields, key, if value { "true" } else { "false" });
 }
 
+fn dataframe_notebook_package_readiness_row_order() -> String {
+    DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn dataframe_notebook_package_readiness_status_count(status: &str) -> usize {
+    DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROWS
+        .iter()
+        .filter(|row| row.support_status == status)
+        .count()
+}
+
+fn dataframe_notebook_package_readiness_all_no_runtime_claims() -> bool {
+    DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROWS.iter().all(|row| {
+        !row.package_publication_allowed
+            && !row.dataframe_runtime_supported
+            && !row.notebook_runtime_supported
+    })
+}
+
 fn append_no_effect_parity_fields(fields: &mut Vec<(String, String)>) {
     push_bool_field(fields, "external_effects_executed", false);
     push_bool_field(fields, "data_read", false);
@@ -4885,6 +5019,184 @@ fn append_sql_local_source_runtime_smoke_fields(fields: &mut Vec<(String, String
         "sql_local_source_smoke_blocked_shapes",
         "joins,aggregates,functions,subqueries,windows,catalogs,non_csv_sources,object_store_sources,table_lakehouse_sources,production_sql",
     );
+}
+
+#[allow(clippy::too_many_lines)]
+fn append_dataframe_notebook_package_readiness_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "dataframe_notebook_package_readiness_schema_version",
+        "shardloom.dataframe_notebook_package_readiness.v1",
+    );
+    push_field(
+        fields,
+        "dataframe_notebook_package_readiness_report_id",
+        "gar-0010-b.dataframe_notebook_package_readiness",
+    );
+    push_field(
+        fields,
+        "dataframe_notebook_package_readiness_docs_ref",
+        "docs/architecture/dataframe-notebook-package-readiness.md",
+    );
+    push_field(
+        fields,
+        "dataframe_notebook_package_readiness_source_refs",
+        "RFC 0010,RFC 0024,RFC 0032,python/README.md,docs/release/package-metadata-audit.md,docs/release/package-channel-readiness-matrix.md,docs/architecture/sql-parser-binder-readiness.md",
+    );
+    push_field(
+        fields,
+        "dataframe_notebook_package_readiness_support_status_vocabulary",
+        "ready_local,smoke_supported,report_only,blocked",
+    );
+    push_count_field(
+        fields,
+        "dataframe_notebook_package_readiness_row_count",
+        DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROWS.len(),
+    );
+    push_field(
+        fields,
+        "dataframe_notebook_package_readiness_row_order",
+        &dataframe_notebook_package_readiness_row_order(),
+    );
+    push_count_field(
+        fields,
+        "dataframe_notebook_package_readiness_ready_local_count",
+        dataframe_notebook_package_readiness_status_count("ready_local"),
+    );
+    push_count_field(
+        fields,
+        "dataframe_notebook_package_readiness_smoke_supported_count",
+        dataframe_notebook_package_readiness_status_count("smoke_supported"),
+    );
+    push_count_field(
+        fields,
+        "dataframe_notebook_package_readiness_report_only_count",
+        dataframe_notebook_package_readiness_status_count("report_only"),
+    );
+    push_count_field(
+        fields,
+        "dataframe_notebook_package_readiness_blocked_count",
+        dataframe_notebook_package_readiness_status_count("blocked"),
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_local_install_smoke_supported",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_installed_package_smoke_distinct_from_runtime_support",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_dataframe_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_notebook_runtime_supported",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_package_publication_ready",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_package_publication_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_dataframe_runtime_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_notebook_runtime_claim_allowed",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_fallback_attempted",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_external_engine_invoked",
+        false,
+    );
+    push_bool_field(
+        fields,
+        "dataframe_notebook_package_readiness_all_rows_no_runtime_claims",
+        dataframe_notebook_package_readiness_all_no_runtime_claims(),
+    );
+    push_field(
+        fields,
+        "dataframe_notebook_package_readiness_claim_gate_status",
+        "not_claim_grade",
+    );
+    push_field(
+        fields,
+        "dataframe_notebook_package_readiness_claim_boundary",
+        "Local package/import smoke and report-only DataFrame/notebook readiness only; no public package publication, broad DataFrame runtime, notebook runtime, production, performance, Spark-replacement, object-store/lakehouse, Foundry, external-engine, or fallback claim.",
+    );
+
+    for row in DATAFRAME_NOTEBOOK_PACKAGE_READINESS_ROWS {
+        let prefix = format!("dataframe_notebook_package_readiness_row_{}", row.id);
+        push_field(fields, &format!("{prefix}_family"), row.family);
+        push_field(fields, &format!("{prefix}_surface"), row.surface);
+        push_field(
+            fields,
+            &format!("{prefix}_support_status"),
+            row.support_status,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_local_install_smoke"),
+            row.local_install_smoke,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_package_publication_allowed"),
+            row.package_publication_allowed,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_dataframe_runtime_supported"),
+            row.dataframe_runtime_supported,
+        );
+        push_bool_field(
+            fields,
+            &format!("{prefix}_notebook_runtime_supported"),
+            row.notebook_runtime_supported,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_deterministic_diagnostic_code"),
+            row.deterministic_diagnostic_code,
+        );
+        push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+        push_field(
+            fields,
+            &format!("{prefix}_required_evidence"),
+            row.required_evidence,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+        push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+        push_field(
+            fields,
+            &format!("{prefix}_claim_boundary"),
+            row.claim_boundary,
+        );
+    }
 }
 
 fn append_sql_dataframe_planner_readiness_fields(fields: &mut Vec<(String, String)>) {
@@ -8669,6 +8981,16 @@ fn world_class_surface_fields(
     ];
     if scope == CapabilityDiscoveryScope::DataFrame {
         append_sql_dataframe_planner_readiness_fields(&mut fields);
+    }
+    if matches!(
+        scope,
+        CapabilityDiscoveryScope::Python
+            | CapabilityDiscoveryScope::DataFrame
+            | CapabilityDiscoveryScope::Notebook
+            | CapabilityDiscoveryScope::Deployment
+            | CapabilityDiscoveryScope::ApiSurfaces
+    ) {
+        append_dataframe_notebook_package_readiness_fields(&mut fields);
     }
     if matches!(
         scope,

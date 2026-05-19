@@ -20,6 +20,7 @@ from shardloom import (
     ContextCapabilities,
     CapabilityView,
     DataFrameMethodCapabilityMatrix,
+    DataFrameNotebookPackageReadinessReport,
     ETLWorkflowCapabilityMatrix,
     GeneratedSourceApiAdmissionMatrix,
     EngineCapabilityMatrix,
@@ -1274,6 +1275,108 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": f"{prefix}_fallback_attempted", "value": "false"},
                                 {"key": f"{prefix}_external_engine_invoked", "value": "false"},
                             ])
+                    if scope in {"python", "dataframe", "notebook", "deployment", "api-surfaces"}:
+                        readiness_rows = [
+                            (
+                                "python_package_metadata",
+                                "package",
+                                "Python package metadata and source-tree import",
+                                "ready_local",
+                                "true",
+                                "SL_PACKAGE_METADATA_LOCAL_READY",
+                                "none_local_metadata_only",
+                            ),
+                            (
+                                "editable_install_smoke",
+                                "package",
+                                "Editable/source-tree local install smoke",
+                                "smoke_supported",
+                                "true",
+                                "SL_EDITABLE_INSTALL_SMOKE_ONLY",
+                                "gar-0024.public_package_publication_gate_required",
+                            ),
+                            (
+                                "dataframe_method_matrix",
+                                "dataframe",
+                                "DataFrame/query-builder method capability matrix",
+                                "report_only",
+                                "false",
+                                "SL_DATAFRAME_METHOD_MATRIX_REPORT_ONLY",
+                                "gar-0010-b.broad_dataframe_runtime_evidence_missing",
+                            ),
+                            (
+                                "notebook_display_surface",
+                                "notebook",
+                                "Notebook rich display and materialization boundary",
+                                "blocked",
+                                "false",
+                                "SL_NOTEBOOK_DISPLAY_UNSUPPORTED",
+                                "cg21.workflow.display.rich_display_unsupported",
+                            ),
+                            (
+                                "public_package_publication",
+                                "package",
+                                "TestPyPI, PyPI, Conda, Homebrew, and installer channels",
+                                "blocked",
+                                "false",
+                                "SL_PUBLIC_PACKAGE_PUBLICATION_BLOCKED",
+                                "gar-0024.package_publication_gate_required",
+                            ),
+                            (
+                                "unsupported_diagnostics",
+                                "diagnostics",
+                                "Deterministic unsupported diagnostics for DataFrame/notebook/package requests",
+                                "ready_local",
+                                "false",
+                                "SL_UNSUPPORTED_WORKFLOW_DIAGNOSTIC_READY",
+                                "none_diagnostics_ready",
+                            ),
+                        ]
+                        fields.extend([
+                            {"key": "dataframe_notebook_package_readiness_schema_version", "value": "shardloom.dataframe_notebook_package_readiness.v1"},
+                            {"key": "dataframe_notebook_package_readiness_report_id", "value": "gar-0010-b.dataframe_notebook_package_readiness"},
+                            {"key": "dataframe_notebook_package_readiness_docs_ref", "value": "docs/architecture/dataframe-notebook-package-readiness.md"},
+                            {"key": "dataframe_notebook_package_readiness_source_refs", "value": "RFC 0010,RFC 0024,RFC 0032,python/README.md"},
+                            {"key": "dataframe_notebook_package_readiness_support_status_vocabulary", "value": "ready_local,smoke_supported,report_only,blocked"},
+                            {"key": "dataframe_notebook_package_readiness_row_count", "value": str(len(readiness_rows))},
+                            {"key": "dataframe_notebook_package_readiness_row_order", "value": ",".join(row[0] for row in readiness_rows)},
+                            {"key": "dataframe_notebook_package_readiness_ready_local_count", "value": "2"},
+                            {"key": "dataframe_notebook_package_readiness_smoke_supported_count", "value": "1"},
+                            {"key": "dataframe_notebook_package_readiness_report_only_count", "value": "1"},
+                            {"key": "dataframe_notebook_package_readiness_blocked_count", "value": "2"},
+                            {"key": "dataframe_notebook_package_readiness_local_install_smoke_supported", "value": "true"},
+                            {"key": "dataframe_notebook_package_readiness_installed_package_smoke_distinct_from_runtime_support", "value": "true"},
+                            {"key": "dataframe_notebook_package_readiness_dataframe_runtime_supported", "value": "false"},
+                            {"key": "dataframe_notebook_package_readiness_notebook_runtime_supported", "value": "false"},
+                            {"key": "dataframe_notebook_package_readiness_package_publication_ready", "value": "false"},
+                            {"key": "dataframe_notebook_package_readiness_package_publication_claim_allowed", "value": "false"},
+                            {"key": "dataframe_notebook_package_readiness_dataframe_runtime_claim_allowed", "value": "false"},
+                            {"key": "dataframe_notebook_package_readiness_notebook_runtime_claim_allowed", "value": "false"},
+                            {"key": "dataframe_notebook_package_readiness_fallback_attempted", "value": "false"},
+                            {"key": "dataframe_notebook_package_readiness_external_engine_invoked", "value": "false"},
+                            {"key": "dataframe_notebook_package_readiness_all_rows_no_runtime_claims", "value": "true"},
+                            {"key": "dataframe_notebook_package_readiness_claim_gate_status", "value": "not_claim_grade"},
+                            {"key": "dataframe_notebook_package_readiness_claim_boundary", "value": "Local package/import smoke and report-only DataFrame/notebook readiness only"},
+                        ])
+                        for row in readiness_rows:
+                            row_id, family, surface, support_status, local_smoke, diagnostic, blocker = row
+                            prefix = f"dataframe_notebook_package_readiness_row_{row_id}"
+                            fields.extend([
+                                {"key": f"{prefix}_family", "value": family},
+                                {"key": f"{prefix}_surface", "value": surface},
+                                {"key": f"{prefix}_support_status", "value": support_status},
+                                {"key": f"{prefix}_local_install_smoke", "value": local_smoke},
+                                {"key": f"{prefix}_package_publication_allowed", "value": "false"},
+                                {"key": f"{prefix}_dataframe_runtime_supported", "value": "false"},
+                                {"key": f"{prefix}_notebook_runtime_supported", "value": "false"},
+                                {"key": f"{prefix}_deterministic_diagnostic_code", "value": diagnostic},
+                                {"key": f"{prefix}_blocker_id", "value": blocker},
+                                {"key": f"{prefix}_required_evidence", "value": "package_metadata,capability_view,no_fallback_evidence"},
+                                {"key": f"{prefix}_claim_gate_status", "value": "not_claim_grade"},
+                                {"key": f"{prefix}_fallback_attempted", "value": "false"},
+                                {"key": f"{prefix}_external_engine_invoked", "value": "false"},
+                                {"key": f"{prefix}_claim_boundary", "value": "readiness only; no runtime or publication claim"},
+                            ])
                     if scope == "api-surfaces":
                         wrapper_rows = [
                             (
@@ -1439,6 +1542,60 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(capabilities.workflow.field("scope"), "workflow")
         self.assertEqual(capabilities.remote_api.field("scope"), "remote-api")
         self.assertEqual(capabilities.cross_cg.field("scope"), "cross-cg")
+        readiness = capabilities.dataframe_notebook_package_readiness
+        self.assertIsInstance(readiness, DataFrameNotebookPackageReadinessReport)
+        self.assertEqual(
+            readiness.schema_version,
+            "shardloom.dataframe_notebook_package_readiness.v1",
+        )
+        self.assertEqual(
+            readiness.report_id,
+            "gar-0010-b.dataframe_notebook_package_readiness",
+        )
+        self.assertEqual(
+            readiness.row_order,
+            (
+                "python_package_metadata",
+                "editable_install_smoke",
+                "dataframe_method_matrix",
+                "notebook_display_surface",
+                "public_package_publication",
+                "unsupported_diagnostics",
+            ),
+        )
+        self.assertTrue(readiness.local_install_smoke_supported)
+        self.assertTrue(readiness.installed_package_smoke_distinct_from_runtime_support)
+        self.assertFalse(readiness.dataframe_runtime_supported)
+        self.assertFalse(readiness.notebook_runtime_supported)
+        self.assertFalse(readiness.package_publication_ready)
+        self.assertFalse(readiness.package_publication_claim_allowed)
+        self.assertFalse(readiness.dataframe_runtime_claim_allowed)
+        self.assertFalse(readiness.notebook_runtime_claim_allowed)
+        self.assertTrue(readiness.all_rows_no_fallback_no_external_engine)
+        self.assertTrue(readiness.all_rows_no_runtime_claims)
+        self.assertTrue(readiness.row("python-package-metadata").ready_local)
+        self.assertTrue(readiness.row("editable-install-smoke").smoke_supported)
+        self.assertTrue(readiness.row("dataframe-method-matrix").report_only)
+        self.assertTrue(readiness.row("notebook-display-surface").blocked)
+        self.assertEqual(
+            readiness.row("public-package-publication").blocker_id,
+            "gar-0024.package_publication_gate_required",
+        )
+        self.assertEqual(
+            capabilities.python.dataframe_notebook_package_readiness.schema_version,
+            "shardloom.dataframe_notebook_package_readiness.v1",
+        )
+        self.assertTrue(
+            capabilities.deployment.dataframe_notebook_package_readiness
+            .row("public_package_publication")
+            .blocked
+        )
+        self.assertEqual(
+            ctx.dataframe_notebook_package_readiness().row(
+                "notebook_display_surface"
+            ).deterministic_diagnostic_code,
+            "SL_NOTEBOOK_DISPLAY_UNSUPPORTED",
+        )
         wrapper_registry = capabilities.wrapper_connector_registry
         self.assertEqual(
             wrapper_registry.schema_version,
@@ -1730,7 +1887,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(dataframe_methods.claim_gate_statuses, ("not_claim_grade",))
         self.assertTrue(dataframe_methods.all_no_fallback_no_external_engine)
         self.assertTrue(dataframe_methods.any_runtime_execution)
-        self.assertFalse(dataframe_methods.any_data_read)
+        self.assertTrue(dataframe_methods.any_data_read)
         self.assertTrue(dataframe_methods.any_write_io)
         self.assertEqual(
             ctx.dataframe_method_matrix().row("agg").diagnostic_operation,

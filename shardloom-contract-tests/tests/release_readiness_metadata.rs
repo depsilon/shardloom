@@ -1937,11 +1937,22 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1I"));
     assert!(!plan.contains("- [ ] GAR-WEB-ATLAS-1J"));
     assert!(
-        plan.contains("- [ ] GAR-0010-B DataFrame/notebook and package surface readiness report")
+        !plan.contains("- [ ] GAR-0010-B DataFrame/notebook and package surface readiness report")
     );
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "GAR-0010-B DataFrame/notebook and package surface readiness report",
+        "shardloom.dataframe_notebook_package_readiness.v1",
+        "dataframe_notebook_package_readiness",
+        "python_package_metadata",
+        "editable_install_smoke",
+        "dataframe_method_matrix",
+        "notebook_display_surface",
+        "public_package_publication",
+        "unsupported_diagnostics",
+        "local package/DataFrame/notebook posture",
+        "broad DataFrame runtime",
         "GAR-WEB-ATLAS-1J Field Guide / Use Case public-readiness gate",
         "GAR-WEB-ATLAS-1I visual density and readability refinement",
         "GAR-WEB-ATLAS-1H Astro/Starlight migration decision gate",

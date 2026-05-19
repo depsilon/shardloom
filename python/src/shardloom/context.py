@@ -3406,6 +3406,346 @@ class WrapperConnectorRegistry:
 
 
 @dataclass(frozen=True, slots=True)
+class DataFrameNotebookPackageReadinessRow:
+    """One DataFrame/notebook/package readiness row."""
+
+    row_id: str
+    family: str | None
+    surface: str | None
+    support_status: str | None
+    local_install_smoke: bool | None
+    package_publication_allowed: bool | None
+    dataframe_runtime_supported: bool | None
+    notebook_runtime_supported: bool | None
+    deterministic_diagnostic_code: str | None
+    blocker_id: str | None
+    required_evidence: tuple[str, ...]
+    claim_gate_status: str | None
+    fallback_attempted: bool | None
+    external_engine_invoked: bool | None
+    claim_boundary: str | None
+
+    @property
+    def ready_local(self) -> bool:
+        """Whether this readiness row has local non-runtime readiness evidence."""
+
+        return self.support_status == "ready_local"
+
+    @property
+    def smoke_supported(self) -> bool:
+        """Whether this readiness row is supported only as a scoped smoke proof."""
+
+        return self.support_status == "smoke_supported"
+
+    @property
+    def report_only(self) -> bool:
+        """Whether this readiness row is report-only posture."""
+
+        return self.support_status == "report_only"
+
+    @property
+    def blocked(self) -> bool:
+        """Whether this readiness row remains blocked."""
+
+        return self.support_status == "blocked"
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether the row preserves no fallback and no external engine invocation."""
+
+        return self.fallback_attempted is False and self.external_engine_invoked is False
+
+    @property
+    def no_runtime_claims(self) -> bool:
+        """Whether this row avoids publication/DataFrame/notebook runtime claims."""
+
+        return (
+            self.package_publication_allowed is False
+            and self.dataframe_runtime_supported is False
+            and self.notebook_runtime_supported is False
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DataFrameNotebookPackageReadinessReport:
+    """Typed view over GAR-0010-B DataFrame/notebook/package readiness posture."""
+
+    capability: "CapabilityView"
+
+    @property
+    def schema_version(self) -> str | None:
+        """Return the readiness report schema version."""
+
+        return self.capability.field("dataframe_notebook_package_readiness_schema_version")
+
+    @property
+    def report_id(self) -> str | None:
+        """Return the readiness report identifier."""
+
+        return self.capability.field("dataframe_notebook_package_readiness_report_id")
+
+    @property
+    def docs_ref(self) -> str | None:
+        """Return the readiness report reference document."""
+
+        return self.capability.field("dataframe_notebook_package_readiness_docs_ref")
+
+    @property
+    def source_refs(self) -> tuple[str, ...]:
+        """Return governing source references for this readiness report."""
+
+        return _split_csv(
+            self.capability.field("dataframe_notebook_package_readiness_source_refs")
+        )
+
+    @property
+    def support_status_vocabulary(self) -> tuple[str, ...]:
+        """Return status values used by this readiness report."""
+
+        return _split_csv(
+            self.capability.field(
+                "dataframe_notebook_package_readiness_support_status_vocabulary"
+            )
+        )
+
+    @property
+    def row_order(self) -> tuple[str, ...]:
+        """Return readiness rows in stable report order."""
+
+        return _split_csv(
+            self.capability.field("dataframe_notebook_package_readiness_row_order")
+        )
+
+    @property
+    def rows(self) -> tuple[DataFrameNotebookPackageReadinessRow, ...]:
+        """Return all readiness rows."""
+
+        return tuple(self.row(row_id) for row_id in self.row_order)
+
+    @property
+    def ready_local_count(self) -> int:
+        """Return rows with local non-runtime readiness evidence."""
+
+        return (
+            self.capability.envelope.field_int(
+                "dataframe_notebook_package_readiness_ready_local_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def smoke_supported_count(self) -> int:
+        """Return rows with scoped smoke support."""
+
+        return (
+            self.capability.envelope.field_int(
+                "dataframe_notebook_package_readiness_smoke_supported_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def report_only_count(self) -> int:
+        """Return report-only rows."""
+
+        return (
+            self.capability.envelope.field_int(
+                "dataframe_notebook_package_readiness_report_only_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def blocked_count(self) -> int:
+        """Return blocked rows."""
+
+        return (
+            self.capability.envelope.field_int(
+                "dataframe_notebook_package_readiness_blocked_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def local_install_smoke_supported(self) -> bool:
+        """Whether local install/source-tree smoke is available."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_local_install_smoke_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def installed_package_smoke_distinct_from_runtime_support(self) -> bool:
+        """Whether the report separates package smoke from runtime support."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_installed_package_smoke_distinct_from_runtime_support",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def dataframe_runtime_supported(self) -> bool:
+        """Whether broad DataFrame runtime is supported."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_dataframe_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def notebook_runtime_supported(self) -> bool:
+        """Whether notebook runtime/rich display is supported."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_notebook_runtime_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def package_publication_ready(self) -> bool:
+        """Whether public package publication gates are ready."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_package_publication_ready",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def package_publication_claim_allowed(self) -> bool:
+        """Whether a public package publication claim is allowed."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_package_publication_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def dataframe_runtime_claim_allowed(self) -> bool:
+        """Whether a broad DataFrame runtime claim is allowed."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_dataframe_runtime_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def notebook_runtime_claim_allowed(self) -> bool:
+        """Whether a notebook runtime claim is allowed."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_notebook_runtime_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the readiness report claim gate status."""
+
+        return self.capability.field("dataframe_notebook_package_readiness_claim_gate_status")
+
+    @property
+    def claim_boundary(self) -> str | None:
+        """Return the readiness report claim boundary."""
+
+        return self.capability.field("dataframe_notebook_package_readiness_claim_boundary")
+
+    @property
+    def all_rows_no_fallback_no_external_engine(self) -> bool:
+        """Whether every row preserves no fallback and no external engine invocation."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_fallback_attempted", True
+            )
+            is False
+            and self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_external_engine_invoked", True
+            )
+            is False
+            and all(row.no_fallback_no_external_engine for row in self.rows)
+        )
+
+    @property
+    def all_rows_no_runtime_claims(self) -> bool:
+        """Whether every row avoids runtime/publication claim expansion."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "dataframe_notebook_package_readiness_all_rows_no_runtime_claims",
+                False,
+            )
+            is True
+            and all(row.no_runtime_claims for row in self.rows)
+        )
+
+    def row(self, row_id: str) -> DataFrameNotebookPackageReadinessRow:
+        """Return one readiness row by ID."""
+
+        normalized = row_id.strip().lower().replace("-", "_")
+        if normalized not in self.row_order:
+            raise KeyError(
+                f"DataFrame/notebook/package readiness row {row_id!r} is not present"
+            )
+        prefix = f"dataframe_notebook_package_readiness_row_{normalized}"
+        return DataFrameNotebookPackageReadinessRow(
+            row_id=normalized,
+            family=self.capability.field(f"{prefix}_family"),
+            surface=self.capability.field(f"{prefix}_surface"),
+            support_status=self.capability.field(f"{prefix}_support_status"),
+            local_install_smoke=self.capability.envelope.field_bool(
+                f"{prefix}_local_install_smoke"
+            ),
+            package_publication_allowed=self.capability.envelope.field_bool(
+                f"{prefix}_package_publication_allowed"
+            ),
+            dataframe_runtime_supported=self.capability.envelope.field_bool(
+                f"{prefix}_dataframe_runtime_supported"
+            ),
+            notebook_runtime_supported=self.capability.envelope.field_bool(
+                f"{prefix}_notebook_runtime_supported"
+            ),
+            deterministic_diagnostic_code=self.capability.field(
+                f"{prefix}_deterministic_diagnostic_code"
+            ),
+            blocker_id=self.capability.field(f"{prefix}_blocker_id"),
+            required_evidence=_split_csv(self.capability.field(f"{prefix}_required_evidence")),
+            claim_gate_status=self.capability.field(f"{prefix}_claim_gate_status"),
+            fallback_attempted=self.capability.envelope.field_bool(
+                f"{prefix}_fallback_attempted"
+            ),
+            external_engine_invoked=self.capability.envelope.field_bool(
+                f"{prefix}_external_engine_invoked"
+            ),
+            claim_boundary=self.capability.field(f"{prefix}_claim_boundary"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CapabilityView:
     """Typed convenience view over one capability-discovery envelope."""
 
@@ -3765,6 +4105,14 @@ class CapabilityView:
         return WrapperConnectorRegistry(self)
 
     @property
+    def dataframe_notebook_package_readiness(
+        self,
+    ) -> DataFrameNotebookPackageReadinessReport:
+        """Return DataFrame/notebook/package surface readiness posture."""
+
+        return DataFrameNotebookPackageReadinessReport(self)
+
+    @property
     def planner_readiness_claim_gate_status(self) -> str | None:
         """Return the planner-readiness claim gate status when present."""
 
@@ -3966,6 +4314,14 @@ class ContextCapabilities:
         return self.dataframe.dataframe_method_matrix
 
     @property
+    def dataframe_notebook_package_readiness(
+        self,
+    ) -> DataFrameNotebookPackageReadinessReport:
+        """Return DataFrame/notebook/package readiness and claim boundaries."""
+
+        return self.dataframe.dataframe_notebook_package_readiness
+
+    @property
     def etl_workflow_matrix(self) -> ETLWorkflowCapabilityMatrix:
         """Return ETL workflow support, blockers, and claim boundaries."""
 
@@ -4137,6 +4493,18 @@ class ShardLoomContext:
         """Return the report-only DataFrame/query-builder method capability matrix."""
 
         return self._capability_view("dataframe", check=check).dataframe_method_matrix
+
+    def dataframe_notebook_package_readiness(
+        self,
+        *,
+        check: bool = True,
+    ) -> DataFrameNotebookPackageReadinessReport:
+        """Return DataFrame/notebook/package readiness and publication posture."""
+
+        return self._capability_view(
+            "dataframe",
+            check=check,
+        ).dataframe_notebook_package_readiness
 
     def etl_workflow_matrix(
         self,

@@ -553,6 +553,34 @@ schema/data-quality helpers, materialization to Python objects, and notebook
 display remain deterministic unsupported diagnostic surfaces unless later
 evidence-backed slices promote them.
 
+Package, DataFrame, and notebook readiness are also exposed as a separate typed
+matrix so local install smoke is not confused with public package publication or
+broad runtime support:
+
+```python
+readiness = ctx.dataframe_notebook_package_readiness()
+
+print(readiness.schema_version)
+print(readiness.local_install_smoke_supported)
+print(readiness.package_publication_ready)
+print(readiness.dataframe_runtime_supported)
+print(readiness.notebook_runtime_supported)
+print(readiness.all_rows_no_fallback_no_external_engine)
+
+publication = readiness.row("public_package_publication")
+print(publication.support_status)
+print(publication.blocker_id)
+print(publication.required_evidence)
+print(publication.claim_boundary)
+```
+
+This readiness matrix is report-only capability posture. It does not publish to
+PyPI/TestPyPI/Conda/Homebrew, import notebook or DataFrame dependencies, render
+rich notebook output, execute broad DataFrame plans, call package repositories,
+or invoke external engines. Public package publication, broad DataFrame runtime,
+and notebook runtime remain blocked until release and execution evidence gates
+pass.
+
 The CG-21 ETL workflow surface also has a compact typed matrix for current local
 workflow posture. Use it when a wrapper, notebook, or agent needs one place to
 show which user workflows are ready or smoke-supported, which APIs are
