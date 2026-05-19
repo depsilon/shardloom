@@ -660,6 +660,296 @@ impl ReleaseEvidenceRequirement {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct EngineReplacementClaimInventoryRow {
+    pub claim_id: &'static str,
+    pub claim_family: &'static str,
+    pub claim_language: &'static str,
+    pub support_status: &'static str,
+    pub required_runtime_evidence: &'static str,
+    pub required_output_evidence: &'static str,
+    pub required_correctness_evidence: &'static str,
+    pub required_benchmark_evidence: &'static str,
+    pub required_execution_certificate_evidence: &'static str,
+    pub required_native_io_evidence: &'static str,
+    pub required_no_fallback_evidence: &'static str,
+    pub release_gate_ref: &'static str,
+    pub dependency_gate_refs: &'static str,
+    pub missing_evidence: &'static str,
+    pub claim_gate_status: &'static str,
+    pub public_claim_allowed: bool,
+    pub evidence_complete: bool,
+    pub runtime_execution_performed: bool,
+    pub benchmark_rerun_performed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: &'static str,
+}
+
+impl EngineReplacementClaimInventoryRow {
+    #[allow(clippy::too_many_arguments)]
+    const fn blocked(
+        claim_id: &'static str,
+        claim_family: &'static str,
+        claim_language: &'static str,
+        required_runtime_evidence: &'static str,
+        required_output_evidence: &'static str,
+        required_correctness_evidence: &'static str,
+        required_benchmark_evidence: &'static str,
+        required_execution_certificate_evidence: &'static str,
+        required_native_io_evidence: &'static str,
+        release_gate_ref: &'static str,
+        dependency_gate_refs: &'static str,
+        missing_evidence: &'static str,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            claim_id,
+            claim_family,
+            claim_language,
+            support_status: "blocked",
+            required_runtime_evidence,
+            required_output_evidence,
+            required_correctness_evidence,
+            required_benchmark_evidence,
+            required_execution_certificate_evidence,
+            required_native_io_evidence,
+            required_no_fallback_evidence: "no_fallback_policy,external_engine_invoked_false,fallback_attempted_false,external_baseline_only_boundary",
+            release_gate_ref,
+            dependency_gate_refs,
+            missing_evidence,
+            claim_gate_status: "not_claim_grade",
+            public_claim_allowed: false,
+            evidence_complete: false,
+            runtime_execution_performed: false,
+            benchmark_rerun_performed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary,
+        }
+    }
+
+    #[must_use]
+    pub fn not_claim_grade(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade"
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.public_claim_allowed
+            && !self.evidence_complete
+            && !self.runtime_execution_performed
+            && !self.benchmark_rerun_performed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct EngineReplacementClaimInventoryReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub docs_ref: &'static str,
+    pub source_refs: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<EngineReplacementClaimInventoryRow>,
+    pub public_engine_replacement_claim_allowed: bool,
+    pub spark_displacement_claim_allowed: bool,
+    pub performance_superiority_claim_allowed: bool,
+    pub best_default_claim_allowed: bool,
+    pub production_platform_claim_allowed: bool,
+    pub release_gate_required: bool,
+    pub runtime_execution_performed: bool,
+    pub benchmark_rerun_performed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl EngineReplacementClaimInventoryReport {
+    #[must_use]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.engine_replacement_claim_inventory.v1",
+            report_id: "gar-0001b-a.engine_replacement_claim_inventory",
+            docs_ref: "docs/architecture/engine-replacement-claim-inventory.md",
+            source_refs: "docs/rfcs/0001-architecture.md,docs/rfcs/0025-competitive-engine-track-no-fallback-replacement.md,docs/architecture/benchmark-competitive-claim-evidence.md,docs/architecture/best-default-certification-gate.md,docs/architecture/workspace-feature-build-matrix.md",
+            support_status: "report_only",
+            claim_gate_status: "not_claim_grade",
+            rows: engine_replacement_claim_inventory_rows(),
+            public_engine_replacement_claim_allowed: false,
+            spark_displacement_claim_allowed: false,
+            performance_superiority_claim_allowed: false,
+            best_default_claim_allowed: false,
+            production_platform_claim_allowed: false,
+            release_gate_required: true,
+            runtime_execution_performed: false,
+            benchmark_rerun_performed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.claim_id).collect()
+    }
+
+    #[must_use]
+    pub fn claim_families(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.claim_family).collect()
+    }
+
+    #[must_use]
+    pub fn missing_evidence(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.missing_evidence).collect()
+    }
+
+    #[must_use]
+    pub fn dependency_gate_refs(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .map(|row| row.dependency_gate_refs)
+            .collect()
+    }
+
+    #[must_use]
+    pub fn all_rows_not_claim_grade(&self) -> bool {
+        self.rows
+            .iter()
+            .all(EngineReplacementClaimInventoryRow::not_claim_grade)
+    }
+
+    #[must_use]
+    pub fn all_rows_side_effect_free(&self) -> bool {
+        self.rows
+            .iter()
+            .all(EngineReplacementClaimInventoryRow::side_effect_free)
+    }
+
+    #[must_use]
+    pub fn all_engine_replacement_claims_blocked(&self) -> bool {
+        !self.public_engine_replacement_claim_allowed
+            && !self.spark_displacement_claim_allowed
+            && !self.performance_superiority_claim_allowed
+            && !self.best_default_claim_allowed
+            && !self.production_platform_claim_allowed
+            && self.claim_gate_status == "not_claim_grade"
+            && self.all_rows_not_claim_grade()
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.runtime_execution_performed
+            && !self.benchmark_rerun_performed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.all_rows_side_effect_free()
+    }
+}
+
+#[must_use]
+pub fn plan_engine_replacement_claim_inventory() -> EngineReplacementClaimInventoryReport {
+    EngineReplacementClaimInventoryReport::report_only()
+}
+
+fn engine_replacement_claim_inventory_rows() -> Vec<EngineReplacementClaimInventoryRow> {
+    vec![
+        EngineReplacementClaimInventoryRow::blocked(
+            "spark_displacement_claim",
+            "spark_displacement",
+            "Spark-displacement language is blocked",
+            "production_batch_runtime,larger_than_memory_local,split_parallel_local,shuffle_join_groupby_window,object_store_table_scale_runtime",
+            "local_and_object_store_outputs,table_commit_semantics,result_sink_replay,output_fanout_evidence",
+            "semantic_conformance,differential_oracle_correctness,fuzz_property_coverage,edge_case_fixtures",
+            "claim_grade_full_local_plus_spark,scale_benchmark_profile,reproducible_environment,baseline_versions",
+            "execution_certificate,operator_certificate,scale_certificate",
+            "source_native_io_certificate,output_native_io_certificate,materialization_decode_certificate",
+            "GAR-0009-A,GAR-0041-A,P8.4 hard release readiness",
+            "GAR-0009-A Spark-displacement benchmark evidence matrix; GAR-0041-A per-claim evidence attachment matrix; GAR-SCALE-1 scale contract; GAR-RUNTIME-IMPL runtime queue",
+            "runtime_evidence,output_evidence,correctness_evidence,benchmark_evidence,execution_certificate,native_io_certificate,no_fallback_evidence,release_gate",
+            "No Spark-displacement or Spark-replacement claim is allowed; external Spark rows are baselines/oracles only.",
+        ),
+        EngineReplacementClaimInventoryRow::blocked(
+            "general_engine_replacement_claim",
+            "engine_replacement",
+            "general engine-replacement language is blocked",
+            "broad_local_runtime,sql_dataframe_runtime,input_adapter_runtime,output_writer_runtime,session_runtime",
+            "multi_format_local_outputs,prepared_vortex_outputs,compatibility_outputs,replay_verified_sinks",
+            "operator_semantics,sql_dataframe_semantics,adapter_correctness,materialization_boundaries",
+            "full_local_profile,competitor_registry,artifact_completeness,reproducible_runs",
+            "execution_certificate,workload_dossier,claim_gate_certificate",
+            "native_io_certificate,adapter_fidelity_certificate,source_sink_certificate",
+            "GAR-0001B-A,GAR-0009-A,GAR-0041-A",
+            "GAR-BENCH-PUB-1; GAR-COMPAT-1; GAR-RUNTIME-IMPL-4D through 4M",
+            "runtime_evidence,compatibility_evidence,benchmark_artifact_completeness,release_claim_approval",
+            "Engine-replacement language remains blocked until scoped runtime and benchmark evidence proves the exact workload.",
+        ),
+        EngineReplacementClaimInventoryRow::blocked(
+            "best_default_engine_claim",
+            "best_default",
+            "best-default engine language is blocked",
+            "broad_user_workflow_runtime,api_surface_runtime,installer_smoke_runtime,diagnostic_quality_runtime",
+            "common_output_formats,claim_safe_website_docs,package_install_outputs",
+            "workload_constitution,semantic_conformance,correctness_differential_harness",
+            "best_choice_scorecard,benchmark_claim_evidence,public_benchmark_manifest",
+            "execution_certificate,capability_snapshot,release_readiness_certificate",
+            "native_io_certificate,no_fallback_certificate,materialization_certificate",
+            "GAR-0032-E,GAR-0041-A",
+            "best-default certification gate; world-class sufficiency; package-channel readiness",
+            "best_choice_scorecard,best_default_dossier,benchmark_evidence,release_security,ux_install_docs",
+            "Best-default language remains blocked by the existing certification gate.",
+        ),
+        EngineReplacementClaimInventoryRow::blocked(
+            "production_sql_dataframe_claim",
+            "sql_dataframe_replacement",
+            "production SQL/DataFrame replacement language is blocked",
+            "sql_parser_binder_planner_runtime,dataframe_runtime,optimizer_runtime,operator_runtime",
+            "sql_dataframe_write_paths,local_and_prepared_vortex_outputs",
+            "sql_semantics,dataframe_semantics,type_coercion,null_semantics,join_aggregate_window_correctness",
+            "sql_dataframe_benchmark_profile,scenario_coverage,baseline_context",
+            "sql_execution_certificate,dataframe_execution_certificate",
+            "input_output_native_io_certificate,materialization_decode_certificate",
+            "GAR-0032-A,GAR-0032-B,GAR-0041-A",
+            "GAR-RUNTIME-IMPL-4D; GAR-RUNTIME-IMPL-4E; GAR-RUNTIME-IMPL-4K",
+            "parser_binder_planner_runtime,operator_runtime,semantic_conformance,benchmark_evidence",
+            "Production SQL/DataFrame replacement claims remain blocked.",
+        ),
+        EngineReplacementClaimInventoryRow::blocked(
+            "object_store_lakehouse_replacement_claim",
+            "object_store_lakehouse",
+            "object-store/lakehouse replacement language is blocked",
+            "object_store_read_runtime,object_store_write_runtime,table_runtime,commit_protocol_runtime",
+            "object_store_output_commit,table_append_merge_update_delete,rollback_recovery",
+            "table_semantics,delete_tombstone_cdc_correctness,commit_recovery_correctness",
+            "object_store_optional_profile,table_runtime_profile,scale_profile",
+            "object_store_execution_certificate,table_commit_certificate",
+            "object_store_native_io_certificate,table_metadata_certificate",
+            "GAR-0001A-B,GAR-0041-A,GAR-SCALE-1",
+            "GAR-RUNTIME-IMPL-4N; GAR-RUNTIME-IMPL-4O; GAR-SCALE-1E",
+            "credential_policy,network_policy,object_store_io,commit_semantics,table_correctness,scale_evidence",
+            "Object-store/lakehouse replacement claims remain blocked until read/write/commit runtime proof exists.",
+        ),
+        EngineReplacementClaimInventoryRow::blocked(
+            "managed_platform_replacement_claim",
+            "managed_platform",
+            "managed-platform replacement language is blocked",
+            "managed_platform_proof,foundry_runtime_proof,distributed_orchestration,governance_runtime",
+            "platform_output_dataset,evidence_dataset,package_channel_artifacts",
+            "platform_semantic_proof,foundry_dev_stack_proof,enterprise_evidence_export_validation",
+            "managed_platform_profile,foundry_scale_proof,environment_fingerprint",
+            "platform_execution_certificate,foundry_execution_certificate",
+            "platform_native_io_certificate,output_dataset_certificate",
+            "GAR-SCALE-1H,GAR-COMMERCIAL-1E,GAR-0041-A",
+            "Foundry proof boundary; package proof boundary; distributed report-only protocol",
+            "real_platform_invocation,governance_evidence,output_dataset_evidence,scale_proof",
+            "Managed-platform replacement claims remain blocked; Foundry and managed platforms are validation targets only.",
+        ),
+    ]
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReleasePlan {
     pub version: ProjectVersion,
@@ -1829,6 +2119,47 @@ mod tests {
         assert!(!evidence.public_release_claim_allowed);
         assert!(!evidence.external_publish_performed);
         assert!(!evidence.fallback_attempted);
+    }
+
+    #[test]
+    fn engine_replacement_claim_inventory_blocks_displacement_claims_without_evidence() {
+        let report = plan_engine_replacement_claim_inventory();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.engine_replacement_claim_inventory.v1"
+        );
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.support_status, "report_only");
+        assert_eq!(report.rows.len(), 6);
+        assert!(report.release_gate_required);
+        assert!(report.all_rows_not_claim_grade());
+        assert!(report.all_rows_side_effect_free());
+        assert!(report.all_engine_replacement_claims_blocked());
+        assert!(report.side_effect_free());
+        assert!(!report.public_engine_replacement_claim_allowed);
+        assert!(!report.spark_displacement_claim_allowed);
+        assert!(!report.performance_superiority_claim_allowed);
+        assert!(!report.best_default_claim_allowed);
+        assert!(!report.production_platform_claim_allowed);
+        assert!(!report.runtime_execution_performed);
+        assert!(!report.benchmark_rerun_performed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(report.row_order().contains(&"spark_displacement_claim"));
+        assert!(
+            report
+                .dependency_gate_refs()
+                .iter()
+                .any(|refs| refs.contains("GAR-0041-A"))
+        );
+        assert!(report.rows.iter().all(|row| {
+            row.claim_gate_status == "not_claim_grade"
+                && !row.public_claim_allowed
+                && !row.fallback_attempted
+                && !row.external_engine_invoked
+                && row.claim_language.contains("blocked")
+        }));
     }
 
     #[test]

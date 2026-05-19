@@ -3680,6 +3680,101 @@ fn gar_0023_a_plugin_abi_udf_sandbox_blocker_remains_report_only() {
 }
 
 #[test]
+fn gar_0001b_a_engine_replacement_claim_inventory_blocks_displacement_language() {
+    let release = read_repo_file("shardloom-core/src/release.rs");
+    for required in [
+        "EngineReplacementClaimInventoryReport",
+        "EngineReplacementClaimInventoryRow",
+        "plan_engine_replacement_claim_inventory",
+        "shardloom.engine_replacement_claim_inventory.v1",
+        "gar-0001b-a.engine_replacement_claim_inventory",
+        "claim_gate_status: \"not_claim_grade\"",
+        "public_engine_replacement_claim_allowed: false",
+        "spark_displacement_claim_allowed: false",
+        "performance_superiority_claim_allowed: false",
+        "best_default_claim_allowed: false",
+        "production_platform_claim_allowed: false",
+        "runtime_execution_performed: false",
+        "benchmark_rerun_performed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "Spark-displacement language is blocked",
+        "general engine-replacement language is blocked",
+        "engine_replacement_claim_inventory_blocks_displacement_claims_without_evidence",
+    ] {
+        assert!(
+            release.contains(required),
+            "missing engine-replacement inventory release marker {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/packaging_deployment.rs");
+    for required in [
+        "append_engine_replacement_claim_inventory_fields",
+        "engine_replacement_claim_inventory_schema_version",
+        "engine_replacement_claim_inventory_claim_gate_status",
+        "engine_replacement_claim_inventory_all_claims_blocked",
+        "engine_replacement_claim_inventory_spark_displacement_claim_allowed",
+        "engine_replacement_claim_inventory_external_engine_invoked",
+        "format!(\"{prefix}_claim_gate_status\")",
+        "format!(\"{prefix}_public_claim_allowed\")",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing engine-replacement inventory CLI marker {required}"
+        );
+    }
+
+    let cli_tests = read_repo_file("shardloom-cli/src/main.rs");
+    assert!(cli_tests.contains(
+        "engine_replacement_claim_inventory_row_spark_displacement_claim_claim_gate_status"
+    ));
+    assert!(cli_tests.contains(
+        "engine_replacement_claim_inventory_row_spark_displacement_claim_public_claim_allowed"
+    ));
+
+    let doc = read_repo_file("docs/architecture/engine-replacement-claim-inventory.md");
+    for required in [
+        "GAR-0001B-A",
+        "engine_replacement_claim_inventory_schema_version=shardloom.engine_replacement_claim_inventory.v1",
+        "engine_replacement_claim_inventory_claim_gate_status=not_claim_grade",
+        "engine_replacement_claim_inventory_all_claims_blocked=true",
+        "engine_replacement_claim_inventory_spark_displacement_claim_allowed=false",
+        "engine_replacement_claim_inventory_external_engine_invoked=false",
+        "no public displacement language",
+        "No replacement claim",
+        "No benchmark rerun",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing engine-replacement inventory doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0001B-A engine-replacement claim inventory"));
+    assert!(plan.contains("docs/architecture/engine-replacement-claim-inventory.md"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0001B-A engine-replacement claim inventory"));
+    assert!(completed.contains("shardloom.engine_replacement_claim_inventory.v1"));
+    assert!(completed.contains("engine_replacement_claim_inventory_all_claims_blocked=true"));
+    assert!(completed.contains("engine_replacement_claim_inventory_external_engine_invoked=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0001B-A` adds `shardloom.engine_replacement_claim_inventory.v1`"));
+    assert!(gar.contains("no public displacement language"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(
+        traceability.contains("GAR-0001B-A adds `shardloom.engine_replacement_claim_inventory.v1`")
+    );
+    assert!(traceability.contains("no replacement claim"));
+}
+
+#[test]
 fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
     let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
     for required in [

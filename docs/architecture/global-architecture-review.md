@@ -66,8 +66,13 @@ plan before coding.
 - [ ] Executable SQL/DataFrame runtime, distributed runtime, broad lakehouse-compatible output, and
   general object-store execution remain incomplete; GAR-0001A-B blocks those claims until the
   narrower GAR-0008, GAR-0020, and GAR-0028 evidence slices land.
-- [ ] Spark-displacement or engine-replacement claims remain not claimable until runtime and output
-  evidence closes.
+- [x] `GAR-0001B-A` adds `shardloom.engine_replacement_claim_inventory.v1`, a report-only
+  engine-replacement claim inventory that maps Spark-displacement, general replacement,
+  best-default, SQL/DataFrame, object-store/lakehouse, and managed-platform claim families to
+  required runtime, output, correctness, benchmark, certificate, Native I/O, release, and
+  no-fallback evidence. The release-plan fields keep every row `claim_gate_status=not_claim_grade`
+  with no replacement claim, no public displacement language, no benchmark rerun, no runtime
+  execution, `fallback_attempted=false`, and `external_engine_invoked=false`.
 
 ### RFC 0002 - No-Fallback Execution and Native Vortex I/O Contract
 

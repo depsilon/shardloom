@@ -4095,6 +4095,73 @@ mod tests {
     }
 
     #[test]
+    fn release_plan_fields_expose_engine_replacement_inventory() {
+        let plan = shardloom_core::ReleasePlan::default_foundation_plan();
+        let evidence = plan.release_readiness_evidence();
+        let publication = plan.publication_boundary_report();
+        let fields = packaging_deployment::release_plan_fields(
+            &plan,
+            &evidence,
+            &publication,
+            "release_plan",
+        );
+
+        assert_eq!(
+            output_field(&fields, "engine_replacement_claim_inventory_schema_version"),
+            "shardloom.engine_replacement_claim_inventory.v1"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "engine_replacement_claim_inventory_claim_gate_status"
+            ),
+            "not_claim_grade"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "engine_replacement_claim_inventory_all_claims_blocked"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "engine_replacement_claim_inventory_spark_displacement_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "engine_replacement_claim_inventory_external_engine_invoked"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "engine_replacement_claim_inventory_row_spark_displacement_claim_claim_gate_status"
+            ),
+            "not_claim_grade"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "engine_replacement_claim_inventory_row_spark_displacement_claim_public_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "engine_replacement_claim_inventory_row_spark_displacement_claim_fallback_attempted"
+            ),
+            "false"
+        );
+    }
+
+    #[test]
     fn release_plan_fields_keep_publication_boundaries_distinct() {
         let plan = shardloom_core::ReleasePlan::default_foundation_plan();
         let evidence = plan.release_readiness_evidence();

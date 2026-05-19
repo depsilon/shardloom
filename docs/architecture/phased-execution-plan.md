@@ -110,6 +110,7 @@ Reference index:
   `docs/architecture/evidence-native-generated-execution-observability-confidence.md`,
   `docs/architecture/adoption-commercial-readiness-friction-reduction.md`,
   `docs/architecture/workspace-feature-build-matrix.md`,
+  `docs/architecture/engine-replacement-claim-inventory.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
   `docs/architecture/credential-policy-enforcement-gate.md`,
@@ -227,20 +228,6 @@ Current non-runtime sequence:
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0001B-A engine-replacement claim inventory
-  - Source: RFC 0001; RFC 0025; global architecture review.
-  - Current state: Spark-displacement/engine-replacement claims are not claimable.
-  - Next slice outcome: inventory mapping each replacement claim to required runtime, output,
-    correctness, benchmark, certificate, Native I/O, and no-fallback evidence.
-  - User-visible surface: release claim gate, docs.
-  - Implementation scope: release gate docs/report, tests.
-  - Evidence required: all claim categories as checklist refs; no execution evidence in inventory
-    slice.
-  - Acceptance: missing evidence yields `claim_gate_status=not_claim_grade`.
-  - Verification: release readiness metadata tests and default GAR verification.
-  - Non-goals: no replacement claim or benchmark rerun.
-  - Fallback/claim boundary: no public displacement language.
-  - Dependencies/blockers: GAR-0009 and GAR-0041 claim gates.
 - [ ] GAR-0009-A Spark-displacement benchmark evidence matrix
   - Source: RFC 0009; benchmark competitive claim evidence; benchmark-suite catalog.
   - Current state: local benchmark evidence exists; broad Spark-displacement evidence and public

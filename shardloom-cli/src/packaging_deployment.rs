@@ -6,10 +6,11 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    AgentContractPack, CommandStatus, CondaBuildInstallCertificationReport, OutputFormat,
+    AgentContractPack, CommandStatus, CondaBuildInstallCertificationReport,
+    EngineReplacementClaimInventoryReport, EngineReplacementClaimInventoryRow, OutputFormat,
     PythonWrapperFoundationReport, ReleaseEvidenceRequirementKind, ReleasePlan,
     ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
-    ReleaseReadinessEvidenceReport,
+    ReleaseReadinessEvidenceReport, plan_engine_replacement_claim_inventory,
 };
 
 use crate::cli_output::emit;
@@ -227,6 +228,10 @@ pub(crate) fn release_plan_fields(
         &mut fields,
         &plan.conda_build_install_certification(),
     );
+    append_engine_replacement_claim_inventory_fields(
+        &mut fields,
+        &plan_engine_replacement_claim_inventory(),
+    );
     push_field(&mut fields, "published", "false");
     push_field(&mut fields, "write_io", "false");
     push_field(&mut fields, "execution", "not_performed");
@@ -249,6 +254,263 @@ pub(crate) fn release_plan_fields(
         evidence.fallback_attempted,
     );
     fields
+}
+
+fn append_engine_replacement_claim_inventory_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &EngineReplacementClaimInventoryReport,
+) {
+    append_engine_replacement_claim_inventory_identity_fields(fields, report);
+    append_engine_replacement_claim_inventory_summary_fields(fields, report);
+    append_engine_replacement_claim_inventory_row_fields(fields, report);
+}
+
+fn append_engine_replacement_claim_inventory_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &EngineReplacementClaimInventoryReport,
+) {
+    push_field(
+        fields,
+        "engine_replacement_claim_inventory_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "engine_replacement_claim_inventory_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "engine_replacement_claim_inventory_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "engine_replacement_claim_inventory_source_refs",
+        report.source_refs,
+    );
+    push_field(
+        fields,
+        "engine_replacement_claim_inventory_support_status",
+        report.support_status,
+    );
+    push_field(
+        fields,
+        "engine_replacement_claim_inventory_claim_gate_status",
+        report.claim_gate_status,
+    );
+}
+
+fn append_engine_replacement_claim_inventory_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &EngineReplacementClaimInventoryReport,
+) {
+    push_count_field(
+        fields,
+        "engine_replacement_claim_inventory_row_count",
+        report.rows.len(),
+    );
+    push_field(
+        fields,
+        "engine_replacement_claim_inventory_row_order",
+        &report.row_order().join(","),
+    );
+    push_field(
+        fields,
+        "engine_replacement_claim_inventory_claim_families",
+        &report.claim_families().join(","),
+    );
+    push_field(
+        fields,
+        "engine_replacement_claim_inventory_dependency_gate_refs",
+        &report.dependency_gate_refs().join(" | "),
+    );
+    push_field(
+        fields,
+        "engine_replacement_claim_inventory_missing_evidence",
+        &report.missing_evidence().join(" | "),
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_all_rows_not_claim_grade",
+        report.all_rows_not_claim_grade(),
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_all_claims_blocked",
+        report.all_engine_replacement_claims_blocked(),
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_side_effect_free",
+        report.side_effect_free(),
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_public_engine_replacement_claim_allowed",
+        report.public_engine_replacement_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_spark_displacement_claim_allowed",
+        report.spark_displacement_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_best_default_claim_allowed",
+        report.best_default_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_performance_superiority_claim_allowed",
+        report.performance_superiority_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_production_platform_claim_allowed",
+        report.production_platform_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_runtime_execution_performed",
+        report.runtime_execution_performed,
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_benchmark_rerun_performed",
+        report.benchmark_rerun_performed,
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "engine_replacement_claim_inventory_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+}
+
+fn append_engine_replacement_claim_inventory_row_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &EngineReplacementClaimInventoryReport,
+) {
+    for row in &report.rows {
+        let prefix = format!("engine_replacement_claim_inventory_row_{}", row.claim_id);
+        append_engine_replacement_claim_inventory_row_identity_fields(fields, &prefix, row);
+        append_engine_replacement_claim_inventory_row_evidence_fields(fields, &prefix, row);
+        append_engine_replacement_claim_inventory_row_status_fields(fields, &prefix, row);
+    }
+}
+
+fn append_engine_replacement_claim_inventory_row_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &EngineReplacementClaimInventoryRow,
+) {
+    push_field(fields, &format!("{prefix}_claim_family"), row.claim_family);
+    push_field(
+        fields,
+        &format!("{prefix}_claim_language"),
+        row.claim_language,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_release_gate_ref"),
+        row.release_gate_ref,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_dependency_gate_refs"),
+        row.dependency_gate_refs,
+    );
+}
+
+fn append_engine_replacement_claim_inventory_row_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &EngineReplacementClaimInventoryRow,
+) {
+    for (suffix, value) in [
+        ("required_runtime_evidence", row.required_runtime_evidence),
+        ("required_output_evidence", row.required_output_evidence),
+        (
+            "required_correctness_evidence",
+            row.required_correctness_evidence,
+        ),
+        (
+            "required_benchmark_evidence",
+            row.required_benchmark_evidence,
+        ),
+        (
+            "required_execution_certificate_evidence",
+            row.required_execution_certificate_evidence,
+        ),
+        (
+            "required_native_io_evidence",
+            row.required_native_io_evidence,
+        ),
+        (
+            "required_no_fallback_evidence",
+            row.required_no_fallback_evidence,
+        ),
+        ("missing_evidence", row.missing_evidence),
+    ] {
+        push_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+}
+
+fn append_engine_replacement_claim_inventory_row_status_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &EngineReplacementClaimInventoryRow,
+) {
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        row.claim_gate_status,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_public_claim_allowed"),
+        row.public_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_evidence_complete"),
+        row.evidence_complete,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_runtime_execution_performed"),
+        row.runtime_execution_performed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_benchmark_rerun_performed"),
+        row.benchmark_rerun_performed,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_fallback_attempted"),
+        row.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_external_engine_invoked"),
+        row.external_engine_invoked,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
 }
 
 fn append_release_publication_boundary_fields(
