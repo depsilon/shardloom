@@ -17,7 +17,7 @@ phase plan first.
 
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-5E scoped local SQL CSV output writer
-  - Branch/PR: `codex/local-csv-output-writer` / #TBD.
+  - Branch/PR: `codex/local-csv-output-writer` / #799.
   - Primary files:
     - `shardloom-cli/src/sql_local_source_runtime.rs`
     - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
