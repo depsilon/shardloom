@@ -330,7 +330,7 @@ class SqlLocalSourceSmokeReport:
 
     @property
     def aggregate_runtime_execution(self) -> bool:
-        """Whether this smoke executed the admitted scalar aggregate path."""
+        """Whether this smoke executed an admitted aggregate path."""
 
         return self.envelope.field_bool("aggregate_runtime_execution", False) is True
 
@@ -348,6 +348,27 @@ class SqlLocalSourceSmokeReport:
         if not value:
             return ()
         return tuple(part for part in value.split(",") if part)
+
+    @property
+    def group_by_runtime_execution(self) -> bool:
+        """Whether this smoke executed the admitted grouped aggregate path."""
+
+        return self.envelope.field_bool("group_by_runtime_execution", False) is True
+
+    @property
+    def group_by_columns(self) -> tuple[str, ...]:
+        """Return group-by columns emitted by the smoke."""
+
+        value = self.envelope.field("group_by_columns", "")
+        if not value:
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def group_by_group_count(self) -> int:
+        """Return the number of groups emitted before the result limit."""
+
+        return self.envelope.field_int("group_by_group_count", 0) or 0
 
     @property
     def fallback_attempted(self) -> bool:

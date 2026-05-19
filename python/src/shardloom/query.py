@@ -439,7 +439,8 @@ class LazyFrame:
             raise ValueError(
                 "LazyFrame.write currently requires a local CSV source with "
                 "select(...), filter(...), and limit(...) operations, or "
-                "aggregate(...), filter(...), and limit(...) operations"
+                "aggregate(...), filter(...), and limit(...) operations, or "
+                "filter(...), group_by(...).agg(...), and limit(...) operations"
             )
         return self.client.sql_local_source_smoke(
             statement,
@@ -542,7 +543,7 @@ class LazyFrame:
         return self._unsupported_operation("join", target, check=check)
 
     def group_by(self, *columns: object) -> "GroupedLazyFrame":
-        """Return a grouped lazy workflow handle for unsupported aggregation diagnostics."""
+        """Return a grouped lazy workflow handle for scoped aggregation."""
 
         return GroupedLazyFrame(
             workflow=self,
@@ -771,37 +772,81 @@ class LazyFrame:
         if self.source.source_format != "csv":
             return False
         return all(
-            operation.kind not in {"select", "aggregate"}
+            operation.kind not in {"select", "aggregate", "group_by"}
             for operation in self.operations
+        )
+
+    def _can_append_group_by_aggregate(self, columns: tuple[str, ...]) -> bool:
+        if self.source.source_format != "csv" or len(columns) != 1:
+            return False
+        return all(
+            operation.kind not in {"select", "aggregate", "group_by"}
+            for operation in self.operations
+        )
+
+    def _append_group_by_aggregate(
+        self,
+        columns: tuple[str, ...],
+        expressions: tuple[str, ...],
+    ) -> "LazyFrame":
+        return LazyFrame(
+            source=self.source,
+            client=self.client,
+            operations=(
+                *self.operations,
+                WorkflowOperation("group_by", columns),
+                WorkflowOperation("aggregate", expressions),
+            ),
+            engine_mode=self.engine_mode,
         )
 
     def _sql_local_source_statement(self) -> str | None:
         if self.source.source_format != "csv":
             return None
-        select_list: tuple[str, ...] | None = None
+        projection_list: tuple[str, ...] | None = None
+        aggregate_list: tuple[str, ...] | None = None
+        group_by_list: tuple[str, ...] | None = None
         predicate: str | None = None
         limit: str | None = None
         for operation in self.operations:
-            if operation.kind in {"select", "aggregate"} and select_list is None:
-                select_list = operation.values
+            if operation.kind == "select" and projection_list is None:
+                projection_list = operation.values
+            elif operation.kind == "aggregate" and aggregate_list is None:
+                aggregate_list = operation.values
+            elif operation.kind == "group_by" and group_by_list is None:
+                group_by_list = operation.values
             elif operation.kind == "filter" and predicate is None:
                 predicate = operation.values[0]
             elif operation.kind == "limit" and limit is None:
                 limit = operation.values[0]
             else:
                 return None
-        if select_list is None or predicate is None or limit is None:
+        if predicate is None or limit is None:
+            return None
+        if projection_list is not None:
+            if aggregate_list is not None or group_by_list is not None:
+                return None
+            select_clause = ",".join(projection_list)
+            group_by_clause = ""
+        elif aggregate_list is not None:
+            if group_by_list is not None:
+                select_clause = ",".join((*group_by_list, *aggregate_list))
+                group_by_clause = f" GROUP BY {','.join(group_by_list)}"
+            else:
+                select_clause = ",".join(aggregate_list)
+                group_by_clause = ""
+        else:
             return None
         source_uri = _quote_sql_local_source_path(self.source.uri)
         return (
-            f"SELECT {','.join(select_list)} FROM {source_uri} "
-            f"WHERE {predicate} LIMIT {limit}"
+            f"SELECT {select_clause} FROM {source_uri} "
+            f"WHERE {predicate}{group_by_clause} LIMIT {limit}"
         )
 
 
 @dataclass(frozen=True, slots=True)
 class GroupedLazyFrame:
-    """Grouped lazy workflow handle used for unsupported aggregation diagnostics."""
+    """Grouped lazy workflow handle for scoped aggregation and blockers."""
 
     workflow: LazyFrame
     columns: tuple[str, ...]
@@ -817,8 +862,8 @@ class GroupedLazyFrame:
         *expressions: object,
         check: bool = False,
         **named_expressions: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for grouped aggregation."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped grouped aggregate workflow when admitted."""
 
         values = list(_normalize_columns(expressions)) if expressions else []
         values.extend(
@@ -828,6 +873,10 @@ class GroupedLazyFrame:
         if not values:
             raise ValueError("aggregate expressions must not be empty")
         target = f"group_by:{','.join(self.columns)};agg:{','.join(values)}"
+        if not named_expressions and self.workflow._can_append_group_by_aggregate(
+            self.columns
+        ):
+            return self.workflow._append_group_by_aggregate(self.columns, tuple(values))
         envelope = self.workflow.client.workflow_unsupported_plan(
             "agg",
             self.operation_summary,
@@ -845,8 +894,8 @@ class GroupedLazyFrame:
         *expressions: object,
         check: bool = False,
         **named_expressions: object,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Alias for grouped `agg` unsupported reporting."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Alias for grouped `agg`."""
 
         return self.agg(*expressions, check=check, **named_expressions)
 

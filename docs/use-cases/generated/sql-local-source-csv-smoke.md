@@ -26,7 +26,7 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,region,amount`n1,east
 
 ## Blocker
 
-Parquet/Vortex SQL sources, joins, multi-key/grouped aggregate generality, functions, subqueries, catalogs, object stores, table/lakehouse sources, Python group_by().agg(...), broader output sinks, and production SQL/DataFrame support require later runtime slices.
+Parquet/Vortex SQL sources, joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 
