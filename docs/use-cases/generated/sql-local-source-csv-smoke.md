@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# SQL local CSV projection/filter/limit, scalar aggregate, and group-by smoke
+# SQL local CSV projection/filter/limit, aggregate, group-by, and top-N smoke
 
 ## Quick Answer
 
@@ -8,15 +8,15 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV SELECT projection/filter/limit, scalar aggregate, and one-column group-by aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, external fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV SELECT projection/filter/limit, scalar aggregate, one-column group-by aggregate, and single-key numeric ORDER BY/LIMIT top-N smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-SQL local CSV projection/filter/limit, scalar aggregate, and group-by smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+SQL local CSV projection/filter/limit, aggregate, group-by, and top-N smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped local CSV SELECT projection/filter/limit, scalar aggregate, and one-column group-by aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, external fallback, or performance claim.
+Scoped local CSV SELECT projection/filter/limit, scalar aggregate, one-column group-by aggregate, and single-key numeric ORDER BY/LIMIT top-N smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,11 +26,11 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,region,amount`n1,east
 
 ## Blocker
 
-Parquet/Vortex SQL sources, joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
+Parquet/Vortex SQL sources, joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 
-`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, optional_local_jsonl_output, scalar_aggregate_result, grouped_aggregate_result, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, optional_local_jsonl_output, scalar_aggregate_result, grouped_aggregate_result, topn_result, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -45,6 +45,12 @@ Parquet/Vortex SQL sources, joins, multi-key/grouped aggregate generality, named
 - `group_by_runtime_execution`
 - `group_by_columns`
 - `group_by_group_count`
+- `order_by_runtime_execution`
+- `top_n_runtime_execution`
+- `sort_keys`
+- `sort_direction`
+- `sort_null_ordering`
+- `top_n_limit`
 - `output_io_performed`
 - `output_native_io_certificate_status`
 - `materialization_boundary`
@@ -54,13 +60,14 @@ Parquet/Vortex SQL sources, joins, multi-key/grouped aggregate generality, named
 
 ## Expected Output Or Evidence
 
-A JSON envelope with inline JSONL result, optional local JSONL output path/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, scalar/grouped aggregate fields when requested, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope with inline JSONL result, optional local JSONL output path/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, scalar/grouped/top-N fields when requested, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
 - `treating_smoke_as_sql_compatibility`
 - `expecting_parquet_or_s3_sql_sources`
 - `expecting_join_or_general_grouped_aggregate_support`
+- `expecting_general_order_by_or_null_ordering_support`
 
 ## Reference Files
 

@@ -1,13 +1,14 @@
 //! Scoped local-source SQL runtime smoke.
 //!
 //! This module intentionally admits one small SQL shape over local CSV:
-//! `SELECT <columns> FROM <local.csv> WHERE <simple predicate> LIMIT <n>`.
+//! `SELECT <columns> FROM <local.csv> WHERE <simple predicate> [ORDER BY <column> ASC|DESC] LIMIT <n>`.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
 //! `Polars`, `pandas`, object stores, catalogs, or Vortex query-engine
 //! integrations.
 
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     fmt::Write as _,
     fs,
@@ -29,6 +30,8 @@ use crate::{
 const COMMAND: &str = "sql-local-source-smoke";
 const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
 const EXECUTION_CERTIFICATE_ID: &str = "sql-local-source.csv.projection-filter-limit.execution.v1";
+const ORDER_BY_TOPN_EXECUTION_CERTIFICATE_ID: &str =
+    "sql-local-source.csv.order-by-topn-filter-limit.execution.v1";
 const AGGREGATE_EXECUTION_CERTIFICATE_ID: &str =
     "sql-local-source.csv.aggregate-filter-limit.execution.v1";
 const GROUPED_AGGREGATE_EXECUTION_CERTIFICATE_ID: &str =
@@ -73,6 +76,7 @@ struct ParsedSqlLocalSource {
     projections: Vec<String>,
     aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
+    order_by: Option<ParsedOrderBy>,
     source_path: PathBuf,
     predicate: ParsedPredicate,
     limit: usize,
@@ -85,6 +89,12 @@ struct ParsedAggregate {
     column: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedOrderBy {
+    column: String,
+    direction: SortDirection,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AggregateFunction {
     Count,
@@ -92,6 +102,64 @@ enum AggregateFunction {
     Avg,
     Min,
     Max,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SortDirection {
+    Asc,
+    Desc,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum SortValue {
+    Int(i64),
+    Float(f64),
+}
+
+impl SortValue {
+    fn try_from_scalar(value: &ScalarValue) -> Result<Self, ShardLoomError> {
+        match value {
+            ScalarValue::Int64(value) => Ok(Self::Int(*value)),
+            ScalarValue::UInt64(value) => {
+                let value = i64::try_from(*value).map_err(|_| {
+                    unsupported_sql_error(
+                        "ORDER BY unsigned values above int64 are not admitted in this scoped top-N smoke",
+                    )
+                })?;
+                Ok(Self::Int(value))
+            }
+            ScalarValue::Float64(value) if value.is_finite() => Ok(Self::Float(*value)),
+            ScalarValue::Null => Err(unsupported_sql_error(
+                "ORDER BY NULL ordering is not admitted in this scoped top-N smoke",
+            )),
+            _ => Err(unsupported_sql_error(
+                "ORDER BY top-N smoke admits numeric sort columns only",
+            )),
+        }
+    }
+}
+
+impl Eq for SortValue {}
+
+impl Ord for SortValue {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_f64().total_cmp(&other.as_f64())
+    }
+}
+
+impl PartialOrd for SortValue {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl SortValue {
+    fn as_f64(self) -> f64 {
+        match self {
+            Self::Int(value) => i64_to_f64(value),
+            Self::Float(value) => value,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -276,7 +344,9 @@ fn run_sql_local_source_smoke(
     } else if parsed.is_aggregate() {
         evaluate_scalar_aggregate_output(&parsed, &source, &filter.selected_row_indexes)?
     } else {
-        evaluate_projection_output(&parsed, &source, &filter.selected_row_indexes)?
+        let selected_row_indexes =
+            ordered_projection_row_indexes(&parsed, &source, &filter.selected_row_indexes)?;
+        evaluate_projection_output(&parsed, &source, &selected_row_indexes)?
     };
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
@@ -354,6 +424,41 @@ fn evaluate_projection_output(
         );
     }
     Ok(output_rows)
+}
+
+fn ordered_projection_row_indexes(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<Vec<usize>, ShardLoomError> {
+    let mut ordered = selected_row_indexes.to_vec();
+    let Some(order_by) = parsed.order_by.as_ref() else {
+        return Ok(ordered);
+    };
+    let mut sort_values = Vec::with_capacity(ordered.len());
+    for row_index in &ordered {
+        let row = source.rows.get(*row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
+        })?;
+        let value = row.get(&order_by.column).ok_or_else(|| {
+            unsupported_sql_error(&format!(
+                "ORDER BY column {:?} is not present in the CSV row",
+                order_by.column
+            ))
+        })?;
+        sort_values.push((*row_index, SortValue::try_from_scalar(value)?));
+    }
+    sort_values.sort_by(|(left_index, left_value), (right_index, right_value)| {
+        let ordering = left_value.cmp(right_value);
+        let ordering = match order_by.direction {
+            SortDirection::Asc => ordering,
+            SortDirection::Desc => ordering.reverse(),
+        };
+        ordering.then_with(|| left_index.cmp(right_index))
+    });
+    ordered.clear();
+    ordered.extend(sort_values.into_iter().map(|(row_index, _value)| row_index));
+    Ok(ordered)
 }
 
 fn evaluate_scalar_aggregate_output(
@@ -652,6 +757,19 @@ fn bind_sql_local_source(
     parsed: &ParsedSqlLocalSource,
     header: &[String],
 ) -> Result<(), ShardLoomError> {
+    if let Some(order_by) = parsed.order_by.as_ref() {
+        if parsed.is_aggregate() || parsed.is_grouped_aggregate() {
+            return Err(unsupported_sql_error(
+                "ORDER BY top-N smoke currently admits projection rows only; aggregate and grouped top-N remain blocked",
+            ));
+        }
+        if !header.iter().any(|candidate| candidate == &order_by.column) {
+            return Err(unsupported_sql_error(&format!(
+                "ORDER BY column {:?} is not present in the CSV header",
+                order_by.column
+            )));
+        }
+    }
     if parsed.is_grouped_aggregate() {
         if parsed.projections != parsed.group_by {
             return Err(unsupported_sql_error(
@@ -722,7 +840,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn statement_kind(&self) -> &'static str {
-        if self.is_grouped_aggregate() {
+        if self.order_by.is_some() {
+            "local_source_order_by_topn_filter_limit"
+        } else if self.is_grouped_aggregate() {
             "local_source_group_by_aggregate_filter_limit"
         } else if self.is_aggregate() {
             "local_source_aggregate_filter_limit"
@@ -732,7 +852,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn claim_gate_reason(&self) -> &'static str {
-        if self.is_grouped_aggregate() {
+        if self.order_by.is_some() {
+            "one_scoped_local_csv_sql_order_by_topn_filter_limit_smoke"
+        } else if self.is_grouped_aggregate() {
             "one_scoped_local_csv_sql_group_by_aggregate_filter_limit_smoke"
         } else if self.is_aggregate() {
             "one_scoped_local_csv_sql_scalar_aggregate_filter_limit_smoke"
@@ -742,7 +864,9 @@ impl ParsedSqlLocalSource {
     }
 
     fn execution_certificate_ref(&self) -> &'static str {
-        if self.is_grouped_aggregate() {
+        if self.order_by.is_some() {
+            ORDER_BY_TOPN_EXECUTION_CERTIFICATE_ID
+        } else if self.is_grouped_aggregate() {
             GROUPED_AGGREGATE_EXECUTION_CERTIFICATE_ID
         } else if self.is_aggregate() {
             AGGREGATE_EXECUTION_CERTIFICATE_ID
@@ -809,6 +933,21 @@ impl AggregateFunction {
             Self::Avg => "avg",
             Self::Min => "min",
             Self::Max => "max",
+        }
+    }
+}
+
+impl ParsedOrderBy {
+    fn direction_label(&self) -> &'static str {
+        self.direction.as_str()
+    }
+}
+
+impl SortDirection {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Asc => "asc",
+            Self::Desc => "desc",
         }
     }
 }
@@ -969,6 +1108,56 @@ impl SqlLocalSourceReport {
                 "group_by_group_count".to_string(),
                 if self.parsed.is_grouped_aggregate() {
                     self.output_rows.len().to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "order_by_runtime_execution".to_string(),
+                self.parsed.order_by.is_some().to_string(),
+            ),
+            (
+                "top_n_runtime_execution".to_string(),
+                self.parsed.order_by.is_some().to_string(),
+            ),
+            (
+                "sort_operator_family".to_string(),
+                if self.parsed.order_by.is_some() {
+                    "single_key_numeric_topn"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "sort_keys".to_string(),
+                self.parsed
+                    .order_by
+                    .as_ref()
+                    .map_or_else(String::new, |order_by| order_by.column.clone()),
+            ),
+            (
+                "sort_direction".to_string(),
+                self.parsed
+                    .order_by
+                    .as_ref()
+                    .map_or_else(String::new, |order_by| {
+                        order_by.direction_label().to_string()
+                    }),
+            ),
+            (
+                "sort_null_ordering".to_string(),
+                if self.parsed.order_by.is_some() {
+                    "nulls_blocked_for_fixture_smoke"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "top_n_limit".to_string(),
+                if self.parsed.order_by.is_some() {
+                    self.parsed.limit.to_string()
                 } else {
                     "0".to_string()
                 },
@@ -1291,20 +1480,33 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
         unsupported_sql_error("SQL local-source smoke requires a LIMIT <n> clause")
     })?;
     let group_by_index = find_keyword_outside_quotes(&statement, "group by");
+    let order_by_index = find_keyword_outside_quotes(&statement, "order by");
     if !(from_index > 6 && where_index > from_index && limit_index > where_index)
         || group_by_index.is_some_and(|index| !(index > where_index && index < limit_index))
+        || order_by_index.is_some_and(|index| !(index > where_index && index < limit_index))
+        || group_by_index
+            .zip(order_by_index)
+            .is_some_and(|(group_by, order_by)| group_by > order_by)
     {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke requires SELECT ... FROM ... WHERE ... [GROUP BY ...] LIMIT ... order",
+            "SQL local-source smoke requires SELECT ... FROM ... WHERE ... [GROUP BY ...] [ORDER BY ...] LIMIT ... order",
         ));
     }
 
     let select_list = statement[6..from_index].trim();
     let source_raw = statement[from_index + 4..where_index].trim();
-    let predicate_end = group_by_index.unwrap_or(limit_index);
+    let predicate_end = [group_by_index, order_by_index, Some(limit_index)]
+        .into_iter()
+        .flatten()
+        .min()
+        .expect("limit index exists");
     let predicate_raw = statement[where_index + 5..predicate_end].trim();
-    let group_by_raw =
-        group_by_index.map(|index| statement[index + "group by".len()..limit_index].trim());
+    let group_by_raw = group_by_index.map(|index| {
+        let end = order_by_index.unwrap_or(limit_index);
+        statement[index + "group by".len()..end].trim()
+    });
+    let order_by_raw =
+        order_by_index.map(|index| statement[index + "order by".len()..limit_index].trim());
     let limit_raw = statement[limit_index + 5..].trim();
     if select_list.is_empty()
         || source_raw.is_empty()
@@ -1318,6 +1520,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     if contains_keyword_outside_quotes(limit_raw, "where")
         || contains_keyword_outside_quotes(limit_raw, "from")
         || contains_keyword_outside_quotes(limit_raw, "select")
+        || contains_keyword_outside_quotes(limit_raw, "order by")
     {
         return Err(unsupported_sql_error(
             "SQL local-source smoke admits one flat SELECT without subqueries",
@@ -1326,6 +1529,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
 
     let projection_list = parse_projection_list(select_list)?;
     let group_by = parse_group_by_list(group_by_raw)?;
+    let order_by = parse_order_by(order_by_raw)?;
     let source_path = parse_source_path(source_raw)?;
     let predicate = parse_predicate(predicate_raw)?;
     let limit = parse_limit(limit_raw)?;
@@ -1334,6 +1538,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
         projections: projection_list.projections,
         aggregates: projection_list.aggregates,
         group_by,
+        order_by,
         source_path,
         predicate,
         limit,
@@ -1452,6 +1657,46 @@ fn parse_group_by_list(raw: Option<&str>) -> Result<Vec<String>, ShardLoomError>
         parsed.push(column);
     }
     Ok(parsed)
+}
+
+fn parse_order_by(raw: Option<&str>) -> Result<Option<ParsedOrderBy>, ShardLoomError> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    if raw.trim().is_empty() {
+        return Err(unsupported_sql_error("ORDER BY clause must not be empty"));
+    }
+    let entries = split_sql_csv(raw)?;
+    if entries.len() != 1 {
+        return Err(unsupported_sql_error(
+            "ORDER BY top-N smoke admits exactly one sort key",
+        ));
+    }
+    let tokens = split_whitespace_outside_quotes(&entries[0])?;
+    let (column, direction) = match tokens.as_slice() {
+        [column] => (column, SortDirection::Asc),
+        [column, direction] if direction.eq_ignore_ascii_case("asc") => {
+            (column, SortDirection::Asc)
+        }
+        [column, direction] if direction.eq_ignore_ascii_case("desc") => {
+            (column, SortDirection::Desc)
+        }
+        [_, direction] if direction.eq_ignore_ascii_case("nulls") => {
+            return Err(unsupported_sql_error(
+                "ORDER BY NULLS FIRST/LAST is not admitted in this scoped top-N smoke",
+            ));
+        }
+        _ => {
+            return Err(unsupported_sql_error(
+                "ORDER BY top-N smoke admits <column> [ASC|DESC] only",
+            ));
+        }
+    };
+    validate_sql_identifier(column)?;
+    Ok(Some(ParsedOrderBy {
+        column: column.clone(),
+        direction,
+    }))
 }
 
 fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
@@ -1847,6 +2092,7 @@ mod tests {
         assert_eq!(parsed.projections, vec!["id", "label"]);
         assert!(parsed.aggregates.is_empty());
         assert!(parsed.group_by.is_empty());
+        assert!(parsed.order_by.is_none());
         assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
         assert_eq!(parsed.limit, 5);
         assert!(matches!(
@@ -1872,6 +2118,7 @@ mod tests {
         assert_eq!(parsed.aggregates[1].label(), "sum(amount)");
         assert_eq!(parsed.aggregates[2].output_name(), "avg_amount");
         assert!(parsed.group_by.is_empty());
+        assert!(parsed.order_by.is_none());
         assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
         assert_eq!(
             parsed.statement_kind(),
@@ -1888,12 +2135,33 @@ mod tests {
 
         assert_eq!(parsed.projections, vec!["region"]);
         assert_eq!(parsed.group_by, vec!["region"]);
+        assert!(parsed.order_by.is_none());
         assert_eq!(parsed.aggregates.len(), 2);
         assert_eq!(parsed.aggregates[0].label(), "count(*)");
         assert_eq!(parsed.aggregates[1].label(), "sum(amount)");
         assert_eq!(
             parsed.statement_kind(),
             "local_source_group_by_aggregate_filter_limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_order_by_topn_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE amount >= 0 ORDER BY amount DESC LIMIT 3",
+        )
+        .expect("order-by statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "label"]);
+        assert!(parsed.aggregates.is_empty());
+        assert!(parsed.group_by.is_empty());
+        let order_by = parsed.order_by.as_ref().expect("order by parsed");
+        assert_eq!(order_by.column, "amount");
+        assert_eq!(order_by.direction, SortDirection::Desc);
+        assert_eq!(parsed.limit, 3);
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_order_by_topn_filter_limit"
         );
     }
 

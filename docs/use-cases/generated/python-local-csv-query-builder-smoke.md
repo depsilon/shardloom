@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Python local CSV query-builder projection, scalar aggregate, and group-by smoke
+# Python local CSV query-builder projection, aggregate, group-by, and top-N smoke
 
 ## Quick Answer
 
@@ -8,29 +8,29 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped Python read_csv/select/filter/limit, read_csv/filter/scalar aggregate/limit, and read_csv/filter/one-column group_by/aggregate/limit collect/write workflows over local CSV only; no pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped Python read_csv/select/filter/limit, read_csv/filter/scalar aggregate/limit, read_csv/filter/one-column group_by/aggregate/limit, and read_csv/select/filter/single-key numeric sort/limit collect/write workflows over local CSV only; no pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-Python local CSV query-builder projection, scalar aggregate, and group-by smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+Python local CSV query-builder projection, aggregate, group-by, and top-N smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped Python read_csv/select/filter/limit, read_csv/filter/scalar aggregate/limit, and read_csv/filter/one-column group_by/aggregate/limit collect/write workflows over local CSV only; no pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
+Scoped Python read_csv/select/filter/limit, read_csv/filter/scalar aggregate/limit, read_csv/filter/one-column group_by/aggregate/limit, and read_csv/select/filter/single-key numeric sort/limit collect/write workflows over local CSV only; no pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## How To Try It
 
 ```powershell
-New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n3,beta,21`n4,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; $env:PYTHONPATH = "python\src"; python -c "import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').filter('amount >= 10').limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); a=ctx.read_csv('target/sql-local-source-smoke.csv').filter('amount >= 10').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); g=ctx.read_csv('target/sql-local-source-smoke.csv').filter('amount >= 10').group_by('label').agg('count(*)','sum(amount)').limit(10).collect(); print(r.output_path, r.output_native_io_certificate_status, a.aggregate_operator_family, g.aggregate_operator_family, g.group_by_columns, r.fallback_attempted, r.external_engine_invoked)"
+New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n3,beta,21`n4,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; $env:PYTHONPATH = "python\src"; python -c "import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').filter('amount >= 10').limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); a=ctx.read_csv('target/sql-local-source-smoke.csv').filter('amount >= 10').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); g=ctx.read_csv('target/sql-local-source-smoke.csv').filter('amount >= 10').group_by('label').agg('count(*)','sum(amount)').limit(10).collect(); t=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').filter('amount >= 0').sort('amount', descending=True).limit(2).collect(); print(r.output_path, r.output_native_io_certificate_status, a.aggregate_operator_family, g.aggregate_operator_family, g.group_by_columns, t.sort_keys, t.top_n_limit, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 ## Blocker
 
-The Python query-builder runtime admits only local CSV select/filter/limit, scalar aggregate/filter/limit, and one-column group_by/filter/aggregate/limit collect/write through the SQL local-source smoke. Joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
+The Python query-builder runtime admits only local CSV select/filter/limit, scalar aggregate/filter/limit, one-column group_by/filter/aggregate/limit, and single-key numeric sort/filter/limit collect/write through the SQL local-source smoke. Joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
 
 ## Internal Flow
 
-`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, local_jsonl_output, scalar_aggregate_result, grouped_aggregate_result, typed_python_report, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, local_jsonl_output, scalar_aggregate_result, grouped_aggregate_result, topn_result, typed_python_report, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -44,6 +44,12 @@ The Python query-builder runtime admits only local CSV select/filter/limit, scal
 - `group_by_runtime_execution`
 - `group_by_columns`
 - `group_by_group_count`
+- `order_by_runtime_execution`
+- `top_n_runtime_execution`
+- `sort_keys`
+- `sort_direction`
+- `sort_null_ordering`
+- `top_n_limit`
 - `output_io_performed=true`
 - `output_native_io_certificate_status`
 - `fallback_attempted=false`
@@ -52,13 +58,14 @@ The Python query-builder runtime admits only local CSV select/filter/limit, scal
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with local CSV source evidence, local JSONL output evidence when written, scalar/grouped aggregate fields when requested, group_by columns/count for grouped workflows, output Native I/O certificate status, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with local CSV source evidence, local JSONL output evidence when written, scalar/grouped/top-N fields when requested, group_by columns/count for grouped workflows, sort key/direction/top-N limit for sorted workflows, output Native I/O certificate status, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
 - `expecting_dataframe_parity`
 - `expecting_pandas_or_polars_execution`
 - `treating_fixture_smoke_as_production_support`
+- `expecting_general_sort_or_null_ordering_support`
 
 ## Reference Files
 

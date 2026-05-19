@@ -371,6 +371,45 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("group_by_group_count", 0) or 0
 
     @property
+    def order_by_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted ORDER BY path."""
+
+        return self.envelope.field_bool("order_by_runtime_execution", False) is True
+
+    @property
+    def top_n_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted top-N path."""
+
+        return self.envelope.field_bool("top_n_runtime_execution", False) is True
+
+    @property
+    def sort_keys(self) -> tuple[str, ...]:
+        """Return sort key columns emitted by the smoke."""
+
+        value = self.envelope.field("sort_keys", "")
+        if not value:
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def sort_direction(self) -> str | None:
+        """Return the sort direction emitted by the smoke."""
+
+        return self.envelope.field("sort_direction")
+
+    @property
+    def sort_null_ordering(self) -> str | None:
+        """Return the scoped null-ordering policy emitted by the smoke."""
+
+        return self.envelope.field("sort_null_ordering")
+
+    @property
+    def top_n_limit(self) -> int:
+        """Return the top-N limit emitted by the smoke."""
+
+        return self.envelope.field_int("top_n_limit", 0) or 0
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether the smoke command attempted fallback execution."""
 

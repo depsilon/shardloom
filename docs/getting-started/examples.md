@@ -137,6 +137,28 @@ Use this for the next GAR-RUNTIME-IMPL-1E operator-family promotion. It emits
 evidence. It is not multi-key group-by generality, Python `group_by().agg(...)`, broad SQL,
 prepared/native aggregate promotion, performance evidence, or production SQL/DataFrame support.
 
+## SQL Local CSV Order-By Top-N Smoke
+
+```powershell
+New-Item -ItemType Directory -Force target | Out-Null
+@"
+id,label,amount
+1,alpha,8
+2,beta,15
+3,gamma,21
+4,delta,13
+"@ | Set-Content -Encoding utf8 target\sql-local-source-topn.csv
+cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT id,label FROM 'target/sql-local-source-topn.csv' WHERE amount >= 10 ORDER BY amount DESC LIMIT 2" --format json
+```
+
+Use this for the scoped GAR-RUNTIME-IMPL-4B top-N promotion. It emits
+`sql_statement_kind=local_source_order_by_topn_filter_limit`,
+`order_by_runtime_execution=true`, `top_n_runtime_execution=true`,
+`sort_operator_family=single_key_numeric_topn`, sort key/direction fields, the top-N execution
+certificate ref, and no-fallback evidence. It admits one numeric non-null sort key only. Multi-key
+sorts, expression ordering, null ordering, collation parity, window ranking, broad SQL/DataFrame
+runtime, object-store/table sources, performance evidence, and production claims remain blocked.
+
 ## Python Local CSV Query-Builder Smoke
 
 ```powershell
@@ -176,6 +198,14 @@ grouped = (
     .limit(10)
     .collect()
 )
+topn = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter("amount >= 0")
+    .sort("amount", descending=True)
+    .limit(2)
+    .collect()
+)
 
 print(collected.result_jsonl)
 print(written.output_path)
@@ -187,6 +217,8 @@ print(aggregate.aggregate_functions)
 print(grouped.result_jsonl)
 print(grouped.aggregate_operator_family)
 print(grouped.group_by_columns)
+print(topn.result_jsonl)
+print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
 '@ | python -
 ```
 
@@ -194,8 +226,9 @@ Use this for the scoped GAR-RUNTIME-IMPL-1C path that exposes the same local CSV
 Python DataFrame-like query builder. `collect()` returns bounded inline JSONL; `write()` writes a
 local JSONL result and emits output Native I/O certificate fields. Scalar `aggregate(...)` lowers to
 the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; one-column
-`group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke. It is not a pandas/Polars
-backend, broad DataFrame runtime, generalized grouped aggregate runtime, object-store/table path,
+`group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke; single-key numeric
+`sort(...).limit(...)` lowers to the scoped top-N smoke. It is not a pandas/Polars backend, broad
+DataFrame runtime, generalized grouped aggregate or ordering runtime, object-store/table path,
 production SQL support, or performance claim.
 
 ## Foundry Lightweight Transform

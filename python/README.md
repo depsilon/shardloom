@@ -334,8 +334,11 @@ semantics, and returns a typed evidence report. The same bridge admits scoped
 scalar aggregates shaped as
 `read_csv(...).filter(...).aggregate(...).limit(1)` for `COUNT`, `SUM`, `AVG`,
 `MIN`, and `MAX`, and one-column grouped aggregates shaped as
-`read_csv(...).filter(...).group_by(...).agg(...).limit(n)`. `collect()` returns bounded inline
-JSONL; `write()` writes a local JSONL file and emits output Native I/O certificate fields:
+`read_csv(...).filter(...).group_by(...).agg(...).limit(n)`. It also admits a
+single-key numeric top-N shape,
+`read_csv(...).select(...).filter(...).sort(...).limit(n)`, over non-null
+numeric sort keys. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL file
+and emits output Native I/O certificate fields:
 
 ```powershell
 New-Item -ItemType Directory -Force target | Out-Null
@@ -374,6 +377,14 @@ grouped = (
     .limit(10)
     .collect()
 )
+topn = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter("amount >= 0")
+    .sort("amount", descending=True)
+    .limit(2)
+    .collect()
+)
 
 print(collected.result_jsonl)
 print(written.output_path)
@@ -385,16 +396,19 @@ print(aggregate.aggregate_functions)
 print(grouped.result_jsonl)
 print(grouped.aggregate_operator_family)
 print(grouped.group_by_columns)
+print(topn.result_jsonl)
+print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
 '@ | python -
 ```
 
 This is a fixture-smoke local CSV path only. It does not make the Python client
 a pandas/Polars-like execution engine, does not add broad SQL/DataFrame
-runtime, generalized grouped aggregation, object stores, or table/lakehouse
-inputs, and does not create a performance or production claim.
+runtime, generalized grouped aggregation, ordering/collation parity, object
+stores, or table/lakehouse inputs, and does not create a performance or
+production claim.
 
 The lower-level `client.sql_local_source_smoke(...)` helper can also call the
-scoped local CSV scalar and grouped aggregate smokes directly:
+scoped local CSV scalar, grouped aggregate, and order/top-N smokes directly:
 
 ```python
 report = client.sql_local_source_smoke(
@@ -412,11 +426,19 @@ grouped = client.sql_local_source_smoke(
 )
 print(grouped.group_by_columns)
 print(grouped.group_by_group_count)
+
+topn = client.sql_local_source_smoke(
+    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE amount >= 0 ORDER BY amount DESC LIMIT 2",
+)
+print(topn.sort_keys)
+print(topn.top_n_limit)
 ```
 
 That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
-generality, grouped aliases, joins, broad SQL/DataFrame planning, and production
-query support remain blocked until later runtime slices.
+generality, grouped aliases, multi-key sorts, null ordering, collation parity,
+joins, broad SQL/DataFrame planning, and production query support remain blocked
+until later runtime slices.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A
 future Python `explain()` trace should expose optimizer rule status, before/after plan digests,
