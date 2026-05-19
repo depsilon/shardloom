@@ -1928,6 +1928,12 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(dataframe_methods.row("range").runtime_execution)
         self.assertTrue(dataframe_methods.row("range").write_io)
         self.assertEqual(
+            dataframe_methods.row("head").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("head").runtime_execution)
+        self.assertTrue(dataframe_methods.row("take").data_read)
+        self.assertEqual(
             dataframe_methods.row("join").blocker_id,
             "cg21.workflow.join.operator_unsupported",
         )

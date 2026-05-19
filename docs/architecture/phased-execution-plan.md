@@ -1315,7 +1315,7 @@ runnable, documented, tested, and claim-safe.
     capability matrix, `docs/getting-started/examples.md`.
   - Current state: Python `read_csv(...)` and local flat JSONL/NDJSON `read_json(...)` query-builder
     chains support scoped projection/optional-filter/limit, preview/select-star, explicit-projection
-    literal `with_column(...)`, `count()`, scalar aggregate/optional-filter/limit, one-column grouped
+    literal `with_column(...)`, `head(...)`/`take(...)`, `count()`, scalar aggregate/optional-filter/limit, one-column grouped
     aggregate/optional-filter/limit, and single-key top-N collect/write workflows. Scoped local CSV
     inner equi-join and generated-output helpers also exist for scoped local workflows. Broad Python
     DataFrame joins, non-literal `with_column` over input-backed rows, broader expression

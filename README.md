@@ -132,7 +132,7 @@ Currently wired surfaces include:
   evidence with format-specific sink certificate refs, materialization/decode fields, and no-fallback/no-external-engine evidence; Python
   query-builder
   `ctx.read_csv(...).select(...).limit().collect()/write(...)` with optional `filter(...)`,
-  `ctx.read_csv(...).preview()`, and
+  `ctx.read_csv(...).preview()/head()/take()`, and
   `ctx.read_json(...).select(...).limit().collect()/write(...)` with optional `filter(...)` for local flat
   `.jsonl`/`.ndjson` sources, plus CSV or flat JSONL/NDJSON
   optional-filter `aggregate(...).limit(1).collect()/write(...)`,

@@ -16,6 +16,51 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-USER-SURFACE-1C Python query-builder `head()`/`take()` preview conveniences
+  - Branch/PR: `codex/query-builder-head-take` / #807.
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/context.py`
+    - `python/tests/test_query_builder.py`
+    - `python/tests/test_cli_client.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/phased-execution-plan.md`
+    - generated use-case/readme/status/field-guide website pages.
+  - Scope: add familiar PySpark/DataFrame-style bounded preview entrypoints without introducing a
+    new runtime path.
+  - Runtime behavior:
+    - `LazyFrame.head(limit=n)` and `LazyFrame.take(n)` lower to the existing scoped local
+      preview/select-star SQL smoke path for admitted local CSV and flat JSONL/NDJSON sources.
+    - Unsupported source shapes return deterministic `head` or `take` workflow unsupported reports,
+      preserving the user-facing method name instead of collapsing diagnostics into `preview`.
+  - Evidence:
+    - Python tests assert `preview`, `head`, and `take` invoke `sql-local-source-smoke` with
+      `SELECT * ... LIMIT n`, no fallback, no external engine, and fixture-smoke claim status.
+    - Unsupported-path tests assert `head` and `take` remain materialization-required unsupported
+      diagnostics on unadmitted sources.
+    - Capability matrix tests assert `head` and `take` are fixture-smoke materialization/data-read
+      methods.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_preview_uses_select_star_limit python.tests.test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python website\build_static_pages.py --benchmark-manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: scoped local preview/select-star fixture-smoke only. This is not decoded
+    row-object materialization, broad DataFrame runtime, SQL parity, object-store/table support,
+    external fallback, production support, or a performance claim.
+
 - [x] Session label: GAR-USER-SURFACE-1C Python query-builder `count()` convenience
   - Branch/PR: `codex/query-builder-count` / #806.
   - Primary files:
