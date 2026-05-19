@@ -70,6 +70,12 @@ const fieldGuideDossierRequiredFields = [
   "What this proves:",
 ];
 const useCasePublicReadinessFields = [
+  "atlas-surface",
+  "atlas-surface-sidebar",
+  "atlas-surface-body",
+  "Knowledge Atlas",
+  "Core Surfaces",
+  "On This Page",
   "Use Case Atlas",
   "Plain-English Summary",
   "Status Table",
@@ -86,6 +92,21 @@ const useCasePublicReadinessFields = [
   "external_engine_invoked=false",
   "data-citation-block=\"reference-files\"",
   "What this proves:",
+];
+const atlasSurfaceRequiredFields = [
+  "atlas-surface",
+  "atlas-surface-sidebar",
+  "atlas-surface-body",
+  "Knowledge Atlas",
+  "Core Surfaces",
+  "On This Page",
+  "pagefind-modal-trigger",
+];
+const atlasSurfacePages = [
+  "compute-engine-flow.html",
+  "status.html",
+  "readme.html",
+  "use-cases/index.html",
 ];
 
 function assert(condition, message) {
@@ -249,6 +270,13 @@ for (const required of [
 }
 
 const statusHtml = read("status.html");
+for (const atlasPage of atlasSurfacePages) {
+  const source = read(atlasPage);
+  for (const required of atlasSurfaceRequiredFields) {
+    assert(source.includes(required), `${atlasPage} missing atlas surface field ${required}`);
+  }
+}
+
 for (const required of [
   "Capability status matrix",
   "data-status-matrix-filters",

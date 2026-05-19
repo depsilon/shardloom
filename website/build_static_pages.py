@@ -1016,6 +1016,162 @@ def page_header_logo() -> str:
     return '<img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">'
 
 
+def atlas_search_control() -> str:
+    return """
+      <div class="pagefind-controls atlas-search">
+        <pagefind-modal-trigger>Search atlas</pagefind-modal-trigger>
+        <pagefind-modal>
+          <pagefind-modal-header>
+            <pagefind-input placeholder="Search pages, evidence fields, workflows..."></pagefind-input>
+          </pagefind-modal-header>
+          <pagefind-modal-body>
+            <div class="pagefind-filter-row">
+              <pagefind-filter-dropdown filter="section" label="Section" single-select sort="alphabetical"></pagefind-filter-dropdown>
+              <pagefind-filter-dropdown filter="status" label="Status" single-select sort="alphabetical"></pagefind-filter-dropdown>
+              <pagefind-filter-dropdown filter="category" label="Category" single-select sort="alphabetical"></pagefind-filter-dropdown>
+            </div>
+            <pagefind-summary></pagefind-summary>
+            <pagefind-results></pagefind-results>
+          </pagefind-modal-body>
+          <pagefind-modal-footer>
+            <pagefind-keyboard-hints></pagefind-keyboard-hints>
+          </pagefind-modal-footer>
+        </pagefind-modal>
+      </div>
+    """
+
+
+ATLAS_SURFACE_LINKS = [
+    ("Field Guide", "/field-guide/", "field-guide", "75 dossiers"),
+    ("Use Cases", "/use-cases/", "use-cases", "workflow atlas"),
+    ("Status", "/status", "status", "claim posture"),
+    ("Compute Flow", "/compute-engine-flow", "flow", "mission map"),
+    ("Docs", "/readme", "docs", "rendered README"),
+    ("Telemetry", "/benchmarks", "telemetry", "benchmark evidence"),
+]
+
+
+def atlas_surface_sidebar(
+    active: str,
+    *,
+    anchors: list[tuple[str, str, str]] | None = None,
+    use_cases: list[dict[str, Any]] | None = None,
+    active_use_case_id: str | None = None,
+) -> str:
+    surface_links = []
+    for label, href, key, meta in ATLAS_SURFACE_LINKS:
+        active_class = " active" if key == active else ""
+        current_attr = ' aria-current="page"' if key == active else ""
+        surface_links.append(
+            f"""
+                <li>
+                  <a class="atlas-side-term{active_class}"{current_attr} href="{href}">
+                    <span>{esc(label)}</span>
+                    <em>{esc(meta)}</em>
+                  </a>
+                </li>
+            """
+        )
+
+    anchor_block = ""
+    if anchors:
+        anchor_items = "".join(
+            f"""
+                <li>
+                  <a class="atlas-side-term" href="{esc(href)}">
+                    <span>{esc(label)}</span>
+                    <em>{esc(meta)}</em>
+                  </a>
+                </li>
+            """
+            for label, href, meta in anchors
+        )
+        anchor_block = f"""
+            <div class="atlas-side-category-block">
+              <a class="atlas-side-category active" href="#top">
+                <span>On This Page</span>
+                <strong>{len(anchors)}</strong>
+              </a>
+              <ul>{anchor_items}</ul>
+            </div>
+        """
+
+    use_case_block = ""
+    if use_cases:
+        use_case_items = "".join(
+            f"""
+                <li>
+                  <a class="atlas-side-term{' active' if str(use_case['id']) == active_use_case_id else ''}" href="/use-cases/{esc(use_case['id'])}">
+                    <span>{esc(use_case['title'])}</span>
+                    <em>{esc(status_label(str(use_case['status'])))}</em>
+                  </a>
+                </li>
+            """
+            for use_case in use_cases
+        )
+        use_case_block = f"""
+            <div class="atlas-side-category-block">
+              <a class="atlas-side-category{' active' if active == 'use-cases' else ''}" href="/use-cases/">
+                <span>Use Cases</span>
+                <strong>{len(use_cases)}</strong>
+              </a>
+              <ul>{use_case_items}</ul>
+            </div>
+        """
+
+    return f"""
+      <aside class="atlas-sidebar atlas-surface-sidebar" aria-label="ShardLoom learning atlas navigation">
+        <a class="atlas-sidebar-brand" href="/field-guide/" aria-label="ShardLoom Field Guide home">
+          <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        </a>
+        <div class="atlas-sidebar-summary">
+          <span>Knowledge Atlas</span>
+          <strong>{len(ATLAS_SURFACE_LINKS)} surfaces</strong>
+        </div>
+        <nav class="atlas-side-nav" aria-label="ShardLoom atlas sections">
+            <div class="atlas-side-category-block">
+              <a class="atlas-side-category" href="/field-guide/">
+                <span>Core Surfaces</span>
+                <strong>{len(ATLAS_SURFACE_LINKS)}</strong>
+              </a>
+              <ul>{"".join(surface_links)}</ul>
+            </div>
+            {anchor_block}
+            {use_case_block}
+        </nav>
+      </aside>
+    """
+
+
+def atlas_surface_shell(
+    *,
+    active: str,
+    path_label: str,
+    title: str,
+    body: str,
+    anchors: list[tuple[str, str, str]] | None = None,
+    use_cases: list[dict[str, Any]] | None = None,
+    active_use_case_id: str | None = None,
+) -> str:
+    return f"""
+    <section id="top" class="field-guide-atlas atlas-shell atlas-surface">
+      {atlas_surface_sidebar(active, anchors=anchors, use_cases=use_cases, active_use_case_id=active_use_case_id)}
+      <div class="atlas-main">
+        <div class="atlas-topbar">
+          <div>
+            <span class="atlas-path">{esc(path_label)}</span>
+            <strong>{esc(title)}</strong>
+          </div>
+          {atlas_search_control()}
+        </div>
+        <div class="atlas-surface-body">
+          {body}
+        </div>
+      </div>
+    </section>
+    """
+
+
 def page(
     title: str,
     description: str,
@@ -1082,7 +1238,7 @@ def page(
 
 def doc_page(source: Path, title: str, description: str, source_label: str, active: str) -> str:
     markdown = source.read_text(encoding="utf-8")
-    body = f"""
+    content = f"""
     <section class="doc-hero">
       <div class="shell">
         {page_header_logo()}
@@ -1100,6 +1256,19 @@ def doc_page(source: Path, title: str, description: str, source_label: str, acti
       </div>
     </section>
     """
+    body = atlas_surface_shell(
+        active=active,
+        path_label="/readme",
+        title="Repository README",
+        body=content,
+        anchors=[
+            ("Mission", "#mission", "start"),
+            ("Optimizes For", "#what-shardloom-optimizes-for", "scope"),
+            ("Runtime Snapshot", "#runtime-snapshot", "status"),
+            ("Current State", "#current-state", "evidence"),
+            ("Modes At A Glance", "#modes-at-a-glance", "routes"),
+        ],
+    )
     return page(
         title,
         description,
@@ -1240,6 +1409,21 @@ def compute_flow_page(source: Path) -> str:
       </div>
     </section>
     """
+    body = atlas_surface_shell(
+        active="flow",
+        path_label="/compute-engine-flow",
+        title="Compute Flow Mission Map",
+        body=body,
+        anchors=[
+            ("Overview", "#flow-overview", "route"),
+            ("Route model", "#route-model", "workflow"),
+            ("Mode lanes", "#flow-modes", "execution"),
+            ("Engine fabric", "#engine-fabric", "semantics"),
+            ("Provider admission", "#provider-admission", "policy"),
+            ("Downstream use", "#downstream", "evidence"),
+            ("Canonical reference", "#canonical-reference", "source"),
+        ],
+    )
     return page(
         "Compute Engine Flow",
         "Mission-map view of ShardLoom access surfaces, execution modes, engine modes, provider admission, downstream usage, evidence, and claim gates.",
@@ -1349,6 +1533,23 @@ def status_page(use_cases: list[dict[str, Any]]) -> str:
     </section>
     <script src="/assets/use-cases.js" defer></script>
     """
+    body = atlas_surface_shell(
+        active="status",
+        path_label="/status",
+        title="Launch Status Board",
+        body=body,
+        anchors=[
+            ("Can I use this?", "#can-i-use-this", "matrix"),
+            ("Supported local smoke", "#supported", "ready"),
+            ("Fixture-smoke", "#fixture", "scoped"),
+            ("Compatibility", "#compatibility", "sources"),
+            ("Report-only", "#report-only", "posture"),
+            ("Blocked", "#blocked", "guardrail"),
+            ("Planned", "#planned", "roadmap"),
+            ("Not claimed", "#not-claimed", "claims"),
+        ],
+        use_cases=use_cases,
+    )
     return page(
         "ShardLoom Status Board",
         "Claim-safe public posture board for ShardLoom supported local smoke, fixture-smoke, report-only, blocked, planned, and not-claimed surfaces.",
@@ -2324,32 +2525,49 @@ def use_case_page(use_case: dict[str, Any], by_id: dict[str, dict[str, Any]]) ->
     <section class="doc-section">
       <div class="shell use-case-layout">
         <article class="doc-body">
-          <h2>Plain-English Summary</h2>
+          <h2 id="plain-english-summary">Plain-English Summary</h2>
           <p>{esc(use_case_plain_summary(use_case))}</p>
-          <h2>Status Table</h2>
+          <h2 id="status-table">Status Table</h2>
           {render_use_case_status_table(use_case)}
           {quick_example}
           {blocker}
-          <h2>Claim Boundary</h2>
+          <h2 id="claim-boundary">Claim Boundary</h2>
           <p>{inline_markdown(str(use_case["claim_boundary"]))}</p>
-          <h2>Internal Flow</h2>
+          <h2 id="internal-flow">Internal Flow</h2>
           <div class="use-case-flow">{flow_html}</div>
-          <h2>Expected Evidence Fields</h2>
+          <h2 id="expected-evidence-fields">Expected Evidence Fields</h2>
           {list_markup(value_list(use_case.get("evidence_fields")))}
-          <h2>Expected Output Or Evidence</h2>
+          <h2 id="expected-output-or-evidence">Expected Output Or Evidence</h2>
           <p>{inline_markdown(str(use_case["expected_output_evidence"]))}</p>
-          <h2>Common Mistakes</h2>
+          <h2 id="common-mistakes">Common Mistakes</h2>
           {list_markup(value_list(use_case.get("common_mistakes")))}
-          <h2>Reference Files</h2>
+          <h2 id="reference-files">Reference Files</h2>
           {render_reference_links(value_list(use_case.get("references")))}
-          <h2>Related Field Guide Terms</h2>
+          <h2 id="related-field-guide-terms">Related Field Guide Terms</h2>
           {related_field_guide_term_links(use_case_id)}
-          <h2>Related Use Cases</h2>
+          <h2 id="related-use-cases">Related Use Cases</h2>
           <div class="related-use-cases">{related_cards}</div>
         </article>
       </div>
     </section>
     """
+    body = atlas_surface_shell(
+        active="use-cases",
+        path_label=f"/use-cases/{use_case_id}",
+        title="Use Case Atlas",
+        body=body,
+        anchors=[
+            ("Summary", "#plain-english-summary", "answer"),
+            ("Status Table", "#status-table", "status"),
+            ("Claim Boundary", "#claim-boundary", "claims"),
+            ("Internal Flow", "#internal-flow", "route"),
+            ("Evidence Fields", "#expected-evidence-fields", "evidence"),
+            ("References", "#reference-files", "sources"),
+            ("Related", "#related-use-cases", "links"),
+        ],
+        use_cases=list(by_id.values()),
+        active_use_case_id=use_case_id,
+    )
     return page(
         f"{use_case['title']} | ShardLoom Use Cases",
         f"ShardLoom use-case posture for {use_case['title']}.",
@@ -2411,7 +2629,7 @@ def use_cases_index_page(use_cases: list[dict[str, Any]]) -> str:
         <p class="lede">A non-expert map for what ShardLoom can do locally today, what is smoke-supported, what is report-only, and what remains planned or blocked. This is a technical-preview status surface, not a production or performance claim.</p>
       </div>
     </section>
-    <section class="use-case-filter-section">
+    <section id="use-case-filters" class="use-case-filter-section">
       <div class="shell">
         <form class="use-case-filters" data-use-case-filters>
           {select("status", "Status", statuses)}
@@ -2425,12 +2643,12 @@ def use_cases_index_page(use_cases: list[dict[str, Any]]) -> str:
         <p class="use-case-filter-count" data-use-case-count>{len(use_cases)} use cases shown</p>
       </div>
     </section>
-    <section>
+    <section id="use-case-list">
       <div class="shell">
         <div class="use-case-grid" data-use-case-grid>{"".join(cards)}</div>
       </div>
     </section>
-    <section class="doc-section">
+    <section id="claim-boundary" class="doc-section">
       <div class="shell">
         <h2>Claim Boundary</h2>
         <div class="boundary-grid">
@@ -2443,6 +2661,18 @@ def use_cases_index_page(use_cases: list[dict[str, Any]]) -> str:
     </section>
     <script src="/assets/use-cases.js" defer></script>
     """
+    body = atlas_surface_shell(
+        active="use-cases",
+        path_label="/use-cases",
+        title="Use Case Atlas",
+        body=body,
+        anchors=[
+            ("Filters", "#use-case-filters", "search"),
+            ("Use Case List", "#use-case-list", "matrix"),
+            ("Claim Boundary", "#claim-boundary", "claims"),
+        ],
+        use_cases=use_cases,
+    )
     return page(
         "ShardLoom Use Case Atlas",
         "Non-expert use-case status matrix for ShardLoom technical-preview capabilities.",
@@ -2467,11 +2697,11 @@ def write_use_case_pages() -> list[dict[str, Any]]:
             encoding="utf-8",
         )
         (USE_CASE_PAGES / f"{use_case_id}.html").write_text(
-            use_case_page(use_case, by_id),
+            clean_generated_html(use_case_page(use_case, by_id)),
             encoding="utf-8",
         )
     (USE_CASE_PAGES / "index.html").write_text(
-        use_cases_index_page(use_cases),
+        clean_generated_html(use_cases_index_page(use_cases)),
         encoding="utf-8",
     )
     return use_cases
@@ -4326,12 +4556,14 @@ def main() -> int:
     use_cases = write_use_case_pages()
     write_sitemap(use_cases)
     (WEBSITE / "readme.html").write_text(
-        doc_page(
-            ROOT / "README.md",
-            "Repository README",
-            "Rendered current README from the ShardLoom repository.",
-            "README.md",
-            "docs",
+        clean_generated_html(
+            doc_page(
+                ROOT / "README.md",
+                "Repository README",
+                "Rendered current README from the ShardLoom repository.",
+                "README.md",
+                "docs",
+            )
         ),
         encoding="utf-8",
     )
@@ -4341,10 +4573,12 @@ def main() -> int:
         encoding="utf-8",
     )
     (WEBSITE / "compute-engine-flow.html").write_text(
-        compute_flow_page(compute_flow_source),
+        clean_generated_html(compute_flow_page(compute_flow_source)),
         encoding="utf-8",
     )
-    (WEBSITE / "status.html").write_text(status_page(use_cases), encoding="utf-8")
+    (WEBSITE / "status.html").write_text(
+        clean_generated_html(status_page(use_cases)), encoding="utf-8"
+    )
     if args.benchmark_manifest is not None:
         summary = load_benchmark_summary_from_manifest(args.benchmark_manifest)
     else:
@@ -4359,7 +4593,7 @@ def main() -> int:
         encoding="utf-8",
     )
     (WEBSITE / "benchmarks.html").write_text(
-        benchmark_page(summary),
+        clean_generated_html(benchmark_page(summary)),
         encoding="utf-8",
     )
     return 0

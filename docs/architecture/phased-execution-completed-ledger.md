@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-2B atlas model rollout to Use Cases, Status, Docs, and Compute Flow
+  - Branch/PR: `codex/atlas-model-rollout` / #814.
+  - Primary files:
+    - `website/build_static_pages.py`
+    - `website/assets/site.css`
+    - `website/readme.html`
+    - `website/compute-engine-flow.html`
+    - `website/status.html`
+    - `website/use-cases/index.html`
+    - `website/use-cases/*.html`
+    - `scripts/check_website_readiness.py`
+    - `website/validate_static_assets.js`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: roll the light-mode ShardLoom atlas shell beyond the Field Guide so rendered docs,
+    compute flow, status, and use-case pages share the same left-rail knowledge-system structure.
+  - Website behavior:
+    - `/readme`, `/compute-engine-flow`, `/status`, `/use-cases/`, and generated
+      `/use-cases/<id>` pages now render inside the atlas shell with a persistent ShardLoom logo
+      rail, Core Surfaces links, On This Page links, Pagefind search, and light-mode atlas panels.
+    - Use Case Atlas pages keep blocked/report-only/planned cases visible in the rail rather than
+      hiding them behind the filter grid.
+    - Compute Flow, Status, and README keep their existing canonical content while gaining the same
+      navigation model as Field Guide dossiers.
+  - Evidence:
+    - Website readiness and static asset validators now require atlas primitives on the generated
+      atlas surface pages: `atlas-surface`, `atlas-surface-sidebar`, `atlas-surface-body`,
+      `Knowledge Atlas`, `Core Surfaces`, `On This Page`, and `pagefind-modal-trigger`.
+    - Visual QA screenshots are stored under `target/atlas-model-rollout/`.
+  - Verification:
+    - `python website\build_static_pages.py --benchmark-manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `python -m compileall -q scripts website`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo fmt --all -- --check`
+    - `git diff --check`
+    - Playwright/Chrome desktop and mobile screenshots for `/use-cases/`, `/status`,
+      `/compute-engine-flow`, and `/readme`.
+  - Claim boundary: website information architecture only. This does not add runtime support,
+    benchmark recomputation, package publication, performance/superiority claims,
+    Spark-displacement claims, production SQL/DataFrame support, object-store/lakehouse support, or
+    Foundry support.
+
 - [x] Session label: GAR-WEB-ATLAS-2A ShardLoom atlas shell and concise Field Guide dossiers
   - Branch/PR: `codex/modal-style-field-guide-overhaul` / #813.
   - Primary files:

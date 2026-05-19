@@ -219,31 +219,6 @@ atomic entries, concise article template, search utility, category rows, and pre
 navigation. Do not copy Modal text, CSS, layout code, branding, palette, trade dress, imagery, or
 product claims.
 
-- [ ] GAR-WEB-ATLAS-2B atlas model rollout to Use Cases, Status, Docs, and Compute Flow
-  - Source: completed Field Guide atlas shell, Use Case Atlas, status matrix, compute-flow rendered
-    reference, and README renderer.
-  - Current state: pages share nav and brand assets, but their structures differ and do not yet
-    feel like one unified learning system.
-  - Next slice outcome: make Use Cases, Status, Docs, and Compute Flow use the same concise atlas
-    information architecture where appropriate: left rail/section TOC, compact row lists,
-    consistent article/body templates, source/reference blocks, and visible claim boundaries.
-  - User-visible surface: `/use-cases/`, `/status`, `/readme`, `/compute-engine-flow`.
-  - Implementation scope: static generator templates, CSS atlas components, generated pages,
-    sitemap/canonical/OG metadata.
-  - Evidence required: all nav links resolve, all referenced assets exist, blocked/report-only
-    states remain visible, no runtime GitHub fetch, no unsupported claims.
-  - Acceptance: a non-expert can move between glossary terms, use cases, status, docs, and compute
-    flow without changing mental models or reading the phase plan.
-  - Verification: website build/readiness, static asset validation, link check/readiness report,
-    desktop/mobile visual QA, `git diff --check`.
-  - Dependencies/blockers: completed Field Guide atlas shell, stable generated page metadata,
-    use-case/status content indexes, compute-flow rendered snapshot, and static website validator
-    coverage.
-  - Non-goals: no framework migration, no runtime behavior, no benchmark data change.
-  - Claim boundary: learning/interpretation UX only.
-  - Fallback boundary: no runtime fallback changes.
-  - Ledger rule: ledger entry must include changed pages and visual QA paths.
-
 - [ ] GAR-WEB-ATLAS-2C atlas content consistency and concision gate
   - Source: Field Guide content index, Use Case Atlas, generated dossier pages, website readiness
     checker.
