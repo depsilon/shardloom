@@ -1947,6 +1947,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsInstance(dataframe_methods, DataFrameMethodCapabilityMatrix)
         self.assertEqual(dataframe_methods.scope, "dataframe")
         self.assertIn("filter", dataframe_methods.plan_only_methods)
+        self.assertIn("where", dataframe_methods.plan_only_methods)
         self.assertIn("select", dataframe_methods.plan_only_methods)
         self.assertIn("join", dataframe_methods.unsupported_methods)
         self.assertIn("agg", dataframe_methods.unsupported_methods)

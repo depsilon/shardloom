@@ -277,8 +277,9 @@ or documentation updates alone are insufficient.
     blockers for empty, NULL, mixed DATE/non-DATE, oversized, and subquery-backed lists, and scoped
     local SQL logical `AND`/`OR`/`NOT` predicates plus balanced grouping parentheses are
     runtime-admitted over already admitted leaf predicates. Python now exposes `sl.col(...)`
-    predicate helpers that lower admitted comparison, null, string `LIKE`, bounded `IN`, cast/date,
-    and logical predicates into the same local SQL smoke path. User workflows still lack broad typed
+    predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`,
+    bounded `IN`, cast/date, and logical predicates into the same local SQL smoke path, plus
+    `where(...)` as a familiar filter alias. User workflows still lack broad typed
     coercions, timestamp/timezone helpers, date arithmetic, NULL/subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
     family coverage.
@@ -1315,7 +1316,8 @@ runnable, documented, tested, and claim-safe.
     capability matrix, `docs/getting-started/examples.md`.
   - Current state: Python `read_csv(...)` and local flat JSONL/NDJSON `read_json(...)` query-builder
     chains support scoped projection/optional-filter/limit, preview/select-star, explicit-projection
-    literal `with_column(...)`, `head(...)`/`take(...)`, `count()`, scalar aggregate/optional-filter/limit, one-column grouped
+    literal `with_column(...)`, `where(...)`, Python `sl.col(...).between(...)`, `head(...)`/
+    `take(...)`, `count()`, scalar aggregate/optional-filter/limit, one-column grouped
     aggregate/optional-filter/limit, and single-key top-N collect/write workflows. Scoped local CSV
     inner equi-join and generated-output helpers also exist for scoped local workflows. Broad Python
     DataFrame joins, non-literal `with_column` over input-backed rows, broader expression

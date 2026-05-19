@@ -131,7 +131,8 @@ Currently wired surfaces include:
   or hash-join semantics, bounded inline JSONL result evidence, optional local JSONL or CSV output
   evidence with format-specific sink certificate refs, materialization/decode fields, and no-fallback/no-external-engine evidence; Python
   query-builder
-  `ctx.read_csv(...).select(...).limit().collect()/write(...)` with optional `filter(...)`,
+  `ctx.read_csv(...).select(...).limit().collect()/write(...)` with optional `filter(...)` /
+  `where(...)`,
   `ctx.read_csv(...).preview()/head()/take()`, and
   `ctx.read_json(...).select(...).limit().collect()/write(...)` with optional `filter(...)` for local flat
   `.jsonl`/`.ndjson` sources, plus CSV or flat JSONL/NDJSON
@@ -141,8 +142,9 @@ Currently wired surfaces include:
   `select(...).sort(...).limit(n).collect()/write(...)`, explicit-projection
   literal `with_column(...).limit(n).collect()/write(...)`, and scoped local CSV
   inner `join(..., on="key")` paths wrap these same scoped
-  projection/scalar/grouped/top-N/literal/join paths; `sl.col(...)` lowers admitted comparison, null, string
-  `LIKE`, bounded `IN`, cast/date, and logical predicates into the same ShardLoom-owned runtime;
+  projection/scalar/grouped/top-N/literal/join paths; `sl.col(...)` lowers admitted comparison,
+  inclusive `between(...)`, null, string `LIKE`, bounded `IN`, cast/date, and logical predicates
+  into the same ShardLoom-owned runtime;
   direct Python client calls can inspect bounded result rows through typed `result_rows` /
   `first_result_row` helpers and typed evidence from the CLI smoke. This is not broad
   SQL/DataFrame runtime, broad Python/DataFrame

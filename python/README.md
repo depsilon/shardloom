@@ -336,14 +336,14 @@ local path with `SELECT *`. The same projection/optional-filter/limit
 shape is admitted for `read_json(...)` only when the source path is local
 `.jsonl` or `.ndjson`; plain `.json`, nested JSON expansion, and JSONPath
 remain deterministic unsupported surfaces. Filters admit scoped comparison,
-cast, date-literal, bounded `IN (...)`, string `LIKE`, null, logical
-`AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
-leaves. `IN` lists admit up to 32 non-null literal values from one scalar
-family, including `DATE 'YYYY-MM-DD'` lists, and expose
+cast, date-literal, bounded `IN (...)`, inclusive `between(...)` range predicates, string `LIKE`,
+null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
+leaves. `where(...)` is a familiar alias for `filter(...)`. `IN` lists admit up to 32 non-null
+literal values from one scalar family, including `DATE 'YYYY-MM-DD'` lists, and expose
 `in_predicate_runtime_execution` plus `in_list_value_count` in typed reports.
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
-`startswith()`, `endswith()`, `like(...)`, bounded `isin(...)`, and `cast(dtype)` comparisons into
+`startswith()`, `endswith()`, `like(...)`, `between(...)`, bounded `isin(...)`, and `cast(dtype)` comparisons into
 the same ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed literal `with_column(...)` is also admitted after an explicit `select(...)` for local
 CSV and flat JSONL/NDJSON projection/filter/limit workflows. The first slice accepts only
@@ -398,7 +398,7 @@ filtered = (
 predicate_builder_filtered = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
-    .filter((sl.col("amount") >= 10) & sl.col("label").contains("ta"))
+    .where(sl.col("amount").between(10, 25) & sl.col("label").contains("ta"))
     .limit(10)
     .collect()
 )

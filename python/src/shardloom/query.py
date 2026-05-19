@@ -165,6 +165,17 @@ class ColumnExpression:
         joined = ",".join(_sql_literal(value) for value in normalized)
         return PredicateExpression(f"{self.sql} IN ({joined})")
 
+    def between(self, lower: object, upper: object) -> PredicateExpression:
+        """Return a scoped inclusive range predicate.
+
+        The expression lowers to an admitted `>=` / `<=` predicate pair so the
+        CLI remains responsible for runtime admission, evidence, and blockers.
+        """
+
+        return PredicateExpression(
+            f"({self.sql} >= {_sql_literal(lower)} AND {self.sql} <= {_sql_literal(upper)})"
+        )
+
     def cast(self, dtype: object) -> "ColumnExpression":
         """Return a scoped `CAST(column AS dtype)` expression for comparisons."""
 
@@ -754,6 +765,11 @@ class LazyFrame:
         if not value:
             raise ValueError("filter predicate must not be empty")
         return self._append(WorkflowOperation("filter", (value,)))
+
+    def where(self, predicate: object) -> "LazyFrame":
+        """Alias for `filter(...)` using familiar SQL/DataFrame naming."""
+
+        return self.filter(predicate)
 
     def select(self, *columns: object) -> "LazyFrame":
         """Return a lazy plan with an added projection."""

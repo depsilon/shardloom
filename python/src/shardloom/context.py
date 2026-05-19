@@ -473,6 +473,12 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=_LAZY_DECLARATION_BOUNDARY,
     ),
     _df_method(
+        "where",
+        "lazy_plan",
+        "lazy_plan_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
         "select",
         "lazy_plan",
         "lazy_plan_supported",

@@ -368,6 +368,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(sl.col("label").isin(["alpha", "gamma"])),
             "label IN ('alpha','gamma')",
         )
+        self.assertEqual(
+            str(sl.col("amount").between(10, 20)),
+            "(amount >= 10 AND amount <= 20)",
+        )
+        self.assertEqual(
+            str(
+                sl.col("event_dt")
+                .cast("date32")
+                .between(date(2026, 5, 1), date(2026, 5, 31))
+            ),
+            "(CAST(event_dt AS date32) >= DATE '2026-05-01' AND CAST(event_dt AS date32) <= DATE '2026-05-31')",
+        )
         self.assertEqual(str(sl.col("f.amount") >= 10), "f.amount >= 10")
         self.assertEqual(str(sl.col("label").startswith("al")), "label LIKE 'al%'")
         self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
@@ -378,11 +390,68 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             sl.col("label").isin([])
         with self.assertRaises(ValueError):
+            sl.col("amount").between(None, 10)
+        with self.assertRaises(ValueError):
             sl.col("bad column")
         with self.assertRaises(ValueError):
             sl.col("amount>=10")
         with self.assertRaises(ValueError):
             sl.col("too.many.parts")
+
+    def test_local_csv_query_builder_where_between_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE (amount >= 10 AND amount <= 20) LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "predicate_operator_family", "value": "logical_predicate"},
+                        {"key": "logical_predicate_runtime_execution", "value": "true"},
+                        {"key": "logical_predicate_operator", "value": "and"},
+                        {"key": "logical_predicate_leaf_count", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .where(sl.col("amount").between(10, 20))
+            .select("id", "label")
+            .limit(5)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
+        self.assertEqual(report.logical_predicate_operator, "and")
+        self.assertEqual(report.logical_predicate_leaf_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
     def test_local_csv_query_builder_projection_limit_without_filter_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
