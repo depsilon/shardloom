@@ -6,6 +6,8 @@ builds stay lightweight while preserving a controlled path to upstream Vortex ca
 
 ## Current state
 - Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.70`.
+- Latest upstream intake note: `vortex = 0.71.0` is available, but ShardLoom has not yet updated the
+  direct dependency. See `docs/dependencies/vortex-0.71-upstream-intake.md`.
 - Umbrella `vortex` crate is still used for upstream opt-in builds.
 - Default build (`default = []`) does not enable upstream Vortex.
 - Actual Vortex file IO is not implemented.

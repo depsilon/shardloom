@@ -15,6 +15,9 @@ executable support from older PR-specific sections that say "this PR" or
 
 - Upstream Vortex remains optional and isolated in `shardloom-vortex`.
 - The tracked direct dependency is `vortex = 0.70`.
+- Latest upstream intake note: Vortex `0.71.0` was released on 2026-05-18 and is tracked in
+  `docs/dependencies/vortex-0.71-upstream-intake.md`; ShardLoom has not yet bumped the direct
+  dependency or promoted new support claims from that release.
 - Approved historical metadata/footer fixture IO and approved local primitive
   scan paths are recorded in `docs/architecture/phased-execution-plan.md`.
 - Vortex-native array, compute, scan, source, and sink APIs may be future native

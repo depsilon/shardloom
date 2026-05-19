@@ -230,13 +230,212 @@ explicitly reprioritized.
 Current non-runtime sequence:
 
 1. Non-runtime closeout is complete through GAR-0043-B.
-2. Next autonomous work enters the runtime implementation queue below.
-3. Continue moving completed runtime sessions to the ledger immediately after PR/session close.
+2. New upstream Vortex 0.71 intake work must close before more runtime promotion that depends on
+   upstream Vortex provider behavior.
+3. After GAR-VORTEX-071 is closed, autonomous work returns to the runtime implementation queue
+   below.
+4. Continue moving completed runtime sessions to the ledger immediately after PR/session close.
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
 All currently defined non-runtime GAR-P5 closeout slices are complete. Continue with the runtime
 implementation queue below unless a new non-runtime blocker is explicitly added here first.
+
+##### GAR-VORTEX-071 - Upstream Vortex 0.71 Intake And Dependency Gate
+
+Source:
+- Upstream Vortex `0.71.0` release notes: <https://github.com/vortex-data/vortex/releases/tag/0.71.0>.
+- `docs/dependencies/vortex-0.71-upstream-intake.md`.
+- `shardloom-vortex/Cargo.toml`.
+- `docs/architecture/vortex-public-api-inventory.md`.
+- `docs/dependencies/vortex-upstream-review.md`.
+- `docs/dependencies/vortex-dependency-footprint.md`.
+
+Goal:
+Ingest Vortex `0.71.0` without silently changing ShardLoom runtime support, dependency footprint,
+feature-gate posture, no-fallback policy, or public claims.
+
+Runtime rule:
+This bundle is an upstream-intake and dependency-gate bundle. It may update dependency metadata,
+API inventories, and planned runtime opportunities. It must not mark new runtime support complete
+unless a later runtime slice adds executable behavior, tests, and evidence.
+
+- [ ] GAR-VORTEX-071A release-note and API-delta inventory
+  - Source: Vortex `0.71.0` GitHub release notes, Vortex docs, docs.rs/crates.io metadata,
+    `docs/dependencies/vortex-0.71-upstream-intake.md`.
+  - Current state:
+    - ShardLoom still tracks optional `vortex = "0.70"`.
+    - Cargo rejects `cargo update -p vortex --precise 0.71.0 --dry-run` under the current `^0.70`
+      manifest requirement.
+    - Initial intake identified candidate areas: `DType::Union`, Variant/`VariantGet`, statistic
+      expression, pluggable Arrow input/export kernels, pluggable struct cast, split row-range
+      registration, `VortexReadAt::read_at` validation, sparse/selection-vector performance work,
+      and optional GPU/FFI/Python changes.
+  - Next slice outcome:
+    - Update `docs/architecture/vortex-public-api-inventory.md` with a `0.71.0` delta section.
+    - Classify each release item as `native_provider_candidate`, `runtime_opportunity`,
+      `dependency_only`, `baseline_only`, `blocked`, or `not_applicable`.
+  - User-visible surface:
+    - Architecture docs and future runtime planning only.
+  - Implementation scope:
+    - Docs only.
+    - No dependency bump yet.
+  - Evidence required:
+    - Upstream release URL.
+    - Crates.io/docs.rs version proof.
+    - ShardLoom relevance classification.
+    - No-fallback/no-external-engine review.
+  - Acceptance:
+    - Every upstream 0.71 feature/breaking item with ShardLoom relevance has an explicit
+      classification.
+    - DuckDB/DataFusion/Spark/foreign query-engine integration changes remain baseline-only.
+    - GPU/FFI/Python changes do not imply ShardLoom CPU-local runtime support.
+  - Verification:
+    - `git diff --check`
+  - Non-goals:
+    - No runtime behavior.
+    - No dependency bump.
+    - No benchmark refresh.
+  - Claim boundary:
+    - Release intake only; no new ShardLoom support claim.
+  - Fallback boundary:
+    - Vortex query-engine integrations remain prohibited as execution fallback.
+  - Dependencies/blockers: upstream release-note review, docs.rs/crates.io version proof, current
+    ShardLoom Vortex API inventory, and no-fallback dependency policy.
+  - Ledger rule:
+    - Move the completed release-intake summary to the completed ledger when closed.
+
+- [ ] GAR-VORTEX-071B feature-gated dependency bump and footprint proof
+  - Source: `GAR-VORTEX-071A`, `shardloom-vortex/Cargo.toml`, `Cargo.lock`,
+    dependency-footprint docs.
+  - Current state:
+    - `vortex = "0.70"` is optional and isolated behind `upstream-vortex`.
+    - Default builds do not enable the upstream Vortex graph.
+  - Next slice outcome:
+    - Bump the optional upstream dependency to `vortex = "0.71"` or `0.71.0`.
+    - Refresh `Cargo.lock`.
+    - Re-run dependency footprint and feature-gated compile checks.
+  - User-visible surface:
+    - Dependency metadata and optional feature-gated Vortex integration only.
+  - Implementation scope:
+    - `shardloom-vortex/Cargo.toml`.
+    - `Cargo.lock`.
+    - Dependency docs.
+    - Compile/provenance checks.
+  - Evidence required:
+    - `cargo tree -p shardloom-vortex --features upstream-vortex`
+    - `cargo tree -p shardloom-vortex --features vortex-file-io`
+    - direct fallback dependency absence for Spark/DataFusion/DuckDB/Polars/Velox/vortex-datafusion
+    - Apache-2.0 license/provenance confirmation
+  - Acceptance:
+    - Default workspace build remains lightweight.
+    - Upstream Vortex remains optional and isolated in `shardloom-vortex`.
+    - Feature-gated Vortex compile checks pass or emit actionable blockers.
+    - Dependency docs show the new direct version and footprint delta.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo check -p shardloom-vortex --features upstream-vortex`
+    - `cargo check -p shardloom-vortex --features vortex-file-io`
+    - `git diff --check`
+  - Non-goals:
+    - No runtime support expansion.
+    - No object-store/table/distributed claim.
+    - No performance claim.
+  - Claim boundary:
+    - Dependency availability only; no new user workflow claim.
+  - Fallback boundary:
+    - No external query-engine integration may be added or invoked.
+  - Dependencies/blockers: completed `GAR-VORTEX-071A` API-delta inventory, Vortex `0.71`
+    compile compatibility, optional feature-gate isolation, dependency footprint review, and CI
+    capacity for feature-gated Vortex checks.
+  - Ledger rule:
+    - Ledger entry must include dependency version, feature gates tested, and footprint deltas.
+
+- [ ] GAR-VORTEX-071C runtime opportunity mapping from 0.71 APIs
+  - Source: `GAR-VORTEX-071A`, runtime implementation queue, Vortex API inventory.
+  - Current state:
+    - Several 0.71 items may help existing ShardLoom runtime goals, but none are automatically
+      admitted.
+  - Next slice outcome:
+    - Map relevant 0.71 items into existing runtime slices or add child slices only where no item
+      exists.
+  - User-visible surface:
+    - Phase plan only.
+  - Implementation scope:
+    - Update the runtime queue references for:
+      - `GAR-RUNTIME-IMPL-4D` cast/expression work from pluggable struct cast, statistic
+        expression, Variant/`VariantGet`, and `DType::Union`.
+      - `GAR-RUNTIME-IMPL-4F` local input adapter work from Arrow kernel registry and union/variant
+        dtype handling.
+      - `GAR-RUNTIME-IMPL-4G` output/fanout work from Arrow export kernel registry.
+      - `GAR-RUNTIME-IMPL-4H` Vortex lifecycle work from `VortexReadAt::read_at` validation and
+        local async write behavior.
+      - `GAR-RUNTIME-IMPL-4I` pushdown work from statistic expression and scan/split evidence.
+      - `GAR-RUNTIME-IMPL-4J` encoded kernel work from FastLanes signed bases, SparseArray
+        iterative execution, mask/rank-intersection improvements, and TurboQuant.
+      - `GAR-SCALE-1B`/`GAR-SCALE-1C`/`GAR-SCALE-1E` from split row-range, I/O validation, and
+        async I/O hooks.
+  - Evidence required:
+    - Existing or new phase item IDs for every accepted opportunity.
+    - Explicit blockers for opportunities not yet admitted.
+  - Acceptance:
+    - No 0.71 runtime-relevant item is left as an undocumented vague opportunity.
+    - Runtime items still require executable behavior, tests, and evidence before completion.
+  - Verification:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Non-goals:
+    - No dependency bump in this mapping-only slice.
+    - No runtime behavior.
+  - Claim boundary:
+    - Opportunity mapping only; no support claim.
+  - Fallback boundary:
+    - External integrations remain baseline-only.
+  - Dependencies/blockers: completed `GAR-VORTEX-071A` classification, runtime queue ownership for
+    accepted opportunities, and deterministic blockers for 0.71 APIs not admitted into ShardLoom
+    native-provider execution.
+  - Ledger rule:
+    - Ledger entry must list runtime items updated or added.
+
+- [ ] GAR-VORTEX-071D Dependabot and upstream-release intake workflow hardening
+  - Source: `.github/dependabot.yml`, `GAR-VORTEX-071A`, `GAR-VORTEX-071B`.
+  - Current state:
+    - Dependabot already runs weekly Cargo updates for `/`.
+    - Dependabot can propose manifest/lockfile version updates, but it cannot interpret release
+      notes, update architecture docs, or prove ShardLoom-specific no-fallback evidence.
+    - The current open PR limit can delay dependency PRs when other dependency PRs are open.
+  - Next slice outcome:
+    - Decide whether to keep the current Dependabot config, add Vortex-specific grouping/labels, or
+      add a separate release-intake check/runbook.
+  - User-visible surface:
+    - Repository maintenance workflow.
+  - Implementation scope:
+    - `.github/dependabot.yml` if needed.
+    - Optional docs/runbook for upstream Vortex release intake.
+    - No runtime code.
+  - Evidence required:
+    - Explanation of what Dependabot can and cannot automate.
+    - Required human/agent review checklist for pre-1.0 Vortex minor releases.
+  - Acceptance:
+    - Future Vortex dependency bumps have labels/runbook/checklist sufficient to trigger
+      `GAR-VORTEX-*` intake.
+    - The workflow does not auto-merge pre-1.0 minor Vortex bumps.
+  - Verification:
+    - `git diff --check`
+  - Non-goals:
+    - No auto-merge.
+    - No runtime behavior.
+    - No package publication.
+  - Claim boundary:
+    - Maintenance automation only.
+  - Fallback boundary:
+    - Dependency automation must not enable fallback engines.
+  - Dependencies/blockers: current `.github/dependabot.yml`, pre-1.0 Vortex minor-version policy,
+    release-intake checklist ownership, and CI limits for dependency PR validation.
+  - Ledger rule:
+    - Ledger entry must state whether Dependabot config changed and why.
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 
