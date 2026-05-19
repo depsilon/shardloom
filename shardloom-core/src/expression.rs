@@ -811,6 +811,9 @@ fn eval_function_call(
         "utf8_contains" | "contains" => {
             eval_string_predicate(name, args, row, |value, needle| value.contains(needle))
         }
+        "utf8_ends_with" | "ends_with" => {
+            eval_string_predicate(name, args, row, |value, needle| value.ends_with(needle))
+        }
         "date_year" | "year" => eval_date_extract(name, args, row, date32_year),
         "date_month" | "month" => eval_date_extract(name, args, row, |days| {
             i32::try_from(date32_month(days)).expect("month fits i32")
@@ -1244,7 +1247,8 @@ fn expression_operator_family(expression: &Expression) -> &'static str {
 
 fn function_operator_family(name: &str) -> &'static str {
     match name.trim().to_ascii_lowercase().as_str() {
-        "utf8_starts_with" | "starts_with" | "utf8_contains" | "contains" => "string_predicate",
+        "utf8_starts_with" | "starts_with" | "utf8_contains" | "contains" | "utf8_ends_with"
+        | "ends_with" => "string_predicate",
         "date_year" | "year" | "date_month" | "month" | "date_day" | "day" => "date_extract",
         _ => "function",
     }
@@ -2234,6 +2238,31 @@ mod tests {
         assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
         assert_eq!(report.value, Some(ScalarValue::Int64(42)));
         assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_utf8_ends_with_without_fallback() {
+        let expression = Expression::new(
+            expr_id("ends-with"),
+            ExpressionKind::FunctionCall {
+                name: "utf8_ends_with".to_string(),
+                args: vec![
+                    Expression::column(expr_id("label"), col("label")),
+                    Expression::literal(expr_id("suffix"), ScalarValue::Utf8("ta".to_string())),
+                ],
+            },
+        );
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("label", ScalarValue::Utf8("beta".to_string()))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "string_predicate");
+        assert_eq!(report.value, Some(ScalarValue::Boolean(true)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
 
     #[test]

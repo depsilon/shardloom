@@ -266,9 +266,10 @@ or documentation updates alone are insufficient.
 - [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families
   - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics,
     `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: expression support exists in scoped smoke paths; scoped UTF-8 prefix/contains
-    string predicates are runtime-admitted through core expression semantics and local SQL `LIKE`
-    smoke paths; scoped ISO Date32 parsing/formatting, extraction helpers, UTF-8/Date32 casts, and
+  - Current state: expression support exists in scoped smoke paths; scoped UTF-8 prefix, contains,
+    and suffix string predicates are runtime-admitted through core expression semantics and local
+    SQL `LIKE` smoke paths; scoped ISO Date32 parsing/formatting, extraction helpers,
+    UTF-8/Date32 casts, and
     local SQL `DATE 'YYYY-MM-DD'` predicates are runtime-admitted for the local CSV smoke path, and
     scoped local SQL `CAST(column AS dtype)` predicates for `int64`, `float64`, `utf8`, `boolean`,
     and `date32` are runtime-admitted for local row smoke paths, but user workflows still lack broad

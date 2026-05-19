@@ -420,6 +420,37 @@ fn sql_local_source_smoke_executes_string_like_predicates_without_fallback() {
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
+    let suffix_statement = format!(
+        "SELECT id,label FROM '{}' WHERE label LIKE '%ta' LIMIT 10",
+        source_path.display()
+    );
+    let suffix_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &suffix_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        suffix_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&suffix_output.stdout),
+        String::from_utf8_lossy(&suffix_output.stderr)
+    );
+    let stdout = String::from_utf8(suffix_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "string_predicate")));
+    assert!(stdout.contains(&field("string_predicate_operator", "ends_with")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":4,\\\"label\\\":\\\"delta\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
     fs::remove_file(source_path).expect("remove source csv");
 }
 
@@ -902,13 +933,6 @@ fn sql_local_source_smoke_blocks_unsupported_like_shapes_without_fallback() {
     fs::write(&source_path, "id,label\n1,alpha\n2,beta\n").expect("write source csv");
 
     let cases = [
-        (
-            format!(
-                "SELECT id FROM '{}' WHERE label LIKE '%ta' LIMIT 10",
-                source_path.display()
-            ),
-            "LIKE admits only prefix",
-        ),
         (
             format!(
                 "SELECT id FROM '{}' WHERE label LIKE 'a_ph%' LIMIT 10",

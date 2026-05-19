@@ -226,6 +226,7 @@ enum ParsedPredicate {
 enum StringPredicateOp {
     StartsWith,
     Contains,
+    EndsWith,
 }
 
 impl StringPredicateOp {
@@ -233,6 +234,7 @@ impl StringPredicateOp {
         match self {
             Self::StartsWith => "utf8_starts_with",
             Self::Contains => "utf8_contains",
+            Self::EndsWith => "utf8_ends_with",
         }
     }
 
@@ -240,6 +242,7 @@ impl StringPredicateOp {
         match self {
             Self::StartsWith => "starts_with",
             Self::Contains => "contains",
+            Self::EndsWith => "ends_with",
         }
     }
 }
@@ -2994,8 +2997,11 @@ fn parse_like_string_predicate(
         (None, Some(prefix), 1) if !prefix.is_empty() => {
             Ok((StringPredicateOp::StartsWith, prefix.to_string()))
         }
+        (Some(suffix), None, 1) if !suffix.is_empty() => {
+            Ok((StringPredicateOp::EndsWith, suffix.to_string()))
+        }
         _ => Err(unsupported_sql_error(
-            "LIKE admits only prefix 'text%' and contains '%text%' patterns in this scoped runtime slice; use = for exact string equality",
+            "LIKE admits only prefix 'text%', suffix '%text', and contains '%text%' patterns in this scoped runtime slice; use = for exact string equality",
         )),
     }
 }
