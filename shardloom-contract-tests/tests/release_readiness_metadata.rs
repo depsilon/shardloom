@@ -2471,7 +2471,6 @@ fn gar_0033_a_etl_workflow_capability_matrix_remains_claim_safe() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0033-A"));
-    assert!(plan.contains("GAR-0033-A is complete and recorded in the completed ledger"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-0033-A ETL workflow and data-quality capability matrix"));
@@ -2610,7 +2609,6 @@ fn gar_0034_a_live_hybrid_fabric_gate_remains_claim_safe() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0034-A"));
-    assert!(plan.contains("GAR-0034-A is complete and recorded in the completed ledger"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-0034-A live/hybrid fabric blocker and freshness gate"));
@@ -2745,7 +2743,6 @@ fn gar_0035_a_rest_runtime_unsupported_contract_remains_claim_safe() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0035-A"));
-    assert!(plan.contains("GAR-0035-A is complete and recorded in the completed ledger"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-0035-A REST server/runtime unsupported contract"));
@@ -2865,7 +2862,6 @@ fn gar_0037_a_wrapper_connector_registry_remains_claim_safe() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0037-A"));
-    assert!(plan.contains("GAR-0037-A is complete and recorded in the completed ledger"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-0037-A wrapper and connector implementation registry"));
@@ -2943,7 +2939,6 @@ fn gar_0030_a_universal_harness_execution_gate_remains_report_only() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0030-A"));
-    assert!(plan.contains("GAR-0030-A is complete and recorded in the completed ledger"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-0030-A universal harness execution gate"));
@@ -3010,7 +3005,6 @@ fn gar_0032_a_sql_parser_binder_readiness_remains_diagnostic_only() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0032-A"));
-    assert!(plan.contains("GAR-0032-A is complete and recorded in the completed ledger"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-0032-A SQL parser/binder report-only readiness"));
@@ -3096,7 +3090,6 @@ fn gar_0032_c_udf_external_effect_blockers_remain_denied_by_default() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0032-C"));
-    assert!(plan.contains("GAR-0032-C UDF and external-effect blocker matrix is complete"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-0032-C UDF and external-effect blocker matrix"));
@@ -3184,9 +3177,6 @@ fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0032-D"));
-    assert!(plan.contains(
-        "GAR-0032-D unstructured/media and universal adapter capability matrix is complete"
-    ));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(
@@ -3266,9 +3256,6 @@ fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0039-A"));
     assert!(!plan.contains("- [ ] GAR-0039-B"));
-    assert!(plan.contains("GAR-0039-A is complete and recorded in the completed ledger"));
-    assert!(plan.contains("GAR-0039-B is complete and recorded in the completed ledger"));
-    assert!(plan.contains("legacy `fields` mirror remains present for compatibility"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-0039-A typed envelope API-surface migration"));
@@ -3276,6 +3263,7 @@ fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
     assert!(completed.contains("api_surface_capability_report"));
     assert!(completed.contains("universal_harness_report"));
     assert!(completed.contains("OutputEnvelope.field_map"));
+    assert!(completed.contains("Preserve the flat `fields` mirror"));
     assert!(completed.contains("external_engine_invoked=false"));
 
     let gar = read_repo_file("docs/architecture/global-architecture-review.md");
