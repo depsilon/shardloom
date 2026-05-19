@@ -77,7 +77,8 @@ Read only as far as needed:
 | 2. Runtime contract | What must happen before any supported work executes? | Implementers, reviewers, agents | You need invariant request-to-output behavior. |
 | 3. Mode lanes | Which execution mode owns each source/preparation boundary? | Benchmark authors, runtime implementers | You need timing and mode interpretation. |
 | 4. Engine fabric | Where do batch, live, and hybrid semantics fit? | Workflow/API implementers, platform integrators | You need workload semantics and live/hybrid boundaries. |
-| 5. Evidence and downstream use | How do sinks, adapters, reports, and claims consume outputs? | Release reviewers, benchmark readers, platform integrators | You need claim and downstream boundaries. |
+| 5. I/O and downstream use | How do inputs, sinks, adapters, and consumers connect? | End users, adapter authors, platform integrators | You need source, sink, and delivery boundaries. |
+| 6. Evidence and claims | Which evidence feeds observability, benchmark reports, and claim gates? | Release reviewers, benchmark readers, implementers | You need claim and evidence boundaries. |
 
 Diagram notation:
 
@@ -90,11 +91,44 @@ Diagram notation:
 | `planned` | Future surface that must remain unchecked in the phase plan until implemented. |
 | `unsupported` | Deterministic unsupported diagnostic; `fallback_attempted=false`. |
 
+## Human-Readable Mental Model
+
+For a non-expert reader, the whole flow should reduce to one question:
+
+```text
+Can ShardLoom admit this request, run it through a visible mode, and prove what happened?
+```
+
+The answer is carried through the same route whether the user entered through CLI, Python,
+benchmarks, an adapter, or a future API surface.
+
+```mermaid
+flowchart LR
+    ACCESS["1. Access<br/>CLI / Python / benchmark / adapter"]
+    REQUEST["2. Typed request<br/>workload + source + output intent"]
+    ADMISSION["3. Admission<br/>policy + capability + semantics"]
+    MODE["4. Explicit modes<br/>execution mode + engine mode"]
+    PROVIDER["5. Provider path<br/>Vortex / ShardLoom kernel / diagnostic"]
+    OUTPUT["6. Output path<br/>result ref / sink artifact / unsupported status"]
+    EVIDENCE["7. Evidence and claim gate<br/>certificates + no-fallback + claim status"]
+
+    ACCESS --> REQUEST --> ADMISSION --> MODE --> PROVIDER --> OUTPUT --> EVIDENCE
+```
+
+Keep these labels separate:
+
+| Label | Answers | Examples | Must not imply |
+| --- | --- | --- | --- |
+| Execution mode | Which source/preparation lane ran? | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, `auto` | Performance, production, SQL/DataFrame, or object-store support. |
+| Engine mode | What workload semantics were admitted? | `batch`, `live`, `hybrid`, `auto` | Hidden fallback, broker-backed live runtime, or production hybrid support. |
+| Evidence level | How much proof was emitted? | `minimal_runtime`, `certified`, `full_replay` | A faster mode or a claim-grade result by itself. |
+| Scale class | What resource envelope was proven? | `local_smoke`, `local_claim_grade`, planned split/object-store/distributed classes | Literal any-volume support or Spark-displacement support. |
+
 ## Current Runtime Snapshot
 
-This table is the shortest current-state read of the diagrams below. It separates source/preparation
-execution lanes from batch/live/hybrid workload semantics so readers do not infer a hidden runtime
-or claim.
+This table is the detailed current-state ledger behind the diagrams. Skim the `Layer` column first;
+read a row only when you need its exact support boundary. It separates source/preparation execution
+lanes from batch/live/hybrid workload semantics so readers do not infer a hidden runtime or claim.
 
 | Layer | Current repo state | Planned updates | Claim boundary |
 | --- | --- | --- | --- |
@@ -105,7 +139,7 @@ or claim.
 | Source-free generated output | No-input smoke/capability behavior exists, benchmark synthetic fixtures exist, `shardloom.generated_source_certificate_contract.v1` exposes the case split, GAR-GEN-1C adds scoped `generated-source-user-rows-smoke`/Python `ctx.from_rows([...]).write(...)` local JSONL output, GAR-GEN-1D adds scoped `generated-source-range-smoke`/Python `ctx.range(...).write(...)` local JSONL output, Python `ctx.literal_table([...]).write(...)` and `ctx.calendar(...).write(...)` are scoped local generated-output helpers, GAR-RUNTIME-IMPL-1A adds source-free SQL `VALUES` and literal `SELECT` JSONL smokes, GAR-COMPAT-1B projects those rows into compatibility/status surfaces, and GAR-NOVEL-1A adds `shardloom.generated_source_evidence_alignment.v1` for lineage/telemetry/confidence/Foundry refs. Sequence, broad DataFrame execution, object-store writes, and Foundry generated-output runtime remain unsupported/report-only. | GAR-GEN follow-through now moves to broader SQL/DataFrame generated-source runtime, other engine-native generator nodes, and broader output evidence through later scoped runtime slices; GAR-NOVEL-1B/C/D keep lineage, telemetry, and confidence as separate report-only follow-through slices. | No source Native I/O certificate is claimed when no source dataset is read. Current generated-output runtime is fixture-smoke-only and local-output-only; it is not a broad source-free runtime, object-store/lakehouse, Foundry, SQL/DataFrame, performance, package, or production claim. |
 | Evidence exports and confidence | Evidence artifacts, protocol parity rows, internal timing fields, the GAR-NOVEL-1A generated-source evidence alignment report, `shardloom.openlineage_facet_mapping.v1`, `shardloom.opentelemetry_trace_export_contract.v1`, `shardloom.enterprise_evidence_export_pack.v1`, the GAR-PERF-1D report-only Bayesian performance/layout advisor contract, and `shardloom.traditional_analytics.bayesian_claim_confidence.v1` exist. OpenLineage custom facets and OpenTelemetry span placeholders are mapped but not emitted; the enterprise export pack is opt-in/local-first/report-only; Bayesian posterior claim-confidence is report-only/not-fit. | Future work fits posterior models and wires uncertainty blockers into release claim gates without enabling runtime decisions. Future evidence export implementation must stay opt-in, local-only by default, and redacted unless a separate backend/export gate lands. | OpenLineage mapping, telemetry export, enterprise export packs, and confidence surfaces cannot upgrade runtime support, production readiness, performance, lineage/telemetry backend support, or claim status. |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
-| Runtime evidence level | `traditional-analytics-vortex-batch-run` now emits first-class `evidence_level=minimal_runtime\|certified\|full_replay` fields beside execution mode for scoped prepared/native local artifacts. `minimal_runtime` blocks result-sink replay and reports `claim_gate_status=not_claim_grade`; `certified` emits normal certificate-bearing evidence without replay by default; `full_replay` requires result-sink replay proof. | Continue propagating the contract into future Python/API capability views and broader execution envelopes only where evidence exists. Later slices can add runtime-light benchmark lanes and policy views without hidden fast modes. | Every evidence level keeps `fallback_attempted=false`, `external_engine_invoked=false`, source/output digest status, and claim boundaries visible. Evidence level explains proof depth; it is not execution mode, performance evidence, SQL/DataFrame support, object-store/lakehouse support, Foundry support, or production readiness. |
+| Runtime evidence level | `traditional-analytics-vortex-batch-run` now emits first-class evidence-level fields with the values `minimal_runtime`, `certified`, and `full_replay` beside execution mode for scoped prepared/native local artifacts. `minimal_runtime` blocks result-sink replay and reports `claim_gate_status=not_claim_grade`; `certified` emits normal certificate-bearing evidence without replay by default; `full_replay` requires result-sink replay proof. | Continue propagating the contract into future Python/API capability views and broader execution envelopes only where evidence exists. Later slices can add runtime-light benchmark lanes and policy views without hidden fast modes. | Every evidence level keeps `fallback_attempted=false`, `external_engine_invoked=false`, source/output digest status, and claim boundaries visible. Evidence level explains proof depth; it is not execution mode, performance evidence, SQL/DataFrame support, object-store/lakehouse support, Foundry support, or production readiness. |
 | Scale claim gate | GAR-SCALE-1A adds `scale_contract_schema_version=shardloom.traditional_analytics.scale_claim_gate.v1` plus scale profile/status, volume, split, memory, spill, shuffle, retry, commit, platform, no-fallback, and claim-boundary fields. GAR-SCALE-1B adds `split_manifest_contract_schema_version=shardloom.traditional_analytics.split_manifest.v1` plus split planning fields. GAR-SCALE-1C adds `memory_spill_contract_schema_version=shardloom.traditional_analytics.memory_spill_backpressure.v1` plus memory/spill/backpressure fields. GAR-SCALE-1D adds `shuffle_contract_schema_version=shardloom.traditional_analytics.shuffle_repartition.v1` plus shuffle/repartition fields. GAR-SCALE-1E adds `object_table_ladder_schema_version=shardloom.traditional_analytics.object_table_scale_ladder.v1` plus object-store/table ladder fields. GAR-SCALE-1F adds `distributed_protocol_schema_version=shardloom.traditional_analytics.distributed_protocol.v1` plus coordinator, worker, task lease, task attempt, split, retry, fragment, merge, no-fallback, and `distributed_claim_gate_status=not_distributed_runtime_grade` fields. GAR-SCALE-1G adds `scale_benchmark_profile_schema_version=shardloom.traditional_analytics.scale_benchmark_profile.v1` plus profile registry, profile status, synthetic metadata, real-input-byte, correctness, no-fallback, and leaderboard-separation fields. GAR-SCALE-1H adds `schema_version=shardloom.foundry_scale_proof_boundary.v1` to the local Foundry proof report with Foundry runtime/compute/Spark, input/output dataset count, staged input bytes, execution mode, split, memory, evidence dataset, no-fallback, and public claim fields. Current ShardLoom rows are restricted to `local_smoke` or `local_claim_grade` and report `scale_claim_gate_status=not_scale_grade`. | Future runtime slices can promote only scoped scale classes with real workload bytes, correctness proof, no-fallback evidence, and relevant runtime gates. | Scale, SplitManifest, memory/spill, shuffle, object-store/table ladder, distributed protocol, scale benchmark profile, and Foundry scale proof fields are fail-closed. They do not authorize literal any-volume support, Spark-replacement, larger-than-memory execution, runtime spill, backpressure runtime, split-parallel runtime, distributed shuffle, object-store/table runtime, object-store write/commit, table commit, distributed runtime, remote workers, Foundry production support, managed-platform proof, public leaderboard placement, or performance/superiority claims. |
 | Evidence-aware logical optimizer | `optimizer-plan`, Python typed accessors, and benchmark row contracts now expose a report-only optimizer rule registry and trace for predicate/projection/slice pushdown, common subplan/source-state reuse, expression simplification, constant folding, type coercion, join ordering, and cardinality estimation. No runtime rewrite is applied. | Future slices can promote individual rules only with before/after plan digests, correctness smoke, materialization/decode proof, no-fallback evidence, and claim gates. | Optimizer trace evidence is classification/explainability evidence only. It is not Polars/DataFusion parity, broad SQL/DataFrame runtime, performance evidence, or an applied-rewrite claim. |
 | Expression and operator semantics baseline | `shardloom-core` exposes `shardloom.expression_semantics.v1`, `shardloom.projection_semantics.v1`, `shardloom.filter_semantics.v1`, and `shardloom.limit_semantics.v1` for scoped in-memory row evaluation. The admitted baseline covers literals, column references, aliases, casts, boolean `AND`/`OR`/`NOT`, `IS NULL`, `IS NOT NULL`, comparisons, projection, filter selection, and limit row-count semantics with explicit null/type behavior and deterministic unsupported diagnostics. | Next slices wire this shared semantics baseline into SQL local-source execution, Python query-builder workflows, prepared/native operator promotion, and broader operator families only where source/sink evidence exists. | This is a ShardLoom-native semantics contract and fixture/runtime building block, not broad SQL/DataFrame support, not encoded-native operator coverage, not a production claim, and not performance evidence. Rows keep `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status=not_claim_grade`. |
@@ -397,95 +431,118 @@ shifts from scoped prepared/native benchmark paths, CPU admission diagnostics, a
 fabric blockers toward kernel/provider expansion, source-backed API coverage, facade coverage, and
 other evidence-gated residual-native paths.
 
-### View 5 - I/O, Evidence, And Downstream Use
+### View 5 - I/O And Downstream Use
 
-This view connects runtime output to every consumer. Downstream users read typed outputs or
-referenced artifacts; they do not imply a hidden execution mode, fallback engine, or unverified
-sink.
+This view connects sources, supported execution, sinks, and consumers. It intentionally avoids
+showing every evidence field so the delivery route stays readable. Downstream users read typed
+outputs or referenced artifacts; they do not imply a hidden execution mode, fallback engine, or
+unverified sink.
 
 ```mermaid
 flowchart LR
-    subgraph INPUTS["Input families"]
-        COMPAT_INPUT["Compatibility files<br/>CSV / Parquet / JSONL / Arrow IPC / Avro / ORC"]
-        VORTEX_INPUT["Existing Vortex artifacts"]
-        OBJECT_INPUT["Object-store refs<br/>planned / unsupported"]
-        TABLE_INPUT["Table/catalog refs<br/>planned / unsupported"]
-        STREAM_INPUT["Streams and events<br/>planned / unsupported"]
+    subgraph SOURCES["Input families"]
+        LOCAL["Local compatibility files<br/>CSV / Parquet / JSONL / Arrow IPC / Avro / ORC"]
+        VORTEX["Existing Vortex artifacts"]
+        GENERATED["Generated sources<br/>range / values / literal rows / calendar"]
+        REMOTE["Remote/table/stream refs<br/>object-store / catalog / event stream"]
     end
 
-    subgraph RUNTIME["Runtime outcome"]
-        EXECUTE["Supported execution"]
-        UNSUPPORTED["Unsupported diagnostic"]
-        RESULT["Result / ref"]
+    subgraph DECISION["Runtime decision"]
+        ADMIT["Admitted local path"]
+        BLOCK["Deterministic diagnostic<br/>support_status=unsupported"]
     end
 
-    subgraph SINKS["Sink and delivery options"]
-        NO_SINK["No sink<br/>typed result/ref only"]
-        VORTEX_SINK["Vortex result artifact<br/>current scoped replay evidence"]
-        COMPAT_EXPORT["Compatibility export<br/>planned / unsupported"]
-        TABLE_COMMIT["Table/lakehouse commit<br/>planned / unsupported"]
-        OBJECT_WRITE["Object-store write<br/>planned / unsupported"]
-        REST_EVENT["REST/event delivery<br/>report-only contract"]
+    subgraph SINKS["Output and sink paths"]
+        RESULT["Typed result/ref only"]
+        VORTEX_OUT["Vortex result artifact<br/>scoped replay evidence"]
+        LOCAL_EXPORT["Local compatibility export<br/>scoped or planned by format"]
+        PLATFORM_OUT["Table/object-store/REST/event delivery<br/>planned or report-only"]
     end
 
-    subgraph CLAIMS["Evidence and claims"]
-        TIMING["Benchmark timing ledger"]
-        BASELINE["External baseline/oracle<br/>comparison only"]
-        MICROBENCH["Native microbenchmark rows<br/>subsystem evidence only"]
-        EVIDENCE_LEVEL["Evidence level<br/>minimal_runtime / certified / full_replay"]
-        OPTIMIZER_TRACE["Optimizer trace<br/>rule registry + plan digests"]
-        SCAN_PUSHDOWN["Vortex Scan pushdown evidence<br/>filter / projection / limit"]
-        ENCODED_KERNEL["Encoded kernel registry<br/>encoding/operator admission"]
-        FUSED_PIPELINE["Fused residual pipeline evidence<br/>row counts + correctness parity"]
-        SESSION["ShardLoomSession evidence<br/>session/cache lifecycle"]
-        IO_REUSE["I/O reuse + fanout evidence<br/>SourceState / PreparedState / OutputPlan"]
-        RESOURCE_PROFILE["Allocation / buffer-pool evidence<br/>resource metrics + correctness"]
-        BUILD_PROFILE["Build profile evidence<br/>LTO / PGO / native benchmark"]
-        EVIDENCE["Evidence bundle<br/>correctness / Native I/O / materialization / policy"]
+    subgraph CONSUMERS["Consumers"]
+        CLI_OUT["CLI text / JSON / artifacts"]
+        PY_OUT["Python typed models"]
+        ADAPTER_OUT["Adapter consumers"]
+        BENCH_OUT["Benchmark reports"]
+        PLATFORM_CONSUMER["Governed platform consumers<br/>planned"]
+    end
+
+    LOCAL --> ADMIT
+    VORTEX --> ADMIT
+    GENERATED --> ADMIT
+    REMOTE --> BLOCK
+    ADMIT --> RESULT
+    ADMIT --> VORTEX_OUT
+    ADMIT --> LOCAL_EXPORT
+    ADMIT -.-> PLATFORM_OUT
+    BLOCK --> RESULT
+    PLATFORM_OUT --> RESULT
+    RESULT --> CLI_OUT
+    RESULT --> PY_OUT
+    RESULT --> ADAPTER_OUT
+    RESULT --> BENCH_OUT
+    RESULT --> PLATFORM_CONSUMER
+    VORTEX_OUT --> BENCH_OUT
+    LOCAL_EXPORT --> CLI_OUT
+```
+
+### View 6 - Evidence, Observability, And Claims
+
+This view shows how proof artifacts are assembled after execution or a deterministic diagnostic.
+External baselines can inform reports, but they cannot satisfy ShardLoom-native claim gates.
+
+```mermaid
+flowchart TD
+    OUTCOME["Execution result or unsupported diagnostic"]
+
+    subgraph RUNTIME_EVIDENCE["Runtime evidence"]
+        CERTS["Certificates<br/>execution / Native I/O / generated-source"]
+        MATERIALIZATION["Materialization and decode boundary"]
+        POLICY["Policy evidence<br/>fallback_attempted=false<br/>external_engine_invoked=false"]
+        SOURCE_SINK["Source/sink evidence<br/>SourceState / PreparedState / OutputPlan"]
+    end
+
+    subgraph OPTIMIZATION_EVIDENCE["Optimization and timing evidence"]
+        TIMING["Stage timing ledger"]
+        SCAN["Vortex Scan pushdown evidence"]
+        ENCODED["Encoded-kernel admission evidence"]
+        FUSED["Fused residual pipeline evidence"]
+        SESSION["Session and reuse evidence"]
+        RESOURCE["Resource/build profile evidence"]
+        MICRO["Native microbenchmark rows<br/>subsystem only"]
+    end
+
+    subgraph OPTIONAL_EXPORTS["Optional exports"]
         LINEAGE["OpenLineage facets<br/>report-only / opt-in"]
         TELEMETRY["OpenTelemetry spans<br/>report-only / opt-in"]
         CONFIDENCE["Bayesian confidence<br/>advisory only"]
-        CLAIM["Claim gate"]
-        ENVELOPE["Typed output envelope"]
+        BASELINE["External baseline/oracle<br/>comparison only"]
     end
 
-    COMPAT_INPUT --> EXECUTE
-    VORTEX_INPUT --> EXECUTE
-    OBJECT_INPUT --> UNSUPPORTED
-    TABLE_INPUT --> UNSUPPORTED
-    STREAM_INPUT --> UNSUPPORTED
-    EXECUTE --> RESULT
-    UNSUPPORTED --> EVIDENCE
-    RESULT --> NO_SINK --> EVIDENCE
-    RESULT --> VORTEX_SINK --> EVIDENCE
-    RESULT --> COMPAT_EXPORT --> EVIDENCE
-    RESULT --> TABLE_COMMIT --> EVIDENCE
-    RESULT --> OBJECT_WRITE --> EVIDENCE
-    RESULT --> REST_EVENT --> EVIDENCE
-    EXECUTE --> SESSION --> TIMING --> EVIDENCE_LEVEL --> EVIDENCE
-    EXECUTE --> OPTIMIZER_TRACE --> TIMING
-    EXECUTE --> SCAN_PUSHDOWN --> TIMING
-    EXECUTE --> ENCODED_KERNEL --> TIMING
-    EXECUTE --> FUSED_PIPELINE --> TIMING
-    EXECUTE --> IO_REUSE --> TIMING
-    IO_REUSE --> VORTEX_SINK
-    IO_REUSE --> COMPAT_EXPORT
-    EXECUTE --> RESOURCE_PROFILE --> TIMING
-    EXECUTE --> BUILD_PROFILE --> TIMING
-    EXECUTE --> MICROBENCH --> EVIDENCE
-    BASELINE -.-> EVIDENCE
-    EVIDENCE --> LINEAGE
-    EVIDENCE --> TELEMETRY
-    TIMING --> CONFIDENCE
-    CONFIDENCE --> CLAIM
-    EVIDENCE --> CLAIM --> ENVELOPE
+    CLAIM["Claim gate<br/>claim_grade / fixture_smoke_only / not_claim_grade"]
+    ENVELOPE["Typed output envelope"]
 
-    ENVELOPE --> CLI_RESULT["CLI access result"]
-    ENVELOPE --> PY_RESULT["Python / SDK result"]
-    ENVELOPE --> ADAPTER_RESULT["Adapter consumers"]
-    ENVELOPE --> BENCH_RESULT["Benchmark comparison report"]
-    ENVELOPE --> AUTO_RESULT["Automation / agent follow-up"]
-    ENVELOPE --> PLATFORM_RESULT["Governed platform consumers<br/>planned"]
+    OUTCOME --> CERTS
+    OUTCOME --> MATERIALIZATION
+    OUTCOME --> POLICY
+    OUTCOME --> SOURCE_SINK
+    OUTCOME --> TIMING
+    TIMING --> SCAN
+    TIMING --> ENCODED
+    TIMING --> FUSED
+    TIMING --> SESSION
+    TIMING --> RESOURCE
+    TIMING --> MICRO
+    CERTS --> CLAIM
+    MATERIALIZATION --> CLAIM
+    POLICY --> CLAIM
+    SOURCE_SINK --> CLAIM
+    TIMING --> CLAIM
+    CLAIM --> ENVELOPE
+    ENVELOPE --> LINEAGE
+    ENVELOPE --> TELEMETRY
+    TIMING --> CONFIDENCE
+    BASELINE -.-> CONFIDENCE
 ```
 
 These diagrams are intentionally broader than the current implementation. Planned nodes must remain
