@@ -32,6 +32,8 @@ The gate aggregates:
 - release security gate report
 - package metadata, license, repository, and homepage metadata
 - package-channel readiness matrix and channel-specific install/smoke/provenance/rollback proof
+- per-claim evidence attachment matrix for release, package, performance, Spark-displacement,
+  engine-replacement, production SQL/DataFrame, object-store/lakehouse, and Foundry/platform claims
 - publication/API/schema stability gate for public compatibility windows, package identities,
   signing policy, checksums, SBOM, and publication approval
 - feature/build matrix execution evidence
@@ -130,6 +132,29 @@ The gate rows are `api_compatibility_window`, `schema_compatibility_window`,
 `package_identity_approval`, `signing_policy_decision`, `checksum_manifest`, `sbom_bundle`, and
 `publication_approval`. `scripts\check_release_readiness.py` must keep the hard release gate
 blocked while this gate reports `publication_api_schema_gate_status=blocked`.
+
+`GAR-0041-A` adds the per-claim evidence attachment matrix with schema
+`shardloom.per_claim_evidence_attachment_matrix.v1`. The release gate consumes
+`docs/release/per-claim-evidence-attachment-matrix.md` and keeps public claims blocked while that
+matrix reports:
+
+```text
+per_claim_evidence_attachment_matrix_support_status=blocked
+per_claim_evidence_attachment_matrix_claim_gate_status=not_claim_grade
+per_claim_evidence_attachment_matrix_all_claims_blocked=true
+per_claim_evidence_attachment_matrix_public_release_claim_allowed=false
+per_claim_evidence_attachment_matrix_public_package_claim_allowed=false
+per_claim_evidence_attachment_matrix_performance_claim_allowed=false
+per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed=false
+per_claim_evidence_attachment_matrix_fallback_attempted=false
+per_claim_evidence_attachment_matrix_external_engine_invoked=false
+```
+
+Every public claim row must name `required_test_evidence`, `required_benchmark_evidence`,
+`required_certificate_evidence`, `required_native_io_evidence`, `required_security_evidence`,
+`required_provenance_evidence`, `required_unsupported_path_evidence`,
+`required_no_fallback_evidence`, and `required_release_approval`. Any missing attachment keeps the
+claim gate blocked.
 
 `GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. Portable release artifacts
 remain the normal `release` profile artifacts unless a separate release gate explicitly admits a

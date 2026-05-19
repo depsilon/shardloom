@@ -115,6 +115,7 @@ Reference index:
   `docs/architecture/cg5-cg6-stateful-reuse-evidence-expansion.md`,
   `docs/architecture/spark-displacement-benchmark-evidence-matrix.md`,
   `docs/architecture/comparative-rerun-managed-platform-posture-gate.md`,
+  `docs/release/per-claim-evidence-attachment-matrix.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
   `docs/architecture/credential-policy-enforcement-gate.md`,
@@ -232,20 +233,6 @@ Current non-runtime sequence:
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0041-A per-claim evidence attachment matrix
-  - Source: RFC 0041; workspace feature build matrix; release security gate.
-  - Current state: release claims are not claimable until required matrix rows have attached passing
-    evidence.
-  - Next slice outcome: matrix that binds each public claim to test, benchmark, certificate, Native
-    I/O, security, provenance, and unsupported-path evidence.
-  - User-visible surface: release gate output, docs.
-  - Implementation scope: release check scripts/docs/tests.
-  - Evidence required: all evidence categories named per claim.
-  - Acceptance: any missing row fails the claim gate.
-  - Verification: release readiness tests, workspace feature matrix tests.
-  - Non-goals: no new claim or publication.
-  - Fallback/claim boundary: claims fail closed by default.
-  - Dependencies/blockers: evidence-producing GAR slices.
 - [ ] GAR-0043-A hard release-readiness validators and architecture tracker
   - Source: RFC 0043; release security gate; global architecture review.
   - Current state: hard release-readiness gate exists, but final publication/attestation and

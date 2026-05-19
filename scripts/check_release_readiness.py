@@ -45,6 +45,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("docs/release/package-channel-readiness-matrix.json"),
     )
     parser.add_argument(
+        "--per-claim-evidence-matrix",
+        type=Path,
+        default=Path("docs/release/per-claim-evidence-attachment-matrix.md"),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("target/hard-release-readiness-gate.json"),
@@ -79,6 +84,7 @@ def main() -> int:
     security_gate_path = resolve(repo_root, args.security_gate_report)
     validation_evidence_path = resolve(repo_root, args.validation_evidence)
     package_channel_matrix_path = resolve(repo_root, args.package_channel_matrix)
+    per_claim_evidence_matrix_path = resolve(repo_root, args.per_claim_evidence_matrix)
 
     checks: list[dict[str, Any]] = []
 
@@ -211,6 +217,49 @@ def main() -> int:
         )
     )
 
+    per_claim_matrix_text = read_text(per_claim_evidence_matrix_path)
+    per_claim_matrix_blockers: list[str] = []
+    for required in [
+        "shardloom.per_claim_evidence_attachment_matrix.v1",
+        "per_claim_evidence_attachment_matrix_support_status=blocked",
+        "per_claim_evidence_attachment_matrix_claim_gate_status=not_claim_grade",
+        "per_claim_evidence_attachment_matrix_all_claims_blocked=true",
+        "per_claim_evidence_attachment_matrix_public_release_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_public_package_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_performance_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_fallback_attempted=false",
+        "per_claim_evidence_attachment_matrix_external_engine_invoked=false",
+        "public_release_claim",
+        "public_package_claim",
+        "performance_superiority_claim",
+        "spark_displacement_claim",
+        "engine_replacement_claim",
+        "production_sql_dataframe_claim",
+        "object_store_lakehouse_claim",
+        "foundry_platform_claim",
+        "required_test_evidence",
+        "required_benchmark_evidence",
+        "required_certificate_evidence",
+        "required_native_io_evidence",
+        "required_security_evidence",
+        "required_provenance_evidence",
+        "required_unsupported_path_evidence",
+        "required_no_fallback_evidence",
+        "required_release_approval",
+    ]:
+        if required not in per_claim_matrix_text:
+            per_claim_matrix_blockers.append(f"missing per-claim evidence matrix field: {required}")
+    if "per_claim_evidence_attachment_matrix_claim_gate_status=not_claim_grade" in per_claim_matrix_text:
+        per_claim_matrix_blockers.append("per-claim evidence attachment matrix remains not claim-grade")
+    checks.append(
+        check(
+            "per_claim_evidence_attachment_matrix",
+            str(args.per_claim_evidence_matrix).replace("\\", "/"),
+            per_claim_matrix_blockers,
+        )
+    )
+
     feature_matrix_doc = repo_root / "docs/architecture/workspace-feature-build-matrix.md"
     feature_blockers = []
     matrix_text = read_text(feature_matrix_doc)
@@ -292,6 +341,7 @@ def main() -> int:
         "public_release_claim_allowed": passed,
         "public_package_claim_allowed": passed,
         "package_channel_matrix_ref": str(args.package_channel_matrix).replace("\\", "/"),
+        "per_claim_evidence_matrix_ref": str(args.per_claim_evidence_matrix).replace("\\", "/"),
         "checks": checks,
         "blockers": blockers,
         "required_validation_commands": validation_commands,

@@ -1358,7 +1358,21 @@ plan before coding.
   evidence distinguishes portable release artifacts from `target-cpu=native` benchmark-only
   artifacts and records LTO/PGO/native profile status before optimized benchmark rows are
   interpreted.
-- [ ] Release claims remain not claimable until required matrix rows have attached passing evidence.
+- [x] `GAR-0041-A` adds `shardloom.per_claim_evidence_attachment_matrix.v1` to release-plan and
+  hard release-readiness surfaces. It binds public release, package, performance/superiority,
+  Spark-displacement, engine-replacement, production SQL/DataFrame, object-store/lakehouse, and
+  Foundry/platform claim rows to required test, benchmark, certificate, Native I/O, security,
+  provenance, unsupported-path, no-fallback, and approval evidence while reporting
+  `per_claim_evidence_attachment_matrix_claim_gate_status=not_claim_grade`,
+  `per_claim_evidence_attachment_matrix_all_claims_blocked=true`,
+  `per_claim_evidence_attachment_matrix_public_release_claim_allowed=false`,
+  `per_claim_evidence_attachment_matrix_public_package_claim_allowed=false`,
+  `per_claim_evidence_attachment_matrix_performance_claim_allowed=false`,
+  `per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed=false`,
+  `per_claim_evidence_attachment_matrix_fallback_attempted=false`, and
+  `per_claim_evidence_attachment_matrix_external_engine_invoked=false`.
+- [ ] Passing public release/package/performance/production/platform claims remain incomplete until
+  every matrix row has attached passing evidence and explicit human approval.
 
 ### RFC 0042 - Vortex Runtime Utilization and Execution Spine
 

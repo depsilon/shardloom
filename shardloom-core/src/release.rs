@@ -851,6 +851,405 @@ impl ReleasePublicationApiSchemaGateReport {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
+pub struct PerClaimEvidenceAttachmentRow {
+    pub claim_id: &'static str,
+    pub claim_family: &'static str,
+    pub public_claim_language: &'static str,
+    pub support_status: &'static str,
+    pub required_test_evidence: &'static str,
+    pub required_benchmark_evidence: &'static str,
+    pub required_certificate_evidence: &'static str,
+    pub required_native_io_evidence: &'static str,
+    pub required_security_evidence: &'static str,
+    pub required_provenance_evidence: &'static str,
+    pub required_unsupported_path_evidence: &'static str,
+    pub required_no_fallback_evidence: &'static str,
+    pub required_release_approval: &'static str,
+    pub current_attachment_ref: &'static str,
+    pub missing_evidence: &'static str,
+    pub attachment_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub test_evidence_attached: bool,
+    pub benchmark_evidence_attached: bool,
+    pub certificate_evidence_attached: bool,
+    pub native_io_evidence_attached: bool,
+    pub security_evidence_attached: bool,
+    pub provenance_evidence_attached: bool,
+    pub unsupported_path_evidence_attached: bool,
+    pub no_fallback_evidence_attached: bool,
+    pub release_approval_attached: bool,
+    pub public_claim_allowed: bool,
+    pub runtime_execution_performed: bool,
+    pub benchmark_rerun_performed: bool,
+    pub package_publication_performed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: &'static str,
+}
+
+impl PerClaimEvidenceAttachmentRow {
+    #[allow(clippy::too_many_arguments)]
+    const fn blocked(
+        claim_id: &'static str,
+        claim_family: &'static str,
+        public_claim_language: &'static str,
+        required_test_evidence: &'static str,
+        required_benchmark_evidence: &'static str,
+        required_certificate_evidence: &'static str,
+        required_native_io_evidence: &'static str,
+        required_security_evidence: &'static str,
+        required_provenance_evidence: &'static str,
+        required_unsupported_path_evidence: &'static str,
+        required_no_fallback_evidence: &'static str,
+        required_release_approval: &'static str,
+        current_attachment_ref: &'static str,
+        missing_evidence: &'static str,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            claim_id,
+            claim_family,
+            public_claim_language,
+            support_status: "blocked",
+            required_test_evidence,
+            required_benchmark_evidence,
+            required_certificate_evidence,
+            required_native_io_evidence,
+            required_security_evidence,
+            required_provenance_evidence,
+            required_unsupported_path_evidence,
+            required_no_fallback_evidence,
+            required_release_approval,
+            current_attachment_ref,
+            missing_evidence,
+            attachment_status: "missing_required_evidence",
+            claim_gate_status: "not_claim_grade",
+            test_evidence_attached: false,
+            benchmark_evidence_attached: false,
+            certificate_evidence_attached: false,
+            native_io_evidence_attached: false,
+            security_evidence_attached: false,
+            provenance_evidence_attached: false,
+            unsupported_path_evidence_attached: false,
+            no_fallback_evidence_attached: false,
+            release_approval_attached: false,
+            public_claim_allowed: false,
+            runtime_execution_performed: false,
+            benchmark_rerun_performed: false,
+            package_publication_performed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary,
+        }
+    }
+
+    pub fn missing_required_attachment_count(&self) -> usize {
+        [
+            self.test_evidence_attached,
+            self.benchmark_evidence_attached,
+            self.certificate_evidence_attached,
+            self.native_io_evidence_attached,
+            self.security_evidence_attached,
+            self.provenance_evidence_attached,
+            self.unsupported_path_evidence_attached,
+            self.no_fallback_evidence_attached,
+            self.release_approval_attached,
+        ]
+        .into_iter()
+        .filter(|attached| !*attached)
+        .count()
+    }
+
+    pub fn all_required_categories_named(&self) -> bool {
+        [
+            self.required_test_evidence,
+            self.required_benchmark_evidence,
+            self.required_certificate_evidence,
+            self.required_native_io_evidence,
+            self.required_security_evidence,
+            self.required_provenance_evidence,
+            self.required_unsupported_path_evidence,
+            self.required_no_fallback_evidence,
+            self.required_release_approval,
+        ]
+        .into_iter()
+        .all(|value| !value.trim().is_empty())
+    }
+
+    pub fn is_blocking(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade"
+            || self.missing_required_attachment_count() > 0
+            || !self.public_claim_allowed
+    }
+
+    pub fn side_effect_free(&self) -> bool {
+        !self.public_claim_allowed
+            && !self.runtime_execution_performed
+            && !self.benchmark_rerun_performed
+            && !self.package_publication_performed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct PerClaimEvidenceAttachmentMatrixReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub docs_ref: &'static str,
+    pub source_refs: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<PerClaimEvidenceAttachmentRow>,
+    pub test_evidence_required: bool,
+    pub benchmark_evidence_required: bool,
+    pub certificate_evidence_required: bool,
+    pub native_io_evidence_required: bool,
+    pub security_evidence_required: bool,
+    pub provenance_evidence_required: bool,
+    pub unsupported_path_evidence_required: bool,
+    pub no_fallback_evidence_required: bool,
+    pub release_approval_required: bool,
+    pub public_release_claim_allowed: bool,
+    pub public_package_claim_allowed: bool,
+    pub performance_claim_allowed: bool,
+    pub superiority_claim_allowed: bool,
+    pub spark_displacement_claim_allowed: bool,
+    pub production_claim_allowed: bool,
+    pub package_publication_performed: bool,
+    pub runtime_execution_performed: bool,
+    pub benchmark_rerun_performed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl PerClaimEvidenceAttachmentMatrixReport {
+    pub fn fail_closed() -> Self {
+        Self {
+            schema_version: "shardloom.per_claim_evidence_attachment_matrix.v1",
+            report_id: "gar-0041-a.per_claim_evidence_attachment_matrix",
+            docs_ref: "docs/release/per-claim-evidence-attachment-matrix.md",
+            source_refs: "RFC 0041; workspace feature build matrix; release security gate; hard release readiness gate; engine replacement claim inventory",
+            support_status: "blocked",
+            claim_gate_status: "not_claim_grade",
+            rows: per_claim_evidence_attachment_rows(),
+            test_evidence_required: true,
+            benchmark_evidence_required: true,
+            certificate_evidence_required: true,
+            native_io_evidence_required: true,
+            security_evidence_required: true,
+            provenance_evidence_required: true,
+            unsupported_path_evidence_required: true,
+            no_fallback_evidence_required: true,
+            release_approval_required: true,
+            public_release_claim_allowed: false,
+            public_package_claim_allowed: false,
+            performance_claim_allowed: false,
+            superiority_claim_allowed: false,
+            spark_displacement_claim_allowed: false,
+            production_claim_allowed: false,
+            package_publication_performed: false,
+            runtime_execution_performed: false,
+            benchmark_rerun_performed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    pub fn row_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.claim_id).collect()
+    }
+
+    pub fn blocking_row_count(&self) -> usize {
+        self.rows.iter().filter(|row| row.is_blocking()).count()
+    }
+
+    pub fn total_missing_attachment_count(&self) -> usize {
+        self.rows
+            .iter()
+            .map(PerClaimEvidenceAttachmentRow::missing_required_attachment_count)
+            .sum()
+    }
+
+    pub fn all_required_categories_named(&self) -> bool {
+        self.rows
+            .iter()
+            .all(PerClaimEvidenceAttachmentRow::all_required_categories_named)
+    }
+
+    pub fn all_claims_blocked(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade"
+            && !self.public_release_claim_allowed
+            && !self.public_package_claim_allowed
+            && !self.performance_claim_allowed
+            && !self.superiority_claim_allowed
+            && !self.spark_displacement_claim_allowed
+            && !self.production_claim_allowed
+            && self.rows.iter().all(|row| !row.public_claim_allowed)
+    }
+
+    pub fn side_effect_free(&self) -> bool {
+        !self.package_publication_performed
+            && !self.runtime_execution_performed
+            && !self.benchmark_rerun_performed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .rows
+                .iter()
+                .all(PerClaimEvidenceAttachmentRow::side_effect_free)
+    }
+}
+
+pub fn plan_per_claim_evidence_attachment_matrix() -> PerClaimEvidenceAttachmentMatrixReport {
+    PerClaimEvidenceAttachmentMatrixReport::fail_closed()
+}
+
+#[allow(clippy::too_many_lines)]
+fn per_claim_evidence_attachment_rows() -> Vec<PerClaimEvidenceAttachmentRow> {
+    vec![
+        PerClaimEvidenceAttachmentRow::blocked(
+            "public_release_claim",
+            "release",
+            "ShardLoom public release is ready",
+            "workspace validation command evidence and release readiness tests",
+            "benchmark smoke and benchmark artifact completeness evidence",
+            "release readiness certificate and command-envelope contract snapshots",
+            "Native I/O source/sink certificate refs for released workflows",
+            "release security gate, dependency audit, vulnerability response, CodeQL/Scorecard posture",
+            "SBOM, checksum, provenance dry run, package-channel provenance",
+            "known unsupported paths and global architecture claim gate",
+            "fallback_attempted=false and external_engine_invoked=false release fields",
+            "maintainer approval and release notes",
+            "docs/release/hard-release-readiness-gate.md",
+            "release_validation,benchmark_smoke,certificates,native_io,security,provenance,unsupported_paths,approval",
+            "No public release-readiness claim is allowed until every release gate row has attached passing evidence.",
+        ),
+        PerClaimEvidenceAttachmentRow::blocked(
+            "public_package_claim",
+            "package",
+            "ShardLoom packages are publicly ready",
+            "clean install, uninstall, rollback/yank, and smoke tests per package channel",
+            "package-channel smoke benchmark evidence",
+            "package artifact certificate and install transcript",
+            "source/sink Native I/O evidence for packaged CLI/Python smoke paths",
+            "dependency audit, package metadata audit, and trusted publishing posture",
+            "SBOM, checksums, OIDC/Trusted Publisher, attestation refs",
+            "known unsupported package/runtime paths",
+            "no fallback runtime dependency and no external engine dependency evidence",
+            "human channel approval for PyPI/TestPyPI/Homebrew/Scoop/winget/conda/GHCR",
+            "docs/release/package-channel-readiness-matrix.json",
+            "channel_clean_install,channel_smoke,sbom,checksums,provenance,rollback,human_approval",
+            "Package access does not imply production readiness, and no public package claim is allowed without channel proof.",
+        ),
+        PerClaimEvidenceAttachmentRow::blocked(
+            "performance_superiority_claim",
+            "benchmark",
+            "ShardLoom is faster or superior",
+            "workload-specific correctness and regression tests",
+            "claim-grade full-local benchmark profile with complete competitor lanes and versions",
+            "execution certificate and materialization/decode certificate refs",
+            "Native I/O certificate refs for every measured source and sink",
+            "benchmark artifact safety and release security refs",
+            "artifact provenance, environment fingerprint, and reproducible command refs",
+            "unsupported scenario rows and unavailable competitor lane reasons",
+            "external baselines are comparison-only and never fallback",
+            "human approval for exact claim language",
+            "docs/architecture/benchmark-competitive-claim-evidence.md",
+            "claim_grade_benchmark,environment,competitor_lanes,correctness,certificates,native_io,approval",
+            "Performance and superiority claims remain blocked; benchmark pages are evidence, not leaderboards.",
+        ),
+        PerClaimEvidenceAttachmentRow::blocked(
+            "spark_displacement_claim",
+            "spark_displacement",
+            "ShardLoom replaces Spark",
+            "Spark-displacement semantic correctness, scale, and workload tests",
+            "full_local_plus_spark benchmark profile with Spark default/tuned lanes",
+            "scale, execution, materialization, and output certificates",
+            "Native I/O certificate refs for local, object-store, table, and output paths",
+            "release security gate and dependency audit evidence",
+            "benchmark manifest provenance and reproducibility refs",
+            "explicit unsupported distributed/object-store/table/Foundry rows",
+            "Spark rows are external_baseline_only and never fallback",
+            "maintainer approval for exact non-displacement wording",
+            "docs/architecture/spark-displacement-benchmark-evidence-matrix.md",
+            "spark_profile,scale_runtime,shuffle_spill_commit,object_store_table_runtime,per_claim_approval",
+            "Spark replacement or displacement language is blocked.",
+        ),
+        PerClaimEvidenceAttachmentRow::blocked(
+            "engine_replacement_claim",
+            "engine_replacement",
+            "ShardLoom replaces existing engines generally",
+            "broad local runtime, SQL/DataFrame, adapter, output, and session tests",
+            "full competitor registry artifact and workload-scoped benchmark profiles",
+            "execution envelope, capability, and workload certificates",
+            "Native I/O certificate refs for every claimed adapter/source/sink",
+            "security, effect, dependency, and unsupported-path gates",
+            "release/package provenance and benchmark artifact provenance",
+            "capability matrix rows for unsupported adapters and operators",
+            "no external engine fallback and external baselines comparison-only",
+            "release gate and claim-language approval",
+            "docs/architecture/engine-replacement-claim-inventory.md",
+            "runtime_surface,adapters,outputs,benchmarks,certificates,native_io,release_gate",
+            "General engine-replacement language remains blocked until exact workload evidence exists.",
+        ),
+        PerClaimEvidenceAttachmentRow::blocked(
+            "production_sql_dataframe_claim",
+            "sql_dataframe",
+            "ShardLoom has production SQL/DataFrame support",
+            "parser, binder, planner, optimizer, operator, type/null, and API tests",
+            "SQL/DataFrame benchmark profile and scenario coverage",
+            "SQL/DataFrame execution certificates and plan digest refs",
+            "Native I/O certificate refs for SQL/DataFrame input and output paths",
+            "release security gate and API compatibility refs",
+            "package/API provenance and schema stability refs",
+            "unsupported SQL/DataFrame diagnostics and capability matrix rows",
+            "no external SQL/DataFrame engine fallback",
+            "production claim approval and compatibility window",
+            "docs/architecture/global-architecture-review.md#rfc-0032---world-class-sqloperatorsfunctionsadaptersuser-capability",
+            "sql_dataframe_runtime,semantic_conformance,operator_coverage,api_stability,release_gate",
+            "Production SQL/DataFrame claims remain blocked.",
+        ),
+        PerClaimEvidenceAttachmentRow::blocked(
+            "object_store_lakehouse_claim",
+            "object_store_lakehouse",
+            "ShardLoom supports production object-store or lakehouse runtime",
+            "credential, network, byte-range, write, commit, retry, and table-format tests",
+            "object_store_optional and table_runtime benchmark/scale evidence",
+            "object-store/table execution, commit, rollback, and idempotency certificates",
+            "object-store/table Native I/O certificate refs",
+            "credential policy, network effect, secret redaction, and security refs",
+            "artifact provenance, commit manifest, and rollback evidence",
+            "blocked/report-only rows for unsupported stores and table operations",
+            "no fallback engine and no hidden external query service",
+            "human approval for exact object-store/table support claim",
+            "docs/architecture/scale-readiness-contract.md",
+            "object_store_read_write,table_commit,credential_policy,network_policy,scale_evidence",
+            "Object-store and lakehouse production claims remain blocked.",
+        ),
+        PerClaimEvidenceAttachmentRow::blocked(
+            "foundry_platform_claim",
+            "foundry",
+            "ShardLoom is Foundry-ready or managed-platform certified",
+            "real Foundry/dev-stack transform, package resolution, and output dataset tests",
+            "Foundry proof and managed-platform benchmark profile evidence",
+            "Foundry execution, generated-source, output, and evidence-dataset certificates",
+            "Foundry input/output Native I/O or platform dataset certificate refs",
+            "credential, governance, secret, package, and platform security evidence",
+            "package/channel provenance and platform environment fingerprint",
+            "blocked rows for Spark/Foundry compute, S3 shortcuts, Marketplace, and F10",
+            "foundry_spark_invoked=false and external_engine_invoked=false evidence",
+            "human approval for exact Foundry/platform wording",
+            "docs/foundry/proof-of-use-certification.md",
+            "foundry_runtime_proof,output_dataset,evidence_dataset,package_resolution,platform_approval",
+            "Foundry and managed platforms remain validation targets only; no production or endorsement claim is allowed.",
+        ),
+    ]
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct EngineReplacementClaimInventoryRow {
     pub claim_id: &'static str,
     pub claim_family: &'static str,
@@ -2560,6 +2959,65 @@ mod tests {
                 .iter()
                 .all(ReleasePublicationApiSchemaGateRow::side_effect_free)
         );
+    }
+
+    #[test]
+    fn per_claim_evidence_attachment_matrix_blocks_public_claims_without_evidence() {
+        let report = plan_per_claim_evidence_attachment_matrix();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.per_claim_evidence_attachment_matrix.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "gar-0041-a.per_claim_evidence_attachment_matrix"
+        );
+        assert_eq!(report.support_status, "blocked");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.rows.len(), 8);
+        assert_eq!(report.blocking_row_count(), 8);
+        assert_eq!(report.total_missing_attachment_count(), 72);
+        assert!(report.all_required_categories_named());
+        assert!(report.all_claims_blocked());
+        assert!(report.side_effect_free());
+        assert!(report.row_ids().contains(&"public_release_claim"));
+        assert!(report.row_ids().contains(&"public_package_claim"));
+        assert!(report.row_ids().contains(&"performance_superiority_claim"));
+        assert!(report.row_ids().contains(&"spark_displacement_claim"));
+        assert!(report.row_ids().contains(&"engine_replacement_claim"));
+        assert!(report.row_ids().contains(&"production_sql_dataframe_claim"));
+        assert!(report.row_ids().contains(&"object_store_lakehouse_claim"));
+        assert!(report.row_ids().contains(&"foundry_platform_claim"));
+        assert!(report.test_evidence_required);
+        assert!(report.benchmark_evidence_required);
+        assert!(report.certificate_evidence_required);
+        assert!(report.native_io_evidence_required);
+        assert!(report.security_evidence_required);
+        assert!(report.provenance_evidence_required);
+        assert!(report.unsupported_path_evidence_required);
+        assert!(report.no_fallback_evidence_required);
+        assert!(report.release_approval_required);
+        assert!(!report.public_release_claim_allowed);
+        assert!(!report.public_package_claim_allowed);
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.superiority_claim_allowed);
+        assert!(!report.spark_displacement_claim_allowed);
+        assert!(!report.production_claim_allowed);
+        assert!(!report.package_publication_performed);
+        assert!(!report.runtime_execution_performed);
+        assert!(!report.benchmark_rerun_performed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(report.rows.iter().all(|row| {
+            row.is_blocking()
+                && row.all_required_categories_named()
+                && row.missing_required_attachment_count() == 9
+                && row.claim_gate_status == "not_claim_grade"
+                && !row.public_claim_allowed
+                && !row.fallback_attempted
+                && !row.external_engine_invoked
+        }));
     }
 
     #[test]
