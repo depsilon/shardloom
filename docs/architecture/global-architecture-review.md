@@ -485,16 +485,25 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0022-plan-ir-substrait-compatible-interoperability.md`](../rfcs/0022-plan-ir-substrait-compatible-interoperability.md)
-- Current read: Native Plan IR exists; real Substrait import/export execution is not implemented.
+- Current read: Native Plan IR exists and Substrait import/export requests now have deterministic
+  report-only diagnostics; real Substrait parser/exporter support and imported-plan execution are
+  not implemented.
 - Evidence: `shardloom-plan/src/plan_ir.rs`, `shardloom-cli/src/workflow_planning.rs`,
-  `shardloom-cli/tests/plan_portability_snapshots.rs`
+  `shardloom-cli/tests/plan_portability_snapshots.rs`,
+  `docs/architecture/substrait-report-only-contract.md`
 - [x] Native-first Plan IR, serialization skeletons, and imported-plan capability gates exist.
 - [x] Imported plan surfaces preserve no-fallback and capability diagnostics.
 - [x] `GAR-PERF-2B` adds optimizer trace follow-through over Plan IR. Current trace rows keep
   report-only before/after plan-digest placeholders, rewrite safety, evidence preservation,
   materialization boundaries, no-fallback status, and claim gates visible, and no rewrite is treated
   as runtime-supported.
-- [ ] Real Substrait import/export and imported-plan execution remain incomplete.
+- [x] `GAR-0022-A` adds the Substrait report-only import/export contract with
+  `substrait_report_contract_schema_version=shardloom.substrait_report_only_contract.v1`,
+  parser/exporter dependency status, imported-plan execution blockers,
+  `substrait_external_engine_invoked=false`, `substrait_fallback_attempted=false`, and
+  `substrait_claim_gate_status=not_claim_grade`.
+- [ ] Real Substrait parser/exporter support, dependency adoption, round-trip fixtures, and
+  imported-plan execution remain incomplete.
 
 ### RFC 0023 - Extension, Plugin ABI, and Sandboxing
 

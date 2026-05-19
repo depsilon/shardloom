@@ -26,6 +26,57 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+fn assert_substrait_report_contract(output: &str, direction: &str) {
+    assert!(output.contains(&field(
+        "substrait_report_contract_schema_version",
+        "shardloom.substrait_report_only_contract.v1"
+    )));
+    assert!(output.contains(&field(
+        "substrait_report_contract_report_id",
+        "gar-0022-a.substrait_import_export_report_only_contract"
+    )));
+    assert!(output.contains(&field("substrait_report_contract_direction", direction)));
+    assert!(output.contains(&field(
+        "substrait_report_contract_docs_ref",
+        "docs/architecture/substrait-report-only-contract.md"
+    )));
+    assert!(output.contains(&field(
+        "substrait_report_contract_support_status",
+        "report_only"
+    )));
+    assert!(output.contains(&field("substrait_import_parser_status", "not_implemented")));
+    assert!(output.contains(&field(
+        "substrait_export_serializer_status",
+        "not_implemented"
+    )));
+    assert!(output.contains(&field(
+        "substrait_imported_plan_execution_status",
+        "blocked"
+    )));
+    assert!(output.contains(&field("substrait_dependency_status", "not_added")));
+    assert!(output.contains(&field("substrait_dependency_license_approved", "false")));
+    assert!(output.contains(&field("substrait_parser_executed", "false")));
+    assert!(output.contains(&field("substrait_payload_parsed", "false")));
+    assert!(output.contains(&field("substrait_export_serialization_performed", "false")));
+    assert!(output.contains(&field("substrait_imported_plan_execution_allowed", "false")));
+    assert!(output.contains(&field("substrait_runtime_execution", "false")));
+    assert!(output.contains(&field("substrait_external_engine_invoked", "false")));
+    assert!(output.contains(&field("substrait_fallback_attempted", "false")));
+    assert!(output.contains(&field("substrait_claim_gate_status", "not_claim_grade")));
+    assert!(output.contains(&field(
+        "substrait_blocker_ids",
+        "gar-0022-a.substrait_dependency_not_approved,gar-0022-a.substrait_parser_not_implemented,gar-0022-a.substrait_exporter_not_implemented,gar-0022-a.imported_plan_execution_blocked"
+    )));
+    assert!(output.contains(&field(
+        "substrait_required_evidence",
+        "dependency_license_approval,parser_schema_version,construct_coverage_matrix,roundtrip_fixtures,imported_plan_capability_gate,no_fallback_evidence"
+    )));
+    assert!(output.contains(&field(
+        "substrait_claim_boundary",
+        "report_only_no_substrait_import_export_execution"
+    )));
+}
+
 #[test]
 fn plan_ir_json_exposes_native_first_portability_report() {
     let output = run_plan_command(&["plan-ir", "--format", "json"], true);
@@ -73,6 +124,7 @@ fn plan_import_json_reports_unsupported_residuals_without_side_effects() {
     assert!(output.contains(&field("write_io", "false")));
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
+    assert_substrait_report_contract(&output, "import");
 }
 
 #[test]
@@ -157,6 +209,23 @@ fn plan_export_json_reports_validation_only_redaction_boundary() {
     assert!(output.contains(&field("filesystem_probe", "false")));
     assert!(output.contains(&field("network_probe", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
+}
+
+#[test]
+fn plan_export_substrait_json_reports_contract_without_serialization() {
+    let output = run_plan_command(&["plan-export", "substrait", "--format", "json"], false);
+
+    assert!(output.contains("\"command\":\"plan-export\""));
+    assert!(output.contains("\"status\":\"unsupported\""));
+    assert!(output.contains(&field("mode", "plan_export")));
+    assert!(output.contains(&field("direction", "export_validation")));
+    assert!(output.contains(&field("portability_status", "not_implemented")));
+    assert!(output.contains(&field("interop_format", "substrait-like")));
+    assert!(output.contains(&field("import_export_serialization_performed", "false")));
+    assert!(output.contains(&field("runtime_execution", "false")));
+    assert!(output.contains(&field("external_engine_execution", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert_substrait_report_contract(&output, "export");
 }
 
 #[test]

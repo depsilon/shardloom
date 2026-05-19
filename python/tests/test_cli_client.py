@@ -4894,6 +4894,61 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(input_plan.command, "input-plan")
         self.assertTrue(input_plan.field_bool("plan_only"))
 
+    def test_plan_import_and_export_helpers_expose_substrait_contract(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                if args == ["plan-import", "substrait", "fixture", "--format", "json"]:
+                    command = "plan-import"
+                    direction = "import"
+                elif args == ["plan-export", "substrait", "--format", "json"]:
+                    command = "plan-export"
+                    direction = "export"
+                else:
+                    raise AssertionError(sys.argv)
+
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "unsupported",
+                    "summary": "substrait report only",
+                    "human_text": "substrait report only",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "substrait_report_contract_schema_version", "value": "shardloom.substrait_report_only_contract.v1"},
+                        {"key": "substrait_report_contract_direction", "value": direction},
+                        {"key": "substrait_report_contract_support_status", "value": "report_only"},
+                        {"key": "substrait_import_parser_status", "value": "not_implemented"},
+                        {"key": "substrait_export_serializer_status", "value": "not_implemented"},
+                        {"key": "substrait_dependency_status", "value": "not_added"},
+                        {"key": "substrait_imported_plan_execution_allowed", "value": "false"},
+                        {"key": "substrait_external_engine_invoked", "value": "false"},
+                        {"key": "substrait_fallback_attempted", "value": "false"},
+                        {"key": "substrait_claim_gate_status", "value": "not_claim_grade"}
+                    ],
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        imported = client.plan_import("substrait", "fixture", check=False)
+        exported = client.plan_export("substrait", check=False)
+
+        self.assertEqual(imported.field("substrait_report_contract_direction"), "import")
+        self.assertEqual(exported.field("substrait_report_contract_direction"), "export")
+        self.assertEqual(
+            imported.field("substrait_report_contract_support_status"),
+            "report_only",
+        )
+        self.assertFalse(imported.field_bool("substrait_imported_plan_execution_allowed"))
+        self.assertFalse(exported.field_bool("substrait_external_engine_invoked"))
+        self.assertFalse(exported.field_bool("substrait_fallback_attempted"))
+
     def test_compatibility_source_smoke_dispatches_report_only_input_plans(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
