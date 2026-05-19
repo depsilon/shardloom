@@ -3587,6 +3587,99 @@ fn gar_0019_b_sandbox_governance_readiness_gate_remains_report_only() {
 }
 
 #[test]
+fn gar_0023_a_plugin_abi_udf_sandbox_blocker_remains_report_only() {
+    let extension = read_repo_file("shardloom-core/src/extension.rs");
+    for required in [
+        "PluginAbiUdfSandboxBlockerReport",
+        "shardloom.plugin_abi_udf_sandbox_blocker.v1",
+        "gar-0023-a.plugin_abi_udf_sandbox_blocker",
+        "abi_loading_supported: false",
+        "dynamic_loading_performed: false",
+        "extension_code_executed: false",
+        "udf_execution_performed: false",
+        "sandbox_evidence_required: true",
+        "sandbox_enforced: false",
+        "permission_policy_enforced: false",
+        "runtime_execution: false",
+        "external_effect_executed: false",
+        "credential_resolution_performed: false",
+        "network_probe_performed: false",
+        "dependency_expansion_allowed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "dynamic_library_loading",
+        "rust_native_udf",
+        "wasm_udf",
+        "python_udf",
+        "external_service_udf",
+        "sandbox_evidence_binding",
+    ] {
+        assert!(
+            extension.contains(required),
+            "missing plugin ABI/UDF blocker marker {required}"
+        );
+    }
+
+    let extension_planning = read_repo_file("shardloom-cli/src/extension_planning.rs");
+    for required in [
+        "append_plugin_abi_udf_sandbox_blocker_fields",
+        "plugin_abi_udf_sandbox_blocker_schema_version",
+        "plugin_abi_udf_sandbox_blocker_all_plugin_runtime_blocked",
+        "plugin_abi_udf_sandbox_blocker_abi_loading_supported",
+        "plugin_abi_udf_sandbox_blocker_external_engine_invoked",
+    ] {
+        assert!(
+            extension_planning.contains(required),
+            "missing plugin ABI/UDF CLI marker {required}"
+        );
+    }
+
+    let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    assert!(capabilities.contains("append_plugin_abi_udf_sandbox_blocker_fields"));
+    assert!(capabilities.contains("CapabilityDiscoveryScope::Udfs"));
+    assert!(capabilities.contains("CapabilityDiscoveryScope::Extensions"));
+    assert!(capabilities.contains("CapabilityDiscoveryScope::SecurityGovernance"));
+
+    let doc = read_repo_file("docs/architecture/plugin-abi-udf-sandbox-blocker.md");
+    for required in [
+        "GAR-0023-A",
+        "plugin_abi_udf_sandbox_blocker_schema_version=shardloom.plugin_abi_udf_sandbox_blocker.v1",
+        "plugin_abi_udf_sandbox_blocker_claim_gate_status=not_claim_grade",
+        "plugin_abi_udf_sandbox_blocker_all_plugin_runtime_blocked=true",
+        "plugin_abi_udf_sandbox_blocker_abi_loading_supported=false",
+        "plugin_abi_udf_sandbox_blocker_dynamic_loading_performed=false",
+        "plugin_abi_udf_sandbox_blocker_extension_code_executed=false",
+        "plugin_abi_udf_sandbox_blocker_udf_execution_performed=false",
+        "plugin_abi_udf_sandbox_blocker_sandbox_evidence_required=true",
+        "plugin_abi_udf_sandbox_blocker_external_engine_invoked=false",
+        "no plugin code loads",
+        "no fallback execution",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing plugin ABI/UDF blocker doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0023-A plugin ABI"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0023-A plugin ABI loading and UDF sandbox blocker"));
+    assert!(completed.contains("shardloom.plugin_abi_udf_sandbox_blocker.v1"));
+    assert!(completed.contains("plugin_abi_udf_sandbox_blocker_abi_loading_supported=false"));
+    assert!(completed.contains("plugin_abi_udf_sandbox_blocker_external_engine_invoked=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0023-A` adds `shardloom.plugin_abi_udf_sandbox_blocker.v1`"));
+    assert!(gar.contains("Plugin/UDF runtime admission"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("Priority 3.6, GAR-0023-A"));
+    assert!(traceability.contains("shardloom.plugin_abi_udf_sandbox_blocker.v1"));
+}
+
+#[test]
 fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
     let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
     for required in [

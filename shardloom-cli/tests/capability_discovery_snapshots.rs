@@ -513,6 +513,72 @@ const EXTENSION_MANIFEST_EFFECT_ROW_SUFFIXES: [&str; 21] = [
     "claim_boundary",
 ];
 
+const PLUGIN_ABI_UDF_SANDBOX_BLOCKER_FIELD_KEYS: [&str; 24] = [
+    "plugin_abi_udf_sandbox_blocker_schema_version",
+    "plugin_abi_udf_sandbox_blocker_id",
+    "plugin_abi_udf_sandbox_blocker_docs_ref",
+    "plugin_abi_udf_sandbox_blocker_support_status",
+    "plugin_abi_udf_sandbox_blocker_claim_gate_status",
+    "plugin_abi_udf_sandbox_blocker_row_count",
+    "plugin_abi_udf_sandbox_blocker_row_order",
+    "plugin_abi_udf_sandbox_blocker_blocker_ids",
+    "plugin_abi_udf_sandbox_blocker_required_evidence",
+    "plugin_abi_udf_sandbox_blocker_all_plugin_runtime_blocked",
+    "plugin_abi_udf_sandbox_blocker_abi_loading_supported",
+    "plugin_abi_udf_sandbox_blocker_dynamic_loading_performed",
+    "plugin_abi_udf_sandbox_blocker_extension_code_executed",
+    "plugin_abi_udf_sandbox_blocker_udf_execution_performed",
+    "plugin_abi_udf_sandbox_blocker_sandbox_evidence_required",
+    "plugin_abi_udf_sandbox_blocker_sandbox_enforced",
+    "plugin_abi_udf_sandbox_blocker_permission_policy_enforced",
+    "plugin_abi_udf_sandbox_blocker_runtime_execution",
+    "plugin_abi_udf_sandbox_blocker_external_effect_executed",
+    "plugin_abi_udf_sandbox_blocker_credential_resolution_performed",
+    "plugin_abi_udf_sandbox_blocker_network_probe_performed",
+    "plugin_abi_udf_sandbox_blocker_dependency_expansion_allowed",
+    "plugin_abi_udf_sandbox_blocker_fallback_attempted",
+    "plugin_abi_udf_sandbox_blocker_external_engine_invoked",
+];
+
+const PLUGIN_ABI_UDF_SANDBOX_BLOCKER_ROW_IDS: [&str; 12] = [
+    "abi_contract_inventory",
+    "dynamic_library_loading",
+    "rust_native_udf",
+    "wasm_udf",
+    "python_udf",
+    "sql_defined_udf",
+    "external_service_udf",
+    "table_function_udf",
+    "plugin_lifecycle_transition",
+    "sandbox_evidence_binding",
+    "license_provenance_attestation",
+    "unsupported_diagnostics",
+];
+
+const PLUGIN_ABI_UDF_SANDBOX_BLOCKER_ROW_SUFFIXES: [&str; 21] = [
+    "plugin_surface",
+    "support_status",
+    "abi_status",
+    "sandbox_requirement",
+    "blocker_id",
+    "diagnostic_code",
+    "required_evidence",
+    "user_visible_surface",
+    "dynamic_loading_performed",
+    "extension_code_executed",
+    "udf_execution_performed",
+    "sandbox_enforced",
+    "permission_policy_enforced",
+    "runtime_execution",
+    "external_effect_executed",
+    "credential_resolution_performed",
+    "network_probe_performed",
+    "dependency_expansion_allowed",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_boundary",
+];
+
 const CREDENTIAL_POLICY_GATE_FIELD_KEYS: [&str; 23] = [
     "credential_policy_gate_schema_version",
     "credential_policy_gate_id",
@@ -912,9 +978,25 @@ fn append_extension_manifest_effect_keys(keys: &mut Vec<String>) {
     }
 }
 
+fn append_plugin_abi_udf_sandbox_blocker_keys(keys: &mut Vec<String>) {
+    keys.extend(
+        PLUGIN_ABI_UDF_SANDBOX_BLOCKER_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in PLUGIN_ABI_UDF_SANDBOX_BLOCKER_ROW_IDS {
+        keys.extend(
+            PLUGIN_ABI_UDF_SANDBOX_BLOCKER_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("plugin_abi_udf_sandbox_blocker_row_{row_id}_{suffix}")),
+        );
+    }
+}
+
 fn with_extension_manifest_effect_fields(base_keys: &[&'static str]) -> Vec<String> {
     let mut keys = with_external_effect_blocker_fields(base_keys);
     append_extension_manifest_effect_keys(&mut keys);
+    append_plugin_abi_udf_sandbox_blocker_keys(&mut keys);
     keys
 }
 
@@ -2004,6 +2086,81 @@ fn extension_capabilities_expose_manifest_effect_matrix() {
             )));
             assert!(output.contains(&field_pair(
                 &format!("extension_manifest_effect_row_{row}_fallback_attempted"),
+                false
+            )));
+        }
+    }
+}
+
+#[test]
+fn extension_and_udf_capabilities_expose_plugin_abi_udf_sandbox_blocker() {
+    for scope in ["udfs", "extensions", "security-governance"] {
+        let output = run_capabilities_scope(scope);
+        assert!(output.contains(&string_field_pair(
+            "plugin_abi_udf_sandbox_blocker_schema_version",
+            "shardloom.plugin_abi_udf_sandbox_blocker.v1"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "plugin_abi_udf_sandbox_blocker_id",
+            "gar-0023-a.plugin_abi_udf_sandbox_blocker"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "plugin_abi_udf_sandbox_blocker_claim_gate_status",
+            "not_claim_grade"
+        )));
+        assert!(output.contains(&field_pair(
+            "plugin_abi_udf_sandbox_blocker_all_plugin_runtime_blocked",
+            true
+        )));
+        assert!(output.contains(&field_pair(
+            "plugin_abi_udf_sandbox_blocker_abi_loading_supported",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "plugin_abi_udf_sandbox_blocker_dynamic_loading_performed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "plugin_abi_udf_sandbox_blocker_extension_code_executed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "plugin_abi_udf_sandbox_blocker_udf_execution_performed",
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            "plugin_abi_udf_sandbox_blocker_external_engine_invoked",
+            false
+        )));
+        for row in [
+            "dynamic_library_loading",
+            "rust_native_udf",
+            "wasm_udf",
+            "python_udf",
+            "sandbox_evidence_binding",
+        ] {
+            assert!(output.contains(&string_field_pair(
+                &format!("plugin_abi_udf_sandbox_blocker_row_{row}_support_status"),
+                "blocked"
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("plugin_abi_udf_sandbox_blocker_row_{row}_runtime_execution"),
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("plugin_abi_udf_sandbox_blocker_row_{row}_extension_code_executed"),
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("plugin_abi_udf_sandbox_blocker_row_{row}_udf_execution_performed"),
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("plugin_abi_udf_sandbox_blocker_row_{row}_fallback_attempted"),
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                &format!("plugin_abi_udf_sandbox_blocker_row_{row}_external_engine_invoked"),
                 false
             )));
         }

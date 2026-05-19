@@ -156,7 +156,8 @@ pub use extension::{
     ExtensionLifecycleState, ExtensionManifest, ExtensionManifestEffectCapabilityMatrix,
     ExtensionManifestEffectCapabilityRow, ExtensionPermission, ExtensionProvenance,
     ExtensionRegistrySnapshot, ExtensionVersion, PluginAbiRequirement, PluginAbiStatus,
-    SandboxPolicy, SandboxPolicyKind, UdfRuntimeKind,
+    PluginAbiUdfSandboxBlockerReport, PluginAbiUdfSandboxBlockerRow, SandboxPolicy,
+    SandboxPolicyKind, UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
 };
 
 pub use feature_footprint::{
