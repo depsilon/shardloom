@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E scoped SQL generate_series/range generated-output runtime
+  - Branch/PR: `codex/sql-generate-series-source-free` / #801.
+  - Primary files:
+    - `shardloom-cli/src/generated_source_runtime.rs`
+    - `shardloom-cli/tests/generated_source_runtime_smoke.rs`
+    - `shardloom-core/src/generated_source.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_query_builder.py`
+    - `python/tests/test_cli_client.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/recipes/README.md`
+    - generated website/use-case/status/readme pages.
+  - Scope: promote scoped source-free SQL `SELECT * FROM generate_series(...)` and
+    `SELECT * FROM range(...)` into the existing local JSONL generated-output fixture-smoke path.
+  - Runtime behavior:
+    - `generated-source-sql-smoke` admits only `SELECT * FROM generate_series(start, end[, step])`
+      and `SELECT * FROM range(start, end[, step])`.
+    - `generate_series` treats the end value as inclusive; `range` treats the end value as
+      exclusive and uses the same local row-count limit as the Python range source.
+    - Unsupported arity, zero step, projected generator columns, arbitrary SQL table functions, and
+      broader SQL source-free projection block deterministically before any fallback can occur.
+    - Python `ctx.sql(...).write(...)` routes admitted source-free SQL generator statements through
+      `generated-source-sql-smoke`.
+  - Evidence:
+    - SQL range rows emit `generated_source_kind=sql_generate_series_range`,
+      `generated_source_range_start`, `generated_source_range_end`,
+      `generated_source_range_step`, `generated_source_range_column=value`,
+      `generated_source_sql_generator_function`, `generated_source_range_end_inclusive`,
+      `generated_source_certificate_status=present`,
+      `output_native_io_certificate_status=certified_local_file_sink`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke -- --nocapture`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `git diff --check`
+  - Claim boundary: this is a scoped local JSONL generated-output fixture smoke only. It does not
+    add broad SQL/DataFrame runtime, arbitrary SQL table functions, object-store/lakehouse/Foundry
+    output, production support, package-publication readiness, or performance claims.
+  - Fallback boundary: SQL parsing, generator execution, output writing, and evidence emission are
+    ShardLoom-owned local operations; no pandas, Polars, Spark, DataFusion, DuckDB, or external
+    fallback engine is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python IN predicate runtime
   - Branch/PR: `codex/expression-family-next-slice` / #800.
   - Primary files:

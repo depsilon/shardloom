@@ -572,3 +572,141 @@ fn sql_smoke_writes_values_jsonl_and_rejects_broader_sql() {
     assert!(blocked_stdout.contains("no fallback engine was invoked"));
     assert!(blocked_stdout.contains("\"attempted\":false"));
 }
+
+#[test]
+fn sql_smoke_writes_generate_series_and_range_jsonl() {
+    for (
+        name,
+        statement,
+        expected_written,
+        expected_function,
+        expected_end_inclusive,
+        expected_rows,
+    ) in [
+        (
+            "generated-sql-generate-series",
+            "SELECT * FROM generate_series(2, 8, 2)",
+            "{\"value\":2}\n{\"value\":4}\n{\"value\":6}\n{\"value\":8}\n",
+            "generate_series",
+            "true",
+            "4",
+        ),
+        (
+            "generated-sql-range",
+            "SELECT * FROM range(2, 8, 2)",
+            "{\"value\":2}\n{\"value\":4}\n{\"value\":6}\n",
+            "range",
+            "false",
+            "3",
+        ),
+    ] {
+        let output_path = unique_output_path(name);
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args([
+                "generated-source-sql-smoke",
+                output_path.to_str().expect("temp path is utf8"),
+                statement,
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("generated-source-sql-smoke command runs");
+
+        assert!(
+            output.status.success(),
+            "stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "stderr={}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+        assert_eq!(written, expected_written);
+
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert!(stdout.contains(&field("sql_statement_kind", "sql_generate_series_range")));
+        assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
+        assert!(stdout.contains(&field("generated_source_range_start", "2")));
+        assert!(stdout.contains(&field("generated_source_range_end", "8")));
+        assert!(stdout.contains(&field("generated_source_range_step", "2")));
+        assert!(stdout.contains(&field("generated_source_range_column", "value")));
+        assert!(stdout.contains(&field(
+            "generated_source_sql_generator_function",
+            expected_function
+        )));
+        assert!(stdout.contains(&field(
+            "generated_source_range_end_inclusive",
+            expected_end_inclusive
+        )));
+        assert!(stdout.contains(&field("generated_source_row_count", expected_rows)));
+        assert!(stdout.contains(&field("generated_source_certificate_status", "present")));
+        assert!(stdout.contains(&field(
+            "output_native_io_certificate_status",
+            "certified_local_file_sink"
+        )));
+        assert!(stdout.contains(&field(
+            "materialization_boundary",
+            "sql_generate_series_range_to_local_jsonl_sink"
+        )));
+        assert!(stdout.contains(&field(
+            "claim_gate_reason",
+            "one_scoped_local_sql_generate_series_range_generated_output_smoke"
+        )));
+        assert!(stdout.contains(&field("fallback_attempted", "false")));
+        assert!(stdout.contains(&field("external_engine_invoked", "false")));
+        assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+        fs::remove_file(output_path).expect("remove output jsonl");
+    }
+}
+
+#[test]
+fn sql_smoke_blocks_unadmitted_generate_series_forms() {
+    for (name, statement, expected_error) in [
+        (
+            "generated-sql-generate-series-zero-step",
+            "SELECT * FROM generate_series(1, 5, 0)",
+            "step must not be zero",
+        ),
+        (
+            "generated-sql-generate-series-one-arg",
+            "SELECT * FROM generate_series(1)",
+            "require start, end, and optional step",
+        ),
+        (
+            "generated-sql-generate-series-project",
+            "SELECT value FROM generate_series(1, 5)",
+            "does not admit FROM clauses",
+        ),
+    ] {
+        let output_path = unique_output_path(name);
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args([
+                "generated-source-sql-smoke",
+                output_path.to_str().expect("temp path is utf8"),
+                statement,
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("generated-source-sql-smoke command runs");
+
+        assert!(
+            !output.status.success(),
+            "stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+        assert!(stdout.contains("\"status\":\"error\""));
+        assert!(stdout.contains(expected_error));
+        assert!(stdout.contains("no fallback engine was invoked"));
+        assert!(stdout.contains("\"attempted\":false"));
+    }
+}

@@ -280,7 +280,7 @@ class GeneratedSourceWriteReport:
 
     @property
     def generated_source_range_end(self) -> int | None:
-        """Return the generated range exclusive end when this report is for a range source."""
+        """Return the generated range end when this report is for a range source."""
 
         return self.envelope.field_int("generated_source_range_end")
 
@@ -295,6 +295,18 @@ class GeneratedSourceWriteReport:
         """Return the generated range column name when present."""
 
         return self.envelope.field("generated_source_range_column")
+
+    @property
+    def generated_source_sql_generator_function(self) -> str | None:
+        """Return the SQL generator function name when present."""
+
+        return self.envelope.field("generated_source_sql_generator_function")
+
+    @property
+    def generated_source_range_end_inclusive(self) -> bool | None:
+        """Return whether the generated range end is inclusive when present."""
+
+        return self.envelope.field_bool("generated_source_range_end_inclusive")
 
 
 @dataclass(frozen=True, slots=True)

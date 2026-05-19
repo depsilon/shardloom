@@ -314,18 +314,19 @@ or documentation updates alone are insufficient.
 - [ ] GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime
   - Source: `GAR-GEN-1`, `GAR-COMPAT-1B`, Use Case Atlas generated-source rows.
   - Current state: scoped local JSONL generated-output smokes now exist for `from_rows`,
-    `literal_table`, `calendar`, `range`, `sequence`, SQL `VALUES`, SQL literal `SELECT`, and
-    Python generated-row projection/literal `with_column` before local writes with
-    generated-source/output/no-fallback evidence. Remaining gaps are broader SQL source-free
-    projection, SQL `generate_series`/`range`, broad DataFrame expression-backed projection/
-    `with_column`, broader sink formats, object-store/Foundry generated-output paths, and
-    claim-grade output coverage.
+    `literal_table`, `calendar`, `range`, `sequence`, SQL `VALUES`, SQL literal `SELECT`, scoped
+    SQL `SELECT * FROM generate_series/range(...)`, and Python generated-row projection/literal
+    `with_column` before local writes with generated-source/output/no-fallback evidence. Remaining
+    gaps are broader SQL source-free projection, arbitrary SQL table functions, broad DataFrame
+    expression-backed projection/`with_column`, broader sink formats, object-store/Foundry
+    generated-output paths, and claim-grade output coverage.
   - Next slice outcome: implement generated-source builders across CLI/Python/SQL with local JSONL
     or Vortex output where admitted.
   - Runtime enablement: end-user generated-source execution that writes local output and emits a
     GeneratedSourceCertificate.
   - User-visible surface: Python `ctx.range`, `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`,
-    SQL `VALUES`, generated-output recipes.
+    `ctx.sql(...).write(...)`, SQL `VALUES`, SQL `generate_series`/`range`, generated-output
+    recipes.
   - Implementation scope: generator nodes, schema inference, deterministic seed/row-count handling,
     output writer bridge, report/certificate fields.
   - Evidence required: `input_dataset_count=0`, `source_io_performed=false`,

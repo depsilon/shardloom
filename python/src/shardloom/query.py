@@ -1771,13 +1771,33 @@ def _require_non_empty(name: str, value: object) -> str:
 
 
 def _is_source_free_sql_statement(statement: str) -> bool:
-    normalized = statement.strip()
+    normalized = statement.strip().rstrip(";").strip()
     if _starts_with_sql_keyword(normalized, "values"):
+        return True
+    if _is_source_free_sql_generator_statement(normalized):
         return True
     return _starts_with_sql_keyword(normalized, "select") and not _contains_sql_keyword_outside_quotes(
         normalized,
         "from",
     )
+
+
+def _is_source_free_sql_generator_statement(statement: str) -> bool:
+    if not _starts_with_sql_keyword(statement, "select"):
+        return False
+    select_body = statement[len("select") :].strip()
+    if not select_body.startswith("*"):
+        return False
+    after_star = select_body[1:].strip()
+    if not _starts_with_sql_keyword(after_star, "from"):
+        return False
+    source_ref = after_star[len("from") :].strip().lower()
+    return (
+        source_ref.startswith("generate_series(")
+        or source_ref.startswith("generate_series (")
+        or source_ref.startswith("range(")
+        or source_ref.startswith("range (")
+    ) and source_ref.endswith(")")
 
 
 def _is_local_source_sql_statement(statement: str) -> bool:

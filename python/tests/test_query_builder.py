@@ -1627,6 +1627,72 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_context_sql_generate_series_write_invokes_generated_source_sql_smoke(self) -> None:
+        statement = "SELECT * FROM generate_series(2, 8, 2)"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-sql-smoke",
+                    "target/sql-generate-series.jsonl",
+                    {statement!r},
+                    "--output-format",
+                    "jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-sql-smoke",
+                    "status": "success",
+                    "summary": "generated sql",
+                    "human_text": "generated sql",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "output_path", "value": "target/sql-generate-series.jsonl"}},
+                        {{"key": "generated_source_kind", "value": "sql_generate_series_range"}},
+                        {{"key": "generated_source_row_count", "value": "4"}},
+                        {{"key": "generated_source_range_start", "value": "2"}},
+                        {{"key": "generated_source_range_end", "value": "8"}},
+                        {{"key": "generated_source_range_step", "value": "2"}},
+                        {{"key": "generated_source_range_column", "value": "value"}},
+                        {{"key": "generated_source_sql_generator_function", "value": "generate_series"}},
+                        {{"key": "generated_source_range_end_inclusive", "value": "true"}},
+                        {{"key": "generated_source_created", "value": "true"}},
+                        {{"key": "generated_source_certificate_status", "value": "present"}},
+                        {{"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.sql(statement, check=False)
+        report = workflow.write("target/sql-generate-series.jsonl", allow_overwrite=True)
+
+        self.assertIsInstance(workflow, sl.SqlWorkflow)
+        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.generated_source_kind, "sql_generate_series_range")
+        self.assertEqual(report.generated_source_row_count, 4)
+        self.assertEqual(report.generated_source_range_start, 2)
+        self.assertEqual(report.generated_source_range_end, 8)
+        self.assertEqual(report.generated_source_range_step, 2)
+        self.assertEqual(report.generated_source_range_column, "value")
+        self.assertEqual(report.generated_source_sql_generator_function, "generate_series")
+        self.assertTrue(report.generated_source_range_end_inclusive)
+        self.assertEqual(report.output_path, "target/sql-generate-series.jsonl")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_context_sql_local_source_collect_invokes_sql_smoke(self) -> None:
         statement = "SELECT id FROM 'target/input.csv' WHERE id >= 1 LIMIT 2"
         binary = self.fake_cli(
@@ -2720,7 +2786,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_generated_output_contract_id", "value": "gar-compat-1b.source_free_generated_output_contract"},
                     {"key": "universal_compatibility_generated_output_row_order", "value": "no_dataset_smoke,python_ctx_from_rows,python_ctx_range,python_ctx_sequence,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write,local_output_only_generated_source_posture,sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range,dataframe_source_free_projection,dataframe_generated_with_column"},
                     {"key": "universal_compatibility_generated_output_python_row_order", "value": "python_ctx_from_rows,python_ctx_range,python_ctx_sequence,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write"},
-                    {"key": "universal_compatibility_generated_output_sql_row_order", "value": "sql_values"},
+                    {"key": "universal_compatibility_generated_output_sql_row_order", "value": "sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range"},
                     {"key": "universal_compatibility_generated_output_dataframe_row_order", "value": ""},
                     {"key": "universal_compatibility_generated_output_claim_gate_status", "value": "fixture_smoke_only"},
                     {"key": "universal_compatibility_generated_output_no_dataset_smoke_separate", "value": "true"},
@@ -2861,7 +2927,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ("sql_literal_select", "SQL SELECT literal expressions", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_literal_select_jsonl_smoke_only"),
                     ("sql_values", "SQL VALUES (...)", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_values_jsonl_smoke_only"),
                     ("sql_source_free_projection", "SQL source-free projection", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_source_free_projection_runtime_not_implemented"),
-                    ("sql_generate_series_range", "SQL generate_series/range", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_generate_series_range_runtime_not_implemented"),
+                    ("sql_generate_series_range", "SQL generate_series/range", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_generate_series_range_jsonl_smoke_only"),
                     ("dataframe_source_free_projection", "DataFrame source-free projection", "dataframe_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented"),
                     ("dataframe_generated_with_column", "DataFrame generated with_column", "dataframe_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented"),
                 ]:
@@ -2976,6 +3042,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(generated.row("python_ctx_calendar").runtime_execution)
         self.assertTrue(generated.row("sql_values").fixture_smoke_supported)
         self.assertTrue(generated.row("sql_values").runtime_execution)
+        self.assertTrue(generated.row("sql_generate_series_range").fixture_smoke_supported)
+        self.assertTrue(generated.row("sql_generate_series_range").runtime_execution)
         self.assertEqual(
             generated.row("local_output_only_generated_source_posture").blocker_id,
             "gar-compat-1b.non_local_generated_output_blocked",

@@ -291,6 +291,7 @@ impl RangeGeneratedSourceKind {
 enum SqlGeneratedSourceKind {
     LiteralSelect,
     Values,
+    GenerateSeriesRange,
 }
 
 impl SqlGeneratedSourceKind {
@@ -298,6 +299,7 @@ impl SqlGeneratedSourceKind {
         match self {
             Self::LiteralSelect => "sql_literal_select",
             Self::Values => "sql_values",
+            Self::GenerateSeriesRange => "sql_generate_series_range",
         }
     }
 
@@ -305,6 +307,7 @@ impl SqlGeneratedSourceKind {
         match self {
             Self::LiteralSelect => "sql_literal_select_to_local_jsonl_sink",
             Self::Values => "sql_values_to_local_jsonl_sink",
+            Self::GenerateSeriesRange => "sql_generate_series_range_to_local_jsonl_sink",
         }
     }
 
@@ -312,8 +315,21 @@ impl SqlGeneratedSourceKind {
         match self {
             Self::LiteralSelect => "one_scoped_local_sql_literal_select_generated_output_smoke",
             Self::Values => "one_scoped_local_sql_values_generated_output_smoke",
+            Self::GenerateSeriesRange => {
+                "one_scoped_local_sql_generate_series_range_generated_output_smoke"
+            }
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedSqlRangeMetadata {
+    function_name: String,
+    start: i64,
+    end: i64,
+    step: i64,
+    column_name: String,
+    end_inclusive: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -324,6 +340,7 @@ struct GeneratedSqlSmokeRequest {
     source_kind: SqlGeneratedSourceKind,
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
+    range: Option<GeneratedSqlRangeMetadata>,
     allow_overwrite: bool,
 }
 
@@ -335,6 +352,7 @@ struct GeneratedSqlSmokeReport {
     source_kind: SqlGeneratedSourceKind,
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
+    range: Option<GeneratedSqlRangeMetadata>,
     output_bytes: u64,
     output_digest: String,
     schema_digest: String,
@@ -1203,6 +1221,7 @@ impl GeneratedSqlSmokeRequest {
             source_kind: parsed.source_kind,
             schema: parsed.schema,
             rows: parsed.rows,
+            range: parsed.range,
             allow_overwrite,
         })
     }
@@ -1211,7 +1230,7 @@ impl GeneratedSqlSmokeRequest {
 impl GeneratedSqlSmokeReport {
     #[allow(clippy::too_many_lines)]
     fn fields(&self) -> Vec<(String, String)> {
-        vec![
+        let mut fields = vec![
             ("schema_version".to_string(), SQL_SCHEMA_VERSION.to_string()),
             (
                 "generated_source_smoke_report_id".to_string(),
@@ -1345,7 +1364,36 @@ impl GeneratedSqlSmokeReport {
                 "output_write_millis".to_string(),
                 self.write_millis.to_string(),
             ),
-        ]
+        ];
+        if let Some(range) = &self.range {
+            fields.extend([
+                (
+                    "generated_source_range_start".to_string(),
+                    range.start.to_string(),
+                ),
+                (
+                    "generated_source_range_end".to_string(),
+                    range.end.to_string(),
+                ),
+                (
+                    "generated_source_range_step".to_string(),
+                    range.step.to_string(),
+                ),
+                (
+                    "generated_source_range_column".to_string(),
+                    range.column_name.clone(),
+                ),
+                (
+                    "generated_source_sql_generator_function".to_string(),
+                    range.function_name.clone(),
+                ),
+                (
+                    "generated_source_range_end_inclusive".to_string(),
+                    range.end_inclusive.to_string(),
+                ),
+            ]);
+        }
+        fields
     }
 
     fn to_text(&self) -> String {
@@ -1514,6 +1562,7 @@ fn run_generated_sql_smoke(
         source_kind: request.source_kind,
         schema: request.schema.clone(),
         rows: request.rows.clone(),
+        range: request.range.clone(),
         output_bytes: u64::try_from(content.len()).unwrap_or(u64::MAX),
         output_digest: output_digest.clone(),
         schema_digest: fnv64_digest(&schema_text),
@@ -1594,17 +1643,21 @@ struct ParsedSourceFreeSql {
     source_kind: SqlGeneratedSourceKind,
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
+    range: Option<GeneratedSqlRangeMetadata>,
 }
 
 fn parse_source_free_sql(raw: &str) -> Result<ParsedSourceFreeSql, ShardLoomError> {
     let statement = normalize_sql_statement(raw)?;
     if keyword_prefix(&statement, "SELECT") {
+        if let Some(parsed) = parse_sql_generate_series_range(&statement)? {
+            return Ok(parsed);
+        }
         parse_sql_literal_select(&statement)
     } else if keyword_prefix(&statement, "VALUES") {
         parse_sql_values(&statement)
     } else {
         Err(unsupported_sql_error(
-            "source-free SQL smoke supports only SELECT literal expressions and VALUES clauses",
+            "source-free SQL smoke supports only SELECT literal expressions, VALUES clauses, and SELECT * FROM generate_series/range(...)",
         ))
     }
 }
@@ -1657,6 +1710,7 @@ fn parse_sql_literal_select(statement: &str) -> Result<ParsedSourceFreeSql, Shar
         source_kind: SqlGeneratedSourceKind::LiteralSelect,
         schema,
         rows: vec![GeneratedRow { values }],
+        range: None,
     })
 }
 
@@ -1728,7 +1782,162 @@ fn parse_sql_values(statement: &str) -> Result<ParsedSourceFreeSql, ShardLoomErr
         source_kind: SqlGeneratedSourceKind::Values,
         schema,
         rows,
+        range: None,
     })
+}
+
+fn parse_sql_generate_series_range(
+    statement: &str,
+) -> Result<Option<ParsedSourceFreeSql>, ShardLoomError> {
+    let select_body = statement["SELECT".len()..].trim();
+    let Some(after_star) = select_body.strip_prefix('*') else {
+        return Ok(None);
+    };
+    let after_star = after_star.trim();
+    if !keyword_prefix(after_star, "FROM") {
+        return Ok(None);
+    }
+    let source_ref = after_star["FROM".len()..].trim();
+    let Some(range) = parse_sql_range_function_ref(source_ref)? else {
+        return Ok(None);
+    };
+    let schema = vec![GeneratedColumn {
+        name: range.column_name.clone(),
+        value_type: GeneratedValueType::Int64,
+    }];
+    let rows = if range.end_inclusive {
+        generated_inclusive_series_rows(range.start, range.end, range.step)?
+    } else {
+        let row_count = range_row_count(range.start, range.end, range.step)?;
+        if row_count > MAX_SQL_GENERATED_ROWS {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "generated-source SQL row count {row_count} exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}"
+            )));
+        }
+        generated_range_rows(range.start, range.end, range.step)?
+    };
+    Ok(Some(ParsedSourceFreeSql {
+        statement: statement.to_string(),
+        source_kind: SqlGeneratedSourceKind::GenerateSeriesRange,
+        schema,
+        rows,
+        range: Some(range),
+    }))
+}
+
+fn parse_sql_range_function_ref(
+    raw: &str,
+) -> Result<Option<GeneratedSqlRangeMetadata>, ShardLoomError> {
+    let trimmed = raw.trim();
+    for (function_name, end_inclusive) in [("generate_series", true), ("range", false)] {
+        if let Some(rest) = strip_sql_identifier_prefix(trimmed, function_name) {
+            let rest = rest.trim();
+            if !rest.starts_with('(') || !rest.ends_with(')') {
+                return Err(unsupported_sql_error(
+                    "SQL source-free range generators require a single function call like generate_series(start, end[, step])",
+                ));
+            }
+            let args = split_sql_csv(rest[1..rest.len() - 1].trim())?;
+            if !(2..=3).contains(&args.len()) {
+                return Err(unsupported_sql_error(
+                    "SQL source-free range generators require start, end, and optional step arguments",
+                ));
+            }
+            let start = parse_sql_range_i64("start", &args[0])?;
+            let end = parse_sql_range_i64("end", &args[1])?;
+            let step = if let Some(raw_step) = args.get(2) {
+                parse_sql_range_i64("step", raw_step)?
+            } else {
+                1
+            };
+            if step == 0 {
+                return Err(unsupported_sql_error(
+                    "SQL source-free range generator step must not be zero",
+                ));
+            }
+            return Ok(Some(GeneratedSqlRangeMetadata {
+                function_name: function_name.to_string(),
+                start,
+                end,
+                step,
+                column_name: "value".to_string(),
+                end_inclusive,
+            }));
+        }
+    }
+    Ok(None)
+}
+
+fn strip_sql_identifier_prefix<'a>(raw: &'a str, identifier: &str) -> Option<&'a str> {
+    let prefix = raw.get(..identifier.len())?;
+    if !prefix.eq_ignore_ascii_case(identifier) {
+        return None;
+    }
+    let Some(next) = raw.as_bytes().get(identifier.len()) else {
+        return Some(&raw[identifier.len()..]);
+    };
+    if next.is_ascii_alphanumeric() || *next == b'_' {
+        return None;
+    }
+    Some(&raw[identifier.len()..])
+}
+
+fn parse_sql_range_i64(name: &str, raw: &str) -> Result<i64, ShardLoomError> {
+    let value = raw.trim();
+    if value.is_empty()
+        || value.starts_with('+')
+        || value.contains('.')
+        || value.contains('e')
+        || value.contains('E')
+        || value.contains('\'')
+        || contains_outside_quotes(value, '(')
+        || contains_outside_quotes(value, ')')
+    {
+        return Err(unsupported_sql_error(
+            "SQL source-free range generator arguments must be int64 literals",
+        ));
+    }
+    value.parse::<i64>().map_err(|_| {
+        unsupported_sql_error(&format!(
+            "SQL source-free range generator {name} argument is not a valid int64"
+        ))
+    })
+}
+
+fn generated_inclusive_series_rows(
+    start: i64,
+    end: i64,
+    step: i64,
+) -> Result<Vec<GeneratedRow>, ShardLoomError> {
+    let mut rows = Vec::new();
+    if (step > 0 && start > end) || (step < 0 && start < end) {
+        return Ok(rows);
+    }
+    let mut current = start;
+    loop {
+        if rows.len() >= MAX_SQL_GENERATED_ROWS {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "generated-source SQL row count exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}"
+            )));
+        }
+        rows.push(GeneratedRow {
+            values: vec![current.to_string()],
+        });
+        if current == end {
+            break;
+        }
+        let next = current.checked_add(step).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "SQL source-free range generator step overflows int64 before reaching end"
+                    .to_string(),
+            )
+        })?;
+        if (step > 0 && next > end) || (step < 0 && next < end) {
+            break;
+        }
+        current = next;
+    }
+    Ok(rows)
 }
 
 fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
