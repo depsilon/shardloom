@@ -507,11 +507,14 @@ or documentation updates alone are insufficient.
     path is represented as supported.
   - User-visible surface: website benchmarks, docs/benchmarks, release readiness, status matrix.
   - Implementation scope: artifact freshness checker, runtime claim matrix, benchmark page
-    ingestion, release validators.
+    ingestion, release validators, artifact-derived comparative website publishing, and local
+    benchmark artifact promotion into committed static website data.
   - Evidence required: benchmark profile/environment, scenario coverage, lane status, certificate
     refs, correctness refs, no-fallback fields, claim gate.
   - Acceptance: no promoted path is presented publicly without current evidence; stale or incomplete
-    artifacts block claim-grade status.
+    artifacts block claim-grade status; website comparative tables derive from the promoted artifact
+    manifest rather than an external dashboard scrape; full-local profiles split `polars-eager` and
+    `polars-lazy` and expose missing DuckDB/DataFusion/Dask/Spark lanes with reasons.
   - Verification: benchmark artifact completeness checker, website readiness, release readiness,
     traditional benchmark harness tests.
   - Non-goals: no performance/superiority/Spark-replacement claim.
