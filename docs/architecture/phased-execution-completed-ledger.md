@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-COMPLETE-1A source-free generated-output runtime completion
+  - Primary files:
+    - `shardloom-cli/src/workflow_planning.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `python/src/shardloom/context.py`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/foundry/proof-of-use-certification.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `website/build_static_pages.py`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: close the source-free generated-output runtime completion slice by combining the
+    previously promoted scoped local Python JSONL smokes with deterministic no-effect unsupported
+    diagnostics for the remaining source-free forms.
+  - Checklist:
+    - [x] Keep `no_dataset_smoke` distinct from generated-output execution.
+    - [x] Treat `ctx.from_rows(...).write(...)`, `ctx.literal_table(...).write(...)`,
+          `ctx.calendar(...).write(...)`, and `ctx.range(...).write(...)` as the current scoped
+          local generated-output fixture-smoke runtime family.
+    - [x] Add CLI `workflow-unsupported-plan` operations for source-free sequence,
+          SQL `VALUES`, SQL literal/source-free projection, DataFrame source-free projection,
+          DataFrame generated `with_column`, object-store generated-output writes, and Foundry
+          generated-output transforms.
+    - [x] Add Python context helper diagnostics for `ctx.sequence(...)`, `ctx.sql_values(...)`,
+          `ctx.sql_literal_select(...)`, `ctx.dataframe_source_free_projection(...)`,
+          `ctx.dataframe_generated_with_column(...)`, `ctx.generated_output_to_object_store(...)`,
+          and `ctx.foundry_generated_output(...)`.
+    - [x] Keep every unsupported helper report-only with no parser, binder, planner, runtime
+          execution, data read, generated rows, write I/O, object-store probe, Foundry invocation,
+          external engine, or fallback.
+    - [x] Update docs, use-case generated pages, compute-flow website snapshot, and website status
+          copy to reflect the current supported local helper family and no-effect blocker helpers.
+    - [x] Move GAR-RUNTIME-COMPLETE-1A out of the active Planned queue.
+  - Evidence and verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m unittest discover python/tests`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - Python-to-CLI smoke for all new context unsupported helpers with `runtime_execution=false`,
+      `data_read=false`, `write_io=false`, `fallback_attempted=false`, and
+      `claim_gate_status=not_claim_grade`.
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `python scripts/check_use_case_glossary.py`
+    - `python scripts/check_workflow_recipes.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary:
+    - This closes only scoped local generated-output fixture smokes and deterministic unsupported
+      diagnostics for remaining source-free candidates. It does not add SQL runtime, broad
+      DataFrame runtime, object-store/lakehouse writes, Foundry output API proof, package
+      publication, production support, performance claims, or Spark-replacement claims.
+  - Fallback boundary:
+    - The unsupported helper path emits `fallback_attempted=false`,
+      `external_engine_invoked=false`, `runtime_execution=false`, `data_read=false`, and
+      `write_io=false`; Spark, DataFusion, DuckDB, Polars, pandas, object-store, SQL, DataFrame, and
+      Foundry runtimes cannot satisfy this slice.
+
 - [x] Session label: GAR-WEB-ATLAS-1J Field Guide / Use Case public-readiness gate
   - Primary files:
     - `website/build_static_pages.py`

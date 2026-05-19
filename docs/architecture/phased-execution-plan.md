@@ -1011,45 +1011,6 @@ future autonomous work cannot treat report-only posture as completion. Each slic
 `fallback_attempted=false`, `external_engine_invoked=false`, no hidden fast mode, and claim-safe
 public wording until evidence gates pass.
 
-- [ ] GAR-RUNTIME-COMPLETE-1A source-free generated-output runtime completion
-  - Source: GAR-GEN-1, GAR-COMPAT-1B, GAR-NOVEL-1A, Python wrapper/client docs, current
-    `generated-source-user-rows-smoke` and `generated-source-range-smoke` commands.
-  - Current state: no-dataset smoke is separate from generated-output execution; scoped local JSONL
-    smokes exist for `ctx.from_rows(...).write(...)` and `ctx.range(...).write(...)`; literal-table
-    and calendar/date-dimension local helper work is being promoted; SQL and broad DataFrame
-    generated-output remain report-only; object-store and Foundry generated-output remain blocked.
-  - Next slice outcome: complete the scoped local generated-output family for Python
-    `from_rows`, `literal_table`, `calendar`, and `range`, then add deterministic unsupported
-    diagnostics for sequence, SQL `VALUES`, SQL literal projection, broad DataFrame generated
-    expressions, object-store writes, and Foundry output APIs.
-  - User-visible surface: Python API, CLI generated-source commands, capability views, use-case
-    atlas, compute-flow docs, website status.
-  - Implementation scope: `python/src/shardloom/query.py`, `python/src/shardloom/context.py`,
-    `python/src/shardloom/client.py`, `shardloom-cli/src/generated_source_runtime.rs`,
-    generated-source capability rows, docs, website generated pages.
-  - Evidence required: `input_dataset_count=0`, `source_io_performed=false`,
-    `generated_source_created=true`, `generated_source_kind`, schema/row/plan digests,
-    `output_io_performed=true`, output Native I/O certificate status, generated-source certificate
-    status, materialization/decode fields, `fallback_attempted=false`,
-    `external_engine_invoked=false`, `claim_gate_status=fixture_smoke_only`.
-  - Acceptance: supported Python helpers write local JSONL, emit generated-source and output
-    evidence, and never emit a source Native I/O certificate when no source was read; unsupported
-    generator/API/sink shapes fail deterministically and remain visible in capability matrices.
-  - Verification: Python API tests, CLI generated-source smoke tests, capability snapshot tests,
-    `python -m compileall -q python/src python/tests scripts examples`,
-    `cargo test -p shardloom-cli --test generated_source_runtime_smoke`,
-    `cargo test -p shardloom-cli --test capability_discovery_snapshots`,
-    `cargo test -p shardloom-contract-tests --test release_readiness_metadata`,
-    website readiness checks, `git diff --check`.
-  - Non-goals: no SQL runtime, no broad DataFrame runtime, no S3/object-store write, no Foundry
-    production/output API proof, no package publication, no performance claim.
-  - Claim boundary: scoped local generated-output fixture smokes only.
-  - Fallback boundary: no external engine, SQL engine, DataFrame engine, Spark, DataFusion, DuckDB,
-    Polars, pandas, object-store, or Foundry runtime can satisfy this slice.
-  - Dependencies/blockers: output sink evidence, generated-source certificate schema, local JSONL
-    writer contract, and deterministic unsupported diagnostics for non-local sinks.
-  - Ledger rule: move the completed session to the completed ledger after merge with evidence refs.
-
 - [ ] GAR-RUNTIME-COMPLETE-1B minimal SQL frontend to ShardLoom-native plans
   - Source: RFC 0032, GAR-0032-A, source-free generated-output contract, operator capability
     matrix, diagnostics/explain RFCs.

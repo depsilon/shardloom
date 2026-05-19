@@ -111,6 +111,12 @@ JSONL smokes, not for Foundry:
 local-output-only posture, and Foundry/object-store blockers visible without treating Foundry
 generated-output runtime as supported.
 
+For typed Python diagnostics, `ctx.foundry_generated_output("foundry://dataset/output")` now returns
+the same deterministic unsupported report without invoking Foundry, Spark, object-store I/O, output
+dataset writes, fallback, or external engines. It is a no-effect planning surface only; real Foundry
+generated-output proof still requires a transform wrapper that writes both the output dataset and an
+evidence dataset.
+
 ```text
 input_dataset_count=0
 source_io_performed=false

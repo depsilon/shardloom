@@ -366,6 +366,95 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
     ),
     _df_method(
+        "sequence",
+        "source_free_generation",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="source-free-sequence",
+        blocker_id="gar-gen-1.sequence_runtime_not_implemented",
+        required_evidence=(
+            "generator_node_contract",
+            "generated_source_certificate",
+            "output_native_io_certificate",
+        ),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "sql_values",
+        "sql_frontend",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="sql-values",
+        blocker_id="gar-gen-1.sql_values_runtime_not_implemented",
+        required_evidence=(
+            "sql_parser",
+            "sql_binder",
+            "sql_planner",
+            "generated_source_certificate",
+        ),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "sql_literal_select",
+        "sql_frontend",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="sql-literal-select",
+        blocker_id="gar-gen-1.sql_source_free_projection_runtime_not_implemented",
+        required_evidence=(
+            "sql_parser",
+            "sql_binder",
+            "sql_planner",
+            "generated_source_certificate",
+        ),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "dataframe_source_free_projection",
+        "source_free_generation",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="dataframe-source-free-projection",
+        blocker_id="gar-gen-1.dataframe_source_free_projection_runtime_not_implemented",
+        required_evidence=(
+            "dataframe_plan_contract",
+            "expression_registry",
+            "generated_source_certificate",
+        ),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "dataframe_generated_with_column",
+        "source_free_generation",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="dataframe-generated-with-column",
+        blocker_id="gar-gen-1.dataframe_generated_with_column_runtime_not_implemented",
+        required_evidence=(
+            "dataframe_plan_contract",
+            "expression_registry",
+            "generated_source_certificate",
+        ),
+        claim_boundary=_UNSUPPORTED_BOUNDARY,
+    ),
+    _df_method(
+        "object_store_generated_output",
+        "output",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="object-store-generated-output",
+        blocker_id="gar-gen-1.object_store_generated_output_blocked",
+        required_evidence=("object_store_write_policy", "output_commit_protocol"),
+        claim_boundary=_WRITE_BOUNDARY,
+    ),
+    _df_method(
+        "foundry_generated_output",
+        "platform",
+        "unsupported_diagnostic_available",
+        diagnostic_operation="foundry-generated-output",
+        blocker_id="gar-gen-1.foundry_generated_output_runtime_not_implemented",
+        required_evidence=(
+            "foundry_transform_wrapper",
+            "foundry_output_dataset_evidence",
+            "generated_source_certificate",
+        ),
+        claim_boundary=_WRITE_BOUNDARY,
+    ),
+    _df_method(
         "filter",
         "lazy_plan",
         "lazy_plan_supported",
@@ -4179,6 +4268,127 @@ class ShardLoomContext:
 
         return self._sql_unsupported("sql", statement, check=check)
 
+    def sequence(
+        self,
+        start: int,
+        end: int,
+        *,
+        step: int = 1,
+        column: str = "value",
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for a source-free sequence generator."""
+
+        if isinstance(start, bool) or isinstance(end, bool) or isinstance(step, bool):
+            raise TypeError("sequence start, end, and step must be integers")
+        if not isinstance(start, int) or not isinstance(end, int) or not isinstance(step, int):
+            raise TypeError("sequence start, end, and step must be integers")
+        if step == 0:
+            raise ValueError("sequence step must not be zero")
+        column_name = _require_non_empty_text("sequence column", column)
+        target = f"start={start};end={end};step={step};column={column_name}"
+        return self._source_free_unsupported(
+            "source-free-sequence",
+            "sequence",
+            target,
+            check=check,
+        )
+
+    def sql_values(
+        self,
+        values_clause: object,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for SQL VALUES generated output."""
+
+        target = _require_non_empty_text("SQL VALUES clause", values_clause)
+        return self._source_free_unsupported(
+            "sql-values",
+            "sql_values",
+            target,
+            check=check,
+        )
+
+    def sql_literal_select(
+        self,
+        expression: object,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for SQL source-free literal SELECT."""
+
+        target = _require_non_empty_text("SQL literal SELECT expression", expression)
+        return self._source_free_unsupported(
+            "sql-literal-select",
+            "sql_literal_select",
+            target,
+            check=check,
+        )
+
+    def dataframe_source_free_projection(
+        self,
+        *expressions: object,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for DataFrame source-free projection."""
+
+        target = _join_non_empty_text("DataFrame projection expression", expressions)
+        return self._source_free_unsupported(
+            "dataframe-source-free-projection",
+            "dataframe_source_free_projection",
+            target,
+            check=check,
+        )
+
+    def dataframe_generated_with_column(
+        self,
+        name: str,
+        expression: object,
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for generated DataFrame with_column."""
+
+        column_name = _require_non_empty_text("column name", name)
+        expression_text = _require_non_empty_text("column expression", expression)
+        return self._source_free_unsupported(
+            "dataframe-generated-with-column",
+            "dataframe_generated_with_column",
+            f"{column_name}={expression_text}",
+            check=check,
+        )
+
+    def generated_output_to_object_store(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for generated-output object-store writes."""
+
+        return self._source_free_unsupported(
+            "object-store-generated-output",
+            "object_store_generated_output",
+            _require_non_empty_text("object-store target URI", target_uri),
+            check=check,
+        )
+
+    def foundry_generated_output(
+        self,
+        output_ref: str | os.PathLike[str],
+        *,
+        check: bool = False,
+    ) -> UnsupportedWorkflowOperationReport:
+        """Return the unsupported report for Foundry generated-output transforms."""
+
+        return self._source_free_unsupported(
+            "foundry-generated-output",
+            "foundry_generated_output",
+            _require_non_empty_text("Foundry output reference", output_ref),
+            check=check,
+        )
+
     def rest_api_contract_plan(self, *, check: bool = True) -> RestApiContractPlan:
         """Return the CG-23 REST/OpenAPI contract plan."""
 
@@ -4428,6 +4638,31 @@ class ShardLoomContext:
             envelope=envelope,
         )
 
+    def _source_free_unsupported(
+        self,
+        operation: str,
+        source_free_case: str,
+        target_ref: str,
+        *,
+        check: bool,
+    ) -> UnsupportedWorkflowOperationReport:
+        workflow = LazyFrame(
+            source=WorkflowSource("generated_source", f"source_free:{source_free_case}"),
+            client=self.client,
+            engine_mode=self.engine,
+        )
+        envelope = self.client.workflow_unsupported_plan(
+            operation,
+            f"source_free({source_free_case})",
+            target_ref,
+            check=check,
+        )
+        return UnsupportedWorkflowOperationReport(
+            workflow=workflow,
+            operation=operation,
+            envelope=envelope,
+        )
+
 
 def context(
     *,
@@ -4479,6 +4714,19 @@ def _normalize_scope_name(scope: str) -> str:
     if normalized == "sql-support":
         return "sql"
     return normalized
+
+
+def _require_non_empty_text(label: str, value: object) -> str:
+    text = str(value).strip()
+    if not text:
+        raise ValueError(f"{label} must not be empty")
+    return text
+
+
+def _join_non_empty_text(label: str, values: Sequence[object]) -> str:
+    if not values:
+        raise ValueError(f"{label} must not be empty")
+    return ",".join(_require_non_empty_text(label, value) for value in values)
 
 
 def _split_csv(value: str | None) -> tuple[str, ...]:

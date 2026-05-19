@@ -606,6 +606,14 @@ local user-row, literal-table, calendar/date-dimension, and range JSONL smokes; 
 `with_column`, joins, aggregations, SQL, non-local output, and other source-free builders require
 future admission evidence.
 
+Python context helpers now expose deterministic unsupported reports for the remaining source-free
+runtime candidates: `ctx.sequence(...)`, `ctx.sql_values(...)`, `ctx.sql_literal_select(...)`,
+`ctx.dataframe_source_free_projection(...)`, `ctx.dataframe_generated_with_column(...)`,
+`ctx.generated_output_to_object_store(...)`, and `ctx.foundry_generated_output(...)`. These helpers
+return `workflow-unsupported-plan` envelopes with source-free blocker IDs and required evidence;
+they do not parse SQL, execute DataFrame plans, generate rows, write outputs, probe object stores,
+invoke Foundry, invoke external engines, or attempt fallback.
+
 ### Source-Free API Admission Matrix
 
 Capability discovery surfaces expose `shardloom.generated_source_api_admission.v1` for SQL,
