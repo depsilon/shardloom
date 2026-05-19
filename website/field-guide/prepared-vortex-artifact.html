@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Prepared Vortex Artifact - ShardLoom Field Guide</title>
-  <meta name="description" content="A prepared Vortex artifact is the reusable Vortex representation used to separate preparation from query/runtime timing.">
+  <title>VortexPreparedState - ShardLoom Field Guide</title>
+  <meta name="description" content="VortexPreparedState is the reusable prepared Vortex state consumed by prepared_vortex after vortex_ingest.">
   <link rel="canonical" href="https://shardloom.io/field-guide/prepared-vortex-artifact">
   <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
   <link rel="stylesheet" href="/assets/site.css">
 
-  <meta property="og:title" content="Prepared Vortex Artifact - ShardLoom Field Guide">
-  <meta property="og:description" content="A prepared Vortex artifact is the reusable Vortex representation used to separate preparation from query/runtime timing.">
+  <meta property="og:title" content="VortexPreparedState - ShardLoom Field Guide">
+  <meta property="og:description" content="VortexPreparedState is the reusable prepared Vortex state consumed by prepared_vortex after vortex_ingest.">
   <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://shardloom.io/field-guide/prepared-vortex-artifact">
@@ -53,8 +53,8 @@
       <div class="shell">
         <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
         <p class="eyebrow">Field Guide dossier</p>
-        <h1>Prepared Vortex Artifact</h1>
-        <p class="lede">A prepared Vortex artifact is the reusable Vortex representation used to separate preparation from query/runtime timing.</p>
+        <h1>VortexPreparedState</h1>
+        <p class="lede">VortexPreparedState is the reusable prepared Vortex state consumed by prepared_vortex after vortex_ingest.</p>
         <div class="dossier-status-row">
           <span class="claim-badge report-only" data-status="runtime-development-artifact">runtime development artifact</span>
           <span>Vortex Runtime</span>
@@ -78,7 +78,7 @@
         <article class="dossier-body">
           <section id="meaning">
             <p class="eyebrow">Plain-English meaning</p>
-            <p>A prepared Vortex artifact is the reusable Vortex representation used to separate preparation from query/runtime timing.</p>
+            <p>VortexPreparedState is the reusable prepared Vortex state consumed by prepared_vortex after vortex_ingest.</p>
           </section>
           <section id="why">
             <p class="eyebrow">Why it matters</p>
@@ -86,7 +86,7 @@
           </section>
           <section id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
-            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as prepared_artifact_ref, prepared_artifact_digest, prepared_state_reuse_hit, vortex_prepare_millis.</p>
+            <p>ShardLoom surfaces this through docs, capability/status pages, use cases, or evidence fields such as prepared_state_id, prepared_state_digest, prepared_artifact_ref, prepared_artifact_digest.</p>
           </section>
           <section id="support">
             <p class="eyebrow">Current support</p>
@@ -95,13 +95,13 @@
           <section id="evidence">
             <p class="eyebrow">Evidence fields</p>
             <p>It helps identify the exact evidence or documentation surface that applies to this concept.</p>
-            <ul><li><code>prepared_artifact_ref</code></li><li><code>prepared_artifact_digest</code></li><li><code>prepared_state_reuse_hit</code></li><li><code>vortex_prepare_millis</code></li></ul>
+            <ul><li><code>prepared_state_id</code></li><li><code>prepared_state_digest</code></li><li><code>prepared_artifact_ref</code></li><li><code>prepared_artifact_digest</code></li><li><code>vortex_prepare_millis</code></li></ul>
           </section>
           <section id="boundary">
             <p class="eyebrow">Claim boundary</p>
             <h3>What it does not claim</h3>
-            <p>Prepared artifacts are evidence-bearing state, not a performance claim by themselves.</p>
-            <p>Prepared artifacts are evidence-bearing state, not a performance claim by themselves.</p>
+            <p>Prepared state is evidence-bearing state, not a source adapter or performance claim by itself.</p>
+            <p>Prepared state is evidence-bearing state, not a source adapter or performance claim by itself.</p>
           </section>
           <section id="try-it">
             <p class="eyebrow">Try it / related use cases</p>
@@ -114,7 +114,7 @@
           </section>
           <section id="sources">
             <p class="eyebrow">Reference files</p>
-            <div class="citation-list" data-citation-block="reference-files"><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/io-reuse-and-fanout-architecture.md"><code>docs/architecture/io-reuse-and-fanout-architecture.md</code></a><p><strong>What this proves:</strong> SourceState, VortexPreparedState, OutputPlan, fanout, and reuse evidence contracts.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/benchmarks/traditional_analytics/README.md"><code>benchmarks/traditional_analytics/README.md</code></a><p><strong>What this proves:</strong> Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.</p></article></div>
+            <div class="citation-list" data-citation-block="reference-files"><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/io-reuse-and-fanout-architecture.md"><code>docs/architecture/io-reuse-and-fanout-architecture.md</code></a><p><strong>What this proves:</strong> SourceState, VortexPreparedState, OutputPlan, fanout, and reuse evidence contracts.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-ingress-route-taxonomy.md"><code>docs/architecture/universal-ingress-route-taxonomy.md</code></a><p><strong>What this proves:</strong> UniversalIngress, vortex_ingest, VortexPreparedState, and route-timing contract boundaries.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/benchmarks/traditional_analytics/README.md"><code>benchmarks/traditional_analytics/README.md</code></a><p><strong>What this proves:</strong> Traditional analytics benchmark commands, scenarios, external baselines, and evidence interpretation.</p></article></div>
           </section>
           <nav class="dossier-nav" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>

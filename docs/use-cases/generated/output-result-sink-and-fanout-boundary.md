@@ -64,7 +64,7 @@ A local result-sink proof artifact and future fanout fields only when admitted b
 
 ## Related Field Guide Terms
 
-- `website/field-guide/prepared-vortex-artifact.html` - Prepared Vortex Artifact (`Vortex Runtime` / `runtime-development-artifact`)
+- `website/field-guide/prepared-vortex-artifact.html` - VortexPreparedState (`Vortex Runtime` / `runtime-development-artifact`)
 - `website/field-guide/result-sink-replay.html` - Result-Sink Replay (`Evidence And Claims` / `current-evidence-level`)
 - `website/field-guide/source-state-reuse.html` - Source-State Reuse (`Benchmark Telemetry` / `scoped-evidence`)
 - `website/field-guide/result-sink-proof.html` - Result-Sink Proof (`User Workflows` / `current-evidence`)

@@ -58,6 +58,7 @@
         <div class="mission-chain" aria-label="ShardLoom execution mission map">
           <article><strong>Access</strong><span>CLI, Python, benchmarks, adapters, and planned REST/event surfaces enter through one typed request envelope.</span></article>
           <article><strong>Admission</strong><span>Policy, capability, semantic profile, requested mode, and output intent are checked before execution.</span></article>
+          <article><strong>Ingress route</strong><span>UniversalIngress/InputAdapter admits or blocks a source, then vortex_ingest creates VortexPreparedState when preparation is allowed.</span></article>
           <article><strong>Execution mode</strong><span>compatibility_import_certified, prepared_vortex, native_vortex, direct_compatibility_transient, or auto with selected reason.</span></article>
           <article><strong>Engine mode</strong><span>batch, live fixture, hybrid fixture, or report-only streaming semantics remain separate from source/preparation lanes.</span></article>
           <article><strong>Provider path</strong><span>Vortex provider, ShardLoom-native kernel, residual-native fixture path, source-backed scan, or deterministic diagnostic.</span></article>
@@ -97,7 +98,7 @@
       <div class="shell">
         <p class="eyebrow">Workflow vs route</p>
         <h2>SQL and Python express the work. Routes explain how it ran.</h2>
-        <p class="section-lede">A normal user story is <code>read/generate -> transform/query -> write</code>. ShardLoom reports the internal path as <code>InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact</code> when those stages apply.</p>
+        <p class="section-lede">A normal user story is <code>read/generate -> transform/query -> write</code>. ShardLoom reports the internal path as <code>UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact</code> when those stages apply.</p>
         <div class="comparison-guidance">
           <article>
             <h3>Common user workflow</h3>
@@ -112,7 +113,8 @@
             <h3>Engine route evidence</h3>
             <ul>
               <li>Source route: no input, generated rows, local file, existing Vortex, or future platform source.</li>
-              <li>Preparation route: direct transient, certified import/stage, prepared Vortex, or native Vortex.</li>
+              <li>Ingress/preparation route: UniversalIngress/InputAdapter, none, direct transient, vortex_ingest / prepare once, certified vortex_ingest, or existing native Vortex.</li>
+              <li>Execution route: prepared_vortex from VortexPreparedState, native_vortex from existing Vortex, direct transient, or deterministic blocker.</li>
               <li>Output route: scalar/report, local sink, Vortex result, fanout, or deterministic blocker.</li>
               <li>Evidence route: minimal runtime, certified, full replay, and claim gate.</li>
             </ul>
@@ -124,10 +126,10 @@
       <div class="shell">
         <p class="eyebrow">Execution mode lanes</p>
         <h2>Source and preparation choices stay explicit.</h2>
-        <p class="section-lede">These lanes are not interchangeable timing rows. Compatibility import carries ingest/stage/certification work. Prepared and native Vortex lanes are the current runtime-development direction. Direct transient and auto stay constrained by diagnostics and selected-mode reporting.</p>
+        <p class="section-lede">These lanes are not interchangeable timing rows. Compatibility import is the certified cold route. Prepared Vortex is a warm route from VortexPreparedState, not a direct reader for normal files. Direct transient and auto stay constrained by diagnostics and selected-mode reporting.</p>
         <div class="mode-lanes mission-mode-lanes">
-          <article class="mode-lane"><span class="lane-tag">Certified import/stage route</span><h3>compatibility_import_certified</h3><p>Reads compatibility input, imports to Vortex, writes/reopens/scans, computes, and certifies the full ingest/stage workflow.</p></article>
-          <article class="mode-lane"><span class="lane-tag">Prepared steady-state route</span><h3>prepared_vortex</h3><p>Prepares Vortex once, then runs scoped queries from prepared artifacts with source-backed scan and no-fallback evidence.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Certified cold route</span><h3>compatibility_import_certified</h3><p>Uses UniversalIngress plus certified vortex_ingest, then writes/reopens/scans, computes, and certifies the full ingest/stage workflow.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Prepared warm route</span><h3>prepared_vortex</h3><p>Executes from VortexPreparedState. Non-Vortex inputs reach this mode only after UniversalIngress creates SourceState and vortex_ingest prepares Vortex.</p></article>
           <article class="mode-lane"><span class="lane-tag">Already-Vortex route</span><h3>native_vortex</h3><p>Runs from existing Vortex input where the local row carries Native I/O, provider admission, and claim-boundary fields.</p></article>
           <article class="mode-lane"><span class="lane-tag">Direct one-shot route</span><h3>direct_compatibility_transient / auto</h3><p>Direct transient remains narrow and not Vortex-native; auto is only a transparent selector with a selected mode and reason.</p></article>
         </div>
@@ -241,6 +243,7 @@ claim-gated benchmark/reporting</code></pre>
 <p>ShardLoom records the engine route separately:</p>
 <pre><code data-language="text">front door
 -&gt; source route
+-&gt; ingress route
 -&gt; preparation route
 -&gt; execution route
 -&gt; output route
@@ -248,12 +251,16 @@ claim-gated benchmark/reporting</code></pre>
 <p>The front door is how the user expresses work. Python, SQL, CLI, adapters, and future DataFrame/API surfaces are front doors; they are not execution routes. The route is selected from the source type, preparation policy, execution mode, output sink, and evidence level, then reported back in the typed output envelope.</p>
 <p>For the common non-Vortex local-file workflow, the intended steady-state route is:</p>
 <pre><code data-language="text">local non-Vortex input
--&gt; InputAdapter
+-&gt; UniversalIngress / InputAdapter
 -&gt; SourceState
+-&gt; vortex_ingest
 -&gt; VortexPreparedState
+-&gt; prepared_vortex execution
 -&gt; ExecutionPlan
 -&gt; OutputPlan
 -&gt; SinkArtifact + evidence</code></pre>
+<p><code>prepared_vortex</code> starts at <code>VortexPreparedState</code>; it does not read local CSV, Parquet, JSONL, database rows, object-store objects, or generated rows directly. Those sources become eligible for prepared execution only after <code>UniversalIngress</code> admits them and <code>vortex_ingest</code> creates the prepared state.</p>
+<p><code>compatibility_import_certified</code> uses the same <code>UniversalIngress</code> and <code>vortex_ingest</code> machinery, but it is the certified cold route: source read, parse/decode, Vortex ingest, Vortex write/reopen, scan, operator work, output/replay, certificates, and claim-gate evidence are all part of the row.</p>
 <p>For source-free workflows, the route is:</p>
 <pre><code data-language="text">generated source
 -&gt; GeneratedSourceCertificate
@@ -304,13 +311,61 @@ claim-gated benchmark/reporting</code></pre>
 <div class="table-scroll"><table>
 <thead><tr><th>Canonical field/value</th><th>User-facing label</th><th>Use when</th><th>Timing means</th><th>Must not imply</th></tr></thead>
 <tbody>
-<tr><td><code>compatibility_import_certified</code></td><td>Certified import/stage route</td><td>The user wants proof of local ingest, Vortex staging, sink, replay, and evidence.</td><td>End-to-end source read, parse, Vortex import/write/reopen/scan, operator work, sink, and evidence.</td><td>Pure query-speed timing or performance superiority.</td></tr>
-<tr><td><code>prepared_vortex</code></td><td>Prepared Vortex steady-state route</td><td>Normal workflows over local CSV/Parquet/JSONL/etc. after preparation.</td><td>Prepare-once cost is separate from warm query, output, and evidence timing.</td><td>Broad SQL/DataFrame support or object-store/table runtime.</td></tr>
+<tr><td><code>compatibility_import_certified</code></td><td>Certified cold route</td><td>The user wants proof of local ingest, Vortex staging, sink, replay, and evidence.</td><td>End-to-end source read, parse, Vortex ingest/write/reopen/scan, operator work, sink, and evidence.</td><td>Pure query-speed timing or performance superiority.</td></tr>
+<tr><td><code>vortex_ingest</code></td><td>Vortex ingest / prepare once route</td><td>An admitted non-Vortex <code>SourceState</code> should become a reusable <code>VortexPreparedState</code>.</td><td>Source admission, parse/decode planning, Vortex preparation/write/reopen verification when measured.</td><td>Query execution or claim-grade compute by itself.</td></tr>
+<tr><td><code>prepared_vortex</code></td><td>Prepared warm route</td><td>A <code>VortexPreparedState</code> already exists and the request executes from it.</td><td>Warm query, output, and evidence timing after preparation.</td><td>Direct non-Vortex source reading, broad SQL/DataFrame support, or object-store/table runtime.</td></tr>
 <tr><td><code>native_vortex</code></td><td>Already-Vortex route</td><td>Input already exists as a Vortex artifact.</td><td>Native/prepared scan plus admitted operator, output, and evidence timing.</td><td>Universal encoded-native operator coverage.</td></tr>
 <tr><td><code>direct_compatibility_transient</code></td><td>Direct one-shot route</td><td>Quick local work without persistent Vortex staging.</td><td>Source read/parse plus ShardLoom-native compute and optional output.</td><td>Vortex-native execution or hidden fallback.</td></tr>
 <tr><td>Generated-source reports</td><td>Source-free generated-output route</td><td>No input dataset exists and ShardLoom generates rows.</td><td>Generation plus output write and evidence; source-read timing is zero.</td><td>No-dataset smoke, SQL/DataFrame breadth, or object-store/Foundry output support.</td></tr>
 <tr><td>Output/fanout reports</td><td>Multi-output fanout route</td><td>One admitted source/result needs multiple local outputs.</td><td>Query/reuse timing plus per-output planning, write, replay, and evidence.</td><td>Object-store/table commit or production sink support.</td></tr>
 </tbody></table></div>
+<h3 id="universalingress-and-vortex-ingest">UniversalIngress And <code>vortex_ingest</code></h3>
+<p>The architecture must not model <code>prepared_vortex</code> as a second reader for normal files. The reader layer is <code>UniversalIngress</code>; the preparation layer is <code>vortex_ingest</code>; the execution layer is <code>prepared_vortex</code>.</p>
+<pre><code data-language="text">Any admitted non-Vortex source
+-&gt; UniversalIngress / InputAdapter
+-&gt; SourceState
+-&gt; vortex_ingest
+-&gt; VortexPreparedState
+-&gt; prepared_vortex
+-&gt; OutputPlan
+-&gt; SinkArtifact / evidence</code></pre>
+<p>The companion route taxonomy lives at:</p>
+<pre><code data-language="text">docs/architecture/universal-ingress-route-taxonomy.md
+docs/architecture/universal-ingress-route-taxonomy.json</code></pre>
+<p>It projects the potential source universe into route status fields:</p>
+<pre><code data-language="text">source_kind
+source_format
+source_adapter_id
+source_adapter_status
+source_adapter_blocker_id
+ingress_route
+ingress_route_label
+ingress_status
+ingress_certification_level
+vortex_ingest_performed
+vortex_ingest_status
+vortex_ingest_blocker_id
+prepared_state_id
+prepared_state_digest
+prepared_state_created
+prepared_state_reused
+prepared_state_reuse_hit
+execution_mode
+selected_execution_mode
+execution_route_label
+timing_scope
+certification_policy
+certification_status
+certification_blocker_id
+output_route
+output_format
+output_plan_id
+output_plan_status
+claim_gate_status
+fallback_attempted=false
+external_engine_invoked=false</code></pre>
+<p>Both <code>vortex_ingest</code> and <code>compatibility_import_certified</code> must recognize the same potential non-Vortex input universe. Recognized does not mean runtime-supported; unsupported inputs must return deterministic blocker IDs instead of disappearing from route matrices.</p>
+<p><code>compatibility_import_certified</code> may still block when <code>vortex_ingest</code> can run if certification evidence is incomplete. That is a claim/evidence blocker, not a different input universe.</p>
 <h3 id="current-runtime-snapshot">Current Runtime Snapshot</h3>
 <p>This table is the detailed current-state ledger behind the diagrams. Skim the <code>Layer</code> column first; read a row only when you need its exact support boundary. It separates source/preparation execution lanes from batch/live/hybrid workload semantics so readers do not infer a hidden runtime or claim.</p>
 <div class="table-scroll"><table>
@@ -318,11 +373,11 @@ claim-gated benchmark/reporting</code></pre>
 <tbody>
 <tr><td>User access</td><td>CLI is the canonical entrypoint; Python wraps typed CLI envelopes; benchmark harness records comparison/evidence rows. REST/event surfaces expose checked-in OpenAPI/AsyncAPI and GAR-0035-A runtime-unsupported contract rows.</td><td>Keep adapters, REST/event contracts, and notebook/SDK surfaces aligned to the same typed envelope.</td><td>No adapter may hide selected modes, diagnostics, fallback status, materialization/decode fields, or claim gates. REST does not imply an HTTP listener, remote execution, Flight/ADBC, broker runtime, dependency-expanded server, or production API claim.</td></tr>
 <tr><td>Adoption and commercial readiness</td><td>Source-local dry-run proof, first-10-minutes docs, website/status, package-channel matrix, enterprise evidence export pack, Foundry dev-stack starter, workflow recipe library, and public-preview posture exist, but public package publication and production platform proofs are incomplete.</td><td>GAR-COMMERCIAL-1 turns local proof, package channels, buyer-facing status, evidence export, Foundry starter, and recipes into claim-safe adoption surfaces.</td><td>Adoption surfaces reduce evaluation friction only; they do not authorize production, package release, performance, Spark-replacement, SQL/DataFrame, object-store/lakehouse, or Foundry claims.</td></tr>
-<tr><td>Universal compatibility coverage</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> now provide a report-only map for local files, Vortex, generated/source-free outputs, Python rows/DataFrame, SQL literals/VALUES, databases, warehouses, object stores, table formats, REST/Flight/ADBC, and Foundry. GAR-COMPAT-1B adds a compatibility-level <code>shardloom.universal_compatibility.generated_output_contract.v1</code> projection for no-dataset smoke, scoped Python generated-output smokes, local-output-only posture, SQL/DataFrame report-only rows, and Foundry/object-store blockers. GAR-COMPAT-1C adds <code>shardloom.universal_compatibility.object_store_admission_ladder.v1</code> for S3/GCS/ADLS URI parse, credential policy, public read, authenticated read, byte-range read, full-file read, local cache, write staging, and commit protocol admission status. GAR-COMPAT-1D adds <code>shardloom.universal_compatibility.table_format_boundary_matrix.v1</code> for Iceberg/Delta/Hudi metadata, scan, snapshot/time-travel, partition evolution, delete/tombstone, append, merge/update/delete, commit, rollback, catalog, and object-store coupling boundaries. GAR-COMPAT-1E adds <code>shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1</code> for SQLite, Postgres, MySQL, JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL import/export/query-pushdown boundaries.</td><td>Future GAR-COMPAT follow-through now moves to runtime-specific connector evidence only through scoped later slices.</td><td>Compatibility coverage is a capability map, not a production, performance, Spark-replacement, object-store/lakehouse, Foundry, SQL/DataFrame, database/warehouse connector, or package-readiness claim.</td></tr>
+<tr><td>Universal compatibility coverage</td><td><code>docs/architecture/universal-compatibility-coverage-scoreboard.md</code> and <code>docs/architecture/universal-compatibility-coverage-scoreboard.json</code> now provide a report-only map for local files, Vortex, generated/source-free outputs, Python rows/DataFrame, SQL literals/VALUES, databases, warehouses, object stores, table formats, REST/Flight/ADBC, and Foundry. <code>docs/architecture/universal-ingress-route-taxonomy.md</code> and <code>.json</code> project the same source universe into <code>UniversalIngress</code>, <code>vortex_ingest</code>, and <code>compatibility_import_certified</code> status rows so sources do not appear in one route and disappear from another. GAR-COMPAT-1B adds a compatibility-level <code>shardloom.universal_compatibility.generated_output_contract.v1</code> projection for no-dataset smoke, scoped Python generated-output smokes, local-output-only posture, SQL/DataFrame report-only rows, and Foundry/object-store blockers. GAR-COMPAT-1C adds <code>shardloom.universal_compatibility.object_store_admission_ladder.v1</code> for S3/GCS/ADLS URI parse, credential policy, public read, authenticated read, byte-range read, full-file read, local cache, write staging, and commit protocol admission status. GAR-COMPAT-1D adds <code>shardloom.universal_compatibility.table_format_boundary_matrix.v1</code> for Iceberg/Delta/Hudi metadata, scan, snapshot/time-travel, partition evolution, delete/tombstone, append, merge/update/delete, commit, rollback, catalog, and object-store coupling boundaries. GAR-COMPAT-1E adds <code>shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1</code> for SQLite, Postgres, MySQL, JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL import/export/query-pushdown boundaries.</td><td>Future GAR-COMPAT follow-through now moves to runtime-specific connector evidence only through scoped later slices. Future adapter work must preserve the route projection: non-Vortex sources enter prepared execution only through <code>vortex_ingest</code> and <code>VortexPreparedState</code>.</td><td>Compatibility coverage is a capability map, not a production, performance, Spark-replacement, object-store/lakehouse, Foundry, SQL/DataFrame, database/warehouse connector, or package-readiness claim. Route recognition is not runtime support.</td></tr>
 <tr><td>I/O reuse and cross-format fanout</td><td>Prepared/native rows reuse selected source metadata and scenario-family source-state. GAR-IOREUSE-1A adds a universal local SourceState benchmark/report contract for source discovery/schema identity/fingerprints/parse-plan posture across CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC rows. GAR-IOREUSE-1B adds a VortexPreparedState benchmark/report contract for prepared artifact refs/digests, preparation timing separation, source-state linkage, and scoped reuse posture. GAR-IOREUSE-1C adds an OutputPlan benchmark/report contract for scoped local Vortex result-sink planning, metadata preservation posture, write/replay refs, and sink artifact identity. GAR-IOREUSE-1D adds report-only fanout benchmark rows for required cross-format cases. GAR-IOREUSE-1E adds cache invalidation/fingerprint rows for current local source/prepared/plan/output posture. GAR-IOREUSE-1F adds evidence-safe reuse-level rows and a reuse-level matrix. GAR-IOREUSE-1G adds report-only Foundry generated-output fanout posture to the local proof report. Runtime fanout and generated-output sink artifact evidence remain planned.</td><td>GAR-IOREUSE-1 follow-through now moves to runtime fanout, generated-source runtime, and claim-grade output evidence only through later scoped slices.</td><td>Input and output formats remain decoupled. SourceState, VortexPreparedState, OutputPlan, fanout matrix, cache invalidation evidence, reuse-level evidence, and Foundry generated-output fanout posture are not runtime cross-format fanout or persistent cache support by themselves, not a performance claim, and not object-store/lakehouse or Foundry production support.</td></tr>
 <tr><td>Source-free generated output</td><td>No-input smoke/capability behavior exists, benchmark synthetic fixtures exist, <code>shardloom.generated_source_certificate_contract.v1</code> exposes the case split, and scoped generated-output runtime can write local JSONL/CSV for <code>generated-source-user-rows-smoke</code>, <code>generated-source-range-smoke</code>, <code>generated-source-sequence-smoke</code>, <code>generated-source-sql-smoke</code>, Python <code>ctx.from_rows([...]).write(...)</code>, <code>ctx.literal_table([...]).write(...)</code>, <code>ctx.calendar(...).write(...)</code>, <code>ctx.range(...).write(...)</code>, <code>ctx.sequence(...).write(...)</code>, <code>ctx.sql_values(...).write(...)</code>, <code>ctx.sql_literal_select(...).write(...)</code>, and <code>ctx.sql(&quot;SELECT * FROM generate_series/range(...)&quot;).write(...)</code>. GAR-COMPAT-1B projects those rows into compatibility/status surfaces, and GAR-NOVEL-1A adds <code>shardloom.generated_source_evidence_alignment.v1</code> for lineage/telemetry/confidence/Foundry refs. Broad DataFrame execution, object-store writes, Foundry generated-output runtime, arbitrary SQL table functions, and synthetic profiles remain unsupported/report-only.</td><td>GAR-GEN follow-through now moves to broader SQL/DataFrame generated-source runtime, other engine-native generator nodes, and broader output evidence through later scoped runtime slices; GAR-NOVEL-1B/C/D keep lineage, telemetry, and confidence as separate report-only follow-through slices.</td><td>No source Native I/O certificate is claimed when no source dataset is read. Current generated-output runtime is fixture-smoke-only and local-output-only; it is not a broad source-free runtime, object-store/lakehouse, Foundry, SQL/DataFrame, performance, package, or production claim.</td></tr>
 <tr><td>Evidence exports and confidence</td><td>Evidence artifacts, protocol parity rows, internal timing fields, the GAR-NOVEL-1A generated-source evidence alignment report, <code>shardloom.openlineage_facet_mapping.v1</code>, <code>shardloom.opentelemetry_trace_export_contract.v1</code>, <code>shardloom.enterprise_evidence_export_pack.v1</code>, the GAR-PERF-1D report-only Bayesian performance/layout advisor contract, and <code>shardloom.traditional_analytics.bayesian_claim_confidence.v1</code> exist. OpenLineage custom facets and OpenTelemetry span placeholders are mapped but not emitted; the enterprise export pack is opt-in/local-first/report-only; Bayesian posterior claim-confidence is report-only/not-fit.</td><td>Future work fits posterior models and wires uncertainty blockers into release claim gates without enabling runtime decisions. Future evidence export implementation must stay opt-in, local-only by default, and redacted unless a separate backend/export gate lands.</td><td>OpenLineage mapping, telemetry export, enterprise export packs, and confidence surfaces cannot upgrade runtime support, production readiness, performance, lineage/telemetry backend support, or claim status.</td></tr>
-<tr><td>Execution modes</td><td><code>compatibility_import_certified</code>, <code>prepared_vortex</code>, <code>native_vortex</code>, <code>direct_compatibility_transient</code>, and <code>auto</code> are visible in reports.</td><td>Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification.</td><td><code>auto</code> is selection only; it must emit the selected mode and reason.</td></tr>
+<tr><td>Execution modes</td><td><code>compatibility_import_certified</code>, <code>prepared_vortex</code>, <code>native_vortex</code>, <code>direct_compatibility_transient</code>, and <code>auto</code> are visible in reports. <code>prepared_vortex</code> means execution from <code>VortexPreparedState</code>, not direct non-Vortex source reads.</td><td>Continue shifting performance work toward <code>vortex_ingest</code> plus prepared/native Vortex paths while preserving compatibility certification.</td><td><code>auto</code> is selection only; it must emit the selected mode and reason. Prepared/native labels cannot hide source admission, preparation, materialization/decode, or certification boundaries.</td></tr>
 <tr><td>Runtime evidence level</td><td><code>traditional-analytics-vortex-batch-run</code> now emits first-class evidence-level fields with the values <code>minimal_runtime</code>, <code>certified</code>, and <code>full_replay</code> beside execution mode for scoped prepared/native local artifacts. <code>minimal_runtime</code> blocks result-sink replay and reports <code>claim_gate_status=not_claim_grade</code>; <code>certified</code> emits normal certificate-bearing evidence without replay by default; <code>full_replay</code> requires result-sink replay proof.</td><td>Continue propagating the contract into future Python/API capability views and broader execution envelopes only where evidence exists. Later slices can add runtime-light benchmark lanes and policy views without hidden fast modes.</td><td>Every evidence level keeps <code>fallback_attempted=false</code>, <code>external_engine_invoked=false</code>, source/output digest status, and claim boundaries visible. Evidence level explains proof depth; it is not execution mode, performance evidence, SQL/DataFrame support, object-store/lakehouse support, Foundry support, or production readiness.</td></tr>
 <tr><td>Scale claim gate</td><td>GAR-SCALE-1A adds <code>scale_contract_schema_version=shardloom.traditional_analytics.scale_claim_gate.v1</code> plus scale profile/status, volume, split, memory, spill, shuffle, retry, commit, platform, no-fallback, and claim-boundary fields. GAR-SCALE-1B adds <code>split_manifest_contract_schema_version=shardloom.traditional_analytics.split_manifest.v1</code> plus split planning fields. GAR-SCALE-1C adds <code>memory_spill_contract_schema_version=shardloom.traditional_analytics.memory_spill_backpressure.v1</code> plus memory/spill/backpressure fields. GAR-SCALE-1D adds <code>shuffle_contract_schema_version=shardloom.traditional_analytics.shuffle_repartition.v1</code> plus shuffle/repartition fields. GAR-SCALE-1E adds <code>object_table_ladder_schema_version=shardloom.traditional_analytics.object_table_scale_ladder.v1</code> plus object-store/table ladder fields. GAR-SCALE-1F adds <code>distributed_protocol_schema_version=shardloom.traditional_analytics.distributed_protocol.v1</code> plus coordinator, worker, task lease, task attempt, split, retry, fragment, merge, no-fallback, and <code>distributed_claim_gate_status=not_distributed_runtime_grade</code> fields. GAR-SCALE-1G adds <code>scale_benchmark_profile_schema_version=shardloom.traditional_analytics.scale_benchmark_profile.v1</code> plus profile registry, profile status, synthetic metadata, real-input-byte, correctness, no-fallback, and leaderboard-separation fields. GAR-SCALE-1H adds <code>schema_version=shardloom.foundry_scale_proof_boundary.v1</code> to the local Foundry proof report with Foundry runtime/compute/Spark, input/output dataset count, staged input bytes, execution mode, split, memory, evidence dataset, no-fallback, and public claim fields. Current ShardLoom rows are restricted to <code>local_smoke</code> or <code>local_claim_grade</code> and report <code>scale_claim_gate_status=not_scale_grade</code>.</td><td>Future runtime slices can promote only scoped scale classes with real workload bytes, correctness proof, no-fallback evidence, and relevant runtime gates.</td><td>Scale, SplitManifest, memory/spill, shuffle, object-store/table ladder, distributed protocol, scale benchmark profile, and Foundry scale proof fields are fail-closed. They do not authorize literal any-volume support, Spark-replacement, larger-than-memory execution, runtime spill, backpressure runtime, split-parallel runtime, distributed shuffle, object-store/table runtime, object-store write/commit, table commit, distributed runtime, remote workers, Foundry production support, managed-platform proof, public leaderboard placement, or performance/superiority claims.</td></tr>
 <tr><td>Evidence-aware logical optimizer</td><td><code>optimizer-plan</code>, Python typed accessors, and benchmark row contracts now expose a report-only optimizer rule registry and trace for predicate/projection/slice pushdown, common subplan/source-state reuse, expression simplification, constant folding, type coercion, join ordering, and cardinality estimation. No runtime rewrite is applied.</td><td>Future slices can promote individual rules only with before/after plan digests, correctness smoke, materialization/decode proof, no-fallback evidence, and claim gates.</td><td>Optimizer trace evidence is classification/explainability evidence only. It is not Polars/DataFusion parity, broad SQL/DataFrame runtime, performance evidence, or an applied-rewrite claim.</td></tr>
@@ -455,6 +510,8 @@ claim-gated benchmark/reporting</code></pre>
 <ol class="diagram-node-list">
 <li><strong>Policy</strong><span>governance / credentials / no fallback</span></li>
 <li><strong>Capability matrix</strong><span>source + operator + sink + feature gates</span></li>
+<li><strong>UniversalIngress</strong><span>InputAdapter -&gt; SourceState or blocker</span></li>
+<li><strong>vortex_ingest</strong><span>SourceState -&gt; VortexPreparedState</span></li>
 <li><strong>Semantic profile</strong><span>schema / expression / workload constitution</span></li>
 <li><strong>Explicit execution mode</strong><span>requested + selected + reason</span></li>
 <li><strong>Engine mode</strong><span>batch / live / hybrid / auto</span></li>
@@ -503,6 +560,8 @@ claim-gated benchmark/reporting</code></pre>
     subgraph ADMISSION_PHASE[&quot;2. Admission before execution&quot;]
         POLICY[&quot;Policy&lt;br/&gt;governance / credentials / no fallback&quot;]
         CAPABILITY[&quot;Capability matrix&lt;br/&gt;source + operator + sink + feature gates&quot;]
+        INGRESS[&quot;UniversalIngress&lt;br/&gt;InputAdapter -&gt; SourceState or blocker&quot;]
+        VORTEX_INGEST[&quot;vortex_ingest&lt;br/&gt;SourceState -&gt; VortexPreparedState&quot;]
         SEMANTICS[&quot;Semantic profile&lt;br/&gt;schema / expression / workload constitution&quot;]
         MODE[&quot;Explicit execution mode&lt;br/&gt;requested + selected + reason&quot;]
         ENGINE[&quot;Engine mode&lt;br/&gt;batch / live / hybrid / auto&quot;]
@@ -528,7 +587,7 @@ claim-gated benchmark/reporting</code></pre>
     REQUEST --&gt; SOURCE
     REQUEST --&gt; GENERATED_SOURCE
     REQUEST --&gt; OUTPUT_INTENT
-    SOURCE --&gt; POLICY --&gt; CAPABILITY --&gt; SEMANTICS --&gt; MODE --&gt; ENGINE
+    SOURCE --&gt; POLICY --&gt; CAPABILITY --&gt; INGRESS --&gt; VORTEX_INGEST --&gt; SEMANTICS --&gt; MODE --&gt; ENGINE
     GENERATED_SOURCE --&gt; POLICY
     OUTPUT_INTENT --&gt; MODE
     ENGINE --&gt; BOUNDARY --&gt; PLAN --&gt; ADMISSION
@@ -547,12 +606,14 @@ claim-gated benchmark/reporting</code></pre>
 <li><strong>requested_execution_mode</strong></li>
 <li><strong>auto</strong><span>transparent selector</span></li>
 <li><strong>selected_execution_mode</strong><span>mode_selection_reason required</span></li>
-<li><strong>compatibility_import_certified</strong><span>current ingest/stage certification lane</span></li>
-<li><strong>prepared_vortex</strong><span>current/preferred performance lane</span></li>
+<li><strong>compatibility_import_certified</strong><span>certified cold ingest/stage lane</span></li>
+<li><strong>prepared_vortex</strong><span>warm route from VortexPreparedState</span></li>
 <li><strong>native_vortex</strong><span>current scoped native-artifact lane</span></li>
 <li><strong>direct_compatibility_transient</strong><span>scoped CSV filter paths + unsupported diagnostics</span></li>
-<li><strong>Compatibility ingest boundary</strong><span>adapter -&gt; NativeWorkStream -&gt; Vortex write/reopen</span></li>
-<li><strong>Prepared Vortex boundary</strong><span>prepare once -&gt; reuse artifact</span></li>
+<li><strong>UniversalIngress</strong><span>InputAdapter -&gt; SourceState</span></li>
+<li><strong>vortex_ingest</strong><span>SourceState -&gt; VortexPreparedState</span></li>
+<li><strong>Certified ingest boundary</strong><span>UniversalIngress -&gt; certified vortex_ingest -&gt; Vortex write/reopen</span></li>
+<li><strong>Prepared boundary</strong><span>VortexPreparedState required</span></li>
 <li><strong>Native Vortex boundary</strong><span>existing .vortex -&gt; Source / Scan / Split</span></li>
 <li><strong>Transient compatibility boundary</strong><span>no persistent Vortex artifact</span></li>
 <li><strong>Provider admission</strong><span>Vortex provider / ShardLoom kernel / diagnostic</span></li>
@@ -570,8 +631,8 @@ claim-gated benchmark/reporting</code></pre>
 <li><span>selected_execution_mode</span> <span>prepared_vortex</span></li>
 <li><span>selected_execution_mode</span> <span>native_vortex</span></li>
 <li><span>selected_execution_mode</span> <span>direct_compatibility_transient</span></li>
-<li><span>compatibility_import_certified</span> <span>Compatibility ingest boundary</span></li>
-<li><span>prepared_vortex</span> <span>Prepared Vortex boundary</span></li>
+<li><span>compatibility_import_certified</span> <span>UniversalIngress</span></li>
+<li><span>prepared_vortex</span> <span>Prepared boundary</span></li>
 <li><span>native_vortex</span> <span>Native Vortex boundary</span></li>
 <li><span>direct_compatibility_transient</span> <span>Transient compatibility boundary</span></li>
 <li><span>Provider admission</span> <em>scoped CSV filter paths today</em> <span>Scoped filter providers</span></li>
@@ -581,13 +642,15 @@ claim-gated benchmark/reporting</code></pre>
     AUTO[&quot;auto&lt;br/&gt;transparent selector&quot;]
     SELECTED[&quot;selected_execution_mode&lt;br/&gt;mode_selection_reason required&quot;]
 
-    COMPAT[&quot;compatibility_import_certified&lt;br/&gt;current ingest/stage certification lane&quot;]
-    PREPARED[&quot;prepared_vortex&lt;br/&gt;current/preferred performance lane&quot;]
+    COMPAT[&quot;compatibility_import_certified&lt;br/&gt;certified cold ingest/stage lane&quot;]
+    PREPARED[&quot;prepared_vortex&lt;br/&gt;warm route from VortexPreparedState&quot;]
     NATIVE[&quot;native_vortex&lt;br/&gt;current scoped native-artifact lane&quot;]
     DIRECT[&quot;direct_compatibility_transient&lt;br/&gt;scoped CSV filter paths + unsupported diagnostics&quot;]
 
-    COMPAT_BOUNDARY[&quot;Compatibility ingest boundary&lt;br/&gt;adapter -&gt; NativeWorkStream -&gt; Vortex write/reopen&quot;]
-    PREPARED_BOUNDARY[&quot;Prepared Vortex boundary&lt;br/&gt;prepare once -&gt; reuse artifact&quot;]
+    UNIVERSAL_INGRESS[&quot;UniversalIngress&lt;br/&gt;InputAdapter -&gt; SourceState&quot;]
+    VORTEX_INGEST[&quot;vortex_ingest&lt;br/&gt;SourceState -&gt; VortexPreparedState&quot;]
+    COMPAT_BOUNDARY[&quot;Certified ingest boundary&lt;br/&gt;UniversalIngress -&gt; certified vortex_ingest -&gt; Vortex write/reopen&quot;]
+    PREPARED_BOUNDARY[&quot;Prepared boundary&lt;br/&gt;VortexPreparedState required&quot;]
     NATIVE_BOUNDARY[&quot;Native Vortex boundary&lt;br/&gt;existing .vortex -&gt; Source / Scan / Split&quot;]
     DIRECT_BOUNDARY[&quot;Transient compatibility boundary&lt;br/&gt;no persistent Vortex artifact&quot;]
 
@@ -604,7 +667,7 @@ claim-gated benchmark/reporting</code></pre>
     SELECTED --&gt; NATIVE
     SELECTED --&gt; DIRECT
 
-    COMPAT --&gt; COMPAT_BOUNDARY --&gt; PROVIDER
+    COMPAT --&gt; UNIVERSAL_INGRESS --&gt; VORTEX_INGEST --&gt; COMPAT_BOUNDARY --&gt; PROVIDER
     PREPARED --&gt; PREPARED_BOUNDARY --&gt; PROVIDER
     NATIVE --&gt; NATIVE_BOUNDARY --&gt; PROVIDER
     DIRECT --&gt; DIRECT_BOUNDARY --&gt; PROVIDER
@@ -1081,18 +1144,19 @@ execution_mode_fields=not_applicable_to_engine_fabric_fixture</code></pre>
 <div class="table-scroll"><table>
 <thead><tr><th>Mode</th><th>User-facing label</th><th>What it means</th><th>Primary use</th><th>Vortex-native claim?</th><th>Claim posture</th></tr></thead>
 <tbody>
-<tr><td><code>compatibility_import_certified</code></td><td>Certified import/stage route</td><td>Read compatibility input, import to Vortex, write/reopen/scan, compute, certify.</td><td>Certified ingest/stage workflow.</td><td>Partial/scoped.</td><td>Can be claim-grade for ingest/stage workload.</td></tr>
-<tr><td><code>prepared_vortex</code></td><td>Prepared Vortex steady-state route</td><td>Prepare Vortex once, then run many queries/scenarios from prepared artifacts.</td><td>Main prepared-runtime path for normal local-file workflows.</td><td>Yes, if evidence supports it.</td><td>Preferred benchmark/runtime-development path.</td></tr>
+<tr><td><code>compatibility_import_certified</code></td><td>Certified cold route</td><td>Use UniversalIngress plus certified <code>vortex_ingest</code>, then write/reopen/scan, compute, and certify.</td><td>Certified ingest/stage workflow.</td><td>Partial/scoped.</td><td>Can be claim-grade for ingest/stage workload.</td></tr>
+<tr><td><code>prepared_vortex</code></td><td>Prepared warm route</td><td>Execute from <code>VortexPreparedState</code>. Non-Vortex input reaches this only through <code>vortex_ingest</code>.</td><td>Main prepared-runtime path after preparation.</td><td>Yes, if evidence supports it.</td><td>Preferred benchmark/runtime-development path.</td></tr>
 <tr><td><code>native_vortex</code></td><td>Already-Vortex route</td><td>Existing <code>.vortex</code> input, Vortex-native scan/operator path.</td><td>Cleanest native query path when the input is already Vortex.</td><td>Yes.</td><td>Cleanest native-engine lane.</td></tr>
 <tr><td><code>direct_compatibility_transient</code></td><td>Direct one-shot route</td><td>Read compatibility input and compute directly without persistent Vortex write/reopen.</td><td>Small one-shot jobs, quick ETL, and deterministic diagnostics.</td><td>No.</td><td>Not Vortex-native.</td></tr>
 <tr><td><code>auto</code></td><td>Transparent route selector</td><td>Select a concrete execution mode based on input/request/policy.</td><td>User convenience.</td><td>Depends on selected mode.</td><td>Must report selected mode and reason.</td></tr>
 </tbody></table></div>
 <h3 id="mode-1-compatibility-import-certified">Mode 1 - <code>compatibility_import_certified</code></h3>
 <p>This is the current ShardLoom certified ingest/stage shape.</p>
-<pre><code data-language="text">CSV / Parquet / JSONL / Arrow IPC / Avro / ORC
-  -&gt; compatibility source adapter
-  -&gt; NativeWorkStream
-  -&gt; Vortex import
+<pre><code data-language="text">CSV / Parquet / JSONL / Arrow IPC / Avro / ORC / future admitted sources
+  -&gt; UniversalIngress / InputAdapter
+  -&gt; SourceState
+  -&gt; certified vortex_ingest
+  -&gt; VortexPreparedState
   -&gt; Vortex file write
   -&gt; Vortex reopen
   -&gt; Vortex scan
@@ -1113,15 +1177,18 @@ claim_gate_status=claim_grade | not_claim_grade
 fallback_attempted=false
 external_engine_invoked=false</code></pre>
 <h3 id="mode-2-prepared-vortex">Mode 2 - <code>prepared_vortex</code></h3>
-<p>This should become the primary ShardLoom performance comparison path.</p>
-<pre><code data-language="text">compatibility input
-  -&gt; prepare once
-  -&gt; Vortex artifact
-  -&gt; reuse prepared Vortex artifact across many scenarios
+<p>This should become the primary ShardLoom prepared-runtime comparison path.</p>
+<pre><code data-language="text">VortexPreparedState
+  -&gt; prepared_vortex execution
   -&gt; Vortex scan / source-backed execution
   -&gt; ShardLoom/Vortex-native operators
   -&gt; optional result sink
   -&gt; evidence + claim gate</code></pre>
+<p>Non-Vortex inputs do not enter this mode directly. They must first run through:</p>
+<pre><code data-language="text">UniversalIngress / InputAdapter
+  -&gt; SourceState
+  -&gt; vortex_ingest
+  -&gt; VortexPreparedState</code></pre>
 <p>This mode matches the ShardLoom thesis:</p>
 <pre><code data-language="text">data lives in Vortex
 queries execute from Vortex
@@ -1250,7 +1317,7 @@ small compatibility input + no Vortex persistence requested
 -&gt; selected_execution_mode=direct_compatibility_transient
 -&gt; mode_selection_reason=small_one_shot_without_persistence
 
-compatibility input + benchmark performance comparison requested
+compatibility input + VortexPreparedState already prepared for warm benchmark comparison
 -&gt; selected_execution_mode=prepared_vortex
 -&gt; mode_selection_reason=benchmark_reuses_prepared_vortex_artifact</code></pre>
 <p>Auto must never silently select an external fallback engine:</p>
@@ -1336,14 +1403,14 @@ unsupported_until_vortex_or_shardloom_evidence</code></pre>
   result_sink_write_millis
   evidence_render_millis</code></pre>
 <p>Route interpretation:</p>
-<pre><code data-language="text">certified import/stage route =
+<pre><code data-language="text">cold certified route =
   compatibility_import_certified end-to-end total
 
-cold prepared route =
-  prepare Vortex once + first query + output + evidence
+vortex_ingest / prepare once route =
+  SourceState -&gt; VortexPreparedState, with preparation timing separated
 
 warm prepared route =
-  prepared_vortex query + output + evidence only
+  prepared_vortex query + output + evidence only, from VortexPreparedState
 
 already-Vortex route =
   native_vortex query + output + evidence only
@@ -1360,7 +1427,7 @@ multi-output fanout route =
 batch = bounded/snapshot workload semantics
 live = continuous/change-stream workload semantics
 hybrid = base snapshot plus hot delta workload semantics</code></pre>
-<p>Compare routes, not front doors. <code>ctx.sql(...)</code>, Python query-builder calls, CLI commands, and future DataFrame methods can enter the same route model. The benchmark question is where time and evidence were spent, not whether the user typed SQL or Python.</p>
+<p>Compare routes, not front doors. <code>ctx.sql(...)</code>, Python query-builder calls, CLI commands, and future DataFrame methods can enter the same route model. The benchmark question is where time and evidence were spent, not whether the user typed SQL or Python. Prepared rows must disclose that their query timing starts after <code>VortexPreparedState</code> exists.</p>
 <p>The benchmark artifact must also carry <code>execution_mode_attribution_contract</code>, including the canonical mode vocabulary, the required execution-mode fields, and the required stage timing fields. The harness rejects rows that omit the contract fields. Unknown stage values stay explicit as <code>null</code>, <code>n/a</code>, or <code>not_measured</code>; missing fields are not allowed. Prepared/native rows must also carry an operator blocker matrix with <code>operator_execution_class</code>, <code>operator_admission_status</code>, <code>operator_blocker_id</code>, <code>operator_blocker_reason</code>, and <code>operator_encoded_native_claim_allowed</code> so temporary or residual-native operators are never read as encoded-native operator execution. Native Vortex benchmark rows must additionally carry <code>native_vortex_admission_*</code> fields that identify the exact admitted lane, provider kind/API surface, certificate refs, materialization/decode refs, fallback status, and claim boundary. Today that admits only <code>local_vortex_count_scalar</code>; downstream readers must not infer universal native Vortex support from that row.</p>
 <p>The artifact must also carry <code>persistent_runner_admission_gate</code>. Eligible comparative prepared/native rows now consume the explicit <code>traditional-analytics-vortex-batch-run</code> command and report <code>persistent_runner_status=single_process_batch_runner_supported</code> while preserving per-scenario typed evidence and no-fallback fields. Those rows also carry <code>batch_runner_kind</code>, <code>batch_scenario_count</code>, <code>batch_cli_process_wall_millis</code>, <code>batch_process_wall_shared=true</code>, and <code>batch_process_startup_attribution</code> so shared process wall time is not mistaken for per-scenario operator work. Eligible batch rows may also carry <code>source_state_dimension_label_*</code>, <code>source_state_category_metric_*</code>, <code>source_state_group_category_metric_*</code>, <code>source_state_ranked_metric_*</code>, <code>source_state_selective_filter_*</code>, <code>source_state_dirty_input_*</code>, and <code>source_state_date_null_metric_*</code> fields to show which scoped source-state family was reused. Rows that still use explicit single-scenario CLI execution keep <code>persistent_runner_status=process_per_scenario_attributed_not_reduced</code> and the existing persistent-runner admission fields (<code>process_startup_attribution</code>, <code>python_harness_overhead_status</code>, <code>cli_process_wall_millis</code>, <code>python_harness_overhead_millis</code>, <code>startup_warmup_millis</code>, <code>build_time_millis</code>, <code>build_time_excluded</code>, <code>preparation_millis</code>, <code>preparation_cli_process_wall_millis</code>, and <code>preparation_included_in_timing</code>). The batch status does not admit a persistent daemon, service runtime, hidden fast mode, or performance claim. Any broader persistent runner must preserve typed envelopes, execution-mode evidence, Native I/O refs, operator blocker fields, materialization/decode boundaries, result-sink replay evidence, deterministic unsupported diagnostics, and no-fallback fields per run.</p>
 <p><code>GAR-PERF-1</code> is the planned prepared/native performance architecture layer. It separates four follow-ups:</p>
@@ -1491,11 +1558,11 @@ hybrid = base snapshot plus hot delta workload semantics</code></pre>
 <p><code>auto</code> is selection vocabulary only. A row with <code>requested_execution_mode=auto</code> must preserve <code>selected_execution_mode</code> and <code>mode_selection_reason</code> so downstream readers can see the actual runtime path.</p>
 <h3 id="benchmark-lanes">Benchmark Lanes</h3>
 <h4 id="lane-a-compatibility-import-certified">Lane A - Compatibility Import Certified</h4>
-<pre><code data-language="text">compatibility file -&gt; Vortex import every measured scenario -&gt; compute -&gt; result sink/evidence</code></pre>
+<pre><code data-language="text">compatibility file -&gt; UniversalIngress -&gt; certified vortex_ingest -&gt; Vortex write/reopen every measured scenario -&gt; compute -&gt; result sink/evidence</code></pre>
 <p>Use for ingest/stage certification, universal I/O proof, and result-sink proof. Do not use it as the primary pure query-speed comparison.</p>
 <h4 id="lane-b-prepared-vortex">Lane B - Prepared Vortex</h4>
-<pre><code data-language="text">compatibility file -&gt; prepare Vortex once -&gt; run many measured scenarios from prepared Vortex</code></pre>
-<p>Use for primary ShardLoom performance comparison, query-speed evaluation, and Vortex-native workflow proof.</p>
+<pre><code data-language="text">compatibility file -&gt; UniversalIngress -&gt; SourceState -&gt; vortex_ingest -&gt; VortexPreparedState -&gt; run many measured scenarios from prepared_vortex</code></pre>
+<p>Use for primary ShardLoom runtime-development comparison, warm-query evaluation, and Vortex-backed workflow proof. The lane starts from <code>VortexPreparedState</code>; source read and preparation timing must be reported separately when available.</p>
 <h4 id="lane-c-native-vortex">Lane C - Native Vortex</h4>
 <pre><code data-language="text">existing .vortex -&gt; native scan/operator</code></pre>
 <p>Use for clean native runtime comparison, operator maturity tracking, and encoded/native execution proof.</p>
@@ -1664,15 +1731,20 @@ materialization_policy_ref</code></pre>
 <h3 id="what-codex-should-optimize-toward">What Codex Should Optimize Toward</h3>
 <p>Current state to improve:</p>
 <pre><code data-language="text">compatibility input
-  -&gt; import to Vortex every scenario
+  -&gt; UniversalIngress / InputAdapter
+  -&gt; SourceState
+  -&gt; certified vortex_ingest every scenario
   -&gt; write/reopen
   -&gt; scan
   -&gt; temporary materialized operator
   -&gt; result sink/evidence</code></pre>
 <p>This is valid certification evidence, but not the desired primary performance path.</p>
 <p>Target performance path:</p>
-<pre><code data-language="text">prepare Vortex once
-  -&gt; run many scenarios from prepared Vortex
+<pre><code data-language="text">UniversalIngress / InputAdapter
+  -&gt; SourceState
+  -&gt; vortex_ingest / prepare Vortex once
+  -&gt; VortexPreparedState
+  -&gt; run many scenarios from prepared_vortex
   -&gt; use native/encoded/fused operators where supported
   -&gt; preserve evidence
   -&gt; benchmark query/runtime separately from preparation</code></pre>
@@ -1686,6 +1758,11 @@ selected_execution_mode
 mode_selection_reason
 requested_engine_mode where applicable
 selected_engine_mode where applicable
+source_adapter_status
+ingress_route
+vortex_ingest_status
+prepared_state_id where applicable
+timing_scope
 vortex_native_claim_allowed
 compatibility_import_included
 vortex_prepare_included
@@ -1701,6 +1778,7 @@ Unsupported work silently runs through DuckDB.
 Unsupported work silently runs through Polars.
 Direct transient mode is reported as Vortex-native.
 Compatibility import timing is reported as pure query timing.
+prepared_vortex is reported as reading non-Vortex inputs directly.
 Auto mode hides what it selected.
 A fixture-smoke row becomes a public performance claim.
 A benchmark row hides materialization/decode.
@@ -1741,7 +1819,8 @@ must additionally report requested_engine_mode, selected_engine_mode, allowed/re
 update_mode, output_mode, runtime_execution, data_read, and write_io.
 
 Optimize toward prepared_vortex and native_vortex for performance comparisons. Preserve
-compatibility_import_certified for certified ingest/stage workflows. Allow
+vortex_ingest / prepare-once lifecycle evidence before prepared_vortex timing, and preserve
+compatibility_import_certified for certified cold ingest/stage workflows. Allow
 direct_compatibility_transient only as a ShardLoom-native one-shot mode and never report it as
 Vortex-native.
 

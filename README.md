@@ -75,15 +75,24 @@ or a future DataFrame-style surface, but ShardLoom still records the same route 
 front door -> source route -> preparation route -> execution route -> output route -> evidence route
 ```
 
-That is why public docs use friendly labels beside the canonical fields: certified import/stage
-route (`compatibility_import_certified`), prepared Vortex steady-state route (`prepared_vortex`),
+For non-Vortex inputs, the prepared route has an explicit preparation step:
+
+```text
+UniversalIngress / InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex
+```
+
+`prepared_vortex` executes from `VortexPreparedState`; it does not read CSV, Parquet, JSONL,
+database rows, object-store objects, or generated rows directly. That is why public docs use
+friendly labels beside the canonical fields: certified cold route
+(`compatibility_import_certified`), Vortex ingest / prepare-once route (`vortex_ingest`), prepared
+warm route (`prepared_vortex`),
 already-Vortex route (`native_vortex`), direct one-shot route
 (`direct_compatibility_transient`), source-free generated-output route, and multi-output fanout
 route.
 
 | Area | Current repo state | Planned or gated updates |
 | --- | --- | --- |
-| Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are represented in benchmark/report fields. | More prepared/native Vortex paths; `auto` must keep reporting the selected concrete mode. |
+| Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are represented in benchmark/report fields. `prepared_vortex` starts from `VortexPreparedState`, not source files directly. | More `vortex_ingest` and prepared/native Vortex paths; `auto` must keep reporting the selected concrete mode. |
 | Batch engine mode | Current practical foundation for bounded local Vortex analytics and benchmark evidence. | Broader operator coverage, source/sink certification, and claim-grade workload evidence. |
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and scoped in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and scoped in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. |
@@ -219,7 +228,7 @@ ShardLoom currently uses two separate mode vocabularies:
 
 | Vocabulary | Values | What it answers | Current posture |
 | --- | --- | --- | --- |
-| Execution mode | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, `auto` | How the request crosses source/preparation boundaries and how timings should be interpreted. | Current benchmark/report fields; prepared/native work is being expanded scenario by scenario. |
+| Execution mode | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, `auto` | How the request crosses source/preparation boundaries and how timings should be interpreted. | Current benchmark/report fields; `prepared_vortex` requires `VortexPreparedState`; prepared/native work is being expanded scenario by scenario. |
 | Engine mode | `batch`, `live`, `hybrid`, `auto` | What workload semantics the plan has: bounded batch, live change stream, or base-plus-delta hybrid state. | Contract and fixture evidence exists; production live/hybrid claims remain not claim-grade. |
 
 `batch` is the current practical foundation for local Vortex analytics. `live` and `hybrid` are

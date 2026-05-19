@@ -18,6 +18,10 @@ from check_use_case_index import (
     SUPPORTED_STATUSES,
     load_index as load_use_case_index,
 )
+from check_universal_ingress_routes import (
+    TAXONOMY_PATH as UNIVERSAL_INGRESS_TAXONOMY_PATH,
+    validate_taxonomy as validate_universal_ingress_taxonomy,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -260,6 +264,21 @@ def main() -> int:
     output = args.output if args.output.is_absolute() else repo_root / args.output
     blockers: list[str] = []
     warnings: list[str] = []
+
+    if UNIVERSAL_INGRESS_TAXONOMY_PATH.exists():
+        try:
+            route_taxonomy = json.loads(
+                UNIVERSAL_INGRESS_TAXONOMY_PATH.read_text(encoding="utf-8")
+            )
+        except json.JSONDecodeError as exc:
+            blockers.append(f"UniversalIngress route taxonomy is not valid JSON: {exc}")
+        else:
+            blockers.extend(
+                f"UniversalIngress route taxonomy: {error}"
+                for error in validate_universal_ingress_taxonomy(route_taxonomy)
+            )
+    else:
+        blockers.append("missing UniversalIngress route taxonomy JSON")
 
     if not website.exists():
         blockers.append("missing website directory")
