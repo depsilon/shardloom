@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5E scoped local SQL CSV output writer
+  - Branch/PR: `codex/local-csv-output-writer` / #799.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - generated website/use-case pages.
+  - Scope: add a scoped local CSV sink beside the existing local JSONL sink for admitted
+    `sql-local-source-smoke` rows and Python query-builder writes.
+  - Runtime behavior:
+    - `sql-local-source-smoke --output-format csv --output <local.csv>` writes admitted local
+      CSV/JSONL source results to a local CSV file while keeping the report result as bounded
+      inline JSONL.
+    - CSV output without `--output <local.csv>` blocks deterministically before execution.
+    - Python local-source query-builder workflows can call `write(..., output_format="csv")` or
+      `write_csv(...)`; source-free generated-output workflows remain scoped to local JSONL.
+  - Evidence:
+    - CSV sink rows emit `result_format=inline_jsonl`, `output_format=csv`,
+      `output_native_io_certificate_status=certified_local_csv_sink`,
+      `output_certificate_ref=sql-local-source.csv.local-csv-output.native-io.v1`,
+      `output_digest`, `output_io_performed=true`, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder`
+  - Claim boundary: this is a scoped local CSV sink for admitted local-source fixture smokes only.
+    It does not add Parquet, Arrow IPC, Avro, ORC, Vortex, object-store, table/lakehouse,
+    multi-output fanout, production SQL/DataFrame, performance, or package-publication claims.
+  - Fallback boundary: output rendering and writing are ShardLoom-owned local file operations; no
+    pandas, Polars, Spark, DataFusion, DuckDB, or external fallback engine is introduced.
+
 - [x] Session label: GAR-USER-SURFACE-1C no-filter local query-builder smokes
   - Branch/PR: `codex/query-builder-no-filter-smokes` / #798.
   - Primary files:

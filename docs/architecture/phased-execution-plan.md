@@ -384,8 +384,9 @@ or documentation updates alone are insufficient.
 - [ ] GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion
   - Source: OutputPlan, result-sink replay proof, cross-format fanout architecture,
     `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: scoped local JSONL output exists; CSV, Parquet, Arrow IPC, Vortex, replay proof,
-    and multi-output fanout are not ordinary user-facing runtime features.
+  - Current state: scoped local SQL/Python output can write local JSONL and CSV sinks with
+    format-specific certificate fields; Parquet, Arrow IPC, Vortex, replay proof, and
+    multi-output fanout are not ordinary user-facing runtime features.
   - Next slice outcome: add local writer registry and fanout for admitted formats, with per-output
     digest, replay status, and metadata fidelity/loss.
   - Runtime enablement: local output writers and fanout execution with OutputPlan evidence and

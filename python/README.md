@@ -345,7 +345,9 @@ JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
 numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric sort
 keys. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL file
-and emits output Native I/O certificate fields:
+by default, and local-source workflows can use `write(..., output_format="csv")`
+or `write_csv(...)` for the scoped local CSV sink. Written local sinks emit
+format-specific output Native I/O certificate fields:
 
 ```powershell
 New-Item -ItemType Directory -Force target | Out-Null
@@ -387,6 +389,7 @@ json_rows = (
 
 collected = workflow.collect()
 written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
+csv_written = workflow.write_csv("target/sql-local-source-result.csv", allow_overwrite=True)
 aggregate = (
     ctx.read_json("target/sql-local-source-smoke.jsonl")
     .aggregate("count(*)", "sum(amount)", "avg(amount)", "min(amount)", "max(amount)")
@@ -419,6 +422,9 @@ joined = (
 print(collected.result_jsonl)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
+print(csv_written.output_path)
+print(csv_written.output_format)
+print(csv_written.output_native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
 print(written.evidence_summary.output_native_io_certificate_status)
 print(written.claim_summary.claim_gate_status)

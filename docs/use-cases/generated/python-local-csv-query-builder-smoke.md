@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped Python read_csv/select/optional-filter/limit and read_json/select/optional-filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates when filters are present; preview/select-star over admitted local files; CSV and flat JSONL/NDJSON optional-filter/scalar aggregate/limit, optional-filter/one-column group_by/aggregate/limit, and select/optional-filter/single-key numeric sort/limit collect/write workflows. No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped Python read_csv/select/optional-filter/limit and read_json/select/optional-filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates when filters are present; preview/select-star over admitted local files; CSV and flat JSONL/NDJSON optional-filter/scalar aggregate/limit, optional-filter/one-column group_by/aggregate/limit, and select/optional-filter/single-key numeric sort/limit collect/write workflows; local JSONL writes and scoped local CSV writes through write_csv(...). No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,12 +16,12 @@ Python local CSV/JSONL query-builder projection, aggregate, group-by, and top-N 
 
 ## Claim Boundary
 
-Scoped Python read_csv/select/optional-filter/limit and read_json/select/optional-filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates when filters are present; preview/select-star over admitted local files; CSV and flat JSONL/NDJSON optional-filter/scalar aggregate/limit, optional-filter/one-column group_by/aggregate/limit, and select/optional-filter/single-key numeric sort/limit collect/write workflows. No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
+Scoped Python read_csv/select/optional-filter/limit and read_json/select/optional-filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates when filters are present; preview/select-star over admitted local files; CSV and flat JSONL/NDJSON optional-filter/scalar aggregate/limit, optional-filter/one-column group_by/aggregate/limit, and select/optional-filter/single-key numeric sort/limit collect/write workflows; local JSONL writes and scoped local CSV writes through write_csv(...). No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## How To Try It
 
 ```powershell
-New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n3,beta,21`n4,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; $env:PYTHONPATH = "python\src"; python -c "import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); preview=ctx.read_csv('target/sql-local-source-smoke.csv').preview(limit=2); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); a=ctx.read_csv('target/sql-local-source-smoke.csv').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); g=ctx.read_csv('target/sql-local-source-smoke.csv').group_by('label').agg('count(*)','sum(amount)').limit(10).collect(); t=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').sort('amount', descending=True).limit(2).collect(); print(preview.output_row_count, r.output_path, r.output_native_io_certificate_status, a.aggregate_operator_family, g.aggregate_operator_family, g.group_by_columns, t.sort_keys, t.top_n_limit, r.fallback_attempted, r.external_engine_invoked)"
+New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n3,beta,21`n4,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; $env:PYTHONPATH = "python\src"; python -c "import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); preview=ctx.read_csv('target/sql-local-source-smoke.csv').preview(limit=2); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); c=workflow.write_csv('target/sql-local-source-result.csv', allow_overwrite=True); a=ctx.read_csv('target/sql-local-source-smoke.csv').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); g=ctx.read_csv('target/sql-local-source-smoke.csv').group_by('label').agg('count(*)','sum(amount)').limit(10).collect(); t=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').sort('amount', descending=True).limit(2).collect(); print(preview.output_row_count, r.output_path, r.output_native_io_certificate_status, c.output_path, c.output_format, c.output_native_io_certificate_status, a.aggregate_operator_family, g.aggregate_operator_family, g.group_by_columns, t.sort_keys, t.top_n_limit, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 ## Blocker
@@ -30,7 +30,7 @@ The Python query-builder runtime admits local CSV and local flat JSONL/NDJSON se
 
 ## Internal Flow
 
-`local_csv, local_jsonl, local_ndjson -> direct_compatibility_transient -> batch -> inline_jsonl_result, local_jsonl_output, scalar_aggregate_result, grouped_aggregate_result, topn_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv, local_jsonl, local_ndjson -> direct_compatibility_transient -> batch -> inline_jsonl_result, local_jsonl_output, local_csv_output, scalar_aggregate_result, grouped_aggregate_result, topn_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -55,8 +55,10 @@ The Python query-builder runtime admits local CSV and local flat JSONL/NDJSON se
 - `sort_direction`
 - `sort_null_ordering`
 - `top_n_limit`
+- `output_format`
 - `output_io_performed=true`
 - `output_native_io_certificate_status`
+- `output_certificate_ref`
 - `evidence_summary`
 - `claim_summary`
 - `fallback_attempted=false`
@@ -65,7 +67,7 @@ The Python query-builder runtime admits local CSV and local flat JSONL/NDJSON se
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with local CSV or flat JSONL source evidence, source_format/source_state fields, source-format-aware source/execution certificate refs, materialization boundary and claim-gate reason fields, local JSONL output evidence when written, scalar/grouped/top-N fields when requested, group_by columns/count for grouped workflows, sort key/direction/top-N limit for sorted workflows, output Native I/O certificate status, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with local CSV or flat JSONL source evidence, source_format/source_state fields, source-format-aware source/execution certificate refs, materialization boundary and claim-gate reason fields, local JSONL or CSV output evidence when written, scalar/grouped/top-N fields when requested, group_by columns/count for grouped workflows, sort key/direction/top-N limit for sorted workflows, output Native I/O certificate status, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

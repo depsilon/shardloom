@@ -317,6 +317,13 @@ class SqlLocalSourceSmokeReport:
         return value or None
 
     @property
+    def output_format(self) -> str | None:
+        """Return the local output sink format when present."""
+
+        value = self.envelope.field("output_format")
+        return value or None
+
+    @property
     def output_row_count(self) -> int:
         """Return the number of result rows emitted by the smoke."""
 
