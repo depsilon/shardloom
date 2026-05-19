@@ -345,9 +345,10 @@ or documentation updates alone are insufficient.
   - Current state: CSV is the strongest local smoke path; scoped flat JSONL/NDJSON local input is
     now runtime-admitted through `sql-local-source-smoke` with SourceState-style evidence, content
     fingerprints, schema digests, and deterministic blockers for nested JSON values. The Python
-    query-builder can lower local flat `.jsonl`/`.ndjson` projection/filter/limit, scalar
-    aggregate/filter/limit, one-column group-by aggregate/filter/limit, and single-key numeric
-    top-N workflows into that runtime path. Local-source evidence labels for CSV versus
+    query-builder can lower local flat `.jsonl`/`.ndjson` projection/optional-filter/limit,
+    preview/select-star, scalar aggregate/optional-filter/limit, one-column group-by
+    aggregate/optional-filter/limit, and single-key numeric top-N workflows into that runtime path.
+    Local-source evidence labels for CSV versus
     JSONL/NDJSON source certificate refs, execution certificate refs, materialization boundaries,
     pushdown status, and claim reasons are source-format-aware. General JSON, Parquet, Arrow IPC,
     Avro, and ORC do not all have ordinary
@@ -810,8 +811,9 @@ docs/website parity, and a completed-ledger entry.
 
 - [ ] GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder
   - Source: `GAR-RUNTIME-IMPL-4B`, `GAR-RUNTIME-IMPL-4C`, `GAR-RUNTIME-IMPL-4D`, RFC 0032.
-  - Current state: scoped local CSV SQL smoke paths exist for projection/filter/limit, scalar and
-    grouped aggregates, top-N, and one explicit inner equi-join shape; richer expressions, casts,
+  - Current state: scoped local CSV/flat JSONL SQL smoke paths exist for
+    projection/optional-filter/limit, preview/select-star, scalar and grouped aggregates with
+    optional filters, top-N, and one explicit inner equi-join shape; richer expressions, casts,
     dates, strings, windows, subqueries, catalogs, Python/DataFrame joins, multi-key/expression/
     outer/semi/anti/cross joins, and broad planner behavior remain incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
@@ -844,7 +846,8 @@ docs/website parity, and a completed-ledger entry.
     end-to-end generated/local/Vortex workflows and unsupported-method diagnostics are not yet
     ordinary user-grade coverage.
   - Next slice outcome: make one import path support generated, local file, and prepared/native
-    Vortex workflows with select/filter/project/limit/aggregate/group/order/write where admitted.
+    Vortex workflows with select/filter/project/limit/preview/aggregate/group/order/write where
+    admitted.
   - Runtime enablement: ordinary Python context/query-builder workflows that invoke ShardLoom
     runtime instead of external Python engines.
   - User-visible surface: `import shardloom`, context/session object, `LazyFrame`, typed reports,
@@ -870,10 +873,10 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5D local input adapter runtime parity
   - Source: `GAR-RUNTIME-IMPL-4F`, `GAR-IOREUSE-1A`, universal compatibility scoreboard.
   - Current state: local CSV and scoped flat JSONL/NDJSON local SQL smokes exist, the Python
-    query-builder now bridges local flat JSONL/NDJSON projection/filter/limit,
-    scalar-aggregate/filter/limit, one-column group-by aggregate/filter/limit, and single-key
-    numeric top-N workflows, and local-source evidence labels are source-format-aware for CSV
-    versus JSONL/NDJSON rows. General
+    query-builder now bridges local CSV and flat JSONL/NDJSON projection/optional-filter/limit,
+    preview/select-star, scalar-aggregate/optional-filter/limit, one-column group-by
+    aggregate/optional-filter/limit, and single-key numeric top-N workflows, and local-source
+    evidence labels are source-format-aware for CSV versus JSONL/NDJSON rows. General
     JSON, nested JSON, Parquet, Arrow IPC, Avro, ORC, Excel, database files, and unsupported formats
     are not uniformly represented by runtime SourceState adapters.
   - Next slice outcome: promote one local input format at a time into a SourceState adapter registry
@@ -1300,9 +1303,10 @@ runnable, documented, tested, and claim-safe.
   - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python
     capability matrix, `docs/getting-started/examples.md`.
   - Current state: Python `read_csv(...)` and local flat JSONL/NDJSON `read_json(...)` query-builder
-    chains support scoped projection/filter/limit, scalar aggregate/filter/limit, one-column grouped
-    aggregate/filter/limit, and single-key top-N collect/write workflows. Scoped local CSV inner
-    equi-join and generated-output helpers also exist for scoped local workflows. Broad Python
+    chains support scoped projection/optional-filter/limit, preview/select-star, scalar
+    aggregate/optional-filter/limit, one-column grouped aggregate/optional-filter/limit, and
+    single-key top-N collect/write workflows. Scoped local CSV inner equi-join and
+    generated-output helpers also exist for scoped local workflows. Broad Python
     DataFrame joins, `with_column` over input-backed rows, broader expression projection, richer
     outputs, and parity-like method coverage remain unsupported/report-only.
   - Next slice outcome: promote DataFrame-style methods in user-value order with either runnable

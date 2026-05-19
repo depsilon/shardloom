@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped Python read_csv/select/filter/limit and read_json/select/filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; CSV and flat JSONL/NDJSON filter/scalar aggregate/limit, filter/one-column group_by/aggregate/limit, and select/filter/single-key numeric sort/limit collect/write workflows. No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped Python read_csv/select/optional-filter/limit and read_json/select/optional-filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates when filters are present; preview/select-star over admitted local files; CSV and flat JSONL/NDJSON optional-filter/scalar aggregate/limit, optional-filter/one-column group_by/aggregate/limit, and select/optional-filter/single-key numeric sort/limit collect/write workflows. No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,17 +16,17 @@ Python local CSV/JSONL query-builder projection, aggregate, group-by, and top-N 
 
 ## Claim Boundary
 
-Scoped Python read_csv/select/filter/limit and read_json/select/filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; CSV and flat JSONL/NDJSON filter/scalar aggregate/limit, filter/one-column group_by/aggregate/limit, and select/filter/single-key numeric sort/limit collect/write workflows. No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
+Scoped Python read_csv/select/optional-filter/limit and read_json/select/optional-filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates when filters are present; preview/select-star over admitted local files; CSV and flat JSONL/NDJSON optional-filter/scalar aggregate/limit, optional-filter/one-column group_by/aggregate/limit, and select/optional-filter/single-key numeric sort/limit collect/write workflows. No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## How To Try It
 
 ```powershell
-New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n3,beta,21`n4,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; $env:PYTHONPATH = "python\src"; python -c "import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').filter('amount >= 10').limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); a=ctx.read_csv('target/sql-local-source-smoke.csv').filter('amount >= 10').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); g=ctx.read_csv('target/sql-local-source-smoke.csv').filter('amount >= 10').group_by('label').agg('count(*)','sum(amount)').limit(10).collect(); t=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').filter('amount >= 0').sort('amount', descending=True).limit(2).collect(); print(r.output_path, r.output_native_io_certificate_status, a.aggregate_operator_family, g.aggregate_operator_family, g.group_by_columns, t.sort_keys, t.top_n_limit, r.fallback_attempted, r.external_engine_invoked)"
+New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha,8`n2,beta,15`n3,beta,21`n4,gamma,`n" | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; $env:PYTHONPATH = "python\src"; python -c "import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); preview=ctx.read_csv('target/sql-local-source-smoke.csv').preview(limit=2); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); a=ctx.read_csv('target/sql-local-source-smoke.csv').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); g=ctx.read_csv('target/sql-local-source-smoke.csv').group_by('label').agg('count(*)','sum(amount)').limit(10).collect(); t=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').sort('amount', descending=True).limit(2).collect(); print(preview.output_row_count, r.output_path, r.output_native_io_certificate_status, a.aggregate_operator_family, g.aggregate_operator_family, g.group_by_columns, t.sort_keys, t.top_n_limit, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 ## Blocker
 
-The Python query-builder runtime admits local CSV and local flat JSONL/NDJSON select/filter/limit with admitted predicate leaves and balanced grouping parentheses, scalar aggregate/filter/limit, one-column group_by/filter/aggregate/limit, and single-key numeric sort/filter/limit collect/write through the SQL local-source smoke. Joins, plain .json, nested JSON, JSONPath, arbitrary predicate-tree completeness beyond admitted leaves, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
+The Python query-builder runtime admits local CSV and local flat JSONL/NDJSON select/optional-filter/limit with admitted predicate leaves and balanced grouping parentheses when filters are present, preview/select-star, scalar aggregate/optional-filter/limit, one-column group_by/optional-filter/aggregate/limit, and single-key numeric sort/optional-filter/limit collect/write through the SQL local-source smoke. Joins, plain .json, nested JSON, JSONPath, arbitrary predicate-tree completeness beyond admitted leaves, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
 
 ## Internal Flow
 
@@ -42,6 +42,8 @@ The Python query-builder runtime admits local CSV and local flat JSONL/NDJSON se
 - `source_io_performed=true`
 - `source_state_id`
 - `source_state_digest`
+- `filter_runtime_execution`
+- `predicate_operator_family`
 - `aggregate_runtime_execution`
 - `aggregate_operator_family`
 - `group_by_runtime_execution`

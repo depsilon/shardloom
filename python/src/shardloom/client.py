@@ -335,6 +335,12 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field("predicate_operator_family")
 
     @property
+    def filter_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted filter predicate path."""
+
+        return self.envelope.field_bool("filter_runtime_execution", False) is True
+
+    @property
     def logical_predicate_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted logical predicate path."""
 

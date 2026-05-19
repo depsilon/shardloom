@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# SQL local CSV projection/filter/limit, aggregate, group-by, top-N, and join smoke
+# SQL local CSV projection/optional-filter/limit, aggregate, group-by, top-N, and join smoke
 
 ## Quick Answer
 
@@ -8,15 +8,15 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV SELECT projection/filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; scalar aggregate; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; and one Python query-builder local CSV inner equi-join bridge with optional local JSONL output only. No broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates when filters are present; scalar aggregate across all rows or after a scoped filter; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; and one Python query-builder local CSV inner equi-join bridge with optional local JSONL output only. No broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-SQL local CSV projection/filter/limit, aggregate, group-by, top-N, and join smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+SQL local CSV projection/optional-filter/limit, aggregate, group-by, top-N, and join smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped local CSV SELECT projection/filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; scalar aggregate; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; and one Python query-builder local CSV inner equi-join bridge with optional local JSONL output only. No broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
+Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates when filters are present; scalar aggregate across all rows or after a scoped filter; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; and one Python query-builder local CSV inner equi-join bridge with optional local JSONL output only. No broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -40,6 +40,8 @@ Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV i
 - `sql_planner_executed=true`
 - `source_io_performed=true`
 - `source_format=csv`
+- `filter_runtime_execution`
+- `predicate_operator_family`
 - `aggregate_runtime_execution`
 - `aggregate_operator_family`
 - `group_by_runtime_execution`
