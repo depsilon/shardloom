@@ -1575,6 +1575,181 @@ fn gar_0025_a_competitive_replacement_sufficiency_gate_fails_closed() {
 }
 
 #[test]
+fn cg5_cg6_stateful_reuse_evidence_expansion_remains_fail_closed() {
+    let core = read_repo_file("shardloom-core/src/correctness.rs");
+    for required in [
+        "CorrectnessBenchmarkReuseEvidenceExpansionReport",
+        "CorrectnessBenchmarkReuseEvidenceExpansionRow",
+        "plan_correctness_benchmark_reuse_evidence_expansion",
+        "shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1",
+        "gar-0029-a.cg5_cg6_stateful_reuse_evidence_expansion",
+        "cg5_correctness_closeout",
+        "cg6_benchmark_closeout",
+        "cg16_execution_certificate_linkage",
+        "cg19_native_io_linkage",
+        "cg17_stateful_reuse_boundary_evidence",
+        "cg17_stable_reuse_key_invalidation",
+        "cg17_reuse_benchmark_constitution",
+        "public_claim_attachment",
+        "support_status: \"blocked\"",
+        "claim_gate_status: \"not_claim_grade\"",
+        "deterministic_blocker_report: true",
+        "stateful_reuse_runtime_supported: false",
+        "cache_read_allowed: false",
+        "cache_write_allowed: false",
+        "cache_replay_allowed: false",
+        "incremental_execution_allowed: false",
+        "performance_claim_allowed: false",
+        "superiority_claim_allowed: false",
+        "production_reuse_claim_allowed: false",
+        "claim_grade_closeout_allowed: false",
+        "benchmark_rerun_performed: false",
+        "runtime_execution_performed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "cg5_cg6_stateful_reuse_evidence_expansion_fails_closed",
+    ] {
+        assert!(
+            core.contains(required),
+            "missing GAR-0029-A core marker {required}"
+        );
+    }
+
+    let lib = read_repo_file("shardloom-core/src/lib.rs");
+    for required in [
+        "CorrectnessBenchmarkReuseEvidenceExpansionReport",
+        "CorrectnessBenchmarkReuseEvidenceExpansionRow",
+        "plan_correctness_benchmark_reuse_evidence_expansion",
+    ] {
+        assert!(
+            lib.contains(required),
+            "missing GAR-0029-A core export marker {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/gar_0029_evidence.rs");
+    for required in [
+        "gar_0029_evidence_expansion_fields",
+        "gar_0029_evidence_expansion_schema_version",
+        "gar_0029_evidence_expansion_claim_gate_status",
+        "gar_0029_evidence_expansion_blocking_row_count",
+        "gar_0029_evidence_expansion_deterministic_blocker_report",
+        "gar_0029_evidence_expansion_cache_read_allowed",
+        "gar_0029_evidence_expansion_cache_write_allowed",
+        "gar_0029_evidence_expansion_cache_replay_allowed",
+        "gar_0029_evidence_expansion_incremental_execution_allowed",
+        "gar_0029_evidence_expansion_performance_claim_allowed",
+        "gar_0029_evidence_expansion_superiority_claim_allowed",
+        "gar_0029_evidence_expansion_production_reuse_claim_allowed",
+        "gar_0029_evidence_expansion_runtime_execution_performed",
+        "gar_0029_evidence_expansion_fallback_attempted",
+        "gar_0029_evidence_expansion_external_engine_invoked",
+        "gar_0029_evidence_expansion_row_{}",
+        "{prefix}_claim_gate_status",
+        "{prefix}_fallback_attempted",
+        "{prefix}_external_engine_invoked",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing GAR-0029-A CLI marker {required}"
+        );
+    }
+
+    let evidence_certificates = read_repo_file("shardloom-cli/src/evidence_certificates.rs");
+    assert!(
+        evidence_certificates.contains("gar_0029_evidence_expansion_fields"),
+        "correctness harness plan must expose GAR-0029-A fields"
+    );
+    let benchmark_planning = read_repo_file("shardloom-cli/src/benchmark_planning.rs");
+    assert!(
+        benchmark_planning.contains("gar_0029_evidence_expansion_fields"),
+        "benchmark claim evidence plan must expose GAR-0029-A fields"
+    );
+    let workflow_planning = read_repo_file("shardloom-cli/src/workflow_planning.rs");
+    assert!(
+        workflow_planning.contains("gar_0029_evidence_expansion_fields"),
+        "stateful reuse plan must expose GAR-0029-A fields"
+    );
+
+    let doc = read_repo_file("docs/architecture/cg5-cg6-stateful-reuse-evidence-expansion.md");
+    for required in [
+        "GAR-0029-A",
+        "shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1",
+        "gar_0029_evidence_expansion_support_status=blocked",
+        "gar_0029_evidence_expansion_claim_gate_status=not_claim_grade",
+        "gar_0029_evidence_expansion_blocking_row_count=8",
+        "gar_0029_evidence_expansion_deterministic_blocker_report=true",
+        "gar_0029_evidence_expansion_correctness_evidence_attached=false",
+        "gar_0029_evidence_expansion_benchmark_evidence_attached=false",
+        "gar_0029_evidence_expansion_execution_certificate_evidence_attached=false",
+        "gar_0029_evidence_expansion_native_io_evidence_attached=false",
+        "gar_0029_evidence_expansion_stateful_reuse_runtime_supported=false",
+        "gar_0029_evidence_expansion_cache_read_allowed=false",
+        "gar_0029_evidence_expansion_cache_write_allowed=false",
+        "gar_0029_evidence_expansion_cache_replay_allowed=false",
+        "gar_0029_evidence_expansion_incremental_execution_allowed=false",
+        "gar_0029_evidence_expansion_performance_claim_allowed=false",
+        "gar_0029_evidence_expansion_superiority_claim_allowed=false",
+        "gar_0029_evidence_expansion_production_reuse_claim_allowed=false",
+        "gar_0029_evidence_expansion_claim_grade_closeout_allowed=false",
+        "gar_0029_evidence_expansion_benchmark_rerun_performed=false",
+        "gar_0029_evidence_expansion_runtime_execution_performed=false",
+        "gar_0029_evidence_expansion_fallback_attempted=false",
+        "gar_0029_evidence_expansion_external_engine_invoked=false",
+        "cg5_correctness_closeout",
+        "cg6_benchmark_closeout",
+        "cg17_reuse_benchmark_constitution",
+        "No correctness fixture execution.",
+        "No benchmark rerun.",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0029-A doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0029-A CG-5/CG-6 and stateful reuse evidence expansion"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for required in [
+        "GAR-0029-A CG-5/CG-6 and stateful reuse evidence expansion",
+        "shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1",
+        "gar_0029_evidence_expansion_schema_version=shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1",
+        "gar_0029_evidence_expansion_claim_gate_status=not_claim_grade",
+        "gar_0029_evidence_expansion_blocking_row_count=8",
+        "gar_0029_evidence_expansion_deterministic_blocker_report=true",
+        "gar_0029_evidence_expansion_stateful_reuse_runtime_supported=false",
+        "gar_0029_evidence_expansion_cache_read_allowed=false",
+        "gar_0029_evidence_expansion_cache_write_allowed=false",
+        "gar_0029_evidence_expansion_incremental_execution_allowed=false",
+        "gar_0029_evidence_expansion_performance_claim_allowed=false",
+        "gar_0029_evidence_expansion_superiority_claim_allowed=false",
+        "gar_0029_evidence_expansion_runtime_execution_performed=false",
+        "gar_0029_evidence_expansion_fallback_attempted=false",
+        "gar_0029_evidence_expansion_external_engine_invoked=false",
+    ] {
+        assert!(
+            completed.contains(required),
+            "missing GAR-0029-A completed ledger marker {required}"
+        );
+    }
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("- [x] `GAR-0029-A`"));
+    assert!(gar.contains("shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1"));
+    assert!(gar.contains("gar_0029_evidence_expansion_stateful_reuse_runtime_supported=false"));
+    assert!(gar.contains("gar_0029_evidence_expansion_external_engine_invoked=false"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("GAR-0029-A"));
+    assert!(traceability.contains("shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1"));
+    assert!(traceability.contains("No benchmark rerun"));
+    assert!(traceability.contains("cache read/write/replay"));
+    assert!(traceability.contains("fallback execution is authorized"));
+}
+
+#[test]
 fn foundry_integration_pack_and_proof_docs_are_present() {
     let readiness = read_repo_file("docs/foundry/integration-pack-readiness.md");
     for required in [

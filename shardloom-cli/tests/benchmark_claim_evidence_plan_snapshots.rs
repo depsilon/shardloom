@@ -111,6 +111,26 @@ fn foundation_claim_evidence_preserves_no_execution_and_no_claims() {
     assert!(output.contains(&field("superiority_claim_allowed", "false")));
     assert!(output.contains(&field("best_default_claim_allowed", "false")));
     assert!(output.contains(&field(
+        "gar_0029_evidence_expansion_schema_version",
+        "shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1"
+    )));
+    assert!(output.contains(&field(
+        "gar_0029_evidence_expansion_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "gar_0029_evidence_expansion_benchmark_evidence_attached",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "gar_0029_evidence_expansion_reuse_benchmark_evidence_attached",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "gar_0029_evidence_expansion_external_engine_invoked",
+        "false"
+    )));
+    assert!(output.contains(&field(
         "vortex_layout_device_managed_boundary_ref",
         "vortex-runtime-utilization-audit://layout_device_managed_boundary.v1"
     )));

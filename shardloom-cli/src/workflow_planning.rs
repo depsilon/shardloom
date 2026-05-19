@@ -2930,6 +2930,7 @@ pub(crate) fn stateful_reuse_fields(report: &StatefulReuseReport) -> Vec<(String
     append_stateful_reuse_identity_fields(&mut fields, report);
     append_stateful_reuse_requirement_fields(&mut fields, report);
     append_stateful_reuse_side_effect_fields(&mut fields, report);
+    fields.extend(crate::gar_0029_evidence::gar_0029_evidence_expansion_fields());
     fields
 }
 

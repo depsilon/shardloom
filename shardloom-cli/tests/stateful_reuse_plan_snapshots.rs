@@ -79,4 +79,24 @@ fn stateful_reuse_json_preserves_no_cache_or_execution_effects() {
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("production_claim_allowed", "false")));
     assert!(output.contains(&field("side_effect_free", "true")));
+    assert!(output.contains(&field(
+        "gar_0029_evidence_expansion_schema_version",
+        "shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1"
+    )));
+    assert!(output.contains(&field(
+        "gar_0029_evidence_expansion_stateful_reuse_runtime_supported",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "gar_0029_evidence_expansion_cache_write_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "gar_0029_evidence_expansion_incremental_execution_allowed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "gar_0029_evidence_expansion_row_cg17_stateful_reuse_boundary_evidence_support_status",
+        "blocked"
+    )));
 }

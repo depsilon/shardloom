@@ -1663,6 +1663,248 @@ impl CorrectnessDifferentialHarnessReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CorrectnessBenchmarkReuseEvidenceExpansionRow {
+    pub row_id: &'static str,
+    pub evidence_family: &'static str,
+    pub surface_ref: &'static str,
+    pub required_evidence: &'static str,
+    pub current_state: &'static str,
+    pub blocker: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub evidence_attached: bool,
+    pub runtime_supported: bool,
+    pub public_claim_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl CorrectnessBenchmarkReuseEvidenceExpansionRow {
+    const fn blocked(
+        row_id: &'static str,
+        evidence_family: &'static str,
+        surface_ref: &'static str,
+        required_evidence: &'static str,
+        current_state: &'static str,
+        blocker: &'static str,
+    ) -> Self {
+        Self {
+            row_id,
+            evidence_family,
+            surface_ref,
+            required_evidence,
+            current_state,
+            blocker,
+            support_status: "blocked",
+            claim_gate_status: "not_claim_grade",
+            evidence_attached: false,
+            runtime_supported: false,
+            public_claim_allowed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    pub fn is_blocking(&self) -> bool {
+        !self.evidence_attached || !self.runtime_supported || !self.public_claim_allowed
+    }
+
+    pub fn not_claim_grade(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade"
+    }
+
+    pub fn side_effect_free(&self) -> bool {
+        !self.evidence_attached
+            && !self.runtime_supported
+            && !self.public_claim_allowed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CorrectnessBenchmarkReuseEvidenceExpansionReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub docs_ref: &'static str,
+    pub source_refs: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<CorrectnessBenchmarkReuseEvidenceExpansionRow>,
+    pub correctness_evidence_attached: bool,
+    pub benchmark_evidence_attached: bool,
+    pub execution_certificate_evidence_attached: bool,
+    pub native_io_evidence_attached: bool,
+    pub stateful_reuse_evidence_attached: bool,
+    pub reuse_benchmark_evidence_attached: bool,
+    pub selected_workload_evidence_attached: bool,
+    pub deterministic_blocker_report: bool,
+    pub stateful_reuse_runtime_supported: bool,
+    pub cache_read_allowed: bool,
+    pub cache_write_allowed: bool,
+    pub cache_replay_allowed: bool,
+    pub incremental_execution_allowed: bool,
+    pub performance_claim_allowed: bool,
+    pub superiority_claim_allowed: bool,
+    pub production_reuse_claim_allowed: bool,
+    pub claim_grade_closeout_allowed: bool,
+    pub benchmark_rerun_performed: bool,
+    pub runtime_execution_performed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl CorrectnessBenchmarkReuseEvidenceExpansionReport {
+    pub fn report_only_blocker() -> Self {
+        Self {
+            schema_version: "shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1",
+            report_id: "gar-0029-a.cg5_cg6_stateful_reuse_evidence_expansion",
+            docs_ref: "docs/architecture/cg5-cg6-stateful-reuse-evidence-expansion.md",
+            source_refs: "RFC 0029; correctness differential harness; benchmark claim evidence; stateful reuse plan; execution certificate evidence surface; Native I/O envelope",
+            support_status: "blocked",
+            claim_gate_status: "not_claim_grade",
+            rows: correctness_benchmark_reuse_evidence_expansion_rows(),
+            correctness_evidence_attached: false,
+            benchmark_evidence_attached: false,
+            execution_certificate_evidence_attached: false,
+            native_io_evidence_attached: false,
+            stateful_reuse_evidence_attached: false,
+            reuse_benchmark_evidence_attached: false,
+            selected_workload_evidence_attached: false,
+            deterministic_blocker_report: true,
+            stateful_reuse_runtime_supported: false,
+            cache_read_allowed: false,
+            cache_write_allowed: false,
+            cache_replay_allowed: false,
+            incremental_execution_allowed: false,
+            performance_claim_allowed: false,
+            superiority_claim_allowed: false,
+            production_reuse_claim_allowed: false,
+            claim_grade_closeout_allowed: false,
+            benchmark_rerun_performed: false,
+            runtime_execution_performed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    pub fn row_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    pub fn blocking_row_count(&self) -> usize {
+        self.rows.iter().filter(|row| row.is_blocking()).count()
+    }
+
+    pub fn all_rows_not_claim_grade(&self) -> bool {
+        self.rows
+            .iter()
+            .all(CorrectnessBenchmarkReuseEvidenceExpansionRow::not_claim_grade)
+    }
+
+    pub fn all_claims_blocked(&self) -> bool {
+        !self.performance_claim_allowed
+            && !self.superiority_claim_allowed
+            && !self.production_reuse_claim_allowed
+            && !self.claim_grade_closeout_allowed
+            && self.claim_gate_status == "not_claim_grade"
+            && self.all_rows_not_claim_grade()
+    }
+
+    pub fn side_effect_free(&self) -> bool {
+        !self.cache_read_allowed
+            && !self.cache_write_allowed
+            && !self.cache_replay_allowed
+            && !self.incremental_execution_allowed
+            && !self.benchmark_rerun_performed
+            && !self.runtime_execution_performed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .rows
+                .iter()
+                .all(CorrectnessBenchmarkReuseEvidenceExpansionRow::side_effect_free)
+    }
+}
+
+pub fn plan_correctness_benchmark_reuse_evidence_expansion()
+-> CorrectnessBenchmarkReuseEvidenceExpansionReport {
+    CorrectnessBenchmarkReuseEvidenceExpansionReport::report_only_blocker()
+}
+
+fn correctness_benchmark_reuse_evidence_expansion_rows()
+-> Vec<CorrectnessBenchmarkReuseEvidenceExpansionRow> {
+    vec![
+        CorrectnessBenchmarkReuseEvidenceExpansionRow::blocked(
+            "cg5_correctness_closeout",
+            "correctness",
+            "correctness-harness-plan",
+            "decoded-reference coverage, populated deferred fixture-family artifacts, populated external-oracle artifacts, and property/fuzz execution",
+            "CorrectnessDifferentialHarnessReport exists with scoped fixtures and explicit blocker rows",
+            "claim-grade CG-5 evidence is incomplete for broad workload and reuse claims",
+        ),
+        CorrectnessBenchmarkReuseEvidenceExpansionRow::blocked(
+            "cg6_benchmark_closeout",
+            "benchmark",
+            "benchmark-claim-evidence-plan",
+            "measured benchmark rows, external comparison rows, reproducibility manifest, required metrics, and no-fallback evidence",
+            "BenchmarkClaimEvidenceReport exists, but selected workload rows are missing or not claim-grade",
+            "claim-grade CG-6 benchmark evidence is incomplete",
+        ),
+        CorrectnessBenchmarkReuseEvidenceExpansionRow::blocked(
+            "cg16_execution_certificate_linkage",
+            "execution_certificate",
+            "execution-certificate-plan",
+            "plan/input/output hashes, selected/skipped segment trace, side-effect manifest, reproducibility metadata, and correctness links",
+            "Execution certificate evidence surface is report-only outside scoped certified paths",
+            "stateful reuse cannot claim correctness without execution-certificate linkage",
+        ),
+        CorrectnessBenchmarkReuseEvidenceExpansionRow::blocked(
+            "cg19_native_io_linkage",
+            "native_io",
+            "native-io-envelope-plan",
+            "source and sink Native I/O certificate refs for the selected workload",
+            "Native I/O coverage is scoped and not attached to broad reuse workloads",
+            "reuse and benchmark claims cannot pass without Native I/O refs",
+        ),
+        CorrectnessBenchmarkReuseEvidenceExpansionRow::blocked(
+            "cg17_stateful_reuse_boundary_evidence",
+            "stateful_reuse",
+            "stateful-reuse-plan",
+            "typed cache boundaries, deterministic key requirements, invalidation proof requirements, and execution-certificate requirements",
+            "StatefulReuseReport exists as report-only boundary vocabulary",
+            "cache lookup/write/replay remains unsupported without certified reuse evidence",
+        ),
+        CorrectnessBenchmarkReuseEvidenceExpansionRow::blocked(
+            "cg17_stable_reuse_key_invalidation",
+            "stateful_reuse",
+            "cg17-stateful-reuse-gate",
+            "stable reuse key digest, manifest-diff input evidence, invalidation decision matrix, and cache-safety policy",
+            "CG-17 promotion gate lists blockers but does not certify stable keys or invalidation",
+            "unknown changes must reject reuse until invalidation proof exists",
+        ),
+        CorrectnessBenchmarkReuseEvidenceExpansionRow::blocked(
+            "cg17_reuse_benchmark_constitution",
+            "benchmark",
+            "benchmark-claim-evidence-plan",
+            "reuse benchmark constitution, source-state reuse evidence, warm/cold row separation, and correctness digest comparison",
+            "reuse benchmark constitution is not populated with claim-grade runs",
+            "reuse performance or cost claims remain blocked",
+        ),
+        CorrectnessBenchmarkReuseEvidenceExpansionRow::blocked(
+            "public_claim_attachment",
+            "claim_gate",
+            "release-plan",
+            "per-claim evidence attachment across correctness, benchmark, certificate, Native I/O, no-fallback, and release gates",
+            "public claim gates are fail-closed and do not attach workload-scoped reuse evidence",
+            "performance, superiority, production reuse, and replacement claims remain blocked",
+        ),
+    ]
+}
+
 #[must_use]
 #[allow(clippy::too_many_lines)]
 pub fn plan_correctness_differential_harness(
@@ -2451,6 +2693,59 @@ mod tests {
         assert!(!report.has_errors());
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_execution);
+    }
+    #[test]
+    fn cg5_cg6_stateful_reuse_evidence_expansion_fails_closed() {
+        let report = plan_correctness_benchmark_reuse_evidence_expansion();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.cg5_cg6_stateful_reuse_evidence_expansion.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "gar-0029-a.cg5_cg6_stateful_reuse_evidence_expansion"
+        );
+        assert_eq!(report.support_status, "blocked");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.rows.len(), 8);
+        assert_eq!(report.blocking_row_count(), 8);
+        assert_eq!(
+            report.row_ids(),
+            vec![
+                "cg5_correctness_closeout",
+                "cg6_benchmark_closeout",
+                "cg16_execution_certificate_linkage",
+                "cg19_native_io_linkage",
+                "cg17_stateful_reuse_boundary_evidence",
+                "cg17_stable_reuse_key_invalidation",
+                "cg17_reuse_benchmark_constitution",
+                "public_claim_attachment"
+            ]
+        );
+        assert!(!report.correctness_evidence_attached);
+        assert!(!report.benchmark_evidence_attached);
+        assert!(!report.execution_certificate_evidence_attached);
+        assert!(!report.native_io_evidence_attached);
+        assert!(!report.stateful_reuse_evidence_attached);
+        assert!(!report.reuse_benchmark_evidence_attached);
+        assert!(!report.selected_workload_evidence_attached);
+        assert!(report.deterministic_blocker_report);
+        assert!(!report.stateful_reuse_runtime_supported);
+        assert!(!report.cache_read_allowed);
+        assert!(!report.cache_write_allowed);
+        assert!(!report.cache_replay_allowed);
+        assert!(!report.incremental_execution_allowed);
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.superiority_claim_allowed);
+        assert!(!report.production_reuse_claim_allowed);
+        assert!(!report.claim_grade_closeout_allowed);
+        assert!(!report.benchmark_rerun_performed);
+        assert!(!report.runtime_execution_performed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(report.all_claims_blocked());
+        assert!(report.side_effect_free());
     }
     #[test]
     fn deferred_artifact_surface_does_not_block_when_no_deferred_families_exist() {
