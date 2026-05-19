@@ -1319,9 +1319,11 @@ runnable, documented, tested, and claim-safe.
     literal `with_column(...)`, `where(...)`, Python `sl.col(...).between(...)`, `head(...)`/
     `take(...)`, `count()`, scalar aggregate/optional-filter/limit, one-column grouped
     aggregate/optional-filter/limit, and single-key top-N collect/write workflows. Scoped local CSV
-    inner equi-join and generated-output helpers also exist for scoped local workflows. Broad Python
-    DataFrame joins, non-literal `with_column` over input-backed rows, broader expression
-    projection, richer outputs, and parity-like method coverage remain unsupported/report-only.
+    inner equi-join, local `write_jsonl(...)`/`write_csv(...)` sink aliases, and generated-output
+    helpers also exist for scoped local workflows, with DataFrame capability rows separating generic
+    `write`, JSONL, and CSV evidence requirements. Broad Python DataFrame joins, non-literal
+    `with_column` over input-backed rows, broader expression projection, richer outputs, and
+    parity-like method coverage remain unsupported/report-only.
   - Next slice outcome: promote DataFrame-style methods in user-value order with either runnable
     runtime or deterministic blockers: joins, `with_column`, expression projection, schema helpers,
     output writers, and collect/write ergonomics.
