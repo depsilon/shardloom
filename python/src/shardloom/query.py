@@ -63,6 +63,116 @@ class WorkflowOperation:
 
 
 @dataclass(frozen=True, slots=True)
+class PredicateExpression:
+    """A scoped SQL predicate expression for ShardLoom local-source smokes."""
+
+    sql: str
+
+    def __str__(self) -> str:
+        return self.sql
+
+    def __and__(self, other: object) -> "PredicateExpression":
+        """Return a scoped logical AND predicate."""
+
+        return PredicateExpression(f"({self.sql} AND {_predicate_sql(other)})")
+
+    def __or__(self, other: object) -> "PredicateExpression":
+        """Return a scoped logical OR predicate."""
+
+        return PredicateExpression(f"({self.sql} OR {_predicate_sql(other)})")
+
+    def __invert__(self) -> "PredicateExpression":
+        """Return a scoped logical NOT predicate."""
+
+        return PredicateExpression(f"NOT {self.sql}")
+
+
+@dataclass(frozen=True, slots=True)
+class ColumnExpression:
+    """A scoped column expression for Python query-builder predicates."""
+
+    sql: str
+
+    def __str__(self) -> str:
+        return self.sql
+
+    def __eq__(self, value: object) -> PredicateExpression:  # type: ignore[override]
+        if value is None:
+            return self.is_null()
+        return self._compare("=", value)
+
+    def __ne__(self, value: object) -> PredicateExpression:  # type: ignore[override]
+        if value is None:
+            return self.is_not_null()
+        return self._compare("!=", value)
+
+    def __lt__(self, value: object) -> PredicateExpression:
+        return self._compare("<", value)
+
+    def __le__(self, value: object) -> PredicateExpression:
+        return self._compare("<=", value)
+
+    def __gt__(self, value: object) -> PredicateExpression:
+        return self._compare(">", value)
+
+    def __ge__(self, value: object) -> PredicateExpression:
+        return self._compare(">=", value)
+
+    def _compare(self, operator: str, value: object) -> PredicateExpression:
+        return PredicateExpression(f"{self.sql} {operator} {_sql_literal(value)}")
+
+    def is_null(self) -> PredicateExpression:
+        """Return a scoped `IS NULL` predicate."""
+
+        return PredicateExpression(f"{self.sql} IS NULL")
+
+    def is_not_null(self) -> PredicateExpression:
+        """Return a scoped `IS NOT NULL` predicate."""
+
+        return PredicateExpression(f"{self.sql} IS NOT NULL")
+
+    def like(self, pattern: object) -> PredicateExpression:
+        """Return a scoped SQL LIKE predicate.
+
+        The runtime admits only prefix, suffix, and contains forms. Unsupported
+        LIKE patterns still block in the ShardLoom CLI before fallback.
+        """
+
+        return PredicateExpression(f"{self.sql} LIKE {_sql_string_literal(pattern)}")
+
+    def contains(self, needle: object) -> PredicateExpression:
+        """Return a scoped substring predicate lowered to `LIKE '%needle%'`."""
+
+        value = _like_needle("contains needle", needle)
+        return self.like(f"%{value}%")
+
+    def startswith(self, prefix: object) -> PredicateExpression:
+        """Return a scoped prefix predicate lowered to `LIKE 'prefix%'`."""
+
+        value = _like_needle("startswith prefix", prefix)
+        return self.like(f"{value}%")
+
+    def endswith(self, suffix: object) -> PredicateExpression:
+        """Return a scoped suffix predicate lowered to `LIKE '%suffix'`."""
+
+        value = _like_needle("endswith suffix", suffix)
+        return self.like(f"%{value}")
+
+    def isin(self, *values: object) -> PredicateExpression:
+        """Return a scoped bounded `IN (...)` predicate."""
+
+        normalized = _normalize_in_values(values)
+        joined = ",".join(_sql_literal(value) for value in normalized)
+        return PredicateExpression(f"{self.sql} IN ({joined})")
+
+    def cast(self, dtype: object) -> "ColumnExpression":
+        """Return a scoped `CAST(column AS dtype)` expression for comparisons."""
+
+        normalized_dtype = _normalize_cast_dtype(dtype)
+        return ColumnExpression(f"CAST({self.sql} AS {normalized_dtype})")
+
+
+@dataclass(frozen=True, slots=True)
 class WorkflowCertificationReport:
     """Report-only certificate surfaces for a lazy workflow."""
 
@@ -1297,6 +1407,18 @@ def read_vortex(
     )
 
 
+def col(name: object) -> ColumnExpression:
+    """Return a scoped column expression for local ShardLoom predicates."""
+
+    return ColumnExpression(_normalize_expression_column(name))
+
+
+def column(name: object) -> ColumnExpression:
+    """Alias for `col(...)`."""
+
+    return col(name)
+
+
 def read_csv(
     uri: str | os.PathLike[str],
     *,
@@ -1896,6 +2018,82 @@ def _require_non_empty(name: str, value: object) -> str:
     return text
 
 
+def _normalize_expression_column(value: object) -> str:
+    column = _require_non_empty("column expression", value)
+    parts = column.split(".")
+    if len(parts) > 2 or not all(_is_sql_identifier(part) for part in parts):
+        raise ValueError(
+            "column expressions admit only bare column names or alias.column references"
+        )
+    return column
+
+
+def _normalize_cast_dtype(value: object) -> str:
+    dtype = _require_non_empty("cast dtype", value).lower()
+    if dtype not in {"int64", "float64", "utf8", "boolean", "date32"}:
+        raise ValueError(
+            "cast dtype must be one of ('int64', 'float64', 'utf8', 'boolean', 'date32')"
+        )
+    return dtype
+
+
+def _sql_string_literal(value: object) -> str:
+    text = _require_non_empty("string literal", value)
+    return "'" + text.replace("'", "''") + "'"
+
+
+def _sql_literal(value: object) -> str:
+    if value is None:
+        raise ValueError("SQL NULL comparisons must use is_null() or is_not_null()")
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("SQL float literals must be finite")
+        return str(value)
+    if isinstance(value, datetime):
+        return f"DATE '{value.date().isoformat()}'"
+    if isinstance(value, date):
+        return f"DATE '{value.isoformat()}'"
+    if isinstance(value, str):
+        return _sql_string_literal(value)
+    raise TypeError(
+        "SQL predicate literals must be bool, int, float, str, date, datetime, or None"
+    )
+
+
+def _predicate_sql(value: object) -> str:
+    if isinstance(value, PredicateExpression):
+        return value.sql
+    text = str(value).strip()
+    if not text:
+        raise ValueError("predicate expression must not be empty")
+    return text
+
+
+def _like_needle(name: str, value: object) -> str:
+    text = _require_non_empty(name, value)
+    if "%" in text or "_" in text:
+        raise ValueError(f"{name} must not contain SQL LIKE wildcard characters")
+    return text
+
+
+def _normalize_in_values(values: tuple[object, ...]) -> tuple[object, ...]:
+    if len(values) == 1 and _is_non_string_sequence(values[0]):
+        normalized = tuple(values[0])
+    else:
+        normalized = values
+    if not normalized:
+        raise ValueError("IN predicates require at least one value")
+    if any(value is None for value in normalized):
+        raise ValueError("IN predicates do not admit NULL values; use is_null()")
+    if len(normalized) > 32:
+        raise ValueError("IN predicates admit at most 32 values")
+    return normalized
+
+
 def _is_source_free_sql_statement(statement: str) -> bool:
     normalized = statement.strip().rstrip(";").strip()
     if _starts_with_sql_keyword(normalized, "values"):
@@ -2023,6 +2221,15 @@ def _contains_sql_keyword_outside_quotes(statement: str, keyword: str) -> bool:
 
 def _is_identifier_char(char: str) -> bool:
     return char.isalnum() or char == "_"
+
+
+def _is_sql_identifier(value: str) -> bool:
+    if not value:
+        return False
+    first = value[0]
+    if not (first == "_" or (first.isascii() and first.isalpha())):
+        return False
+    return all(ch == "_" or (ch.isascii() and ch.isalnum()) for ch in value[1:])
 
 
 def _quote_sql_local_source_path(value: str) -> str:

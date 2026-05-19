@@ -5,6 +5,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -294,12 +295,92 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_column_expression_builder_lowers_to_sql_filter_predicates(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE ((amount >= 10 AND label LIKE '%ta%') OR closed_at IS NULL) LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "predicate_operator_family", "value": "logical_predicate"},
+                        {"key": "logical_predicate_runtime_execution", "value": "true"},
+                        {"key": "string_predicate_runtime_execution", "value": "true"},
+                        {"key": "null_predicate_runtime_execution", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        predicate = ((sl.col("amount") >= 10) & sl.col("label").contains("ta")) | sl.col(
+            "closed_at"
+        ).is_null()
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .filter(predicate)
+            .select("id", "label")
+            .limit(5)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
         self.assertIsInstance(report.claim_summary, sl.ClaimSummary)
         self.assertEqual(report.evidence_summary.command, "sql-local-source-smoke")
         self.assertEqual(report.evidence_summary.output_row_count, 1)
         self.assertFalse(report.claim_summary.fallback_attempted)
         self.assertFalse(report.claim_summary.external_engine_invoked)
         self.assertFalse(report.claim_summary.public_performance_claim_allowed)
+
+    def test_column_expression_builder_formats_admitted_predicate_families(self) -> None:
+        self.assertEqual(
+            str(sl.col("event_dt").cast("date32") >= date(2026, 5, 19)),
+            "CAST(event_dt AS date32) >= DATE '2026-05-19'",
+        )
+        self.assertEqual(
+            str(sl.col("label").isin(["alpha", "gamma"])),
+            "label IN ('alpha','gamma')",
+        )
+        self.assertEqual(str(sl.col("f.amount") >= 10), "f.amount >= 10")
+        self.assertEqual(str(sl.col("label").startswith("al")), "label LIKE 'al%'")
+        self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
+        self.assertEqual(str(sl.col("closed_at").is_not_null()), "closed_at IS NOT NULL")
+
+        with self.assertRaises(ValueError):
+            sl.col("label").contains("%")
+        with self.assertRaises(ValueError):
+            sl.col("label").isin([])
+        with self.assertRaises(ValueError):
+            sl.col("bad column")
+        with self.assertRaises(ValueError):
+            sl.col("amount>=10")
+        with self.assertRaises(ValueError):
+            sl.col("too.many.parts")
 
     def test_local_csv_query_builder_projection_limit_without_filter_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(

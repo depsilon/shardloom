@@ -341,6 +341,10 @@ cast, date-literal, bounded `IN (...)`, string `LIKE`, null, logical
 leaves. `IN` lists admit up to 32 non-null literal values from one scalar
 family, including `DATE 'YYYY-MM-DD'` lists, and expose
 `in_predicate_runtime_execution` plus `in_list_value_count` in typed reports.
+The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
+runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
+`startswith()`, `endswith()`, `like(...)`, bounded `isin(...)`, and `cast(dtype)` comparisons into
+the same ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 CSV and local flat
 JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
@@ -382,6 +386,13 @@ filtered = (
     .select("id", "label")
     .filter("amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%')")
     .limit(1)
+    .collect()
+)
+predicate_builder_filtered = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter((sl.col("amount") >= 10) & sl.col("label").contains("ta"))
+    .limit(10)
     .collect()
 )
 in_filtered = (

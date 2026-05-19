@@ -256,8 +256,15 @@ ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
 workflow = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
-    .filter("amount >= 10")
+    .filter(sl.col("amount") >= 10)
     .limit(1)
+)
+predicate_builder = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter((sl.col("amount") >= 10) & sl.col("label").contains("ta"))
+    .limit(10)
+    .collect()
 )
 
 collected = workflow.collect()
@@ -295,6 +302,7 @@ joined = (
 )
 
 print(collected.result_jsonl)
+print(predicate_builder.result_jsonl)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
@@ -322,7 +330,10 @@ the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MA
 `group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke; single-key numeric
 `sort(...).limit(...)` lowers to the scoped top-N smoke; one local CSV
 `join(..., on="key")` with qualified projection/filter columns lowers to the scoped inner equi-join
-smoke. It is not a pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate,
+smoke. `sl.col(...)` is a Python predicate helper for admitted comparison, null, string `LIKE`,
+bounded `IN`, cast/date, and logical predicates; it lowers into ShardLoom's existing local SQL
+runtime rather than a Python engine. It is not a pandas/Polars backend, broad DataFrame runtime,
+generalized grouped aggregate,
 ordering, or join runtime, object-store/table path, production SQL support, or performance claim.
 Runtime reports also expose `evidence_summary` and `claim_summary` helpers so users can inspect the
 output sink, no-fallback fields, external-engine boundary, and claim gate without scraping raw JSON.
