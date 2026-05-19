@@ -198,4 +198,44 @@ fn traditional_claim_evidence_lists_dataframe_baseline_gaps() {
         "spark_displacement_matrix_row_public_claim_attachment_lane_fallback_attempted",
         "false"
     )));
+    assert!(output.contains(&field(
+        "comparative_rerun_managed_platform_gate_schema_version",
+        "shardloom.comparative_rerun_managed_platform_gate.v1"
+    )));
+    assert!(output.contains(&field(
+        "comparative_rerun_managed_platform_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "comparative_rerun_managed_platform_gate_local_comparative_rerun_performed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "comparative_rerun_managed_platform_gate_external_baselines_comparison_only",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "comparative_rerun_managed_platform_gate_managed_platform_lanes_comparison_only",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "comparative_rerun_managed_platform_gate_managed_platform_execution_performed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "comparative_rerun_managed_platform_gate_all_claims_blocked",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "comparative_rerun_managed_platform_gate_row_managed_platform_design_reference_rows_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "comparative_rerun_managed_platform_gate_row_managed_platform_credential_policy_external_engine_invoked",
+        "false"
+    )));
 }

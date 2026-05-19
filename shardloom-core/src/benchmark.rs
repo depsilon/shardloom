@@ -1361,6 +1361,327 @@ fn spark_displacement_benchmark_evidence_rows() -> Vec<SparkDisplacementBenchmar
     ]
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ComparativeRerunManagedPlatformGateRow {
+    pub row_id: &'static str,
+    pub lane_family: &'static str,
+    pub lane_role: &'static str,
+    pub benchmark_profile: &'static str,
+    pub dependency_posture: &'static str,
+    pub credential_policy_ref: &'static str,
+    pub environment_ref: &'static str,
+    pub required_evidence: &'static str,
+    pub current_state: &'static str,
+    pub blocker: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub managed_platform_lane: bool,
+    pub credential_required: bool,
+    pub credential_resolved: bool,
+    pub dependency_added: bool,
+    pub benchmark_rerun_performed: bool,
+    pub external_baseline_only: bool,
+    pub shardloom_execution_allowed: bool,
+    pub performance_claim_allowed: bool,
+    pub public_claim_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl ComparativeRerunManagedPlatformGateRow {
+    #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
+    const fn blocked(
+        row_id: &'static str,
+        lane_family: &'static str,
+        lane_role: &'static str,
+        benchmark_profile: &'static str,
+        dependency_posture: &'static str,
+        credential_policy_ref: &'static str,
+        environment_ref: &'static str,
+        required_evidence: &'static str,
+        current_state: &'static str,
+        blocker: &'static str,
+        managed_platform_lane: bool,
+        credential_required: bool,
+        external_baseline_only: bool,
+        shardloom_execution_allowed: bool,
+    ) -> Self {
+        Self {
+            row_id,
+            lane_family,
+            lane_role,
+            benchmark_profile,
+            dependency_posture,
+            credential_policy_ref,
+            environment_ref,
+            required_evidence,
+            current_state,
+            blocker,
+            support_status: "blocked",
+            claim_gate_status: "not_claim_grade",
+            managed_platform_lane,
+            credential_required,
+            credential_resolved: false,
+            dependency_added: false,
+            benchmark_rerun_performed: false,
+            external_baseline_only,
+            shardloom_execution_allowed,
+            performance_claim_allowed: false,
+            public_claim_allowed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn is_blocking(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade" || !self.public_claim_allowed
+    }
+
+    #[must_use]
+    pub const fn fail_closed(&self) -> bool {
+        !self.credential_resolved
+            && !self.dependency_added
+            && !self.benchmark_rerun_performed
+            && !self.performance_claim_allowed
+            && !self.public_claim_allowed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ComparativeRerunManagedPlatformGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub docs_ref: &'static str,
+    pub source_refs: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<ComparativeRerunManagedPlatformGateRow>,
+    pub local_comparative_rerun_required: bool,
+    pub local_comparative_rerun_performed: bool,
+    pub external_baselines_comparison_only: bool,
+    pub managed_platform_lanes_comparison_only: bool,
+    pub managed_platform_credentials_required: bool,
+    pub managed_platform_credentials_resolved: bool,
+    pub managed_platform_dependencies_added: bool,
+    pub managed_platform_execution_performed: bool,
+    pub managed_platform_public_claim_allowed: bool,
+    pub credential_resolution_performed: bool,
+    pub network_probe_performed: bool,
+    pub benchmark_artifact_required: bool,
+    pub benchmark_artifact_claim_grade: bool,
+    pub performance_claim_allowed: bool,
+    pub superiority_claim_allowed: bool,
+    pub spark_displacement_claim_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl ComparativeRerunManagedPlatformGateReport {
+    #[must_use]
+    pub fn report_only_blocker() -> Self {
+        Self {
+            schema_version: "shardloom.comparative_rerun_managed_platform_gate.v1",
+            report_id: "gar-0040-a.comparative_rerun_managed_platform_gate",
+            docs_ref: "docs/architecture/comparative-rerun-managed-platform-posture-gate.md",
+            source_refs: "RFC 0040; benchmark-suite catalog; benchmark competitive claim evidence; GAR-0019 credential policy; GAR-0041 per-claim evidence matrix",
+            support_status: "blocked",
+            claim_gate_status: "not_claim_grade",
+            rows: comparative_rerun_managed_platform_gate_rows(),
+            local_comparative_rerun_required: true,
+            local_comparative_rerun_performed: false,
+            external_baselines_comparison_only: true,
+            managed_platform_lanes_comparison_only: true,
+            managed_platform_credentials_required: true,
+            managed_platform_credentials_resolved: false,
+            managed_platform_dependencies_added: false,
+            managed_platform_execution_performed: false,
+            managed_platform_public_claim_allowed: false,
+            credential_resolution_performed: false,
+            network_probe_performed: false,
+            benchmark_artifact_required: true,
+            benchmark_artifact_claim_grade: false,
+            performance_claim_allowed: false,
+            superiority_claim_allowed: false,
+            spark_displacement_claim_allowed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn blocking_row_count(&self) -> usize {
+        self.rows.iter().filter(|row| row.is_blocking()).count()
+    }
+
+    #[must_use]
+    pub fn managed_platform_row_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.managed_platform_lane)
+            .count()
+    }
+
+    #[must_use]
+    pub fn all_claims_blocked(&self) -> bool {
+        !self.performance_claim_allowed
+            && !self.superiority_claim_allowed
+            && !self.spark_displacement_claim_allowed
+            && !self.managed_platform_public_claim_allowed
+            && !self.benchmark_artifact_claim_grade
+            && self.claim_gate_status == "not_claim_grade"
+    }
+
+    #[must_use]
+    pub fn managed_platforms_blocked_without_credentials(&self) -> bool {
+        self.managed_platform_credentials_required
+            && !self.managed_platform_credentials_resolved
+            && !self.managed_platform_execution_performed
+            && self
+                .rows
+                .iter()
+                .filter(|row| row.managed_platform_lane)
+                .all(|row| {
+                    row.credential_required
+                        && !row.credential_resolved
+                        && !row.dependency_added
+                        && !row.external_engine_invoked
+                        && !row.public_claim_allowed
+                })
+    }
+
+    #[must_use]
+    pub fn side_effect_free(&self) -> bool {
+        !self.local_comparative_rerun_performed
+            && !self.managed_platform_credentials_resolved
+            && !self.managed_platform_dependencies_added
+            && !self.managed_platform_execution_performed
+            && !self.credential_resolution_performed
+            && !self.network_probe_performed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .rows
+                .iter()
+                .all(ComparativeRerunManagedPlatformGateRow::fail_closed)
+    }
+}
+
+#[must_use]
+pub fn plan_comparative_rerun_managed_platform_gate() -> ComparativeRerunManagedPlatformGateReport {
+    ComparativeRerunManagedPlatformGateReport::report_only_blocker()
+}
+
+fn comparative_rerun_managed_platform_gate_rows() -> Vec<ComparativeRerunManagedPlatformGateRow> {
+    vec![
+        ComparativeRerunManagedPlatformGateRow::blocked(
+            "local_full_comparative_rerun",
+            "local_comparative_rerun",
+            "ShardLoom plus local optional baselines",
+            "full_local",
+            "no new runtime dependencies; benchmark-only optional packages",
+            "credentials_not_required",
+            "benchmark manifest with versions, hardware, OS, cache state, and reproduction steps",
+            "fresh full_local artifact with ShardLoom, prepared/native, pandas, Polars, DuckDB, DataFusion, Dask lanes",
+            "local smoke and fixture evidence exists, but no fresh claim-grade full comparative rerun is attached",
+            "full local comparative rerun artifact missing",
+            false,
+            false,
+            false,
+            true,
+        ),
+        ComparativeRerunManagedPlatformGateRow::blocked(
+            "external_baseline_oracle_rows",
+            "external_baseline",
+            "pandas, Polars, DuckDB, DataFusion, Dask, Spark local rows",
+            "full_local_plus_spark",
+            "benchmark extras only; never ShardLoom runtime dependencies",
+            "credentials_not_required",
+            "engine versions and environment fingerprint required",
+            "complete baseline rows with external_baseline_only=true and no fallback evidence",
+            "external baseline rows are allowed as comparison context but not attached as claim-grade evidence",
+            "complete external comparison artifact missing",
+            false,
+            false,
+            true,
+            false,
+        ),
+        ComparativeRerunManagedPlatformGateRow::blocked(
+            "managed_platform_design_reference_rows",
+            "managed_platform",
+            "Photon, Fabric, Snowflake, BigQuery, Redshift, Databricks managed services",
+            "managed_platform_optional",
+            "no managed-platform dependency added",
+            "GAR-0019 credential policy gate required before any platform interaction",
+            "managed-platform account, region, warehouse/cluster, dataset, and cost envelope required",
+            "explicit human-approved credentials, environment fingerprint, baseline-only labels, and no-fallback evidence",
+            "managed platforms are design references only and no credentials are resolved",
+            "managed-platform run not admitted",
+            true,
+            true,
+            true,
+            false,
+        ),
+        ComparativeRerunManagedPlatformGateRow::blocked(
+            "managed_platform_credential_policy",
+            "credential_policy",
+            "credential admission for optional managed-platform baselines",
+            "managed_platform_optional",
+            "no credential/provider SDK dependency added",
+            "shardloom.credential_policy_enforcement_gate.v1",
+            "credential reference inventory, redaction, network-effect policy, and explicit human approval",
+            "credential policy proof plus redacted evidence refs before any managed-platform benchmark",
+            "credential policy is report-only and credential resolution is disabled",
+            "credential resolution and network probes blocked",
+            true,
+            true,
+            true,
+            false,
+        ),
+        ComparativeRerunManagedPlatformGateRow::blocked(
+            "claim_grade_artifact_publication",
+            "claim_gate",
+            "benchmark artifact promotion and website/release publication",
+            "claim_grade_publication",
+            "no publication dependency or package release",
+            "GAR-0041 per-claim evidence attachment matrix",
+            "artifact manifest, scenario coverage, environment refs, correctness refs, Native I/O refs, and release approval",
+            "per-claim evidence attachment before any performance, superiority, or replacement language",
+            "public claim gates remain fail-closed and GAR-0041 evidence is not attached",
+            "performance and superiority claims blocked",
+            false,
+            false,
+            false,
+            false,
+        ),
+        ComparativeRerunManagedPlatformGateRow::blocked(
+            "fallback_and_external_execution_boundary",
+            "policy",
+            "no-fallback and external execution boundary",
+            "all_profiles",
+            "no external engine runtime dependency",
+            "no-fallback release policy and benchmark baseline policy",
+            "fallback_attempted=false and external_engine_invoked=false in every ShardLoom row",
+            "evidence that external systems are baseline/oracle rows only and never ShardLoom execution",
+            "policy exists, but claim-grade benchmark evidence is incomplete",
+            "external systems cannot satisfy ShardLoom execution evidence",
+            false,
+            false,
+            true,
+            false,
+        ),
+    ]
+}
+
 #[must_use]
 pub fn plan_benchmark_claim_evidence(
     scope: impl Into<String>,
@@ -2577,6 +2898,51 @@ mod tests {
                 .iter()
                 .any(|missing| missing.contains("GAR-0041-A"))
         );
+    }
+
+    #[test]
+    fn comparative_rerun_managed_platform_gate_blocks_claims_without_evidence() {
+        let report = plan_comparative_rerun_managed_platform_gate();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.comparative_rerun_managed_platform_gate.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "gar-0040-a.comparative_rerun_managed_platform_gate"
+        );
+        assert_eq!(report.support_status, "blocked");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.rows.len(), 6);
+        assert_eq!(report.blocking_row_count(), 6);
+        assert_eq!(report.managed_platform_row_count(), 2);
+        assert!(report.row_ids().contains(&"local_full_comparative_rerun"));
+        assert!(
+            report
+                .row_ids()
+                .contains(&"managed_platform_design_reference_rows")
+        );
+        assert!(report.local_comparative_rerun_required);
+        assert!(!report.local_comparative_rerun_performed);
+        assert!(report.external_baselines_comparison_only);
+        assert!(report.managed_platform_lanes_comparison_only);
+        assert!(report.managed_platform_credentials_required);
+        assert!(!report.managed_platform_credentials_resolved);
+        assert!(!report.managed_platform_dependencies_added);
+        assert!(!report.managed_platform_execution_performed);
+        assert!(!report.credential_resolution_performed);
+        assert!(!report.network_probe_performed);
+        assert!(report.benchmark_artifact_required);
+        assert!(!report.benchmark_artifact_claim_grade);
+        assert!(report.all_claims_blocked());
+        assert!(report.managed_platforms_blocked_without_credentials());
+        assert!(report.side_effect_free());
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.superiority_claim_allowed);
+        assert!(!report.spark_displacement_claim_allowed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
 
     #[test]

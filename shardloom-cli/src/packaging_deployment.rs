@@ -6,12 +6,13 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    AgentContractPack, CommandStatus, CompetitiveReplacementSufficiencyGateReport,
-    CompetitiveReplacementSufficiencyGateRow, CondaBuildInstallCertificationReport,
-    EngineReplacementClaimInventoryReport, EngineReplacementClaimInventoryRow, OutputFormat,
-    PythonWrapperFoundationReport, ReleaseEvidenceRequirementKind, ReleasePlan,
-    ReleasePublicationApiSchemaGateReport, ReleasePublicationBoundaryKind,
-    ReleasePublicationBoundaryReport, ReleaseReadinessEvidenceReport,
+    AgentContractPack, CommandStatus, ComparativeRerunManagedPlatformGateReport,
+    CompetitiveReplacementSufficiencyGateReport, CompetitiveReplacementSufficiencyGateRow,
+    CondaBuildInstallCertificationReport, EngineReplacementClaimInventoryReport,
+    EngineReplacementClaimInventoryRow, OutputFormat, PythonWrapperFoundationReport,
+    ReleaseEvidenceRequirementKind, ReleasePlan, ReleasePublicationApiSchemaGateReport,
+    ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
+    ReleaseReadinessEvidenceReport, plan_comparative_rerun_managed_platform_gate,
     plan_competitive_replacement_sufficiency_gate, plan_engine_replacement_claim_inventory,
 };
 
@@ -246,6 +247,10 @@ pub(crate) fn release_plan_fields(
     append_competitive_replacement_sufficiency_gate_fields(
         &mut fields,
         &plan_competitive_replacement_sufficiency_gate(),
+    );
+    append_comparative_rerun_managed_platform_gate_release_fields(
+        &mut fields,
+        &plan_comparative_rerun_managed_platform_gate(),
     );
     push_field(&mut fields, "published", "false");
     push_field(&mut fields, "write_io", "false");
@@ -704,6 +709,127 @@ fn append_competitive_replacement_sufficiency_gate_row(
         &format!("{prefix}_external_engine_invoked"),
         row.external_engine_invoked,
     );
+}
+
+fn append_comparative_rerun_managed_platform_gate_release_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ComparativeRerunManagedPlatformGateReport,
+) {
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_support_status",
+        report.support_status,
+    );
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_count_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_row_count",
+        report.rows.len(),
+    );
+    push_count_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_blocking_row_count",
+        report.blocking_row_count(),
+    );
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_row_ids",
+        &report.row_ids().join(","),
+    );
+    append_comparative_rerun_managed_platform_gate_release_boolean_fields(fields, report);
+}
+
+fn append_comparative_rerun_managed_platform_gate_release_boolean_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ComparativeRerunManagedPlatformGateReport,
+) {
+    for (field, value) in [
+        (
+            "comparative_rerun_managed_platform_gate_local_comparative_rerun_required",
+            report.local_comparative_rerun_required,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_local_comparative_rerun_performed",
+            report.local_comparative_rerun_performed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_external_baselines_comparison_only",
+            report.external_baselines_comparison_only,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_lanes_comparison_only",
+            report.managed_platform_lanes_comparison_only,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_credentials_required",
+            report.managed_platform_credentials_required,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved",
+            report.managed_platform_credentials_resolved,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_dependencies_added",
+            report.managed_platform_dependencies_added,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_execution_performed",
+            report.managed_platform_execution_performed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_benchmark_artifact_claim_grade",
+            report.benchmark_artifact_claim_grade,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_performance_claim_allowed",
+            report.performance_claim_allowed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_superiority_claim_allowed",
+            report.superiority_claim_allowed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_spark_displacement_claim_allowed",
+            report.spark_displacement_claim_allowed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_fallback_attempted",
+            report.fallback_attempted,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_external_engine_invoked",
+            report.external_engine_invoked,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_all_claims_blocked",
+            report.all_claims_blocked(),
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_side_effect_free",
+            report.side_effect_free(),
+        ),
+    ] {
+        push_bool_field(fields, field, value);
+    }
 }
 
 fn append_release_publication_boundary_fields(
