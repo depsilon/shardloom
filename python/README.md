@@ -335,15 +335,13 @@ shape is admitted for `read_json(...)` only when the source path is local
 `.jsonl` or `.ndjson`; plain `.json`, nested JSON expansion, and JSONPath
 remain deterministic unsupported surfaces. Filters admit scoped comparison,
 cast, date-literal, string `LIKE`, null, logical `AND`/`OR`/`NOT`, and
-balanced grouping parentheses over already admitted leaves. CSV remains the
-only query-builder source admitted for scoped
-scalar aggregates shaped as
-`read_csv(...).filter(...).aggregate(...).limit(1)` for `COUNT`, `SUM`, `AVG`,
-`MIN`, and `MAX`, and one-column grouped aggregates shaped as
-`read_csv(...).filter(...).group_by(...).agg(...).limit(n)`. It also admits a
-single-key numeric top-N shape,
-`read_csv(...).select(...).filter(...).sort(...).limit(n)`, over non-null
-numeric sort keys. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL file
+balanced grouping parentheses over already admitted leaves. CSV and local flat
+JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
+`filter(...).aggregate(...).limit(1)` for `COUNT`, `SUM`, `AVG`, `MIN`, and
+`MAX`, one-column grouped aggregates shaped as
+`filter(...).group_by(...).agg(...).limit(n)`, and a single-key numeric top-N
+shape, `select(...).filter(...).sort(...).limit(n)`, over non-null numeric sort
+keys. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL file
 and emits output Native I/O certificate fields:
 
 ```powershell
@@ -381,14 +379,14 @@ json_rows = (
 collected = workflow.collect()
 written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
 aggregate = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
+    ctx.read_json("target/sql-local-source-smoke.jsonl")
     .filter("amount >= 10")
     .aggregate("count(*)", "sum(amount)", "avg(amount)", "min(amount)", "max(amount)")
     .limit(1)
     .collect()
 )
 grouped = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
+    ctx.read_json("target/sql-local-source-smoke.jsonl")
     .filter("amount >= 10")
     .group_by("label")
     .agg("count(*)", "sum(amount)")
@@ -396,7 +394,7 @@ grouped = (
     .collect()
 )
 topn = (
-    ctx.read_csv("target/sql-local-source-smoke.csv")
+    ctx.read_json("target/sql-local-source-smoke.jsonl")
     .select("id", "label")
     .filter("amount >= 0")
     .sort("amount", descending=True)
@@ -456,8 +454,9 @@ print(sql_written.output_path)
 print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 ```
 
-This is a fixture-smoke local CSV path plus a flat JSONL/NDJSON
-projection/filter/limit bridge only. It does not make the Python client a
+This is a fixture-smoke local CSV plus flat JSONL/NDJSON bridge for the scoped
+projection/filter/limit, scalar aggregate, one-column grouped aggregate, and
+single-key numeric top-N shapes. It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 generalized grouped aggregation, ordering/collation parity, nested JSON, object
 stores, or table/lakehouse inputs, and does not create a performance or

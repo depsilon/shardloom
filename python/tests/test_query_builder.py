@@ -1564,6 +1564,225 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_read_json_query_builder_scalar_aggregate_invokes_sql_smoke(self) -> None:
+        statement = (
+            "SELECT count(*),sum(amount),avg(amount) FROM 'target/input.jsonl' "
+            "WHERE amount >= 10 LIMIT 1"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "SQL local-source smoke returned one aggregate row",
+                    "human_text": "SQL local-source smoke",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "result_jsonl", "value": "{{\\"count_all\\":2,\\"sum_amount\\":36,\\"avg_amount\\":18.0}}\\n"}},
+                        {{"key": "source_format", "value": "jsonl"}},
+                        {{"key": "sql_statement_kind", "value": "local_source_aggregate_filter_limit"}},
+                        {{"key": "aggregate_runtime_execution", "value": "true"}},
+                        {{"key": "aggregate_operator_family", "value": "scalar_aggregate"}},
+                        {{"key": "aggregate_functions", "value": "count(*),sum(amount),avg(amount)"}},
+                        {{"key": "source_certificate_ref", "value": "sql-local-source.jsonl.compatibility-source.v1"}},
+                        {{"key": "execution_certificate_ref", "value": "sql-local-source.jsonl.aggregate-filter-limit.execution.v1"}},
+                        {{"key": "materialization_boundary", "value": "local_jsonl_row_materialization_to_expression_semantics"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        aggregate_workflow = (
+            ctx.read_json("target/input.jsonl")
+            .filter("amount >= 10")
+            .aggregate("count(*)", "sum(amount)", "avg(amount)")
+        )
+        self.assertIsInstance(aggregate_workflow, sl.LazyFrame)
+        report = aggregate_workflow.limit(1).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("source_format"), "jsonl")
+        self.assertEqual(
+            report.result_jsonl,
+            '{"count_all":2,"sum_amount":36,"avg_amount":18.0}\n',
+        )
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_operator_family, "scalar_aggregate")
+        self.assertEqual(report.aggregate_functions, ("count(*)", "sum(amount)", "avg(amount)"))
+        self.assertEqual(
+            report.envelope.field("execution_certificate_ref"),
+            "sql-local-source.jsonl.aggregate-filter-limit.execution.v1",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_read_json_query_builder_group_by_aggregate_invokes_sql_smoke(self) -> None:
+        statement = (
+            "SELECT label,count(*),sum(amount) FROM 'target/input.jsonl' "
+            "WHERE amount >= 10 GROUP BY label LIMIT 10"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
+                    "--output",
+                    "target/json-grouped.jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "SQL local-source smoke returned grouped aggregate rows",
+                    "human_text": "SQL local-source smoke",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "result_jsonl", "value": "{{\\"label\\":\\"beta\\",\\"count_all\\":2,\\"sum_amount\\":36}}\\n"}},
+                        {{"key": "output_path", "value": "target/json-grouped.jsonl"}},
+                        {{"key": "source_format", "value": "jsonl"}},
+                        {{"key": "aggregate_runtime_execution", "value": "true"}},
+                        {{"key": "aggregate_operator_family", "value": "grouped_aggregate"}},
+                        {{"key": "aggregate_functions", "value": "count(*),sum(amount)"}},
+                        {{"key": "group_by_runtime_execution", "value": "true"}},
+                        {{"key": "group_by_columns", "value": "label"}},
+                        {{"key": "group_by_group_count", "value": "1"}},
+                        {{"key": "output_io_performed", "value": "true"}},
+                        {{"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"}},
+                        {{"key": "execution_certificate_ref", "value": "sql-local-source.jsonl.group-by-aggregate-filter-limit.execution.v1"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        grouped_workflow = (
+            ctx.read_json("target/input.jsonl")
+            .filter("amount >= 10")
+            .group_by("label")
+            .agg("count(*)", "sum(amount)")
+        )
+        self.assertIsInstance(grouped_workflow, sl.LazyFrame)
+        report = grouped_workflow.limit(10).write(
+            "target/json-grouped.jsonl",
+            allow_overwrite=True,
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.output_path, "target/json-grouped.jsonl")
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_operator_family, "grouped_aggregate")
+        self.assertTrue(report.group_by_runtime_execution)
+        self.assertEqual(report.group_by_columns, ("label",))
+        self.assertEqual(report.group_by_group_count, 1)
+        self.assertTrue(report.output_io_performed)
+        self.assertEqual(report.output_native_io_certificate_status, "certified_local_file_sink")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_read_json_query_builder_order_by_topn_invokes_sql_smoke(self) -> None:
+        statement = (
+            "SELECT id,label FROM 'target/input.jsonl' WHERE amount >= 0 "
+            "ORDER BY amount DESC LIMIT 2"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "SQL local-source smoke returned sorted rows",
+                    "human_text": "SQL local-source smoke",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "result_jsonl", "value": "{{\\"id\\":3,\\"label\\":\\"gamma\\"}}\\n{{\\"id\\":2,\\"label\\":\\"beta\\"}}\\n"}},
+                        {{"key": "source_format", "value": "jsonl"}},
+                        {{"key": "order_by_runtime_execution", "value": "true"}},
+                        {{"key": "top_n_runtime_execution", "value": "true"}},
+                        {{"key": "sort_operator_family", "value": "single_key_numeric_topn"}},
+                        {{"key": "sort_keys", "value": "amount"}},
+                        {{"key": "sort_direction", "value": "desc"}},
+                        {{"key": "sort_null_ordering", "value": "nulls_blocked_for_fixture_smoke"}},
+                        {{"key": "top_n_limit", "value": "2"}},
+                        {{"key": "execution_certificate_ref", "value": "sql-local-source.jsonl.order-by-topn-filter-limit.execution.v1"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        sorted_workflow = (
+            ctx.read_json("target/input.jsonl")
+            .select("id", "label")
+            .filter("amount >= 0")
+            .sort("amount", descending=True)
+        )
+        self.assertIsInstance(sorted_workflow, sl.LazyFrame)
+        report = sorted_workflow.limit(2).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("source_format"), "jsonl")
+        self.assertTrue(report.order_by_runtime_execution)
+        self.assertTrue(report.top_n_runtime_execution)
+        self.assertEqual(report.sort_keys, ("amount",))
+        self.assertEqual(report.sort_direction, "desc")
+        self.assertEqual(report.top_n_limit, 2)
+        self.assertEqual(
+            report.envelope.field("execution_certificate_ref"),
+            "sql-local-source.jsonl.order-by-topn-filter-limit.execution.v1",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_read_json_plain_json_remains_deterministic_unsupported(self) -> None:
         workflow_summary = "read_json(target/input.json) -> select(id) -> filter(id >= 1) -> limit(1)"
         binary = self.fake_cli(
