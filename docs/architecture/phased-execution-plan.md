@@ -208,6 +208,60 @@ python -m compileall -q python/src python/tests scripts examples
 git diff --check
 ```
 
+#### GAR-WEB-ATLAS-2 - Modal-Style Knowledge Atlas Website Overhaul
+
+Source: live visual inspection of `https://modal.com/gpu-glossary` on 2026-05-19,
+`website/build_static_pages.py`, `website/assets/site.css`, Field Guide and Use Case Atlas content,
+and ShardLoom brand/claim-safety docs.
+
+Technique transfer only: use the reference page's glossary-app structure, dense table of contents,
+atomic entries, concise article template, search utility, category rows, and previous/next
+navigation. Do not copy Modal text, CSS, layout code, branding, palette, trade dress, imagery, or
+product claims.
+
+- [ ] GAR-WEB-ATLAS-2B atlas model rollout to Use Cases, Status, Docs, and Compute Flow
+  - Source: completed Field Guide atlas shell, Use Case Atlas, status matrix, compute-flow rendered
+    reference, and README renderer.
+  - Current state: pages share nav and brand assets, but their structures differ and do not yet
+    feel like one unified learning system.
+  - Next slice outcome: make Use Cases, Status, Docs, and Compute Flow use the same concise atlas
+    information architecture where appropriate: left rail/section TOC, compact row lists,
+    consistent article/body templates, source/reference blocks, and visible claim boundaries.
+  - User-visible surface: `/use-cases/`, `/status`, `/readme`, `/compute-engine-flow`.
+  - Implementation scope: static generator templates, CSS atlas components, generated pages,
+    sitemap/canonical/OG metadata.
+  - Evidence required: all nav links resolve, all referenced assets exist, blocked/report-only
+    states remain visible, no runtime GitHub fetch, no unsupported claims.
+  - Acceptance: a non-expert can move between glossary terms, use cases, status, docs, and compute
+    flow without changing mental models or reading the phase plan.
+  - Verification: website build/readiness, static asset validation, link check/readiness report,
+    desktop/mobile visual QA, `git diff --check`.
+  - Non-goals: no framework migration, no runtime behavior, no benchmark data change.
+  - Claim boundary: learning/interpretation UX only.
+  - Fallback boundary: no runtime fallback changes.
+  - Ledger rule: ledger entry must include changed pages and visual QA paths.
+
+- [ ] GAR-WEB-ATLAS-2C atlas content consistency and concision gate
+  - Source: Field Guide content index, Use Case Atlas, generated dossier pages, website readiness
+    checker.
+  - Current state: content is source-linked and claim-safe, but page-by-page prose can still drift
+    in length, labels, and section order.
+  - Next slice outcome: add validation that every Field Guide dossier/use-case page has a concise
+    consistent template, source refs, status, claim boundary, related links, and no forbidden claim
+    phrases.
+  - User-visible surface: generated website quality and contributor feedback.
+  - Implementation scope: `scripts/check_website_readiness.py`, Field Guide/use-case index
+    validation, generated page checks.
+  - Evidence required: deterministic diagnostics for missing summary/status/source/claim fields and
+    overlong dossier sections.
+  - Acceptance: content consistency failures block website readiness before deployment.
+  - Verification: `python scripts/check_website_readiness.py`, `python scripts/check_use_case_index.py`,
+    `python scripts/check_use_case_coverage.py`, `git diff --check`.
+  - Non-goals: no semantic rewriting by validator, no external lint SaaS.
+  - Claim boundary: content QA only.
+  - Fallback boundary: no runtime fallback changes.
+  - Ledger rule: ledger entry must include validator rules and any allowed exceptions.
+
 #### GAR-P0 - Execution Mode, Provider Admission, And Vortex Spine
 
 P0 slices must preserve the canonical execution-mode vocabulary from

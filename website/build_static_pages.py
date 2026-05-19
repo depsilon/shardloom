@@ -1788,65 +1788,130 @@ def field_guide_concepts_by_category() -> list[tuple[str, list[dict[str, Any]]]]
     return grouped
 
 
+def field_guide_search_control() -> str:
+    return """
+      <div class="pagefind-controls atlas-search">
+        <pagefind-modal-trigger>Search atlas</pagefind-modal-trigger>
+        <pagefind-modal>
+          <pagefind-modal-header>
+            <pagefind-input placeholder="Search terms, evidence fields, workflows..."></pagefind-input>
+          </pagefind-modal-header>
+          <pagefind-modal-body>
+            <div class="pagefind-filter-row">
+              <pagefind-filter-dropdown filter="section" label="Section" single-select sort="alphabetical"></pagefind-filter-dropdown>
+              <pagefind-filter-dropdown filter="status" label="Status" single-select sort="alphabetical"></pagefind-filter-dropdown>
+              <pagefind-filter-dropdown filter="category" label="Category" single-select sort="alphabetical"></pagefind-filter-dropdown>
+            </div>
+            <pagefind-summary></pagefind-summary>
+            <pagefind-results></pagefind-results>
+          </pagefind-modal-body>
+          <pagefind-modal-footer>
+            <pagefind-keyboard-hints></pagefind-keyboard-hints>
+          </pagefind-modal-footer>
+        </pagefind-modal>
+      </div>
+    """
+
+
+def field_guide_atlas_sidebar(active_slug: str | None = None) -> str:
+    active_category = ""
+    if active_slug:
+        active_category = concept_by_slug(active_slug)["category"]
+    category_blocks = []
+    for category, concepts in field_guide_concepts_by_category():
+        category_active = " active" if category == active_category else ""
+        term_links = []
+        for concept in concepts:
+            active_class = " active" if concept["slug"] == active_slug else ""
+            current_attr = ' aria-current="page"' if concept["slug"] == active_slug else ""
+            term_links.append(
+                f"""
+                <li>
+                  <a class="atlas-side-term{active_class}"{current_attr} href="{concept_url(concept['slug'])}">
+                    <span>{esc(concept['title'])}</span>
+                    <em>{esc(status_label(concept['status']))}</em>
+                  </a>
+                </li>
+                """
+            )
+        category_blocks.append(
+            f"""
+            <div class="atlas-side-category-block">
+              <a class="atlas-side-category{category_active}" href="/field-guide/#{slug(category)}">
+                <span>{esc(category)}</span>
+                <strong>{len(concepts)}</strong>
+              </a>
+              <ul>{''.join(term_links)}</ul>
+            </div>
+            """
+        )
+    return f"""
+      <aside class="atlas-sidebar" aria-label="Field Guide table of contents">
+        <a class="atlas-sidebar-brand" href="/field-guide/" aria-label="ShardLoom Field Guide home">
+          <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+        </a>
+        <div class="atlas-sidebar-summary">
+          <span>Field Guide</span>
+          <strong>{len(FIELD_GUIDE_CONCEPTS)} dossiers</strong>
+        </div>
+        <nav class="atlas-side-nav" aria-label="Field Guide categories and terms">
+          {''.join(category_blocks)}
+        </nav>
+      </aside>
+    """
+
+
 def clean_generated_html(text: str) -> str:
     return "\n".join(line.rstrip() for line in text.splitlines()) + "\n"
 
 
 def field_guide_index_page() -> str:
     grouped_concepts = field_guide_concepts_by_category()
-    category_links = "".join(
-        f'<a class="reference-badge" href="#{slug(category)}"><span>{esc(category)}</span><strong>{len(concepts)}</strong></a>'
-        for category, concepts in grouped_concepts
-    )
     total_concepts = len(FIELD_GUIDE_CONCEPTS)
     total_categories = len(grouped_concepts)
     reading_paths = "".join(
         f"""
-          <article class="reading-path-card" id="{slug(path['id'])}">
-            <div class="reading-path-card-header">
+          <article class="atlas-reading-path" id="{slug(path['id'])}">
+            <div class="atlas-reading-path-header">
               <span class="claim-badge {status_class(path['status'])}" data-status="{esc(path['status'])}">{esc(status_label(path['status']))}</span>
               <a href="#{slug(path['id'])}">#{esc(path['id'])}</a>
             </div>
             <h3>{esc(path['title'])}</h3>
             <p>{esc(path['summary'])}</p>
-            <div class="reading-path-links">
+            <div class="atlas-reading-path-links">
               <strong>Concepts</strong>
               {reading_path_term_links(path['terms'])}
             </div>
-            <div class="reading-path-links">
+            <div class="atlas-reading-path-links">
               <strong>Use cases</strong>
               {related_use_case_links(path['use_cases'])}
             </div>
-            <p class="reading-path-boundary">{esc(path['claim_boundary'])}</p>
+            <p class="atlas-reading-path-boundary">{esc(path['claim_boundary'])}</p>
           </article>
         """
         for path in FIELD_GUIDE_READING_PATHS
     )
     category_sections = "".join(
         f"""
-        <section class="field-guide-category" id="{slug(category)}">
-          <div class="field-guide-category-header">
+        <section class="atlas-family" id="{slug(category)}">
+          <div class="atlas-family-header">
             <div>
-              <p class="eyebrow">Category</p>
+              <p class="eyebrow">Concept family</p>
               <h2>{esc(category)}</h2>
             </div>
             <span>{len(concepts)} dossier{"s" if len(concepts) != 1 else ""}</span>
           </div>
-          <div class="compact-term-list">
+          <div class="atlas-term-list">
             {''.join(
                 f'''
-                <article class="field-guide-card compact-term-row">
-                  <div class="compact-term-main">
-                    <span class="claim-badge {status_class(concept['status'])}" data-status="{esc(concept['status'])}">{esc(status_label(concept['status']))}</span>
-                    <h3><a href="{concept_url(concept['slug'])}">{esc(concept['title'])}</a></h3>
-                    <p>{esc(concept['summary'])}</p>
+                <a class="atlas-term-row" href="{concept_url(concept['slug'])}">
+                  <span class="claim-badge {status_class(concept['status'])}" data-status="{esc(concept['status'])}">{esc(status_label(concept['status']))}</span>
+                  <div class="atlas-term-copy">
+                    <strong>{esc(concept['title'])}</strong>
+                    <span>{esc(concept['summary'])}</span>
                   </div>
-                  <div class="field-guide-meta">
-                    <span class="reference-badge">{esc(concept['category'])}</span>
-                    <span class="reference-badge">{len(concept['evidence'])} evidence fields</span>
-                    <a class="button compact-action" href="{concept_url(concept['slug'])}">Open dossier</a>
-                  </div>
-                </article>
+                  <em>{len(concept['evidence'])} evidence field{"s" if len(concept['evidence']) != 1 else ""}</em>
+                </a>
                 '''
                 for concept in concepts
             )}
@@ -1856,64 +1921,49 @@ def field_guide_index_page() -> str:
         for category, concepts in field_guide_concepts_by_category()
     )
     body = f"""
-    <section class="doc-hero field-guide-hero">
-      <div class="shell">
-        {page_header_logo()}
-        <p class="eyebrow">Field Guide</p>
-        <h1>Technical dossiers for auditable compute.</h1>
-        <p class="lede">A source-linked atlas for reading ShardLoom evidence: execution modes, engine modes, Vortex-native paths, materialization boundaries, workflow recipes, benchmark telemetry, and public claim gates.</p>
-      </div>
-    </section>
-    <section class="doc-section field-guide-toc-section">
-      <div class="shell">
-        <div class="terminal-panel field-guide-search">
-          <p class="eyebrow">Static search</p>
-          <h2>Search the atlas.</h2>
-          <p>Search runs entirely from committed static assets. Results cover Field Guide dossiers, use cases, status, telemetry, compute flow, and rendered docs.</p>
-          <div class="pagefind-controls">
-            <pagefind-modal-trigger>Search Field Guide and docs</pagefind-modal-trigger>
-            <pagefind-modal>
-              <pagefind-modal-header>
-                <pagefind-input placeholder="Search terms, evidence fields, workflows..."></pagefind-input>
-              </pagefind-modal-header>
-              <pagefind-modal-body>
-                <div class="pagefind-filter-row">
-                  <pagefind-filter-dropdown filter="section" label="Section" single-select sort="alphabetical"></pagefind-filter-dropdown>
-                  <pagefind-filter-dropdown filter="status" label="Status" single-select sort="alphabetical"></pagefind-filter-dropdown>
-                  <pagefind-filter-dropdown filter="category" label="Category" single-select sort="alphabetical"></pagefind-filter-dropdown>
-                </div>
-                <pagefind-summary></pagefind-summary>
-                <pagefind-results></pagefind-results>
-              </pagefind-modal-body>
-              <pagefind-modal-footer>
-                <pagefind-keyboard-hints></pagefind-keyboard-hints>
-              </pagefind-modal-footer>
-            </pagefind-modal>
-          </div>
-        </div>
-        <div class="atlas-density-note" aria-label="Field Guide density and status summary">
-          <span class="status-chip supported">{total_concepts} dossiers</span>
-          <span class="status-chip report-only">{total_categories} concept families</span>
-          <span class="status-chip blocked">blocked and report-only states stay visible</span>
-        </div>
-        <div class="section-header-row">
+    <section class="field-guide-atlas atlas-shell">
+      {field_guide_atlas_sidebar()}
+      <div class="atlas-main">
+        <div class="atlas-topbar">
           <div>
-            <p class="eyebrow">Reading paths</p>
-            <h2>Start by what you need to understand.</h2>
+            <span class="atlas-path">/field-guide</span>
+            <strong>ShardLoom technical atlas</strong>
           </div>
-          <p>Each path links to exact dossiers and use cases while keeping support boundaries visible.</p>
+          {field_guide_search_control()}
         </div>
-        <div class="reading-path-grid">{reading_paths}</div>
-        <div class="terminal-panel field-guide-toc category-toc-band">
-          <p class="eyebrow">Table of contents</p>
-          <h2>Jump by concept family.</h2>
-          <div>{category_links}</div>
+        <div class="atlas-content">
+          <header class="atlas-hero">
+            <img class="atlas-hero-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+            <p class="eyebrow">Field Guide</p>
+            <h1>Auditable compute, explained as a technical atlas.</h1>
+            <p>A concise source-linked guide to ShardLoom evidence, execution routes, Vortex-native paths, workflow recipes, benchmark telemetry, and public claim gates.</p>
+            <div class="atlas-stat-row" aria-label="Field Guide density and status summary">
+              <span><strong>{total_concepts}</strong> dossiers</span>
+              <span><strong>{total_categories}</strong> concept families</span>
+              <span><strong>0</strong> hidden fallback routes</span>
+            </div>
+          </header>
+          <section class="atlas-section">
+            <div class="atlas-section-heading">
+              <div>
+                <p class="eyebrow">Reading paths</p>
+                <h2>Start by what you need to understand.</h2>
+              </div>
+              <p>Each path points to exact dossiers and use cases while keeping blocked and report-only boundaries visible.</p>
+            </div>
+            <div class="atlas-reading-grid">{reading_paths}</div>
+          </section>
+          <section class="atlas-section">
+            <div class="atlas-section-heading">
+              <div>
+                <p class="eyebrow">Table of contents</p>
+                <h2>Jump by concept family.</h2>
+              </div>
+              <p>Compact rows are meant for scanning, not marketing. Open any dossier for the support boundary, evidence fields, and source files.</p>
+            </div>
+            {category_sections}
+          </section>
         </div>
-      </div>
-    </section>
-    <section class="doc-section">
-      <div class="shell">
-        {category_sections}
       </div>
     </section>
     """
@@ -1947,74 +1997,79 @@ def field_guide_concept_page(
     )
     source_links = source_file_links(concept["sources"])
     body = f"""
-    <section class="doc-hero field-guide-hero">
-      <div class="shell">
-        {page_header_logo()}
-        <p class="eyebrow">Field Guide dossier</p>
-        <h1>{esc(concept['title'])}</h1>
-        <p class="lede">{esc(concept['answer'])}</p>
-        <div class="dossier-status-row">
-          <span class="claim-badge {status_class(concept['status'])}" data-status="{esc(concept['status'])}">{esc(status_label(concept['status']))}</span>
-          <span>{esc(concept['category'])}</span>
+    <section class="field-guide-atlas atlas-shell">
+      {field_guide_atlas_sidebar(concept['slug'])}
+      <div class="atlas-main">
+        <div class="atlas-topbar">
+          <div>
+            <a href="/field-guide/">Field Guide</a>
+            <span>/</span>
+            <strong>{esc(concept['title'])}</strong>
+          </div>
+          {field_guide_search_control()}
         </div>
-      </div>
-    </section>
-    <section class="doc-section">
-      <div class="shell dossier-layout">
-        <aside class="dossier-sidebar sticky-in-page-toc">
-          <h2>In this dossier</h2>
-          <a href="#meaning">Plain-English meaning</a>
-          <a href="#why">Why it matters</a>
-          <a href="#how">How ShardLoom uses it</a>
-          <a href="#support">Current support</a>
-          <a href="#evidence">Evidence fields</a>
-          <a href="#boundary">Claim boundary</a>
-          <a href="#try-it">Try it / use cases</a>
-          <a href="#related">Related concepts</a>
-          <a href="#sources">Reference files</a>
-        </aside>
-        <article class="dossier-body">
-          <section id="meaning">
+        <article class="atlas-content atlas-article">
+          <header class="atlas-article-hero">
+            <p class="atlas-path">/field-guide/{esc(concept['slug'])}</p>
+            <span class="claim-badge {status_class(concept['status'])}" data-status="{esc(concept['status'])}">{esc(status_label(concept['status']))}</span>
+            <h1>{esc(concept['title'])}</h1>
+            <p>{esc(concept['answer'])}</p>
+            <div class="atlas-meta-grid">
+              <span><strong>Category</strong>{esc(concept['category'])}</span>
+              <span><strong>Evidence fields</strong>{len(concept['evidence'])}</span>
+              <span><strong>Reference files</strong>{len(concept['sources'])}</span>
+            </div>
+          </header>
+          <nav class="atlas-article-jump" aria-label="Dossier sections">
+            <a href="#meaning">Meaning</a>
+            <a href="#why">Why it matters</a>
+            <a href="#how">How used</a>
+            <a href="#support">Support</a>
+            <a href="#evidence">Evidence</a>
+            <a href="#boundary">Claim boundary</a>
+            <a href="#sources">Sources</a>
+          </nav>
+          <section class="atlas-article-section" id="meaning">
             <p class="eyebrow">Plain-English meaning</p>
             <p>{esc(concept['answer'])}</p>
           </section>
-          <section id="why">
+          <section class="atlas-article-section" id="why">
             <p class="eyebrow">Why it matters</p>
             <p>{esc(concept['why'])}</p>
           </section>
-          <section id="how">
+          <section class="atlas-article-section" id="how">
             <p class="eyebrow">How ShardLoom uses it</p>
             <p>{esc(concept['how'])}</p>
           </section>
-          <section id="support">
+          <section class="atlas-article-section" id="support">
             <p class="eyebrow">Current support</p>
             <p>{inline_markdown(concept['current_support'])}</p>
           </section>
-          <section id="evidence">
+          <section class="atlas-article-section" id="evidence">
             <p class="eyebrow">Evidence fields</p>
             <p>{esc(concept['proves'])}</p>
             {bullet_list([f"`{field}`" for field in concept['evidence']])}
           </section>
-          <section id="boundary">
+          <section class="atlas-article-section" id="boundary">
             <p class="eyebrow">Claim boundary</p>
             <h3>What it does not claim</h3>
             <p>{esc(concept['not_proves'])}</p>
             <p>{esc(concept['boundary'])}</p>
           </section>
-          <section id="try-it">
+          <section class="atlas-article-section" id="try-it">
             <p class="eyebrow">Try it / related use cases</p>
             <p>{esc(concept['try_it'])}</p>
             {related_use_cases}
           </section>
-          <section id="related" class="related-concepts">
+          <section class="atlas-article-section related-concepts" id="related">
             <p class="eyebrow">Related concepts</p>
             {related}
           </section>
-          <section id="sources">
+          <section class="atlas-article-section" id="sources">
             <p class="eyebrow">Reference files</p>
             {source_links}
           </section>
-          <nav class="dossier-nav" aria-label="Dossier navigation">
+          <nav class="dossier-nav atlas-pagination" aria-label="Dossier navigation">
             <a class="button" href="/field-guide/">Field Guide index</a>
             {prev_link}
             {next_link}
@@ -2029,6 +2084,7 @@ def field_guide_concept_page(
         body,
         "field-guide",
         f"field-guide/{concept['slug']}",
+        PAGEFIND_HEAD,
         pagefind_filters={
             "section": "Field Guide",
             "category": concept["category"],

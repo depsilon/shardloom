@@ -117,9 +117,10 @@ PAGEFIND_MODAL_COMPONENT_RE = re.compile(
 RAW_GITHUB_HOST = "raw.githubusercontent.com"
 URL_PATTERN = re.compile(r"https?://[^\s\"'<>]+")
 FIELD_GUIDE_DOSSIER_REQUIRED_FIELDS = [
-    "Field Guide dossier",
-    "dossier-status-row",
-    "sticky-in-page-toc",
+    "atlas-sidebar",
+    "atlas-article-hero",
+    "atlas-meta-grid",
+    "atlas-article-jump",
     'id="meaning"',
     'id="why"',
     'id="how"',
@@ -481,16 +482,18 @@ def main() -> int:
                 "Evidence And Claims",
                 "Performance Architecture",
                 "Release And Trust",
-                "Static search",
+                "Search atlas",
                 "pagefind-component-ui.css",
                 "pagefind-component-ui.js",
                 "pagefind-modal-trigger",
                 "pagefind-filter-dropdown",
                 'data-pagefind-filter="section"',
                 'data-pagefind-filter="status"',
-                "atlas-density-note",
-                "category-toc-band",
-                "compact-term-row",
+                "atlas-sidebar",
+                "atlas-stat-row",
+                "atlas-reading-grid",
+                "atlas-family",
+                "atlas-term-row",
                 "reference-badge",
             ]:
                 if required not in field_guide_text:
