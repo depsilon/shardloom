@@ -36,6 +36,7 @@ from shardloom import (
     ShardLoomCommandError,
     ShardLoomContext,
     ShardLoomProtocolError,
+    SqlLocalSourceSmokeReport,
     OutputEnvelope,
     PreparedVortexArtifacts,
     PredicateDtypeCoverageRow,
@@ -760,6 +761,48 @@ class ShardLoomClientTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "capability_snapshot"):
             OutputEnvelope.from_json(payload)
+
+    def test_sql_local_source_report_result_rows_validate_jsonl_objects(self) -> None:
+        def report_for(result_jsonl: str) -> SqlLocalSourceSmokeReport:
+            envelope = OutputEnvelope.from_json(
+                {
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {
+                        "attempted": False,
+                        "allowed": False,
+                        "engine": None,
+                        "reason": "disabled",
+                    },
+                    "diagnostics": [],
+                    "result": {"fields": []},
+                    "result_refs": [],
+                    "artifacts": [],
+                    "artifact_refs": [],
+                    "certificates": [],
+                    "policy": {"fields": []},
+                    "lifecycle": {"fields": []},
+                    "capability_snapshot": {"fields": []},
+                    "fields": [{"key": "result_jsonl", "value": result_jsonl}],
+                }
+            )
+            return SqlLocalSourceSmokeReport(envelope)
+
+        valid = report_for('{"id":1,"label":"alpha"}\n\n{"id":2,"label":"beta"}\n')
+        self.assertEqual(
+            valid.result_rows,
+            ({"id": 1, "label": "alpha"}, {"id": 2, "label": "beta"}),
+        )
+        self.assertEqual(valid.first_result_row, {"id": 1, "label": "alpha"})
+
+        with self.assertRaisesRegex(ShardLoomProtocolError, "invalid JSONL at line 1"):
+            _ = report_for("not-json\n").result_rows
+
+        with self.assertRaisesRegex(ShardLoomProtocolError, "line 1 is not a JSON object"):
+            _ = report_for("1\n").result_rows
 
     def test_capabilities_scope_uses_explicit_scope(self) -> None:
         binary = self.fake_cli(

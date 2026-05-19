@@ -30,7 +30,7 @@ The Python query-builder runtime admits local CSV and local flat JSONL/NDJSON se
 
 ## Internal Flow
 
-`local_csv, local_jsonl, local_ndjson -> direct_compatibility_transient -> batch -> inline_jsonl_result, local_jsonl_output, local_csv_output, literal_projection_result, row_count_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv, local_jsonl, local_ndjson -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, local_jsonl_output, local_csv_output, literal_projection_result, row_count_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -76,7 +76,7 @@ The Python query-builder runtime admits local CSV and local flat JSONL/NDJSON se
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with local CSV or flat JSONL source evidence, source_format/source_state fields, source-format-aware source/execution certificate refs, materialization boundary and claim-gate reason fields, literal_projection_runtime_execution/count/columns when requested, in_predicate_runtime_execution and in_list_value_count when requested, local JSONL or CSV output evidence when written, count/scalar/grouped/top-N/join fields when requested, group_by columns/count for grouped workflows, sort key/direction/top-N limit for sorted workflows, join key/type/row-count fields for scoped joins, output Native I/O certificate status, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV or flat JSONL source evidence, source_format/source_state fields, source-format-aware source/execution certificate refs, materialization boundary and claim-gate reason fields, literal_projection_runtime_execution/count/columns when requested, in_predicate_runtime_execution and in_list_value_count when requested, local JSONL or CSV output evidence when written, count/scalar/grouped/top-N/join fields when requested, group_by columns/count for grouped workflows, sort key/direction/top-N limit for sorted workflows, join key/type/row-count fields for scoped joins, output Native I/O certificate status, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

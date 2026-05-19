@@ -143,8 +143,9 @@ Currently wired surfaces include:
   inner `join(..., on="key")` paths wrap these same scoped
   projection/scalar/grouped/top-N/literal/join paths; `sl.col(...)` lowers admitted comparison, null, string
   `LIKE`, bounded `IN`, cast/date, and logical predicates into the same ShardLoom-owned runtime;
-  direct Python client calls can inspect typed
-  evidence from the CLI smoke. This is not broad SQL/DataFrame runtime, broad Python/DataFrame
+  direct Python client calls can inspect bounded result rows through typed `result_rows` /
+  `first_result_row` helpers and typed evidence from the CLI smoke. This is not broad
+  SQL/DataFrame runtime, broad Python/DataFrame
   join support, non-literal `with_column`, nested JSON runtime, generalized join/grouped aggregate/ordering support, a SQL
   compatibility claim, object-store/table support, or a production claim
 - scoped prepared/native Vortex query paths for `selective filter`, `wide projection`,

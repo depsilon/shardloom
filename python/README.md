@@ -461,7 +461,7 @@ joined = (
     .collect()
 )
 
-print(collected.result_jsonl)
+print(collected.result_rows)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
 print(csv_written.output_path)
@@ -470,23 +470,23 @@ print(csv_written.output_native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
 print(written.evidence_summary.output_native_io_certificate_status)
 print(written.claim_summary.claim_gate_status)
-print(preview.result_jsonl)
-print(head.result_jsonl)
-print(take.result_jsonl)
+print(preview.result_rows)
+print(head.result_rows)
+print(take.result_rows)
 print(filtered.logical_predicate_operator, filtered.logical_predicate_leaf_count)
 print(in_filtered.in_predicate_runtime_execution, in_filtered.in_list_value_count)
 print(json_rows.output_path, json_rows.envelope.field("source_format"))
-print(aggregate.result_jsonl)
+print(aggregate.first_result_row)
 print(aggregate.aggregate_operator_family)
 print(aggregate.aggregate_functions)
-print(row_count.result_jsonl)
+print(row_count.first_result_row)
 print(row_count.aggregate_functions)
-print(grouped.result_jsonl)
+print(grouped.result_rows)
 print(grouped.aggregate_operator_family)
 print(grouped.group_by_columns)
-print(topn.result_jsonl)
+print(topn.result_rows)
 print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
-print(joined.result_jsonl)
+print(joined.result_rows)
 print(joined.join_runtime_execution, joined.join_type)
 print(joined.evidence_summary.command)
 print(joined.claim_summary.public_performance_claim_allowed)
@@ -514,7 +514,7 @@ sql_written = ctx.sql(
     "WHERE amount >= 10 LIMIT 2"
 ).write("target/sql-local-source-from-sql.jsonl", allow_overwrite=True)
 
-print(sql_rows.result_jsonl)
+print(sql_rows.result_rows)
 print(sql_in_rows.in_predicate_runtime_execution, sql_in_rows.in_list_value_count)
 print(sql_written.output_path)
 print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
@@ -538,13 +538,14 @@ unqualified join predicates, joins over non-CSV sources, and object-store/table
 joins still return deterministic unsupported diagnostics or fail closed through
 the scoped SQL binder.
 
-Typed runtime reports expose compact evidence and claim helpers so examples do
-not need to scrape raw envelope fields:
+Typed runtime reports expose `result_rows` and `first_result_row` helpers plus compact evidence and
+claim helpers so examples do not need to parse raw JSONL or scrape raw envelope fields:
 
 ```python
 summary = written.evidence_summary
 claim = written.claim_summary
 
+print(collected.first_result_row)
 print(summary.output_path)
 print(summary.output_io_performed)
 print(summary.fallback_attempted, summary.external_engine_invoked)
@@ -563,7 +564,7 @@ report = client.sql_local_source_smoke(
     "FROM 'target/sql-local-source-smoke.csv' "
     "WHERE amount >= 10 LIMIT 1",
 )
-print(report.result_jsonl)
+print(report.first_result_row)
 print(report.claim_gate_status)
 
 grouped = client.sql_local_source_smoke(
