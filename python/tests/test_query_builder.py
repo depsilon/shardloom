@@ -1496,6 +1496,127 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_read_json_query_builder_projection_filter_limit_invokes_sql_smoke(self) -> None:
+        statement = "SELECT id,label FROM 'target/input.jsonl' WHERE amount >= 10 LIMIT 2"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
+                    "--output",
+                    "target/json-result.jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "SQL local-source smoke returned 2 bounded row(s)",
+                    "human_text": "SQL local-source smoke",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "result_jsonl", "value": "{{\\"id\\":2,\\"label\\":\\"beta\\"}}\\n{{\\"id\\":3,\\"label\\":\\"gamma\\"}}\\n"}},
+                        {{"key": "output_path", "value": "target/json-result.jsonl"}},
+                        {{"key": "output_row_count", "value": "2"}},
+                        {{"key": "selected_row_count", "value": "2"}},
+                        {{"key": "source_format", "value": "jsonl"}},
+                        {{"key": "source_io_performed", "value": "true"}},
+                        {{"key": "source_state_id", "value": "source-state-jsonl-1"}},
+                        {{"key": "source_state_digest", "value": "sha256:jsonl-source-state"}},
+                        {{"key": "output_io_performed", "value": "true"}},
+                        {{"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_json("target/input.jsonl")
+            .select("id", "label")
+            .filter("amount >= 10")
+            .limit(2)
+            .write("target/json-result.jsonl", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.output_path, "target/json-result.jsonl")
+        self.assertEqual(report.output_row_count, 2)
+        self.assertEqual(report.selected_row_count, 2)
+        self.assertEqual(report.envelope.field("source_format"), "jsonl")
+        self.assertTrue(report.envelope.field_bool("source_io_performed", False))
+        self.assertEqual(report.envelope.field("source_state_id"), "source-state-jsonl-1")
+        self.assertTrue(report.output_io_performed)
+        self.assertEqual(report.output_native_io_certificate_status, "certified_local_file_sink")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_read_json_plain_json_remains_deterministic_unsupported(self) -> None:
+        workflow_summary = "read_json(target/input.json) -> select(id) -> filter(id >= 1) -> limit(1)"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "workflow-unsupported-plan",
+                    "collect",
+                    {workflow_summary!r},
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "workflow operation unsupported",
+                    "human_text": "workflow unsupported operation",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "operation", "value": "collect"}},
+                        {{"key": "workflow_summary", "value": {workflow_summary!r}}},
+                        {{"key": "blocker_id", "value": "gar-runtime-impl-4f.json.runtime_not_admitted"}},
+                        {{"key": "runtime_execution", "value": "false"}},
+                        {{"key": "data_read", "value": "false"}},
+                        {{"key": "write_io", "value": "false"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}}
+                    ],
+                }}))
+                sys.exit(1)
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_json("target/input.json")
+            .select("id")
+            .filter("id >= 1")
+            .limit(1)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
+        self.assertEqual(report.operation, "collect")
+        self.assertFalse(report.runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.envelope.field_bool("external_engine_invoked", False))
+
     def test_context_sql_source_free_collect_remains_deterministic_unsupported(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
