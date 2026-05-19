@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0019-A credential lifecycle and policy enforcement gate
+  - Branch/PR: `codex/gar-0019a-credential-policy-gate` / #758.
+  - Primary files:
+    - `shardloom-core/src/security.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/operational_hardening.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-cli/tests/security_governance_evidence_gate.rs`
+    - `shardloom-cli/tests/capability_discovery_snapshots.rs`
+    - `docs/architecture/credential-policy-enforcement-gate.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0019-A by making credential lifecycle and runtime policy enforcement blockers
+    explicit through a deterministic report-only gate.
+  - Checklist:
+    - [x] Add `shardloom.credential_policy_enforcement_gate.v1`.
+    - [x] Classify credential reference inventory, secret loading, environment/file/external-manager
+          and cloud-IAM providers, workspace policy, runtime permission checks, redaction policy,
+          and unsupported diagnostics.
+    - [x] Emit gate fields through `security-governance-evidence-gate` and
+          `capabilities security-governance`.
+    - [x] Move GAR-0019-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `credential_policy_gate_schema_version=shardloom.credential_policy_enforcement_gate.v1`
+    - `credential_policy_gate_id=gar-0019-a.credential_lifecycle_policy_enforcement_gate`
+    - `credential_policy_gate_claim_gate_status=not_claim_grade`
+    - `credential_policy_gate_all_credential_runtime_blocked=true`
+    - `credential_policy_gate_credential_references_only=true`
+    - `credential_policy_gate_credential_resolution_performed=false`
+    - `credential_policy_gate_secret_loading_performed=false`
+    - `credential_policy_gate_secret_value_materialized=false`
+    - `credential_policy_gate_runtime_permission_checks_enforced=false`
+    - `credential_policy_gate_workspace_policy_enforced=false`
+    - `credential_policy_gate_production_policy_runtime_supported=false`
+    - `credential_policy_gate_network_probe_performed=false`
+    - `credential_policy_gate_external_effect_executed=false`
+    - `credential_policy_gate_fallback_attempted=false`
+    - `credential_policy_gate_external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-core credential_policy_enforcement_gate_blocks_secret_runtime_by_default`
+    - `cargo test -p shardloom-cli --test security_governance_evidence_gate`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that it exposes a deterministic report-only
+    credential lifecycle and policy enforcement gate. It may not claim secret loading, credential
+    resolution, provider-network probes, environment/file secret reads, external secret-manager or
+    cloud-IAM runtime, production runtime permission enforcement, production workspace-policy
+    enforcement, external effects, external engine invocation, fallback execution, or a governed
+    production runtime.
+
 - [x] Session label: GAR-0011-A extension manifest and external-effect capability matrix
   - Branch/PR: `codex/gar-0011a-extension-effect-matrix` / #757.
   - Primary files:

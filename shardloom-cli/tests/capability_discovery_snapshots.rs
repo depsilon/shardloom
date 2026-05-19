@@ -513,6 +513,67 @@ const EXTENSION_MANIFEST_EFFECT_ROW_SUFFIXES: [&str; 21] = [
     "claim_boundary",
 ];
 
+const CREDENTIAL_POLICY_GATE_FIELD_KEYS: [&str; 23] = [
+    "credential_policy_gate_schema_version",
+    "credential_policy_gate_id",
+    "credential_policy_gate_docs_ref",
+    "credential_policy_gate_support_status",
+    "credential_policy_gate_claim_gate_status",
+    "credential_policy_gate_row_count",
+    "credential_policy_gate_row_order",
+    "credential_policy_gate_blocker_ids",
+    "credential_policy_gate_required_evidence",
+    "credential_policy_gate_all_credential_runtime_blocked",
+    "credential_policy_gate_credential_references_only",
+    "credential_policy_gate_credential_resolution_performed",
+    "credential_policy_gate_secret_loading_performed",
+    "credential_policy_gate_secret_value_materialized",
+    "credential_policy_gate_runtime_permission_checks_enforced",
+    "credential_policy_gate_workspace_policy_enforced",
+    "credential_policy_gate_production_policy_runtime_supported",
+    "credential_policy_gate_redaction_required",
+    "credential_policy_gate_audit_required",
+    "credential_policy_gate_network_probe_performed",
+    "credential_policy_gate_external_effect_executed",
+    "credential_policy_gate_fallback_attempted",
+    "credential_policy_gate_external_engine_invoked",
+];
+
+const CREDENTIAL_POLICY_GATE_ROW_IDS: [&str; 10] = [
+    "credential_reference_inventory",
+    "secret_loading",
+    "environment_secret_provider",
+    "file_secret_provider",
+    "external_secret_manager_provider",
+    "cloud_iam_provider",
+    "workspace_policy",
+    "runtime_permission_check",
+    "redaction_policy",
+    "unsupported_diagnostics",
+];
+
+const CREDENTIAL_POLICY_GATE_ROW_SUFFIXES: [&str; 19] = [
+    "lifecycle_surface",
+    "support_status",
+    "default_policy",
+    "blocker_id",
+    "diagnostic_code",
+    "required_evidence",
+    "user_visible_surface",
+    "credential_resolution_performed",
+    "secret_loading_performed",
+    "secret_value_materialized",
+    "runtime_permission_check_enforced",
+    "workspace_policy_enforced",
+    "redaction_required",
+    "audit_required",
+    "network_probe_performed",
+    "external_effect_executed",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_boundary",
+];
+
 const UNSTRUCTURED_ADAPTER_CAPABILITY_FIELD_KEYS: [&str; 14] = [
     "unstructured_adapter_capability_schema_version",
     "unstructured_adapter_capability_matrix_id",
@@ -785,6 +846,27 @@ fn append_extension_manifest_effect_keys(keys: &mut Vec<String>) {
 fn with_extension_manifest_effect_fields(base_keys: &[&'static str]) -> Vec<String> {
     let mut keys = with_external_effect_blocker_fields(base_keys);
     append_extension_manifest_effect_keys(&mut keys);
+    keys
+}
+
+fn append_credential_policy_gate_keys(keys: &mut Vec<String>) {
+    keys.extend(
+        CREDENTIAL_POLICY_GATE_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in CREDENTIAL_POLICY_GATE_ROW_IDS {
+        keys.extend(
+            CREDENTIAL_POLICY_GATE_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("credential_policy_gate_row_{row_id}_{suffix}")),
+        );
+    }
+}
+
+fn with_security_governance_policy_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys = with_extension_manifest_effect_fields(base_keys);
+    append_credential_policy_gate_keys(&mut keys);
     keys
 }
 
@@ -1605,7 +1687,10 @@ fn capability_discovery_json_field_keys_are_stable() {
                     WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
                 )
             }
-            "udfs" | "extensions" | "security-governance" => {
+            "security-governance" => {
+                with_security_governance_policy_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
+            }
+            "udfs" | "extensions" => {
                 with_extension_manifest_effect_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
             }
             _ => WORLD_CLASS_SURFACE_FIELD_KEYS
@@ -1837,6 +1922,71 @@ fn extension_capabilities_expose_manifest_effect_matrix() {
                 false
             )));
         }
+    }
+}
+
+#[test]
+fn security_governance_capabilities_expose_credential_policy_gate() {
+    let output = run_capabilities_scope("security-governance");
+    assert!(output.contains(&string_field_pair(
+        "credential_policy_gate_schema_version",
+        "shardloom.credential_policy_enforcement_gate.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "credential_policy_gate_id",
+        "gar-0019-a.credential_lifecycle_policy_enforcement_gate"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "credential_policy_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field_pair(
+        "credential_policy_gate_all_credential_runtime_blocked",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "credential_policy_gate_credential_references_only",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "credential_policy_gate_credential_resolution_performed",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "credential_policy_gate_secret_loading_performed",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "credential_policy_gate_secret_value_materialized",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "credential_policy_gate_fallback_attempted",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "credential_policy_gate_external_engine_invoked",
+        false
+    )));
+    for row in [
+        "secret_loading",
+        "environment_secret_provider",
+        "external_secret_manager_provider",
+        "cloud_iam_provider",
+        "runtime_permission_check",
+    ] {
+        assert!(output.contains(&field_pair(
+            &format!("credential_policy_gate_row_{row}_credential_resolution_performed"),
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            &format!("credential_policy_gate_row_{row}_secret_loading_performed"),
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            &format!("credential_policy_gate_row_{row}_fallback_attempted"),
+            false
+        )));
     }
 }
 

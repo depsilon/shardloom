@@ -78,3 +78,61 @@ fn security_governance_evidence_gate_json_blocks_effects_by_default() {
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
 }
+
+#[test]
+fn security_governance_evidence_gate_json_exposes_credential_policy_gate() {
+    let output = run_security_governance_evidence_gate_json();
+
+    assert!(output.contains(&field(
+        "credential_policy_gate_schema_version",
+        "shardloom.credential_policy_enforcement_gate.v1"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_id",
+        "gar-0019-a.credential_lifecycle_policy_enforcement_gate"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_all_credential_runtime_blocked",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_credential_references_only",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_credential_resolution_performed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_secret_loading_performed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_secret_value_materialized",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_network_probe_performed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_external_engine_invoked",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_row_secret_loading_support_status",
+        "blocked"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_row_secret_loading_secret_loading_performed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "credential_policy_gate_row_runtime_permission_check_support_status",
+        "blocked"
+    )));
+}

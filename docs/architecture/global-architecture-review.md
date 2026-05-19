@@ -416,15 +416,23 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0019-security-secrets-governance-agent-safety.md`](../rfcs/0019-security-secrets-governance-agent-safety.md)
-- Current read: Report-level security posture exists; production enforcement remains incomplete.
+- Current read: Report-level security posture and credential-policy blockers exist; production
+  enforcement remains incomplete.
 - Evidence: `shardloom-core/src/security.rs`, `docs/security/threat-model.md`,
+  `docs/architecture/credential-policy-enforcement-gate.md`,
   `docs/security/runtime-exploit-regression-suite.md`,
   `shardloom-contract-tests/tests/release_readiness_metadata.rs`
 - [x] Security/governance reports, secrets-unloaded defaults, and side-effect-free agent/dry-run
   posture exist.
 - [x] Release metadata and security docs record no-fallback and governance evidence.
-- [ ] Credential lifecycle, runtime policy enforcement, sandbox execution, and production
-  governance remain incomplete.
+- [x] `GAR-0019-A` adds `shardloom.credential_policy_enforcement_gate.v1` so credential reference
+  inventory, secret loading, environment/file/external-manager/cloud-IAM providers, workspace
+  policy, runtime permission checks, redaction policy, deterministic unsupported diagnostics,
+  `claim_gate_status=not_claim_grade`, `credential_resolution_performed=false`,
+  `secret_loading_performed=false`, `fallback_attempted=false`, and
+  `external_engine_invoked=false` are visible through security/governance surfaces.
+- [ ] Credential resolution, secret loading, production runtime policy enforcement, sandbox
+  execution, and production governance remain incomplete.
 
 ### RFC 0020 - Schema Evolution, Catalog Integration, and Table Compatibility
 

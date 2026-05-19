@@ -306,15 +306,16 @@ pub use schema::{
 };
 
 pub use security::{
-    AgentSafetyMode, ApprovalRequirement, AuditActionKind, AuditRecord, CredentialScope,
+    AgentSafetyMode, ApprovalRequirement, AuditActionKind, AuditRecord,
+    CredentialPolicyEnforcementGateReport, CredentialPolicyEnforcementGateRow, CredentialScope,
     CredentialScopeKind, DataSensitivity, DryRunSafety, EvidenceArtifactSafetyReport,
     ExternalEffectKind, ExternalEffectPolicy, PermissionKind, PermissionRequirement,
     PermissionStatus, RedactionPolicy, RedactionPolicyKind, RuntimeInputSafetyReport,
     SecretProviderKind, SecretRef, SecretRefId, SecurityGovernanceEvidenceArea,
     SecurityGovernanceEvidenceEntry, SecurityGovernanceEvidenceGateReport,
     SecurityGovernanceEvidenceStatus, SecurityPlan, SecurityPolicyStatus, SecurityReport,
-    SensitiveField, WorkspacePathSafetyReport, plan_security_governance_evidence_gate,
-    redact_credential_like_values,
+    SensitiveField, WorkspacePathSafetyReport, plan_credential_policy_enforcement_gate,
+    plan_security_governance_evidence_gate, redact_credential_like_values,
 };
 
 pub use session::{

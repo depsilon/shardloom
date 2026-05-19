@@ -1619,6 +1619,294 @@ pub fn plan_security_governance_evidence_gate() -> SecurityGovernanceEvidenceGat
     SecurityGovernanceEvidenceGateReport::planning_default()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CredentialPolicyEnforcementGateRow {
+    pub row_id: &'static str,
+    pub lifecycle_surface: &'static str,
+    pub support_status: &'static str,
+    pub default_policy: &'static str,
+    pub blocker_id: &'static str,
+    pub diagnostic_code: &'static str,
+    pub required_evidence: &'static str,
+    pub user_visible_surface: &'static str,
+    pub credential_resolution_performed: bool,
+    pub secret_loading_performed: bool,
+    pub secret_value_materialized: bool,
+    pub runtime_permission_check_enforced: bool,
+    pub workspace_policy_enforced: bool,
+    pub redaction_required: bool,
+    pub audit_required: bool,
+    pub network_probe_performed: bool,
+    pub external_effect_executed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: &'static str,
+}
+
+impl CredentialPolicyEnforcementGateRow {
+    #[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
+    const fn new(
+        row_id: &'static str,
+        lifecycle_surface: &'static str,
+        support_status: &'static str,
+        default_policy: &'static str,
+        blocker_id: &'static str,
+        diagnostic_code: &'static str,
+        required_evidence: &'static str,
+        user_visible_surface: &'static str,
+        runtime_permission_check_enforced: bool,
+        workspace_policy_enforced: bool,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            row_id,
+            lifecycle_surface,
+            support_status,
+            default_policy,
+            blocker_id,
+            diagnostic_code,
+            required_evidence,
+            user_visible_surface,
+            credential_resolution_performed: false,
+            secret_loading_performed: false,
+            secret_value_materialized: false,
+            runtime_permission_check_enforced,
+            workspace_policy_enforced,
+            redaction_required: true,
+            audit_required: true,
+            network_probe_performed: false,
+            external_effect_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CredentialPolicyEnforcementGateReport {
+    pub schema_version: &'static str,
+    pub gate_id: &'static str,
+    pub docs_ref: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<CredentialPolicyEnforcementGateRow>,
+    pub credential_references_only: bool,
+    pub credential_resolution_performed: bool,
+    pub secret_loading_performed: bool,
+    pub secret_value_materialized: bool,
+    pub runtime_permission_checks_enforced: bool,
+    pub workspace_policy_enforced: bool,
+    pub production_policy_runtime_supported: bool,
+    pub redaction_required: bool,
+    pub audit_required: bool,
+    pub network_probe_performed: bool,
+    pub external_effect_executed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl CredentialPolicyEnforcementGateReport {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.credential_policy_enforcement_gate.v1",
+            gate_id: "gar-0019-a.credential_lifecycle_policy_enforcement_gate",
+            docs_ref: "docs/architecture/credential-policy-enforcement-gate.md",
+            support_status: "report_only",
+            claim_gate_status: "not_claim_grade",
+            rows: vec![
+                CredentialPolicyEnforcementGateRow::new(
+                    "credential_reference_inventory",
+                    "credential_reference",
+                    "report_only",
+                    "reference_metadata_only",
+                    "none_reference_inventory",
+                    "SL_CREDENTIAL_REFERENCE_ONLY",
+                    "secret_ref_metadata,provider_kind,scope_kind,redaction_policy,no_fallback_evidence",
+                    "security-governance-evidence-gate,capabilities security-governance",
+                    false,
+                    false,
+                    "Credential references may be inventoried as metadata only; ShardLoom does not resolve or load secret values.",
+                ),
+                CredentialPolicyEnforcementGateRow::new(
+                    "secret_loading",
+                    "secret_value_loading",
+                    "blocked",
+                    "denied_until_explicit_policy_and_runtime_evidence",
+                    "gar-0019-a.secret_loading_blocked",
+                    "SL_CREDENTIAL_POLICY_BLOCKED",
+                    "secret_provider_policy,redaction_policy,audit_trail,permission_check,execution_certificate,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    false,
+                    false,
+                    "Secret loading remains blocked; no secret value is materialized into diagnostics, plans, evidence, or runtime state.",
+                ),
+                CredentialPolicyEnforcementGateRow::new(
+                    "environment_secret_provider",
+                    "environment",
+                    "blocked",
+                    "references_only_no_env_read",
+                    "gar-0019-a.environment_secret_provider_blocked",
+                    "SL_CREDENTIAL_POLICY_BLOCKED",
+                    "environment_provider_policy,allowlist,redaction_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    false,
+                    false,
+                    "Environment secret providers remain reference-only; ShardLoom does not read environment secret values.",
+                ),
+                CredentialPolicyEnforcementGateRow::new(
+                    "file_secret_provider",
+                    "file_reference",
+                    "blocked",
+                    "references_only_no_file_read",
+                    "gar-0019-a.file_secret_provider_blocked",
+                    "SL_CREDENTIAL_POLICY_BLOCKED",
+                    "path_safety_policy,workspace_policy,redaction_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    false,
+                    false,
+                    "File secret providers remain reference-only; ShardLoom does not read secret files.",
+                ),
+                CredentialPolicyEnforcementGateRow::new(
+                    "external_secret_manager_provider",
+                    "external_secret_manager",
+                    "blocked",
+                    "network_and_credentials_denied",
+                    "gar-0019-a.external_secret_manager_provider_blocked",
+                    "SL_CREDENTIAL_POLICY_BLOCKED",
+                    "provider_policy,network_policy,credential_policy,redaction_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    false,
+                    false,
+                    "External secret managers remain blocked; no provider client, network probe, or credential exchange is performed.",
+                ),
+                CredentialPolicyEnforcementGateRow::new(
+                    "cloud_iam_provider",
+                    "cloud_iam",
+                    "blocked",
+                    "network_and_iam_denied",
+                    "gar-0019-a.cloud_iam_provider_blocked",
+                    "SL_CREDENTIAL_POLICY_BLOCKED",
+                    "iam_policy,provider_probe_policy,network_policy,redaction_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    false,
+                    false,
+                    "Cloud IAM credential resolution remains blocked; no token exchange, metadata service call, or provider probe is performed.",
+                ),
+                CredentialPolicyEnforcementGateRow::new(
+                    "workspace_policy",
+                    "workspace_policy",
+                    "report_only",
+                    "declared_policy_only",
+                    "gar-0019-a.workspace_policy_runtime_enforcement_missing",
+                    "SL_POLICY_ENFORCEMENT_REPORT_ONLY",
+                    "workspace_root,path_safety_policy,symlink_policy,write_policy,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate,workspace path safety reports",
+                    false,
+                    false,
+                    "Workspace policy can be reported for current path-safety surfaces; production runtime policy enforcement remains incomplete.",
+                ),
+                CredentialPolicyEnforcementGateRow::new(
+                    "runtime_permission_check",
+                    "runtime_permission",
+                    "blocked",
+                    "deny_without_runtime_permission_evidence",
+                    "gar-0019-a.runtime_permission_check_blocked",
+                    "SL_POLICY_ENFORCEMENT_REPORT_ONLY",
+                    "permission_manifest,capability_check,audit_trail,execution_certificate,no_fallback_evidence",
+                    "security-governance-evidence-gate",
+                    false,
+                    false,
+                    "Runtime permission checks remain blocked for production claims until every effectful operation records enforcement evidence.",
+                ),
+                CredentialPolicyEnforcementGateRow::new(
+                    "redaction_policy",
+                    "redaction",
+                    "report_only",
+                    "strict_redaction_required",
+                    "gar-0019-a.redaction_policy_runtime_enforcement_missing",
+                    "SL_POLICY_ENFORCEMENT_REPORT_ONLY",
+                    "redaction_policy,artifact_safety_report,diagnostic_snapshot,audit_trail,no_fallback_evidence",
+                    "security-governance-evidence-gate,release security gate",
+                    false,
+                    false,
+                    "Strict redaction is required for claimable surfaces; this row does not claim a production redaction runtime.",
+                ),
+                CredentialPolicyEnforcementGateRow::new(
+                    "unsupported_diagnostics",
+                    "diagnostic",
+                    "report_only",
+                    "deterministic_unsupported_without_effects",
+                    "none_diagnostic_only",
+                    "SL_CREDENTIAL_POLICY_UNSUPPORTED",
+                    "diagnostic_code,blocker_id,claim_boundary,no_fallback_evidence",
+                    "security-governance-evidence-gate,capabilities security-governance",
+                    false,
+                    false,
+                    "Unsupported credential paths must emit deterministic diagnostics without resolving credentials, loading secrets, or invoking fallback.",
+                ),
+            ],
+            credential_references_only: true,
+            credential_resolution_performed: false,
+            secret_loading_performed: false,
+            secret_value_materialized: false,
+            runtime_permission_checks_enforced: false,
+            workspace_policy_enforced: false,
+            production_policy_runtime_supported: false,
+            redaction_required: true,
+            audit_required: true,
+            network_probe_performed: false,
+            external_effect_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.blocker_id).collect()
+    }
+
+    #[must_use]
+    pub fn required_evidence(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.required_evidence).collect()
+    }
+
+    #[must_use]
+    pub fn all_credential_runtime_blocked(&self) -> bool {
+        self.credential_references_only
+            && !self.credential_resolution_performed
+            && !self.secret_loading_performed
+            && !self.secret_value_materialized
+            && !self.production_policy_runtime_supported
+            && !self.network_probe_performed
+            && !self.external_effect_executed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.rows.iter().all(|row| {
+                !row.credential_resolution_performed
+                    && !row.secret_loading_performed
+                    && !row.secret_value_materialized
+                    && !row.network_probe_performed
+                    && !row.external_effect_executed
+                    && !row.fallback_attempted
+                    && !row.external_engine_invoked
+            })
+    }
+}
+
+#[must_use]
+pub fn plan_credential_policy_enforcement_gate() -> CredentialPolicyEnforcementGateReport {
+    CredentialPolicyEnforcementGateReport::report_only()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1938,5 +2226,37 @@ mod tests {
         report.audit_required = false;
         assert!(!report.side_effect_free());
         assert!(report.has_errors());
+    }
+
+    #[test]
+    fn credential_policy_enforcement_gate_blocks_secret_runtime_by_default() {
+        let report = plan_credential_policy_enforcement_gate();
+        assert_eq!(
+            report.schema_version,
+            "shardloom.credential_policy_enforcement_gate.v1"
+        );
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert!(report.all_credential_runtime_blocked());
+        assert!(
+            report
+                .row_order()
+                .contains(&"credential_reference_inventory")
+        );
+        assert!(report.row_order().contains(&"secret_loading"));
+        assert!(report.row_order().contains(&"runtime_permission_check"));
+        assert!(report.credential_references_only);
+        assert!(!report.credential_resolution_performed);
+        assert!(!report.secret_loading_performed);
+        assert!(!report.secret_value_materialized);
+        assert!(!report.production_policy_runtime_supported);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(report.rows.iter().all(|row| !row.secret_loading_performed));
+        assert!(
+            report
+                .rows
+                .iter()
+                .all(|row| !row.credential_resolution_performed)
+        );
     }
 }
