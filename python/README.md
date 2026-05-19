@@ -331,8 +331,8 @@ same typed CLI bridge. A workflow shaped as
 `read_csv(...).select(...).filter(...).limit(...)` lowers to ShardLoom's
 `sql-local-source-smoke` path, runs ShardLoom-owned projection/filter/limit
 semantics, and returns a typed evidence report. Filters admit scoped comparison,
-cast, date-literal, string `LIKE`, null, and logical `AND` predicates over
-already admitted leaves; `OR` remains a deterministic unsupported path. The
+cast, date-literal, string `LIKE`, null, and logical `AND`/`OR` predicates over
+already admitted leaves. The
 same bridge admits scoped
 scalar aggregates shaped as
 `read_csv(...).filter(...).aggregate(...).limit(1)` for `COUNT`, `SUM`, `AVG`,
@@ -455,9 +455,9 @@ print(join.join_matched_row_count, join.join_rows_output)
 
 That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
 generality, grouped aliases, multi-key sorts, null ordering, collation parity,
-`OR`/`NOT` predicate completeness, Python/DataFrame joins, outer/semi/anti/cross joins,
-multi-key or expression
-joins, broad SQL/DataFrame planning, and production query support remain blocked
+`NOT` predicate support, arbitrary predicate-tree completeness, Python/DataFrame joins,
+outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and
+production query support remain blocked
 until later runtime slices.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A

@@ -272,10 +272,10 @@ or documentation updates alone are insufficient.
     UTF-8/Date32 casts, and
     local SQL `DATE 'YYYY-MM-DD'` predicates are runtime-admitted for the local CSV smoke path,
     scoped local SQL `CAST(column AS dtype)` predicates for `int64`, `float64`, `utf8`, `boolean`,
-    and `date32` are runtime-admitted for local row smoke paths, and scoped local SQL logical `AND`
-    predicates are runtime-admitted over already admitted leaf predicates with deterministic `OR`
-    blockers, but user workflows still lack broad typed coercions, timestamp/timezone helpers, date
-    arithmetic, `OR`/compound predicate completeness, and broader expression-family coverage.
+    and `date32` are runtime-admitted for local row smoke paths, and scoped local SQL logical
+    `AND`/`OR` predicates are runtime-admitted over already admitted leaf predicates, but user
+    workflows still lack broad typed coercions, timestamp/timezone helpers, date arithmetic, `NOT`
+    support, arbitrary predicate-tree completeness, and broader expression-family coverage.
   - Next slice outcome: add one implementation PR per expression family: null/is-not-null hardening
     where gaps remain, remaining admitted string predicates, timestamp/timezone helpers, date
     arithmetic where admitted, and broader typed coercions/functions.
