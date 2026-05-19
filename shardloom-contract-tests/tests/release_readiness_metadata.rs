@@ -3265,6 +3265,97 @@ fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
 }
 
 #[test]
+fn gar_0032_e_best_default_certification_gate_blocks_claim_language() {
+    let core = read_repo_file("shardloom-core/src/certification.rs");
+    for required in [
+        "BestDefaultCertificationGateReport",
+        "shardloom.best_default_certification_gate.v1",
+        "gar-0032-e.best_default_certification_gate",
+        "support_status: \"blocked\"",
+        "claim_gate_status: \"not_claim_grade\"",
+        "best_default_language_allowed: false",
+        "best_default_claim_allowed: false",
+        "performance_claim_allowed: false",
+        "spark_replacement_claim_allowed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+    ] {
+        assert!(
+            core.contains(required),
+            "missing best-default core gate marker {required}"
+        );
+    }
+
+    let evidence = read_repo_file("shardloom-cli/src/evidence_certificates.rs");
+    for required in [
+        "append_best_default_certification_gate_fields",
+        "best_default_certification_gate_required_evidence",
+        "best_default_certification_gate_missing_evidence",
+        "best_default_language_allowed",
+        "best_default_certification_gate_external_engine_invoked",
+    ] {
+        assert!(
+            evidence.contains(required),
+            "missing best-default evidence field marker {required}"
+        );
+    }
+
+    let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    assert!(capabilities.contains("plan_best_default_certification_gate"));
+    assert!(capabilities.contains("append_best_default_certification_gate_fields"));
+
+    let snapshots = read_repo_file("shardloom-cli/tests/capability_discovery_snapshots.rs");
+    assert!(
+        snapshots.contains("certification_capabilities_expose_best_default_gate_without_claims")
+    );
+    assert!(snapshots.contains("best_default_certification_gate_claim_gate_status"));
+    assert!(snapshots.contains("best_default_certification_gate_runtime_execution"));
+
+    let world_class_snapshots =
+        read_repo_file("shardloom-cli/tests/world_class_sufficiency_plan_snapshots.rs");
+    assert!(world_class_snapshots.contains("best_default_certification_gate_required_evidence"));
+    assert!(world_class_snapshots.contains("best_default_language_allowed"));
+
+    let python_tests = read_repo_file("python/tests/test_cli_client.py");
+    assert!(python_tests.contains("best_default_certification_gate_schema_version"));
+    assert!(python_tests.contains("best_default_certification_gate_external_engine_invoked"));
+
+    let doc = read_repo_file("docs/architecture/best-default-certification-gate.md");
+    for required in [
+        "GAR-0032-E",
+        "claim_gate_status=not_claim_grade",
+        "best_default_language_allowed=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "no best-default claim",
+        "no performance claim",
+        "no Spark replacement claim",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing best-default gate doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0032-E"));
+    assert!(plan.contains("docs/architecture/best-default-certification-gate.md"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-0032-E best-default certification gate"));
+    assert!(completed.contains("shardloom.best_default_certification_gate.v1"));
+    assert!(completed.contains("best_default_language_allowed=false"));
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0032-E` adds `shardloom.best_default_certification_gate.v1`"));
+    assert!(gar.contains("best-default certification evidence remains incomplete"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("CG-20, GAR-0032-A, GAR-0032-C, GAR-0032-D, GAR-0032-E"));
+    assert!(traceability.contains("best-default certification gate"));
+}
+
+#[test]
 fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
     let typed_doc = read_repo_file("docs/architecture/typed-command-result-envelope.md");
     for required in [

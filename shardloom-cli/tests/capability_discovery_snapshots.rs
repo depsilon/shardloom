@@ -1317,7 +1317,7 @@ const MIGRATION_FIELD_KEYS: [&str; 13] = [
     "supported_construct_count",
 ];
 
-const CERTIFICATION_FIELD_KEYS: [&str; 16] = [
+const CERTIFICATION_FIELD_KEYS: [&str; 46] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -1334,6 +1334,36 @@ const CERTIFICATION_FIELD_KEYS: [&str; 16] = [
     "function_group_count",
     "adapter_entry_count",
     "best_choice_claim",
+    "best_default_certification_gate_schema_version",
+    "best_default_certification_gate_report_id",
+    "best_default_certification_gate_docs_ref",
+    "best_default_certification_gate_source_refs",
+    "best_default_certification_gate_support_status",
+    "best_default_certification_gate_status",
+    "best_default_certification_gate_claim_gate_status",
+    "best_default_certification_gate_required_evidence",
+    "best_default_certification_gate_missing_evidence",
+    "best_default_certification_gate_attached_evidence_refs",
+    "best_default_certification_gate_blocker_ids",
+    "best_default_certification_gate_correctness_evidence_required",
+    "best_default_certification_gate_benchmark_evidence_required",
+    "best_default_certification_gate_execution_certificate_required",
+    "best_default_certification_gate_native_io_certificate_required",
+    "best_default_certification_gate_materialization_decode_required",
+    "best_default_certification_gate_no_fallback_policy_required",
+    "best_default_certification_gate_release_security_required",
+    "best_default_certification_gate_ux_install_docs_required",
+    "best_default_certification_gate_all_required_evidence_attached",
+    "best_default_language_allowed",
+    "best_default_certification_gate_best_default_claim_allowed",
+    "best_default_certification_gate_performance_claim_allowed",
+    "best_default_certification_gate_superiority_claim_allowed",
+    "best_default_certification_gate_spark_replacement_claim_allowed",
+    "best_default_certification_gate_production_claim_allowed",
+    "best_default_certification_gate_runtime_execution",
+    "best_default_certification_gate_fallback_attempted",
+    "best_default_certification_gate_external_engine_invoked",
+    "best_default_certification_gate_claim_boundary",
 ];
 
 const WORLD_CLASS_SURFACE_FIELD_KEYS: [&str; 24] = [
@@ -2527,6 +2557,64 @@ fn cg20_user_surface_capabilities_expose_evidence_gates() {
         )));
         assert!(output.contains(&field_pair("production_claim_allowed", false)));
         assert!(output.contains(&field_pair("best_default_publication_allowed", false)));
+    }
+}
+
+#[test]
+fn certification_capabilities_expose_best_default_gate_without_claims() {
+    let output = run_capabilities_scope("certification");
+
+    assert!(output.contains(&string_field_pair(
+        "best_default_certification_gate_schema_version",
+        "shardloom.best_default_certification_gate.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "best_default_certification_gate_report_id",
+        "gar-0032-e.best_default_certification_gate"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "best_default_certification_gate_support_status",
+        "blocked"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "best_default_certification_gate_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "best_default_certification_gate_attached_evidence_refs",
+        "none"
+    )));
+    for key in [
+        "best_default_certification_gate_correctness_evidence_required",
+        "best_default_certification_gate_benchmark_evidence_required",
+        "best_default_certification_gate_execution_certificate_required",
+        "best_default_certification_gate_native_io_certificate_required",
+        "best_default_certification_gate_materialization_decode_required",
+        "best_default_certification_gate_no_fallback_policy_required",
+        "best_default_certification_gate_release_security_required",
+        "best_default_certification_gate_ux_install_docs_required",
+    ] {
+        assert!(
+            output.contains(&field_pair(key, true)),
+            "missing required gate field {key}"
+        );
+    }
+    for key in [
+        "best_default_certification_gate_all_required_evidence_attached",
+        "best_default_language_allowed",
+        "best_default_certification_gate_best_default_claim_allowed",
+        "best_default_certification_gate_performance_claim_allowed",
+        "best_default_certification_gate_superiority_claim_allowed",
+        "best_default_certification_gate_spark_replacement_claim_allowed",
+        "best_default_certification_gate_production_claim_allowed",
+        "best_default_certification_gate_runtime_execution",
+        "best_default_certification_gate_fallback_attempted",
+        "best_default_certification_gate_external_engine_invoked",
+    ] {
+        assert!(
+            output.contains(&field_pair(key, false)),
+            "missing false gate field {key}"
+        );
     }
 }
 

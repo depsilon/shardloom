@@ -17,8 +17,8 @@ use shardloom_core::{
     SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
     WorldClassSufficiencyReport, WrapperConnectorImplementationRegistryReport,
     boundedness_vocabulary, engine_mode_vocabulary, output_mode_vocabulary,
-    plan_global_architecture_runtime_claim_gate, plan_materialization_policy_report,
-    plan_world_class_sufficiency, update_mode_vocabulary,
+    plan_best_default_certification_gate, plan_global_architecture_runtime_claim_gate,
+    plan_materialization_policy_report, plan_world_class_sufficiency, update_mode_vocabulary,
 };
 use shardloom_exec::StreamingCapabilityMatrixReport;
 use shardloom_vortex::{
@@ -32,6 +32,7 @@ use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
     engine_runtime_planning::append_streaming_capability_matrix_summary_fields,
+    evidence_certificates::append_best_default_certification_gate_fields,
     operational_hardening::append_external_effect_blocker_matrix_fields,
 };
 
@@ -4921,6 +4922,10 @@ pub(crate) fn certification_fields(
         }
         CapabilityDiscoveryScope::Certification => {
             append_full_certification_fields(report, &mut fields);
+            append_best_default_certification_gate_fields(
+                &mut fields,
+                &plan_best_default_certification_gate(),
+            );
         }
     }
     fields

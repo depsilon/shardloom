@@ -7,12 +7,13 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    ApproxSketchFunctionGateReport, CommandStatus, CorrectnessDifferentialHarnessReport,
-    CorrectnessValidationPlan, ExecutionCertificateEvidenceSurfaceReport,
-    ExecutionEvidenceArtifactKind, NativeIoEnvelopeReport, NativeIoSourceSinkCoverageRow,
-    OutputFormat, RfcCoverageFollowThroughReport, UniversalHarnessReport,
-    UserCapabilityPromotionGateReport, WorldClassSufficiencyDimensionKind,
-    WorldClassSufficiencyReport, plan_approx_sketch_function_gate,
+    ApproxSketchFunctionGateReport, BestDefaultCertificationGateReport, CommandStatus,
+    CorrectnessDifferentialHarnessReport, CorrectnessValidationPlan,
+    ExecutionCertificateEvidenceSurfaceReport, ExecutionEvidenceArtifactKind,
+    NativeIoEnvelopeReport, NativeIoSourceSinkCoverageRow, OutputFormat,
+    RfcCoverageFollowThroughReport, UniversalHarnessReport, UserCapabilityPromotionGateReport,
+    WorldClassSufficiencyDimensionKind, WorldClassSufficiencyReport,
+    plan_approx_sketch_function_gate, plan_best_default_certification_gate,
     plan_correctness_differential_harness, plan_execution_certificate_evidence_surface,
     plan_native_io_envelope, plan_rfc_coverage_followthrough, plan_universal_harness,
     plan_user_capability_promotion_gate, plan_world_class_sufficiency,
@@ -1429,6 +1430,184 @@ fn append_world_class_sufficiency_metric_fields(
         fields,
         "best_default_dossier_ref",
         &report.best_default_dossier_ref,
+    );
+    append_best_default_certification_gate_fields(fields, &plan_best_default_certification_gate());
+}
+
+pub(crate) fn append_best_default_certification_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &BestDefaultCertificationGateReport,
+) {
+    append_best_default_certification_gate_identity_fields(fields, report);
+    append_best_default_certification_gate_evidence_fields(fields, report);
+    append_best_default_certification_gate_claim_fields(fields, report);
+}
+
+fn append_best_default_certification_gate_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &BestDefaultCertificationGateReport,
+) {
+    push_field(
+        fields,
+        "best_default_certification_gate_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_source_refs",
+        report.source_refs,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_support_status",
+        report.support_status,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_status",
+        report.gate_status,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_required_evidence",
+        report.required_evidence,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_missing_evidence",
+        report.missing_evidence,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_attached_evidence_refs",
+        report.attached_evidence_refs,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_blocker_ids",
+        report.blocker_ids,
+    );
+}
+
+fn append_best_default_certification_gate_evidence_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &BestDefaultCertificationGateReport,
+) {
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_correctness_evidence_required",
+        report.correctness_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_benchmark_evidence_required",
+        report.benchmark_evidence_required,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_execution_certificate_required",
+        report.execution_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_native_io_certificate_required",
+        report.native_io_certificate_required,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_materialization_decode_required",
+        report.materialization_decode_required,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_no_fallback_policy_required",
+        report.no_fallback_policy_required,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_release_security_required",
+        report.release_security_required,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_ux_install_docs_required",
+        report.ux_install_docs_required,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_all_required_evidence_attached",
+        report.all_required_evidence_attached,
+    );
+}
+
+fn append_best_default_certification_gate_claim_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &BestDefaultCertificationGateReport,
+) {
+    push_bool_field(
+        fields,
+        "best_default_language_allowed",
+        report.best_default_language_allowed,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_best_default_claim_allowed",
+        report.best_default_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_superiority_claim_allowed",
+        report.superiority_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_spark_replacement_claim_allowed",
+        report.spark_replacement_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_runtime_execution",
+        report.runtime_execution,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_fallback_attempted",
+        report.fallback_attempted,
+    );
+    push_bool_field(
+        fields,
+        "best_default_certification_gate_external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_field(
+        fields,
+        "best_default_certification_gate_claim_boundary",
+        report.claim_boundary,
     );
 }
 

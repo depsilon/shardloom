@@ -916,6 +916,14 @@ plan before coding.
   source/sink metadata are classified as report-only or blocked. The rows keep
   `runtime_execution=false`, `source_io_performed=false`, `sink_io_performed=false`,
   `fallback_attempted=false`, and `external_engine_invoked=false`.
+- [x] `GAR-0032-E` adds `shardloom.best_default_certification_gate.v1` and
+  `docs/architecture/best-default-certification-gate.md` to the world-class sufficiency and
+  certification capability surfaces. The gate lists missing workload constitution, correctness,
+  benchmark, execution-certificate, Native I/O, materialization/decode, no-fallback policy,
+  release/security, UX/install, capability snapshot, scorecard, and dossier evidence before any
+  best-default language is allowed. It keeps `claim_gate_status=not_claim_grade`,
+  `best_default_language_allowed=false`, `fallback_attempted=false`, and
+  `external_engine_invoked=false`; best-default certification evidence remains incomplete.
 - [ ] `GAR-GEN-1` source-free generated-output runtime remains partially planned. `GAR-GEN-1A/1B`
   add the report-only `GeneratedSourceCertificate` contract and capability rows that separate
   `no_dataset_smoke`, `user_generated_source`, and `engine_native_generated_source`; `GAR-GEN-1C`
@@ -950,8 +958,8 @@ plan before coding.
   generated/source-free output remain report-only or blocked unless a narrower evidence-bearing
   slice upgrades the row.
 - [ ] Executable SQL parser/binder/runtime, DataFrame execution, UDF runtime, notebook runtime,
-  universal-adapter runtime, unstructured/media runtime, and best-default certification remain
-  incomplete.
+  universal-adapter runtime, unstructured/media runtime, and best-default certification evidence
+  remain incomplete.
 
 ### RFC 0033 - User Data Workflow and ETL Surface
 

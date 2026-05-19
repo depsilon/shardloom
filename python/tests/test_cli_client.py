@@ -1007,6 +1007,18 @@ class ShardLoomClientTests(unittest.TestCase):
                         ])
                     if scope == "adapters":
                         fields.append({"key": "adapter_certification_required", "value": "true"})
+                    if scope == "certification":
+                        fields.extend([
+                            {"key": "best_default_certification_gate_schema_version", "value": "shardloom.best_default_certification_gate.v1"},
+                            {"key": "best_default_certification_gate_report_id", "value": "gar-0032-e.best_default_certification_gate"},
+                            {"key": "best_default_certification_gate_claim_gate_status", "value": "not_claim_grade"},
+                            {"key": "best_default_certification_gate_correctness_evidence_required", "value": "true"},
+                            {"key": "best_default_language_allowed", "value": "false"},
+                            {"key": "best_default_certification_gate_best_default_claim_allowed", "value": "false"},
+                            {"key": "best_default_certification_gate_runtime_execution", "value": "false"},
+                            {"key": "best_default_certification_gate_fallback_attempted", "value": "false"},
+                            {"key": "best_default_certification_gate_external_engine_invoked", "value": "false"},
+                        ])
                     if scope == "operators":
                         fields.append({"key": "materialization_boundary_reported", "value": "true"})
                     if scope in {"sql", "dataframe"}:
@@ -1646,6 +1658,48 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(etl_workflows.production_etl_claim_allowed)
         self.assertFalse(etl_workflows.object_store_or_table_runtime_supported)
         self.assertEqual(capabilities.functions.capability_state, "planned")
+        self.assertEqual(
+            capabilities.certification.field("best_default_certification_gate_schema_version"),
+            "shardloom.best_default_certification_gate.v1",
+        )
+        self.assertEqual(
+            capabilities.certification.field("best_default_certification_gate_report_id"),
+            "gar-0032-e.best_default_certification_gate",
+        )
+        self.assertEqual(
+            capabilities.certification.field("best_default_certification_gate_claim_gate_status"),
+            "not_claim_grade",
+        )
+        self.assertIn("not_claim_grade", capabilities.certification.claim_gate_statuses)
+        self.assertFalse(
+            capabilities.certification.envelope.field_bool(
+                "best_default_language_allowed", True
+            )
+        )
+        self.assertFalse(
+            capabilities.certification.envelope.field_bool(
+                "best_default_certification_gate_best_default_claim_allowed", True
+            )
+        )
+        self.assertFalse(
+            capabilities.certification.envelope.field_bool(
+                "best_default_certification_gate_runtime_execution", True
+            )
+        )
+        self.assertFalse(
+            capabilities.certification.envelope.field_bool(
+                "best_default_certification_gate_fallback_attempted", True
+            )
+        )
+        self.assertFalse(
+            capabilities.certification.envelope.field_bool(
+                "best_default_certification_gate_external_engine_invoked", True
+            )
+        )
+        self.assertIn(
+            "best_default_certification_gate_correctness_evidence_required",
+            capabilities.certification.required_gates,
+        )
         self.assertEqual(capabilities.sql_support.scope, "sql")
         self.assertEqual(
             capabilities.sql_support.planner_readiness_claim_gate_status,
