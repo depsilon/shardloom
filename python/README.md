@@ -328,19 +328,22 @@ write output, or invoke fallback engines.
 
 One scoped local CSV plus flat JSONL/NDJSON query-builder workflow family is
 executable through the same typed CLI bridge. A workflow shaped as
-`read_csv(...).select(...).filter(...).limit(...)` lowers to ShardLoom's
-`sql-local-source-smoke` path, runs ShardLoom-owned projection/filter/limit
-semantics, and returns a typed evidence report. The same projection/filter/limit
+`read_csv(...).select(...).limit(...)`, with an optional `filter(...)`, lowers
+to ShardLoom's `sql-local-source-smoke` path, runs ShardLoom-owned
+projection/optional-filter/limit semantics, and returns a typed evidence
+report. `preview(limit=n)` is the same bounded local path with `SELECT *`. The
+same projection/optional-filter/limit
 shape is admitted for `read_json(...)` only when the source path is local
 `.jsonl` or `.ndjson`; plain `.json`, nested JSON expansion, and JSONPath
 remain deterministic unsupported surfaces. Filters admit scoped comparison,
 cast, date-literal, string `LIKE`, null, logical `AND`/`OR`/`NOT`, and
 balanced grouping parentheses over already admitted leaves. CSV and local flat
 JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
-`filter(...).aggregate(...).limit(1)` for `COUNT`, `SUM`, `AVG`, `MIN`, and
-`MAX`, one-column grouped aggregates shaped as
-`filter(...).group_by(...).agg(...).limit(n)`, and a single-key numeric top-N
-shape, `select(...).filter(...).sort(...).limit(n)`, over non-null numeric sort
+`aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
+`MIN`, and `MAX`, one-column grouped aggregates shaped as
+`group_by(...).agg(...).limit(n)` with an optional filter, and a single-key
+numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
+over non-null numeric sort
 keys. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL file
 and emits output Native I/O certificate fields:
 
@@ -365,13 +368,19 @@ ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
 workflow = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
+    .limit(1)
+)
+preview = ctx.read_csv("target/sql-local-source-smoke.csv").preview(limit=2)
+filtered = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
     .filter("amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%')")
     .limit(1)
+    .collect()
 )
 json_rows = (
     ctx.read_json("target/sql-local-source-smoke.jsonl")
     .select("id", "label")
-    .filter("amount >= 10")
     .limit(2)
     .write("target/sql-local-source-json-result.jsonl", allow_overwrite=True)
 )
@@ -380,14 +389,12 @@ collected = workflow.collect()
 written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
 aggregate = (
     ctx.read_json("target/sql-local-source-smoke.jsonl")
-    .filter("amount >= 10")
     .aggregate("count(*)", "sum(amount)", "avg(amount)", "min(amount)", "max(amount)")
     .limit(1)
     .collect()
 )
 grouped = (
     ctx.read_json("target/sql-local-source-smoke.jsonl")
-    .filter("amount >= 10")
     .group_by("label")
     .agg("count(*)", "sum(amount)")
     .limit(10)
@@ -396,7 +403,6 @@ grouped = (
 topn = (
     ctx.read_json("target/sql-local-source-smoke.jsonl")
     .select("id", "label")
-    .filter("amount >= 0")
     .sort("amount", descending=True)
     .limit(2)
     .collect()
@@ -416,7 +422,8 @@ print(written.output_native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
 print(written.evidence_summary.output_native_io_certificate_status)
 print(written.claim_summary.claim_gate_status)
-print(collected.logical_predicate_operator, collected.logical_predicate_leaf_count)
+print(preview.result_jsonl)
+print(filtered.logical_predicate_operator, filtered.logical_predicate_leaf_count)
 print(json_rows.output_path, json_rows.envelope.field("source_format"))
 print(aggregate.result_jsonl)
 print(aggregate.aggregate_operator_family)
@@ -455,8 +462,8 @@ print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 ```
 
 This is a fixture-smoke local CSV plus flat JSONL/NDJSON bridge for the scoped
-projection/filter/limit, scalar aggregate, one-column grouped aggregate, and
-single-key numeric top-N shapes. It does not make the Python client a
+projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
+preview/select-star, and single-key numeric top-N shapes. It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 generalized grouped aggregation, ordering/collation parity, nested JSON, object
 stores, or table/lakehouse inputs, and does not create a performance or
@@ -620,9 +627,9 @@ print(join.claim_boundary)
 ```
 
 This matrix is mostly report-only, with the scoped local CSV `collect` and
-`write` rows and the flat JSONL/NDJSON projection/filter/limit bridge marked as
-fixture-smoke-supported only for the admitted projection/filter/limit, scalar
-aggregate, and one-column grouped aggregate shapes described above.
+`write` rows and the flat JSONL/NDJSON projection/optional-filter/limit bridge marked as
+fixture-smoke-supported only for the admitted projection/optional-filter/limit,
+preview/select-star, scalar aggregate, and one-column grouped aggregate shapes described above.
 It does not import DataFrame
 libraries, invoke external engines, or upgrade DataFrame/notebook support to
 claim-grade status. Other lazy source, `filter`, `select`, `limit`, and

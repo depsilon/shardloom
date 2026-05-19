@@ -1,7 +1,7 @@
 //! Scoped local-source SQL runtime smoke.
 //!
 //! This module intentionally admits one small SQL shape over local CSV/JSONL:
-//! `SELECT <columns> FROM <local.csv|local.jsonl> WHERE <scoped predicate> [ORDER BY <column> ASC|DESC] LIMIT <n>`
+//! `SELECT <columns> FROM <local.csv|local.jsonl> [WHERE <scoped predicate>] [ORDER BY <column> ASC|DESC] LIMIT <n>`
 //! plus one explicit local inner equi-join shape.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
@@ -188,6 +188,7 @@ struct ParsedProjectionList {
 
 #[derive(Debug, Clone, PartialEq)]
 enum ParsedPredicate {
+    All,
     Compare {
         column: String,
         op: ComparisonOp,
@@ -476,29 +477,17 @@ fn run_sql_local_source_smoke(
                 join_output.output_rows,
             )
         } else {
-            let predicate_expression = parsed.predicate.to_expression()?;
-            let filter = evaluate_filter(&predicate_expression, &source.rows);
-            if filter.has_errors() {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "SQL local-source predicate evaluation failed: {}",
-                    filter
-                        .diagnostics
-                        .first()
-                        .map_or("unknown diagnostic", |diagnostic| diagnostic
-                            .message
-                            .as_str())
-                )));
-            }
+            let selected_row_indexes = selected_row_indexes(&parsed, &source)?;
             let output_rows = if parsed.is_grouped_aggregate() {
-                evaluate_grouped_aggregate_output(&parsed, &source, &filter.selected_row_indexes)?
+                evaluate_grouped_aggregate_output(&parsed, &source, &selected_row_indexes)?
             } else if parsed.is_aggregate() {
-                evaluate_scalar_aggregate_output(&parsed, &source, &filter.selected_row_indexes)?
+                evaluate_scalar_aggregate_output(&parsed, &source, &selected_row_indexes)?
             } else {
                 let selected_row_indexes =
-                    ordered_projection_row_indexes(&parsed, &source, &filter.selected_row_indexes)?;
+                    ordered_projection_row_indexes(&parsed, &source, &selected_row_indexes)?;
                 evaluate_projection_output(&parsed, &source, &selected_row_indexes)?
             };
-            (filter.selected_row_count(), 0, output_rows)
+            (selected_row_indexes.len(), 0, output_rows)
         };
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
@@ -538,6 +527,29 @@ fn run_sql_local_source_smoke(
         evidence_render_millis,
         total_runtime_millis: total_start.elapsed().as_millis(),
     })
+}
+
+fn selected_row_indexes(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+) -> Result<Vec<usize>, ShardLoomError> {
+    if parsed.predicate.is_all() {
+        return Ok((0..source.rows.len()).collect());
+    }
+    let predicate_expression = parsed.predicate.to_expression()?;
+    let filter = evaluate_filter(&predicate_expression, &source.rows);
+    if filter.has_errors() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "SQL local-source predicate evaluation failed: {}",
+            filter
+                .diagnostics
+                .first()
+                .map_or("unknown diagnostic", |diagnostic| diagnostic
+                    .message
+                    .as_str())
+        )));
+    }
+    Ok(filter.selected_row_indexes)
 }
 
 fn evaluate_projection_output(
@@ -632,7 +644,11 @@ fn evaluate_join_output(
 
     let right_rows_by_key = build_join_right_rows_by_key(join, right_source)?;
 
-    let predicate_expression = parsed.predicate.to_expression()?;
+    let predicate_expression = if parsed.predicate.is_all() {
+        None
+    } else {
+        Some(parsed.predicate.to_expression()?)
+    };
     let projection_expressions = parsed
         .projections
         .iter()
@@ -673,7 +689,7 @@ fn evaluate_join_output(
                     right_row,
                 );
                 if evaluate_join_candidate(
-                    &predicate_expression,
+                    predicate_expression.as_ref(),
                     &projection_expressions,
                     &joined_row,
                     parsed.limit,
@@ -716,26 +732,28 @@ fn build_join_right_rows_by_key<'a>(
 }
 
 fn evaluate_join_candidate(
-    predicate_expression: &Expression,
+    predicate_expression: Option<&Expression>,
     projection_expressions: &[Expression],
     joined_row: &ExpressionInputRow,
     output_limit: usize,
     output_rows: &mut Vec<Vec<(String, ScalarValue)>>,
 ) -> Result<bool, ShardLoomError> {
-    let filter = evaluate_filter(predicate_expression, std::slice::from_ref(joined_row));
-    if filter.has_errors() {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "SQL local-source join predicate evaluation failed: {}",
-            filter
-                .diagnostics
-                .first()
-                .map_or("unknown diagnostic", |diagnostic| diagnostic
-                    .message
-                    .as_str())
-        )));
-    }
-    if filter.selected_row_count() == 0 {
-        return Ok(false);
+    if let Some(predicate_expression) = predicate_expression {
+        let filter = evaluate_filter(predicate_expression, std::slice::from_ref(joined_row));
+        if filter.has_errors() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "SQL local-source join predicate evaluation failed: {}",
+                filter
+                    .diagnostics
+                    .first()
+                    .map_or("unknown diagnostic", |diagnostic| diagnostic
+                        .message
+                        .as_str())
+            )));
+        }
+        if filter.selected_row_count() == 0 {
+            return Ok(false);
+        }
     }
     if output_rows.len() < output_limit {
         let projection = evaluate_projection(projection_expressions, joined_row);
@@ -793,7 +811,8 @@ fn apply_date_literal_predicate_coercions(
         ParsedPredicate::Not { inner } => {
             apply_date_literal_predicate_coercions(inner, parsed, source, right_source)
         }
-        ParsedPredicate::Compare { .. }
+        ParsedPredicate::All
+        | ParsedPredicate::Compare { .. }
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
@@ -1408,45 +1427,79 @@ impl ParsedSqlLocalSource {
         !self.group_by.is_empty() && self.is_aggregate()
     }
 
+    fn has_filter(&self) -> bool {
+        !self.predicate.is_all()
+    }
+
     fn statement_kind(&self) -> &'static str {
-        if self.is_join() {
+        if self.is_join() && self.has_filter() {
             "local_source_inner_equi_join_filter_limit"
-        } else if self.order_by.is_some() {
+        } else if self.is_join() {
+            "local_source_inner_equi_join_limit"
+        } else if self.order_by.is_some() && self.has_filter() {
             "local_source_order_by_topn_filter_limit"
-        } else if self.is_grouped_aggregate() {
+        } else if self.order_by.is_some() {
+            "local_source_order_by_topn_limit"
+        } else if self.is_grouped_aggregate() && self.has_filter() {
             "local_source_group_by_aggregate_filter_limit"
-        } else if self.is_aggregate() {
+        } else if self.is_grouped_aggregate() {
+            "local_source_group_by_aggregate_limit"
+        } else if self.is_aggregate() && self.has_filter() {
             "local_source_aggregate_filter_limit"
-        } else {
+        } else if self.is_aggregate() {
+            "local_source_aggregate_limit"
+        } else if self.has_filter() {
             "local_source_projection_filter_limit"
+        } else {
+            "local_source_projection_limit"
         }
     }
 
     fn execution_certificate_suffix(&self) -> &'static str {
-        if self.is_join() {
+        if self.is_join() && self.has_filter() {
             "inner-equi-join-filter-limit"
-        } else if self.order_by.is_some() {
+        } else if self.is_join() {
+            "inner-equi-join-limit"
+        } else if self.order_by.is_some() && self.has_filter() {
             "order-by-topn-filter-limit"
-        } else if self.is_grouped_aggregate() {
+        } else if self.order_by.is_some() {
+            "order-by-topn-limit"
+        } else if self.is_grouped_aggregate() && self.has_filter() {
             "group-by-aggregate-filter-limit"
-        } else if self.is_aggregate() {
+        } else if self.is_grouped_aggregate() {
+            "group-by-aggregate-limit"
+        } else if self.is_aggregate() && self.has_filter() {
             "aggregate-filter-limit"
-        } else {
+        } else if self.is_aggregate() {
+            "aggregate-limit"
+        } else if self.has_filter() {
             "projection-filter-limit"
+        } else {
+            "projection-limit"
         }
     }
 
     fn claim_gate_reason_suffix(&self) -> &'static str {
-        if self.is_join() {
+        if self.is_join() && self.has_filter() {
             "inner_equi_join_filter_limit"
-        } else if self.order_by.is_some() {
+        } else if self.is_join() {
+            "inner_equi_join_limit"
+        } else if self.order_by.is_some() && self.has_filter() {
             "order_by_topn_filter_limit"
-        } else if self.is_grouped_aggregate() {
+        } else if self.order_by.is_some() {
+            "order_by_topn_limit"
+        } else if self.is_grouped_aggregate() && self.has_filter() {
             "group_by_aggregate_filter_limit"
-        } else if self.is_aggregate() {
+        } else if self.is_grouped_aggregate() {
+            "group_by_aggregate_limit"
+        } else if self.is_aggregate() && self.has_filter() {
             "scalar_aggregate_filter_limit"
-        } else {
+        } else if self.is_aggregate() {
+            "scalar_aggregate_limit"
+        } else if self.has_filter() {
             "projection_filter_limit"
+        } else {
+            "projection_limit"
         }
     }
 
@@ -1536,6 +1589,10 @@ impl SortDirection {
 }
 
 impl ParsedPredicate {
+    const fn is_all(&self) -> bool {
+        matches!(self, Self::All)
+    }
+
     fn columns(&self) -> Vec<&str> {
         let mut columns = Vec::new();
         self.push_columns(&mut columns);
@@ -1544,6 +1601,7 @@ impl ParsedPredicate {
 
     fn push_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
         match self {
+            Self::All => {}
             Self::Compare { column, .. }
             | Self::CastCompare { column, .. }
             | Self::IsNull { column }
@@ -1559,6 +1617,10 @@ impl ParsedPredicate {
 
     fn to_expression(&self) -> Result<Expression, ShardLoomError> {
         match self {
+            Self::All => Err(ShardLoomError::InvalidOperation(
+                "internal error: all-rows predicate should not be lowered to an expression"
+                    .to_string(),
+            )),
             Self::Compare { column, op, value } => Ok(Expression::new(
                 ExprId::new("where.compare")?,
                 ExpressionKind::Compare {
@@ -1652,6 +1714,7 @@ impl ParsedPredicate {
 
     fn family(&self) -> &'static str {
         match self {
+            Self::All => "none",
             Self::Compare { .. } => "comparison",
             Self::CastCompare { .. } => "cast",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
@@ -1667,7 +1730,8 @@ impl ParsedPredicate {
                 left.uses_string_predicate() || right.uses_string_predicate()
             }
             Self::Not { inner } => inner.uses_string_predicate(),
-            Self::Compare { .. }
+            Self::All
+            | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. } => false,
@@ -1692,7 +1756,8 @@ impl ParsedPredicate {
                 right.push_string_operators(operators);
             }
             Self::Not { inner } => inner.push_string_operators(operators),
-            Self::Compare { .. }
+            Self::All
+            | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. } => {}
@@ -1713,7 +1778,8 @@ impl ParsedPredicate {
                 left.uses_date_literal() || right.uses_date_literal()
             }
             Self::Not { inner } => inner.uses_date_literal(),
-            Self::Compare { .. }
+            Self::All
+            | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -1726,7 +1792,8 @@ impl ParsedPredicate {
             Self::CastCompare { .. } => true,
             Self::Logical { left, right, .. } => left.uses_cast() || right.uses_cast(),
             Self::Not { inner } => inner.uses_cast(),
-            Self::Compare { .. }
+            Self::All
+            | Self::Compare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => false,
@@ -1747,7 +1814,8 @@ impl ParsedPredicate {
                 right.push_cast_source_columns(columns);
             }
             Self::Not { inner } => inner.push_cast_source_columns(columns),
-            Self::Compare { .. }
+            Self::All
+            | Self::Compare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => {}
@@ -1774,7 +1842,8 @@ impl ParsedPredicate {
                 right.push_cast_target_dtypes(dtypes);
             }
             Self::Not { inner } => inner.push_cast_target_dtypes(dtypes),
-            Self::Compare { .. }
+            Self::All
+            | Self::Compare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => {}
@@ -1789,7 +1858,8 @@ impl ParsedPredicate {
         match self {
             Self::Logical { op, .. } => op.as_str(),
             Self::Not { .. } => "not",
-            Self::Compare { .. }
+            Self::All
+            | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -1803,6 +1873,7 @@ impl ParsedPredicate {
                 left.logical_leaf_count() + right.logical_leaf_count()
             }
             Self::Not { inner } => inner.logical_leaf_count(),
+            Self::All => 0,
             Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
@@ -2104,6 +2175,10 @@ impl SqlLocalSourceReport {
             (
                 "predicate_operator_family".to_string(),
                 self.parsed.predicate.family().to_string(),
+            ),
+            (
+                "filter_runtime_execution".to_string(),
+                self.parsed.has_filter().to_string(),
             ),
             (
                 "string_predicate_runtime_execution".to_string(),
@@ -2725,6 +2800,16 @@ fn reject_remote_source_path(path: &Path) -> Result<(), ShardLoomError> {
     Ok(())
 }
 
+fn earliest_clause_index_after(start: usize, indexes: &[Option<usize>]) -> usize {
+    indexes
+        .iter()
+        .flatten()
+        .copied()
+        .filter(|index| *index > start)
+        .min()
+        .expect("at least one later SQL clause exists")
+}
+
 fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, ShardLoomError> {
     let statement = normalize_sql_statement(raw)?;
     if !statement
@@ -2738,34 +2823,49 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     let from_index = find_keyword_outside_quotes(&statement, "from").ok_or_else(|| {
         unsupported_sql_error("SQL local-source smoke requires a FROM <local.csv> clause")
     })?;
-    let where_index = find_keyword_outside_quotes(&statement, "where").ok_or_else(|| {
-        unsupported_sql_error("SQL local-source smoke requires a WHERE <simple predicate> clause")
-    })?;
     let limit_index = find_keyword_outside_quotes(&statement, "limit").ok_or_else(|| {
         unsupported_sql_error("SQL local-source smoke requires a LIMIT <n> clause")
     })?;
+    let where_index = find_keyword_outside_quotes(&statement, "where");
     let group_by_index = find_keyword_outside_quotes(&statement, "group by");
     let order_by_index = find_keyword_outside_quotes(&statement, "order by");
-    if !(from_index > 6 && where_index > from_index && limit_index > where_index)
-        || group_by_index.is_some_and(|index| !(index > where_index && index < limit_index))
-        || order_by_index.is_some_and(|index| !(index > where_index && index < limit_index))
+    if !(from_index > 6 && limit_index > from_index)
+        || where_index.is_some_and(|index| !(index > from_index && index < limit_index))
+        || group_by_index.is_some_and(|index| !(index > from_index && index < limit_index))
+        || order_by_index.is_some_and(|index| !(index > from_index && index < limit_index))
+        || where_index
+            .zip(group_by_index)
+            .is_some_and(|(where_index, group_by)| where_index > group_by)
+        || where_index
+            .zip(order_by_index)
+            .is_some_and(|(where_index, order_by)| where_index > order_by)
         || group_by_index
             .zip(order_by_index)
             .is_some_and(|(group_by, order_by)| group_by > order_by)
     {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke requires SELECT ... FROM ... WHERE ... [GROUP BY ...] [ORDER BY ...] LIMIT ... order",
+            "SQL local-source smoke requires SELECT ... FROM ... [WHERE ...] [GROUP BY ...] [ORDER BY ...] LIMIT ... order",
         ));
     }
 
     let select_list = statement[6..from_index].trim();
-    let source_raw = statement[from_index + 4..where_index].trim();
-    let predicate_end = [group_by_index, order_by_index, Some(limit_index)]
-        .into_iter()
-        .flatten()
-        .min()
-        .expect("limit index exists");
-    let predicate_raw = statement[where_index + 5..predicate_end].trim();
+    let source_end = earliest_clause_index_after(
+        from_index,
+        &[
+            where_index,
+            group_by_index,
+            order_by_index,
+            Some(limit_index),
+        ],
+    );
+    let source_raw = statement[from_index + 4..source_end].trim();
+    let predicate_raw = where_index.map(|index| {
+        let end = earliest_clause_index_after(
+            index,
+            &[group_by_index, order_by_index, Some(limit_index)],
+        );
+        statement[index + 5..end].trim()
+    });
     let group_by_raw = group_by_index.map(|index| {
         let end = order_by_index.unwrap_or(limit_index);
         statement[index + "group by".len()..end].trim()
@@ -2775,11 +2875,11 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     let limit_raw = statement[limit_index + 5..].trim();
     if select_list.is_empty()
         || source_raw.is_empty()
-        || predicate_raw.is_empty()
+        || predicate_raw.is_some_and(str::is_empty)
         || limit_raw.is_empty()
     {
         return Err(unsupported_sql_error(
-            "SQL local-source SELECT list, source, predicate, and limit must not be empty",
+            "SQL local-source SELECT list, source, optional predicate, and limit must not be empty",
         ));
     }
     if contains_keyword_outside_quotes(limit_raw, "where")
@@ -2796,7 +2896,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     let group_by = parse_group_by_list(group_by_raw)?;
     let order_by = parse_order_by(order_by_raw)?;
     let source_clause = parse_source_clause(source_raw)?;
-    let predicate = parse_predicate(predicate_raw)?;
+    let predicate = predicate_raw.map_or(Ok(ParsedPredicate::All), parse_predicate)?;
     let limit = parse_limit(limit_raw)?;
 
     Ok(ParsedSqlLocalSource {
@@ -3797,6 +3897,23 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_sql_local_source_statement_without_predicate() {
+        let parsed =
+            parse_sql_local_source_statement("SELECT id,label FROM 'target/input.csv' LIMIT 5")
+                .expect("statement parses without a predicate");
+
+        assert_eq!(parsed.projections, vec!["id", "label"]);
+        assert!(parsed.aggregates.is_empty());
+        assert!(parsed.group_by.is_empty());
+        assert!(parsed.order_by.is_none());
+        assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
+        assert_eq!(parsed.limit, 5);
+        assert!(parsed.predicate.is_all());
+        assert_eq!(parsed.statement_kind(), "local_source_projection_limit");
+        assert_eq!(parsed.execution_certificate_suffix(), "projection-limit");
+    }
+
+    #[test]
     fn parses_scoped_scalar_aggregate_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT count(*),sum(amount),avg(amount),min(amount),max(amount) FROM 'target/input.csv' WHERE amount >= 10 LIMIT 1",
@@ -4115,9 +4232,7 @@ mod tests {
 
     #[test]
     fn parser_blocks_unbounded_or_remote_sql() {
-        assert!(
-            parse_sql_local_source_statement("SELECT id FROM 'target/input.csv' LIMIT 5").is_err()
-        );
+        assert!(parse_sql_local_source_statement("SELECT id FROM 'target/input.csv'").is_err());
         assert!(
             parse_sql_local_source_statement(
                 "SELECT id FROM 's3://bucket/input.csv' WHERE id = 1 LIMIT 5"

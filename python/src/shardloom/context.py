@@ -620,7 +620,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "Scoped local CSV and flat JSONL/NDJSON projection/filter/limit, "
+            "Scoped local CSV and flat JSONL/NDJSON projection/optional-filter/limit, "
             "scalar aggregate, one-column group-by aggregate, and single-key "
             "top-N collect smoke only; no broad DataFrame runtime, object-store/table "
             "source, external engine, fallback, or production claim."
@@ -640,7 +640,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "Scoped local CSV and flat JSONL/NDJSON projection/filter/limit, "
+            "Scoped local CSV and flat JSONL/NDJSON projection/optional-filter/limit, "
             "scalar aggregate, one-column group-by aggregate, and single-key "
             "top-N JSONL output smoke only; no broad DataFrame runtime, object-store/table "
             "sink, external engine, fallback, or production claim."
@@ -709,12 +709,20 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "preview",
         "materialization",
-        "unsupported_materialization_diagnostic",
-        diagnostic_operation="preview",
-        blocker_id="cg21.workflow.preview.materialization_unsupported",
-        required_evidence=("materialization_boundary", "notebook_evidence"),
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "materialization_boundary",
+            "execution_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
         materialization_required=True,
-        claim_boundary=_MATERIALIZATION_BOUNDARY,
+        claim_boundary=(
+            "Scoped local CSV and flat JSONL/NDJSON preview/select-star limit smoke only; "
+            "no notebook display, broad DataFrame runtime, object-store/table source, "
+            "external engine, fallback, or production claim."
+        ),
     ),
     _df_method(
         "display",

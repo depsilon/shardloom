@@ -602,10 +602,10 @@ class LazyFrame:
         if statement is None:
             raise ValueError(
                 "LazyFrame.write currently requires a local CSV or flat JSONL/NDJSON source with "
-                "select(...), filter(...), and limit(...) operations, "
-                "aggregate(...), filter(...), and limit(...) operations, or "
-                "filter(...), group_by(...).agg(...), and limit(...) operations, or "
-                "select(...), filter(...), sort(...), and limit(...) operations"
+                "select(...), optional filter(...), and limit(...) operations, "
+                "aggregate(...), optional filter(...), and limit(...) operations, or "
+                "optional filter(...), group_by(...).agg(...), and limit(...) operations, or "
+                "select(...), optional filter(...), sort(...), and limit(...) operations"
             )
         return self.client.sql_local_source_smoke(
             statement,
@@ -884,13 +884,15 @@ class LazyFrame:
         limit: int = 20,
         *,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for bounded notebook previews."""
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Return a bounded local preview when admitted, otherwise report unsupported."""
 
         if isinstance(limit, bool) or not isinstance(limit, int):
             raise TypeError("preview limit must be an integer")
         if limit <= 0:
             raise ValueError("preview limit must be positive")
+        if _is_query_builder_local_source(self.source):
+            return self.limit(limit).collect(check=check)
         return self._unsupported_operation("preview", str(limit), check=check)
 
     def display(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
@@ -1031,7 +1033,7 @@ class LazyFrame:
                 limit = operation.values[0]
             else:
                 return None
-        if predicate is None or limit is None:
+        if limit is None:
             return None
         if join_info is not None:
             if (
@@ -1048,8 +1050,8 @@ class LazyFrame:
             return (
                 f"SELECT {select_clause} FROM {source_uri} AS {left_alias} "
                 f"INNER JOIN {right_source_uri} AS {right_alias} "
-                f"ON {left_alias}.{left_key} = {right_alias}.{right_key} "
-                f"WHERE {predicate} LIMIT {limit}"
+                f"ON {left_alias}.{left_key} = {right_alias}.{right_key}"
+                f"{_optional_sql_where_clause(predicate)} LIMIT {limit}"
             )
         if projection_list is not None:
             if aggregate_list is not None or group_by_list is not None:
@@ -1064,7 +1066,8 @@ class LazyFrame:
                 select_clause = ",".join(aggregate_list)
                 group_by_clause = ""
         else:
-            return None
+            select_clause = "*"
+            group_by_clause = ""
         if sort_key is not None and (aggregate_list is not None or group_by_list is not None):
             return None
         order_by_clause = ""
@@ -1073,8 +1076,8 @@ class LazyFrame:
             order_by_clause = f" ORDER BY {column} {direction.upper()}"
         source_uri = _quote_sql_local_source_path(self.source.uri)
         return (
-            f"SELECT {select_clause} FROM {source_uri} "
-            f"WHERE {predicate}{group_by_clause}{order_by_clause} LIMIT {limit}"
+            f"SELECT {select_clause} FROM {source_uri}"
+            f"{_optional_sql_where_clause(predicate)}{group_by_clause}{order_by_clause} LIMIT {limit}"
         )
 
 
@@ -1868,6 +1871,12 @@ def _quote_sql_local_source_path(value: str) -> str:
             "by the scoped Python query-builder smoke"
         )
     return f"'{path}'"
+
+
+def _optional_sql_where_clause(predicate: str | None) -> str:
+    if predicate is None:
+        return ""
+    return f" WHERE {predicate}"
 
 
 def _is_non_string_sequence(value: object) -> bool:

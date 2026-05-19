@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-USER-SURFACE-1C no-filter local query-builder smokes
+  - Branch/PR: `codex/query-builder-no-filter-smokes` / #TBD.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/context.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - generated website/use-case pages.
+  - Scope: make ordinary local projection/limit, preview/select-star, aggregate, group-by, and
+    top-N workflows work without requiring a dummy `WHERE` predicate.
+  - Runtime behavior:
+    - `sql-local-source-smoke` now admits
+      `SELECT ... FROM '<local.csv|local.jsonl|local.ndjson>' LIMIT <n>` and the corresponding
+      aggregate, group-by, top-N, and inner equi-join shapes with an optional `WHERE`.
+    - Python `ctx.read_csv(...)` and local flat `ctx.read_json(...)` query-builder chains can call
+      `.select(...).limit(...).collect()/write(...)`, `.preview(limit=n)`,
+      `.aggregate(...).limit(1)`, `.group_by(...).agg(...).limit(n)`, and
+      `.select(...).sort(...).limit(n)` with or without an admitted filter.
+    - Unsupported input formats, nested JSON, broad SQL/DataFrame runtime, broad joins, object-store
+      sources, and table/lakehouse paths remain deterministic unsupported/report-only surfaces.
+  - Evidence:
+    - No-filter rows emit `filter_runtime_execution=false`, `predicate_operator_family=none`,
+      source-format-aware certificate refs, non-filter execution certificate suffixes such as
+      `sql-local-source.csv.projection-limit.execution.v1`, materialization/decode evidence,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_csv_projection_limit_without_predicate -- --nocapture`
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests::parses_scoped_sql_local_source_statement_without_predicate -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_projection_limit_without_filter_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_preview_uses_select_star_limit`
+    - `python -m unittest python.tests.test_query_builder`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke -- --nocapture`
+    - Real local Python smoke for preview, projection/limit, aggregate, group-by, and top-N without
+      filters.
+  - Claim boundary: this is scoped local fixture-smoke ergonomics for admitted CSV and flat
+    JSONL/NDJSON paths only. It does not add broad SQL/DataFrame runtime, production support,
+    object-store/table support, or performance claims.
+  - Fallback boundary: the Python bridge invokes only ShardLoom `sql-local-source-smoke`; no pandas,
+    Polars, Spark, DataFusion, DuckDB, or other external execution fallback is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F-S4 Python JSONL aggregate/group-by/top-N bridge
   - Branch/PR: `codex/python-jsonl-aggregate-topn-bridge` / #797.
   - Primary files:
