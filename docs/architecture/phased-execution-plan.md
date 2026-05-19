@@ -322,10 +322,13 @@ or documentation updates alone are insufficient.
 
 - [ ] GAR-RUNTIME-IMPL-4F local input adapter runtime coverage by format
   - Source: `GAR-IOREUSE-1A`, universal compatibility scoreboard, local input adapter docs.
-  - Current state: CSV is the strongest local smoke path; JSONL/JSON, Parquet, Arrow IPC, Avro,
-    and ORC do not all have ordinary user-facing SourceState runtime parity.
-  - Next slice outcome: promote one local input format at a time into the adapter registry with
-    SourceState evidence and deterministic blockers for unsupported formats/features.
+  - Current state: CSV is the strongest local smoke path; scoped flat JSONL/NDJSON local input is
+    now runtime-admitted through `sql-local-source-smoke` with SourceState-style evidence, content
+    fingerprints, schema digests, and deterministic blockers for nested JSON values. General JSON,
+    Parquet, Arrow IPC, Avro, and ORC do not all have ordinary user-facing SourceState runtime
+    parity.
+  - Next slice outcome: promote one remaining local input format at a time into the adapter registry
+    with SourceState evidence and deterministic blockers for unsupported formats/features.
   - Runtime enablement: admitted local input adapters that create reusable SourceState evidence for
     actual user reads.
   - User-visible surface: CLI/Python read helpers, use cases, capability/status matrix, benchmark
@@ -782,9 +785,9 @@ docs/website parity, and a completed-ledger entry.
 
 - [ ] GAR-RUNTIME-IMPL-5D local input adapter runtime parity
   - Source: `GAR-RUNTIME-IMPL-4F`, `GAR-IOREUSE-1A`, universal compatibility scoreboard.
-  - Current state: local CSV and selected local fixtures exist; JSONL/JSON, Parquet, Arrow IPC,
-    Avro, ORC, Excel, database files, and unsupported formats are not uniformly represented by
-    runtime SourceState adapters.
+  - Current state: local CSV and scoped flat JSONL/NDJSON local SQL smokes exist; general JSON,
+    nested JSON, Parquet, Arrow IPC, Avro, ORC, Excel, database files, and unsupported formats are
+    not uniformly represented by runtime SourceState adapters.
   - Next slice outcome: promote one local input format at a time into a SourceState adapter registry
     with deterministic blockers for unsupported formats.
   - Runtime enablement: local SourceState adapter runtime for admitted file formats and explicit

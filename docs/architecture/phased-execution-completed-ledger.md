@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F-S1 local JSONL/NDJSON source adapter runtime
+  - Branch/PR: `codex/gar-runtime-4f-jsonl-source-runtime` / #773.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: promote one scoped GAR-RUNTIME-IMPL-4F local-input adapter slice by admitting flat
+    JSONL/NDJSON object rows into `sql-local-source-smoke` alongside CSV, with SourceState-style
+    evidence and deterministic unsupported diagnostics for unsupported JSON features.
+  - Runtime enablement:
+    - Local `.jsonl` and `.ndjson` sources can be read by the existing scoped SQL local-source smoke.
+    - JSONL rows must be flat JSON objects with scalar values.
+    - Admitted scalar values are null, booleans, finite int64/float64 numbers, and quoted UTF-8
+      strings; ISO `YYYY-MM-DD` strings are coerced to Date32 only for explicit `DATE 'YYYY-MM-DD'`
+      predicate contexts.
+    - Missing object fields are represented as null in the per-row input map.
+  - Evidence:
+    - `source_format=jsonl`
+    - `source_fingerprint_kind=local_file_content_digest`
+    - `source_state_id`
+    - `source_state_digest`
+    - `source_state_reuse_allowed=false`
+    - `source_state_reuse_hit=false`
+    - `source_state_reuse_reason=not_cached_sql_local_source_smoke`
+    - `source_schema_digest`
+    - `source_read_millis`
+    - `source_parse_millis`
+    - `source_io_performed=true`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+    - `claim_gate_status=fixture_smoke_only`
+  - Blockers preserved:
+    - Nested JSON objects and arrays emit deterministic unsupported diagnostics.
+    - Duplicate-key join candidate explosions are capped deterministically without materializing all
+      joined rows.
+    - JSON unicode escape decoding, JSON document arrays, broad JSONPath/nested-field extraction,
+      schema drift handling beyond flat missing fields, and production JSON runtime remain
+      unsupported.
+    - Parquet, Arrow IPC, Avro, ORC, Excel, database files, object-store, table/lakehouse, broad
+      SQL/DataFrame runtime, external engine execution, and fallback execution remain blocked.
+  - Verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo test -p shardloom-cli jsonl_parser`
+    - `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only scoped local flat JSONL/NDJSON runtime for admitted
+    SQL local-source smoke paths with SourceState-style evidence. It may not claim broad JSON
+    runtime, nested JSON extraction, production SQL/DataFrame support, broad format parity,
+    object-store/lakehouse/Foundry support, external engine execution, or fallback execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D-S2 ISO Date32 literal and extraction runtime
   - Branch/PR: `codex/gar-runtime-4d-date-expression-runtime` / #772.
   - Primary files:
