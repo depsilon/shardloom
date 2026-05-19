@@ -20,8 +20,8 @@ use std::{
 
 use shardloom_core::{
     ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow, ExpressionKind,
-    OutputFormat, ScalarValue, ShardLoomError, UnaryOp, evaluate_filter, evaluate_projection,
-    format_iso_date32, parse_iso_date32,
+    LogicalDType, OutputFormat, ScalarValue, ShardLoomError, UnaryOp, evaluate_filter,
+    evaluate_projection, format_iso_date32, parse_iso_date32,
 };
 
 use crate::{
@@ -200,6 +200,12 @@ struct ParsedProjectionList {
 enum ParsedPredicate {
     Compare {
         column: String,
+        op: ComparisonOp,
+        value: ScalarValue,
+    },
+    CastCompare {
+        column: String,
+        target_dtype: LogicalDType,
         op: ComparisonOp,
         value: ScalarValue,
     },
@@ -1479,6 +1485,7 @@ impl ParsedPredicate {
     fn column(&self) -> &str {
         match self {
             Self::Compare { column, .. }
+            | Self::CastCompare { column, .. }
             | Self::IsNull { column }
             | Self::IsNotNull { column }
             | Self::StringMatch { column, .. } => column,
@@ -1497,6 +1504,29 @@ impl ParsedPredicate {
                     op: *op,
                     right: Box::new(Expression::literal(
                         ExprId::new("where.literal")?,
+                        value.clone(),
+                    )),
+                },
+            )),
+            Self::CastCompare {
+                column,
+                target_dtype,
+                op,
+                value,
+            } => Ok(Expression::new(
+                ExprId::new("where.cast_compare")?,
+                ExpressionKind::Compare {
+                    left: Box::new(Expression::cast(
+                        ExprId::new(format!("where.cast.{column}"))?,
+                        Expression::column(
+                            ExprId::new(format!("where.{column}"))?,
+                            ColumnRef::new(column.clone())?,
+                        ),
+                        target_dtype.clone(),
+                    )),
+                    op: *op,
+                    right: Box::new(Expression::literal(
+                        ExprId::new("where.cast.literal")?,
                         value.clone(),
                     )),
                 },
@@ -1543,6 +1573,7 @@ impl ParsedPredicate {
     fn family(&self) -> &'static str {
         match self {
             Self::Compare { .. } => "comparison",
+            Self::CastCompare { .. } => "cast",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::StringMatch { .. } => "string_predicate",
         }
@@ -1551,7 +1582,10 @@ impl ParsedPredicate {
     fn string_operator(&self) -> &'static str {
         match self {
             Self::StringMatch { op, .. } => op.as_str(),
-            Self::Compare { .. } | Self::IsNull { .. } | Self::IsNotNull { .. } => "not_applicable",
+            Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. } => "not_applicable",
         }
     }
 
@@ -1561,8 +1595,35 @@ impl ParsedPredicate {
             Self::Compare {
                 value: ScalarValue::Date32(_),
                 ..
+            } | Self::CastCompare {
+                value: ScalarValue::Date32(_),
+                ..
             }
         )
+    }
+
+    fn uses_cast(&self) -> bool {
+        matches!(self, Self::CastCompare { .. })
+    }
+
+    fn cast_source_column(&self) -> &str {
+        match self {
+            Self::CastCompare { column, .. } => column,
+            Self::Compare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::StringMatch { .. } => "",
+        }
+    }
+
+    fn cast_target_dtype(&self) -> String {
+        match self {
+            Self::CastCompare { target_dtype, .. } => target_dtype.as_str().to_string(),
+            Self::Compare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::StringMatch { .. } => "not_applicable".to_string(),
+        }
     }
 }
 
@@ -1870,6 +1931,18 @@ impl SqlLocalSourceReport {
             (
                 "date_literal_runtime_execution".to_string(),
                 self.parsed.predicate.uses_date_literal().to_string(),
+            ),
+            (
+                "cast_runtime_execution".to_string(),
+                self.parsed.predicate.uses_cast().to_string(),
+            ),
+            (
+                "cast_source_column".to_string(),
+                self.parsed.predicate.cast_source_column().to_string(),
+            ),
+            (
+                "cast_target_dtype".to_string(),
+                self.parsed.predicate.cast_target_dtype(),
             ),
             ("projection_pushed_down".to_string(), "false".to_string()),
             ("filter_pushed_down".to_string(), "false".to_string()),
@@ -2760,6 +2833,9 @@ fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
 }
 
 fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
+    if let Some(predicate) = parse_cast_predicate(raw)? {
+        return Ok(predicate);
+    }
     let tokens = split_whitespace_outside_quotes(raw)?;
     match tokens.as_slice() {
         [column, is_keyword, null_keyword]
@@ -2815,6 +2891,71 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
         }
         _ => Err(unsupported_sql_error(
             "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> LIKE <string-pattern>, <column> IS NULL, or <column> IS NOT NULL",
+        )),
+    }
+}
+
+fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
+    {
+        return Ok(None);
+    }
+    let close_index = trimmed.find(')').ok_or_else(|| {
+        unsupported_sql_error(
+            "CAST predicates must be written as CAST(<column> AS <dtype>) <op> <literal>",
+        )
+    })?;
+    let inner = trimmed[5..close_index].trim();
+    let tail = trimmed[close_index + 1..].trim();
+    if inner.is_empty() || tail.is_empty() {
+        return Err(unsupported_sql_error(
+            "CAST predicates require a source column, target dtype, comparison operator, and literal",
+        ));
+    }
+    let as_index = find_keyword_outside_quotes(inner, "as").ok_or_else(|| {
+        unsupported_sql_error("CAST predicates must use CAST(<column> AS <dtype>) syntax")
+    })?;
+    let column = inner[..as_index].trim();
+    let target_raw = inner[as_index + 2..].trim();
+    validate_sql_column_ref(column)?;
+    let target_dtype = parse_cast_target_dtype(target_raw)?;
+
+    let tokens = split_whitespace_outside_quotes(tail)?;
+    let (op, value) = match tokens.as_slice() {
+        [op_raw, date_keyword, literal_raw] if date_keyword.eq_ignore_ascii_case("date") => (
+            parse_comparison_op(op_raw)?,
+            parse_sql_date_literal(literal_raw)?,
+        ),
+        [op_raw, literal_raw] => (
+            parse_comparison_op(op_raw)?,
+            parse_sql_literal(literal_raw)?,
+        ),
+        _ => {
+            return Err(unsupported_sql_error(
+                "CAST predicates admit CAST(<column> AS <dtype>) <op> <literal> only",
+            ));
+        }
+    };
+    Ok(Some(ParsedPredicate::CastCompare {
+        column: column.to_string(),
+        target_dtype,
+        op,
+        value,
+    }))
+}
+
+fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "int64" | "bigint" | "integer" | "int" => Ok(LogicalDType::Int64),
+        "float64" | "double" | "float" => Ok(LogicalDType::Float64),
+        "utf8" | "string" | "text" => Ok(LogicalDType::Utf8),
+        "boolean" | "bool" => Ok(LogicalDType::Boolean),
+        "date32" | "date" => Ok(LogicalDType::Date32),
+        _ => Err(unsupported_sql_error(
+            "CAST target dtype must be one of int64, float64, utf8, boolean, or date32",
         )),
     }
 }
@@ -3294,6 +3435,61 @@ mod tests {
             parsed.statement_kind(),
             "local_source_order_by_topn_filter_limit"
         );
+    }
+
+    #[test]
+    fn parses_scoped_cast_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,amount FROM 'target/input.jsonl' WHERE CAST(amount AS int64) >= 10 LIMIT 5",
+        )
+        .expect("cast predicate statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "amount"]);
+        assert_eq!(parsed.source_path, PathBuf::from("target/input.jsonl"));
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::CastCompare {
+                ref column,
+                target_dtype: LogicalDType::Int64,
+                op: ComparisonOp::GtEq,
+                value: ScalarValue::Int64(10)
+            } if column == "amount"
+        ));
+        assert_eq!(parsed.predicate.family(), "cast");
+        assert_eq!(parsed.predicate.cast_source_column(), "amount");
+        assert_eq!(parsed.predicate.cast_target_dtype(), "int64");
+    }
+
+    #[test]
+    fn parses_scoped_cast_date_literal_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,event_date FROM 'target/input.jsonl' WHERE CAST(event_date AS date32) >= DATE '2026-05-19' LIMIT 5",
+        )
+        .expect("cast date literal predicate statement parses");
+
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::CastCompare {
+                ref column,
+                target_dtype: LogicalDType::Date32,
+                op: ComparisonOp::GtEq,
+                value: ScalarValue::Date32(_)
+            } if column == "event_date"
+        ));
+        assert!(parsed.predicate.uses_date_literal());
+        assert_eq!(parsed.predicate.family(), "cast");
+        assert_eq!(parsed.predicate.cast_target_dtype(), "date32");
+    }
+
+    #[test]
+    fn cast_predicate_blocks_unadmitted_dtype() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id FROM 'target/input.jsonl' WHERE CAST(amount AS decimal) >= 10 LIMIT 5",
+        )
+        .expect_err("decimal cast target remains blocked");
+
+        assert!(error.to_string().contains("CAST target dtype"));
+        assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 
     #[test]
