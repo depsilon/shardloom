@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL logical NOT predicate runtime
+  - Branch/PR: `codex/sql-logical-not-runtime` / #787.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+  - Scope: admit scoped local SQL `NOT` predicates over already admitted leaf predicates while
+    keeping parentheses and arbitrary predicate-tree completeness outside the slice.
+  - Runtime behavior:
+    - Added a unary logical predicate node lowered to ShardLoom core `UnaryOp::Not` expression
+      evaluation.
+    - Parses `OR`, then `AND`, then `NOT`, preserving scoped SQL logical precedence for
+      unparenthesized predicates.
+    - Reuses recursive binding/evidence for comparison, cast, date-literal, null, and string
+      predicate leaves.
+  - Evidence:
+    - CLI JSON reports `predicate_operator_family=logical_predicate`,
+      `logical_predicate_runtime_execution=true`, `logical_predicate_operator=not`,
+      `logical_predicate_leaf_count=<n>`, recursive leaf evidence such as
+      `string_predicate_runtime_execution=true`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests::parses_scoped_logical_not_predicate_statement`
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests::logical_not_preserves_or_precedence_without_fallback`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke logical`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_logical_not_filter_invokes_sql_smoke`
+    - `python -m compileall -q python/src python/tests`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: scoped local SQL/CLI/Python query-builder logical `NOT` predicate runtime only.
+    This does not claim parentheses, arbitrary predicate trees, optimizer rewrites, DataFrame
+    parity, performance, or production SQL support.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL logical OR predicate runtime
   - Branch/PR: `codex/sql-logical-or-runtime` / #786.
   - Primary files:

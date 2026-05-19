@@ -225,6 +225,9 @@ enum ParsedPredicate {
         left: Box<ParsedPredicate>,
         right: Box<ParsedPredicate>,
     },
+    Not {
+        inner: Box<ParsedPredicate>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -796,6 +799,9 @@ fn apply_date_literal_predicate_coercions(
                 right_source.as_deref_mut(),
             )?;
             apply_date_literal_predicate_coercions(right, parsed, source, right_source)
+        }
+        ParsedPredicate::Not { inner } => {
+            apply_date_literal_predicate_coercions(inner, parsed, source, right_source)
         }
         ParsedPredicate::Compare { .. }
         | ParsedPredicate::CastCompare { .. }
@@ -1557,6 +1563,7 @@ impl ParsedPredicate {
                 left.push_columns(columns);
                 right.push_columns(columns);
             }
+            Self::Not { inner } => inner.push_columns(columns),
         }
     }
 
@@ -1643,6 +1650,13 @@ impl ParsedPredicate {
                     right: Box::new(right.to_expression()?),
                 },
             )),
+            Self::Not { inner } => Ok(Expression::new(
+                ExprId::new("where.logical.not")?,
+                ExpressionKind::Unary {
+                    op: UnaryOp::Not,
+                    expr: Box::new(inner.to_expression()?),
+                },
+            )),
         }
     }
 
@@ -1652,7 +1666,7 @@ impl ParsedPredicate {
             Self::CastCompare { .. } => "cast",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::StringMatch { .. } => "string_predicate",
-            Self::Logical { .. } => "logical_predicate",
+            Self::Logical { .. } | Self::Not { .. } => "logical_predicate",
         }
     }
 
@@ -1662,6 +1676,7 @@ impl ParsedPredicate {
             Self::Logical { left, right, .. } => {
                 left.uses_string_predicate() || right.uses_string_predicate()
             }
+            Self::Not { inner } => inner.uses_string_predicate(),
             Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
@@ -1686,6 +1701,7 @@ impl ParsedPredicate {
                 left.push_string_operators(operators);
                 right.push_string_operators(operators);
             }
+            Self::Not { inner } => inner.push_string_operators(operators),
             Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
@@ -1706,6 +1722,7 @@ impl ParsedPredicate {
             Self::Logical { left, right, .. } => {
                 left.uses_date_literal() || right.uses_date_literal()
             }
+            Self::Not { inner } => inner.uses_date_literal(),
             Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
@@ -1718,6 +1735,7 @@ impl ParsedPredicate {
         match self {
             Self::CastCompare { .. } => true,
             Self::Logical { left, right, .. } => left.uses_cast() || right.uses_cast(),
+            Self::Not { inner } => inner.uses_cast(),
             Self::Compare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -1738,6 +1756,7 @@ impl ParsedPredicate {
                 left.push_cast_source_columns(columns);
                 right.push_cast_source_columns(columns);
             }
+            Self::Not { inner } => inner.push_cast_source_columns(columns),
             Self::Compare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -1764,6 +1783,7 @@ impl ParsedPredicate {
                 left.push_cast_target_dtypes(dtypes);
                 right.push_cast_target_dtypes(dtypes);
             }
+            Self::Not { inner } => inner.push_cast_target_dtypes(dtypes),
             Self::Compare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -1772,12 +1792,13 @@ impl ParsedPredicate {
     }
 
     fn uses_logical_predicate(&self) -> bool {
-        matches!(self, Self::Logical { .. })
+        matches!(self, Self::Logical { .. } | Self::Not { .. })
     }
 
     fn logical_operator(&self) -> &'static str {
         match self {
             Self::Logical { op, .. } => op.as_str(),
+            Self::Not { .. } => "not",
             Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
@@ -1791,6 +1812,7 @@ impl ParsedPredicate {
             Self::Logical { left, right, .. } => {
                 left.logical_leaf_count() + right.logical_leaf_count()
             }
+            Self::Not { inner } => inner.logical_leaf_count(),
             Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::IsNull { .. }
@@ -3084,21 +3106,27 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
 }
 
 fn parse_logical_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
-    let trimmed = raw.trim_start();
-    if trimmed
-        .get(..3)
-        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("not"))
-        && keyword_boundary(trimmed, 0, 3)
-    {
-        return Err(unsupported_sql_error(
-            "NOT predicates are not admitted in this scoped logical predicate runtime slice; use admitted AND/OR predicates or split the query",
-        ));
-    }
     if let Some(or_index) = find_keyword_outside_quotes(raw, "or") {
         return parse_logical_binary_predicate(raw, or_index, "or", LogicalPredicateOp::Or)
             .map(Some);
     }
     let Some(and_index) = find_keyword_outside_quotes(raw, "and") else {
+        let trimmed = raw.trim_start();
+        if trimmed
+            .get(..3)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("not"))
+            && keyword_boundary(trimmed, 0, 3)
+        {
+            let inner_raw = trimmed[3..].trim();
+            if inner_raw.is_empty() {
+                return Err(unsupported_sql_error(
+                    "NOT predicates must have a predicate after NOT",
+                ));
+            }
+            return Ok(Some(ParsedPredicate::Not {
+                inner: Box::new(parse_predicate(inner_raw)?),
+            }));
+        }
         return Ok(None);
     };
     parse_logical_binary_predicate(raw, and_index, "and", LogicalPredicateOp::And).map(Some)
@@ -3770,6 +3798,43 @@ mod tests {
         assert_eq!(parsed.predicate.logical_operator(), "or");
         assert_eq!(parsed.predicate.logical_leaf_count(), 3);
         assert_eq!(parsed.predicate.columns(), vec!["id", "amount", "label"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::Logical {
+                op: LogicalPredicateOp::Or,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parses_scoped_logical_not_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE NOT label LIKE '%ta' LIMIT 5",
+        )
+        .expect("logical NOT statement parses");
+
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
+        assert!(parsed.predicate.uses_logical_predicate());
+        assert_eq!(parsed.predicate.logical_operator(), "not");
+        assert_eq!(parsed.predicate.logical_leaf_count(), 1);
+        assert!(parsed.predicate.uses_string_predicate());
+        assert_eq!(parsed.predicate.string_operator(), "ends_with");
+        assert_eq!(parsed.predicate.columns(), vec!["label"]);
+        assert!(matches!(parsed.predicate, ParsedPredicate::Not { .. }));
+    }
+
+    #[test]
+    fn logical_not_preserves_or_precedence_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE NOT id >= 1 OR amount >= 10 LIMIT 5",
+        )
+        .expect("logical NOT/OR statement parses");
+
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
+        assert_eq!(parsed.predicate.logical_operator(), "or");
+        assert_eq!(parsed.predicate.logical_leaf_count(), 2);
+        assert_eq!(parsed.predicate.columns(), vec!["id", "amount"]);
         assert!(matches!(
             parsed.predicate,
             ParsedPredicate::Logical {
