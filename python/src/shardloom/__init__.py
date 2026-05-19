@@ -83,7 +83,14 @@ from .errors import (
     ShardLoomCommandError,
     ShardLoomProtocolError,
 )
-from .models import Diagnostic, FieldEntry, FallbackStatus, OutputEnvelope
+from .models import (
+    ClaimSummary,
+    Diagnostic,
+    EvidenceSummary,
+    FieldEntry,
+    FallbackStatus,
+    OutputEnvelope,
+)
 from .quickstart import QuickstartProofReport, quickstart_proof
 from .query import (
     LazyFrame,
@@ -117,6 +124,8 @@ from .query import (
 __all__ = [
     "__version__",
     "Diagnostic",
+    "ClaimSummary",
+    "EvidenceSummary",
     "FallbackStatus",
     "FieldEntry",
     "OutputEnvelope",

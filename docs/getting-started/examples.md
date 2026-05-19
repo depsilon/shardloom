@@ -286,6 +286,8 @@ print(collected.result_jsonl)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
+print(written.evidence_summary.output_native_io_certificate_status)
+print(written.claim_summary.claim_gate_status)
 print(aggregate.result_jsonl)
 print(aggregate.aggregate_operator_family)
 print(aggregate.aggregate_functions)
@@ -296,6 +298,8 @@ print(topn.result_jsonl)
 print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
 print(joined.result_jsonl)
 print(joined.join_runtime_execution, joined.join_type)
+print(joined.evidence_summary.command)
+print(joined.claim_summary.public_performance_claim_allowed)
 '@ | python -
 ```
 
@@ -308,6 +312,8 @@ the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MA
 `join(..., on="key")` with qualified projection/filter columns lowers to the scoped inner equi-join
 smoke. It is not a pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate,
 ordering, or join runtime, object-store/table path, production SQL support, or performance claim.
+Runtime reports also expose `evidence_summary` and `claim_summary` helpers so users can inspect the
+output sink, no-fallback fields, external-engine boundary, and claim gate without scraping raw JSON.
 
 ## Foundry Lightweight Transform
 

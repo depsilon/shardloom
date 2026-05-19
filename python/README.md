@@ -400,6 +400,8 @@ print(collected.result_jsonl)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
 print(written.fallback_attempted, written.external_engine_invoked)
+print(written.evidence_summary.output_native_io_certificate_status)
+print(written.claim_summary.claim_gate_status)
 print(collected.logical_predicate_operator, collected.logical_predicate_leaf_count)
 print(aggregate.result_jsonl)
 print(aggregate.aggregate_operator_family)
@@ -411,6 +413,8 @@ print(topn.result_jsonl)
 print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
 print(joined.result_jsonl)
 print(joined.join_runtime_execution, joined.join_type)
+print(joined.evidence_summary.command)
+print(joined.claim_summary.public_performance_claim_allowed)
 '@ | python -
 ```
 
@@ -449,6 +453,20 @@ blocked: outer/semi/anti/cross joins, multi-key joins, expression joins,
 unqualified join predicates, joins over non-CSV sources, and object-store/table
 joins still return deterministic unsupported diagnostics or fail closed through
 the scoped SQL binder.
+
+Typed runtime reports expose compact evidence and claim helpers so examples do
+not need to scrape raw envelope fields:
+
+```python
+summary = written.evidence_summary
+claim = written.claim_summary
+
+print(summary.output_path)
+print(summary.output_io_performed)
+print(summary.fallback_attempted, summary.external_engine_invoked)
+print(claim.claim_gate_status)
+print(claim.public_performance_claim_allowed)
+```
 
 The lower-level `client.sql_local_source_smoke(...)` helper can also call the
 scoped local CSV scalar, grouped aggregate, order/top-N, and explicit inner
