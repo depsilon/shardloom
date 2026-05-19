@@ -16,6 +16,51 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E / GAR-USER-SURFACE-1C generated range/sequence limit helpers
+  - Branch/PR: `codex/generated-range-limit` / #811.
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/phased-execution-plan.md`
+    - generated use-case/readme/status website pages.
+  - Scope: make source-free range/sequence generated-output builders support familiar bounded
+    result ergonomics before local writes.
+  - Runtime behavior:
+    - `GeneratedRangeSource.limit(...)`, `head(...)`, and `take(...)` adjust range/sequence
+      start/end/step metadata before invoking the existing `generated-source-range-smoke` or
+      `generated-source-sequence-smoke` command.
+    - The helper preserves `source_kind`, uses the same engine-native generator smoke path, and does
+      not materialize rows in Python.
+    - Validation rejects boolean/non-integer and negative limits before any CLI invocation.
+  - Evidence:
+    - Python tests assert a limited range lowers to the exact generated-source smoke CLI arguments
+      and preserves generated-source row count, generated-source fields, `fallback_attempted=false`,
+      and `external_engine_invoked=false`.
+    - Alias and validation tests cover `limit`, `head`, `take`, zero-row limits, oversized limits,
+      negative-step ranges, non-integer limits, and negative limits.
+    - README, Python README, examples, use-case index, generated use-case page, and phase-plan current
+      state now document the scoped generated range/sequence bound-adjustment surface.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: scoped local range/sequence generated-output fixture-smoke ergonomics only. This
+    does not add broad DataFrame generated expressions, object-store writes, Foundry runtime,
+    Vortex-output fanout, production SQL/DataFrame support, external fallback, or a performance
+    claim.
+
 - [x] Session label: GAR-USER-SURFACE-1C Python query-builder write capability row alignment
   - Branch/PR: `codex/query-builder-write-capabilities` / #810.
   - Primary files:
