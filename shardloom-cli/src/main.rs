@@ -4332,6 +4332,125 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
+    fn release_plan_fields_expose_per_claim_evidence_attachment_matrix() {
+        let plan = shardloom_core::ReleasePlan::default_foundation_plan();
+        let evidence = plan.release_readiness_evidence();
+        let publication = plan.publication_boundary_report();
+        let publication_api_schema = plan.publication_api_schema_stability_gate();
+        let fields = packaging_deployment::release_plan_fields(
+            &plan,
+            &evidence,
+            &publication,
+            &publication_api_schema,
+            "release_plan",
+        );
+
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_schema_version"
+            ),
+            "shardloom.per_claim_evidence_attachment_matrix.v1"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_claim_gate_status"
+            ),
+            "not_claim_grade"
+        );
+        assert_eq!(
+            output_field(&fields, "per_claim_evidence_attachment_matrix_row_count"),
+            "8"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_blocking_row_count"
+            ),
+            "8"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_missing_attachment_count"
+            ),
+            "72"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_all_required_categories_named"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_all_claims_blocked"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_public_release_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_public_package_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_performance_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_external_engine_invoked"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_row_public_release_claim_claim_gate_status"
+            ),
+            "not_claim_grade"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_row_public_release_claim_missing_attachment_count"
+            ),
+            "9"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "per_claim_evidence_attachment_matrix_row_performance_superiority_claim_benchmark_evidence_attached"
+            ),
+            "false"
+        );
+    }
+
+    #[test]
     fn release_plan_fields_expose_comparative_rerun_managed_platform_gate() {
         let plan = shardloom_core::ReleasePlan::default_foundation_plan();
         let evidence = plan.release_readiness_evidence();

@@ -1575,6 +1575,188 @@ fn gar_0025_a_competitive_replacement_sufficiency_gate_fails_closed() {
 }
 
 #[test]
+fn gar_0041_a_per_claim_evidence_attachment_matrix_fails_closed() {
+    let core = read_repo_file("shardloom-core/src/release.rs");
+    for required in [
+        "PerClaimEvidenceAttachmentMatrixReport",
+        "PerClaimEvidenceAttachmentRow",
+        "plan_per_claim_evidence_attachment_matrix",
+        "shardloom.per_claim_evidence_attachment_matrix.v1",
+        "gar-0041-a.per_claim_evidence_attachment_matrix",
+        "public_release_claim",
+        "public_package_claim",
+        "performance_superiority_claim",
+        "spark_displacement_claim",
+        "engine_replacement_claim",
+        "production_sql_dataframe_claim",
+        "object_store_lakehouse_claim",
+        "foundry_platform_claim",
+        "required_test_evidence",
+        "required_benchmark_evidence",
+        "required_certificate_evidence",
+        "required_native_io_evidence",
+        "required_security_evidence",
+        "required_provenance_evidence",
+        "required_unsupported_path_evidence",
+        "required_no_fallback_evidence",
+        "required_release_approval",
+        "attachment_status: \"missing_required_evidence\"",
+        "claim_gate_status: \"not_claim_grade\"",
+        "public_claim_allowed: false",
+        "public_release_claim_allowed: false",
+        "public_package_claim_allowed: false",
+        "performance_claim_allowed: false",
+        "superiority_claim_allowed: false",
+        "spark_displacement_claim_allowed: false",
+        "production_claim_allowed: false",
+        "package_publication_performed: false",
+        "runtime_execution_performed: false",
+        "benchmark_rerun_performed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "per_claim_evidence_attachment_matrix_blocks_public_claims_without_evidence",
+    ] {
+        assert!(
+            core.contains(required),
+            "missing GAR-0041-A core matrix marker {required}"
+        );
+    }
+
+    let lib = read_repo_file("shardloom-core/src/lib.rs");
+    for required in [
+        "PerClaimEvidenceAttachmentMatrixReport",
+        "PerClaimEvidenceAttachmentRow",
+        "plan_per_claim_evidence_attachment_matrix",
+    ] {
+        assert!(
+            lib.contains(required),
+            "missing GAR-0041-A core export marker {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/packaging_deployment.rs");
+    for required in [
+        "append_per_claim_evidence_attachment_matrix_fields",
+        "per_claim_evidence_attachment_matrix_schema_version",
+        "per_claim_evidence_attachment_matrix_claim_gate_status",
+        "per_claim_evidence_attachment_matrix_blocking_row_count",
+        "per_claim_evidence_attachment_matrix_missing_attachment_count",
+        "per_claim_evidence_attachment_matrix_all_required_categories_named",
+        "per_claim_evidence_attachment_matrix_all_claims_blocked",
+        "per_claim_evidence_attachment_matrix_public_release_claim_allowed",
+        "per_claim_evidence_attachment_matrix_public_package_claim_allowed",
+        "per_claim_evidence_attachment_matrix_performance_claim_allowed",
+        "per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed",
+        "per_claim_evidence_attachment_matrix_fallback_attempted",
+        "per_claim_evidence_attachment_matrix_external_engine_invoked",
+        "per_claim_evidence_attachment_matrix_row_{}",
+        "required_test_evidence",
+        "required_benchmark_evidence",
+        "required_certificate_evidence",
+        "required_native_io_evidence",
+        "required_security_evidence",
+        "required_provenance_evidence",
+        "required_unsupported_path_evidence",
+        "required_no_fallback_evidence",
+        "required_release_approval",
+        "claim_gate_status",
+        "public_claim_allowed",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing GAR-0041-A CLI matrix marker {required}"
+        );
+    }
+
+    let main = read_repo_file("shardloom-cli/src/main.rs");
+    assert!(main.contains("release_plan_fields_expose_per_claim_evidence_attachment_matrix"));
+
+    let script = read_repo_file("scripts/check_release_readiness.py");
+    for required in [
+        "--per-claim-evidence-matrix",
+        "per_claim_evidence_attachment_matrix",
+        "shardloom.per_claim_evidence_attachment_matrix.v1",
+        "per_claim_evidence_attachment_matrix_claim_gate_status=not_claim_grade",
+        "per_claim_evidence_matrix_ref",
+    ] {
+        assert!(
+            script.contains(required),
+            "missing GAR-0041-A hard release script marker {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/release/per-claim-evidence-attachment-matrix.md");
+    for required in [
+        "GAR-0041-A",
+        "shardloom.per_claim_evidence_attachment_matrix.v1",
+        "per_claim_evidence_attachment_matrix_support_status=blocked",
+        "per_claim_evidence_attachment_matrix_claim_gate_status=not_claim_grade",
+        "per_claim_evidence_attachment_matrix_row_count=8",
+        "per_claim_evidence_attachment_matrix_blocking_row_count=8",
+        "per_claim_evidence_attachment_matrix_missing_attachment_count=72",
+        "per_claim_evidence_attachment_matrix_all_required_categories_named=true",
+        "per_claim_evidence_attachment_matrix_all_claims_blocked=true",
+        "per_claim_evidence_attachment_matrix_public_release_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_public_package_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_performance_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_fallback_attempted=false",
+        "per_claim_evidence_attachment_matrix_external_engine_invoked=false",
+        "public_release_claim",
+        "public_package_claim",
+        "performance_superiority_claim",
+        "spark_displacement_claim",
+        "engine_replacement_claim",
+        "production_sql_dataframe_claim",
+        "object_store_lakehouse_claim",
+        "foundry_platform_claim",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0041-A doc marker {required}"
+        );
+    }
+
+    let hard_gate = read_repo_file("docs/release/hard-release-readiness-gate.md");
+    assert!(hard_gate.contains("shardloom.per_claim_evidence_attachment_matrix.v1"));
+    assert!(hard_gate.contains("Any missing attachment keeps the"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0041-A per-claim evidence attachment matrix"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for required in [
+        "GAR-0041-A per-claim evidence attachment matrix",
+        "shardloom.per_claim_evidence_attachment_matrix.v1",
+        "per_claim_evidence_attachment_matrix_support_status=blocked",
+        "per_claim_evidence_attachment_matrix_claim_gate_status=not_claim_grade",
+        "per_claim_evidence_attachment_matrix_blocking_row_count=8",
+        "per_claim_evidence_attachment_matrix_missing_attachment_count=72",
+        "per_claim_evidence_attachment_matrix_all_claims_blocked=true",
+        "per_claim_evidence_attachment_matrix_public_release_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_public_package_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_performance_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed=false",
+        "per_claim_evidence_attachment_matrix_fallback_attempted=false",
+        "per_claim_evidence_attachment_matrix_external_engine_invoked=false",
+    ] {
+        assert!(
+            completed.contains(required),
+            "missing GAR-0041-A completed-ledger marker {required}"
+        );
+    }
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("`GAR-0041-A` adds `shardloom.per_claim_evidence_attachment_matrix.v1`"));
+    assert!(gar.contains("per_claim_evidence_attachment_matrix_all_claims_blocked=true"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("GAR-0041-A"));
+    assert!(traceability.contains("shardloom.per_claim_evidence_attachment_matrix.v1"));
+    assert!(traceability.contains("Public claims remain blocked"));
+}
+
+#[test]
 fn cg5_cg6_stateful_reuse_evidence_expansion_remains_fail_closed() {
     let core = read_repo_file("shardloom-core/src/correctness.rs");
     for required in [

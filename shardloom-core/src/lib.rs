@@ -272,7 +272,8 @@ pub use release::{
     CondaPackageBuildInstallEntry, CondaPackageKind, DependencyLicenseClass, DependencyReview,
     DependencyReviewStatus, EngineReplacementClaimInventoryReport,
     EngineReplacementClaimInventoryRow, MachineReadableSchemaKind, NoFallbackReleaseCheck,
-    PackageTarget, PackageTargetKind, ProjectVersion, PublicSurface, PublicSurfaceKind,
+    PackageTarget, PackageTargetKind, PerClaimEvidenceAttachmentMatrixReport,
+    PerClaimEvidenceAttachmentRow, ProjectVersion, PublicSurface, PublicSurfaceKind,
     ReleaseArtifactKind, ReleaseArtifactPlan, ReleaseChannel, ReleaseChecklistItem,
     ReleaseChecklistItemKind, ReleaseEvidenceRequirement, ReleaseEvidenceRequirementKind,
     ReleaseEvidenceRequirementStatus, ReleasePlan, ReleasePublicationApiSchemaGateReport,
@@ -282,7 +283,7 @@ pub use release::{
     SchemaStability, WorkspaceFeatureBuildMatrixFeatureSet, WorkspaceFeatureBuildMatrixReport,
     WorkspaceFeatureBuildMatrixRow, WorkspaceFeatureBuildMatrixRowStatus,
     plan_competitive_replacement_sufficiency_gate, plan_engine_replacement_claim_inventory,
-    plan_workspace_feature_build_matrix,
+    plan_per_claim_evidence_attachment_matrix, plan_workspace_feature_build_matrix,
 };
 pub use remote_api::{
     RestApiAuditPolicyContract, RestApiAuthPostureContract, RestApiContractReport,

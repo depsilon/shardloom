@@ -16,6 +16,83 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0041-A per-claim evidence attachment matrix
+  - Branch/PR: `codex/gar-0041a-per-claim-evidence-matrix` / #768.
+  - Primary files:
+    - `shardloom-core/src/release.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/packaging_deployment.rs`
+    - `shardloom-cli/src/main.rs`
+    - `scripts/check_release_readiness.py`
+    - `docs/release/per-claim-evidence-attachment-matrix.md`
+    - `docs/release/hard-release-readiness-gate.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0041-A by adding a fail-closed release-domain matrix that binds each public
+    claim family to required test, benchmark, certificate, Native I/O, security, provenance,
+    unsupported-path, no-fallback, and approval evidence.
+  - Checklist:
+    - [x] Add `shardloom.per_claim_evidence_attachment_matrix.v1`.
+    - [x] Surface the matrix through `release-plan` / `package-plan`.
+    - [x] Add the matrix to the hard release-readiness script and docs.
+    - [x] Keep release, package, performance, superiority, Spark-displacement, production, and
+          platform claims blocked until every row has attached passing evidence.
+    - [x] Move GAR-0041-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `per_claim_evidence_attachment_matrix_schema_version=shardloom.per_claim_evidence_attachment_matrix.v1`
+    - `per_claim_evidence_attachment_matrix_support_status=blocked`
+    - `per_claim_evidence_attachment_matrix_claim_gate_status=not_claim_grade`
+    - `per_claim_evidence_attachment_matrix_row_count=8`
+    - `per_claim_evidence_attachment_matrix_blocking_row_count=8`
+    - `per_claim_evidence_attachment_matrix_missing_attachment_count=72`
+    - `public_release_claim`
+    - `public_package_claim`
+    - `performance_superiority_claim`
+    - `spark_displacement_claim`
+    - `engine_replacement_claim`
+    - `production_sql_dataframe_claim`
+    - `object_store_lakehouse_claim`
+    - `foundry_platform_claim`
+    - `required_test_evidence`
+    - `required_benchmark_evidence`
+    - `required_certificate_evidence`
+    - `required_native_io_evidence`
+    - `required_security_evidence`
+    - `required_provenance_evidence`
+    - `required_unsupported_path_evidence`
+    - `required_no_fallback_evidence`
+    - `required_release_approval`
+    - `per_claim_evidence_attachment_matrix_all_required_categories_named=true`
+    - `per_claim_evidence_attachment_matrix_all_claims_blocked=true`
+    - `per_claim_evidence_attachment_matrix_public_release_claim_allowed=false`
+    - `per_claim_evidence_attachment_matrix_public_package_claim_allowed=false`
+    - `per_claim_evidence_attachment_matrix_performance_claim_allowed=false`
+    - `per_claim_evidence_attachment_matrix_superiority_claim_allowed=false`
+    - `per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed=false`
+    - `per_claim_evidence_attachment_matrix_production_claim_allowed=false`
+    - `per_claim_evidence_attachment_matrix_package_publication_performed=false`
+    - `per_claim_evidence_attachment_matrix_runtime_execution_performed=false`
+    - `per_claim_evidence_attachment_matrix_benchmark_rerun_performed=false`
+    - `per_claim_evidence_attachment_matrix_fallback_attempted=false`
+    - `per_claim_evidence_attachment_matrix_external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-core per_claim_evidence_attachment_matrix_blocks_public_claims_without_evidence --lib`
+    - `cargo test -p shardloom-cli release_plan_fields_expose_per_claim_evidence_attachment_matrix`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_release_readiness.py --allow-blocked`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that every public claim family now has a fail-closed
+    attachment matrix. It may not claim release/package readiness, performance, superiority,
+    Spark displacement, production SQL/DataFrame, object-store/lakehouse, Foundry/platform support,
+    external engine execution, package publication, or fallback execution.
+
 - [x] Session label: GAR-0040-A comparative rerun and managed-platform posture gate
   - Branch/PR: `codex/gar-0040a-comparative-rerun-managed-platform-gate` / #767.
   - Primary files:

@@ -9,11 +9,12 @@ use shardloom_core::{
     AgentContractPack, CommandStatus, ComparativeRerunManagedPlatformGateReport,
     CompetitiveReplacementSufficiencyGateReport, CompetitiveReplacementSufficiencyGateRow,
     CondaBuildInstallCertificationReport, EngineReplacementClaimInventoryReport,
-    EngineReplacementClaimInventoryRow, OutputFormat, PythonWrapperFoundationReport,
-    ReleaseEvidenceRequirementKind, ReleasePlan, ReleasePublicationApiSchemaGateReport,
-    ReleasePublicationBoundaryKind, ReleasePublicationBoundaryReport,
-    ReleaseReadinessEvidenceReport, plan_comparative_rerun_managed_platform_gate,
-    plan_competitive_replacement_sufficiency_gate, plan_engine_replacement_claim_inventory,
+    EngineReplacementClaimInventoryRow, OutputFormat, PerClaimEvidenceAttachmentMatrixReport,
+    PerClaimEvidenceAttachmentRow, PythonWrapperFoundationReport, ReleaseEvidenceRequirementKind,
+    ReleasePlan, ReleasePublicationApiSchemaGateReport, ReleasePublicationBoundaryKind,
+    ReleasePublicationBoundaryReport, ReleaseReadinessEvidenceReport,
+    plan_comparative_rerun_managed_platform_gate, plan_competitive_replacement_sufficiency_gate,
+    plan_engine_replacement_claim_inventory, plan_per_claim_evidence_attachment_matrix,
 };
 
 use crate::cli_output::emit;
@@ -247,6 +248,10 @@ pub(crate) fn release_plan_fields(
     append_competitive_replacement_sufficiency_gate_fields(
         &mut fields,
         &plan_competitive_replacement_sufficiency_gate(),
+    );
+    append_per_claim_evidence_attachment_matrix_fields(
+        &mut fields,
+        &plan_per_claim_evidence_attachment_matrix(),
     );
     append_comparative_rerun_managed_platform_gate_release_fields(
         &mut fields,
@@ -708,6 +713,318 @@ fn append_competitive_replacement_sufficiency_gate_row(
         fields,
         &format!("{prefix}_external_engine_invoked"),
         row.external_engine_invoked,
+    );
+}
+
+fn append_per_claim_evidence_attachment_matrix_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &PerClaimEvidenceAttachmentMatrixReport,
+) {
+    append_per_claim_evidence_attachment_matrix_summary_fields(fields, report);
+    append_per_claim_evidence_attachment_matrix_row_fields(fields, report);
+}
+
+fn append_per_claim_evidence_attachment_matrix_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &PerClaimEvidenceAttachmentMatrixReport,
+) {
+    push_field(
+        fields,
+        "per_claim_evidence_attachment_matrix_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "per_claim_evidence_attachment_matrix_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "per_claim_evidence_attachment_matrix_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "per_claim_evidence_attachment_matrix_source_refs",
+        report.source_refs,
+    );
+    push_field(
+        fields,
+        "per_claim_evidence_attachment_matrix_support_status",
+        report.support_status,
+    );
+    push_field(
+        fields,
+        "per_claim_evidence_attachment_matrix_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_count_field(
+        fields,
+        "per_claim_evidence_attachment_matrix_row_count",
+        report.rows.len(),
+    );
+    push_count_field(
+        fields,
+        "per_claim_evidence_attachment_matrix_blocking_row_count",
+        report.blocking_row_count(),
+    );
+    push_count_field(
+        fields,
+        "per_claim_evidence_attachment_matrix_missing_attachment_count",
+        report.total_missing_attachment_count(),
+    );
+    push_field(
+        fields,
+        "per_claim_evidence_attachment_matrix_row_ids",
+        &report.row_ids().join(","),
+    );
+    append_per_claim_evidence_attachment_matrix_boolean_fields(fields, report);
+}
+
+fn append_per_claim_evidence_attachment_matrix_boolean_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &PerClaimEvidenceAttachmentMatrixReport,
+) {
+    for (field, value) in [
+        (
+            "per_claim_evidence_attachment_matrix_test_evidence_required",
+            report.test_evidence_required,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_benchmark_evidence_required",
+            report.benchmark_evidence_required,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_certificate_evidence_required",
+            report.certificate_evidence_required,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_native_io_evidence_required",
+            report.native_io_evidence_required,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_security_evidence_required",
+            report.security_evidence_required,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_provenance_evidence_required",
+            report.provenance_evidence_required,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_unsupported_path_evidence_required",
+            report.unsupported_path_evidence_required,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_no_fallback_evidence_required",
+            report.no_fallback_evidence_required,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_release_approval_required",
+            report.release_approval_required,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_all_required_categories_named",
+            report.all_required_categories_named(),
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_all_claims_blocked",
+            report.all_claims_blocked(),
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_side_effect_free",
+            report.side_effect_free(),
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_public_release_claim_allowed",
+            report.public_release_claim_allowed,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_public_package_claim_allowed",
+            report.public_package_claim_allowed,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_performance_claim_allowed",
+            report.performance_claim_allowed,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_superiority_claim_allowed",
+            report.superiority_claim_allowed,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_spark_displacement_claim_allowed",
+            report.spark_displacement_claim_allowed,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_production_claim_allowed",
+            report.production_claim_allowed,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_package_publication_performed",
+            report.package_publication_performed,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_runtime_execution_performed",
+            report.runtime_execution_performed,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_benchmark_rerun_performed",
+            report.benchmark_rerun_performed,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_fallback_attempted",
+            report.fallback_attempted,
+        ),
+        (
+            "per_claim_evidence_attachment_matrix_external_engine_invoked",
+            report.external_engine_invoked,
+        ),
+    ] {
+        push_bool_field(fields, field, value);
+    }
+}
+
+fn append_per_claim_evidence_attachment_matrix_row_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &PerClaimEvidenceAttachmentMatrixReport,
+) {
+    for row in &report.rows {
+        let prefix = format!("per_claim_evidence_attachment_matrix_row_{}", row.claim_id);
+        append_per_claim_evidence_attachment_matrix_row_identity_fields(fields, &prefix, row);
+        append_per_claim_evidence_attachment_matrix_row_required_fields(fields, &prefix, row);
+        append_per_claim_evidence_attachment_matrix_row_status_fields(fields, &prefix, row);
+    }
+}
+
+fn append_per_claim_evidence_attachment_matrix_row_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &PerClaimEvidenceAttachmentRow,
+) {
+    push_field(fields, &format!("{prefix}_claim_family"), row.claim_family);
+    push_field(
+        fields,
+        &format!("{prefix}_public_claim_language"),
+        row.public_claim_language,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_support_status"),
+        row.support_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_current_attachment_ref"),
+        row.current_attachment_ref,
+    );
+}
+
+fn append_per_claim_evidence_attachment_matrix_row_required_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &PerClaimEvidenceAttachmentRow,
+) {
+    for (suffix, value) in [
+        ("required_test_evidence", row.required_test_evidence),
+        (
+            "required_benchmark_evidence",
+            row.required_benchmark_evidence,
+        ),
+        (
+            "required_certificate_evidence",
+            row.required_certificate_evidence,
+        ),
+        (
+            "required_native_io_evidence",
+            row.required_native_io_evidence,
+        ),
+        ("required_security_evidence", row.required_security_evidence),
+        (
+            "required_provenance_evidence",
+            row.required_provenance_evidence,
+        ),
+        (
+            "required_unsupported_path_evidence",
+            row.required_unsupported_path_evidence,
+        ),
+        (
+            "required_no_fallback_evidence",
+            row.required_no_fallback_evidence,
+        ),
+        ("required_release_approval", row.required_release_approval),
+        ("missing_evidence", row.missing_evidence),
+    ] {
+        push_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+}
+
+fn append_per_claim_evidence_attachment_matrix_row_status_fields(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &PerClaimEvidenceAttachmentRow,
+) {
+    push_field(
+        fields,
+        &format!("{prefix}_attachment_status"),
+        row.attachment_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        row.claim_gate_status,
+    );
+    push_count_field(
+        fields,
+        &format!("{prefix}_missing_attachment_count"),
+        row.missing_required_attachment_count(),
+    );
+    for (suffix, value) in [
+        ("test_evidence_attached", row.test_evidence_attached),
+        (
+            "benchmark_evidence_attached",
+            row.benchmark_evidence_attached,
+        ),
+        (
+            "certificate_evidence_attached",
+            row.certificate_evidence_attached,
+        ),
+        (
+            "native_io_evidence_attached",
+            row.native_io_evidence_attached,
+        ),
+        ("security_evidence_attached", row.security_evidence_attached),
+        (
+            "provenance_evidence_attached",
+            row.provenance_evidence_attached,
+        ),
+        (
+            "unsupported_path_evidence_attached",
+            row.unsupported_path_evidence_attached,
+        ),
+        (
+            "no_fallback_evidence_attached",
+            row.no_fallback_evidence_attached,
+        ),
+        ("release_approval_attached", row.release_approval_attached),
+        ("public_claim_allowed", row.public_claim_allowed),
+        (
+            "runtime_execution_performed",
+            row.runtime_execution_performed,
+        ),
+        ("benchmark_rerun_performed", row.benchmark_rerun_performed),
+        (
+            "package_publication_performed",
+            row.package_publication_performed,
+        ),
+        ("fallback_attempted", row.fallback_attempted),
+        ("external_engine_invoked", row.external_engine_invoked),
+        ("side_effect_free", row.side_effect_free()),
+    ] {
+        push_bool_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
     );
 }
 
