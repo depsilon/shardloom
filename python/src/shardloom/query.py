@@ -835,6 +835,21 @@ class LazyFrame:
             return self.client.sql_local_source_smoke(statement, check=check)
         return self._unsupported_operation("collect", check=check)
 
+    def count(
+        self,
+        *,
+        check: bool = False,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Return a scoped row-count report for admitted local workflows."""
+
+        if self._can_append_scalar_aggregate():
+            return (
+                self._append(WorkflowOperation("aggregate", ("count(*)",)))
+                .limit(1)
+                .collect(check=check)
+            )
+        return self._unsupported_operation("count", check=check)
+
     def write(
         self,
         target_uri: str | os.PathLike[str],

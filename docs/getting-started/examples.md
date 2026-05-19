@@ -284,6 +284,11 @@ aggregate = (
     .limit(1)
     .collect()
 )
+row_count = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .filter(sl.col("amount") >= 10)
+    .count()
+)
 grouped = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .filter("amount >= 10")
@@ -320,6 +325,8 @@ print(written.claim_summary.claim_gate_status)
 print(aggregate.result_jsonl)
 print(aggregate.aggregate_operator_family)
 print(aggregate.aggregate_functions)
+print(row_count.result_jsonl)
+print(row_count.aggregate_functions)
 print(grouped.result_jsonl)
 print(grouped.aggregate_operator_family)
 print(grouped.group_by_columns)
@@ -335,7 +342,8 @@ print(joined.claim_summary.public_performance_claim_allowed)
 Use this for the scoped GAR-RUNTIME-IMPL-1C path that exposes the same local CSV SQL smoke through a
 Python DataFrame-like query builder. `collect()` returns bounded inline JSONL; `write()` writes a
 local JSONL result and emits output Native I/O certificate fields. Scalar `aggregate(...)` lowers to
-the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; one-column
+the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; `count()` is a
+convenience wrapper over the same `COUNT(*)` smoke; one-column
 `group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke; single-key numeric
 `sort(...).limit(...)` lowers to the scoped top-N smoke; one local CSV
 `join(..., on="key")` with qualified projection/filter columns lowers to the scoped inner equi-join

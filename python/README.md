@@ -352,7 +352,8 @@ evidence, and blocks non-literal expressions before fallback.
 CSV and local flat
 JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
-`MIN`, and `MAX`, one-column grouped aggregates shaped as
+`MIN`, and `MAX`. The convenience `count()` method lowers to the same
+`COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. One-column grouped aggregates shaped as
 `group_by(...).agg(...).limit(n)` with an optional filter, and a single-key
 numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric sort
@@ -430,6 +431,11 @@ aggregate = (
     .limit(1)
     .collect()
 )
+row_count = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .filter(sl.col("amount") >= 10)
+    .count()
+)
 grouped = (
     ctx.read_json("target/sql-local-source-smoke.jsonl")
     .group_by("label")
@@ -469,6 +475,8 @@ print(json_rows.output_path, json_rows.envelope.field("source_format"))
 print(aggregate.result_jsonl)
 print(aggregate.aggregate_operator_family)
 print(aggregate.aggregate_functions)
+print(row_count.result_jsonl)
+print(row_count.aggregate_functions)
 print(grouped.result_jsonl)
 print(grouped.aggregate_operator_family)
 print(grouped.group_by_columns)
