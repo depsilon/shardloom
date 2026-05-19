@@ -55,6 +55,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/release-architecture-tracker-report.json"),
     )
     parser.add_argument(
+        "--final-release-rehearsal-report",
+        type=Path,
+        default=Path("target/final-release-rehearsal/final-release-rehearsal-report.json"),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("target/hard-release-readiness-gate.json"),
@@ -91,6 +96,7 @@ def main() -> int:
     package_channel_matrix_path = resolve(repo_root, args.package_channel_matrix)
     per_claim_evidence_matrix_path = resolve(repo_root, args.per_claim_evidence_matrix)
     architecture_tracker_report_path = resolve(repo_root, args.architecture_tracker_report)
+    final_release_rehearsal_report_path = resolve(repo_root, args.final_release_rehearsal_report)
 
     checks: list[dict[str, Any]] = []
 
@@ -304,6 +310,46 @@ def main() -> int:
         )
     )
 
+    final_release_rehearsal = load_json(final_release_rehearsal_report_path)
+    final_rehearsal_blockers: list[str] = []
+    if final_release_rehearsal is None:
+        final_rehearsal_blockers.append("missing final release rehearsal report")
+    else:
+        if final_release_rehearsal.get("schema_version") != "shardloom.final_release_rehearsal_report.v1":
+            final_rehearsal_blockers.append(
+                f"schema_version={final_release_rehearsal.get('schema_version', 'missing')}"
+            )
+        if final_release_rehearsal.get("rehearsal_status") != "passed":
+            final_rehearsal_blockers.append(
+                f"rehearsal_status={final_release_rehearsal.get('rehearsal_status', 'missing')}"
+            )
+            final_rehearsal_blockers.extend(
+                final_release_rehearsal.get("blockers", ["final release rehearsal blocked"])
+            )
+        for field in [
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "publication_human_approved",
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "package_upload_attempted",
+            "feedstock_submission_attempted",
+            "marketplace_submission_attempted",
+            "signing_key_used",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if final_release_rehearsal.get(field) is not False:
+                final_rehearsal_blockers.append(f"final rehearsal {field} must be false")
+    checks.append(
+        check(
+            "final_release_rehearsal",
+            str(args.final_release_rehearsal_report).replace("\\", "/"),
+            final_rehearsal_blockers,
+        )
+    )
+
     feature_matrix_doc = repo_root / "docs/architecture/workspace-feature-build-matrix.md"
     feature_blockers = []
     matrix_text = read_text(feature_matrix_doc)
@@ -355,6 +401,7 @@ def main() -> int:
         "python scripts/check_release_security_gate.py",
         "python scripts/check_release_architecture_tracker.py --allow-blocked",
         "python scripts/check_package_channel_readiness.py",
+        "python scripts/final_release_rehearsal.py --allow-blocked",
     ]
     validation_blockers = []
     if validation_evidence is None:
@@ -388,6 +435,7 @@ def main() -> int:
         "package_channel_matrix_ref": str(args.package_channel_matrix).replace("\\", "/"),
         "per_claim_evidence_matrix_ref": str(args.per_claim_evidence_matrix).replace("\\", "/"),
         "architecture_tracker_report_ref": str(args.architecture_tracker_report).replace("\\", "/"),
+        "final_release_rehearsal_report_ref": str(args.final_release_rehearsal_report).replace("\\", "/"),
         "checks": checks,
         "blockers": blockers,
         "required_validation_commands": validation_commands,

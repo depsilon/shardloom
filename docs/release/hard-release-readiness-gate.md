@@ -36,6 +36,8 @@ The gate aggregates:
   engine-replacement, production SQL/DataFrame, object-store/lakehouse, and Foundry/platform claims
 - release architecture tracker report for unchecked Global Architecture Review, phased-plan,
   traceability, unsupported-path, security, provenance, and per-claim evidence blockers
+- final no-publication release rehearsal report for local artifact, checksum, SBOM, provenance,
+  attestation-plan, package-channel, and human-approval blockers
 - publication/API/schema stability gate for public compatibility windows, package identities,
   signing policy, checksums, SBOM, and publication approval
 - feature/build matrix execution evidence
@@ -57,6 +59,7 @@ cargo run -q -p shardloom-cli -- global-architecture-gate --format json
 python scripts\check_release_security_gate.py
 python scripts\check_release_architecture_tracker.py --allow-blocked
 python scripts\check_package_channel_readiness.py
+python scripts\final_release_rehearsal.py --allow-blocked
 ```
 
 The local evidence runner records the feature/build matrix and required validation command status:
@@ -192,6 +195,44 @@ Unchecked GAR IDs must be visible in the active phased plan or completed ledger,
 release/security/provenance/unsupported-path marker remains a release blocker. This validation does
 not close the unchecked work; it prevents the release gate from passing while the architecture
 tracker is still blocked.
+
+`GAR-0043-B` adds the final no-publication release rehearsal with schema
+`shardloom.final_release_rehearsal_report.v1`. The hard release gate consumes:
+
+```text
+target/final-release-rehearsal/final-release-rehearsal-report.json
+```
+
+The local no-publication rehearsal is expected to pass once local artifact, SBOM, checksum,
+provenance, security, architecture, package-channel, unsupported-path, per-claim, and
+publication/API/schema refs are present and internally consistent. It still keeps publication and
+claim flags blocked:
+
+```text
+rehearsal_status=passed
+claim_gate_status=not_claim_grade
+public_release_claim_allowed=false
+public_package_claim_allowed=false
+publication_authorization_status=human_approval_required
+publication_human_approved=false
+local_artifacts_only=true
+final_attestation_status=not_signed_local_rehearsal
+package_upload_attempted=false
+feedstock_submission_attempted=false
+marketplace_submission_attempted=false
+signing_key_used=false
+publication_attempted=false
+tag_created=false
+secrets_required=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+The rehearsal writes a local attestation plan with schema
+`shardloom.local_publication_attestation_plan.v1`. It is an approval checklist, not a public
+attestation or signature. Real artifact signing, public attestations, release tags, uploads, and
+package-channel submissions remain maintainer-approved release actions outside autonomous Codex
+execution.
 
 `GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. Portable release artifacts
 remain the normal `release` profile artifacts unless a separate release gate explicitly admits a

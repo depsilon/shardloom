@@ -117,6 +117,7 @@ Reference index:
   `docs/architecture/comparative-rerun-managed-platform-posture-gate.md`,
   `docs/release/per-claim-evidence-attachment-matrix.md`,
   `docs/release/release-architecture-tracker-gate.md`,
+  `docs/release/final-release-rehearsal.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
   `docs/architecture/credential-policy-enforcement-gate.md`,
@@ -228,26 +229,14 @@ explicitly reprioritized.
 
 Current non-runtime sequence:
 
-1. Close the P5 correctness, benchmark, claim, and release gates.
-2. Move each completed session to the ledger immediately after the PR/session closes.
-3. Only then enter the runtime implementation queue below.
+1. Non-runtime closeout is complete through GAR-0043-B.
+2. Next autonomous work enters the runtime implementation queue below.
+3. Continue moving completed runtime sessions to the ledger immediately after PR/session close.
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0043-B publication attestation and final release rehearsal
-  - Source: RFC 0043; RFC 0024; release provenance docs.
-  - Current state: dry-run/provenance scaffolding exists; actual publication and final attestation
-    are not performed.
-  - Next slice outcome: no-publication rehearsal that proves package artifacts, checksums, SBOM,
-    attestations, and unsupported-path evidence without creating tags or uploads.
-  - User-visible surface: release rehearsal report, docs.
-  - Implementation scope: release scripts/docs/tests.
-  - Evidence required: SBOM/checksum/provenance refs, security refs, no-fallback refs.
-  - Acceptance: rehearsal produces local artifacts only and marks publication as human-approved.
-  - Verification: release provenance dry-run tests, release readiness tests.
-  - Non-goals: no package publication, tag, feedstock, marketplace, or secret use.
-  - Fallback/claim boundary: rehearsal does not authorize release claims.
-  - Dependencies/blockers: GAR-0043-A validators and GAR-0024 publication gate.
+All currently defined non-runtime GAR-P5 closeout slices are complete. Continue with the runtime
+implementation queue below unless a new non-runtime blocker is explicitly added here first.
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 

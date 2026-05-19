@@ -1432,11 +1432,13 @@ plan before coding.
 
 - Source:
   [`docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md`](../rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md)
-- Current read: Security hardening and fail-closed release architecture tracking are substantially
-  represented; publication and final attestation remain incomplete.
+- Current read: Security hardening, fail-closed release architecture tracking, and local
+  no-publication release rehearsal are substantially represented; public publication remains
+  incomplete.
 - Evidence: `SECURITY.md`, `shardloom-core/src/security.rs`, `scripts/check_dependency_audit.py`,
   `scripts/release_provenance_dry_run.py`, `scripts/check_release_security_gate.py`,
-  `scripts/check_release_architecture_tracker.py`, `.github/workflows`
+  `scripts/check_release_architecture_tracker.py`, `scripts/final_release_rehearsal.py`,
+  `.github/workflows`
 - [x] Security reports, malicious-input/path/redaction tests, dependency/provenance/security gates,
   CodeQL/Scorecard workflows, and OSS security docs exist.
 - [x] Release metadata preserves no-fallback and supply-chain evidence requirements.
@@ -1449,7 +1451,19 @@ plan before coding.
   `publication_attempted=false`, `tag_created=false`, `secrets_required=false`,
   `fallback_attempted=false`, and `external_engine_invoked=false` until every required item and
   evidence attachment is closed.
-- [ ] Actual publication and final attestation remain incomplete.
+- [x] `GAR-0043-B` adds `shardloom.final_release_rehearsal_report.v1` and
+  `shardloom.local_publication_attestation_plan.v1`. The no-publication rehearsal aggregates local
+  artifact, checksum, SBOM, provenance, security, architecture-tracker, package-channel,
+  unsupported-path, per-claim, and publication/API/schema refs while keeping
+  `rehearsal_status=passed`, `claim_gate_status=not_claim_grade`,
+  `publication_authorization_status=human_approval_required`,
+  `publication_human_approved=false`, `public_release_claim_allowed=false`,
+  `public_package_claim_allowed=false`, `package_upload_attempted=false`,
+  `feedstock_submission_attempted=false`, `marketplace_submission_attempted=false`,
+  `signing_key_used=false`, `publication_attempted=false`, `tag_created=false`,
+  `secrets_required=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
+- [ ] Actual public package publication, release tags, signing, uploaded attestations, and final
+  maintainer approval remain incomplete and outside autonomous execution.
 
 ## Compute Engine Flow Review
 
