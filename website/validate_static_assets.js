@@ -42,9 +42,10 @@ const runtimeFiles = [
 ];
 const blockedGitHubRawHost = "raw." + "githubusercontent.com";
 const fieldGuideDossierRequiredFields = [
-  "Field Guide dossier",
-  "dossier-status-row",
-  "sticky-in-page-toc",
+  "atlas-sidebar",
+  "atlas-article-hero",
+  "atlas-meta-grid",
+  "atlas-article-jump",
   "id=\"meaning\"",
   "id=\"why\"",
   "id=\"how\"",
@@ -234,9 +235,11 @@ for (const required of [
   "pagefind-filter-dropdown",
   "data-pagefind-filter=\"section\"",
   "data-pagefind-filter=\"status\"",
-  "atlas-density-note",
-  "category-toc-band",
-  "compact-term-row",
+  "atlas-sidebar",
+  "atlas-stat-row",
+  "atlas-reading-grid",
+  "atlas-family",
+  "atlas-term-row",
   "reference-badge",
 ]) {
   assert(
@@ -331,7 +334,9 @@ for (const headerLogoFile of htmlRuntimeFiles.filter((relativePath) => !["404.ht
     `${headerLogoFile} global nav corner must use the favicon/icon asset`,
   );
   assert(
-    /<img class="page-header-logo" src="\/assets\/logo\/shardloom-logo-trim\.png"/.test(source),
+    /<img class="page-header-logo" src="\/assets\/logo\/shardloom-logo-trim\.png"/.test(source) ||
+      /<img src="\/assets\/logo\/shardloom-logo-trim\.png" alt="ShardLoom">/.test(source) ||
+      /<img class="atlas-hero-logo" src="\/assets\/logo\/shardloom-logo-trim\.png"/.test(source),
     `${headerLogoFile} page header must use the trimmed ShardLoom logo asset`,
   );
 }

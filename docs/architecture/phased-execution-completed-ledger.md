@@ -16,6 +16,51 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-2A ShardLoom atlas shell and concise Field Guide dossiers
+  - Branch/PR: `codex/modal-style-field-guide-overhaul` / #813.
+  - Primary files:
+    - `website/build_static_pages.py`
+    - `website/assets/site.css`
+    - `website/field-guide/index.html`
+    - `website/field-guide/*.html`
+    - `scripts/check_website_readiness.py`
+    - `website/validate_static_assets.js`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: convert the Field Guide from a broad docs landing-page surface into a compact
+    ShardLoom-native technical atlas informed by the Modal GPU Glossary structure without copying
+    Modal code, text, CSS, palette, branding, or trade dress.
+  - Website behavior:
+    - `/field-guide/` now uses an atlas shell with a persistent desktop taxonomy rail, full
+      ShardLoom logo anchoring, compact category rows, Pagefind search, reading paths, and dense
+      term rows.
+    - `/field-guide/<slug>` dossier pages now share the same atlas rail, concise article hero,
+      status/evidence/reference metadata, section jump links, source citation cards, related
+      concepts/use cases, and previous/next navigation.
+    - The atlas shell keeps the website's preferred light-mode posture: pale panels, navy text,
+      cyan/teal accents, and the transparent ShardLoom logo as the page anchor.
+    - Mobile keeps the atlas rail compact so search and content appear without long card sprawl.
+  - Evidence:
+    - Visual reference and QA screenshots are under
+      `target/modal-reference-inspection/` and `target/modal-style-field-guide-overhaul/`.
+    - The readiness and static-asset validators now assert the new atlas primitives:
+      `atlas-sidebar`, `atlas-reading-grid`, `atlas-family`, `atlas-term-row`,
+      `atlas-article-hero`, `atlas-meta-grid`, and `atlas-article-jump`.
+  - Verification:
+    - `python website\build_static_pages.py --benchmark-manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `python -m compileall -q scripts website`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `git diff --check`
+    - Playwright/Chrome desktop and mobile screenshots for `/field-guide/` and
+      `/field-guide/prepared-vortex.html`.
+  - Claim boundary: website information architecture only. This does not add runtime support,
+    package publication, benchmark recomputation, performance/superiority claims,
+    Spark-displacement claims, production SQL/DataFrame support, object-store/lakehouse support, or
+    Foundry support.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E / GAR-USER-SURFACE-1C generated range/sequence limit helpers
   - Branch/PR: `codex/generated-range-limit` / #811.
   - Primary files:
