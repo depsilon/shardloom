@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Python local CSV/JSONL query-builder projection and CSV aggregate/group-by/top-N smoke
+# Python local CSV/JSONL query-builder projection, aggregate, group-by, and top-N smoke
 
 ## Quick Answer
 
@@ -8,15 +8,15 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped Python read_csv/select/filter/limit and read_json/select/filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; read_csv/filter/scalar aggregate/limit; read_csv/filter/one-column group_by/aggregate/limit; and read_csv/select/filter/single-key numeric sort/limit collect/write workflows over local CSV only. No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped Python read_csv/select/filter/limit and read_json/select/filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; CSV and flat JSONL/NDJSON filter/scalar aggregate/limit, filter/one-column group_by/aggregate/limit, and select/filter/single-key numeric sort/limit collect/write workflows. No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-Python local CSV/JSONL query-builder projection and CSV aggregate/group-by/top-N smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+Python local CSV/JSONL query-builder projection, aggregate, group-by, and top-N smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped Python read_csv/select/filter/limit and read_json/select/filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; read_csv/filter/scalar aggregate/limit; read_csv/filter/one-column group_by/aggregate/limit; and read_csv/select/filter/single-key numeric sort/limit collect/write workflows over local CSV only. No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
+Scoped Python read_csv/select/filter/limit and read_json/select/filter/limit over local flat .jsonl/.ndjson sources with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; CSV and flat JSONL/NDJSON filter/scalar aggregate/limit, filter/one-column group_by/aggregate/limit, and select/filter/single-key numeric sort/limit collect/write workflows. No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,7 +26,7 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha
 
 ## Blocker
 
-The Python query-builder runtime admits local CSV select/filter/limit with admitted predicate leaves and balanced grouping parentheses, scalar aggregate/filter/limit, one-column group_by/filter/aggregate/limit, and single-key numeric sort/filter/limit collect/write through the SQL local-source smoke. It also admits local flat JSONL/NDJSON select/filter/limit collect/write only. Joins, plain .json, nested JSON, JSONPath, arbitrary predicate-tree completeness beyond admitted leaves, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
+The Python query-builder runtime admits local CSV and local flat JSONL/NDJSON select/filter/limit with admitted predicate leaves and balanced grouping parentheses, scalar aggregate/filter/limit, one-column group_by/filter/aggregate/limit, and single-key numeric sort/filter/limit collect/write through the SQL local-source smoke. Joins, plain .json, nested JSON, JSONPath, arbitrary predicate-tree completeness beyond admitted leaves, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
 
 ## Internal Flow
 
@@ -63,7 +63,7 @@ The Python query-builder runtime admits local CSV select/filter/limit with admit
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with local CSV or flat JSONL source evidence, source_format/source_state fields, local JSONL output evidence when written, scalar/grouped/top-N fields when requested for CSV workflows, group_by columns/count for grouped workflows, sort key/direction/top-N limit for sorted workflows, output Native I/O certificate status, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with local CSV or flat JSONL source evidence, source_format/source_state fields, source-format-aware source/execution certificate refs, materialization boundary and claim-gate reason fields, local JSONL output evidence when written, scalar/grouped/top-N fields when requested, group_by columns/count for grouped workflows, sort key/direction/top-N limit for sorted workflows, output Native I/O certificate status, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

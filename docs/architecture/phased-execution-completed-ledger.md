@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F-S4 Python JSONL aggregate/group-by/top-N bridge
+  - Branch/PR: `codex/python-jsonl-aggregate-topn-bridge` / #797.
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/context.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/generated/python-local-csv-query-builder-smoke.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `website/assets/data/compute-engine-flow-reference.md`
+    - `website/compute-engine-flow.html`
+    - `website/readme.html`
+    - `website/use-cases/python-local-csv-query-builder-smoke.html`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: expose already admitted local flat JSONL/NDJSON SQL smoke aggregate, one-column
+    group-by aggregate, and single-key numeric top-N paths through the Python query-builder.
+  - Runtime behavior:
+    - `ctx.read_json("*.jsonl"|"*.ndjson").filter(...).aggregate(...).limit(1).collect()/write(...)`
+      lowers to `sql-local-source-smoke`.
+    - `ctx.read_json("*.jsonl"|"*.ndjson").filter(...).group_by(...).agg(...).limit(n).collect()/write(...)`
+      lowers to `sql-local-source-smoke`.
+    - `ctx.read_json("*.jsonl"|"*.ndjson").select(...).filter(...).sort(...).limit(n).collect()/write(...)`
+      lowers to `sql-local-source-smoke`.
+    - Plain `.json`, nested JSON/JSONPath, joins over JSONL, broad SQL/DataFrame parity, and
+      object-store/table paths remain deterministic unsupported/report-only surfaces.
+  - Evidence:
+    - Runtime rows keep JSONL-specific source/execution certificate refs, materialization boundary,
+      no-fallback/no-external-engine fields, typed aggregate/group/top-N evidence, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder`
+    - Real local Python smoke for JSONL scalar aggregate, grouped aggregate write, and top-N collect.
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: this is a scoped Python convenience bridge over existing local flat JSONL/NDJSON
+    fixture-smoke runtime. It does not add broad SQL/DataFrame runtime, nested JSON support,
+    generalized grouping/order semantics, joins, object-store/table support, performance claims, or
+    production support.
+  - Fallback boundary: the bridge invokes only ShardLoom `sql-local-source-smoke`; no pandas,
+    Polars, Spark, DataFusion, DuckDB, or other external execution fallback is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F-S3 format-aware local-source evidence labels
   - Branch/PR: `codex/jsonl-local-source-evidence-labels` / #796.
   - Primary files:

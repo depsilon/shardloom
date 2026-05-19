@@ -620,9 +620,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         data_read=True,
         materialization_required=True,
         claim_boundary=(
-            "Scoped local CSV projection/filter/limit collect smoke only; no broad "
-            "DataFrame runtime, object-store/table source, external engine, fallback, "
-            "or production claim."
+            "Scoped local CSV and flat JSONL/NDJSON projection/filter/limit, "
+            "scalar aggregate, one-column group-by aggregate, and single-key "
+            "top-N collect smoke only; no broad DataFrame runtime, object-store/table "
+            "source, external engine, fallback, or production claim."
         ),
     ),
     _df_method(
@@ -639,9 +640,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         write_io=True,
         materialization_required=True,
         claim_boundary=(
-            "Scoped local CSV projection/filter/limit JSONL output smoke only; no "
-            "broad DataFrame runtime, object-store/table sink, external engine, "
-            "fallback, or production claim."
+            "Scoped local CSV and flat JSONL/NDJSON projection/filter/limit, "
+            "scalar aggregate, one-column group-by aggregate, and single-key "
+            "top-N JSONL output smoke only; no broad DataFrame runtime, object-store/table "
+            "sink, external engine, fallback, or production claim."
         ),
     ),
     _df_method(

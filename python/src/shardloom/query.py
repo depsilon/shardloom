@@ -594,19 +594,18 @@ class LazyFrame:
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport:
-        """Write an admitted local CSV SQL smoke result to JSONL."""
+        """Write an admitted local CSV/flat JSONL SQL smoke result to JSONL."""
 
         if output_format.strip().lower() not in {"jsonl", "json-lines", "ndjson"}:
             raise ValueError("scoped LazyFrame.write currently supports local JSONL only")
         statement = self._sql_local_source_statement()
         if statement is None:
             raise ValueError(
-                "LazyFrame.write currently requires a local CSV source with "
+                "LazyFrame.write currently requires a local CSV or flat JSONL/NDJSON source with "
                 "select(...), filter(...), and limit(...) operations, "
                 "aggregate(...), filter(...), and limit(...) operations, or "
-                "filter(...), group_by(...).agg(...), and limit(...) operations; "
-                "or a local flat JSONL/NDJSON source with select(...), filter(...), "
-                "and limit(...) operations"
+                "filter(...), group_by(...).agg(...), and limit(...) operations, or "
+                "select(...), filter(...), sort(...), and limit(...) operations"
             )
         return self.client.sql_local_source_smoke(
             statement,
@@ -966,7 +965,7 @@ class LazyFrame:
         )
 
     def _can_append_scalar_aggregate(self) -> bool:
-        if self.source.source_format != "csv":
+        if not _is_query_builder_local_source(self.source):
             return False
         return all(
             operation.kind not in {"select", "aggregate", "group_by"}
@@ -974,7 +973,7 @@ class LazyFrame:
         )
 
     def _can_append_group_by_aggregate(self, columns: tuple[str, ...]) -> bool:
-        if self.source.source_format != "csv" or len(columns) != 1:
+        if not _is_query_builder_local_source(self.source) or len(columns) != 1:
             return False
         return all(
             operation.kind not in {"select", "aggregate", "group_by"}
@@ -982,7 +981,7 @@ class LazyFrame:
         )
 
     def _can_append_sort(self, columns: tuple[str, ...]) -> bool:
-        if self.source.source_format != "csv" or len(columns) != 1:
+        if not _is_query_builder_local_source(self.source) or len(columns) != 1:
             return False
         return all(
             operation.kind not in {"aggregate", "group_by", "sort"}
