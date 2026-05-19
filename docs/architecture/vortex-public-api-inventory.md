@@ -66,6 +66,9 @@ phase note. They are not active queue state and do not override `phased-executio
 - Still deferred: generalized Source/Sink API integration, object-store scan, table/catalog scan,
   broad reader wiring, writes, Arrow-default execution, GPU/device execution,
   vector/geospatial/media execution, and external query-engine integration execution.
+- Upstream 0.71 intake: Vortex `0.71.0` is released and classified in the 0.71 delta section below,
+  but ShardLoom still depends on optional `vortex = "0.70"`. No 0.71 API is admitted until the
+  dependency bump, feature-gated compile proof, and relevant runtime evidence land.
 - Prohibited: DataFusion, DuckDB, Spark, Polars, Velox, `vortex-datafusion`, or similar engines
   executing unsupported ShardLoom residual work as fallback.
 
@@ -89,6 +92,71 @@ phase note. They are not active queue state and do not override `phased-executio
 - Actual Vortex IO implemented: historical metadata/footer fixture open plus approved feature-gated
   local primitive scan paths where recorded in the phase plan
 - Fallback execution introduced: no
+
+## Upstream Vortex 0.71 Delta Inventory
+
+This section closes `GAR-VORTEX-071A`. It records release-note/API deltas from upstream Vortex
+`0.71.0` and classifies them for ShardLoom follow-through. It does not bump the dependency, add
+runtime behavior, or authorize public support claims.
+
+Source evidence:
+
+- Upstream release: <https://github.com/vortex-data/vortex/releases/tag/0.71.0>
+- Release date recorded in intake doc: 2026-05-18.
+- Version proof: `cargo info vortex@0.71.0`.
+- Current ShardLoom requirement: `vortex = "0.70"` in `shardloom-vortex/Cargo.toml`.
+- Compatibility check: `cargo update -p vortex --precise 0.71.0 --dry-run` fails under the
+  current `^0.70` requirement, so `GAR-VORTEX-071B` must edit the manifest before a real bump.
+
+Classification vocabulary:
+
+- `native_provider_candidate`: may become a ShardLoom-native Vortex provider surface only after
+  feature-gated compile proof, policy admission, certificates, no-fallback evidence, and runtime
+  tests.
+- `runtime_opportunity`: useful for existing ShardLoom runtime/benchmark/evidence slices but not
+  admitted by this inventory.
+- `dependency_only`: relevant to dependency compatibility or environment behavior, not direct
+  ShardLoom runtime capability.
+- `baseline_only`: relevant only to external comparison/baseline systems.
+- `blocked`: explicitly fail-closed until a later runtime item proves the boundary.
+- `not_applicable`: upstream maintenance or docs change with no current ShardLoom action.
+
+| Upstream 0.71 item | Classification | ShardLoom follow-through | Claim boundary |
+| --- | --- | --- | --- |
+| Python runtime switched to `CurrentThreadRuntime` | `dependency_only` | `GAR-VORTEX-071B` must verify any Python/PyVortex-facing assumptions during the optional dependency bump. | Does not change ShardLoom Python wrapper semantics or runtime support. |
+| Pluggable registry for Arrow input/export kernels | `native_provider_candidate` | Map to `GAR-RUNTIME-IMPL-4F` local input adapter boundaries and `GAR-RUNTIME-IMPL-4G` output/fanout boundaries after compile proof. | Not a default Arrow conversion path, not fallback, and not broad import/export support. |
+| FastLanes delta supports signed bases | `runtime_opportunity` | Map to `GAR-RUNTIME-IMPL-4J` encoded kernel registry and selective-filter/encoded-predicate evidence. | No encoded-native claim until decoded-reference correctness and materialization evidence pass. |
+| Variant array update and `VariantGet` expression | `runtime_opportunity` | Map to `GAR-RUNTIME-IMPL-4D` expression/nested-data work and nested JSON/semi-structured diagnostics. | Not broad nested/variant SQL or DataFrame support. |
+| Arrow to Vortex conversion through C FFI | `blocked` | Keep for future ABI/interoperability review only; do not use in current Rust local runtime. | No C ABI, Arrow-default, or external conversion support claim. |
+| Statistic expression and stats rewrite session API | `runtime_opportunity` | Map to `GAR-RUNTIME-IMPL-4I` pushdown/statistics evidence and metadata-first aggregate planning. | Stats may inform blockers/evidence only; no performance or correctness claim by itself. |
+| `DType::Union` carries `Nullability` only | `runtime_opportunity` | Map to `GAR-RUNTIME-IMPL-4D` dtype/coercion diagnostics and `GAR-RUNTIME-IMPL-4F` adapter schema reporting. | Union values remain unsupported unless runtime semantics and output evidence land. |
+| DuckDB tracing logger and projection simplification | `baseline_only` | External benchmark/baseline context only. | DuckDB must never execute unsupported ShardLoom work as fallback. |
+| TurboQuant | `runtime_opportunity` | Track under `GAR-RUNTIME-IMPL-4J` as a future encoded/kernel capability candidate after feature proof. | No GPU/vector/quantized execution claim. |
+| `UncompressedSize` aggregate | `runtime_opportunity` | Candidate evidence for source-state/layout metadata and benchmark attribution. | Metadata aggregate evidence only until tied to runtime correctness. |
+| Iterative execution for `SparseArray` | `runtime_opportunity` | Candidate for sparse/segment extraction follow-through under encoded kernel and source-backed scan slices. | Sparse traversal remains blocked without segment extraction certificates. |
+| `VortexReadAt::read_at` result checking in I/O driver | `native_provider_candidate` | Map to `GAR-RUNTIME-IMPL-4H`, Native I/O certificate hardening, and scale/object-store ladder evidence. | I/O validation support does not imply object-store/table/runtime write support. |
+| CUDA FSST decompression and GPU fixes | `blocked` | Optional future accelerator context only. | No GPU execution, CUDA dependency, or performance claim. |
+| Pluggable struct cast | `runtime_opportunity` | Map to `GAR-RUNTIME-IMPL-4D` cast/coercion runtime and local writer/fanout schema conversion planning. | Not broad ANSI cast parity or SQL/DataFrame production support. |
+| Benchmark JSONL/server and website/Storybook/Java/dependency-maintenance changes | `not_applicable` | No ShardLoom runtime action. | No support or performance claim. |
+| `register_splits` offset and relative row-range fix | `runtime_opportunity` | Map to `GAR-SCALE-1B` SplitManifest fields and `GAR-RUNTIME-IMPL-4P` split-native execution planning. | Split evidence does not imply distributed or object-store split runtime. |
+| `IsSorted` return dtype fix | `runtime_opportunity` | Candidate for sorted/min-max pruning, top-k, and encoded-kernel blockers. | No sorted-kernel claim until correctness/evidence gates land. |
+| Partition scan FFI double-free and partition-filter panic fixes | `blocked` | Relevant to future FFI/partition-scan safety review only. | No FFI partition scan support. |
+| ExtDType metadata deserialization fix | `runtime_opportunity` | Candidate for extension/nested dtype diagnostics and schema fingerprinting. | No extension dtype runtime support. |
+| Sparse, bitpacked, mask/rank intersection, and smallvec performance fixes | `runtime_opportunity` | Candidate inputs for `GAR-RUNTIME-IMPL-4J`, source-backed scan, and native microbenchmark follow-through. | No performance/superiority claim and no encoded-native promotion without ShardLoom evidence. |
+| `Executor::spawn_io` and local async file write behavior | `native_provider_candidate` | Candidate for `GAR-RUNTIME-IMPL-4H`, `GAR-RUNTIME-IMPL-4G`, and later object-store/write lifecycle gates. | No hidden runtime, daemon, object-store write, or async side-effect support. |
+
+Required blockers before any 0.71 item becomes executable:
+
+- `GAR-VORTEX-071B` must bump the optional `vortex` requirement and prove feature-gated compile
+  compatibility.
+- Default builds must remain lightweight and must not compile upstream Vortex unless the relevant
+  feature gate is enabled.
+- No new DataFusion, DuckDB, Spark, Polars, Velox, `vortex-datafusion`, or external query-engine
+  fallback dependency may be introduced.
+- Any admitted upstream Vortex API must emit provider/version, feature gate, policy admission,
+  certificate, materialization/decode, no-fallback, and claim-gate evidence.
+- Runtime follow-through must land in the phase-plan runtime item that owns the behavior:
+  `GAR-RUNTIME-IMPL-4D`, `4F`, `4G`, `4H`, `4I`, `4J`, or the relevant `GAR-SCALE-1`/`4P` slice.
 
 ## Public API discovery method
 - Inspected dependency linkage and version via `shardloom-vortex/Cargo.toml` and `cargo tree -p

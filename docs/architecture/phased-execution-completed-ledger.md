@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-VORTEX-071A release-note and API-delta inventory
+  - Branch/PR: `codex/vortex-071-api-inventory` / #779.
+  - Primary files:
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: close the docs-only Vortex `0.71.0` release-note/API-delta inventory slice before the
+    dependency bump and runtime opportunity mapping work.
+  - Evidence:
+    - Upstream release URL: <https://github.com/vortex-data/vortex/releases/tag/0.71.0>.
+    - Version proof command recorded in the inventory: `cargo info vortex@0.71.0`.
+    - Current requirement proof: ShardLoom still tracks optional `vortex = "0.70"`.
+    - Cargo compatibility proof: `cargo update -p vortex --precise 0.71.0 --dry-run` fails under
+      the current `^0.70` manifest requirement.
+  - Classification coverage:
+    - `native_provider_candidate`: Arrow input/export kernel registry,
+      `VortexReadAt::read_at` validation, async/local file write behavior.
+    - `runtime_opportunity`: FastLanes signed delta, Variant/`VariantGet`, statistic expression,
+      `DType::Union`, TurboQuant, `UncompressedSize`, SparseArray iteration, split row-range,
+      sorted/statistics/extension-dtype and sparse/bitpacked/mask/rank changes.
+    - `dependency_only`: Python runtime switch to `CurrentThreadRuntime`.
+    - `baseline_only`: upstream DuckDB integration improvements.
+    - `blocked`: C FFI conversion, CUDA/GPU work, FFI partition scan safety paths.
+    - `not_applicable`: upstream benchmark-server, website, Storybook, Java, and maintenance
+      changes with no current ShardLoom runtime action.
+  - Blockers preserved:
+    - The optional upstream dependency remains on `vortex = "0.70"` until `GAR-VORTEX-071B`.
+    - No 0.71 API is executable until the dependency bump, feature-gated compile proof, provider
+      admission, certificates, no-fallback evidence, and owning runtime slice land.
+    - DuckDB/DataFusion/Spark/Polars/Velox/`vortex-datafusion` integrations remain prohibited as
+      fallback execution.
+    - GPU, C FFI, object-store, table/lakehouse, distributed, broad SQL/DataFrame, and performance
+      claims remain blocked.
+  - Verification:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that Vortex `0.71.0` has been inventoried and mapped
+    into ShardLoom follow-through classifications. It may not claim dependency upgrade, 0.71
+    runtime support, broader Vortex-native support, performance, package, object-store/table,
+    distributed, SQL/DataFrame, or production readiness.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D-S3 scoped SQL cast predicate runtime
   - Branch/PR: `codex/sql-local-cast-predicate-runtime` / #776.
   - Primary files:
