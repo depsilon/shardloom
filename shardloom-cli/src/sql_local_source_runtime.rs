@@ -230,18 +230,21 @@ enum ParsedPredicate {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LogicalPredicateOp {
     And,
+    Or,
 }
 
 impl LogicalPredicateOp {
     const fn as_str(self) -> &'static str {
         match self {
             Self::And => "and",
+            Self::Or => "or",
         }
     }
 
     const fn binary_op(self) -> BinaryOp {
         match self {
             Self::And => BinaryOp::And,
+            Self::Or => BinaryOp::Or,
         }
     }
 }
@@ -3075,32 +3078,50 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             }
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, or admitted predicates joined by AND",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, or admitted predicates joined by AND/OR",
         )),
     }
 }
 
 fn parse_logical_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
-    if contains_keyword_outside_quotes(raw, "or") {
+    let trimmed = raw.trim_start();
+    if trimmed
+        .get(..3)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("not"))
+        && keyword_boundary(trimmed, 0, 3)
+    {
         return Err(unsupported_sql_error(
-            "OR predicates are not admitted in this scoped logical predicate runtime slice; use AND or split the query",
+            "NOT predicates are not admitted in this scoped logical predicate runtime slice; use admitted AND/OR predicates or split the query",
         ));
+    }
+    if let Some(or_index) = find_keyword_outside_quotes(raw, "or") {
+        return parse_logical_binary_predicate(raw, or_index, "or", LogicalPredicateOp::Or)
+            .map(Some);
     }
     let Some(and_index) = find_keyword_outside_quotes(raw, "and") else {
         return Ok(None);
     };
-    let left_raw = raw[..and_index].trim();
-    let right_raw = raw[and_index + "and".len()..].trim();
+    parse_logical_binary_predicate(raw, and_index, "and", LogicalPredicateOp::And).map(Some)
+}
+
+fn parse_logical_binary_predicate(
+    raw: &str,
+    op_index: usize,
+    op_text: &str,
+    op: LogicalPredicateOp,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    let left_raw = raw[..op_index].trim();
+    let right_raw = raw[op_index + op_text.len()..].trim();
     if left_raw.is_empty() || right_raw.is_empty() {
         return Err(unsupported_sql_error(
-            "AND predicates must have a predicate on both sides",
+            "logical predicates must have a predicate on both sides",
         ));
     }
-    Ok(Some(ParsedPredicate::Logical {
-        op: LogicalPredicateOp::And,
+    Ok(ParsedPredicate::Logical {
+        op,
         left: Box::new(parse_predicate(left_raw)?),
         right: Box::new(parse_predicate(right_raw)?),
-    }))
+    })
 }
 
 fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
@@ -3716,6 +3737,49 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_logical_or_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 OR label LIKE '%ta' LIMIT 5",
+        )
+        .expect("logical OR statement parses");
+
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
+        assert!(parsed.predicate.uses_logical_predicate());
+        assert_eq!(parsed.predicate.logical_operator(), "or");
+        assert_eq!(parsed.predicate.logical_leaf_count(), 2);
+        assert!(parsed.predicate.uses_string_predicate());
+        assert_eq!(parsed.predicate.string_operator(), "ends_with");
+        assert_eq!(parsed.predicate.columns(), vec!["amount", "label"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::Logical {
+                op: LogicalPredicateOp::Or,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn logical_or_preserves_and_precedence_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE id >= 1 OR amount >= 10 AND label LIKE '%ta' LIMIT 5",
+        )
+        .expect("logical OR/AND statement parses");
+
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
+        assert_eq!(parsed.predicate.logical_operator(), "or");
+        assert_eq!(parsed.predicate.logical_leaf_count(), 3);
+        assert_eq!(parsed.predicate.columns(), vec!["id", "amount", "label"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::Logical {
+                op: LogicalPredicateOp::Or,
+                ..
+            }
+        ));
+    }
+
+    #[test]
     fn cast_predicate_blocks_unadmitted_dtype() {
         let error = parse_sql_local_source_statement(
             "SELECT id FROM 'target/input.jsonl' WHERE CAST(amount AS decimal) >= 10 LIMIT 5",
@@ -3723,17 +3787,6 @@ mod tests {
         .expect_err("decimal cast target remains blocked");
 
         assert!(error.to_string().contains("CAST target dtype"));
-        assert!(error.to_string().contains("external_engine_invoked=false"));
-    }
-
-    #[test]
-    fn logical_or_predicate_blocks_without_fallback() {
-        let error = parse_sql_local_source_statement(
-            "SELECT id FROM 'target/input.csv' WHERE amount >= 10 OR label LIKE '%ta' LIMIT 5",
-        )
-        .expect_err("OR remains blocked");
-
-        assert!(error.to_string().contains("OR predicates are not admitted"));
         assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 

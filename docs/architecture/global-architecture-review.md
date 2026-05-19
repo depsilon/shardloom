@@ -532,6 +532,10 @@ plan before coding.
 - [x] GAR-RUNTIME-IMPL-4D-S3 adds scoped local SQL logical `AND` predicate runtime over already
   admitted predicate leaves, recursive evidence for string/date/cast leaves, logical predicate
   evidence fields, and deterministic `OR` blockers with no fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D-S4 adds scoped local SQL logical `OR` predicate runtime over already
+  admitted predicate leaves, preserves SQL `AND` precedence inside `OR` branches, emits the same
+  logical predicate evidence fields, and keeps unsupported compound predicate forms outside this
+  slice without fallback/external engine invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 
