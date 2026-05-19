@@ -315,6 +315,7 @@ fn is_workflow_planning_command(command: &str) -> bool {
             | "generated-source-user-rows-smoke"
             | "generated-source-range-smoke"
             | "generated-source-sql-smoke"
+            | "sql-local-source-smoke"
             | "translation-plan"
             | "plan-ir"
             | "plan-import"

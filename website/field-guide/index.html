@@ -176,16 +176,16 @@
               <a href="#use-python-sql-dataframe">#use-python-sql-dataframe</a>
             </div>
             <h3>Use Python, SQL, or DataFrame surfaces</h3>
-            <p>Separate ready-local Python wrapper use from report-only SQL/DataFrame planner and API posture.</p>
+            <p>Separate ready-local Python wrapper use from scoped SQL smokes and report-only SQL/DataFrame planner/API posture.</p>
             <div class="reading-path-links">
               <strong>Concepts</strong>
-              <div><a href="/field-guide/python-wrapper-client">Python Wrapper Client</a><a href="/field-guide/source-free-generated-output">Source-Free Generated Output</a><a href="/field-guide/report-only">Report-Only</a><a href="/field-guide/unsupported-diagnostics">Unsupported Diagnostics</a><a href="/field-guide/rest-control-plane">REST Control Plane</a></div>
+              <div><a href="/field-guide/python-wrapper-client">Python Wrapper Client</a><a href="/field-guide/source-free-generated-output">Source-Free Generated Output</a><a href="/field-guide/direct-compatibility-transient">Direct Compatibility Transient</a><a href="/field-guide/report-only">Report-Only</a><a href="/field-guide/unsupported-diagnostics">Unsupported Diagnostics</a><a href="/field-guide/rest-control-plane">REST Control Plane</a></div>
             </div>
             <div class="reading-path-links">
               <strong>Use cases</strong>
-              <div class="related-concepts-rail"><a class="claim-badge reference-badge" href="/use-cases/python-wrapper-client-smoke">Python wrapper and client smoke</a><a class="claim-badge reference-badge" href="/use-cases/source-free-generated-output-boundary">Source-free generated output boundary</a><a class="claim-badge reference-badge" href="/use-cases/sql-dataframe-capability-posture">SQL and DataFrame capability posture</a></div>
+              <div class="related-concepts-rail"><a class="claim-badge reference-badge" href="/use-cases/python-wrapper-client-smoke">Python wrapper and client smoke</a><a class="claim-badge reference-badge" href="/use-cases/source-free-generated-output-boundary">Source-free generated output boundary</a><a class="claim-badge reference-badge" href="/use-cases/sql-dataframe-capability-posture">SQL and DataFrame capability posture</a><a class="claim-badge reference-badge" href="/use-cases/sql-local-source-csv-smoke">SQL local CSV projection/filter/limit smoke</a></div>
             </div>
-            <p class="reading-path-boundary">Python ergonomics and report-only SQL/DataFrame diagnostics do not imply broad SQL/DataFrame runtime support.</p>
+            <p class="reading-path-boundary">Python ergonomics and scoped SQL smokes do not imply broad SQL/DataFrame runtime support.</p>
           </article>
 
           <article class="reading-path-card" id="know-what-is-blocked">
@@ -376,9 +376,9 @@
 
                 <article class="field-guide-card compact-term-row">
                   <div class="compact-term-main">
-                    <span class="claim-badge report-only" data-status="report-only">report only</span>
+                    <span class="claim-badge report-only" data-status="scoped-local-smoke">scoped local smoke</span>
                     <h3><a href="/field-guide/direct-compatibility-transient">Direct Compatibility Transient</a></h3>
-                    <p>Direct compatibility transient is the planned lane for local compatibility data that does not first persist through Vortex.</p>
+                    <p>Direct compatibility transient is the lane for scoped local compatibility data that executes without first persisting through Vortex.</p>
                   </div>
                   <div class="field-guide-meta">
                     <span class="reference-badge">Execution Modes</span>

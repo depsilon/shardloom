@@ -495,7 +495,7 @@ const UNSTRUCTURED_ADAPTER_CAPABILITY_ROW_SUFFIXES: [&str; 14] = [
     "claim_boundary",
 ];
 
-const SQL_FIELD_KEYS: [&str; 35] = [
+const SQL_FIELD_KEYS: [&str; 55] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -531,6 +531,26 @@ const SQL_FIELD_KEYS: [&str; 35] = [
     "planner_readiness_external_engine_invoked",
     "planner_readiness_fallback_attempted",
     "planner_readiness_deterministic_diagnostics_present",
+    "sql_local_source_smoke_schema_version",
+    "sql_local_source_smoke_command",
+    "sql_local_source_smoke_support_status",
+    "sql_local_source_smoke_statement_shape",
+    "sql_local_source_smoke_execution_mode",
+    "sql_local_source_smoke_engine_mode",
+    "sql_local_source_smoke_source_format",
+    "sql_local_source_smoke_result_format",
+    "sql_local_source_smoke_runtime_execution",
+    "sql_local_source_smoke_parser_executed",
+    "sql_local_source_smoke_binder_executed",
+    "sql_local_source_smoke_planner_executed",
+    "sql_local_source_smoke_source_io_performed",
+    "sql_local_source_smoke_output_io_performed",
+    "sql_local_source_smoke_object_store_io",
+    "sql_local_source_smoke_external_engine_invoked",
+    "sql_local_source_smoke_fallback_attempted",
+    "sql_local_source_smoke_claim_gate_status",
+    "sql_local_source_smoke_claim_boundary",
+    "sql_local_source_smoke_blocked_shapes",
 ];
 
 fn with_generated_source_fields(base_keys: &[&'static str]) -> Vec<&'static str> {
@@ -1925,6 +1945,42 @@ fn sql_and_dataframe_capabilities_expose_planner_readiness_matrix() {
             "planner_readiness_deterministic_diagnostics_present",
             true
         )));
+        if scope == "sql" {
+            assert!(output.contains(&string_field_pair(
+                "sql_local_source_smoke_schema_version",
+                "shardloom.sql_local_source_smoke.v1"
+            )));
+            assert!(output.contains(&string_field_pair(
+                "sql_local_source_smoke_command",
+                "sql-local-source-smoke"
+            )));
+            assert!(output.contains(&string_field_pair(
+                "sql_local_source_smoke_support_status",
+                "fixture_smoke_supported"
+            )));
+            assert!(output.contains(&string_field_pair(
+                "sql_local_source_smoke_execution_mode",
+                "direct_compatibility_transient"
+            )));
+            assert!(output.contains(&field_pair(
+                "sql_local_source_smoke_runtime_execution",
+                true
+            )));
+            assert!(output.contains(&field_pair(
+                "sql_local_source_smoke_external_engine_invoked",
+                false
+            )));
+            assert!(output.contains(&field_pair(
+                "sql_local_source_smoke_fallback_attempted",
+                false
+            )));
+            assert!(output.contains(&string_field_pair(
+                "sql_local_source_smoke_claim_gate_status",
+                "fixture_smoke_only"
+            )));
+        } else {
+            assert!(!output.contains("sql_local_source_smoke_schema_version"));
+        }
     }
 }
 

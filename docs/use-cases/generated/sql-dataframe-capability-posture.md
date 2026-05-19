@@ -65,7 +65,7 @@ A capability posture report showing report_only or unsupported rows rather than 
 
 ## Related Field Guide Terms
 
-- `website/field-guide/direct-compatibility-transient.html` - Direct Compatibility Transient (`Execution Modes` / `report-only`)
+- `website/field-guide/direct-compatibility-transient.html` - Direct Compatibility Transient (`Execution Modes` / `scoped-local-smoke`)
 - `website/field-guide/report-only.html` - Report-Only (`Evidence And Claims` / `status-vocabulary`)
 - `website/field-guide/unsupported-diagnostics.html` - Unsupported Diagnostics (`Evidence And Claims` / `current-diagnostic-pattern`)
 - `website/field-guide/arrow-ipc-boundary.html` - Arrow IPC Boundary (`I/O And Output` / `compatibility-boundary`)
