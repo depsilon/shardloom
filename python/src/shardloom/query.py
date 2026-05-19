@@ -631,12 +631,40 @@ class LazyFrame:
         on: str | Sequence[str],
         how: str = "inner",
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for DataFrame joins."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped local CSV inner equi-join workflow when admitted."""
 
         columns = ",".join(_normalize_columns((on,)))
-        right = other.operation_summary if isinstance(other, LazyFrame) else str(other)
-        target = f"{how.strip().lower()}:{columns}:{right}"
+        normalized_columns = tuple(column for column in columns.split(",") if column)
+        normalized_how = how.strip().lower()
+        right_uri: str
+        right_summary: str
+        right_operations: tuple[WorkflowOperation, ...] = ()
+        right_format = "csv"
+        if isinstance(other, LazyFrame):
+            right_format = other.source.source_format
+            right_uri = other.source.uri
+            right_summary = other.operation_summary
+            right_operations = other.operations
+        else:
+            right_uri = _require_non_empty("join right source", other)
+            right_summary = right_uri
+        target = f"{normalized_how}:{columns}:{right_summary}"
+        if (
+            self.source.source_format == "csv"
+            and right_format == "csv"
+            and not right_operations
+            and normalized_how in {"inner", "inner_equi", "inner-equi"}
+            and len(normalized_columns) == 1
+            and _is_local_csv_source_ref(right_uri)
+        ):
+            key = normalized_columns[0]
+            return self._append(
+                WorkflowOperation(
+                    "join",
+                    (right_uri, key, key, "inner", "f", "d"),
+                )
+            )
         return self._unsupported_operation("join", target, check=check)
 
     def group_by(self, *columns: object) -> "GroupedLazyFrame":
@@ -914,6 +942,7 @@ class LazyFrame:
         projection_list: tuple[str, ...] | None = None
         aggregate_list: tuple[str, ...] | None = None
         group_by_list: tuple[str, ...] | None = None
+        join_info: tuple[str, str, str, str, str, str] | None = None
         sort_key: tuple[str, str] | None = None
         predicate: str | None = None
         limit: str | None = None
@@ -926,6 +955,8 @@ class LazyFrame:
                 group_by_list = operation.values
             elif operation.kind == "sort" and sort_key is None:
                 sort_key = (operation.values[0], operation.values[1])
+            elif operation.kind == "join" and join_info is None:
+                join_info = operation.values  # type: ignore[assignment]
             elif operation.kind == "filter" and predicate is None:
                 predicate = operation.values[0]
             elif operation.kind == "limit" and limit is None:
@@ -934,6 +965,24 @@ class LazyFrame:
                 return None
         if predicate is None or limit is None:
             return None
+        if join_info is not None:
+            if (
+                projection_list is None
+                or aggregate_list is not None
+                or group_by_list is not None
+                or sort_key is not None
+            ):
+                return None
+            right_uri, left_key, right_key, _how, left_alias, right_alias = join_info
+            select_clause = ",".join(projection_list)
+            source_uri = _quote_sql_local_source_path(self.source.uri)
+            right_source_uri = _quote_sql_local_source_path(right_uri)
+            return (
+                f"SELECT {select_clause} FROM {source_uri} AS {left_alias} "
+                f"INNER JOIN {right_source_uri} AS {right_alias} "
+                f"ON {left_alias}.{left_key} = {right_alias}.{right_key} "
+                f"WHERE {predicate} LIMIT {limit}"
+            )
         if projection_list is not None:
             if aggregate_list is not None or group_by_list is not None:
                 return None
@@ -1591,6 +1640,11 @@ def _is_local_source_sql_ref(value: str) -> bool:
     if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
         return False
     return lower.endswith((".csv", ".jsonl", ".ndjson"))
+
+
+def _is_local_csv_source_ref(value: str) -> bool:
+    lower = value.strip().lower()
+    return _is_local_source_sql_ref(value) and lower.endswith(".csv")
 
 
 def _single_quoted_sql_strings(statement: str) -> tuple[str, ...]:

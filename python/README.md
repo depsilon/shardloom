@@ -387,6 +387,14 @@ topn = (
     .limit(2)
     .collect()
 )
+joined = (
+    ctx.read_csv("target/sql-local-source-join-fact.csv")
+    .join(ctx.read_csv("target/sql-local-source-join-dim.csv"), on="customer_id")
+    .select("f.id", "d.segment")
+    .filter("f.amount >= 10")
+    .limit(10)
+    .collect()
+)
 
 print(collected.result_jsonl)
 print(written.output_path)
@@ -401,6 +409,8 @@ print(grouped.aggregate_operator_family)
 print(grouped.group_by_columns)
 print(topn.result_jsonl)
 print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
+print(joined.result_jsonl)
+print(joined.join_runtime_execution, joined.join_type)
 '@ | python -
 ```
 
@@ -431,10 +441,19 @@ runtime, generalized grouped aggregation, ordering/collation parity, object
 stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
+The Python query builder admits one local CSV inner equi-join shape through the
+same scoped SQL local-source smoke. Use `join(..., on="key")`, qualified
+projection columns such as `f.id` and `d.segment`, a qualified predicate such
+as `f.amount >= 10`, and an explicit `limit(...)`. Broad DataFrame joins remain
+blocked: outer/semi/anti/cross joins, multi-key joins, expression joins,
+unqualified join predicates, joins over non-CSV sources, and object-store/table
+joins still return deterministic unsupported diagnostics or fail closed through
+the scoped SQL binder.
+
 The lower-level `client.sql_local_source_smoke(...)` helper can also call the
 scoped local CSV scalar, grouped aggregate, order/top-N, and explicit inner
-equi-join smokes directly. Python query-builder joins are still blocked; direct
-client calls are only a typed wrapper around the CLI fixture-smoke evidence:
+equi-join smokes directly. Direct client calls are only a typed wrapper around
+the CLI fixture-smoke evidence:
 
 ```python
 report = client.sql_local_source_smoke(
@@ -475,8 +494,8 @@ print(join.join_matched_row_count, join.join_rows_output)
 
 That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
 generality, grouped aliases, multi-key sorts, null ordering, collation parity, arbitrary
-predicate-tree completeness beyond the admitted parenthesized leaves, Python/DataFrame joins,
-outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and
+predicate-tree completeness beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
+the scoped local CSV inner-equi query-builder bridge, outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and
 production query support remain blocked until later runtime slices.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A

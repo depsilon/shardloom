@@ -273,6 +273,14 @@ topn = (
     .limit(2)
     .collect()
 )
+joined = (
+    ctx.read_csv("target/sql-local-source-join-fact.csv")
+    .join(ctx.read_csv("target/sql-local-source-join-dim.csv"), on="customer_id")
+    .select("f.id", "d.segment")
+    .filter("f.amount >= 10")
+    .limit(10)
+    .collect()
+)
 
 print(collected.result_jsonl)
 print(written.output_path)
@@ -286,6 +294,8 @@ print(grouped.aggregate_operator_family)
 print(grouped.group_by_columns)
 print(topn.result_jsonl)
 print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
+print(joined.result_jsonl)
+print(joined.join_runtime_execution, joined.join_type)
 '@ | python -
 ```
 
@@ -294,9 +304,10 @@ Python DataFrame-like query builder. `collect()` returns bounded inline JSONL; `
 local JSONL result and emits output Native I/O certificate fields. Scalar `aggregate(...)` lowers to
 the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; one-column
 `group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke; single-key numeric
-`sort(...).limit(...)` lowers to the scoped top-N smoke. It is not a pandas/Polars backend, broad
-DataFrame runtime, generalized grouped aggregate or ordering runtime, object-store/table path,
-production SQL support, or performance claim.
+`sort(...).limit(...)` lowers to the scoped top-N smoke; one local CSV
+`join(..., on="key")` with qualified projection/filter columns lowers to the scoped inner equi-join
+smoke. It is not a pandas/Polars backend, broad DataFrame runtime, generalized grouped aggregate,
+ordering, or join runtime, object-store/table path, production SQL support, or performance claim.
 
 ## Foundry Lightweight Transform
 

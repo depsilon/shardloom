@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-USER-SURFACE-1C-S1 scoped Python query-builder local CSV join bridge
+  - Branch/PR: `codex/python-query-builder-join-runtime` / #791.
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/generated/sql-local-source-csv-smoke.md`
+    - `website/status.html`
+    - `website/use-cases/sql-local-source-csv-smoke.html`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: bridge the existing scoped local CSV inner equi-join runtime into the Python
+    DataFrame-like query builder without admitting broad DataFrame join support.
+  - Runtime behavior:
+    - `ctx.read_csv(left).join(ctx.read_csv(right), on="key")` and
+      `ctx.read_csv(left).join("right.csv", on="key")` now return a lazy workflow when both sides
+      are local CSV sources, the join type is inner/inner-equi, and the key list has one column.
+    - The admitted workflow lowers qualified `select("f.col", "d.col")`, qualified
+      `filter("f.col >= ...")`, and `limit(n)` into the existing `sql-local-source-smoke` inner
+      equi-join SQL.
+    - `.collect()` returns bounded inline JSONL evidence; `.write(..., allow_overwrite=True)` writes
+      a local JSONL sink and preserves output Native I/O certificate fields.
+    - Multi-key, expression, outer/semi/anti/cross, non-CSV, transformed-right-side, aggregate,
+      group-by, sorted, unbounded, object-store, and table joins remain unsupported or fail closed
+      through deterministic diagnostics/binders.
+  - Evidence:
+    - Python join reports expose `join_runtime_execution=true`, `join_type=inner_equi`, join key
+      refs, matched/output row counts, memory estimate where emitted, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+    - Output writes preserve `output_io_performed=true` and
+      `output_native_io_certificate_status=certified_local_jsonl_sink` for local JSONL sinks.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: one scoped Python query-builder local CSV inner equi-join bridge only. This does
+    not claim broad DataFrame joins, multi-key/expression joins, non-CSV joins, SQL/DataFrame
+    production support, object-store/table/lakehouse/Foundry joins, Spark replacement, performance,
+    superiority, or package readiness.
+
 - [x] Session label: GAR-USER-SURFACE-1B scoped `ctx.sql(...)` runtime bridge
   - Branch/PR: `codex/sql-context-runtime-surface` / #790.
   - Primary files:

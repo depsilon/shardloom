@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV SELECT projection/filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; scalar aggregate; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; and explicit local CSV inner equi-join smokes with optional local JSONL output only. No broad SQL/DataFrame runtime, Python/DataFrame join support, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV SELECT projection/filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; scalar aggregate; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; and one Python query-builder local CSV inner equi-join bridge with optional local JSONL output only. No broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,17 +16,17 @@ SQL local CSV projection/filter/limit, aggregate, group-by, top-N, and join smok
 
 ## Claim Boundary
 
-Scoped local CSV SELECT projection/filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; scalar aggregate; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; and explicit local CSV inner equi-join smokes with optional local JSONL output only. No broad SQL/DataFrame runtime, Python/DataFrame join support, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
+Scoped local CSV SELECT projection/filter/limit with comparison, cast, date-literal, null, string, logical, and balanced parenthesized predicates; scalar aggregate; one-column group-by aggregate; single-key numeric ORDER BY/LIMIT top-N; ctx.sql local-source collect/write; and one Python query-builder local CSV inner equi-join bridge with optional local JSONL output only. No broad SQL/DataFrame runtime, production SQL support, object-store/table source, multi-key group-by generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, outer/semi/anti/cross/multi-key/expression joins, external fallback, or performance claim.
 
 ## How To Try It
 
 ```powershell
-New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,amount`n1,10,8`n2,20,15`n3,30,21`n4,99,13`n" | Set-Content -Encoding utf8 target\sql-local-source-join-fact.csv; "customer_id,segment`n10,seed`n20,enterprise`n30,startup`n" | Set-Content -Encoding utf8 target\sql-local-source-join-dim.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10" --format json; $env:PYTHONPATH = "python\src"; python -c "from shardloom import context; r=context(repo_root='.', profile_order=('debug','release')).sql(\"SELECT id,amount FROM 'target/sql-local-source-join-fact.csv' WHERE amount >= 10 LIMIT 2\").collect(); print(r.output_row_count, r.fallback_attempted, r.external_engine_invoked)"
+New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,amount`n1,10,8`n2,20,15`n3,30,21`n4,99,13`n" | Set-Content -Encoding utf8 target\sql-local-source-join-fact.csv; "customer_id,segment`n10,seed`n20,enterprise`n30,startup`n" | Set-Content -Encoding utf8 target\sql-local-source-join-dim.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10" --format json; $env:PYTHONPATH = "python\src"; python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.read_csv('target/sql-local-source-join-fact.csv').join(ctx.read_csv('target/sql-local-source-join-dim.csv'), on='customer_id').select('f.id','d.segment').filter('f.amount >= 10').limit(10).collect(); print(r.output_row_count, r.join_runtime_execution, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 ## Blocker
 
-Parquet/Vortex SQL sources, Python/DataFrame joins, outer/semi/anti/cross joins, multi-key and expression joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
+Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV inner equi-join bridge, outer/semi/anti/cross joins, multi-key and expression joins, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 
@@ -75,7 +75,7 @@ A JSON envelope with inline JSONL result, optional local JSONL output path/diges
 
 - `treating_smoke_as_sql_compatibility`
 - `expecting_parquet_or_s3_sql_sources`
-- `expecting_python_dataframe_join_support`
+- `expecting_broad_python_dataframe_join_support`
 - `expecting_general_join_or_grouped_aggregate_support`
 - `expecting_general_order_by_or_null_ordering_support`
 
