@@ -4321,6 +4321,168 @@ fn gar_0009_a_spark_displacement_benchmark_matrix_remains_not_claim_grade() {
 }
 
 #[test]
+fn gar_0040_a_comparative_rerun_managed_platform_gate_remains_fail_closed() {
+    let benchmark = read_repo_file("shardloom-core/src/benchmark.rs");
+    for required in [
+        "ComparativeRerunManagedPlatformGateReport",
+        "ComparativeRerunManagedPlatformGateRow",
+        "plan_comparative_rerun_managed_platform_gate",
+        "shardloom.comparative_rerun_managed_platform_gate.v1",
+        "gar-0040-a.comparative_rerun_managed_platform_gate",
+        "local_full_comparative_rerun",
+        "external_baseline_oracle_rows",
+        "managed_platform_design_reference_rows",
+        "managed_platform_credential_policy",
+        "claim_grade_artifact_publication",
+        "fallback_and_external_execution_boundary",
+        "support_status: \"blocked\"",
+        "claim_gate_status: \"not_claim_grade\"",
+        "local_comparative_rerun_required: true",
+        "local_comparative_rerun_performed: false",
+        "external_baselines_comparison_only: true",
+        "managed_platform_lanes_comparison_only: true",
+        "managed_platform_credentials_required: true",
+        "managed_platform_credentials_resolved: false",
+        "managed_platform_dependencies_added: false",
+        "managed_platform_execution_performed: false",
+        "credential_resolution_performed: false",
+        "network_probe_performed: false",
+        "benchmark_artifact_claim_grade: false",
+        "performance_claim_allowed: false",
+        "superiority_claim_allowed: false",
+        "spark_displacement_claim_allowed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "comparative_rerun_managed_platform_gate_blocks_claims_without_evidence",
+    ] {
+        assert!(
+            benchmark.contains(required),
+            "missing GAR-0040-A benchmark marker {required}"
+        );
+    }
+
+    let lib = read_repo_file("shardloom-core/src/lib.rs");
+    for required in [
+        "ComparativeRerunManagedPlatformGateReport",
+        "ComparativeRerunManagedPlatformGateRow",
+        "plan_comparative_rerun_managed_platform_gate",
+    ] {
+        assert!(
+            lib.contains(required),
+            "missing GAR-0040-A core export marker {required}"
+        );
+    }
+
+    let benchmark_cli = read_repo_file("shardloom-cli/src/benchmark_planning.rs");
+    for required in [
+        "append_comparative_rerun_managed_platform_gate_fields",
+        "comparative_rerun_managed_platform_gate_schema_version",
+        "comparative_rerun_managed_platform_gate_claim_gate_status",
+        "comparative_rerun_managed_platform_gate_local_comparative_rerun_performed",
+        "comparative_rerun_managed_platform_gate_external_baselines_comparison_only",
+        "comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved",
+        "comparative_rerun_managed_platform_gate_managed_platform_execution_performed",
+        "comparative_rerun_managed_platform_gate_row_{}",
+        "(\"claim_gate_status\", row.claim_gate_status)",
+    ] {
+        assert!(
+            benchmark_cli.contains(required),
+            "missing GAR-0040-A benchmark CLI marker {required}"
+        );
+    }
+
+    let release_cli = read_repo_file("shardloom-cli/src/packaging_deployment.rs");
+    for required in [
+        "plan_comparative_rerun_managed_platform_gate",
+        "append_comparative_rerun_managed_platform_gate_release_fields",
+        "comparative_rerun_managed_platform_gate_schema_version",
+        "comparative_rerun_managed_platform_gate_claim_gate_status",
+        "comparative_rerun_managed_platform_gate_managed_platform_credentials_required",
+        "comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved",
+        "comparative_rerun_managed_platform_gate_managed_platform_execution_performed",
+        "comparative_rerun_managed_platform_gate_external_engine_invoked",
+    ] {
+        assert!(
+            release_cli.contains(required),
+            "missing GAR-0040-A release CLI marker {required}"
+        );
+    }
+
+    let cli_snapshot =
+        read_repo_file("shardloom-cli/tests/benchmark_claim_evidence_plan_snapshots.rs");
+    assert!(cli_snapshot.contains("comparative_rerun_managed_platform_gate_schema_version"));
+    assert!(cli_snapshot.contains(
+        "comparative_rerun_managed_platform_gate_row_managed_platform_design_reference_rows_claim_gate_status"
+    ));
+
+    let doc =
+        read_repo_file("docs/architecture/comparative-rerun-managed-platform-posture-gate.md");
+    for required in [
+        "GAR-0040-A",
+        "shardloom.comparative_rerun_managed_platform_gate.v1",
+        "comparative_rerun_managed_platform_gate_claim_gate_status=not_claim_grade",
+        "comparative_rerun_managed_platform_gate_local_comparative_rerun_performed=false",
+        "comparative_rerun_managed_platform_gate_external_baselines_comparison_only=true",
+        "comparative_rerun_managed_platform_gate_managed_platform_lanes_comparison_only=true",
+        "comparative_rerun_managed_platform_gate_managed_platform_credentials_required=true",
+        "comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved=false",
+        "comparative_rerun_managed_platform_gate_managed_platform_dependencies_added=false",
+        "comparative_rerun_managed_platform_gate_managed_platform_execution_performed=false",
+        "comparative_rerun_managed_platform_gate_network_probe_performed=false",
+        "comparative_rerun_managed_platform_gate_performance_claim_allowed=false",
+        "comparative_rerun_managed_platform_gate_fallback_attempted=false",
+        "comparative_rerun_managed_platform_gate_external_engine_invoked=false",
+        "No benchmark rerun.",
+        "No managed-platform benchmark run.",
+        "No credential resolution.",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0040-A doc marker {required}"
+        );
+    }
+
+    let benchmark_doc = read_repo_file("docs/architecture/benchmark-competitive-claim-evidence.md");
+    assert!(benchmark_doc.contains("GAR-0040-A Comparative Rerun And Managed-Platform Gate"));
+    assert!(benchmark_doc.contains(
+        "comparative_rerun_managed_platform_gate_schema_version=shardloom.comparative_rerun_managed_platform_gate.v1"
+    ));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0040-A comparative rerun and managed-platform posture gate"));
+    assert!(plan.contains("docs/architecture/comparative-rerun-managed-platform-posture-gate.md"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for required in [
+        "GAR-0040-A comparative rerun and managed-platform posture gate",
+        "shardloom.comparative_rerun_managed_platform_gate.v1",
+        "comparative_rerun_managed_platform_gate_claim_gate_status=not_claim_grade",
+        "comparative_rerun_managed_platform_gate_blocking_row_count=6",
+        "comparative_rerun_managed_platform_gate_local_comparative_rerun_performed=false",
+        "comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved=false",
+        "comparative_rerun_managed_platform_gate_external_engine_invoked=false",
+    ] {
+        assert!(
+            completed.contains(required),
+            "missing GAR-0040-A completed ledger marker {required}"
+        );
+    }
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(gar.contains("- [x] `GAR-0040-A` adds"));
+    assert!(gar.contains("shardloom.comparative_rerun_managed_platform_gate.v1"));
+    assert!(gar.contains(
+        "comparative_rerun_managed_platform_gate_managed_platform_execution_performed=false"
+    ));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("GAR-0040-A"));
+    assert!(traceability.contains("shardloom.comparative_rerun_managed_platform_gate.v1"));
+    assert!(traceability.contains("managed-platform design-reference rows"));
+    assert!(traceability.contains("managed dependencies"));
+}
+
+#[test]
 fn gar_0015_a_string_property_fuzz_gap_remains_report_only() {
     let correctness = read_repo_file("shardloom-core/src/correctness.rs");
     for required in [

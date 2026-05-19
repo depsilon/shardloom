@@ -114,6 +114,7 @@ Reference index:
   `docs/architecture/competitive-replacement-sufficiency-gate.md`,
   `docs/architecture/cg5-cg6-stateful-reuse-evidence-expansion.md`,
   `docs/architecture/spark-displacement-benchmark-evidence-matrix.md`,
+  `docs/architecture/comparative-rerun-managed-platform-posture-gate.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
   `docs/architecture/credential-policy-enforcement-gate.md`,
@@ -231,21 +232,6 @@ Current non-runtime sequence:
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0040-A comparative rerun and managed-platform posture gate
-  - Source: RFC 0040; benchmark-suite catalog; benchmark competitive claim evidence.
-  - Current state: full comparative reruns, source-backed claim-grade promotion, managed-platform
-    lanes, credentials, dependencies, and public performance claims are not enabled.
-  - Next slice outcome: gate separating local reruns, external baseline/oracle comparisons,
-    managed-platform lanes, credential requirements, and claim blockers.
-  - User-visible surface: benchmark report, release claim gate, docs.
-  - Implementation scope: benchmark metadata/report, release gate, tests.
-  - Evidence required: benchmark refs, environment refs, credential policy refs, no-fallback refs.
-  - Acceptance: managed-platform lanes require explicit credentials and remain comparison-only unless
-    claim evidence passes.
-  - Verification: benchmark contract tests, release readiness metadata tests.
-  - Non-goals: no managed-platform run, credential use, dependency addition, or public claim.
-  - Fallback/claim boundary: external systems are never ShardLoom execution.
-  - Dependencies/blockers: GAR-0019 credential policy and GAR-0041 claim matrix.
 - [ ] GAR-0041-A per-claim evidence attachment matrix
   - Source: RFC 0041; workspace feature build matrix; release security gate.
   - Current state: release claims are not claimable until required matrix rows have attached passing

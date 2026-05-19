@@ -81,6 +81,31 @@ The matrix is an evidence checklist, not a benchmark result:
 - `spark_displacement_matrix_fallback_attempted=false`
 - `spark_displacement_matrix_external_engine_invoked=false`
 
+## GAR-0040-A Comparative Rerun And Managed-Platform Gate
+
+`benchmark-claim-evidence-plan` and `release-plan` now also emit
+`comparative_rerun_managed_platform_gate_schema_version=shardloom.comparative_rerun_managed_platform_gate.v1`.
+This gate separates fresh local reruns from external baseline/oracle rows and from optional
+managed-platform comparison lanes.
+
+The gate is fail-closed:
+
+- `comparative_rerun_managed_platform_gate_claim_gate_status=not_claim_grade`
+- `comparative_rerun_managed_platform_gate_local_comparative_rerun_performed=false`
+- `comparative_rerun_managed_platform_gate_external_baselines_comparison_only=true`
+- `comparative_rerun_managed_platform_gate_managed_platform_lanes_comparison_only=true`
+- `comparative_rerun_managed_platform_gate_managed_platform_credentials_required=true`
+- `comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved=false`
+- `comparative_rerun_managed_platform_gate_managed_platform_dependencies_added=false`
+- `comparative_rerun_managed_platform_gate_managed_platform_execution_performed=false`
+- `comparative_rerun_managed_platform_gate_performance_claim_allowed=false`
+- `comparative_rerun_managed_platform_gate_fallback_attempted=false`
+- `comparative_rerun_managed_platform_gate_external_engine_invoked=false`
+
+Managed platforms remain design references and optional comparison targets only. They require
+explicit credential policy evidence before any future run and cannot become ShardLoom execution or
+fallback evidence.
+
 ## Acceptance Boundary
 
 This surface closes only the benchmark-claim aggregate inventory. It does not

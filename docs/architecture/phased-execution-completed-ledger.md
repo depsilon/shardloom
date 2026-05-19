@@ -16,6 +16,76 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0040-A comparative rerun and managed-platform posture gate
+  - Branch/PR: `codex/gar-0040a-comparative-rerun-managed-platform-gate` / #767.
+  - Primary files:
+    - `shardloom-core/src/benchmark.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/benchmark_planning.rs`
+    - `shardloom-cli/src/packaging_deployment.rs`
+    - `shardloom-cli/tests/benchmark_claim_evidence_plan_snapshots.rs`
+    - `docs/architecture/comparative-rerun-managed-platform-posture-gate.md`
+    - `docs/architecture/benchmark-competitive-claim-evidence.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0040-A by adding a fail-closed gate that separates fresh local comparative
+    reruns, external baseline/oracle rows, managed-platform design-reference lanes, credential
+    policy, environment artifacts, and public claim blockers.
+  - Checklist:
+    - [x] Add `shardloom.comparative_rerun_managed_platform_gate.v1`.
+    - [x] Surface the gate through `benchmark-claim-evidence-plan`.
+    - [x] Surface the gate through `release-plan` / `package-plan`.
+    - [x] Keep managed-platform credentials unresolved, dependencies absent, network probes
+          disabled, benchmark reruns not performed, and public claims blocked.
+    - [x] Move GAR-0040-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `comparative_rerun_managed_platform_gate_schema_version=shardloom.comparative_rerun_managed_platform_gate.v1`
+    - `comparative_rerun_managed_platform_gate_support_status=blocked`
+    - `comparative_rerun_managed_platform_gate_claim_gate_status=not_claim_grade`
+    - `comparative_rerun_managed_platform_gate_row_count=6`
+    - `comparative_rerun_managed_platform_gate_blocking_row_count=6`
+    - `local_full_comparative_rerun`
+    - `external_baseline_oracle_rows`
+    - `managed_platform_design_reference_rows`
+    - `managed_platform_credential_policy`
+    - `claim_grade_artifact_publication`
+    - `fallback_and_external_execution_boundary`
+    - `comparative_rerun_managed_platform_gate_local_comparative_rerun_required=true`
+    - `comparative_rerun_managed_platform_gate_local_comparative_rerun_performed=false`
+    - `comparative_rerun_managed_platform_gate_external_baselines_comparison_only=true`
+    - `comparative_rerun_managed_platform_gate_managed_platform_lanes_comparison_only=true`
+    - `comparative_rerun_managed_platform_gate_managed_platform_credentials_required=true`
+    - `comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved=false`
+    - `comparative_rerun_managed_platform_gate_managed_platform_dependencies_added=false`
+    - `comparative_rerun_managed_platform_gate_managed_platform_execution_performed=false`
+    - `comparative_rerun_managed_platform_gate_credential_resolution_performed=false`
+    - `comparative_rerun_managed_platform_gate_network_probe_performed=false`
+    - `comparative_rerun_managed_platform_gate_benchmark_artifact_claim_grade=false`
+    - `comparative_rerun_managed_platform_gate_performance_claim_allowed=false`
+    - `comparative_rerun_managed_platform_gate_superiority_claim_allowed=false`
+    - `comparative_rerun_managed_platform_gate_spark_displacement_claim_allowed=false`
+    - `comparative_rerun_managed_platform_gate_fallback_attempted=false`
+    - `comparative_rerun_managed_platform_gate_external_engine_invoked=false`
+    - `comparative_rerun_managed_platform_gate_all_claims_blocked=true`
+    - `comparative_rerun_managed_platform_gate_managed_platforms_blocked_without_credentials=true`
+  - Verification:
+    - `cargo test -p shardloom-core comparative_rerun_managed_platform_gate_blocks_claims_without_evidence --lib`
+    - `cargo test -p shardloom-cli --test benchmark_claim_evidence_plan_snapshots`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that comparative rerun and managed-platform benchmark
+    posture is represented and fail closed. It may not claim fresh full comparative rerun evidence,
+    managed-platform execution, credential admission, public performance, superiority,
+    Spark-displacement, managed-platform replacement, external engine execution, or fallback.
+
 - [x] Session label: GAR-0029-A CG-5/CG-6 and stateful reuse evidence expansion
   - Branch/PR: `codex/gar-0029a-evidence-expansion` / #766.
   - Primary files:

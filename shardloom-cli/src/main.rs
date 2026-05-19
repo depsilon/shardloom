@@ -4332,6 +4332,99 @@ mod tests {
     }
 
     #[test]
+    fn release_plan_fields_expose_comparative_rerun_managed_platform_gate() {
+        let plan = shardloom_core::ReleasePlan::default_foundation_plan();
+        let evidence = plan.release_readiness_evidence();
+        let publication = plan.publication_boundary_report();
+        let publication_api_schema = plan.publication_api_schema_stability_gate();
+        let fields = packaging_deployment::release_plan_fields(
+            &plan,
+            &evidence,
+            &publication,
+            &publication_api_schema,
+            "release_plan",
+        );
+
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_schema_version"
+            ),
+            "shardloom.comparative_rerun_managed_platform_gate.v1"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_claim_gate_status"
+            ),
+            "not_claim_grade"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_blocking_row_count"
+            ),
+            "6"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_local_comparative_rerun_performed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_external_baselines_comparison_only"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_managed_platform_lanes_comparison_only"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_managed_platform_credentials_required"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_managed_platform_execution_performed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_all_claims_blocked"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "comparative_rerun_managed_platform_gate_external_engine_invoked"
+            ),
+            "false"
+        );
+    }
+
+    #[test]
     fn release_plan_fields_keep_publication_boundaries_distinct() {
         let plan = shardloom_core::ReleasePlan::default_foundation_plan();
         let evidence = plan.release_readiness_evidence();

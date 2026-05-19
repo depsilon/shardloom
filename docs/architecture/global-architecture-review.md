@@ -1323,6 +1323,23 @@ plan before coding.
   source/prepared/output reuse-hit fields, timing columns, `fanout_output_count=0`,
   no-fallback/no-external-engine fields, and claim-gate fields without presenting the bundle as
   runtime fanout support or a speed leaderboard.
+- [x] `GAR-0040-A` adds
+  `shardloom.comparative_rerun_managed_platform_gate.v1` across
+  `benchmark-claim-evidence-plan` and `release-plan`, separating
+  `local_full_comparative_rerun`, `external_baseline_oracle_rows`,
+  `managed_platform_design_reference_rows`, `managed_platform_credential_policy`,
+  `claim_grade_artifact_publication`, and `fallback_and_external_execution_boundary`. The gate
+  records
+  `comparative_rerun_managed_platform_gate_local_comparative_rerun_performed=false`,
+  `comparative_rerun_managed_platform_gate_external_baselines_comparison_only=true`,
+  `comparative_rerun_managed_platform_gate_managed_platform_lanes_comparison_only=true`,
+  `comparative_rerun_managed_platform_gate_managed_platform_credentials_required=true`,
+  `comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved=false`,
+  `comparative_rerun_managed_platform_gate_managed_platform_dependencies_added=false`,
+  `comparative_rerun_managed_platform_gate_managed_platform_execution_performed=false`,
+  `comparative_rerun_managed_platform_gate_performance_claim_allowed=false`,
+  `comparative_rerun_managed_platform_gate_fallback_attempted=false`, and
+  `comparative_rerun_managed_platform_gate_external_engine_invoked=false`.
 - [ ] Full comparative reruns, source-backed claim-grade promotion, managed-platform lanes,
   credentials, new managed dependencies, and public performance claims remain incomplete.
 

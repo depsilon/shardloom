@@ -7,9 +7,12 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    BenchmarkClaimEvidenceReport, BenchmarkPlan, CommandStatus, OutputFormat, ShardLoomError,
-    SparkDisplacementBenchmarkEvidenceMatrixReport, SparkDisplacementBenchmarkEvidenceRow,
-    plan_benchmark_claim_evidence, plan_spark_displacement_benchmark_evidence_matrix,
+    BenchmarkClaimEvidenceReport, BenchmarkPlan, CommandStatus,
+    ComparativeRerunManagedPlatformGateReport, ComparativeRerunManagedPlatformGateRow,
+    OutputFormat, ShardLoomError, SparkDisplacementBenchmarkEvidenceMatrixReport,
+    SparkDisplacementBenchmarkEvidenceRow, plan_benchmark_claim_evidence,
+    plan_comparative_rerun_managed_platform_gate,
+    plan_spark_displacement_benchmark_evidence_matrix,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -383,11 +386,219 @@ pub(crate) fn benchmark_claim_evidence_fields(
         &mut fields,
         &plan_spark_displacement_benchmark_evidence_matrix(),
     );
+    append_comparative_rerun_managed_platform_gate_fields(
+        &mut fields,
+        &plan_comparative_rerun_managed_platform_gate(),
+    );
     append_vortex_boundary_claim_fields(&mut fields);
     push_bool_field(&mut fields, "side_effect_free", report.side_effect_free());
     push_count_field(&mut fields, "diagnostic_count", report.diagnostics.len());
     fields.extend(crate::gar_0029_evidence::gar_0029_evidence_expansion_fields());
     fields
+}
+
+fn append_comparative_rerun_managed_platform_gate_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ComparativeRerunManagedPlatformGateReport,
+) {
+    append_comparative_rerun_managed_platform_gate_summary_fields(fields, report);
+    append_comparative_rerun_managed_platform_gate_row_fields(fields, report);
+}
+
+fn append_comparative_rerun_managed_platform_gate_summary_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ComparativeRerunManagedPlatformGateReport,
+) {
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_report_id",
+        report.report_id,
+    );
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_docs_ref",
+        report.docs_ref,
+    );
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_support_status",
+        report.support_status,
+    );
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_claim_gate_status",
+        report.claim_gate_status,
+    );
+    push_count_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_row_count",
+        report.rows.len(),
+    );
+    push_count_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_blocking_row_count",
+        report.blocking_row_count(),
+    );
+    push_count_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_managed_platform_row_count",
+        report.managed_platform_row_count(),
+    );
+    push_field(
+        fields,
+        "comparative_rerun_managed_platform_gate_row_ids",
+        &report.row_ids().join(","),
+    );
+    append_comparative_rerun_managed_platform_gate_boolean_fields(fields, report);
+}
+
+fn append_comparative_rerun_managed_platform_gate_boolean_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ComparativeRerunManagedPlatformGateReport,
+) {
+    for (field, value) in [
+        (
+            "comparative_rerun_managed_platform_gate_local_comparative_rerun_required",
+            report.local_comparative_rerun_required,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_local_comparative_rerun_performed",
+            report.local_comparative_rerun_performed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_external_baselines_comparison_only",
+            report.external_baselines_comparison_only,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_lanes_comparison_only",
+            report.managed_platform_lanes_comparison_only,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_credentials_required",
+            report.managed_platform_credentials_required,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_credentials_resolved",
+            report.managed_platform_credentials_resolved,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_dependencies_added",
+            report.managed_platform_dependencies_added,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_execution_performed",
+            report.managed_platform_execution_performed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platform_public_claim_allowed",
+            report.managed_platform_public_claim_allowed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_credential_resolution_performed",
+            report.credential_resolution_performed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_network_probe_performed",
+            report.network_probe_performed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_benchmark_artifact_required",
+            report.benchmark_artifact_required,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_benchmark_artifact_claim_grade",
+            report.benchmark_artifact_claim_grade,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_performance_claim_allowed",
+            report.performance_claim_allowed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_superiority_claim_allowed",
+            report.superiority_claim_allowed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_spark_displacement_claim_allowed",
+            report.spark_displacement_claim_allowed,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_fallback_attempted",
+            report.fallback_attempted,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_external_engine_invoked",
+            report.external_engine_invoked,
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_all_claims_blocked",
+            report.all_claims_blocked(),
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_managed_platforms_blocked_without_credentials",
+            report.managed_platforms_blocked_without_credentials(),
+        ),
+        (
+            "comparative_rerun_managed_platform_gate_side_effect_free",
+            report.side_effect_free(),
+        ),
+    ] {
+        push_bool_field(fields, field, value);
+    }
+}
+
+fn append_comparative_rerun_managed_platform_gate_row_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ComparativeRerunManagedPlatformGateReport,
+) {
+    for row in &report.rows {
+        let prefix = format!("comparative_rerun_managed_platform_gate_row_{}", row.row_id);
+        append_comparative_rerun_managed_platform_gate_row(fields, &prefix, row);
+    }
+}
+
+fn append_comparative_rerun_managed_platform_gate_row(
+    fields: &mut Vec<(String, String)>,
+    prefix: &str,
+    row: &ComparativeRerunManagedPlatformGateRow,
+) {
+    for (suffix, value) in [
+        ("lane_family", row.lane_family),
+        ("lane_role", row.lane_role),
+        ("benchmark_profile", row.benchmark_profile),
+        ("dependency_posture", row.dependency_posture),
+        ("credential_policy_ref", row.credential_policy_ref),
+        ("environment_ref", row.environment_ref),
+        ("required_evidence", row.required_evidence),
+        ("current_state", row.current_state),
+        ("blocker", row.blocker),
+        ("support_status", row.support_status),
+        ("claim_gate_status", row.claim_gate_status),
+    ] {
+        push_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    for (suffix, value) in [
+        ("managed_platform_lane", row.managed_platform_lane),
+        ("credential_required", row.credential_required),
+        ("credential_resolved", row.credential_resolved),
+        ("dependency_added", row.dependency_added),
+        ("benchmark_rerun_performed", row.benchmark_rerun_performed),
+        ("external_baseline_only", row.external_baseline_only),
+        (
+            "shardloom_execution_allowed",
+            row.shardloom_execution_allowed,
+        ),
+        ("performance_claim_allowed", row.performance_claim_allowed),
+        ("public_claim_allowed", row.public_claim_allowed),
+        ("fallback_attempted", row.fallback_attempted),
+        ("external_engine_invoked", row.external_engine_invoked),
+    ] {
+        push_bool_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
 }
 
 fn append_spark_displacement_benchmark_evidence_matrix_fields(
