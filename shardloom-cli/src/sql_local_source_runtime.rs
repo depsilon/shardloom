@@ -28,6 +28,8 @@ use crate::{
 const COMMAND: &str = "sql-local-source-smoke";
 const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
 const EXECUTION_CERTIFICATE_ID: &str = "sql-local-source.csv.projection-filter-limit.execution.v1";
+const AGGREGATE_EXECUTION_CERTIFICATE_ID: &str =
+    "sql-local-source.csv.aggregate-filter-limit.execution.v1";
 const SOURCE_CERTIFICATE_ID: &str = "sql-local-source.csv.compatibility-source.v1";
 const OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
 const MAX_INPUT_ROWS: usize = 50_000;
@@ -66,10 +68,32 @@ impl SqlLocalSourceOutputFormat {
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedSqlLocalSource {
     projections: Vec<String>,
+    aggregates: Vec<ParsedAggregate>,
     source_path: PathBuf,
     predicate: ParsedPredicate,
     limit: usize,
     normalized_statement: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedAggregate {
+    function: AggregateFunction,
+    column: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AggregateFunction {
+    Count,
+    Sum,
+    Avg,
+    Min,
+    Max,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedProjectionList {
+    projections: Vec<String>,
+    aggregates: Vec<ParsedAggregate>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -237,41 +261,11 @@ fn run_sql_local_source_smoke(
                     .as_str())
         )));
     }
-    let projection_expressions = parsed
-        .projection_columns(&source.header)
-        .iter()
-        .map(|column| {
-            Ok(Expression::column(
-                ExprId::new(format!("project.{column}"))?,
-                ColumnRef::new(column.clone())?,
-            ))
-        })
-        .collect::<Result<Vec<_>, ShardLoomError>>()?;
-    let mut output_rows = Vec::new();
-    for row_index in filter.selected_row_indexes.iter().take(parsed.limit) {
-        let row = source.rows.get(*row_index).ok_or_else(|| {
-            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
-        })?;
-        let projection = evaluate_projection(&projection_expressions, row);
-        if projection.has_errors() {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "SQL local-source projection evaluation failed: {}",
-                projection
-                    .diagnostics
-                    .first()
-                    .map_or("unknown diagnostic", |diagnostic| diagnostic
-                        .message
-                        .as_str())
-            )));
-        }
-        output_rows.push(
-            projection
-                .projected_columns
-                .into_iter()
-                .map(|column| (column.name, column.value))
-                .collect(),
-        );
-    }
+    let output_rows = if parsed.is_aggregate() {
+        evaluate_scalar_aggregate_output(&parsed, &source, &filter.selected_row_indexes)?
+    } else {
+        evaluate_projection_output(&parsed, &source, &filter.selected_row_indexes)?
+    };
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
@@ -305,6 +299,253 @@ fn run_sql_local_source_smoke(
         evidence_render_millis,
         total_runtime_millis: total_start.elapsed().as_millis(),
     })
+}
+
+fn evaluate_projection_output(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+    let projection_expressions = parsed
+        .projection_columns(&source.header)
+        .iter()
+        .map(|column| {
+            Ok(Expression::column(
+                ExprId::new(format!("project.{column}"))?,
+                ColumnRef::new(column.clone())?,
+            ))
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    let mut output_rows = Vec::new();
+    for row_index in selected_row_indexes.iter().take(parsed.limit) {
+        let row = source.rows.get(*row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
+        })?;
+        let projection = evaluate_projection(&projection_expressions, row);
+        if projection.has_errors() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "SQL local-source projection evaluation failed: {}",
+                projection
+                    .diagnostics
+                    .first()
+                    .map_or("unknown diagnostic", |diagnostic| diagnostic
+                        .message
+                        .as_str())
+            )));
+        }
+        output_rows.push(
+            projection
+                .projected_columns
+                .into_iter()
+                .map(|column| (column.name, column.value))
+                .collect(),
+        );
+    }
+    Ok(output_rows)
+}
+
+fn evaluate_scalar_aggregate_output(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+    if parsed.limit == 0 {
+        return Ok(Vec::new());
+    }
+    let mut row = Vec::with_capacity(parsed.aggregates.len());
+    for aggregate in &parsed.aggregates {
+        row.push((
+            aggregate.output_name(),
+            evaluate_scalar_aggregate(aggregate, source, selected_row_indexes)?,
+        ));
+    }
+    Ok(vec![row])
+}
+
+fn evaluate_scalar_aggregate(
+    aggregate: &ParsedAggregate,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<ScalarValue, ShardLoomError> {
+    match aggregate.function {
+        AggregateFunction::Count => {
+            let count = if let Some(column) = aggregate.column.as_deref() {
+                selected_row_indexes
+                    .iter()
+                    .filter_map(|row_index| source.rows.get(*row_index))
+                    .filter(|row| !matches!(row.get(column), None | Some(ScalarValue::Null)))
+                    .count()
+            } else {
+                selected_row_indexes.len()
+            };
+            i64::try_from(count).map(ScalarValue::Int64).map_err(|_| {
+                unsupported_sql_error("COUNT result does not fit in int64 for this scoped smoke")
+            })
+        }
+        AggregateFunction::Sum => aggregate_numeric_sum(aggregate, source, selected_row_indexes),
+        AggregateFunction::Avg => aggregate_numeric_avg(aggregate, source, selected_row_indexes),
+        AggregateFunction::Min => {
+            aggregate_numeric_min_max(aggregate, source, selected_row_indexes, MinMaxMode::Min)
+        }
+        AggregateFunction::Max => {
+            aggregate_numeric_min_max(aggregate, source, selected_row_indexes, MinMaxMode::Max)
+        }
+    }
+}
+
+fn aggregate_numeric_sum(
+    aggregate: &ParsedAggregate,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<ScalarValue, ShardLoomError> {
+    let column = aggregate.required_column()?;
+    let mut int_sum = 0_i64;
+    let mut float_sum = 0.0_f64;
+    let mut saw_float = false;
+    let mut count = 0_usize;
+    for value in aggregate_numeric_values(column, source, selected_row_indexes)? {
+        count += 1;
+        match value {
+            NumericAggregateValue::Int(value) if !saw_float => {
+                int_sum = int_sum.checked_add(value).ok_or_else(|| {
+                    unsupported_sql_error("SUM overflowed int64 for this scoped smoke")
+                })?;
+            }
+            NumericAggregateValue::Int(value) => float_sum += i64_to_f64(value),
+            NumericAggregateValue::Float(value) => {
+                if !saw_float {
+                    float_sum = i64_to_f64(int_sum);
+                    saw_float = true;
+                }
+                float_sum += value;
+            }
+        }
+    }
+    if count == 0 {
+        Ok(ScalarValue::Null)
+    } else if saw_float {
+        Ok(ScalarValue::Float64(float_sum))
+    } else {
+        Ok(ScalarValue::Int64(int_sum))
+    }
+}
+
+fn aggregate_numeric_avg(
+    aggregate: &ParsedAggregate,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<ScalarValue, ShardLoomError> {
+    let column = aggregate.required_column()?;
+    let mut sum = 0.0_f64;
+    let mut count = 0_usize;
+    for value in aggregate_numeric_values(column, source, selected_row_indexes)? {
+        count += 1;
+        sum += value.as_f64();
+    }
+    if count == 0 {
+        Ok(ScalarValue::Null)
+    } else {
+        Ok(ScalarValue::Float64(sum / usize_to_f64(count)))
+    }
+}
+
+#[derive(Clone, Copy)]
+enum MinMaxMode {
+    Min,
+    Max,
+}
+
+fn aggregate_numeric_min_max(
+    aggregate: &ParsedAggregate,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+    mode: MinMaxMode,
+) -> Result<ScalarValue, ShardLoomError> {
+    let column = aggregate.required_column()?;
+    let mut selected: Option<NumericAggregateValue> = None;
+    for value in aggregate_numeric_values(column, source, selected_row_indexes)? {
+        let replace = selected.is_none_or(|current| match mode {
+            MinMaxMode::Min => value.as_f64() < current.as_f64(),
+            MinMaxMode::Max => value.as_f64() > current.as_f64(),
+        });
+        if replace {
+            selected = Some(value);
+        }
+    }
+    Ok(selected.map_or(ScalarValue::Null, NumericAggregateValue::into_scalar))
+}
+
+#[derive(Clone, Copy)]
+enum NumericAggregateValue {
+    Int(i64),
+    Float(f64),
+}
+
+impl NumericAggregateValue {
+    fn as_f64(self) -> f64 {
+        match self {
+            Self::Int(value) => i64_to_f64(value),
+            Self::Float(value) => value,
+        }
+    }
+
+    fn into_scalar(self) -> ScalarValue {
+        match self {
+            Self::Int(value) => ScalarValue::Int64(value),
+            Self::Float(value) => ScalarValue::Float64(value),
+        }
+    }
+}
+
+fn aggregate_numeric_values(
+    column: &str,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<Vec<NumericAggregateValue>, ShardLoomError> {
+    let mut values = Vec::new();
+    for row_index in selected_row_indexes {
+        let row = source.rows.get(*row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
+        })?;
+        let Some(value) = row.get(column) else {
+            return Err(unsupported_sql_error(&format!(
+                "aggregate column {column:?} is not present in the CSV row"
+            )));
+        };
+        match value {
+            ScalarValue::Null => {}
+            ScalarValue::Int64(value) => values.push(NumericAggregateValue::Int(*value)),
+            ScalarValue::UInt64(value) => {
+                let value = i64::try_from(*value).map_err(|_| {
+                    unsupported_sql_error("unsigned aggregate value does not fit in int64")
+                })?;
+                values.push(NumericAggregateValue::Int(value));
+            }
+            ScalarValue::Float64(value) if value.is_finite() => {
+                values.push(NumericAggregateValue::Float(*value));
+            }
+            _ => {
+                return Err(unsupported_sql_error(&format!(
+                    "aggregate function requires numeric column {column:?} in this scoped smoke"
+                )));
+            }
+        }
+    }
+    Ok(values)
+}
+
+fn i64_to_f64(value: i64) -> f64 {
+    value
+        .to_string()
+        .parse::<f64>()
+        .expect("i64 decimal text parses as finite f64")
+}
+
+fn usize_to_f64(value: usize) -> f64 {
+    value
+        .to_string()
+        .parse::<f64>()
+        .expect("usize decimal text parses as finite f64")
 }
 
 fn write_optional_sql_output(
@@ -344,11 +585,23 @@ fn bind_sql_local_source(
     parsed: &ParsedSqlLocalSource,
     header: &[String],
 ) -> Result<(), ShardLoomError> {
-    for column in parsed.projection_columns(header) {
-        if !header.iter().any(|candidate| candidate == &column) {
-            return Err(unsupported_sql_error(&format!(
-                "projection column {column:?} is not present in the CSV header"
-            )));
+    if parsed.is_aggregate() {
+        for aggregate in &parsed.aggregates {
+            if let Some(column) = aggregate.column.as_deref() {
+                if !header.iter().any(|candidate| candidate == column) {
+                    return Err(unsupported_sql_error(&format!(
+                        "aggregate column {column:?} is not present in the CSV header"
+                    )));
+                }
+            }
+        }
+    } else {
+        for column in parsed.projection_columns(header) {
+            if !header.iter().any(|candidate| candidate == &column) {
+                return Err(unsupported_sql_error(&format!(
+                    "projection column {column:?} is not present in the CSV header"
+                )));
+            }
         }
     }
     let predicate_column = parsed.predicate.column();
@@ -361,11 +614,86 @@ fn bind_sql_local_source(
 }
 
 impl ParsedSqlLocalSource {
+    fn is_aggregate(&self) -> bool {
+        !self.aggregates.is_empty()
+    }
+
+    fn statement_kind(&self) -> &'static str {
+        if self.is_aggregate() {
+            "local_source_aggregate_filter_limit"
+        } else {
+            "local_source_projection_filter_limit"
+        }
+    }
+
+    fn claim_gate_reason(&self) -> &'static str {
+        if self.is_aggregate() {
+            "one_scoped_local_csv_sql_scalar_aggregate_filter_limit_smoke"
+        } else {
+            "one_scoped_local_csv_sql_projection_filter_limit_smoke"
+        }
+    }
+
+    fn execution_certificate_ref(&self) -> &'static str {
+        if self.is_aggregate() {
+            AGGREGATE_EXECUTION_CERTIFICATE_ID
+        } else {
+            EXECUTION_CERTIFICATE_ID
+        }
+    }
+
     fn projection_columns(&self, header: &[String]) -> Vec<String> {
         if self.projections.len() == 1 && self.projections[0] == "*" {
             header.to_vec()
         } else {
             self.projections.clone()
+        }
+    }
+
+    fn output_columns(&self, header: &[String]) -> Vec<String> {
+        if self.is_aggregate() {
+            self.aggregates
+                .iter()
+                .map(ParsedAggregate::output_name)
+                .collect()
+        } else {
+            self.projection_columns(header)
+        }
+    }
+}
+
+impl ParsedAggregate {
+    fn output_name(&self) -> String {
+        match (self.function, self.column.as_deref()) {
+            (AggregateFunction::Count, None) => "count_all".to_string(),
+            (function, Some(column)) => format!("{}_{}", function.as_str(), column),
+            (function, None) => function.as_str().to_string(),
+        }
+    }
+
+    fn label(&self) -> String {
+        match (self.function, self.column.as_deref()) {
+            (AggregateFunction::Count, None) => "count(*)".to_string(),
+            (function, Some(column)) => format!("{}({column})", function.as_str()),
+            (function, None) => format!("{}()", function.as_str()),
+        }
+    }
+
+    fn required_column(&self) -> Result<&str, ShardLoomError> {
+        self.column.as_deref().ok_or_else(|| {
+            unsupported_sql_error("aggregate function requires a column in this scoped smoke")
+        })
+    }
+}
+
+impl AggregateFunction {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Count => "count",
+            Self::Sum => "sum",
+            Self::Avg => "avg",
+            Self::Min => "min",
+            Self::Max => "max",
         }
     }
 }
@@ -443,7 +771,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "sql_statement_kind".to_string(),
-                "local_source_projection_filter_limit".to_string(),
+                self.parsed.statement_kind().to_string(),
             ),
             ("sql_statement".to_string(), self.request.statement.clone()),
             ("sql_parser_executed".to_string(), "true".to_string()),
@@ -488,8 +816,28 @@ impl SqlLocalSourceReport {
             ),
             (
                 "projected_columns".to_string(),
+                self.parsed.output_columns(&self.source.header).join(","),
+            ),
+            (
+                "aggregate_runtime_execution".to_string(),
+                self.parsed.is_aggregate().to_string(),
+            ),
+            (
+                "aggregate_operator_family".to_string(),
+                if self.parsed.is_aggregate() {
+                    "scalar_aggregate"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "aggregate_functions".to_string(),
                 self.parsed
-                    .projection_columns(&self.source.header)
+                    .aggregates
+                    .iter()
+                    .map(ParsedAggregate::label)
+                    .collect::<Vec<_>>()
                     .join(","),
             ),
             (
@@ -567,7 +915,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "execution_certificate_ref".to_string(),
-                EXECUTION_CERTIFICATE_ID.to_string(),
+                self.parsed.execution_certificate_ref().to_string(),
             ),
             (
                 "materialization_boundary".to_string(),
@@ -618,7 +966,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "claim_gate_reason".to_string(),
-                "one_scoped_local_csv_sql_projection_filter_limit_smoke".to_string(),
+                self.parsed.claim_gate_reason().to_string(),
             ),
             ("performance_claim_allowed".to_string(), "false".to_string()),
             ("production_claim_allowed".to_string(), "false".to_string()),
@@ -837,13 +1185,14 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
         ));
     }
 
-    let projections = parse_projection_list(select_list)?;
+    let projection_list = parse_projection_list(select_list)?;
     let source_path = parse_source_path(source_raw)?;
     let predicate = parse_predicate(predicate_raw)?;
     let limit = parse_limit(limit_raw)?;
 
     Ok(ParsedSqlLocalSource {
-        projections,
+        projections: projection_list.projections,
+        aggregates: projection_list.aggregates,
         source_path,
         predicate,
         limit,
@@ -868,14 +1217,15 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
     Ok(statement.to_string())
 }
 
-fn parse_projection_list(raw: &str) -> Result<Vec<String>, ShardLoomError> {
-    let projections = split_sql_csv(raw)?;
-    if projections.is_empty() {
+fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomError> {
+    let entries = split_sql_csv(raw)?;
+    if entries.is_empty() {
         return Err(unsupported_sql_error("SELECT list must not be empty"));
     }
-    let mut parsed = Vec::with_capacity(projections.len());
-    let projection_count = projections.len();
-    for projection in projections {
+    let mut projections = Vec::with_capacity(entries.len());
+    let mut aggregates = Vec::new();
+    let projection_count = entries.len();
+    for projection in entries {
         let projection = projection.trim();
         if projection == "*" {
             if projection_count > 1 {
@@ -883,13 +1233,65 @@ fn parse_projection_list(raw: &str) -> Result<Vec<String>, ShardLoomError> {
                     "SELECT * cannot be mixed with explicit columns in this scoped smoke",
                 ));
             }
-            parsed.push("*".to_string());
+            projections.push("*".to_string());
+        } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
+            aggregates.push(aggregate);
         } else {
             validate_sql_identifier(projection)?;
-            parsed.push(projection.to_string());
+            projections.push(projection.to_string());
         }
     }
-    Ok(parsed)
+    if !aggregates.is_empty() && !projections.is_empty() {
+        return Err(unsupported_sql_error(
+            "scalar aggregate SELECT list cannot mix aggregate functions with raw columns in this scoped smoke",
+        ));
+    }
+    Ok(ParsedProjectionList {
+        projections,
+        aggregates,
+    })
+}
+
+fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, ShardLoomError> {
+    let Some(open_index) = raw.find('(') else {
+        return Ok(None);
+    };
+    if !raw.ends_with(')') {
+        return Err(unsupported_sql_error(
+            "aggregate expressions must be written as function(column) in this scoped smoke",
+        ));
+    }
+    let function_raw = raw[..open_index].trim();
+    let function = match function_raw.to_ascii_lowercase().as_str() {
+        "count" => AggregateFunction::Count,
+        "sum" => AggregateFunction::Sum,
+        "avg" => AggregateFunction::Avg,
+        "min" => AggregateFunction::Min,
+        "max" => AggregateFunction::Max,
+        _ => return Ok(None),
+    };
+    let argument = raw[open_index + 1..raw.len() - 1].trim();
+    if argument.is_empty() {
+        return Err(unsupported_sql_error(
+            "aggregate expressions require a column or COUNT(*) argument",
+        ));
+    }
+    if argument == "*" {
+        if function != AggregateFunction::Count {
+            return Err(unsupported_sql_error(
+                "only COUNT(*) is admitted in this scoped aggregate smoke",
+            ));
+        }
+        return Ok(Some(ParsedAggregate {
+            function,
+            column: None,
+        }));
+    }
+    validate_sql_identifier(argument)?;
+    Ok(Some(ParsedAggregate {
+        function,
+        column: Some(argument.to_string()),
+    }))
 }
 
 fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
@@ -1283,6 +1685,7 @@ mod tests {
         .expect("statement parses");
 
         assert_eq!(parsed.projections, vec!["id", "label"]);
+        assert!(parsed.aggregates.is_empty());
         assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
         assert_eq!(parsed.limit, 5);
         assert!(matches!(
@@ -1293,6 +1696,25 @@ mod tests {
                 value: ScalarValue::Int64(10)
             } if column == "amount"
         ));
+    }
+
+    #[test]
+    fn parses_scoped_scalar_aggregate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT count(*),sum(amount),avg(amount),min(amount),max(amount) FROM 'target/input.csv' WHERE amount >= 10 LIMIT 1",
+        )
+        .expect("aggregate statement parses");
+
+        assert!(parsed.projections.is_empty());
+        assert_eq!(parsed.aggregates.len(), 5);
+        assert_eq!(parsed.aggregates[0].label(), "count(*)");
+        assert_eq!(parsed.aggregates[1].label(), "sum(amount)");
+        assert_eq!(parsed.aggregates[2].output_name(), "avg_amount");
+        assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_aggregate_filter_limit"
+        );
     }
 
     #[test]

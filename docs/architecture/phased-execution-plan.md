@@ -1314,8 +1314,10 @@ them in dependency order unless a later unblocker or review finding changes the 
 
 - [ ] GAR-RUNTIME-IMPL-1E aggregate, group-by, join, top-N, and window operator expansion
   - Source: `GAR-RUNTIME-COMPLETE-1D`, benchmark scenario catalog, correctness fixture manifest.
-  - Current state: aggregate, group-by, join, top-N, and window coverage is partial and not complete
-    across user surfaces.
+  - Current state: local CSV scalar aggregate runtime covers `COUNT`, `SUM`, `AVG`, `MIN`, and
+    `MAX` through `sql-local-source-smoke` with fixture-smoke evidence. Grouped aggregates, joins,
+    top-N, windows, broader SQL/DataFrame surfaces, and prepared/native operator promotion remain
+    incomplete across user surfaces.
   - Next slice outcome: promote one focused family at a time with correctness fixtures, runtime
     evidence, unsupported diagnostics, and benchmark rows.
   - User-visible surface: CLI/Python/SQL/DataFrame workflows, benchmark rows, capability view.
@@ -1730,9 +1732,9 @@ runtime/evidence proof.
 - [ ] GAR-RUNTIME-IMPL-2C SQL planner expansion beyond first local smoke
   - Source: `GAR-RUNTIME-COMPLETE-1B`, `GAR-RUNTIME-IMPL-1B`, `GAR-RUNTIME-IMPL-1E`,
     SQL/DataFrame capability matrix.
-  - Current state: source-free SQL is scoped, and local-source projection/filter/limit is planned or
-    in progress; aggregates, group-by, joins, order/top-N, casts, functions, and multi-source SQL are
-    not broadly supported.
+  - Current state: source-free SQL is scoped, local-source projection/filter/limit is supported, and
+    local-source scalar aggregate smoke covers `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`. Group-by,
+    joins, order/top-N, casts, functions, and multi-source SQL are not broadly supported.
   - Next slice outcome: expand SQL lowering in staged groups: aggregate/group-by, order/top-N,
     simple equi-join, casts/null predicates, and deterministic unsupported diagnostics for
     functions, subqueries, windows, catalogs, UDFs, and effectful operations not yet admitted.

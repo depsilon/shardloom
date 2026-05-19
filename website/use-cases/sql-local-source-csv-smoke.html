@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SQL local CSV projection/filter/limit smoke | ShardLoom Use Cases</title>
-  <meta name="description" content="ShardLoom use-case posture for SQL local CSV projection/filter/limit smoke.">
+  <title>SQL local CSV projection/filter/limit and scalar aggregate smoke | ShardLoom Use Cases</title>
+  <meta name="description" content="ShardLoom use-case posture for SQL local CSV projection/filter/limit and scalar aggregate smoke.">
   <link rel="canonical" href="https://shardloom.io/use-cases/sql-local-source-csv-smoke">
   <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
   <link rel="stylesheet" href="/assets/site.css">
 
-  <meta property="og:title" content="SQL local CSV projection/filter/limit smoke | ShardLoom Use Cases">
-  <meta property="og:description" content="ShardLoom use-case posture for SQL local CSV projection/filter/limit smoke.">
+  <meta property="og:title" content="SQL local CSV projection/filter/limit and scalar aggregate smoke | ShardLoom Use Cases">
+  <meta property="og:description" content="ShardLoom use-case posture for SQL local CSV projection/filter/limit and scalar aggregate smoke.">
   <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://shardloom.io/use-cases/sql-local-source-csv-smoke">
@@ -54,8 +54,8 @@
       <div class="shell">
         <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
         <p class="eyebrow">Use Case Atlas</p>
-        <h1>SQL local CSV projection/filter/limit smoke</h1>
-        <p class="lede">SQL local CSV projection/filter/limit smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+        <h1>SQL local CSV projection/filter/limit and scalar aggregate smoke</h1>
+        <p class="lede">SQL local CSV projection/filter/limit and scalar aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
         <span class="claim-badge fixture">smoke supported</span>
       </div>
     </section>
@@ -63,7 +63,7 @@
       <div class="shell use-case-layout">
         <article class="doc-body">
           <h2>Plain-English Summary</h2>
-          <p>SQL local CSV projection/filter/limit smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+          <p>SQL local CSV projection/filter/limit and scalar aggregate smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
           <h2>Status Table</h2>
           <div class="table-scroll"><table>
 <thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
@@ -74,20 +74,20 @@
 <tr><td>Platform</td><td>local</td></tr>
 <tr><td>Evidence level</td><td>native-io</td></tr>
 <tr><td>Inputs</td><td>local_csv</td></tr>
-<tr><td>Outputs</td><td>inline_jsonl_result, optional_local_jsonl_output, sql_local_source_evidence</td></tr>
+<tr><td>Outputs</td><td>inline_jsonl_result, optional_local_jsonl_output, scalar_aggregate_result, sql_local_source_evidence</td></tr>
 </tbody></table></div>
           <h2>Quick Example</h2><pre><code data-language="powershell">New-Item -ItemType Directory -Force target | Out-Null; &quot;id,label,amount`n1,alpha,8`n2,beta,15`n3,gamma,`n&quot; | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke &quot;SELECT id,label FROM &#x27;target/sql-local-source-smoke.csv&#x27; WHERE amount &gt;= 10 LIMIT 1&quot; --output target\sql-local-source-result.jsonl --allow-overwrite --format json</code></pre>
-          <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>Parquet/Vortex SQL sources, joins, aggregates, functions, subqueries, catalogs, object stores, table/lakehouse sources, output sinks, and production SQL/DataFrame support require later runtime slices.</span></div>
+          <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>Parquet/Vortex SQL sources, joins, grouped aggregates, functions, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.</span></div>
           <h2>Claim Boundary</h2>
-          <p>One scoped local CSV SELECT projection/filter/limit smoke with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, external fallback, or performance claim.</p>
+          <p>Scoped local CSV SELECT projection/filter/limit and scalar aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, grouped aggregate, external fallback, or performance claim.</p>
           <h2>Internal Flow</h2>
-          <div class="use-case-flow"><article><strong>Inputs</strong><span>local_csv</span></article><article><strong>Execution mode</strong><span>direct_compatibility_transient</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>inline_jsonl_result, optional_local_jsonl_output, sql_local_source_evidence</span></article><article><strong>Evidence</strong><span>schema_version=shardloom.sql_local_source_smoke.v1, sql_parser_executed=true, sql_binder_executed=true, sql_planner_executed=true, source_io_performed=true, source_format=csv, output_io_performed, output_native_io_certificate_status, materialization_boundary, fallback_attempted=false, external_engine_invoked=false, claim_gate_status=fixture_smoke_only</span></article><article><strong>Claim gate</strong><span>One scoped local CSV SELECT projection/filter/limit smoke with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, external fallback, or performance claim.</span></article></div>
+          <div class="use-case-flow"><article><strong>Inputs</strong><span>local_csv</span></article><article><strong>Execution mode</strong><span>direct_compatibility_transient</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>inline_jsonl_result, optional_local_jsonl_output, scalar_aggregate_result, sql_local_source_evidence</span></article><article><strong>Evidence</strong><span>schema_version=shardloom.sql_local_source_smoke.v1, sql_parser_executed=true, sql_binder_executed=true, sql_planner_executed=true, source_io_performed=true, source_format=csv, aggregate_runtime_execution, aggregate_operator_family, output_io_performed, output_native_io_certificate_status, materialization_boundary, fallback_attempted=false, external_engine_invoked=false, claim_gate_status=fixture_smoke_only</span></article><article><strong>Claim gate</strong><span>Scoped local CSV SELECT projection/filter/limit and scalar aggregate smokes with optional local JSONL output only; no broad SQL/DataFrame runtime, production SQL support, object-store/table source, grouped aggregate, external fallback, or performance claim.</span></article></div>
           <h2>Expected Evidence Fields</h2>
-          <ul><li>schema_version=shardloom.sql_local_source_smoke.v1</li><li>sql_parser_executed=true</li><li>sql_binder_executed=true</li><li>sql_planner_executed=true</li><li>source_io_performed=true</li><li>source_format=csv</li><li>output_io_performed</li><li>output_native_io_certificate_status</li><li>materialization_boundary</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li><li>claim_gate_status=fixture_smoke_only</li></ul>
+          <ul><li>schema_version=shardloom.sql_local_source_smoke.v1</li><li>sql_parser_executed=true</li><li>sql_binder_executed=true</li><li>sql_planner_executed=true</li><li>source_io_performed=true</li><li>source_format=csv</li><li>aggregate_runtime_execution</li><li>aggregate_operator_family</li><li>output_io_performed</li><li>output_native_io_certificate_status</li><li>materialization_boundary</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li><li>claim_gate_status=fixture_smoke_only</li></ul>
           <h2>Expected Output Or Evidence</h2>
-          <p>A JSON envelope with inline JSONL result, optional local JSONL output path/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.</p>
+          <p>A JSON envelope with inline JSONL result, optional local JSONL output path/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, scalar aggregate fields when requested, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.</p>
           <h2>Common Mistakes</h2>
-          <ul><li>treating_smoke_as_sql_compatibility</li><li>expecting_parquet_or_s3_sql_sources</li><li>expecting_join_or_aggregate_support</li></ul>
+          <ul><li>treating_smoke_as_sql_compatibility</li><li>expecting_parquet_or_s3_sql_sources</li><li>expecting_join_or_grouped_aggregate_support</li></ul>
           <h2>Reference Files</h2>
           <div class="citation-list" data-citation-block="reference-files"><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/README.md"><code>README.md</code></a><p><strong>What this proves:</strong> Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md"><code>docs/getting-started/examples.md</code></a><p><strong>What this proves:</strong> Current example catalog and local workflow entrypoints.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a><p><strong>What this proves:</strong> Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/phased-execution-plan.md"><code>docs/architecture/phased-execution-plan.md</code></a><p><strong>What this proves:</strong> Active planned work, claim boundaries, non-goals, and ledger move rules.</p></article></div>
           <h2>Related Field Guide Terms</h2>

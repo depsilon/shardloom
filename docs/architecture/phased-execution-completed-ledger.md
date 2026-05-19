@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-1E scalar aggregate local CSV operator family
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/generated/sql-local-source-csv-smoke.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `website/use-cases/sql-local-source-csv-smoke.html`
+    - `website/assets/data/compute-engine-flow-reference.md`
+  - Scope: promote the first aggregate operator family into the admitted local CSV
+    `sql-local-source-smoke` runtime path.
+  - Checklist:
+    - [x] Add scalar aggregate parsing for `COUNT(*)`, `COUNT(column)`, `SUM`, `AVG`, `MIN`, and
+          `MAX` in the scoped local CSV SQL statement shape.
+    - [x] Execute scalar aggregates after the existing local CSV source read and simple `WHERE`
+          predicate, producing one bounded JSONL result row when `LIMIT` admits output.
+    - [x] Emit aggregate evidence fields including `aggregate_runtime_execution=true`,
+          `aggregate_operator_family=scalar_aggregate`, aggregate function labels, projected output
+          names, correctness digest, materialization/decode status, no-fallback fields, and
+          `execution_certificate_ref=sql-local-source.csv.aggregate-filter-limit.execution.v1`.
+    - [x] Keep grouped aggregates, joins, windows, functions, subqueries, object-store/table
+          sources, and broad SQL/DataFrame support blocked.
+    - [x] Update README, Python README, getting-started examples, Use Case Atlas, generated website
+          pages, compute-flow reference, and phase-plan current-state notes.
+  - Evidence and verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo test --workspace --all-targets`
+    - manual `sql-local-source-smoke` scalar aggregate smoke over local CSV
+    - `python website/build_static_pages.py`
+    - use-case and website readiness checks
+    - `git diff --check`
+  - Claim boundary:
+    - This admits one scoped local CSV scalar aggregate family only. It does not add grouped
+      aggregate runtime, joins, windows, top-N, broad SQL/DataFrame runtime, prepared/native
+      aggregate promotion, object-store/table support, production support, or performance claims.
+  - Fallback boundary:
+    - Aggregate parsing, binding, filtering, and scalar accumulation are ShardLoom-owned. No pandas,
+      Polars, DuckDB, DataFusion, Spark, SQLite, Vortex query-engine integration, or other external
+      engine is invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-1C Python query-builder first complete local workflow
   - Primary files:
     - `shardloom-cli/src/sql_local_source_runtime.rs`
