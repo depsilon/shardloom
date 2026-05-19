@@ -1305,6 +1305,456 @@ public wording until evidence gates pass.
   - Dependencies/blockers: every runtime promotion must update the source docs/indexes before merge.
   - Ledger rule: completed runtime slices must note corresponding website/doc parity updates.
 
+#### GAR-RUNTIME-IMPL-1 - Implementation-Ready Runtime Slice Queue
+
+The broad `GAR-RUNTIME-COMPLETE-1B` through `GAR-RUNTIME-COMPLETE-1L` items above are umbrella
+tracks. The following child slices are the concrete implementation queue for making the engine
+usable end to end. They are intentionally PR-sized, runtime-oriented, and evidence-bearing. Complete
+them in dependency order unless a later unblocker or review finding changes the sequence.
+
+- [ ] GAR-RUNTIME-IMPL-1A SQL source-free literals and `VALUES` local-output runtime
+  - Source: `GAR-RUNTIME-COMPLETE-1B`, `GAR-GEN-1`, source-free generated-output diagnostics.
+  - Current state: source-free SQL forms have deterministic unsupported diagnostics, while Python
+    generated sources can write local smoke outputs.
+  - Next slice outcome: execute SQL `SELECT` literal expressions and SQL `VALUES` as generated
+    sources that write a local JSONL/Vortex-smoke output with `GeneratedSourceCertificate` evidence.
+  - User-visible surface: CLI SQL smoke command, Python SQL helper, generated-output recipe,
+    status/use-case docs.
+  - Implementation scope: tiny fail-closed SQL literal parser, generated-source runtime adapter,
+    output evidence envelope, CLI/Python smoke tests.
+  - Evidence required: `input_dataset_count=0`, `source_io_performed=false`,
+    `generated_source_created=true`, generated-source kind/schema/row/plan digests,
+    output certificate, correctness digest, `fallback_attempted=false`,
+    `external_engine_invoked=false`, `claim_gate_status=fixture_smoke_only`.
+  - Acceptance: admitted literals/values write local output; invalid SQL, `FROM`, functions,
+    joins, subqueries, UDFs, object-store paths, and table writes fail with stable diagnostics.
+  - Verification: SQL runtime unit tests, CLI smoke, Python smoke,
+    `cargo test -p shardloom-cli --test generated_source_runtime_smoke`,
+    `python -m unittest discover python/tests`, `git diff --check`.
+  - Non-goals: no broad SQL parser, no SQL over local files, no SQL joins, no production SQL claim.
+  - Claim boundary: source-free SQL local fixture smoke only.
+  - Fallback boundary: no DataFusion, DuckDB, SQLite, Spark, Polars, pandas, or Vortex query-engine
+    execution.
+  - Dependencies/blockers: generated-source runtime and local output evidence from the completed
+    generated-source smokes.
+  - Ledger rule: ledger entry must list admitted SQL forms and blocked forms.
+
+- [ ] GAR-RUNTIME-IMPL-1B SQL local-source projection/filter/limit runtime
+  - Source: `GAR-RUNTIME-COMPLETE-1B`, `GAR-RUNTIME-COMPLETE-1D`,
+    `docs/architecture/evidence-aware-logical-optimizer.md`.
+  - Current state: SQL runtime is not available over local sources; local source execution exists
+    through benchmark/CLI paths and Python generated/local helpers.
+  - Next slice outcome: admit one local CSV/Parquet/Vortex path for `SELECT <columns> FROM <source>
+    WHERE <simple predicate> LIMIT <n>` with ShardLoom-native planning and execution.
+  - User-visible surface: CLI SQL command, Python `ctx.sql(...)` if exposed, explain output,
+    status/use-case docs.
+  - Implementation scope: local source binding, schema-aware projection/filter/limit lowering,
+    physical-plan execution bridge, deterministic unsupported diagnostics.
+  - Evidence required: parser/binder/planner flags, source certificate refs, plan digests,
+    projection/filter/limit pushdown status, materialization/decode status, correctness digest,
+    no-fallback/no-external-engine fields.
+  - Acceptance: the admitted local query executes natively and writes/prints a bounded result;
+    unsupported expressions and source types block before execution.
+  - Verification: parser/binder/planner tests, CLI snapshots, correctness smoke, capability
+    snapshots, `cargo test --workspace --all-targets`.
+  - Non-goals: no multi-table SQL, aggregation, windows, UDFs, catalogs, object stores, or SQL
+    compatibility claim.
+  - Claim boundary: scoped local SQL frontend only.
+  - Fallback boundary: SQL never delegates residual evaluation to external engines.
+  - Dependencies/blockers: `GAR-RUNTIME-IMPL-1A` and `GAR-RUNTIME-IMPL-1D`.
+  - Ledger rule: ledger entry must include query grammar admitted and unsupported grammar matrix.
+
+- [ ] GAR-RUNTIME-IMPL-1C Python query-builder first complete local workflow
+  - Source: `GAR-RUNTIME-COMPLETE-1C`, Python README, Use Case Atlas.
+  - Current state: Python has useful generated-source helpers and capability surfaces, but a
+    complete local DataFrame-like workflow is not yet broad enough for non-expert use.
+  - Next slice outcome: support `ctx.read_*().select().filter().limit().write()` for one local
+    source family and generated sources, with typed evidence accessors.
+  - User-visible surface: Python API, first-10-minutes docs, examples, website use cases.
+  - Implementation scope: Python query builder, CLI invocation bridge, typed result/evidence
+    objects, examples, docs.
+  - Evidence required: method admission, logical/physical plan digest, source/output refs,
+    correctness digest, no-fallback/no-external-engine fields, claim gate.
+  - Acceptance: a user can import ShardLoom, run the workflow, write local output, and inspect
+    evidence without invoking another engine.
+  - Verification: Python unit/integration tests, example compile/run smoke,
+    `python -m compileall -q python/src python/tests scripts examples`, website readiness.
+  - Non-goals: no pandas/Polars execution backend, no broad DataFrame parity, no notebook claim.
+  - Claim boundary: scoped local Python workflow runtime only.
+  - Fallback boundary: Python helpers may marshal arguments only; they must not execute with pandas,
+    Polars, DuckDB, Spark, DataFusion, or Dask.
+  - Dependencies/blockers: `GAR-RUNTIME-IMPL-1D`, local source readers, and output writer evidence.
+  - Ledger rule: ledger entry must include supported methods and blocked methods.
+
+- [ ] GAR-RUNTIME-IMPL-1D expression and operator semantics baseline
+  - Source: `GAR-RUNTIME-COMPLETE-1D`, RFC 0015, RFC 0021, benchmark scenario catalog.
+  - Current state: selected residual-native operators exist, but cross-surface expression semantics
+    are not complete enough for SQL/DataFrame/workflow use.
+  - Next slice outcome: establish the shared semantics baseline for literals, comparisons,
+    boolean logic, nulls, casts, projection, filter, and limit.
+  - User-visible surface: CLI/Python/SQL/DataFrame workflows, correctness reports, capability
+    matrix.
+  - Implementation scope: expression IR, evaluator/kernels, null/type coercion rules, diagnostics,
+    correctness fixtures.
+  - Evidence required: operator family, input/output schema, null/type behavior, materialization
+    status, correctness digest, no-fallback/no-external-engine fields.
+  - Acceptance: all admitted semantics have success and edge-case tests; unsupported expressions
+    fail deterministically with no external evaluation.
+  - Verification: unit/property tests, correctness fixture tests, parser/query smoke, clippy/fmt.
+  - Non-goals: no performance claim and no advanced SQL compatibility.
+  - Claim boundary: semantics support is per operator and type family.
+  - Fallback boundary: external engines can be reference oracles in tests only.
+  - Dependencies/blockers: canonical terminology, expression registry shape, and fixture manifest.
+  - Ledger rule: ledger entry must list promoted operators/types.
+
+- [ ] GAR-RUNTIME-IMPL-1E aggregate, group-by, join, top-N, and window operator expansion
+  - Source: `GAR-RUNTIME-COMPLETE-1D`, benchmark scenario catalog, correctness fixture manifest.
+  - Current state: aggregate, group-by, join, top-N, and window coverage is partial and not complete
+    across user surfaces.
+  - Next slice outcome: promote one focused family at a time with correctness fixtures, runtime
+    evidence, unsupported diagnostics, and benchmark rows.
+  - User-visible surface: CLI/Python/SQL/DataFrame workflows, benchmark rows, capability view.
+  - Implementation scope: native operator kernels, expression lowering, fixture manifests,
+    benchmark scenario rows.
+  - Evidence required: family name, row counts, selected/output rows, correctness digest,
+    materialization/decode status, no-fallback/no-external-engine fields.
+  - Acceptance: every promoted family has deterministic semantics and equal decoded-reference
+    results for admitted types; unsupported variants block before execution.
+  - Verification: focused Rust tests per family, differential correctness tests, benchmark smoke,
+    `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`.
+  - Non-goals: no all-SQL parity and no performance/superiority claim.
+  - Claim boundary: workload-scoped operator support only.
+  - Fallback boundary: no external residual execution.
+  - Dependencies/blockers: `GAR-RUNTIME-IMPL-1D` and benchmark/correctness fixture coverage.
+  - Ledger rule: complete each operator family with its own ledger evidence block.
+
+- [ ] GAR-RUNTIME-IMPL-1F prepared/native Vortex scan pushdown runtime completion
+  - Source: `GAR-RUNTIME-COMPLETE-1E`, `docs/architecture/vortex-scan-pushdown-completion.md`.
+  - Current state: source-backed scan evidence exists, but pushdown is not complete across prepared
+    and native scenario families.
+  - Next slice outcome: implement filter/projection/limit pushdown where admitted and emit
+    deterministic blockers everywhere else.
+  - User-visible surface: prepared/native benchmark rows, compute-flow docs, Python/CLI capability
+    views.
+  - Implementation scope: Vortex scan request builder, predicate lowering, projection masks,
+    limit/slice pushdown, benchmark row fields.
+  - Evidence required: `scan_filter_pushed_down`, `scan_projection_pushed_down`,
+    `scan_limit_pushed_down`, columns read/output, data decoded/materialized, correctness digest.
+  - Acceptance: admitted scenarios avoid reading unused columns; filter-only columns do not leak
+    into output; unsupported expressions block.
+  - Verification: selective filter smoke, filter/project/limit smoke, source-backed scan tests,
+    benchmark harness tests.
+  - Non-goals: no encoded-native claim from pushdown alone.
+  - Claim boundary: pushdown evidence only for admitted scenarios.
+  - Fallback boundary: no Vortex query-engine integration or external provider fallback.
+  - Dependencies/blockers: upstream Vortex Scan API capability and expression-lowering support.
+  - Ledger rule: ledger entry must list each scenario family as pushed down, blocked, or unsupported.
+
+- [ ] GAR-RUNTIME-IMPL-1G encoded-kernel registry execution pairs
+  - Source: `GAR-RUNTIME-COMPLETE-1E`, `docs/architecture/compressed-encoded-kernel-registry.md`.
+  - Current state: scoped encoded-predicate evidence exists, but broad encoded-native operator
+    coverage is not complete.
+  - Next slice outcome: implement first runtime kernel pairs for bitpacked filters, sequence
+    equality/range, dictionary equality/group-by, constant arrays, and sorted min/max pruning where
+    Vortex evidence admits them.
+  - User-visible surface: benchmark evidence, capability matrix, compute-flow.
+  - Implementation scope: encoded-kernel registry, admission policy, canonicalization diagnostics,
+    benchmark/correctness rows.
+  - Evidence required: encoding id, kernel admitted/executed, canonicalization required, decoded,
+    materialized, encoded-native claim status, correctness digest.
+  - Acceptance: admitted pairs run without unnecessary decode; unsupported encodings block
+    deterministically; encoded-native claims stay false until end-to-end evidence passes.
+  - Verification: unit tests per encoding/operator pair, selective-filter/group-by benchmark smoke.
+  - Non-goals: no blanket encoded-native engine claim.
+  - Claim boundary: per encoding/operator pair only.
+  - Fallback boundary: no external kernels or query engines as fallback.
+  - Dependencies/blockers: Vortex encoding metadata availability and correctness fixtures for each
+    encoding/operator pair.
+  - Ledger rule: ledger entry must list promoted and blocked encoding/operator pairs.
+
+- [ ] GAR-RUNTIME-IMPL-1H fused pipelines, session reuse, and buffer reuse
+  - Source: `GAR-RUNTIME-COMPLETE-1E`, fused pipeline, session runtime, allocation/buffer-pool docs.
+  - Current state: scoped evidence exists for fusion/session/resource fields, but general runtime
+    fusion and reusable session state are incomplete.
+  - Next slice outcome: implement scoped in-process `ShardLoomSession` reuse, fused pipelines for
+    admitted operator chains, and safe buffer reuse evidence.
+  - User-visible surface: CLI batch command, Python session API if admitted, benchmark telemetry.
+  - Implementation scope: session registry, source/prepared-state cache, fused executor, buffer
+    pool/resource metrics, cleanup/close semantics.
+  - Evidence required: session id, cache hits/misses, source/prepared reuse counts, fused pipeline
+    fields, allocation/buffer metrics, correctness digest, no-fallback fields.
+  - Acceptance: repeated runs reuse admitted state without stale results; fusion avoids intermediate
+    full-table materialization where supported; session close releases scoped state.
+  - Verification: batch smoke, differential correctness tests, memory/resource report, benchmark
+    smoke.
+  - Non-goals: no daemon/service, no remote server, no hidden fast mode.
+  - Claim boundary: scoped local session optimization only.
+  - Fallback boundary: session reuse cannot change execution provider or claim status.
+  - Dependencies/blockers: prepared/native row schema, source/prepared-state reuse, and correctness
+    diff harness.
+  - Ledger rule: ledger entry must include reuse/fusion evidence and disabled paths.
+
+- [ ] GAR-RUNTIME-IMPL-1I local output writer registry and replay proof
+  - Source: `GAR-RUNTIME-COMPLETE-1F`, OutputPlan contract, result-sink proof.
+  - Current state: generated-source local output smokes exist; a general local sink writer registry
+    and replay proof across source types are incomplete.
+  - Next slice outcome: implement local Vortex, JSONL, CSV, and one columnar compatibility output
+    writer with `OutputPlan`, output digest, and replay verification.
+  - User-visible surface: Python `.write(...)`, CLI write command, recipes, website status.
+  - Implementation scope: sink writer registry, output schema mapping, output digests, replay
+    verifier, capability rows.
+  - Evidence required: output plan id/digest, output format/location/schema, write mode/timing,
+    replay status, output Native I/O certificate, metadata fidelity/loss, no-fallback fields.
+  - Acceptance: local outputs are decoupled from input format; replay proof exists where claimed;
+    unsupported formats block.
+  - Verification: local output smoke per supported format, replay tests, capability snapshots,
+    use-case checks.
+  - Non-goals: no object-store write, no table commit, no production sink claim.
+  - Claim boundary: scoped local writer support only.
+  - Fallback boundary: compatibility output is export/translation, not fallback execution.
+  - Dependencies/blockers: output schema mapping, writer dependency approval, and replay verifier.
+  - Ledger rule: ledger entry must list exact writer formats and replay status.
+
+- [ ] GAR-RUNTIME-IMPL-1J cross-format output fanout runtime
+  - Source: `GAR-RUNTIME-COMPLETE-1F`, `GAR-IOREUSE-1D`, fanout benchmark plan.
+  - Current state: fanout is represented by report/evidence scaffolding, not complete runtime.
+  - Next slice outcome: fan out one admitted SourceState or VortexPreparedState into multiple local
+    outputs in a single workflow with shared preparation evidence.
+  - User-visible surface: Python fanout helper, CLI fanout command, benchmark family
+    `io_reuse_and_fanout`, website status.
+  - Implementation scope: fanout planner, OutputPlan reuse, sink artifact list, per-output replay,
+    benchmark rows.
+  - Evidence required: source/prepared/output reuse hits, fanout output count, output digests,
+    per-output correctness/replay, output timing decomposition, no-fallback fields.
+  - Acceptance: one prepared source can write multiple admitted local formats; one-shot timing and
+    reuse/fanout timing remain separate.
+  - Verification: fanout smoke, correctness digest per output, replay checks, benchmark harness.
+  - Non-goals: no object-store fanout, no lakehouse commit, no performance claim.
+  - Claim boundary: local fanout only.
+  - Fallback boundary: no external write engines.
+  - Dependencies/blockers: `GAR-RUNTIME-IMPL-1I`, SourceState/VortexPreparedState reuse, and
+    fanout benchmark row schema.
+  - Ledger rule: ledger entry must include fanout formats, timings, and blocked outputs.
+
+- [ ] GAR-RUNTIME-IMPL-1K object-store runtime ladder, read side first
+  - Source: `GAR-RUNTIME-COMPLETE-1G`, `GAR-COMPAT-1C`, `GAR-SCALE-1E`.
+  - Current state: S3/GCS/ADLS are report-only/blocked; object-store runtime I/O is not supported.
+  - Next slice outcome: implement the first safe read-side ladder stages only when admitted:
+    URI parse, credential/effect policy, no-credential public-read policy, byte-range read, and
+    streaming/full-file read evidence.
+  - User-visible surface: CLI/Python object-store capability and diagnostics, status/use-case docs.
+  - Implementation scope: URI parser, credential policy, network-effect gate, request planner,
+    byte-range adapter, local cache boundary.
+  - Evidence required: provider, credential policy status, network effect status, byte ranges,
+    ETag/version, Native I/O certificate, fallback/external-engine fields.
+  - Acceptance: public read and authenticated read are separate gates; unsupported providers or
+    credentials block without probing unless explicitly enabled.
+  - Verification: policy tests, mocked/local-emulator read tests if admitted, capability snapshots,
+    release readiness checks.
+  - Non-goals: no object-store write, no table commit, no production object-store claim.
+  - Claim boundary: per-provider read-stage support only after proof.
+  - Fallback boundary: object-store access does not authorize external compute engines.
+  - Dependencies/blockers: credential policy, network-effect policy, dependency/license review, and
+    provider test harness.
+  - Ledger rule: ledger entry must name provider, stage, credential posture, and proof refs.
+
+- [ ] GAR-RUNTIME-IMPL-1L table metadata and snapshot-scan runtime ladder
+  - Source: `GAR-RUNTIME-COMPLETE-1G`, `GAR-COMPAT-1D`, table/lakehouse boundary docs.
+  - Current state: Iceberg/Delta/Hudi table metadata and runtime are report-only/blocked.
+  - Next slice outcome: implement a local or fixture-backed table metadata read and snapshot scan
+    for one table format, with deterministic blockers for append/merge/delete/commit.
+  - User-visible surface: capability view, CLI/Python table diagnostics, status/use-case docs.
+  - Implementation scope: table metadata parser, manifest/snapshot reader, scan admission,
+    unsupported commit diagnostics.
+  - Evidence required: table format, snapshot id, manifest/data-file counts, scan status, commit
+    status, rollback status, Native I/O refs, no-fallback fields.
+  - Acceptance: metadata scan does not imply table write or commit support; unsupported table
+    behaviors block with stable codes.
+  - Verification: metadata fixture tests, snapshot scan smoke, release readiness metadata, website
+    status checks.
+  - Non-goals: no lakehouse commit, no object-store runtime unless separately admitted.
+  - Claim boundary: table metadata/snapshot read only for the admitted format.
+  - Fallback boundary: no external lakehouse engine or catalog engine executes ShardLoom work.
+  - Dependencies/blockers: table-format dependency review, metadata fixtures, and object-store
+    runtime only if non-local table refs are admitted.
+  - Ledger rule: ledger entry must list exact format/stage and blocked table operations.
+
+- [ ] GAR-RUNTIME-IMPL-1M local split manifests and bounded-memory execution
+  - Source: `GAR-RUNTIME-COMPLETE-1H`, `GAR-SCALE-1B`, `GAR-SCALE-1C`.
+  - Current state: scale evidence fields exist, but split-native execution and bounded-memory
+    runtime are not claimable.
+  - Next slice outcome: process one large local input through a split manifest under an explicit
+    memory budget with deterministic blockers when operators cannot honor the envelope.
+  - User-visible surface: scale benchmark profile, CLI/Python execution envelope, status docs.
+  - Implementation scope: split manifest, split scheduler, memory budget checks, per-split evidence,
+    correctness aggregation.
+  - Evidence required: scale profile, data volume, split count, memory budget, peak memory,
+    per-split rows/timing/output refs, no-fallback fields.
+  - Acceptance: split execution does not imply distributed execution; memory envelope violations
+    block or spill deterministically before process OOM.
+  - Verification: split manifest tests, local stress smoke, scale benchmark contract tests.
+  - Non-goals: no remote workers, no object-store split execution, no any-volume claim.
+  - Claim boundary: declared local resource envelope only.
+  - Fallback boundary: no external engine for partitioning, scheduling, or execution.
+  - Dependencies/blockers: SourceState split metadata, operator row partitioning, and correctness
+    aggregation.
+  - Ledger rule: ledger entry must record resource envelope and data volume.
+
+- [ ] GAR-RUNTIME-IMPL-1N spill, shuffle, retry, and commit safety for scale-grade local runtime
+  - Source: `GAR-RUNTIME-COMPLETE-1H`, `GAR-SCALE-1C`, `GAR-SCALE-1D`, `GAR-SCALE-1E`.
+  - Current state: spill/backpressure/shuffle/retry evidence contracts exist, but scale-grade local
+    runtime is not implemented.
+  - Next slice outcome: add scoped spill/backpressure plus shuffle/repartition/retry/idempotency
+    evidence for one group-by/join/fanout scenario.
+  - User-visible surface: scale benchmark rows, execution envelope, status docs.
+  - Implementation scope: spill manager, shuffle plan, retry/idempotency keys, output commit status,
+    cleanup semantics.
+  - Evidence required: spill bytes/files/cleanup, shuffle strategy/bytes, skew status, retry count,
+    idempotency key, output commit status, correctness digest, no-fallback fields.
+  - Acceptance: operators either run under budget, spill with proof, or block; retries are explicit;
+    no hidden full materialization occurs under scale-grade mode.
+  - Verification: spill/backpressure tests, shuffle correctness tests, retry/idempotency tests,
+    scale benchmark smoke.
+  - Non-goals: no distributed shuffle claim, no object-store spill unless separately admitted.
+  - Claim boundary: local scale-grade scenario only.
+  - Fallback boundary: external engines remain baselines/oracles only.
+  - Dependencies/blockers: `GAR-RUNTIME-IMPL-1M`, spill storage policy, shuffle correctness fixtures,
+    and output commit evidence.
+  - Ledger rule: ledger entry must include spill/shuffle/retry evidence refs.
+
+- [ ] GAR-RUNTIME-IMPL-1O distributed execution remains report-only with runtime-safe blockers
+  - Source: `GAR-RUNTIME-COMPLETE-1H`, `GAR-SCALE-1F`.
+  - Current state: ShardLoom is local/in-process; distributed protocol fields are report-only.
+  - Next slice outcome: expose coordinator/worker/task/split protocol diagnostics and fail closed for
+    remote execution requests until a real distributed runtime is approved.
+  - User-visible surface: CLI/Python capability views, status matrix, compute-flow docs.
+  - Implementation scope: distributed request schema, protocol diagnostics, blocker codes,
+    readiness checks.
+  - Evidence required: coordinator/worker invoked flags, task attempt fields, distributed claim
+    status, remote worker invoked false, fallback/external-engine fields.
+  - Acceptance: remote worker requests never run accidentally; report-only protocol is visible and
+    cannot be confused with runtime support.
+  - Verification: capability snapshots, unsupported diagnostic tests, website status checks.
+  - Non-goals: no daemon, cluster, remote worker, managed platform proof, or distributed claim.
+  - Claim boundary: report-only protocol and blockers.
+  - Fallback boundary: remote engines cannot be used as ShardLoom fallback.
+  - Dependencies/blockers: no distributed runtime is admitted until a later approved design and proof
+    suite exists.
+  - Ledger rule: ledger entry must record blocker behavior and remaining runtime proof requirements.
+
+- [ ] GAR-RUNTIME-IMPL-1P local control-plane API and opt-in evidence export runtime
+  - Source: `GAR-RUNTIME-COMPLETE-1I`, RFC 0035, `GAR-NOVEL-1B`, `GAR-NOVEL-1C`,
+    `GAR-COMMERCIAL-1D`.
+  - Current state: REST/remote API, OpenLineage, OpenTelemetry, and enterprise export surfaces are
+    report-only or blocked.
+  - Next slice outcome: implement safe local file export for ShardLoom JSON plus optional
+    OpenLineage/OTel-shaped documents, and add fail-closed loopback control-plane diagnostics.
+  - User-visible surface: CLI/Python evidence export commands, local control-plane capability view,
+    docs.
+  - Implementation scope: export pack writer, schema versions, redaction policy, local path
+    validation, control-plane diagnostics.
+  - Evidence required: export format/version/path, redaction report, no-network-by-default,
+    permissions, lifecycle status, no-fallback fields.
+  - Acceptance: exports are opt-in local files; no network exporter runs by default; secret/path
+    redaction is enforced.
+  - Verification: export contract tests, redaction tests, capability snapshots, website readiness.
+  - Non-goals: no production REST server, no lineage backend, no telemetry collector integration.
+  - Claim boundary: local evidence export only.
+  - Fallback boundary: observability/export cannot trigger external compute.
+  - Dependencies/blockers: evidence envelope stability, redaction policy, and export schema version.
+  - Ledger rule: ledger entry must list supported export formats and blocked network effects.
+
+- [ ] GAR-RUNTIME-IMPL-1Q adapter, extension, UDF, and Foundry runtime boundaries
+  - Source: `GAR-RUNTIME-COMPLETE-1I`, RFC 0011, RFC 0023, RFC 0036.
+  - Current state: wrappers/connectors, UDF/plugin execution, effectful operations, and Foundry
+    runtime/package proof are report-only or blocked.
+  - Next slice outcome: implement typed local adapter wrappers and extension manifests as
+    inspectable capabilities, with deterministic blockers for UDF execution, network effects, and
+    Foundry production/runtime claims.
+  - User-visible surface: capability view, Python/CLI adapters, Foundry dev-stack docs.
+  - Implementation scope: adapter registry, extension manifest validation, sandbox/effect policy
+    diagnostics, Foundry local proof flags.
+  - Evidence required: adapter id/version, permission/effect status, manifest digest, runtime
+    invoked flags, foundry/spark invoked flags, no-fallback fields.
+  - Acceptance: users can inspect adapters/extensions without executing them; effectful paths remain
+    explicitly blocked unless separately admitted.
+  - Verification: manifest tests, capability snapshots, Foundry proof docs checks, release readiness.
+  - Non-goals: no UDF sandbox runtime, no marketplace claim, no Foundry production support.
+  - Claim boundary: capability/inspection and local proof only.
+  - Fallback boundary: adapters/extensions must never execute external engines as ShardLoom work.
+  - Dependencies/blockers: extension security policy, dependency/license review, and Foundry proof
+    environment.
+  - Ledger rule: ledger entry must list adapters admitted and effects blocked.
+
+- [ ] GAR-RUNTIME-IMPL-1R package install smoke and release-channel proof
+  - Source: `GAR-RUNTIME-COMPLETE-1J`, package-channel readiness matrix, release engineering docs.
+  - Current state: local release dry-run and package metadata exist; public package channels are not
+    ready or approved.
+  - Next slice outcome: create a no-publication clean install proof that installs the Python
+    package from a local artifact and runs source-free plus prepared/native smoke commands.
+  - User-visible surface: README, getting-started docs, package metadata, release report.
+  - Implementation scope: package build/dry-run scripts, clean venv install smoke, uninstall smoke,
+    checksum/SBOM/provenance dry run.
+  - Evidence required: build artifacts, install/uninstall commands, smoke output, checksums, SBOM,
+    provenance, API/schema compatibility status.
+  - Acceptance: a user can follow one documented local install path; no channel is marked ready
+    without proof and explicit human approval.
+  - Verification: clean venv package smoke, release readiness tests, package channel checker,
+    `python -m compileall -q python/src python/tests scripts`.
+  - Non-goals: no upload, tag, feedstock, marketplace submission, signing key, or public release.
+  - Claim boundary: local install proof only.
+  - Fallback boundary: packaging must not add fallback engine dependencies.
+  - Dependencies/blockers: release gates, package metadata stability, provenance/SBOM tooling, and
+    explicit human approval for any publication.
+  - Ledger rule: ledger entry must include artifact paths and no-publication posture.
+
+- [ ] GAR-RUNTIME-IMPL-1S claim-grade correctness and benchmark gate
+  - Source: `GAR-RUNTIME-COMPLETE-1K`, benchmark publishing, correctness harness, release readiness.
+  - Current state: evidence scaffolding exists, but runtime claims are not automatically tied to all
+    required correctness/benchmark/certificate refs.
+  - Next slice outcome: add a claim matrix that maps every supported runtime path to required tests,
+    benchmark artifacts, execution certificates, Native I/O refs, unsupported diagnostics, and
+    website/docs copy gates.
+  - User-visible surface: release readiness report, benchmark page, status matrix, docs.
+  - Implementation scope: claim matrix schema, validators, benchmark artifact completeness gate,
+    README/website claim checks.
+  - Evidence required: per-claim refs, benchmark profile/environment, certificate ids,
+    materialization/decode refs, security/package refs, no-fallback fields.
+  - Acceptance: missing evidence fails closed; old artifacts cannot be presented as latest proof;
+    external baselines stay baseline-only.
+  - Verification: release readiness tests, benchmark completeness checker, website readiness,
+    workspace fmt/clippy/tests.
+  - Non-goals: no performance, superiority, Spark-replacement, or production claim unless gates pass.
+  - Claim boundary: claim-grade only per workload/evidence row.
+  - Fallback boundary: external engines remain baselines/oracles only.
+  - Dependencies/blockers: evidence emitted by runtime slices, benchmark artifact completeness, and
+    release readiness validators.
+  - Ledger rule: ledger entry must list passed and blocked claims.
+
+- [ ] GAR-RUNTIME-IMPL-1T website, atlas, and docs parity gate for every runtime promotion
+  - Source: `GAR-RUNTIME-COMPLETE-1L`, Use Case Atlas, Field Guide, website readiness checks.
+  - Current state: public docs and website can lag runtime status unless updated with each
+    implementation PR.
+  - Next slice outcome: make runtime promotions fail readiness unless matching use-case, status,
+    compute-flow, benchmark, and README/website surfaces are updated.
+  - User-visible surface: `shardloom.io`, README, docs/use-cases, status and benchmark pages.
+  - Implementation scope: website static generator, use-case index/status matrix, compute-flow
+    snapshot, readiness scripts.
+  - Evidence required: source refs, generated timestamps where applicable, status mappings, no
+    stale report-only wording, asset/canonical/OG/sitemap checks.
+  - Acceptance: non-experts can answer what is supported, how to try it, what evidence exists, and
+    what remains blocked after every runtime promotion.
+  - Verification: `python website/build_static_pages.py`, `python scripts/check_website_readiness.py`,
+    `node website/validate_static_assets.js`, use-case coverage/backlink/glossary checks.
+  - Non-goals: no marketing overclaims, no live Cloudflare benchmark execution, no framework
+    migration unless separately approved.
+  - Claim boundary: website explains runtime state; it does not create support claims.
+  - Fallback boundary: public pages must keep no-fallback/no-external-engine semantics visible.
+  - Dependencies/blockers: runtime promotion metadata, use-case index coverage, and static page
+    generator support.
+  - Ledger rule: every completed runtime slice must reference the corresponding website/docs parity
+    update or explain why none was required.
+
 ## Completed
 
 Detailed completed session and historical phase ledgers live in
