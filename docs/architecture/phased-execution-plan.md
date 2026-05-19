@@ -208,40 +208,6 @@ python -m compileall -q python/src python/tests scripts examples
 git diff --check
 ```
 
-#### GAR-WEB-ATLAS-2 - Modal-Style Knowledge Atlas Website Overhaul
-
-Source: live visual inspection of `https://modal.com/gpu-glossary` on 2026-05-19,
-`website/build_static_pages.py`, `website/assets/site.css`, Field Guide and Use Case Atlas content,
-and ShardLoom brand/claim-safety docs.
-
-Technique transfer only: use the reference page's glossary-app structure, dense table of contents,
-atomic entries, concise article template, search utility, category rows, and previous/next
-navigation. Do not copy Modal text, CSS, layout code, branding, palette, trade dress, imagery, or
-product claims.
-
-- [ ] GAR-WEB-ATLAS-2C atlas content consistency and concision gate
-  - Source: Field Guide content index, Use Case Atlas, generated dossier pages, website readiness
-    checker.
-  - Current state: content is source-linked and claim-safe, but page-by-page prose can still drift
-    in length, labels, and section order.
-  - Next slice outcome: add validation that every Field Guide dossier/use-case page has a concise
-    consistent template, source refs, status, claim boundary, related links, and no forbidden claim
-    phrases.
-  - User-visible surface: generated website quality and contributor feedback.
-  - Implementation scope: `scripts/check_website_readiness.py`, Field Guide/use-case index
-    validation, generated page checks.
-  - Evidence required: deterministic diagnostics for missing summary/status/source/claim fields and
-    overlong dossier sections.
-  - Acceptance: content consistency failures block website readiness before deployment.
-  - Verification: `python scripts/check_website_readiness.py`, `python scripts/check_use_case_index.py`,
-    `python scripts/check_use_case_coverage.py`, `git diff --check`.
-  - Dependencies/blockers: stable Field Guide/use-case index schema, current website readiness
-    checker structure, source-reference citation blocks, and agreed claim-safety phrase list.
-  - Non-goals: no semantic rewriting by validator, no external lint SaaS.
-  - Claim boundary: content QA only.
-  - Fallback boundary: no runtime fallback changes.
-  - Ledger rule: ledger entry must include validator rules and any allowed exceptions.
-
 #### GAR-P0 - Execution Mode, Provider Admission, And Vortex Spine
 
 P0 slices must preserve the canonical execution-mode vocabulary from

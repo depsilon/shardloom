@@ -55,6 +55,12 @@ FORBIDDEN_CLAIM_PATTERNS = [
         r"\bDataFusion cannot\b",
     ]
 ]
+TEXT_FIELD_LIMITS = {
+    "title": 160,
+    "claim_boundary": 1200,
+    "expected_output_evidence": 1000,
+    "blocked_explanation": 1100,
+}
 
 
 def split_inline_list(value: str) -> list[str]:
@@ -225,6 +231,18 @@ def validate_index(data: dict[str, Any], repo_root: Path) -> list[str]:
 
         if not str(use_case.get("claim_boundary", "")).strip():
             blockers.append(f"use case {use_case_id} requires claim_boundary")
+        for field, limit in TEXT_FIELD_LIMITS.items():
+            text = str(use_case.get(field, ""))
+            if text and len(text) > limit:
+                blockers.append(
+                    f"use case {use_case_id} field {field} is too long: {len(text)} > {limit}"
+                )
+        if not as_list(
+            use_case.get("related_use_cases"),
+            f"{use_case_id}.related_use_cases",
+            blockers,
+        ):
+            blockers.append(f"use case {use_case_id} must link at least one related use case")
 
         searchable_text = " ".join(str(value) for value in use_case.values())
         for pattern in FORBIDDEN_CLAIM_PATTERNS:

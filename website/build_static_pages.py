@@ -2197,6 +2197,10 @@ def field_guide_concept_page(
         else ""
     )
     source_links = source_file_links(concept["sources"])
+    boundary_paragraphs = [concept["not_proves"]]
+    if concept["boundary"] != concept["not_proves"]:
+        boundary_paragraphs.append(concept["boundary"])
+    boundary_markup = "\n".join(f"<p>{esc(paragraph)}</p>" for paragraph in boundary_paragraphs)
     body = f"""
     <section class="field-guide-atlas atlas-shell">
       {field_guide_atlas_sidebar(concept['slug'])}
@@ -2254,8 +2258,7 @@ def field_guide_concept_page(
           <section class="atlas-article-section" id="boundary">
             <p class="eyebrow">Claim boundary</p>
             <h3>What it does not claim</h3>
-            <p>{esc(concept['not_proves'])}</p>
-            <p>{esc(concept['boundary'])}</p>
+            {boundary_markup}
           </section>
           <section class="atlas-article-section" id="try-it">
             <p class="eyebrow">Try it / related use cases</p>
