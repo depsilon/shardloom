@@ -168,6 +168,14 @@ aggregate = (
     .limit(1)
     .collect()
 )
+grouped = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .filter("amount >= 10")
+    .group_by("label")
+    .agg("count(*)", "sum(amount)")
+    .limit(10)
+    .collect()
+)
 
 print(collected.result_jsonl)
 print(written.output_path)
@@ -176,14 +184,18 @@ print(written.fallback_attempted, written.external_engine_invoked)
 print(aggregate.result_jsonl)
 print(aggregate.aggregate_operator_family)
 print(aggregate.aggregate_functions)
+print(grouped.result_jsonl)
+print(grouped.aggregate_operator_family)
+print(grouped.group_by_columns)
 '@ | python -
 ```
 
 Use this for the scoped GAR-RUNTIME-IMPL-1C path that exposes the same local CSV SQL smoke through a
 Python DataFrame-like query builder. `collect()` returns bounded inline JSONL; `write()` writes a
 local JSONL result and emits output Native I/O certificate fields. Scalar `aggregate(...)` lowers to
-the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`. It is not a
-pandas/Polars backend, broad DataFrame runtime, grouped aggregate runtime, object-store/table path,
+the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; one-column
+`group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke. It is not a pandas/Polars
+backend, broad DataFrame runtime, generalized grouped aggregate runtime, object-store/table path,
 production SQL support, or performance claim.
 
 ## Foundry Lightweight Transform

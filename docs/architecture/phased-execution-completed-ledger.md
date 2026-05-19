@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4A Python group-by aggregate query-builder promotion
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/generated/python-local-csv-query-builder-smoke.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `website/use-cases/python-local-csv-query-builder-smoke.html`
+  - Scope: expose the already admitted local CSV one-column group-by aggregate smoke through the
+    Python DataFrame-like query-builder path.
+  - Checklist:
+    - [x] Add `GroupedLazyFrame.agg(...)` / `GroupedLazyFrame.aggregate(...)` admission for local
+          CSV one-column grouped aggregate workflows that lower to `sql-local-source-smoke`.
+    - [x] Preserve named grouped aliases, multi-key group-by, joins, windows, broad SQL/DataFrame
+          parity, object-store/table sources, pandas/Polars execution, and production support as
+          deterministic unsupported/report-only surfaces.
+    - [x] Add typed Python report accessors for `group_by_runtime_execution`,
+          `group_by_columns`, and `group_by_group_count`.
+    - [x] Update README, Python README, getting-started examples, Use Case Atlas, generated website
+          pages, compute-flow reference, and phase-plan current-state notes.
+  - Evidence and verification:
+    - `python -m unittest python.tests.test_query_builder`
+    - real local Python smoke:
+      `ctx.read_csv(...).filter(...).group_by("region").agg("count(*)", "sum(amount)").limit(10).collect()`
+    - `python website/build_static_pages.py`
+    - use-case and website readiness checks
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This admits one scoped Python local CSV one-column group-by aggregate query-builder path only.
+      It does not add multi-key group-by generality, named grouped aggregate aliases, joins, windows,
+      top-N, broad SQL/DataFrame runtime, prepared/native aggregate promotion, object-store/table
+      support, production support, or performance claims.
+  - Fallback boundary:
+    - Python only orchestrates ShardLoom CLI execution. No pandas, Polars, DuckDB, DataFusion,
+      Spark, SQLite, Vortex query-engine integration, or other external engine is invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-1E local CSV one-column group-by aggregate operator family
   - Primary files:
     - `shardloom-cli/src/sql_local_source_runtime.rs`

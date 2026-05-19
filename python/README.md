@@ -333,8 +333,9 @@ same typed CLI bridge. A workflow shaped as
 semantics, and returns a typed evidence report. The same bridge admits scoped
 scalar aggregates shaped as
 `read_csv(...).filter(...).aggregate(...).limit(1)` for `COUNT`, `SUM`, `AVG`,
-`MIN`, and `MAX`. `collect()` returns bounded inline JSONL; `write()` writes a
-local JSONL file and emits output Native I/O certificate fields:
+`MIN`, and `MAX`, and one-column grouped aggregates shaped as
+`read_csv(...).filter(...).group_by(...).agg(...).limit(n)`. `collect()` returns bounded inline
+JSONL; `write()` writes a local JSONL file and emits output Native I/O certificate fields:
 
 ```powershell
 New-Item -ItemType Directory -Force target | Out-Null
@@ -365,6 +366,14 @@ aggregate = (
     .limit(1)
     .collect()
 )
+grouped = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .filter("amount >= 10")
+    .group_by("label")
+    .agg("count(*)", "sum(amount)")
+    .limit(10)
+    .collect()
+)
 
 print(collected.result_jsonl)
 print(written.output_path)
@@ -373,16 +382,19 @@ print(written.fallback_attempted, written.external_engine_invoked)
 print(aggregate.result_jsonl)
 print(aggregate.aggregate_operator_family)
 print(aggregate.aggregate_functions)
+print(grouped.result_jsonl)
+print(grouped.aggregate_operator_family)
+print(grouped.group_by_columns)
 '@ | python -
 ```
 
 This is a fixture-smoke local CSV path only. It does not make the Python client
 a pandas/Polars-like execution engine, does not add broad SQL/DataFrame
-runtime, grouped aggregation, object stores, or table/lakehouse inputs, and does
-not create a performance or production claim.
+runtime, generalized grouped aggregation, object stores, or table/lakehouse
+inputs, and does not create a performance or production claim.
 
 The lower-level `client.sql_local_source_smoke(...)` helper can also call the
-scoped local CSV scalar aggregate smoke directly:
+scoped local CSV scalar and grouped aggregate smokes directly:
 
 ```python
 report = client.sql_local_source_smoke(
@@ -392,11 +404,19 @@ report = client.sql_local_source_smoke(
 )
 print(report.result_jsonl)
 print(report.claim_gate_status)
+
+grouped = client.sql_local_source_smoke(
+    "SELECT label,count(*),sum(amount) "
+    "FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE amount >= 10 GROUP BY label LIMIT 10",
+)
+print(grouped.group_by_columns)
+print(grouped.group_by_group_count)
 ```
 
-That path is still fixture-smoke evidence only. Grouped aggregates, joins, broad
-SQL/DataFrame planning, and production query support remain blocked until later
-runtime slices.
+That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
+generality, grouped aliases, joins, broad SQL/DataFrame planning, and production
+query support remain blocked until later runtime slices.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A
 future Python `explain()` trace should expose optimizer rule status, before/after plan digests,
@@ -429,6 +449,7 @@ reports = [
     workflow.to_numpy(),
     workflow.to_python_objects(),
     workflow.with_column("event_date", "to_date(ts)"),
+    workflow.group_by("customer_id", "region").agg("sum(amount)"),
     workflow.group_by("customer_id").agg(total="sum(amount)"),
     workflow.agg("count(*)"),
     workflow.sort("event_date"),
@@ -485,7 +506,8 @@ print(join.claim_boundary)
 
 This matrix is mostly report-only, with the scoped local CSV `collect` and
 `write` rows marked as fixture-smoke-supported only for the admitted
-projection/filter/limit shape described above. It does not import DataFrame
+projection/filter/limit, scalar aggregate, and one-column grouped aggregate shapes described above.
+It does not import DataFrame
 libraries, invoke external engines, or upgrade DataFrame/notebook support to
 claim-grade status. Other lazy source, `filter`, `select`, `limit`, and
 `group_by` helpers remain side-effect-free declarations unless an admitted

@@ -285,6 +285,77 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_group_by_aggregate_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT region,count(*),sum(amount) FROM 'target/input.csv' WHERE amount >= 10 GROUP BY region LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"region\\":\\"east\\",\\"count_all\\":2,\\"sum_amount\\":36}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_group_by_aggregate_filter_limit"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "grouped_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(*),sum(amount)"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "group_by_columns", "value": "region"},
+                        {"key": "group_by_group_count", "value": "1"},
+                        {"key": "projected_columns", "value": "region,count_all,sum_amount"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.group-by-aggregate-filter-limit.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        grouped_workflow = (
+            ctx.read_csv("target/input.csv")
+            .filter("amount >= 10")
+            .group_by("region")
+            .agg("count(*)", "sum(amount)")
+        )
+        self.assertIsInstance(grouped_workflow, sl.LazyFrame)
+        report = grouped_workflow.limit(10).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.result_jsonl,
+            '{"region":"east","count_all":2,"sum_amount":36}\n',
+        )
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_operator_family, "grouped_aggregate")
+        self.assertEqual(report.aggregate_functions, ("count(*)", "sum(amount)"))
+        self.assertTrue(report.group_by_runtime_execution)
+        self.assertEqual(report.group_by_columns, ("region",))
+        self.assertEqual(report.group_by_group_count, 1)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_write_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

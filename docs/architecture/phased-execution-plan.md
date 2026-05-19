@@ -1318,9 +1318,10 @@ them in dependency order unless a later unblocker or review finding changes the 
     `MAX` through `sql-local-source-smoke` and the Python query-builder
     `read_csv(...).filter(...).aggregate(...).limit(1).collect()/write(...)` path with
     fixture-smoke evidence. Local CSV one-column group-by aggregate runtime is admitted through CLI
-    `sql-local-source-smoke` with fixture-smoke evidence. Python grouped aggregation, multi-key
-    group-by generality, joins, top-N, windows, broader SQL/DataFrame surfaces, and prepared/native
-    operator promotion remain incomplete across user surfaces.
+    `sql-local-source-smoke` and Python `group_by(...).agg(...).limit(...).collect()/write(...)`
+    with fixture-smoke evidence. Multi-key group-by generality, named grouped aggregate aliases,
+    joins, top-N, windows, broader SQL/DataFrame surfaces, and prepared/native operator promotion
+    remain incomplete across user surfaces.
   - Next slice outcome: promote one focused family at a time with correctness fixtures, runtime
     evidence, unsupported diagnostics, and benchmark rows.
   - User-visible surface: CLI/Python/SQL/DataFrame workflows, benchmark rows, capability view.
@@ -1738,8 +1739,9 @@ runtime/evidence proof.
   - Current state: source-free SQL is scoped, local-source projection/filter/limit is supported,
     local-source scalar aggregate smoke covers `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX` through CLI
     and Python query-builder wrappers, and local-source one-column group-by aggregate smoke is
-    supported through CLI. Python grouped aggregation, joins, order/top-N, casts, functions, and
-    multi-source SQL are not broadly supported.
+    supported through CLI and Python query-builder wrappers. Joins, order/top-N, casts, functions,
+    named grouped aggregate aliases, multi-key grouped aggregate generality, and multi-source SQL
+    are not broadly supported.
   - Next slice outcome: expand SQL lowering in staged groups: aggregate/group-by, order/top-N,
     simple equi-join, casts/null predicates, and deterministic unsupported diagnostics for
     functions, subqueries, windows, catalogs, UDFs, and effectful operations not yet admitted.
@@ -1763,9 +1765,10 @@ runtime/evidence proof.
 - [ ] GAR-RUNTIME-IMPL-2D Python first-class end-user workflow completion
   - Source: `GAR-RUNTIME-COMPLETE-1C`, Use Case Atlas, `python/README.md`, first-10-minutes docs.
   - Current state: Python wrappers, scoped generated-source helpers, and scoped local CSV
-    query-builder `collect`/`write` smokes exist for projection/filter/limit and scalar aggregate
-    workflows with typed evidence. A non-expert still cannot rely on one ergonomic Python path that
-    also covers prepared Vortex, broader local adapters, fanout, and package-install proof.
+    query-builder `collect`/`write` smokes exist for projection/filter/limit, scalar aggregate, and
+    one-column group-by aggregate workflows with typed evidence. A non-expert still cannot rely on
+    one ergonomic Python path that also covers prepared Vortex, broader local adapters, fanout, and
+    package-install proof.
   - Next slice outcome: extend the documented Python API path across generated source, admitted
     local reads, prepared Vortex, projection/filter/limit/basic aggregate, local write/fanout, and
     evidence inspection, with blocked diagnostics for unsupported methods.
@@ -2097,9 +2100,9 @@ superseded by stronger runtime evidence.
 - [ ] GAR-RUNTIME-IMPL-3E Python end-user workflow parity across generated, local, and Vortex inputs
   - Source: `GAR-RUNTIME-IMPL-2D`, Python README, Use Case Atlas, first-10-minutes docs.
   - Current state: Python wrappers, scoped generated-source helpers, and local CSV query-builder
-    projection/filter/limit plus scalar aggregate `collect`/`write` smokes exist, but the full
-    end-user workflow must still cover prepared/native Vortex, broader local adapters, fanout,
-    package install, and unsupported diagnostics from one import path.
+    projection/filter/limit plus scalar aggregate and one-column grouped aggregate `collect`/`write`
+    smokes exist, but the full end-user workflow must still cover prepared/native Vortex, broader
+    local adapters, fanout, package install, and unsupported diagnostics from one import path.
   - Next slice outcome: provide one ergonomic Python workflow for generated-source output, local
     file transform/write, prepared Vortex transform/write, evidence inspection, and fail-closed
     unsupported methods.
@@ -2424,12 +2427,12 @@ that must be worked before any full-runtime readiness claim. If a broader `GAR-R
 `GAR-RUNTIME-IMPL-1*`, `GAR-RUNTIME-IMPL-2*`, or `GAR-RUNTIME-IMPL-3*` item is still open, the
 matching leaf items below decide what work is actually next.
 
-- [ ] GAR-RUNTIME-IMPL-4A Python group-by aggregate workflow promotion
+- [x] GAR-RUNTIME-IMPL-4A Python group-by aggregate workflow promotion
   - Source: `GAR-RUNTIME-IMPL-3D`, `GAR-RUNTIME-IMPL-3E`, Python query-builder docs.
-  - Current state: CLI local CSV one-column group-by aggregate smoke exists; Python
-    `group_by().agg(...)` remains blocked or report-only.
-  - Next slice outcome: expose the scoped one-column local CSV group-by aggregate through the
-    Python query builder with typed evidence and deterministic blockers for broader grouping.
+  - Current state: CLI local CSV one-column group-by aggregate smoke exists and the Python
+    query-builder wrapper now admits the same scoped one-column group-by aggregate shape.
+  - Next slice outcome: complete. Future grouped work continues under `GAR-RUNTIME-IMPL-4B`,
+    `GAR-RUNTIME-IMPL-4C`, `GAR-RUNTIME-IMPL-4D`, and broader operator/runtime items.
   - User-visible surface: Python `LazyFrame.group_by(...).agg(...).collect()/write()`, Python
     README, Use Case Atlas, website status.
   - Implementation scope: Python query-builder admission, CLI lowering, typed report fields,
