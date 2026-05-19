@@ -262,7 +262,7 @@ workflow = (
 predicate_builder = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
-    .filter((sl.col("amount") >= 10) & sl.col("label").contains("ta"))
+    .where(sl.col("amount").between(10, 25) & sl.col("label").contains("ta"))
     .limit(10)
     .collect()
 )
@@ -353,8 +353,9 @@ convenience wrapper over the same `COUNT(*)` smoke; one-column
 `sort(...).limit(...)` lowers to the scoped top-N smoke; one local CSV
 `join(..., on="key")` with qualified projection/filter columns lowers to the scoped inner equi-join
 smoke; and explicit-projection literal `with_column(...)` lowers to scoped literal projection.
-`sl.col(...)` is a Python predicate helper for admitted comparison, null, string `LIKE`,
-bounded `IN`, cast/date, and logical predicates; it lowers into ShardLoom's existing local SQL
+`where(...)` is a familiar alias for `filter(...)`. `sl.col(...)` is a Python predicate helper for
+admitted comparison, inclusive `between(...)`, null, string `LIKE`, bounded `IN`, cast/date, and
+logical predicates; it lowers into ShardLoom's existing local SQL
 runtime rather than a Python engine. It is not a pandas/Polars backend, broad DataFrame runtime,
 non-literal `with_column`, generalized grouped aggregate,
 ordering, or join runtime, object-store/table path, production SQL support, or performance claim.

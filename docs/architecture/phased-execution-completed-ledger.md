@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D / GAR-USER-SURFACE-1C Python query-builder `where()` and `between()` ergonomics
+  - Branch/PR: `codex/query-builder-between-where` / #809.
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/context.py`
+    - `python/tests/test_query_builder.py`
+    - `python/tests/test_cli_client.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/architecture/phased-execution-plan.md`
+    - generated use-case/readme/status website pages.
+  - Scope: make scoped local Python query-builder predicates more familiar without adding a new
+    execution provider or widening broad SQL/DataFrame support.
+  - Runtime behavior:
+    - `LazyFrame.where(...)` aliases the existing scoped `filter(...)` path.
+    - `sl.col(...).between(lower, upper)` lowers to an inclusive admitted comparison predicate pair:
+      `column >= lower AND column <= upper`.
+    - CLI admission, unsupported blockers, no-fallback evidence, and claim-gate evidence remain owned
+      by the existing `sql-local-source-smoke` runtime path.
+  - Evidence:
+    - Python tests assert `where(sl.col("amount").between(10, 20))` lowers to the exact scoped local
+      SQL smoke query and preserves `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+    - Predicate-helper tests cover numeric and cast/date `between(...)` formatting plus invalid
+      literal rejection.
+    - Capability, README, Python README, example, use-case, phase-plan, and generated website content
+      reflect the new familiar surface while preserving claim boundaries.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_where_between_invokes_sql_smoke python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python website\build_static_pages.py --benchmark-manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: scoped local CSV/flat JSONL query-builder fixture-smoke ergonomics only. This
+    does not add broad SQL/DataFrame runtime, new predicate-family completeness, object-store/table
+    support, external fallback, production support, or a performance claim.
+
 - [x] Session label: GAR-USER-SURFACE-1E-S2 Python SQL local-source `result_rows` ergonomics
   - Branch/PR: `codex/sql-local-result-rows` / #808.
   - Primary files:
