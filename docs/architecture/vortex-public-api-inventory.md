@@ -66,9 +66,9 @@ phase note. They are not active queue state and do not override `phased-executio
 - Still deferred: generalized Source/Sink API integration, object-store scan, table/catalog scan,
   broad reader wiring, writes, Arrow-default execution, GPU/device execution,
   vector/geospatial/media execution, and external query-engine integration execution.
-- Upstream 0.71 intake: Vortex `0.71.0` is released and classified in the 0.71 delta section below,
-  but ShardLoom still depends on optional `vortex = "0.70"`. No 0.71 API is admitted until the
-  dependency bump, feature-gated compile proof, and relevant runtime evidence land.
+- Upstream 0.71 intake: Vortex `0.71.0` is released, classified in the 0.71 delta section below,
+  and used as ShardLoom's optional `vortex = "0.71"` dependency. No 0.71 API is admitted until the
+  relevant runtime slice adds provider admission, certificates, no-fallback evidence, and tests.
 - Prohibited: DataFusion, DuckDB, Spark, Polars, Velox, `vortex-datafusion`, or similar engines
   executing unsupported ShardLoom residual work as fallback.
 
@@ -86,7 +86,7 @@ phase note. They are not active queue state and do not override `phased-executio
 
 ## Dependency Snapshot
 - Crate: `vortex`
-- Version: `0.70`
+- Version: `0.71`
 - License: Apache-2.0 (per dependency review)
 - ShardLoom crate using it: `shardloom-vortex`
 - Actual Vortex IO implemented: historical metadata/footer fixture open plus approved feature-gated
@@ -96,17 +96,20 @@ phase note. They are not active queue state and do not override `phased-executio
 ## Upstream Vortex 0.71 Delta Inventory
 
 This section closes `GAR-VORTEX-071A`. It records release-note/API deltas from upstream Vortex
-`0.71.0` and classifies them for ShardLoom follow-through. It does not bump the dependency, add
-runtime behavior, or authorize public support claims.
+`0.71.0` and classifies them for ShardLoom follow-through. `GAR-VORTEX-071B` later bumped the
+optional dependency to `vortex = "0.71"` and kept runtime support unchanged. This section does not
+authorize public support claims.
 
 Source evidence:
 
 - Upstream release: <https://github.com/vortex-data/vortex/releases/tag/0.71.0>
 - Release date recorded in intake doc: 2026-05-18.
 - Version proof: `cargo info vortex@0.71.0`.
-- Current ShardLoom requirement: `vortex = "0.70"` in `shardloom-vortex/Cargo.toml`.
-- Compatibility check: `cargo update -p vortex --precise 0.71.0 --dry-run` fails under the
-  current `^0.70` requirement, so `GAR-VORTEX-071B` must edit the manifest before a real bump.
+- Initial ShardLoom requirement at intake time: `vortex = "0.70"` in
+  `shardloom-vortex/Cargo.toml`.
+- Initial compatibility check: `cargo update -p vortex --precise 0.71.0 --dry-run` failed under the
+  original `^0.70` requirement, so `GAR-VORTEX-071B` edited the manifest before the real bump.
+- Current ShardLoom requirement after `GAR-VORTEX-071B`: optional `vortex = "0.71"`.
 
 Classification vocabulary:
 
@@ -147,8 +150,6 @@ Classification vocabulary:
 
 Required blockers before any 0.71 item becomes executable:
 
-- `GAR-VORTEX-071B` must bump the optional `vortex` requirement and prove feature-gated compile
-  compatibility.
 - Default builds must remain lightweight and must not compile upstream Vortex unless the relevant
   feature gate is enabled.
 - No new DataFusion, DuckDB, Spark, Polars, Velox, `vortex-datafusion`, or external query-engine

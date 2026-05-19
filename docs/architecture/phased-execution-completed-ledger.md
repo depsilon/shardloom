@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-VORTEX-071B feature-gated dependency bump and footprint proof
+  - Branch/PR: `codex/vortex-071-dependency-bump` / #780.
+  - Primary files:
+    - `shardloom-vortex/Cargo.toml`
+    - `Cargo.lock`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `docs/dependencies/vortex-0.71-upstream-intake.md`
+    - `docs/dependencies/vortex-dependency-footprint.md`
+    - `docs/dependencies/vortex-upstream-review.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: bump the optional upstream Vortex dependency from `0.70` to `0.71`, refresh the lockfile
+    to Vortex `0.71.0`, and prove the existing feature-gated ShardLoom Vortex surfaces still compile.
+  - Compatibility fix:
+    - Vortex `0.71.0` adds `DType::Union`.
+    - ShardLoom local primitive dtype mapping now classifies `DType::Union` as unsupported for
+      local primitive execution instead of leaving the upstream enum match non-exhaustive.
+  - Feature-gated proof:
+    - `cargo check -p shardloom-vortex`
+    - `cargo check -p shardloom-vortex --features upstream-vortex`
+    - `cargo check -p shardloom-vortex --features vortex-file-io`
+    - `cargo check -p shardloom-vortex --features vortex-write`
+    - `cargo check -p shardloom-vortex --features vortex-local-primitives`
+    - `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+  - Dependency footprint proof:
+    - Default `shardloom-vortex` builds still do not enable upstream Vortex.
+    - The upstream Vortex graph remains optional and isolated behind ShardLoom feature gates.
+    - Direct forbidden fallback dependencies remain absent: DataFusion, Spark, DuckDB, Polars, Velox,
+      and `vortex-datafusion`.
+  - Blockers preserved:
+    - No new upstream Vortex API is admitted for runtime support solely because the dependency
+      compiles.
+    - Object-store/table, distributed, SQL/DataFrame, GPU/CUDA, C FFI, performance, package, and
+      production claims remain blocked.
+    - External query-engine integrations remain baselines/oracles only and cannot execute ShardLoom
+      residual work.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test no_fallback_invariants`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only optional Vortex `0.71.0` dependency compatibility for
+    the existing feature-gated surfaces. It may not claim new Vortex runtime behavior, broader
+    Vortex-native support, object-store/table support, SQL/DataFrame support, performance,
+    package-publication readiness, or production readiness.
+
 - [x] Session label: GAR-VORTEX-071A release-note and API-delta inventory
   - Branch/PR: `codex/vortex-071-api-inventory` / #779.
   - Primary files:
