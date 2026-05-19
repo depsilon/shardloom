@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 from html.parser import HTMLParser
@@ -183,6 +184,38 @@ ATLAS_SURFACE_PAGES = [
     "readme.html",
     "use-cases/index.html",
 ]
+FIELD_GUIDE_REQUIRED_ENTRY_LISTS = [
+    "evidence_fields",
+    "related_terms",
+    "related_use_cases",
+    "reference_files",
+]
+FIELD_GUIDE_TEXT_LIMITS = {
+    "title": 80,
+    "summary": 220,
+    "status": 48,
+    "claim_boundary": 300,
+}
+FIELD_GUIDE_DOSSIER_SECTION_WORD_LIMITS = {
+    "meaning": 45,
+    "why": 70,
+    "how": 80,
+    "support": 85,
+    "boundary": 90,
+    "try-it": 75,
+}
+FIELD_GUIDE_READING_PATH_LIMITS = {
+    "title": 80,
+    "summary": 220,
+    "status": 48,
+    "claim_boundary": 300,
+}
+USE_CASE_HTML_SECTION_WORD_LIMITS = {
+    "plain-english-summary": 90,
+    "claim-boundary": 220,
+    "expected-output-or-evidence": 220,
+}
+TAG_RE = re.compile(r"<[^>]+>")
 
 
 class HtmlRefs(HTMLParser):
@@ -277,6 +310,95 @@ def check_patterns(
             text = PAGEFIND_MODAL_COMPONENT_RE.sub("pagefind-search-component", text)
         if combined.search(text):
             blockers.append(f"{label}: {rel(path, root)}")
+
+
+def inline_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def compact_text_from_html(source: str) -> str:
+    return " ".join(html.unescape(TAG_RE.sub(" ", source)).split())
+
+
+def html_section_text(source: str, section_id: str) -> str:
+    section_pattern = re.compile(
+        rf'<section\b[^>]*\bid="{re.escape(section_id)}"[^>]*>(.*?)</section>',
+        re.IGNORECASE | re.DOTALL,
+    )
+    match = section_pattern.search(source)
+    if match:
+        return compact_text_from_html(match.group(1))
+    heading_pattern = re.compile(
+        rf'<h2\b[^>]*\bid="{re.escape(section_id)}"[^>]*>.*?</h2>(.*?)(?=<h2\b[^>]*\bid=|</article>)',
+        re.IGNORECASE | re.DOTALL,
+    )
+    match = heading_pattern.search(source)
+    if match:
+        return compact_text_from_html(match.group(1))
+    return ""
+
+
+def word_count(text: str) -> int:
+    return len(re.findall(r"\b[\w./=+-]+\b", text))
+
+
+def enforce_text_limits(
+    *,
+    label: str,
+    item: dict[str, Any],
+    limits: dict[str, int],
+    blockers: list[str],
+) -> None:
+    for field, limit in limits.items():
+        value = str(item.get(field, ""))
+        if len(value) > limit:
+            blockers.append(f"{label} {field} is too long: {len(value)} > {limit}")
+
+
+def validate_field_guide_dossier_concision(
+    *,
+    slug_value: str,
+    dossier_text: str,
+    blockers: list[str],
+) -> None:
+    for section_id, limit in FIELD_GUIDE_DOSSIER_SECTION_WORD_LIMITS.items():
+        text = html_section_text(dossier_text, section_id)
+        if not text:
+            blockers.append(f"Field Guide dossier {slug_value} missing section id: {section_id}")
+            continue
+        words = word_count(text)
+        if words > limit:
+            blockers.append(
+                f"Field Guide dossier {slug_value} section {section_id} is too long: "
+                f"{words} words > {limit}"
+            )
+    boundary_text = html_section_text(dossier_text, "boundary")
+    paragraphs = [
+        compact_text_from_html(match)
+        for match in re.findall(r"<p\b[^>]*>(.*?)</p>", boundary_text, flags=re.DOTALL)
+    ]
+    paragraphs = [paragraph for paragraph in paragraphs if paragraph and paragraph != "Claim boundary"]
+    if len(paragraphs) != len(set(paragraphs)):
+        blockers.append(f"Field Guide dossier {slug_value} repeats claim-boundary text")
+
+
+def validate_use_case_page_concision(
+    *,
+    relative: str,
+    source: str,
+    blockers: list[str],
+) -> None:
+    for section_id, limit in USE_CASE_HTML_SECTION_WORD_LIMITS.items():
+        text = html_section_text(source, section_id)
+        if not text:
+            blockers.append(f"use-case page {relative} missing section id: {section_id}")
+            continue
+        words = word_count(text)
+        if words > limit:
+            blockers.append(
+                f"use-case page {relative} section {section_id} is too long: "
+                f"{words} words > {limit}"
+            )
 
 
 def main() -> int:
@@ -460,6 +582,12 @@ def main() -> int:
                     for required in ("id", "title", "summary", "status", "terms", "use_cases", "claim_boundary"):
                         if not path.get(required):
                             blockers.append(f"Field Guide reading path {path_id} missing {required}")
+                    enforce_text_limits(
+                        label=f"Field Guide reading path {path_id}",
+                        item=path,
+                        limits=FIELD_GUIDE_READING_PATH_LIMITS,
+                        blockers=blockers,
+                    )
                     for term in path.get("terms") or []:
                         if term not in entry_slugs:
                             blockers.append(
@@ -470,6 +598,33 @@ def main() -> int:
                     for required in ("slug", "title", "category", "status", "summary", "reference_files", "claim_boundary"):
                         if not entry.get(required):
                             blockers.append(f"Field Guide entry {entry_id} missing {required}")
+                    enforce_text_limits(
+                        label=f"Field Guide entry {entry_id}",
+                        item=entry,
+                        limits=FIELD_GUIDE_TEXT_LIMITS,
+                        blockers=blockers,
+                    )
+                    for required_list in FIELD_GUIDE_REQUIRED_ENTRY_LISTS:
+                        values = inline_list(entry.get(required_list))
+                        if not values:
+                            blockers.append(
+                                f"Field Guide entry {entry_id} field {required_list} must not be empty"
+                            )
+                    for reference in inline_list(entry.get("reference_files")):
+                        if not isinstance(reference, str):
+                            blockers.append(
+                                f"Field Guide entry {entry_id} reference must be a string"
+                            )
+                            continue
+                        if "*" in reference:
+                            blockers.append(
+                                f"Field Guide entry {entry_id} reference must be exact, not a glob: {reference}"
+                            )
+                            continue
+                        if not (repo_root / reference).exists():
+                            blockers.append(
+                                f"Field Guide entry {entry_id} reference does not exist: {reference}"
+                            )
                     slug_value = entry.get("slug")
                     if slug_value:
                         dossier_path = website / "field-guide" / f"{slug_value}.html"
@@ -482,6 +637,11 @@ def main() -> int:
                                     blockers.append(
                                         f"Field Guide dossier {slug_value} missing public-readiness field: {required}"
                                     )
+                            validate_field_guide_dossier_concision(
+                                slug_value=str(slug_value),
+                                dossier_text=dossier_text,
+                                blockers=blockers,
+                            )
         else:
             blockers.append("missing website/content/field-guide-index.json")
 
@@ -610,6 +770,11 @@ def main() -> int:
             for required in USE_CASE_PAGE_REQUIRED_FIELDS:
                 if required not in use_case_text:
                     blockers.append(f"use-case page {relative} missing public-readiness field: {required}")
+            validate_use_case_page_concision(
+                relative=relative,
+                source=use_case_text,
+                blockers=blockers,
+            )
             use_case_id = use_case_page.stem
             indexed_use_case = indexed_use_cases.get(use_case_id)
             if indexed_use_case:

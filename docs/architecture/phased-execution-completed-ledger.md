@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-ATLAS-2C atlas content consistency and concision gate
+  - Branch/PR: `codex/atlas-consistency-gate` / #815.
+  - Primary files:
+    - `scripts/check_website_readiness.py`
+    - `scripts/check_use_case_index.py`
+    - `website/build_static_pages.py`
+    - `website/field-guide/*.html`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: add deterministic content-quality gates for the atlas website so Field Guide and Use
+    Case pages keep consistent templates, bounded prose, source references, related links, status,
+    and claim-boundary text.
+  - Website behavior:
+    - Field Guide dossier generation now suppresses duplicated claim-boundary paragraphs when the
+      explicit `not_proves` text and `claim_boundary` text are identical.
+    - Regenerated Field Guide pages keep the same article structure with cleaner claim-boundary
+      sections.
+  - Validator rules:
+    - `scripts/check_website_readiness.py` now validates Field Guide entry/list fields,
+      exact source-reference existence, text-length limits, dossier section word limits, duplicate
+      claim-boundary paragraphs, and concise Use Case generated-page prose sections.
+    - `scripts/check_use_case_index.py` now validates related-use-case links and generous
+      text-length limits for titles, claim boundaries, blocked explanations, and expected evidence
+      summaries.
+  - Allowed exceptions:
+    - Long runnable command examples are intentionally not length-limited because they are copied
+      command surfaces, not explanatory prose.
+    - Use Case claim/evidence fields are allowed longer limits than Field Guide dossiers because
+      several runtime-smoke pages must name scoped support and unsupported boundaries explicitly.
+  - Verification:
+    - `python website\build_static_pages.py --benchmark-manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `python -m compileall -q scripts website`
+    - `git diff --check`
+  - Claim boundary: website/content QA only. This does not add runtime support, benchmark data,
+    package publication, performance/superiority claims, Spark-displacement claims, production
+    SQL/DataFrame support, object-store/lakehouse support, or Foundry support.
+
 - [x] Session label: GAR-WEB-ATLAS-2B atlas model rollout to Use Cases, Status, Docs, and Compute Flow
   - Branch/PR: `codex/atlas-model-rollout` / #814.
   - Primary files:
