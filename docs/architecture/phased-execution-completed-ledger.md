@@ -16,6 +16,40 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-USER-SURFACE-1C Python query-builder write capability row alignment
+  - Branch/PR: `codex/query-builder-write-capabilities` / #810.
+  - Primary files:
+    - `python/src/shardloom/context.py`
+    - `python/tests/test_cli_client.py`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: keep the Python DataFrame/query-builder capability matrix aligned with existing scoped
+    local JSONL and CSV write aliases.
+  - Runtime behavior:
+    - No new writer or execution provider was added.
+    - Existing admitted `write(...)`, `write_jsonl(...)`, and `write_csv(...)` surfaces remain scoped
+      to local CSV and flat JSONL/NDJSON SQL-smoke workflows.
+    - Capability rows now separate generic JSONL/CSV output evidence from JSONL-only and CSV-only
+      alias evidence.
+  - Evidence:
+    - Capability tests assert `write`, `write_jsonl`, and `write_csv` rows advertise the correct
+      required output evidence and runtime/write-I/O posture.
+    - Phase-plan current state now records the local sink aliases and method-level evidence
+      separation.
+  - Verification:
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `python scripts\check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: capability accuracy for existing scoped local JSONL/CSV fixture-smoke sinks
+    only. This does not add Parquet/Arrow/Avro/ORC/Vortex output, fanout, object-store/table sinks,
+    production DataFrame support, external fallback, or a performance claim.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D / GAR-USER-SURFACE-1C Python query-builder `where()` and `between()` ergonomics
   - Branch/PR: `codex/query-builder-between-where` / #809.
   - Primary files:
