@@ -1887,6 +1887,7 @@ fn shardloom_logical_dtype_from_vortex_dtype(
         | vortex::array::dtype::DType::List(_, _)
         | vortex::array::dtype::DType::FixedSizeList(_, _, _)
         | vortex::array::dtype::DType::Extension(_)
+        | vortex::array::dtype::DType::Union(_)
         | vortex::array::dtype::DType::Variant(_) => None,
     }
 }

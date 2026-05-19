@@ -5,13 +5,40 @@ ShardLoom is auditing the upstream Vortex dependency graph before deeper integra
 builds stay lightweight while preserving a controlled path to upstream Vortex capability work.
 
 ## Current state
-- Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.70`.
-- Latest upstream intake note: `vortex = 0.71.0` is available, but ShardLoom has not yet updated the
-  direct dependency. See `docs/dependencies/vortex-0.71-upstream-intake.md`.
+- Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.71`.
+- Latest upstream intake note: `vortex = 0.71.0` was inventoried in
+  `docs/dependencies/vortex-0.71-upstream-intake.md` and
+  `docs/architecture/vortex-public-api-inventory.md`.
 - Umbrella `vortex` crate is still used for upstream opt-in builds.
 - Default build (`default = []`) does not enable upstream Vortex.
-- Actual Vortex file IO is not implemented.
+- Existing feature-gated Vortex file/local primitive/write paths remain explicitly scoped and
+  claim-gated; the version bump does not broaden runtime support.
 - Fallback execution engines are not present.
+
+## Vortex 0.71 dependency bump proof
+
+`GAR-VORTEX-071B` updated the optional upstream Vortex dependency from `0.70` to `0.71` and refreshed
+`Cargo.lock` to Vortex `0.71.0` crate family versions.
+
+Validation recorded for the bump:
+
+- `cargo check -p shardloom-vortex`
+- `cargo check -p shardloom-vortex --features upstream-vortex`
+- `cargo check -p shardloom-vortex --features vortex-file-io`
+- `cargo check -p shardloom-vortex --features vortex-write`
+- `cargo check -p shardloom-vortex --features vortex-local-primitives`
+- `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+
+Compatibility fix required:
+
+- Vortex `0.71.0` adds `DType::Union`; ShardLoom now maps that dtype to the same deterministic
+  unsupported local primitive posture as other non-admitted complex dtypes.
+
+Claim boundary:
+
+- The bump proves optional dependency compatibility only.
+- It does not admit new Vortex runtime APIs, external engines, object-store/table support,
+  SQL/DataFrame support, performance claims, package claims, or production readiness.
 
 ## Dependency families observed
 From `cargo tree` inspection of `shardloom-vortex` with upstream enabled:

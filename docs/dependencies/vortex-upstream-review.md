@@ -14,10 +14,11 @@ executable support from older PR-specific sections that say "this PR" or
 ## Current support snapshot
 
 - Upstream Vortex remains optional and isolated in `shardloom-vortex`.
-- The tracked direct dependency is `vortex = 0.70`.
-- Latest upstream intake note: Vortex `0.71.0` was released on 2026-05-18 and is tracked in
-  `docs/dependencies/vortex-0.71-upstream-intake.md`; ShardLoom has not yet bumped the direct
-  dependency or promoted new support claims from that release.
+- The tracked direct dependency is `vortex = 0.71`.
+- Vortex `0.71.0` was released on 2026-05-18, inventoried in
+  `docs/dependencies/vortex-0.71-upstream-intake.md`, classified in
+  `docs/architecture/vortex-public-api-inventory.md`, and admitted as an optional dependency bump
+  only.
 - Approved historical metadata/footer fixture IO and approved local primitive
   scan paths are recorded in `docs/architecture/phased-execution-plan.md`.
 - Vortex-native array, compute, scan, source, and sink APIs may be future native
@@ -27,6 +28,17 @@ executable support from older PR-specific sections that say "this PR" or
   baseline/reference/oracle surfaces only; they must not execute unsupported
   ShardLoom residual work.
 - Fallback execution remains disabled.
+
+## Vortex 0.71 bump update
+
+- `shardloom-vortex` now requests optional `vortex = 0.71`.
+- `Cargo.lock` records Vortex `0.71.0` crate family versions.
+- The bump required one ShardLoom source compatibility update: local primitive dtype mapping now
+  rejects upstream `DType::Union` deterministically instead of relying on a non-exhaustive match.
+- Feature-gated compile proof covered `upstream-vortex`, `vortex-file-io`, `vortex-write`,
+  `vortex-local-primitives`, and `vortex-traditional-analytics-benchmark`.
+- No new Vortex runtime support claim, fallback engine, object-store/table claim, SQL/DataFrame
+  claim, performance claim, or package publication claim is introduced by the bump.
 
 ## Current status
 

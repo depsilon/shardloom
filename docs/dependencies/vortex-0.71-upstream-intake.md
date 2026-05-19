@@ -14,11 +14,16 @@ Canonical actionable work lives in `docs/architecture/phased-execution-plan.md`.
 - Release date: 2026-05-18
 - Release URL: <https://github.com/vortex-data/vortex/releases/tag/0.71.0>
 - Crates.io version check: `cargo info vortex@0.71.0`
-- Current ShardLoom direct dependency: `vortex = "0.70"` in `shardloom-vortex/Cargo.toml`
-- Cargo compatibility check:
+- Initial ShardLoom direct dependency at intake time: `vortex = "0.70"` in
+  `shardloom-vortex/Cargo.toml`
+- Initial Cargo compatibility check:
   - `cargo update -p vortex --precise 0.71.0 --dry-run` fails because the current requirement is
     `^0.70`.
   - A real upgrade requires a manifest change to `0.71` or `0.71.0`.
+- Post-`GAR-VORTEX-071B` dependency state:
+  - `shardloom-vortex` requests optional `vortex = "0.71"`.
+  - `Cargo.lock` records Vortex `0.71.0`.
+  - The bump remains feature-gated and does not broaden runtime support.
 
 ## Release Notes Summary
 
@@ -93,10 +98,12 @@ routine patch update.
 
 ## Required ShardLoom Follow-Through
 
-The phase plan now owns these follow-through slices:
+The phase plan owns these follow-through slices:
 
-- `GAR-VORTEX-071A`: release-note and API-delta inventory.
-- `GAR-VORTEX-071B`: feature-gated dependency bump and dependency-footprint proof.
+- `GAR-VORTEX-071A`: release-note and API-delta inventory. Complete; moved to
+  `docs/architecture/phased-execution-completed-ledger.md`.
+- `GAR-VORTEX-071B`: feature-gated dependency bump and dependency-footprint proof. Complete once
+  the matching PR lands; moved to the completed ledger in that PR.
 - `GAR-VORTEX-071C`: runtime opportunity mapping into existing runtime slices.
 - `GAR-VORTEX-071D`: Dependabot and release-intake workflow hardening.
 
