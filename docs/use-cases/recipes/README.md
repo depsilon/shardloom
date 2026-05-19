@@ -102,7 +102,7 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
 ## Source-Free Generated Reference Table
 
 - **User goal:** create a reference table without an input dataset.
-- **Status:** scoped local user-row, literal-table, calendar/date-dimension, and range JSONL smokes
+- **Status:** scoped local user-row, literal-table, calendar/date-dimension, range, and sequence JSONL smokes
   supported.
 - **Command:**
   ```powershell
@@ -121,6 +121,15 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
 - **Range CLI:**
   ```powershell
   shardloom generated-source-range-smoke target\generated-range.jsonl 0 5 --column id --allow-overwrite --format json
+  ```
+- **Sequence example:**
+  ```powershell
+  $env:PYTHONPATH = "python\src"
+  python -c "from shardloom import context; r=context(repo_root='.').sequence(0, 5, column='id').write('target/generated-sequence.jsonl', allow_overwrite=True); print(r.generated_source_kind, r.generated_source_row_count, r.claim_gate_status)"
+  ```
+- **Sequence CLI:**
+  ```powershell
+  shardloom generated-source-sequence-smoke target\generated-sequence.jsonl 0 5 --column id --allow-overwrite --format json
   ```
 - **Literal-table example:**
   ```powershell
@@ -141,13 +150,13 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
 - **Expected output:** local JSONL output plus a generated-source/output evidence envelope.
 - **Evidence fields:** `input_dataset_count=0`, `source_io_performed=false`,
   `generated_source_created=true`, `generated_source_certificate_status`,
-  `output_native_io_certificate_status`, and for range smokes,
+  `output_native_io_certificate_status`, and for range/sequence smokes,
   `generated_source_range_start/end/step/column`; source-free SQL smokes also expose
   `sql_statement_kind`, SQL parser/binder/planner fields, and `generated_source_kind=sql_values`
   or `sql_literal_select`. Capability discovery also exposes
   `generated_source_api_admission_schema_version` plus per-form `support_status`, `blocker_id`,
   and no-fallback/no-external-engine fields.
-- **Claim boundary:** scoped local user-row, literal-table, calendar/date-dimension, range, SQL
+- **Claim boundary:** scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL
   literal `SELECT`, and SQL `VALUES` JSONL fixture smokes only; broad SQL runtime, SQL source-free
   projection over expressions beyond the admitted literals, DataFrame source-free projection,
   object-store writes, and Foundry generated-output runtime remain

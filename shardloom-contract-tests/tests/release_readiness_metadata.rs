@@ -2298,9 +2298,11 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "not_applicable_no_generated_rows",
         "generated-source-user-rows-smoke",
         "generated-source-range-smoke",
+        "generated-source-sequence-smoke",
         "ctx.from_rows([",
         "ctx.range(",
-        "none_scoped_local_range_jsonl_smoke_only",
+        "ctx.sequence(",
+        "none_scoped_local_range_sequence_jsonl_smoke_only",
         "shardloom.generated_source_api_admission.v1",
         "shardloom.generated_source_evidence_alignment.v1",
         "shardloom.openlineage_facet_mapping.v1",
@@ -2319,6 +2321,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "claim_gate_status=advisory_only_not_claim_grade",
         "python_ctx_from_rows",
         "python_ctx_range",
+        "python_ctx_sequence",
         "python_generated_source_write",
         "sql_values",
         "sql_dataframe_source_free",
@@ -2348,6 +2351,7 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
     assert!(python_readme.contains("openlineage_facet_mapping"));
     assert!(python_readme.contains("ctx.from_rows("));
     assert!(python_readme.contains("ctx.range("));
+    assert!(python_readme.contains("ctx.sequence("));
     assert!(python_readme.contains("no_dataset_smoke_separate_from_generated_output"));
 
     let python_context = read_repo_file("python/src/shardloom/context.py");

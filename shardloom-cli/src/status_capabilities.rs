@@ -49,7 +49,7 @@ const WORKFLOW_OPERATION_NAMES: &str = concat!(
     "to_pandas,to_arrow,to_arrow_table,to_arrow_ipc,to_numpy,to_python_objects,",
     "with_column,group_by,agg,sort,limit,write_vortex,write_parquet,sql,",
     "sql_parse,sql_bind,sql_plan,sql_execute,",
-    "source_free_sequence,sql_values,sql_literal_select,",
+    "sql_source_free_projection,",
     "dataframe_source_free_projection,dataframe_generated_with_column,",
     "object_store_generated_output,foundry_generated_output,join,aggregate,window,",
     "schema_contract,schema,describe_schema,validate_schema,data_quality,",
@@ -80,8 +80,6 @@ const WORKFLOW_BLOCKER_IDS: &str = concat!(
     "cg21.workflow.sql.bind_unsupported,",
     "cg21.workflow.sql.plan_unsupported,",
     "cg21.workflow.sql.execute_unsupported,",
-    "gar-gen-1.sequence_runtime_not_implemented,",
-    "gar-gen-1.sql_values_runtime_not_implemented,",
     "gar-gen-1.sql_source_free_projection_runtime_not_implemented,",
     "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented,",
     "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented,",
@@ -1023,6 +1021,25 @@ const GENERATED_OUTPUT_COMPATIBILITY_ROWS: &[GeneratedOutputCompatibilityRow] = 
         claim_boundary: "Only scoped local range JSONL generated-output fixture smoke is admitted.",
     },
     GeneratedOutputCompatibilityRow {
+        id: "python_ctx_sequence",
+        user_visible_surface: "Python ctx.sequence(...).write(local_jsonl)",
+        family: "python_generated_source",
+        support_status: "smoke-supported",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        source_io_performed: false,
+        generated_source_created: true,
+        output_io_performed: true,
+        source_native_io_certificate_status: "not_applicable_no_source_dataset",
+        output_native_io_certificate_status: "required_for_runtime_output",
+        generated_source_certificate_status: "required_for_runtime",
+        blocker_id: "none_scoped_local_sequence_jsonl_smoke_only",
+        required_evidence: "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "Only scoped local sequence JSONL generated-output fixture smoke is admitted.",
+    },
+    GeneratedOutputCompatibilityRow {
         id: "python_ctx_literal_table",
         user_visible_surface: "Python ctx.literal_table([...]).write(local_jsonl)",
         family: "python_generated_source",
@@ -1077,7 +1094,7 @@ const GENERATED_OUTPUT_COMPATIBILITY_ROWS: &[GeneratedOutputCompatibilityRow] = 
         blocker_id: "none_supported_generated_source_write_smokes_only",
         required_evidence: "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "Generated-source write is admitted only for supported local user_rows, literal_table, calendar, and range JSONL smokes.",
+        claim_boundary: "Generated-source write is admitted only for supported local user_rows, literal_table, calendar, range, sequence, SQL VALUES, and SQL literal SELECT JSONL smokes.",
     },
     GeneratedOutputCompatibilityRow {
         id: "local_output_only_generated_source_posture",
@@ -2907,7 +2924,7 @@ fn emit_workflow_capability_parity(scope: CapabilityDiscoveryScope, format: Outp
         "/v1/capabilities/workflow",
     );
     push_field(&mut fields, "workflow_state", "unsupported_report_only");
-    push_count_field(&mut fields, "workflow_operation_count", 44);
+    push_count_field(&mut fields, "workflow_operation_count", 42);
     push_field(
         &mut fields,
         "workflow_operation_names",

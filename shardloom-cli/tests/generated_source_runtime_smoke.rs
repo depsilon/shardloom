@@ -308,6 +308,73 @@ fn range_smoke_writes_local_jsonl_and_emits_engine_native_generated_source_evide
 }
 
 #[test]
+fn sequence_smoke_writes_local_jsonl_and_emits_sequence_evidence() {
+    let output_path = unique_output_path("generated-sequence");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sequence-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "1",
+            "6",
+            "--step",
+            "2",
+            "--column",
+            "seq",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sequence-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(written, "{\"seq\":1}\n{\"seq\":3}\n{\"seq\":5}\n");
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-sequence-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "schema_version",
+        "shardloom.generated_source_sequence_smoke.v1"
+    )));
+    assert!(stdout.contains(&field("generated_source_kind", "sequence")));
+    assert!(stdout.contains(&field("generated_source_range_start", "1")));
+    assert!(stdout.contains(&field("generated_source_range_end", "6")));
+    assert!(stdout.contains(&field("generated_source_range_step", "2")));
+    assert!(stdout.contains(&field("generated_source_range_column", "seq")));
+    assert!(stdout.contains(&field("generated_source_row_count", "3")));
+    assert!(stdout.contains(&field("generated_source_certificate_status", "present")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_file_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "engine_native_sequence_generator_to_local_jsonl_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "claim_gate_reason",
+        "one_scoped_local_sequence_generated_output_smoke"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
 fn range_smoke_blocks_remote_outputs_and_zero_step() {
     let remote = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([

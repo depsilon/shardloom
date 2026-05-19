@@ -107,6 +107,7 @@ from .query import (
     read_parquet,
     read_vortex,
     from_rows,
+    sequence,
     sql_literal_select,
     sql_values,
 )
@@ -200,6 +201,7 @@ __all__ = [
     "from_rows",
     "literal_table",
     "range",
+    "sequence",
     "sql_literal_select",
     "sql_values",
     "from_pandas",

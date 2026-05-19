@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E/5A scoped generated-source sequence runtime
+  - Branch/PR: `codex/generated-source-sequence-runtime` / #788.
+  - Primary files:
+    - `shardloom-cli/src/generated_source_runtime.rs`
+    - `shardloom-cli/src/status_capabilities.rs`
+    - `shardloom-core/src/generated_source.rs`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/client.py`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/universal-compatibility-coverage-scoreboard.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `website/status.html`
+  - Scope: promote `sequence` from generated-source report-only posture into the same scoped local
+    JSONL fixture-smoke runtime lane as `range`, without admitting SQL `generate_series`/`range`,
+    broad DataFrame source-free projection, object-store sinks, Foundry output, or performance/
+    production claims.
+  - Runtime behavior:
+    - Added CLI `generated-source-sequence-smoke <local-output-path> <start> <end>` with the same
+      deterministic integer generator semantics, local-only sink policy, overwrite controls, schema
+      digest, output digest, materialization boundary, execution certificate, generated-source
+      certificate, output Native I/O certificate, and no-fallback evidence as the range smoke.
+    - Added Python `ctx.sequence(...).write(...)`, top-level `shardloom.sequence(...)`, and typed
+      client dispatch to the new CLI command.
+    - Removed `source-free-sequence` from deterministic unsupported workflow planning while keeping
+      DataFrame projection, generated `with_column`, object-store generated output, and Foundry
+      generated output blocked/report-only.
+  - Evidence:
+    - Capability and compatibility rows now expose `python_ctx_sequence` with
+      `support_status=smoke-supported`, `runtime_execution=true`, `write_io=true`,
+      `generated_source_created=true`, `blocker_id=none_scoped_local_sequence_jsonl_smoke_only`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - The engine-native generated-source contract now uses
+      `none_scoped_local_range_sequence_jsonl_smoke_only` for the admitted range/sequence fixture
+      scope.
+    - Website/status, use-case pages, compute-flow snapshot, and README/getting-started docs now
+      list sequence beside the other supported scoped generated-output smokes.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke`
+    - `cargo test -p shardloom-cli --test workflow_query_builder_plan_snapshots`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo test -p shardloom-core generated_source`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_sequence_write_invokes_engine_native_generated_source_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `git diff --check`
+  - Claim boundary: scoped local source-free `sequence` JSONL fixture-smoke runtime only. This does
+    not claim SQL `generate_series`/`range`, broad SQL/DataFrame generated-source runtime, synthetic
+    generators, object-store/lakehouse/Foundry sinks, package readiness, production support,
+    performance, or superiority.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL logical NOT predicate runtime
   - Branch/PR: `codex/sql-logical-not-runtime` / #787.
   - Primary files:

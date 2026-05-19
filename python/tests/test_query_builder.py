@@ -949,6 +949,72 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             sl.range(0, 10, column="", binary=["definitely-missing-shardloom"])
 
+    def test_sequence_write_invokes_engine_native_generated_source_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-sequence-smoke",
+                    "target/sequence.jsonl",
+                    "1",
+                    "6",
+                    "--step",
+                    "2",
+                    "--column",
+                    "seq",
+                    "--output-format",
+                    "jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-sequence-smoke",
+                    "status": "success",
+                    "summary": "generated sequence",
+                    "human_text": "generated sequence",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/sequence.jsonl"},
+                        {"key": "generated_source_kind", "value": "sequence"},
+                        {"key": "generated_source_range_start", "value": "1"},
+                        {"key": "generated_source_range_end", "value": "6"},
+                        {"key": "generated_source_range_step", "value": "2"},
+                        {"key": "generated_source_range_column", "value": "seq"},
+                        {"key": "generated_source_row_count", "value": "3"},
+                        {"key": "generated_source_created", "value": "true"},
+                        {"key": "source_io_performed", "value": "false"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sequence(1, 6, step=2, column="seq").write("target/sequence.jsonl")
+
+        self.assertEqual(report.envelope.command, "generated-source-sequence-smoke")
+        self.assertEqual(report.output_path, "target/sequence.jsonl")
+        self.assertEqual(report.generated_source_kind, "sequence")
+        self.assertEqual(report.generated_source_row_count, 3)
+        self.assertEqual(report.generated_source_range_start, 1)
+        self.assertEqual(report.generated_source_range_end, 6)
+        self.assertEqual(report.generated_source_range_step, 2)
+        self.assertEqual(report.generated_source_range_column, "seq")
+        self.assertEqual(report.generated_source_certificate_status, "present")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_sql_source_free_write_invokes_generated_source_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -1232,9 +1298,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "sql-bind": "sql_bind",
                     "sql-plan": "sql_plan",
                     "sql-execute": "sql_execute",
-                    "source-free-sequence": "source_free_sequence",
-                    "sql-values": "sql_values",
-                    "sql-literal-select": "sql_literal_select",
                     "dataframe-source-free-projection": "dataframe_source_free_projection",
                     "dataframe-generated-with-column": "dataframe_generated_with_column",
                     "object-store-generated-output": "object_store_generated_output",
@@ -1358,14 +1421,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.quarantine("bad.vortex"),
             workflow.preview(limit=5),
             workflow.display(),
-            ctx.sequence(0, 10),
             ctx.dataframe_source_free_projection("lit(1).alias('value')"),
             ctx.dataframe_generated_with_column("value", "lit(1)"),
             ctx.generated_output_to_object_store("s3://bucket/out.jsonl"),
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 39)
+        self.assertEqual(len(reports), 38)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -1379,9 +1441,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             elif report.operation in {"sql-parse", "sql-bind", "sql-plan", "sql-execute"}:
                 self.assertEqual(report.envelope.field("workflow_summary"), "sql(statement)")
             elif report.operation in {
-                "source-free-sequence",
-                "sql-values",
-                "sql-literal-select",
                 "dataframe-source-free-projection",
                 "dataframe-generated-with-column",
                 "object-store-generated-output",
@@ -1445,14 +1504,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(by_operation["quarantine"].envelope.field_bool("write_required"))
         self.assertTrue(by_operation["preview"].envelope.field_bool("materialization_required"))
         self.assertEqual(by_operation["display"].envelope.field("workflow_operation"), "display")
-        self.assertEqual(
-            by_operation["source-free-sequence"].envelope.field("workflow_operation"),
-            "source_free_sequence",
-        )
-        self.assertEqual(
-            by_operation["source-free-sequence"].envelope.field("target_ref"),
-            "start=0;end=10;step=1;column=value",
-        )
         self.assertEqual(
             by_operation["dataframe-source-free-projection"].envelope.field("workflow_operation"),
             "dataframe_source_free_projection",
@@ -1567,8 +1618,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_sql_dataframe_runtime_supported", "value": "false"},
                     {"key": "universal_compatibility_generated_output_contract_schema_version", "value": "shardloom.universal_compatibility.generated_output_contract.v1"},
                     {"key": "universal_compatibility_generated_output_contract_id", "value": "gar-compat-1b.source_free_generated_output_contract"},
-                    {"key": "universal_compatibility_generated_output_row_order", "value": "no_dataset_smoke,python_ctx_from_rows,python_ctx_range,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write,local_output_only_generated_source_posture,sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range,dataframe_source_free_projection,dataframe_generated_with_column"},
-                    {"key": "universal_compatibility_generated_output_python_row_order", "value": "python_ctx_from_rows,python_ctx_range,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write"},
+                    {"key": "universal_compatibility_generated_output_row_order", "value": "no_dataset_smoke,python_ctx_from_rows,python_ctx_range,python_ctx_sequence,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write,local_output_only_generated_source_posture,sql_literal_select,sql_values,sql_source_free_projection,sql_generate_series_range,dataframe_source_free_projection,dataframe_generated_with_column"},
+                    {"key": "universal_compatibility_generated_output_python_row_order", "value": "python_ctx_from_rows,python_ctx_range,python_ctx_sequence,python_ctx_literal_table,python_ctx_calendar,python_generated_source_write"},
                     {"key": "universal_compatibility_generated_output_sql_row_order", "value": "sql_values"},
                     {"key": "universal_compatibility_generated_output_dataframe_row_order", "value": ""},
                     {"key": "universal_compatibility_generated_output_claim_gate_status", "value": "fixture_smoke_only"},
@@ -1702,6 +1753,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ("no_dataset_smoke", "no-dataset smoke / capability proof", "no_dataset_smoke", "smoke-supported", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_no_output_data", "not_applicable_no_generated_rows", "smoke_only", "gar-gen-1.no_dataset_smoke_not_generated_output"),
                     ("python_ctx_from_rows", "Python ctx.from_rows([...]).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_jsonl_smoke_only"),
                     ("python_ctx_range", "Python ctx.range(...).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_range_jsonl_smoke_only"),
+                    ("python_ctx_sequence", "Python ctx.sequence(...).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sequence_jsonl_smoke_only"),
                     ("python_ctx_literal_table", "Python ctx.literal_table([...]).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_literal_table_jsonl_smoke_only"),
                     ("python_ctx_calendar", "Python ctx.calendar(start,end).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_calendar_jsonl_smoke_only"),
                     ("python_generated_source_write", "Generated-source write path", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_supported_generated_source_write_smokes_only"),
@@ -1804,6 +1856,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             (
                 "python_ctx_from_rows",
                 "python_ctx_range",
+                "python_ctx_sequence",
                 "python_ctx_literal_table",
                 "python_ctx_calendar",
                 "python_generated_source_write",
@@ -1818,6 +1871,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(generated.all_no_fallback_no_external_engine)
         self.assertTrue(generated.row("python-ctx-from-rows").fixture_smoke_supported)
         self.assertTrue(generated.row("python_ctx_from_rows").generated_source_created)
+        self.assertTrue(generated.row("python_ctx_sequence").runtime_execution)
         self.assertTrue(generated.row("python_ctx_literal_table").fixture_smoke_supported)
         self.assertTrue(generated.row("python_ctx_calendar").runtime_execution)
         self.assertTrue(generated.row("sql_values").fixture_smoke_supported)

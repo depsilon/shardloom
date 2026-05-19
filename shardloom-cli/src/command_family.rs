@@ -314,6 +314,7 @@ fn is_workflow_planning_command(command: &str) -> bool {
             | "workflow-unsupported-plan"
             | "generated-source-user-rows-smoke"
             | "generated-source-range-smoke"
+            | "generated-source-sequence-smoke"
             | "generated-source-sql-smoke"
             | "sql-local-source-smoke"
             | "translation-plan"
@@ -511,6 +512,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("generated-source-range-smoke"),
+            CommandFamily::WorkflowPlanning
+        );
+        assert_eq!(
+            classify_command("generated-source-sequence-smoke"),
             CommandFamily::WorkflowPlanning
         );
         assert_eq!(

@@ -776,6 +776,7 @@ def render_compatibility_scoreboard_section() -> str:
         "no_dataset_smoke",
         "python_ctx_from_rows",
         "python_ctx_range",
+        "python_ctx_sequence",
         "python_ctx_literal_table",
         "python_ctx_calendar",
         "local_output_only_generated_source_posture",
@@ -799,7 +800,7 @@ def render_compatibility_scoreboard_section() -> str:
         generated_contract_html = f"""
         <div class="section-spacer"></div>
         <h3>Source-free generated-output contract</h3>
-        <p class="section-lede">This compatibility projection keeps no-dataset smoke, Python generated-output smokes, scoped source-free SQL smokes, SQL/DataFrame report-only rows, and local-output-only sink posture separate. Current generated-output runtime is scoped to local JSONL smokes for <code>ctx.from_rows(...).write(...)</code>, <code>ctx.literal_table(...).write(...)</code>, <code>ctx.calendar(...).write(...)</code>, <code>ctx.range(...).write(...)</code>, <code>ctx.sql_values(...).write(...)</code>, and <code>ctx.sql_literal_select(...).write(...)</code>.</p>
+        <p class="section-lede">This compatibility projection keeps no-dataset smoke, Python generated-output smokes, scoped source-free SQL smokes, SQL/DataFrame report-only rows, and local-output-only sink posture separate. Current generated-output runtime is scoped to local JSONL smokes for <code>ctx.from_rows(...).write(...)</code>, <code>ctx.literal_table(...).write(...)</code>, <code>ctx.calendar(...).write(...)</code>, <code>ctx.range(...).write(...)</code>, <code>ctx.sequence(...).write(...)</code>, <code>ctx.sql_values(...).write(...)</code>, and <code>ctx.sql_literal_select(...).write(...)</code>.</p>
         <div class="table-scroll">
           <table>
             <thead><tr><th>Row</th><th>Status</th><th>Runtime</th><th>Output I/O</th><th>Boundary</th></tr></thead>
