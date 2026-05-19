@@ -57,10 +57,10 @@ python -c "from shardloom import context; r=context(repo_root='.').from_rows([{'
 ```
 
 This is source-free generated-output execution, not no-dataset smoke. The current runtime support
-is scoped to local JSONL output from Python `ctx.from_rows(...).write(...)`,
+is scoped to local JSONL/CSV output from Python `ctx.from_rows(...).write(...)`,
 `ctx.literal_table(...).write(...)`, `ctx.calendar(...).write(...)`, and
 `ctx.range(...).write(...)`/`ctx.sequence(...).write(...)` smokes plus source-free SQL `VALUES` and
-literal `SELECT` local JSONL smokes through `ctx.sql_values(...).write(...)`,
+literal `SELECT` local JSONL/CSV smokes through `ctx.sql_values(...).write(...)`,
 `ctx.sql_literal_select(...).write(...)`, and the scoped `ctx.sql(...).write(...)` bridge. Broad
 SQL/DataFrame runtime, object-store/lakehouse output, and Foundry generated-output runtime remain
 unclaimed.
@@ -83,7 +83,7 @@ limitations are listed in `docs/getting-started/examples.md`.
 
 For a single local proof that builds source artifacts, installs the local wheel
 in a clean virtual environment, resolves the built CLI, runs the smoke checks,
-writes generated-source local JSONL outputs, executes the prepared/native
+writes generated-source local JSONL/CSV outputs, executes the prepared/native
 benchmark smoke, and runs provenance dry-run evidence, use:
 
 ```powershell

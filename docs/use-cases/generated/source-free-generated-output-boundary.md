@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `source_free_generated_output`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL fixture smokes through explicit helpers or ctx.sql(...).write(...) only; no broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
+- **Claim boundary:** Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV fixture smokes through explicit helpers or ctx.sql(...).write(...) only; no broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Source-free generated output boundary has a scoped local path. Treat it as techn
 
 ## Claim Boundary
 
-Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL fixture smokes through explicit helpers or ctx.sql(...).write(...) only; no broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
+Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV fixture smokes through explicit helpers or ctx.sql(...).write(...) only; no broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.
 
 ## How To Try It
 
@@ -30,7 +30,7 @@ The source-free API admission matrix and Python context unsupported helpers keep
 
 ## Internal Flow
 
-`none, generated_rows, generated_rows_projection, generated_rows_literal_with_column, literal_table_rows, calendar_dimension, range, sequence, sql_values, sql_literal_select, sql_generate_series_range, ctx_sql_source_free -> source_free_generated_output -> batch -> local_jsonl_output_artifact, generated_source_certificate, output_native_io_certificate -> evidence -> claim gate`
+`none, generated_rows, generated_rows_projection, generated_rows_literal_with_column, literal_table_rows, calendar_dimension, range, sequence, sql_values, sql_literal_select, sql_generate_series_range, ctx_sql_source_free -> source_free_generated_output -> batch -> local_jsonl_output_artifact, local_csv_output_artifact, generated_source_certificate, output_native_io_certificate -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -52,7 +52,7 @@ The source-free API admission matrix and Python context unsupported helpers keep
 
 ## Expected Output Or Evidence
 
-A local JSONL output plus fields including generated_source_kind=user_rows, literal_table, calendar, range, sequence, sql_values, sql_literal_select, or sql_generate_series_range; generated_source_row_count for base and transformed generated rows; generated_source_range_* and generated_source_sql_generator_function for SQL generator rows; generated_source_certificate_status=present; output_native_io_certificate_status=certified_local_file_sink; fallback_attempted=false; and external_engine_invoked=false.
+A local JSONL/CSV output plus fields including generated_source_kind=user_rows, literal_table, calendar, range, sequence, sql_values, sql_literal_select, or sql_generate_series_range; generated_source_row_count for base and transformed generated rows; generated_source_range_* and generated_source_sql_generator_function for SQL generator rows; generated_source_certificate_status=present; output_native_io_certificate_status=certified_local_file_sink; fallback_attempted=false; and external_engine_invoked=false.
 
 ## Common Mistakes
 

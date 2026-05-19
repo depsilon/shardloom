@@ -296,7 +296,7 @@ Rules:
 
 ## Non-Goals
 
-- No additional generated-output runtime beyond the scoped local Python JSONL fixture smokes.
+- No additional generated-output runtime beyond the scoped local Python JSONL/CSV fixture smokes.
 - No SQL/DataFrame runtime claim.
 - No Foundry production claim.
 - No OpenLineage backend integration.

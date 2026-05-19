@@ -1321,7 +1321,7 @@ fn workflow_unsupported_sql_source_free_projection() -> WorkflowUnsupportedOpera
         feature: "gar_gen_1.sql_source_free_projection",
         blocker_id: "gar-gen-1.sql_source_free_projection_runtime_not_implemented",
         required_evidence: "sql_parser,binder,planner,source_free_projection_contract,generated_source_certificate,output_native_io_certificate,no_fallback_evidence",
-        suggested_next_action: "Use ctx.sql_values(...).write(...) or ctx.sql_literal_select(...).write(...) for scoped local JSONL smokes; broader SQL source-free projection remains blocked until expression evidence is certified.",
+        suggested_next_action: "Use ctx.sql_values(...).write(...) or ctx.sql_literal_select(...).write(...) for scoped local JSONL/CSV smokes; broader SQL source-free projection remains blocked until expression evidence is certified.",
         diagnostic_code: DiagnosticCode::UnsupportedSql,
         materialization_required: false,
         write_required: false,

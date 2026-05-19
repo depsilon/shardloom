@@ -1693,6 +1693,103 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_generated_source_write_csv_helpers_invoke_generated_source_smokes(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                command = sys.argv[1]
+                if command == "generated-source-range-smoke":
+                    assert sys.argv[1:] == [
+                        "generated-source-range-smoke",
+                        "target/range.csv",
+                        "1",
+                        "4",
+                        "--step",
+                        "1",
+                        "--column",
+                        "id",
+                        "--output-format",
+                        "csv",
+                        "--allow-overwrite",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    fields = [
+                        {"key": "output_path", "value": "target/range.csv"},
+                        {"key": "output_format", "value": "csv"},
+                        {"key": "generated_source_kind", "value": "range"},
+                        {"key": "generated_source_row_count", "value": "3"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    ]
+                elif command == "generated-source-sql-smoke":
+                    assert sys.argv[1:] == [
+                        "generated-source-sql-smoke",
+                        "target/sql-values.csv",
+                        "VALUES (1, 'alpha')",
+                        "--output-format",
+                        "csv",
+                        "--allow-overwrite",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    fields = [
+                        {"key": "output_path", "value": "target/sql-values.csv"},
+                        {"key": "output_format", "value": "csv"},
+                        {"key": "generated_source_kind", "value": "sql_values"},
+                        {"key": "generated_source_row_count", "value": "1"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    ]
+                else:
+                    raise AssertionError(sys.argv)
+
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "generated source",
+                    "human_text": "generated source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        range_report = ctx.range(1, 4, column="id").write_csv(
+            "target/range.csv",
+            allow_overwrite=True,
+        )
+        sql_report = ctx.sql_values("VALUES (1, 'alpha')").write_csv(
+            "target/sql-values.csv",
+            allow_overwrite=True,
+        )
+
+        self.assertEqual(range_report.envelope.command, "generated-source-range-smoke")
+        self.assertEqual(range_report.output_path, "target/range.csv")
+        self.assertEqual(range_report.output_format, "csv")
+        self.assertEqual(range_report.generated_source_kind, "range")
+        self.assertFalse(range_report.fallback_attempted)
+        self.assertFalse(range_report.external_engine_invoked)
+
+        self.assertEqual(sql_report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(sql_report.output_path, "target/sql-values.csv")
+        self.assertEqual(sql_report.output_format, "csv")
+        self.assertEqual(sql_report.generated_source_kind, "sql_values")
+        self.assertFalse(sql_report.fallback_attempted)
+        self.assertFalse(sql_report.external_engine_invoked)
+
     def test_context_sql_local_source_collect_invokes_sql_smoke(self) -> None:
         statement = "SELECT id FROM 'target/input.csv' WHERE id >= 1 LIMIT 2"
         binary = self.fake_cli(
@@ -2917,17 +3014,17 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ])
                 for row_id, surface, family, status, runtime, write_io, generated, output_io, source_cert, output_cert, generated_cert, claim_status, blocker in [
                     ("no_dataset_smoke", "no-dataset smoke / capability proof", "no_dataset_smoke", "smoke-supported", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_no_output_data", "not_applicable_no_generated_rows", "smoke_only", "gar-gen-1.no_dataset_smoke_not_generated_output"),
-                    ("python_ctx_from_rows", "Python ctx.from_rows([...]).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_jsonl_smoke_only"),
-                    ("python_ctx_range", "Python ctx.range(...).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_range_jsonl_smoke_only"),
-                    ("python_ctx_sequence", "Python ctx.sequence(...).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sequence_jsonl_smoke_only"),
-                    ("python_ctx_literal_table", "Python ctx.literal_table([...]).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_literal_table_jsonl_smoke_only"),
-                    ("python_ctx_calendar", "Python ctx.calendar(start,end).write(local_jsonl)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_calendar_jsonl_smoke_only"),
+                    ("python_ctx_from_rows", "Python ctx.from_rows([...]).write(local_jsonl_or_csv)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_jsonl_csv_smoke_only"),
+                    ("python_ctx_range", "Python ctx.range(...).write(local_jsonl_or_csv)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_range_jsonl_csv_smoke_only"),
+                    ("python_ctx_sequence", "Python ctx.sequence(...).write(local_jsonl_or_csv)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sequence_jsonl_csv_smoke_only"),
+                    ("python_ctx_literal_table", "Python ctx.literal_table([...]).write(local_jsonl_or_csv)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_literal_table_jsonl_csv_smoke_only"),
+                    ("python_ctx_calendar", "Python ctx.calendar(start,end).write(local_jsonl_or_csv)", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_calendar_jsonl_csv_smoke_only"),
                     ("python_generated_source_write", "Generated-source write path", "python_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_supported_generated_source_write_smokes_only"),
                     ("local_output_only_generated_source_posture", "Generated-source local-output-only posture", "output_boundary", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "local_output_certificate_required", "not_emitted_report_only", "not_claim_grade", "gar-compat-1b.non_local_generated_output_blocked"),
-                    ("sql_literal_select", "SQL SELECT literal expressions", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_literal_select_jsonl_smoke_only"),
-                    ("sql_values", "SQL VALUES (...)", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_values_jsonl_smoke_only"),
+                    ("sql_literal_select", "SQL SELECT literal expressions", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_literal_select_jsonl_csv_smoke_only"),
+                    ("sql_values", "SQL VALUES (...)", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_values_jsonl_csv_smoke_only"),
                     ("sql_source_free_projection", "SQL source-free projection", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_source_free_projection_runtime_not_implemented"),
-                    ("sql_generate_series_range", "SQL generate_series/range", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_generate_series_range_jsonl_smoke_only"),
+                    ("sql_generate_series_range", "SQL generate_series/range", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only"),
                     ("dataframe_source_free_projection", "DataFrame source-free projection", "dataframe_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented"),
                     ("dataframe_generated_with_column", "DataFrame generated with_column", "dataframe_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented"),
                 ]:
@@ -2955,7 +3052,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 for row_id, surface, family, direction, status, runtime, report_only, credential, network, source_io, output_io, native_status, generated_status, claim_status, blocker, claim_boundary in [
                     ("vortex", "Vortex", "native_file_layout", "read_write", "runtime-supported", "true", "false", "false", "false", "true", "true", "scoped_local_vortex_evidence_backed", "not_applicable", "fixture_smoke_only", "gar-compat-1a.vortex_universal_runtime_evidence_missing", "scoped local Vortex evidence only"),
                     ("object_store_s3_gcs_adls", "S3 / GCS / ADLS", "object_store", "read_write", "blocked", "false", "false", "true", "true", "false", "false", "not_emitted", "not_applicable", "not_claim_grade", "gar-compat-1c.object_store_runtime_blocked", "no object-store runtime claim"),
-                    ("sql_values_literals", "SQL VALUES / literals", "sql_frontend", "api", "smoke-supported", "false", "false", "false", "false", "false", "true", "local_output_certificate_required", "scoped_local_jsonl_smoke", "fixture_smoke_only", "none_scoped_local_sql_values_literals_jsonl_smoke_only", "source-free SQL VALUES/literal local JSONL fixture smoke only"),
+                    ("sql_values_literals", "SQL VALUES / literals", "sql_frontend", "api", "smoke-supported", "false", "false", "false", "false", "false", "true", "local_output_certificate_required", "scoped_local_jsonl_csv_smoke", "fixture_smoke_only", "none_scoped_local_sql_values_literals_jsonl_csv_smoke_only", "source-free SQL VALUES/literal local JSONL/CSV fixture smoke only"),
                     ("foundry", "Foundry", "platform_integration", "api", "report-only", "false", "true", "true", "true", "false", "false", "not_emitted", "not_emitted_report_only", "not_claim_grade", "gar-compat-1a.foundry_platform_proof_missing", "future validation target only"),
                 ]:
                     prefix = f"universal_compatibility_row_{row_id}"

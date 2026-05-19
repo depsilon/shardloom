@@ -1096,7 +1096,7 @@ plan before coding.
   invoking external engines, or upgrading support to claim-grade runtime.
 - [ ] Source-free generated-output workflows such as `ctx.from_rows(...).write(...)`,
   `ctx.literal_table(...).write(...)`, `ctx.calendar(...).write(...)`, and
-  `ctx.range(...).write(...)`/`ctx.sequence(...).write(...)` now have scoped local JSONL smoke paths, and
+  `ctx.range(...).write(...)`/`ctx.sequence(...).write(...)` now have scoped local JSONL/CSV smoke paths, and
   `shardloom.generated_source_api_admission.v1` exposes deterministic admission rows for
   SQL literal `SELECT`, SQL `VALUES`, SQL source-free projection, SQL `generate_series`/`range`,
   DataFrame source-free projection, and generated `with_column`. `GAR-COMPAT-1B` projects the same

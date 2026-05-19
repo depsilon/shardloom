@@ -161,7 +161,7 @@ class UnsupportedWorkflowReport:
 
 @dataclass(frozen=True, slots=True)
 class GeneratedRowsSource:
-    """Scoped source-free user rows that can write a local JSONL smoke output."""
+    """Scoped source-free user rows that can write a local smoke output."""
 
     schema_arg: str
     rows_arg: str
@@ -242,10 +242,42 @@ class GeneratedRowsSource:
             check=check,
         )
 
+    def write_jsonl(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="jsonl")`."""
+
+        return self.write(
+            target_uri,
+            output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_csv(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="csv")`."""
+
+        return self.write(
+            target_uri,
+            output_format="csv",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class GeneratedRangeSource:
-    """Scoped ShardLoom-native integer generator that can write a local JSONL smoke output."""
+    """Scoped ShardLoom-native integer generator that can write a local smoke output."""
 
     start: int
     end: int
@@ -286,10 +318,42 @@ class GeneratedRangeSource:
             check=check,
         )
 
+    def write_jsonl(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="jsonl")`."""
+
+        return self.write(
+            target_uri,
+            output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_csv(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="csv")`."""
+
+        return self.write(
+            target_uri,
+            output_format="csv",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class GeneratedSqlSource:
-    """Scoped source-free SQL literal/VALUES query that can write local JSONL smoke output."""
+    """Scoped source-free SQL literal/VALUES query that can write local smoke output."""
 
     statement: str
     client: ShardLoomClient
@@ -308,6 +372,38 @@ class GeneratedSqlSource:
             target_uri,
             self.statement,
             output_format=output_format,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_jsonl(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="jsonl")`."""
+
+        return self.write(
+            target_uri,
+            output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_csv(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="csv")`."""
+
+        return self.write(
+            target_uri,
+            output_format="csv",
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -355,8 +451,6 @@ class SqlWorkflow:
 
         normalized_output_format = _normalize_local_output_format(output_format)
         if _is_source_free_sql_statement(self.statement):
-            if normalized_output_format != "jsonl":
-                raise ValueError("source-free SQL writes currently support local JSONL only")
             return self.client.generated_source_sql_smoke(
                 target_uri,
                 self.statement,
@@ -373,6 +467,38 @@ class SqlWorkflow:
                 check=check,
             )
         return self._unsupported_operation("sql", self.statement, check=check)
+
+    def write_jsonl(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="jsonl")`."""
+
+        return self.write(
+            target_uri,
+            output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_csv(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="csv")`."""
+
+        return self.write(
+            target_uri,
+            output_format="csv",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
 
     def _unsupported_operation(
         self,
@@ -1369,7 +1495,7 @@ def calendar(
     client: ShardLoomClient | None = None,
     **client_config: object,
 ) -> GeneratedRowsSource:
-    """Create a scoped source-free calendar/date dimension for local JSONL output.
+    """Create a scoped source-free calendar/date dimension for local output.
 
     Dates are generated in Python with an inclusive `start` and exclusive `end`,
     mirroring `range(start, end)`. The write path still goes through ShardLoom's

@@ -30,8 +30,8 @@ performance claims, Spark-displacement claims, external engine execution, or fal
 | `first_10_minutes_local_smoke` | `ready_local` | `no_dataset_smoke` | `batch_status` | Smoke/capability/status only; no dataset read and no output data claim. |
 | `local_csv_parquet_certified_workload` | `smoke_supported` | `compatibility_import_certified` | `batch` | Scoped local CSV/Parquet workload evidence only. |
 | `prepared_native_vortex_batch_smoke` | `smoke_supported` | `prepared_vortex/native_vortex` | `batch` | Prepared/native local batch smoke and source-backed scan evidence only. |
-| `source_free_user_rows_jsonl` | `smoke_supported` | `source_free_generated_output` | `batch` | Scoped local JSONL output from caller-provided rows only. |
-| `source_free_range_jsonl` | `smoke_supported` | `source_free_generated_output` | `batch` | Scoped local JSONL output from the admitted range generator only. |
+| `source_free_user_rows_jsonl_csv` | `smoke_supported` | `source_free_generated_output` | `batch` | Scoped local JSONL/CSV output from caller-provided rows only. |
+| `source_free_range_jsonl_csv` | `smoke_supported` | `source_free_generated_output` | `batch` | Scoped local JSONL/CSV output from the admitted range generator only. |
 | `dirty_csv_fixture` | `smoke_supported` | `compatibility_import_certified` | `batch` | Benchmark fixture evidence only, not broad data-quality runtime. |
 | `nested_json_fixture` | `smoke_supported` | `compatibility_import_certified` | `batch` | Benchmark fixture evidence only, not broad JSON runtime. |
 | `cdc_overlay_fixture` | `smoke_supported` | `compatibility_import_certified` | `batch` | Local fixture evidence only, not production incremental ETL. |

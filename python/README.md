@@ -348,7 +348,7 @@ JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
 `group_by(...).agg(...).limit(n)` with an optional filter, and a single-key
 numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric sort
-keys. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL file
+keys. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL/CSV file
 by default, and local-source workflows can use `write(..., output_format="csv")`
 or `write_csv(...)` for the scoped local CSV sink. Written local sinks emit
 format-specific output Native I/O certificate fields:
@@ -756,7 +756,7 @@ the per-API admission matrix is exposed as `generated_source_api_admission`.
 `GAR-NOVEL-1A` also exposes `generated_source_evidence_alignment`, which ties the same
 GeneratedSourceCertificate rows to report-only OpenLineage, OpenTelemetry, Bayesian-confidence,
 and Foundry generated-output boundary refs without enabling exporters or platform runtime.
-Scoped local JSONL smoke paths are runtime-supported for caller-provided rows,
+Scoped local JSONL/CSV smoke paths are runtime-supported for caller-provided rows,
 Python literal tables, Python calendar/date dimensions, ShardLoom-native
 range/sequence generators, SQL `VALUES`, SQL literal `SELECT`, and SQL
 `generate_series`/`range`. Broader SQL/DataFrame
@@ -814,7 +814,7 @@ print(generated.row("local_output_only_generated_source_posture").blocker_id)
 print(generated.all_no_fallback_no_external_engine)
 ```
 
-This compatibility contract is still a capability map. It can say local JSONL generated-output
+This compatibility contract is still a capability map. It can say local JSONL/CSV generated-output
 smokes exist for user rows, literal tables, calendar/date dimensions, range, sequence, scoped
 generated-row projection/literal `with_column`, SQL `VALUES`, SQL literal `SELECT`, and SQL
 `generate_series`/`range`, but it keeps
@@ -822,7 +822,7 @@ broader SQL runtime, broad DataFrame generated expressions, object-store/lakehou
 Foundry generated-output runtime as report-only or blocked.
 
 The supported user-row local smoke uses Python rows supplied by the caller,
-writes a local JSONL file, and returns generated-source/output evidence:
+writes a local JSONL/CSV file, and returns generated-source/output evidence:
 
 ```python
 from shardloom import context
@@ -914,7 +914,7 @@ print(calendar_report.claim_gate_status)
 ```
 
 The supported engine-native range smoke is separate. It generates deterministic
-`int64` rows inside ShardLoom, writes local JSONL, and emits the same
+`int64` rows inside ShardLoom, writes local JSONL/CSV, and emits the same
 generated-source/output/no-fallback evidence family:
 
 ```python
@@ -938,7 +938,7 @@ shardloom generated-source-range-smoke target\generated-range.jsonl 0 5 --column
 ```
 
 The supported engine-native sequence smoke uses the same integer generator contract while reporting
-`generated_source_kind=sequence`. It is scoped to local JSONL output and does not admit broader
+`generated_source_kind=sequence`. It is scoped to local JSONL/CSV output and does not admit broader
 DataFrame generation:
 
 ```python
@@ -962,7 +962,7 @@ shardloom generated-source-sequence-smoke target\generated-sequence.jsonl 0 5 --
 ```
 
 The supported source-free SQL smokes parse a deliberately tiny SQL subset inside ShardLoom and write
-local JSONL with generated-source/output/no-fallback evidence. SQL `VALUES` uses generated column
+local JSONL/CSV with generated-source/output/no-fallback evidence. SQL `VALUES` uses generated column
 names, literal `SELECT` accepts `AS` aliases, and `SELECT * FROM generate_series/range(...)`
 creates an integer source-free table with range evidence:
 
@@ -1015,29 +1015,29 @@ The contract separates three cases:
 - `no_dataset_smoke`: status/capability/proof smoke only; no generated rows, no
   source Native I/O certificate, and no output data claim.
 - `user_generated_source`: scoped local user rows, literal tables, calendar/date dimensions, and
-  generated-row projection/literal `with_column` are supported for JSONL fixture-smoke writes
+  generated-row projection/literal `with_column` are supported for JSONL/CSV fixture-smoke writes
   through `ctx.from_rows(...).write(...)`, `ctx.from_rows(...).with_column(...).select(...).write(...)`,
   `ctx.literal_table(...).write(...)`, and `ctx.calendar(...).write(...)`; broader
   generated-source APIs remain report-only.
 - `engine_native_generated_source`: scoped local `range`, `sequence`, and SQL
-  `generate_series`/`range` JSONL fixture smokes are supported through
+  `generate_series`/`range` JSONL/CSV fixture smokes are supported through
   `ctx.range(...).write(...)`, `ctx.sequence(...).write(...)`, and
   `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`; engine-native `values`
   and deterministic synthetic profiles remain report-only.
 
-Source-free SQL `VALUES` and literal `SELECT` are runtime-supported only as local JSONL fixture
+Source-free SQL `VALUES` and literal `SELECT` are runtime-supported only as local JSONL/CSV fixture
 smokes. Broad SQL execution and broad DataFrame expression execution are not runtime-supported yet.
 Current
 source-free API admission rows classify:
 
 - `python_ctx_from_rows`, `python_ctx_literal_table`, `python_ctx_calendar`,
   `python_ctx_range`, `python_ctx_sequence`, and `python_generated_source_write`
-  as `fixture_smoke_supported` only for scoped local JSONL generated-output
+  as `fixture_smoke_supported` only for scoped local JSONL/CSV generated-output
   smokes with generated-source and output evidence. `GeneratedRowsSource.select(...)` and
   `GeneratedRowsSource.with_column(...)` are scoped Python conveniences over the user-row,
   literal-table, and calendar rows before that same write path.
 - SQL literal `SELECT`, SQL `VALUES`, and SQL `generate_series`/`range`
-  as `fixture_smoke_supported` only for scoped local JSONL source-free generated-output smokes with
+  as `fixture_smoke_supported` only for scoped local JSONL/CSV source-free generated-output smokes with
   generated-source and output evidence.
 - SQL source-free projection, broad DataFrame source-free projection, and expression-backed
   generated `with_column` forms as `report_only` with deterministic blocker IDs.
@@ -1059,7 +1059,7 @@ Generated-output runtime must report
 `fallback_attempted=false`, `external_engine_invoked=false`, and
 `claim_gate_status`. The current user-row, transformed user-row, literal-table, calendar, range,
 sequence, SQL `VALUES`, SQL literal `SELECT`, and SQL `generate_series`/`range` paths report
-`claim_gate_status=fixture_smoke_only` in their scoped local JSONL lanes. S3/object-store writes
+`claim_gate_status=fixture_smoke_only` in their scoped local JSONL/CSV lanes. S3/object-store writes
 remain report-only/gated, and Foundry generated-output smoke must go through Foundry output APIs
 rather than direct S3 paths.
 

@@ -132,7 +132,7 @@
         "fallback_attempted=false",
         "external_engine_invoked=false"
       ],
-      "claim_boundary": "Scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL fixture smokes only; broad SQL/DataFrame runtime, object-store writes, and Foundry generated-output runtime remain gated.",
+      "claim_boundary": "Scoped local user-row, literal-table, calendar/date-dimension, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV fixture smokes only; broad SQL/DataFrame runtime, object-store writes, and Foundry generated-output runtime remain gated.",
       "references": [
         "docs/foundry/proof-of-use-certification.md",
         "docs/architecture/compute-engine-flow-reference.md",

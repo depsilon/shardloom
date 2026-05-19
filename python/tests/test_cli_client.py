@@ -1056,10 +1056,10 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "no_dataset_smoke_output_io_performed", "value": "false"},
                             {"key": "no_dataset_smoke_claim_gate_status", "value": "smoke_only"},
                             {"key": "user_generated_source_support_status", "value": "fixture_smoke_supported"},
-                            {"key": "user_generated_source_blocker_id", "value": "none_scoped_local_jsonl_smoke_only"},
+                            {"key": "user_generated_source_blocker_id", "value": "none_scoped_local_jsonl_csv_smoke_only"},
                             {"key": "user_generated_source_claim_gate_status", "value": "fixture_smoke_only"},
                             {"key": "engine_native_generated_source_support_status", "value": "fixture_smoke_supported"},
-                            {"key": "engine_native_generated_source_blocker_id", "value": "none_scoped_local_range_sequence_jsonl_smoke_only"},
+                            {"key": "engine_native_generated_source_blocker_id", "value": "none_scoped_local_range_sequence_jsonl_csv_smoke_only"},
                             {"key": "input_dataset_count", "value": "0"},
                             {"key": "source_io_performed", "value": "false"},
                             {"key": "generated_source_created", "value": "false"},
@@ -1067,16 +1067,16 @@ class ShardLoomClientTests(unittest.TestCase):
                             {"key": "generated_source_certificate_status", "value": "not_applicable_no_generated_rows"},
                         ])
                         api_rows = [
-                            ("python_ctx_from_rows", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
-                            ("python_ctx_range", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_range_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
-                            ("python_ctx_sequence", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sequence_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
-                            ("python_ctx_literal_table", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_literal_table_jsonl_smoke_only", "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
-                            ("python_ctx_calendar", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_calendar_jsonl_smoke_only", "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("python_ctx_from_rows", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_jsonl_csv_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("python_ctx_range", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_range_jsonl_csv_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("python_ctx_sequence", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sequence_jsonl_csv_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("python_ctx_literal_table", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_literal_table_jsonl_csv_smoke_only", "literal_table_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("python_ctx_calendar", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_calendar_jsonl_csv_smoke_only", "calendar_generator_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("python_generated_source_write", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_supported_generated_source_write_smokes_only", "generated_source_kind,generated_source_schema_digest,generated_source_row_count,generated_source_plan_digest,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
-                            ("sql_literal_select", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_literal_select_jsonl_smoke_only", "sql_parser,sql_binder,sql_planner,literal_projection_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
-                            ("sql_values", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_values_jsonl_smoke_only", "sql_parser,sql_binder,values_table_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("sql_literal_select", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_literal_select_jsonl_csv_smoke_only", "sql_parser,sql_binder,sql_planner,literal_projection_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("sql_values", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_values_jsonl_csv_smoke_only", "sql_parser,sql_binder,values_table_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("sql_source_free_projection", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.sql_source_free_projection_runtime_not_implemented", "sql_expression_semantics,projection_plan_digest,generated_source_certificate,execution_certificate", "not_claim_grade"),
-                            ("sql_generate_series_range", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_generate_series_range_jsonl_smoke_only", "sql_parser,sql_binder,sql_table_function_contract,range_generator_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("sql_generate_series_range", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only", "sql_parser,sql_binder,sql_table_function_contract,range_generator_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("dataframe_source_free_projection", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented", "typed_expression_contract,projection_plan_digest,generated_source_certificate,execution_certificate", "not_claim_grade"),
                             ("dataframe_generated_with_column", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented", "expression_engine,type_coercion,determinism_policy,generated_source_certificate,execution_certificate", "not_claim_grade"),
                         ]
@@ -1120,7 +1120,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             ])
                         alignment_rows = [
                             ("no_dataset_smoke", "smoke_only", "no_dataset_smoke", "false", "not_applicable_no_generated_rows", "not_emitted_no_output_data", "not_emitted_no_generated_rows", "not_emitted_smoke_only", "not_applicable_smoke_only", "not_applicable", "gar-novel-1a.no_dataset_smoke_not_generated_output", "no_dataset_smoke_status,capability_envelope,no_fallback_evidence", "smoke_only"),
-                            ("python_generated_source_write", "fixture_smoke_supported", "user_generated_source_or_engine_native_generated_source", "true", "required_for_runtime", "required_for_runtime_output", "report_only_generated_source_facet_ref", "report_only_result_sink_span_ref", "advisory_ref_only", "not_applicable_local_output", "none_scoped_local_jsonl_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("python_generated_source_write", "fixture_smoke_supported", "user_generated_source_or_engine_native_generated_source", "true", "required_for_runtime", "required_for_runtime_output", "report_only_generated_source_facet_ref", "report_only_result_sink_span_ref", "advisory_ref_only", "not_applicable_local_output", "none_scoped_local_jsonl_csv_smoke_only", "generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("sql_dataframe_source_free", "report_only", "sql_dataframe_report_only", "false", "not_emitted_report_only", "not_emitted_report_only", "mapped_report_only_no_event", "mapped_report_only_no_export", "advisory_schema_only", "not_applicable", "gar-novel-1a.sql_dataframe_runtime_not_implemented", "parser_binder_or_dataframe_plan,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "not_claim_grade"),
                             ("foundry_generated_output", "report_only", "foundry_report_only", "false", "not_emitted_report_only", "not_emitted_report_only", "mapped_report_only_no_event", "mapped_report_only_no_export", "not_applicable_until_runtime_proof", "shardloom.foundry_generated_output_boundary.v1", "gar-gen-1f.foundry_output_api_not_invoked", "foundry_output_api_evidence,result_dataset_written,evidence_dataset_written,generated_source_certificate,output_native_io_certificate,no_fallback_evidence", "not_claim_grade"),
                         ]
@@ -1491,9 +1491,9 @@ class ShardLoomClientTests(unittest.TestCase):
                         fields.extend([
                             {"key": "etl_workflow_matrix_schema_version", "value": "shardloom.etl_workflow_capability_matrix.v1"},
                             {"key": "etl_workflow_matrix_id", "value": "gar-0033-a.etl_workflow_capability_matrix"},
-                            {"key": "etl_workflow_row_order", "value": "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,source_free_literal_table_jsonl,source_free_calendar_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"},
+                            {"key": "etl_workflow_row_order", "value": "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl_csv,source_free_range_jsonl_csv,source_free_literal_table_jsonl_csv,source_free_calendar_jsonl_csv,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture,sql_dataframe_capability_posture,data_quality_api,object_store_runtime,table_lakehouse_runtime,production_etl_certification"},
                             {"key": "etl_workflow_row_count", "value": "15"},
-                            {"key": "etl_workflow_supported_local_rows", "value": "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl,source_free_range_jsonl,source_free_literal_table_jsonl,source_free_calendar_jsonl,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture"},
+                            {"key": "etl_workflow_supported_local_rows", "value": "first_10_minutes_local_smoke,local_csv_parquet_certified_workload,prepared_native_vortex_batch_smoke,source_free_user_rows_jsonl_csv,source_free_range_jsonl_csv,source_free_literal_table_jsonl_csv,source_free_calendar_jsonl_csv,dirty_csv_fixture,nested_json_fixture,cdc_overlay_fixture"},
                             {"key": "etl_workflow_supported_local_count", "value": "10"},
                             {"key": "etl_workflow_report_only_rows", "value": "sql_dataframe_capability_posture,data_quality_api"},
                             {"key": "etl_workflow_report_only_count", "value": "2"},
@@ -1639,9 +1639,9 @@ class ShardLoomClientTests(unittest.TestCase):
             "local_csv_parquet_certified_workload",
             etl_workflows.supported_local_rows,
         )
-        self.assertIn("source_free_user_rows_jsonl", etl_workflows.supported_local_rows)
-        self.assertIn("source_free_literal_table_jsonl", etl_workflows.supported_local_rows)
-        self.assertIn("source_free_calendar_jsonl", etl_workflows.supported_local_rows)
+        self.assertIn("source_free_user_rows_jsonl_csv", etl_workflows.supported_local_rows)
+        self.assertIn("source_free_literal_table_jsonl_csv", etl_workflows.supported_local_rows)
+        self.assertIn("source_free_calendar_jsonl_csv", etl_workflows.supported_local_rows)
         self.assertIn("dirty_csv_fixture", etl_workflows.supported_local_rows)
         self.assertEqual(
             etl_workflows.report_only_rows,
@@ -1759,7 +1759,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             generated_source.user_generated_source.blocker_id,
-            "none_scoped_local_jsonl_smoke_only",
+            "none_scoped_local_jsonl_csv_smoke_only",
         )
         self.assertEqual(
             generated_source.user_generated_source.claim_gate_status,
@@ -1771,7 +1771,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             generated_source.engine_native_generated_source.blocker_id,
-            "none_scoped_local_range_sequence_jsonl_smoke_only",
+            "none_scoped_local_range_sequence_jsonl_csv_smoke_only",
         )
         self.assertEqual(
             capabilities.sql_support.generated_source_contract.schema_version,
@@ -1783,7 +1783,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             capabilities.api_surfaces.generated_source_contract.engine_native_generated_source.blocker_id,
-            "none_scoped_local_range_sequence_jsonl_smoke_only",
+            "none_scoped_local_range_sequence_jsonl_csv_smoke_only",
         )
         api_admission = capabilities.python.generated_source_api_admission
         self.assertIsInstance(api_admission, GeneratedSourceApiAdmissionMatrix)
@@ -1827,7 +1827,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(api_admission.row("sql_values").runtime_execution)
         self.assertEqual(
             api_admission.row("sql_values").blocker_id,
-            "none_scoped_local_sql_values_jsonl_smoke_only",
+            "none_scoped_local_sql_values_jsonl_csv_smoke_only",
         )
         self.assertEqual(
             capabilities.sql_support.generated_source_api_admission.row(

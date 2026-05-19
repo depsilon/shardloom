@@ -216,6 +216,12 @@ class GeneratedSourceWriteReport:
         return _required_field(self.envelope, "output_path")
 
     @property
+    def output_format(self) -> str | None:
+        """Return the local output sink format when present."""
+
+        return self.envelope.field("output_format")
+
+    @property
     def generated_source_kind(self) -> str:
         """Return the generated-source kind."""
 

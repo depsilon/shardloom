@@ -6,13 +6,17 @@ use std::{
 };
 
 fn unique_output_path(name: &str) -> PathBuf {
+    unique_output_path_with_extension(name, "jsonl")
+}
+
+fn unique_output_path_with_extension(name: &str, extension: &str) -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system clock after unix epoch")
         .as_nanos();
     std::env::temp_dir().join(format!(
-        "shardloom-{name}-{}-{nanos}.jsonl",
-        std::process::id()
+        "shardloom-{name}-{}-{nanos}.{extension}",
+        std::process::id(),
     ))
 }
 
@@ -104,6 +108,109 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     assert!(stdout.contains("\"correctness_digest\",\"value\":\"fnv64:"));
 
     fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
+fn generated_source_smokes_write_local_csv_outputs() {
+    let user_rows_path = unique_output_path_with_extension("generated-user-rows-csv", "csv");
+    let user_rows_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-user-rows-smoke",
+            user_rows_path.to_str().expect("temp path is utf8"),
+            "id:int64,label:utf8,active:bool",
+            "id=1,label=alpha,active=true;id=2,label=comma%2Cquote%22,active=false",
+            "--output-format",
+            "csv",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-user-rows-smoke command runs");
+    assert!(
+        user_rows_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&user_rows_output.stdout),
+        String::from_utf8_lossy(&user_rows_output.stderr)
+    );
+    let user_rows_written = fs::read_to_string(&user_rows_path).expect("csv output was written");
+    assert_eq!(
+        user_rows_written,
+        "id,label,active\n1,alpha,true\n2,\"comma,quote\"\"\",false\n"
+    );
+    let user_rows_stdout = String::from_utf8(user_rows_output.stdout).expect("stdout is utf8");
+    assert!(user_rows_stdout.contains(&field("output_format", "csv")));
+    assert!(user_rows_stdout.contains(&field(
+        "materialization_boundary",
+        "python_user_rows_to_local_csv_sink"
+    )));
+    assert!(user_rows_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(user_rows_stdout.contains(&field("external_engine_invoked", "false")));
+    fs::remove_file(user_rows_path).expect("remove csv output");
+
+    let range_path = unique_output_path_with_extension("generated-range-csv", "csv");
+    let range_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-range-smoke",
+            range_path.to_str().expect("temp path is utf8"),
+            "1",
+            "4",
+            "--column",
+            "id",
+            "--output-format",
+            "csv",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-range-smoke command runs");
+    assert!(
+        range_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&range_output.stdout),
+        String::from_utf8_lossy(&range_output.stderr)
+    );
+    let range_written = fs::read_to_string(&range_path).expect("csv output was written");
+    assert_eq!(range_written, "id\n1\n2\n3\n");
+    let range_stdout = String::from_utf8(range_output.stdout).expect("stdout is utf8");
+    assert!(range_stdout.contains(&field("output_format", "csv")));
+    assert!(range_stdout.contains(&field(
+        "materialization_boundary",
+        "engine_native_range_generator_to_local_csv_sink"
+    )));
+    assert!(range_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(range_stdout.contains(&field("external_engine_invoked", "false")));
+    fs::remove_file(range_path).expect("remove csv output");
+
+    let sql_path = unique_output_path_with_extension("generated-sql-csv", "csv");
+    let sql_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            sql_path.to_str().expect("temp path is utf8"),
+            "VALUES (1, 'alpha'), (2, 'beta')",
+            "--output-format",
+            "csv",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+    assert!(
+        sql_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&sql_output.stdout),
+        String::from_utf8_lossy(&sql_output.stderr)
+    );
+    let sql_written = fs::read_to_string(&sql_path).expect("csv output was written");
+    assert_eq!(sql_written, "column_1,column_2\n1,alpha\n2,beta\n");
+    let sql_stdout = String::from_utf8(sql_output.stdout).expect("stdout is utf8");
+    assert!(sql_stdout.contains(&field("output_format", "csv")));
+    assert!(sql_stdout.contains(&field(
+        "materialization_boundary",
+        "sql_values_to_local_csv_sink"
+    )));
+    assert!(sql_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(sql_stdout.contains(&field("external_engine_invoked", "false")));
+    fs::remove_file(sql_path).expect("remove csv output");
 }
 
 #[test]

@@ -313,15 +313,15 @@ or documentation updates alone are insufficient.
 
 - [ ] GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime
   - Source: `GAR-GEN-1`, `GAR-COMPAT-1B`, Use Case Atlas generated-source rows.
-  - Current state: scoped local JSONL generated-output smokes now exist for `from_rows`,
+  - Current state: scoped local JSONL/CSV generated-output smokes now exist for `from_rows`,
     `literal_table`, `calendar`, `range`, `sequence`, SQL `VALUES`, SQL literal `SELECT`, scoped
     SQL `SELECT * FROM generate_series/range(...)`, and Python generated-row projection/literal
     `with_column` before local writes with generated-source/output/no-fallback evidence. Remaining
     gaps are broader SQL source-free projection, arbitrary SQL table functions, broad DataFrame
     expression-backed projection/`with_column`, broader sink formats, object-store/Foundry
     generated-output paths, and claim-grade output coverage.
-  - Next slice outcome: implement generated-source builders across CLI/Python/SQL with local JSONL
-    or Vortex output where admitted.
+  - Next slice outcome: implement generated-source builders across CLI/Python/SQL with local
+    JSONL/CSV or Vortex output where admitted.
   - Runtime enablement: end-user generated-source execution that writes local output and emits a
     GeneratedSourceCertificate.
   - User-visible surface: Python `ctx.range`, `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`,
@@ -783,19 +783,20 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5A generated-source end-user runtime builders
   - Source: `GAR-RUNTIME-IMPL-4E`, `GAR-GEN-1`, `GAR-COMPAT-1B`, Use Case Atlas generated-source
     rows.
-  - Current state: no-dataset smoke remains separate. Scoped local JSONL generated-output runtime
+  - Current state: no-dataset smoke remains separate. Scoped local JSONL/CSV generated-output runtime
     now covers `ctx.from_rows`, generated-row `.select(...)`/literal `.with_column(...)`,
     `ctx.literal_table`, `ctx.calendar`, `ctx.range`, `ctx.sequence`, SQL `VALUES`, and SQL literal
-    `SELECT`. Broad DataFrame expression-backed source-free output, SQL `generate_series`/`range`,
-    broader source-free projection, broader output formats, object-store sinks, and Foundry
-    generated-output runtime remain incomplete or blocked.
+    `SELECT`, plus scoped SQL `SELECT * FROM generate_series/range(...)`. Broad DataFrame
+    expression-backed source-free output, broader source-free projection, broader output formats
+    beyond JSONL/CSV, object-store sinks, and Foundry generated-output runtime remain incomplete or
+    blocked.
   - Next slice outcome: promote one coherent local generated-source workflow set across CLI,
     Python, and SQL/DataFrame admission, writing local output with generated-source evidence.
   - Runtime enablement: ordinary end-user generated-source workflows that execute locally and write
     evidence-backed outputs.
-  - User-visible surface: `ctx.range(...)`, `ctx.from_rows(...)`, `ctx.literal_table(...)`,
-    `ctx.calendar(...)`, SQL `VALUES`/literal `SELECT`, CLI generated-source command, recipes,
-    website status.
+  - User-visible surface: `ctx.range(...)`, `ctx.sequence(...)`, `ctx.from_rows(...)`,
+    `ctx.literal_table(...)`, `ctx.calendar(...)`, SQL `VALUES`/literal `SELECT`/
+    `generate_series`/`range`, CLI generated-source command, recipes, website status.
   - Implementation scope: generated-source plan nodes, schema inference, deterministic seed/row
     accounting, local output writer integration, typed Python report fields, unsupported
     diagnostics.

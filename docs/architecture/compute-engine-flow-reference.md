@@ -194,7 +194,7 @@ lanes from batch/live/hybrid workload semantics so readers do not infer a hidden
 | Adoption and commercial readiness | Source-local dry-run proof, first-10-minutes docs, website/status, package-channel matrix, enterprise evidence export pack, Foundry dev-stack starter, workflow recipe library, and public-preview posture exist, but public package publication and production platform proofs are incomplete. | GAR-COMMERCIAL-1 turns local proof, package channels, buyer-facing status, evidence export, Foundry starter, and recipes into claim-safe adoption surfaces. | Adoption surfaces reduce evaluation friction only; they do not authorize production, package release, performance, Spark-replacement, SQL/DataFrame, object-store/lakehouse, or Foundry claims. |
 | Universal compatibility coverage | `docs/architecture/universal-compatibility-coverage-scoreboard.md` and `docs/architecture/universal-compatibility-coverage-scoreboard.json` now provide a report-only map for local files, Vortex, generated/source-free outputs, Python rows/DataFrame, SQL literals/VALUES, databases, warehouses, object stores, table formats, REST/Flight/ADBC, and Foundry. GAR-COMPAT-1B adds a compatibility-level `shardloom.universal_compatibility.generated_output_contract.v1` projection for no-dataset smoke, scoped Python generated-output smokes, local-output-only posture, SQL/DataFrame report-only rows, and Foundry/object-store blockers. GAR-COMPAT-1C adds `shardloom.universal_compatibility.object_store_admission_ladder.v1` for S3/GCS/ADLS URI parse, credential policy, public read, authenticated read, byte-range read, full-file read, local cache, write staging, and commit protocol admission status. GAR-COMPAT-1D adds `shardloom.universal_compatibility.table_format_boundary_matrix.v1` for Iceberg/Delta/Hudi metadata, scan, snapshot/time-travel, partition evolution, delete/tombstone, append, merge/update/delete, commit, rollback, catalog, and object-store coupling boundaries. GAR-COMPAT-1E adds `shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1` for SQLite, Postgres, MySQL, JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL import/export/query-pushdown boundaries. | Future GAR-COMPAT follow-through now moves to runtime-specific connector evidence only through scoped later slices. | Compatibility coverage is a capability map, not a production, performance, Spark-replacement, object-store/lakehouse, Foundry, SQL/DataFrame, database/warehouse connector, or package-readiness claim. |
 | I/O reuse and cross-format fanout | Prepared/native rows reuse selected source metadata and scenario-family source-state. GAR-IOREUSE-1A adds a universal local SourceState benchmark/report contract for source discovery/schema identity/fingerprints/parse-plan posture across CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC rows. GAR-IOREUSE-1B adds a VortexPreparedState benchmark/report contract for prepared artifact refs/digests, preparation timing separation, source-state linkage, and scoped reuse posture. GAR-IOREUSE-1C adds an OutputPlan benchmark/report contract for scoped local Vortex result-sink planning, metadata preservation posture, write/replay refs, and sink artifact identity. GAR-IOREUSE-1D adds report-only fanout benchmark rows for required cross-format cases. GAR-IOREUSE-1E adds cache invalidation/fingerprint rows for current local source/prepared/plan/output posture. GAR-IOREUSE-1F adds evidence-safe reuse-level rows and a reuse-level matrix. GAR-IOREUSE-1G adds report-only Foundry generated-output fanout posture to the local proof report. Runtime fanout and generated-output sink artifact evidence remain planned. | GAR-IOREUSE-1 follow-through now moves to runtime fanout, generated-source runtime, and claim-grade output evidence only through later scoped slices. | Input and output formats remain decoupled. SourceState, VortexPreparedState, OutputPlan, fanout matrix, cache invalidation evidence, reuse-level evidence, and Foundry generated-output fanout posture are not runtime cross-format fanout or persistent cache support by themselves, not a performance claim, and not object-store/lakehouse or Foundry production support. |
-| Source-free generated output | No-input smoke/capability behavior exists, benchmark synthetic fixtures exist, `shardloom.generated_source_certificate_contract.v1` exposes the case split, GAR-GEN-1C adds scoped `generated-source-user-rows-smoke`/Python `ctx.from_rows([...]).write(...)` local JSONL output, GAR-GEN-1D adds scoped `generated-source-range-smoke`/Python `ctx.range(...).write(...)` local JSONL output, this runtime slice adds scoped `generated-source-sequence-smoke`/Python `ctx.sequence(...).write(...)` local JSONL output, Python `ctx.literal_table([...]).write(...)` and `ctx.calendar(...).write(...)` are scoped local generated-output helpers, GAR-RUNTIME-IMPL-1A adds source-free SQL `VALUES` and literal `SELECT` JSONL smokes, the current follow-through adds `SELECT * FROM generate_series/range(...)` SQL source-free JSONL smokes with range evidence, GAR-COMPAT-1B projects those rows into compatibility/status surfaces, and GAR-NOVEL-1A adds `shardloom.generated_source_evidence_alignment.v1` for lineage/telemetry/confidence/Foundry refs. Broad DataFrame execution, object-store writes, Foundry generated-output runtime, arbitrary SQL table functions, and synthetic profiles remain unsupported/report-only. | GAR-GEN follow-through now moves to broader SQL/DataFrame generated-source runtime, other engine-native generator nodes, and broader output evidence through later scoped runtime slices; GAR-NOVEL-1B/C/D keep lineage, telemetry, and confidence as separate report-only follow-through slices. | No source Native I/O certificate is claimed when no source dataset is read. Current generated-output runtime is fixture-smoke-only and local-output-only; it is not a broad source-free runtime, object-store/lakehouse, Foundry, SQL/DataFrame, performance, package, or production claim. |
+| Source-free generated output | No-input smoke/capability behavior exists, benchmark synthetic fixtures exist, `shardloom.generated_source_certificate_contract.v1` exposes the case split, and scoped generated-output runtime can write local JSONL/CSV for `generated-source-user-rows-smoke`, `generated-source-range-smoke`, `generated-source-sequence-smoke`, `generated-source-sql-smoke`, Python `ctx.from_rows([...]).write(...)`, `ctx.literal_table([...]).write(...)`, `ctx.calendar(...).write(...)`, `ctx.range(...).write(...)`, `ctx.sequence(...).write(...)`, `ctx.sql_values(...).write(...)`, `ctx.sql_literal_select(...).write(...)`, and `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`. GAR-COMPAT-1B projects those rows into compatibility/status surfaces, and GAR-NOVEL-1A adds `shardloom.generated_source_evidence_alignment.v1` for lineage/telemetry/confidence/Foundry refs. Broad DataFrame execution, object-store writes, Foundry generated-output runtime, arbitrary SQL table functions, and synthetic profiles remain unsupported/report-only. | GAR-GEN follow-through now moves to broader SQL/DataFrame generated-source runtime, other engine-native generator nodes, and broader output evidence through later scoped runtime slices; GAR-NOVEL-1B/C/D keep lineage, telemetry, and confidence as separate report-only follow-through slices. | No source Native I/O certificate is claimed when no source dataset is read. Current generated-output runtime is fixture-smoke-only and local-output-only; it is not a broad source-free runtime, object-store/lakehouse, Foundry, SQL/DataFrame, performance, package, or production claim. |
 | Evidence exports and confidence | Evidence artifacts, protocol parity rows, internal timing fields, the GAR-NOVEL-1A generated-source evidence alignment report, `shardloom.openlineage_facet_mapping.v1`, `shardloom.opentelemetry_trace_export_contract.v1`, `shardloom.enterprise_evidence_export_pack.v1`, the GAR-PERF-1D report-only Bayesian performance/layout advisor contract, and `shardloom.traditional_analytics.bayesian_claim_confidence.v1` exist. OpenLineage custom facets and OpenTelemetry span placeholders are mapped but not emitted; the enterprise export pack is opt-in/local-first/report-only; Bayesian posterior claim-confidence is report-only/not-fit. | Future work fits posterior models and wires uncertainty blockers into release claim gates without enabling runtime decisions. Future evidence export implementation must stay opt-in, local-only by default, and redacted unless a separate backend/export gate lands. | OpenLineage mapping, telemetry export, enterprise export packs, and confidence surfaces cannot upgrade runtime support, production readiness, performance, lineage/telemetry backend support, or claim status. |
 | Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are visible in reports. | Continue shifting performance work toward prepared/native Vortex paths while preserving compatibility certification. | `auto` is selection only; it must emit the selected mode and reason. |
 | Runtime evidence level | `traditional-analytics-vortex-batch-run` now emits first-class evidence-level fields with the values `minimal_runtime`, `certified`, and `full_replay` beside execution mode for scoped prepared/native local artifacts. `minimal_runtime` blocks result-sink replay and reports `claim_gate_status=not_claim_grade`; `certified` emits normal certificate-bearing evidence without replay by default; `full_replay` requires result-sink replay proof. | Continue propagating the contract into future Python/API capability views and broader execution envelopes only where evidence exists. Later slices can add runtime-light benchmark lanes and policy views without hidden fast modes. | Every evidence level keeps `fallback_attempted=false`, `external_engine_invoked=false`, source/output digest status, and claim boundaries visible. Evidence level explains proof depth; it is not execution mode, performance evidence, SQL/DataFrame support, object-store/lakehouse support, Foundry support, or production readiness. |
@@ -642,7 +642,7 @@ End-to-end contract:
   must keep `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`
   visible.
 - SQL/DataFrame access currently combines narrow smoke support with broader report-only posture.
-  Source-free SQL `VALUES` and literal `SELECT` can write local JSONL through
+  Source-free SQL `VALUES` and literal `SELECT` can write local JSONL/CSV through
   `generated-source-sql-smoke`, and local CSV
   `SELECT <columns> FROM '<local.csv>' WHERE <scoped predicate> LIMIT <n>` can execute through
   `sql-local-source-smoke`. The scoped predicate grammar admits comparisons, `DATE` literals,
@@ -684,17 +684,17 @@ GeneratedSourceCertificate`. GAR-GEN-1A/GAR-GEN-1B expose
 `shardloom.generated_source_certificate_contract.v1` through CLI and Python capability views.
 GAR-GEN-1C adds `generated-source-user-rows-smoke` plus Python `ctx.from_rows([...]).write(...)`,
 `ctx.literal_table([...]).write(...)`, and `ctx.calendar(...).write(...)` for scoped local
-user-generated JSONL output smoke paths. GAR-GEN-1D adds `generated-source-range-smoke` plus Python
-`ctx.range(...).write(...)` for one ShardLoom-native range JSONL output smoke path. This runtime
-slice adds `generated-source-sequence-smoke` plus Python `ctx.sequence(...).write(...)` with the
-same scoped local JSONL sink and generated-source/output/no-fallback evidence contract.
+user-generated JSONL/CSV output smoke paths. GAR-GEN-1D adds `generated-source-range-smoke` plus
+Python `ctx.range(...).write(...)` for one ShardLoom-native range JSONL/CSV output smoke path. This
+runtime slice adds `generated-source-sequence-smoke` plus Python `ctx.sequence(...).write(...)` with
+the same scoped local JSONL/CSV sink and generated-source/output/no-fallback evidence contract.
 GAR-GEN-1E adds the source-free SQL/DataFrame/Python/API admission matrix
 `shardloom.generated_source_api_admission.v1` so users and agents can inspect supported,
 report-only, and blocked forms without executing unsupported runtime.
 GAR-RUNTIME-IMPL-1A adds `generated-source-sql-smoke` plus Python
 `ctx.sql_values(...).write(...)` and `ctx.sql_literal_select(...).write(...)` for scoped local
-source-free SQL `VALUES`, literal `SELECT`, and `SELECT * FROM generate_series/range(...)` JSONL
-output smoke paths.
+source-free SQL `VALUES`, literal `SELECT`, and `SELECT * FROM generate_series/range(...)`
+JSONL/CSV output smoke paths.
 GAR-COMPAT-1B projects the same generated-output posture into the universal compatibility
 scoreboard through `shardloom.universal_compatibility.generated_output_contract.v1`, making the
 website/status, CLI compatibility capability, Python `ctx.compatibility_scoreboard()`, SQL/DataFrame
@@ -705,8 +705,8 @@ posture, and Foundry/object-store blockers read from the same compatibility-leve
 | Case | Meaning | Current posture | Evidence boundary |
 | --- | --- | --- | --- |
 | `no_dataset_smoke` | Status, capability, or proof command runs with no input dataset and no output data execution. | Smoke-only capability/proof behavior; also present as the first generated-source contract row. | `generated_source_created=false`, `output_io_performed=false`, `generated_source_certificate_status=not_applicable_no_generated_rows`; no source Native I/O certificate, no generated rows, no output data claim. |
-| `user_generated_source` | User Python code creates rows, then ShardLoom consumes those rows as a generated/literal/calendar/source-free SQL source. | Scoped local JSONL fixture smoke through `generated-source-user-rows-smoke`, `ctx.from_rows([...]).write(...)`, `ctx.literal_table([...]).write(...)`, `ctx.calendar(...).write(...)`, `generated-source-sql-smoke`, `ctx.sql_values(...).write(...)`, `ctx.sql_literal_select(...).write(...)`, and `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`; broader SQL/DataFrame and non-local sinks remain report-only or blocked. | Deterministic claim only for the scoped local user-generated and source-free SQL paths when row creation, schema digest, row count, plan digest, sink evidence, and no-fallback evidence exist. |
-| `engine_native_generated_source` | ShardLoom plan contains generator nodes such as `range`, `sequence`, engine-native `values`, or a deterministic synthetic profile. | Scoped local JSONL fixture smoke for the `range` and `sequence` generators through `generated-source-range-smoke`, `generated-source-sequence-smoke`, `ctx.range(...).write(...)`, and `ctx.sequence(...).write(...)`; other engine-native generator nodes remain report-only. | Deterministic claim only for the scoped local range/sequence paths when row count, schema digest, plan digest, sink evidence, materialization boundary, and no-fallback evidence exist. |
+| `user_generated_source` | User Python code creates rows, then ShardLoom consumes those rows as a generated/literal/calendar/source-free SQL source. | Scoped local JSONL/CSV fixture smoke through `generated-source-user-rows-smoke`, `ctx.from_rows([...]).write(...)`, `ctx.literal_table([...]).write(...)`, `ctx.calendar(...).write(...)`, `generated-source-sql-smoke`, `ctx.sql_values(...).write(...)`, `ctx.sql_literal_select(...).write(...)`, and `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`; broader SQL/DataFrame and non-local sinks remain report-only or blocked. | Deterministic claim only for the scoped local user-generated and source-free SQL paths when row creation, schema digest, row count, plan digest, sink evidence, and no-fallback evidence exist. |
+| `engine_native_generated_source` | ShardLoom plan contains generator nodes such as `range`, `sequence`, engine-native `values`, or a deterministic synthetic profile. | Scoped local JSONL/CSV fixture smoke for the `range` and `sequence` generators through `generated-source-range-smoke`, `generated-source-sequence-smoke`, `ctx.range(...).write(...)`, and `ctx.sequence(...).write(...)`; other engine-native generator nodes remain report-only. | Deterministic claim only for the scoped local range/sequence paths when row count, schema digest, plan digest, sink evidence, materialization boundary, and no-fallback evidence exist. |
 
 ### Planned API Shape
 
@@ -734,7 +734,7 @@ SELECT * FROM range(0, 4);
 ```
 
 as source-free literal/VALUES/range-generator forms when they use admitted literal types or int64
-generator arguments and local JSONL output. `generate_series` uses an inclusive end; `range` uses an
+generator arguments and local JSONL/CSV output. `generate_series` uses an inclusive end; `range` uses an
 exclusive end. Broader SQL source-free projection, SQL over input datasets beyond the scoped local
 CSV/JSONL smoke, arbitrary functions, joins, subqueries, UDFs, and table-function shapes outside
 `SELECT * FROM generate_series/range(...)` stay report-only or blocked capability rows.
@@ -760,16 +760,16 @@ planner, runtime, or write operation.
 
 | Row | Current posture | Runtime/effect boundary |
 | --- | --- | --- |
-| `python_ctx_from_rows` | `fixture_smoke_supported` | Admits only scoped local JSONL user-row writes with generated-source and output evidence. |
-| `python_ctx_range` | `fixture_smoke_supported` | Admits only scoped local JSONL range writes with generated-source and output evidence. |
-| `python_ctx_sequence` | `fixture_smoke_supported` | Admits only scoped local JSONL sequence writes with generated-source and output evidence. |
-| `python_ctx_literal_table` | `fixture_smoke_supported` | Admits only scoped local JSONL literal-table writes with generated-source and output evidence. |
-| `python_ctx_calendar` | `fixture_smoke_supported` | Admits only scoped local JSONL calendar/date-dimension writes with generated-source and output evidence. |
+| `python_ctx_from_rows` | `fixture_smoke_supported` | Admits only scoped local JSONL/CSV user-row writes with generated-source and output evidence. |
+| `python_ctx_range` | `fixture_smoke_supported` | Admits only scoped local JSONL/CSV range writes with generated-source and output evidence. |
+| `python_ctx_sequence` | `fixture_smoke_supported` | Admits only scoped local JSONL/CSV sequence writes with generated-source and output evidence. |
+| `python_ctx_literal_table` | `fixture_smoke_supported` | Admits only scoped local JSONL/CSV literal-table writes with generated-source and output evidence. |
+| `python_ctx_calendar` | `fixture_smoke_supported` | Admits only scoped local JSONL/CSV calendar/date-dimension writes with generated-source and output evidence. |
 | `python_generated_source_write` | `fixture_smoke_supported` | Write helper is admitted only when attached to supported `user_rows`, `literal_table`, `calendar`, `range`, `sequence`, `sql_values`, `sql_literal_select`, or `sql_generate_series_range` generated sources. |
-| `sql_literal_select` | `fixture_smoke_supported` | Admits only scoped source-free literal `SELECT` local JSONL writes with parser/binder/planner, generated-source, output, execution, and no-fallback evidence. |
-| `sql_values` | `fixture_smoke_supported` | Admits only scoped source-free `VALUES` local JSONL writes with parser/binder/planner, generated-source, output, execution, and no-fallback evidence. |
+| `sql_literal_select` | `fixture_smoke_supported` | Admits only scoped source-free literal `SELECT` local JSONL/CSV writes with parser/binder/planner, generated-source, output, execution, and no-fallback evidence. |
+| `sql_values` | `fixture_smoke_supported` | Admits only scoped source-free `VALUES` local JSONL/CSV writes with parser/binder/planner, generated-source, output, execution, and no-fallback evidence. |
 | `sql_source_free_projection` | `report_only` | `blocker_id=gar-gen-1.sql_source_free_projection_runtime_not_implemented`; no SQL runtime or output claim. |
-| `sql_generate_series_range` | `fixture_smoke_supported` | Admits only `SELECT * FROM generate_series/range(...)` scoped local JSONL writes with int64 generator arguments, generated-source evidence, output evidence, and no-fallback evidence. |
+| `sql_generate_series_range` | `fixture_smoke_supported` | Admits only `SELECT * FROM generate_series/range(...)` scoped local JSONL/CSV writes with int64 generator arguments, generated-source evidence, output evidence, and no-fallback evidence. |
 | `dataframe_source_free_projection` | `report_only` | `blocker_id=gar-gen-1.dataframe_source_free_projection_runtime_not_implemented`; no broad DataFrame runtime. |
 | `dataframe_generated_with_column` | `report_only` | `blocker_id=gar-gen-1.dataframe_generated_with_column_runtime_not_implemented`; no expression-backed generation. |
 
@@ -798,7 +798,7 @@ The stable row order is:
 | Row | Current posture | Alignment boundary |
 | --- | --- | --- |
 | `no_dataset_smoke` | `smoke_only` | No generated rows, no output data, and no generated-source certificate. |
-| `python_generated_source_write` | `fixture_smoke_supported` | Scoped local JSONL fixture-smoke evidence can map to future lineage/telemetry refs, but those refs remain report-only. |
+| `python_generated_source_write` | `fixture_smoke_supported` | Scoped local JSONL/CSV fixture-smoke evidence can map to future lineage/telemetry refs, but those refs remain report-only. |
 | `sql_dataframe_source_free` | `report_only` | SQL/DataFrame source-free generation remains blocked until parser/planner/API runtime evidence exists. |
 | `foundry_generated_output` | `report_only` | References `shardloom.foundry_generated_output_boundary.v1`; no Foundry runtime, output API, Spark, direct S3, or object-store path is invoked. |
 
@@ -858,16 +858,15 @@ The universal compatibility scoreboard now exposes the companion
 - `external_engine_invoked=false`
 
 This projection is a compatibility/status surface. It does not add generator runtime beyond the
-already scoped local JSONL smokes, does not promote SQL/DataFrame execution, does not enable
+already scoped local JSONL/CSV smokes, does not promote SQL/DataFrame execution, does not enable
 object-store or Foundry output, and does not create a performance, package, production, or
 Spark-replacement claim.
 
 ### Required Generated-Source Evidence Fields
 
-The contract defines these as the required fields for generated-output runtime. GAR-GEN-1C emits
-them for scoped user-row, literal-table, and calendar local JSONL smokes, GAR-GEN-1D emits them
-for the scoped engine-native range local JSONL smoke, and this runtime slice emits them for the
-scoped engine-native sequence local JSONL smoke:
+The contract defines these as the required fields for generated-output runtime. Current scoped
+runtime emits them for user-row, literal-table, calendar, range, sequence, and source-free SQL
+local JSONL/CSV smokes:
 
 ```text
 input_dataset_count=0
@@ -892,7 +891,7 @@ Range and sequence smokes also emit `generated_source_range_start`, `generated_s
 inspectable without reading an input source.
 
 The engine-native generated-source capability row now uses
-`none_scoped_local_range_sequence_jsonl_smoke_only` to mark the admitted range/sequence
+`none_scoped_local_range_sequence_jsonl_csv_smoke_only` to mark the admitted range/sequence
 fixture-smoke scope. That blocker/status does not admit engine-native `values`, synthetic
 generators, SQL `generate_series`/`range`, DataFrame expressions, object-store writes, or Foundry
 output.

@@ -2,7 +2,7 @@
 //!
 //! This module implements deliberately narrow local generated-output smokes. It
 //! accepts either rows already supplied by the user/API layer or narrow
-//! ShardLoom-native integer generators, writes a local JSONL sink, and emits
+//! ShardLoom-native integer generators, writes a local JSONL/CSV sink, and emits
 //! generated-source/output evidence. It does not read source datasets, parse
 //! SQL, execute broad `DataFrame` expressions, touch object stores, invoke
 //! Foundry, or call fallback engines.
@@ -81,11 +81,24 @@ impl UserRowsGeneratedSourceKind {
         }
     }
 
-    const fn materialization_boundary(self) -> &'static str {
-        match self {
-            Self::UserRows => "python_user_rows_to_local_jsonl_sink",
-            Self::LiteralTable => "python_literal_table_to_local_jsonl_sink",
-            Self::Calendar => "python_calendar_generator_to_local_jsonl_sink",
+    const fn materialization_boundary(self, output_format: GeneratedOutputFormat) -> &'static str {
+        match (self, output_format) {
+            (Self::UserRows, GeneratedOutputFormat::Jsonl) => {
+                "python_user_rows_to_local_jsonl_sink"
+            }
+            (Self::UserRows, GeneratedOutputFormat::Csv) => "python_user_rows_to_local_csv_sink",
+            (Self::LiteralTable, GeneratedOutputFormat::Jsonl) => {
+                "python_literal_table_to_local_jsonl_sink"
+            }
+            (Self::LiteralTable, GeneratedOutputFormat::Csv) => {
+                "python_literal_table_to_local_csv_sink"
+            }
+            (Self::Calendar, GeneratedOutputFormat::Jsonl) => {
+                "python_calendar_generator_to_local_jsonl_sink"
+            }
+            (Self::Calendar, GeneratedOutputFormat::Csv) => {
+                "python_calendar_generator_to_local_csv_sink"
+            }
         }
     }
 
@@ -101,14 +114,16 @@ impl UserRowsGeneratedSourceKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum GeneratedOutputFormat {
     Jsonl,
+    Csv,
 }
 
 impl GeneratedOutputFormat {
     fn parse(value: &str) -> Result<Self, ShardLoomError> {
         match value.trim().to_ascii_lowercase().as_str() {
             "jsonl" | "json-lines" | "ndjson" => Ok(Self::Jsonl),
+            "csv" => Ok(Self::Csv),
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported generated-source output format {other:?}; scoped generated-source smokes support local JSONL only"
+                "unsupported generated-source output format {other:?}; scoped generated-source smokes support local JSONL and CSV only"
             ))),
         }
     }
@@ -116,6 +131,7 @@ impl GeneratedOutputFormat {
     const fn as_str(self) -> &'static str {
         match self {
             Self::Jsonl => "jsonl",
+            Self::Csv => "csv",
         }
     }
 }
@@ -265,10 +281,20 @@ impl RangeGeneratedSourceKind {
         }
     }
 
-    const fn materialization_boundary(self) -> &'static str {
-        match self {
-            Self::Range => "engine_native_range_generator_to_local_jsonl_sink",
-            Self::Sequence => "engine_native_sequence_generator_to_local_jsonl_sink",
+    const fn materialization_boundary(self, output_format: GeneratedOutputFormat) -> &'static str {
+        match (self, output_format) {
+            (Self::Range, GeneratedOutputFormat::Jsonl) => {
+                "engine_native_range_generator_to_local_jsonl_sink"
+            }
+            (Self::Range, GeneratedOutputFormat::Csv) => {
+                "engine_native_range_generator_to_local_csv_sink"
+            }
+            (Self::Sequence, GeneratedOutputFormat::Jsonl) => {
+                "engine_native_sequence_generator_to_local_jsonl_sink"
+            }
+            (Self::Sequence, GeneratedOutputFormat::Csv) => {
+                "engine_native_sequence_generator_to_local_csv_sink"
+            }
         }
     }
 
@@ -303,11 +329,22 @@ impl SqlGeneratedSourceKind {
         }
     }
 
-    const fn materialization_boundary(self) -> &'static str {
-        match self {
-            Self::LiteralSelect => "sql_literal_select_to_local_jsonl_sink",
-            Self::Values => "sql_values_to_local_jsonl_sink",
-            Self::GenerateSeriesRange => "sql_generate_series_range_to_local_jsonl_sink",
+    const fn materialization_boundary(self, output_format: GeneratedOutputFormat) -> &'static str {
+        match (self, output_format) {
+            (Self::LiteralSelect, GeneratedOutputFormat::Jsonl) => {
+                "sql_literal_select_to_local_jsonl_sink"
+            }
+            (Self::LiteralSelect, GeneratedOutputFormat::Csv) => {
+                "sql_literal_select_to_local_csv_sink"
+            }
+            (Self::Values, GeneratedOutputFormat::Jsonl) => "sql_values_to_local_jsonl_sink",
+            (Self::Values, GeneratedOutputFormat::Csv) => "sql_values_to_local_csv_sink",
+            (Self::GenerateSeriesRange, GeneratedOutputFormat::Jsonl) => {
+                "sql_generate_series_range_to_local_jsonl_sink"
+            }
+            (Self::GenerateSeriesRange, GeneratedOutputFormat::Csv) => {
+                "sql_generate_series_range_to_local_csv_sink"
+            }
         }
     }
 
@@ -367,7 +404,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar] [--output-format jsonl] [--allow-overwrite]"
+            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar] [--output-format jsonl|csv] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -526,7 +563,7 @@ fn handle_generated_source_range_like_smoke(
     let noun = source_kind.summary_noun();
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {command} <local-output-path> <start> <end> [--step int] [--column name] [--output-format jsonl] [--allow-overwrite]"
+            "usage: shardloom {command} <local-output-path> <start> <end> [--step int] [--column name] [--output-format jsonl|csv] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -721,7 +758,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {SQL_COMMAND} <local-output-path> <sql-statement> [--output-format jsonl] [--allow-overwrite]"
+            "usage: shardloom {SQL_COMMAND} <local-output-path> <sql-statement> [--output-format jsonl|csv] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -933,7 +970,9 @@ impl GeneratedUserRowsSmokeReport {
             ("correctness_digest".to_string(), self.output_digest.clone()),
             (
                 "materialization_boundary".to_string(),
-                self.source_kind.materialization_boundary().to_string(),
+                self.source_kind
+                    .materialization_boundary(self.output_format)
+                    .to_string(),
             ),
             ("data_materialized".to_string(), "true".to_string()),
             ("data_decoded".to_string(), "false".to_string()),
@@ -1137,7 +1176,9 @@ impl GeneratedRangeSmokeReport {
             ("correctness_digest".to_string(), self.output_digest.clone()),
             (
                 "materialization_boundary".to_string(),
-                self.source_kind.materialization_boundary().to_string(),
+                self.source_kind
+                    .materialization_boundary(self.output_format)
+                    .to_string(),
             ),
             ("data_materialized".to_string(), "true".to_string()),
             ("data_decoded".to_string(), "false".to_string()),
@@ -1319,7 +1360,9 @@ impl GeneratedSqlSmokeReport {
             ("correctness_digest".to_string(), self.output_digest.clone()),
             (
                 "materialization_boundary".to_string(),
-                self.source_kind.materialization_boundary().to_string(),
+                self.source_kind
+                    .materialization_boundary(self.output_format)
+                    .to_string(),
             ),
             ("data_materialized".to_string(), "true".to_string()),
             ("data_decoded".to_string(), "false".to_string()),
@@ -1429,7 +1472,7 @@ fn run_generated_user_rows_smoke(
     }
 
     let start = Instant::now();
-    let content = render_jsonl(&request.schema, &request.rows)?;
+    let content = render_generated_output(request.output_format, &request.schema, &request.rows)?;
     fs::write(&request.output_path, content.as_bytes()).map_err(|error| {
         ShardLoomError::Message(format!(
             "failed to write local generated-source output {}: {error}",
@@ -1485,7 +1528,7 @@ fn run_generated_range_smoke(
     }];
     let rows = generated_range_rows(request.start, request.end, request.step)?;
     let start = Instant::now();
-    let content = render_jsonl(&schema, &rows)?;
+    let content = render_generated_output(request.output_format, &schema, &rows)?;
     fs::write(&request.output_path, content.as_bytes()).map_err(|error| {
         ShardLoomError::Message(format!(
             "failed to write local generated-source output {}: {error}",
@@ -1543,7 +1586,7 @@ fn run_generated_sql_smoke(
     }
 
     let start = Instant::now();
-    let content = render_jsonl(&request.schema, &request.rows)?;
+    let content = render_generated_output(request.output_format, &request.schema, &request.rows)?;
     fs::write(&request.output_path, content.as_bytes()).map_err(|error| {
         ShardLoomError::Message(format!(
             "failed to write local generated-source SQL output {}: {error}",
@@ -2534,6 +2577,65 @@ fn render_jsonl(
         output.push_str("}\n");
     }
     Ok(output)
+}
+
+fn render_generated_output(
+    output_format: GeneratedOutputFormat,
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+) -> Result<String, ShardLoomError> {
+    match output_format {
+        GeneratedOutputFormat::Jsonl => render_jsonl(schema, rows),
+        GeneratedOutputFormat::Csv => render_csv(schema, rows),
+    }
+}
+
+fn render_csv(schema: &[GeneratedColumn], rows: &[GeneratedRow]) -> Result<String, ShardLoomError> {
+    let mut output = String::new();
+    for (index, column) in schema.iter().enumerate() {
+        if index > 0 {
+            output.push(',');
+        }
+        output.push_str(&csv_escape(&column.name));
+    }
+    output.push('\n');
+    for row in rows {
+        for (index, column) in schema.iter().enumerate() {
+            if index > 0 {
+                output.push(',');
+            }
+            let value = row.values.get(index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation("generated-source row/schema mismatch".to_string())
+            })?;
+            output.push_str(&csv_escape(&render_csv_value(value, column.value_type)?));
+        }
+        output.push('\n');
+    }
+    Ok(output)
+}
+
+fn render_csv_value(value: &str, value_type: GeneratedValueType) -> Result<String, ShardLoomError> {
+    match value_type {
+        GeneratedValueType::Int64 => Ok(value.parse::<i64>().expect("validated int64").to_string()),
+        GeneratedValueType::Float64 => {
+            let parsed = value.parse::<f64>().expect("validated float64");
+            if !parsed.is_finite() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "generated-source float64 value must be finite".to_string(),
+                ));
+            }
+            Ok(parsed.to_string())
+        }
+        GeneratedValueType::Bool | GeneratedValueType::Utf8 => Ok(value.to_string()),
+    }
+}
+
+fn csv_escape(value: &str) -> String {
+    if value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r') {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
 }
 
 fn render_json_value(
