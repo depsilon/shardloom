@@ -1044,6 +1044,210 @@ pub fn plan_engine_replacement_claim_inventory() -> EngineReplacementClaimInvent
     EngineReplacementClaimInventoryReport::report_only()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CompetitiveReplacementSufficiencyGateRow {
+    pub evidence_id: &'static str,
+    pub evidence_family: &'static str,
+    pub status: &'static str,
+    pub required_evidence: &'static str,
+    pub current_evidence_ref: &'static str,
+    pub blocker: &'static str,
+    pub claim_gate_status: &'static str,
+    pub evidence_complete: bool,
+    pub public_claim_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl CompetitiveReplacementSufficiencyGateRow {
+    const fn blocked(
+        evidence_id: &'static str,
+        evidence_family: &'static str,
+        required_evidence: &'static str,
+        current_evidence_ref: &'static str,
+        blocker: &'static str,
+    ) -> Self {
+        Self {
+            evidence_id,
+            evidence_family,
+            status: "blocked",
+            required_evidence,
+            current_evidence_ref,
+            blocker,
+            claim_gate_status: "not_claim_grade",
+            evidence_complete: false,
+            public_claim_allowed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    pub fn is_blocking(&self) -> bool {
+        self.status != "present" || !self.evidence_complete || !self.public_claim_allowed
+    }
+
+    pub fn not_claim_grade(&self) -> bool {
+        self.claim_gate_status == "not_claim_grade"
+    }
+
+    pub fn side_effect_free(&self) -> bool {
+        !self.evidence_complete
+            && !self.public_claim_allowed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct CompetitiveReplacementSufficiencyGateReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub docs_ref: &'static str,
+    pub source_refs: &'static str,
+    pub support_status: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<CompetitiveReplacementSufficiencyGateRow>,
+    pub correctness_sufficient: bool,
+    pub benchmark_sufficient: bool,
+    pub native_io_sufficient: bool,
+    pub execution_certificate_sufficient: bool,
+    pub capability_coverage_sufficient: bool,
+    pub no_fallback_sufficient: bool,
+    pub release_evidence_sufficient: bool,
+    pub public_engine_replacement_claim_allowed: bool,
+    pub spark_displacement_claim_allowed: bool,
+    pub superiority_claim_allowed: bool,
+    pub production_platform_claim_allowed: bool,
+    pub runtime_execution_performed: bool,
+    pub benchmark_rerun_performed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl CompetitiveReplacementSufficiencyGateReport {
+    pub fn report_only() -> Self {
+        Self {
+            schema_version: "shardloom.competitive_replacement_sufficiency_gate.v1",
+            report_id: "gar-0025-a.competitive_replacement_sufficiency_gate",
+            docs_ref: "docs/architecture/competitive-replacement-sufficiency-gate.md",
+            source_refs: "RFC 0025; RFC 0029; RFC 0041; engine replacement claim inventory; spark displacement benchmark evidence matrix",
+            support_status: "blocked",
+            claim_gate_status: "not_claim_grade",
+            rows: competitive_replacement_sufficiency_rows(),
+            correctness_sufficient: false,
+            benchmark_sufficient: false,
+            native_io_sufficient: false,
+            execution_certificate_sufficient: false,
+            capability_coverage_sufficient: false,
+            no_fallback_sufficient: false,
+            release_evidence_sufficient: false,
+            public_engine_replacement_claim_allowed: false,
+            spark_displacement_claim_allowed: false,
+            superiority_claim_allowed: false,
+            production_platform_claim_allowed: false,
+            runtime_execution_performed: false,
+            benchmark_rerun_performed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    pub fn row_ids(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.evidence_id).collect()
+    }
+
+    pub fn blocking_row_count(&self) -> usize {
+        self.rows.iter().filter(|row| row.is_blocking()).count()
+    }
+
+    pub fn all_rows_not_claim_grade(&self) -> bool {
+        self.rows
+            .iter()
+            .all(CompetitiveReplacementSufficiencyGateRow::not_claim_grade)
+    }
+
+    pub fn all_claims_blocked(&self) -> bool {
+        !self.public_engine_replacement_claim_allowed
+            && !self.spark_displacement_claim_allowed
+            && !self.superiority_claim_allowed
+            && !self.production_platform_claim_allowed
+            && self.claim_gate_status == "not_claim_grade"
+            && self.all_rows_not_claim_grade()
+    }
+
+    pub fn side_effect_free(&self) -> bool {
+        !self.runtime_execution_performed
+            && !self.benchmark_rerun_performed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .rows
+                .iter()
+                .all(CompetitiveReplacementSufficiencyGateRow::side_effect_free)
+    }
+}
+
+pub fn plan_competitive_replacement_sufficiency_gate() -> CompetitiveReplacementSufficiencyGateReport
+{
+    CompetitiveReplacementSufficiencyGateReport::report_only()
+}
+
+fn competitive_replacement_sufficiency_rows() -> Vec<CompetitiveReplacementSufficiencyGateRow> {
+    vec![
+        CompetitiveReplacementSufficiencyGateRow::blocked(
+            "correctness_evidence",
+            "correctness",
+            "CG-5 semantic conformance, differential fixtures, fuzz/property coverage, edge-case fixtures, decoded-reference linkage",
+            "docs/architecture/correctness-differential-harness.md; GAR-0015-A string-property gap",
+            "current correctness evidence is scoped and still has deferred fixture families",
+        ),
+        CompetitiveReplacementSufficiencyGateRow::blocked(
+            "benchmark_evidence",
+            "benchmark",
+            "CG-6 full benchmark profile, complete competitor lane artifact, reproducible environment, workload-scoped timing and coverage rows",
+            "docs/architecture/spark-displacement-benchmark-evidence-matrix.md; benchmarks/traditional_analytics",
+            "current benchmark evidence is local/pre-release and not claim-grade for replacement language",
+        ),
+        CompetitiveReplacementSufficiencyGateRow::blocked(
+            "native_io_evidence",
+            "native_io",
+            "CG-19 source/sink Native I/O certificates for every claimed input/output path",
+            "docs/architecture/compute-engine-flow-reference.md; docs/architecture/global-architecture-review.md",
+            "Native I/O coverage is scoped and does not cover broad local, object-store, lakehouse, or platform paths",
+        ),
+        CompetitiveReplacementSufficiencyGateRow::blocked(
+            "execution_certificate_evidence",
+            "execution_certificate",
+            "CG-16 execution certificates with plan/input/output hashes, segment traces, side-effect manifest, and reproducibility metadata",
+            "docs/rfcs/0029-correctness-benchmarks-execution-certificates-stateful-reuse.md",
+            "execution-certificate evidence is not complete across replacement claim workloads",
+        ),
+        CompetitiveReplacementSufficiencyGateRow::blocked(
+            "capability_coverage_evidence",
+            "capability_coverage",
+            "CG-20 capability coverage for SQL, operators, functions, adapters, Python/DataFrame, user workflow, and blocked unsupported paths",
+            "docs/architecture/global-architecture-review.md; docs/use-cases/use-case-index.yml",
+            "capability coverage is mixed ready/smoke/report-only/blocked and cannot support broad replacement claims",
+        ),
+        CompetitiveReplacementSufficiencyGateRow::blocked(
+            "no_fallback_policy_evidence",
+            "no_fallback",
+            "no-fallback policy, external-baseline-only classification, dependency audit, and release no-fallback checks",
+            "docs/architecture/engine-replacement-claim-inventory.md; scripts/check_release_readiness.py",
+            "no-fallback policy is represented, but it cannot compensate for missing claim-grade workload evidence",
+        ),
+        CompetitiveReplacementSufficiencyGateRow::blocked(
+            "release_publication_evidence",
+            "release",
+            "hard release gate, package-channel readiness, API/schema stability gate, provenance, SBOM, checksum, signing, and human approval",
+            "docs/release/hard-release-readiness-gate.md; docs/release/publication-api-schema-stability-gate.md",
+            "public release/package and API/schema stability gates remain blocked",
+        ),
+    ]
+}
+
 fn engine_replacement_claim_inventory_rows() -> Vec<EngineReplacementClaimInventoryRow> {
     vec![
         EngineReplacementClaimInventoryRow::blocked(
@@ -2397,6 +2601,49 @@ mod tests {
                 && !row.external_engine_invoked
                 && row.claim_language.contains("blocked")
         }));
+    }
+
+    #[test]
+    fn competitive_replacement_sufficiency_gate_blocks_claims_without_evidence() {
+        let report = plan_competitive_replacement_sufficiency_gate();
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.competitive_replacement_sufficiency_gate.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "gar-0025-a.competitive_replacement_sufficiency_gate"
+        );
+        assert_eq!(report.support_status, "blocked");
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert_eq!(report.rows.len(), 7);
+        assert_eq!(report.blocking_row_count(), 7);
+        assert!(report.all_rows_not_claim_grade());
+        assert!(report.all_claims_blocked());
+        assert!(report.side_effect_free());
+        assert!(report.row_ids().contains(&"correctness_evidence"));
+        assert!(report.row_ids().contains(&"benchmark_evidence"));
+        assert!(report.row_ids().contains(&"native_io_evidence"));
+        assert!(report.row_ids().contains(&"execution_certificate_evidence"));
+        assert!(report.row_ids().contains(&"capability_coverage_evidence"));
+        assert!(report.row_ids().contains(&"no_fallback_policy_evidence"));
+        assert!(report.row_ids().contains(&"release_publication_evidence"));
+        assert!(!report.correctness_sufficient);
+        assert!(!report.benchmark_sufficient);
+        assert!(!report.native_io_sufficient);
+        assert!(!report.execution_certificate_sufficient);
+        assert!(!report.capability_coverage_sufficient);
+        assert!(!report.no_fallback_sufficient);
+        assert!(!report.release_evidence_sufficient);
+        assert!(!report.public_engine_replacement_claim_allowed);
+        assert!(!report.spark_displacement_claim_allowed);
+        assert!(!report.superiority_claim_allowed);
+        assert!(!report.production_platform_claim_allowed);
+        assert!(!report.runtime_execution_performed);
+        assert!(!report.benchmark_rerun_performed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
 
     #[test]

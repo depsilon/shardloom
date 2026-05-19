@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-0025-A competitive replacement sufficiency gate
+  - Branch/PR: `codex/gar-0025a-competitive-replacement-sufficiency-gate` / #765.
+  - Primary files:
+    - `shardloom-core/src/release.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/packaging_deployment.rs`
+    - `shardloom-cli/src/main.rs`
+    - `docs/architecture/competitive-replacement-sufficiency-gate.md`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: close GAR-0025-A by adding a fail-closed competitive replacement sufficiency gate that
+    requires correctness, benchmark, Native I/O, execution-certificate, capability-coverage,
+    no-fallback, and release/publication evidence before any competitive replacement language can
+    pass.
+  - Checklist:
+    - [x] Add `shardloom.competitive_replacement_sufficiency_gate.v1`.
+    - [x] Emit sufficiency-gate fields through `release-plan` and `package-plan`.
+    - [x] Add docs for every required evidence category and current blocker.
+    - [x] Keep all replacement, Spark-displacement, superiority, and production-platform claims
+          blocked.
+    - [x] Move GAR-0025-A out of the active non-runtime closeout queue.
+  - Evidence:
+    - `competitive_replacement_sufficiency_gate_schema_version=shardloom.competitive_replacement_sufficiency_gate.v1`
+    - `competitive_replacement_sufficiency_gate_support_status=blocked`
+    - `competitive_replacement_sufficiency_gate_claim_gate_status=not_claim_grade`
+    - `competitive_replacement_sufficiency_gate_blocking_row_count=7`
+    - `correctness_evidence`
+    - `benchmark_evidence`
+    - `native_io_evidence`
+    - `execution_certificate_evidence`
+    - `capability_coverage_evidence`
+    - `no_fallback_policy_evidence`
+    - `release_publication_evidence`
+    - `competitive_replacement_sufficiency_gate_all_claims_blocked=true`
+    - `competitive_replacement_sufficiency_gate_public_engine_replacement_claim_allowed=false`
+    - `competitive_replacement_sufficiency_gate_spark_displacement_claim_allowed=false`
+    - `competitive_replacement_sufficiency_gate_superiority_claim_allowed=false`
+    - `competitive_replacement_sufficiency_gate_production_platform_claim_allowed=false`
+    - `competitive_replacement_sufficiency_gate_fallback_attempted=false`
+    - `competitive_replacement_sufficiency_gate_external_engine_invoked=false`
+  - Verification:
+    - `cargo test -p shardloom-core competitive_replacement_sufficiency_gate_blocks_claims_without_evidence --lib`
+    - `cargo test -p shardloom-cli release_plan_fields_expose_competitive_replacement_sufficiency_gate`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only that competitive replacement sufficiency prerequisites
+    are represented and fail closed. It may not claim replacement, Spark displacement, superiority,
+    production platform readiness, runtime expansion, benchmark rerun evidence, external engine
+    execution, or fallback execution.
+
 - [x] Session label: GAR-0024-A publication and API/schema stability gate
   - Branch/PR: `codex/gar-0024a-publication-api-schema-gate` / #764.
   - Primary files:

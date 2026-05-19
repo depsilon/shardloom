@@ -4245,6 +4245,92 @@ mod tests {
     }
 
     #[test]
+    fn release_plan_fields_expose_competitive_replacement_sufficiency_gate() {
+        let plan = shardloom_core::ReleasePlan::default_foundation_plan();
+        let evidence = plan.release_readiness_evidence();
+        let publication = plan.publication_boundary_report();
+        let publication_api_schema = plan.publication_api_schema_stability_gate();
+        let fields = packaging_deployment::release_plan_fields(
+            &plan,
+            &evidence,
+            &publication,
+            &publication_api_schema,
+            "release_plan",
+        );
+
+        assert_eq!(
+            output_field(
+                &fields,
+                "competitive_replacement_sufficiency_gate_schema_version"
+            ),
+            "shardloom.competitive_replacement_sufficiency_gate.v1"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "competitive_replacement_sufficiency_gate_claim_gate_status"
+            ),
+            "not_claim_grade"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "competitive_replacement_sufficiency_gate_blocking_row_count"
+            ),
+            "7"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "competitive_replacement_sufficiency_gate_all_claims_blocked"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "competitive_replacement_sufficiency_gate_public_engine_replacement_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "competitive_replacement_sufficiency_gate_spark_displacement_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "competitive_replacement_sufficiency_gate_production_platform_claim_allowed"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "competitive_replacement_sufficiency_gate_external_engine_invoked"
+            ),
+            "false"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "competitive_replacement_sufficiency_gate_row_correctness_evidence_claim_gate_status"
+            ),
+            "not_claim_grade"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
+                "competitive_replacement_sufficiency_gate_row_release_publication_evidence_public_claim_allowed"
+            ),
+            "false"
+        );
+    }
+
+    #[test]
     fn release_plan_fields_keep_publication_boundaries_distinct() {
         let plan = shardloom_core::ReleasePlan::default_foundation_plan();
         let evidence = plan.release_readiness_evidence();

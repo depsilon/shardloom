@@ -111,6 +111,7 @@ Reference index:
   `docs/architecture/adoption-commercial-readiness-friction-reduction.md`,
   `docs/architecture/workspace-feature-build-matrix.md`,
   `docs/architecture/engine-replacement-claim-inventory.md`,
+  `docs/architecture/competitive-replacement-sufficiency-gate.md`,
   `docs/architecture/spark-displacement-benchmark-evidence-matrix.md`,
   `docs/architecture/universal-import-deployment-baseline-harness.md`,
   `docs/architecture/extension-manifest-effect-capability-matrix.md`,
@@ -229,19 +230,6 @@ Current non-runtime sequence:
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-- [ ] GAR-0025-A competitive replacement sufficiency gate
-  - Source: RFC 0025; RFC 0029; RFC 0041.
-  - Current state: full competitive replacement is not supported by broad evidence.
-  - Next slice outcome: sufficiency gate requiring correctness, benchmark, Native I/O, certificates,
-    capability coverage, no-fallback, and release evidence.
-  - User-visible surface: release claim gate and docs.
-  - Implementation scope: claim gate report, tests.
-  - Evidence required: all claim-grade evidence categories.
-  - Acceptance: replacement claims fail closed until every required evidence row passes.
-  - Verification: release readiness metadata tests and claim gate tests.
-  - Non-goals: no replacement claim or runtime expansion.
-  - Fallback/claim boundary: `claim_gate_status=not_claim_grade`.
-  - Dependencies/blockers: GAR-0009, GAR-0015, GAR-0029, GAR-0041.
 - [ ] GAR-0029-A CG-5/CG-6 and stateful reuse evidence expansion
   - Source: RFC 0029; correctness differential harness; benchmark-suite catalog.
   - Current state: current CG-5/CG-6 evidence is scoped; production stateful reuse runtime and

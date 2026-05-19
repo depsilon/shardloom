@@ -1438,6 +1438,143 @@ fn gar_0024_a_publication_api_schema_gate_fails_closed() {
 }
 
 #[test]
+fn gar_0025_a_competitive_replacement_sufficiency_gate_fails_closed() {
+    let core = read_repo_file("shardloom-core/src/release.rs");
+    for required in [
+        "CompetitiveReplacementSufficiencyGateReport",
+        "CompetitiveReplacementSufficiencyGateRow",
+        "plan_competitive_replacement_sufficiency_gate",
+        "shardloom.competitive_replacement_sufficiency_gate.v1",
+        "gar-0025-a.competitive_replacement_sufficiency_gate",
+        "correctness_evidence",
+        "benchmark_evidence",
+        "native_io_evidence",
+        "execution_certificate_evidence",
+        "capability_coverage_evidence",
+        "no_fallback_policy_evidence",
+        "release_publication_evidence",
+        "claim_gate_status: \"not_claim_grade\"",
+        "evidence_complete: false",
+        "public_claim_allowed: false",
+        "correctness_sufficient: false",
+        "benchmark_sufficient: false",
+        "native_io_sufficient: false",
+        "execution_certificate_sufficient: false",
+        "capability_coverage_sufficient: false",
+        "no_fallback_sufficient: false",
+        "release_evidence_sufficient: false",
+        "public_engine_replacement_claim_allowed: false",
+        "spark_displacement_claim_allowed: false",
+        "superiority_claim_allowed: false",
+        "production_platform_claim_allowed: false",
+        "runtime_execution_performed: false",
+        "benchmark_rerun_performed: false",
+        "fallback_attempted: false",
+        "external_engine_invoked: false",
+        "competitive_replacement_sufficiency_gate_blocks_claims_without_evidence",
+    ] {
+        assert!(
+            core.contains(required),
+            "missing GAR-0025-A core gate marker {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/packaging_deployment.rs");
+    for required in [
+        "append_competitive_replacement_sufficiency_gate_fields",
+        "competitive_replacement_sufficiency_gate_schema_version",
+        "competitive_replacement_sufficiency_gate_claim_gate_status",
+        "competitive_replacement_sufficiency_gate_blocking_row_count",
+        "competitive_replacement_sufficiency_gate_all_claims_blocked",
+        "competitive_replacement_sufficiency_gate_public_engine_replacement_claim_allowed",
+        "competitive_replacement_sufficiency_gate_spark_displacement_claim_allowed",
+        "competitive_replacement_sufficiency_gate_superiority_claim_allowed",
+        "competitive_replacement_sufficiency_gate_production_platform_claim_allowed",
+        "competitive_replacement_sufficiency_gate_fallback_attempted",
+        "competitive_replacement_sufficiency_gate_external_engine_invoked",
+        "competitive_replacement_sufficiency_gate_row_{}",
+        "{prefix}_claim_gate_status",
+        "{prefix}_public_claim_allowed",
+    ] {
+        assert!(
+            cli.contains(required),
+            "missing GAR-0025-A CLI gate marker {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/architecture/competitive-replacement-sufficiency-gate.md");
+    for required in [
+        "GAR-0025-A",
+        "shardloom.competitive_replacement_sufficiency_gate.v1",
+        "competitive_replacement_sufficiency_gate_support_status=blocked",
+        "competitive_replacement_sufficiency_gate_claim_gate_status=not_claim_grade",
+        "competitive_replacement_sufficiency_gate_all_claims_blocked=true",
+        "competitive_replacement_sufficiency_gate_public_engine_replacement_claim_allowed=false",
+        "competitive_replacement_sufficiency_gate_spark_displacement_claim_allowed=false",
+        "competitive_replacement_sufficiency_gate_superiority_claim_allowed=false",
+        "competitive_replacement_sufficiency_gate_production_platform_claim_allowed=false",
+        "competitive_replacement_sufficiency_gate_fallback_attempted=false",
+        "competitive_replacement_sufficiency_gate_external_engine_invoked=false",
+        "correctness_sufficient=false",
+        "benchmark_sufficient=false",
+        "native_io_sufficient=false",
+        "execution_certificate_sufficient=false",
+        "capability_coverage_sufficient=false",
+        "no_fallback_sufficient=false",
+        "release_evidence_sufficient=false",
+        "runtime_execution_performed=false",
+        "benchmark_rerun_performed=false",
+        "correctness_evidence",
+        "benchmark_evidence",
+        "native_io_evidence",
+        "execution_certificate_evidence",
+        "capability_coverage_evidence",
+        "no_fallback_policy_evidence",
+        "release_publication_evidence",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing GAR-0025-A doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-0025-A competitive replacement sufficiency gate"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    for required in [
+        "GAR-0025-A competitive replacement sufficiency gate",
+        "shardloom.competitive_replacement_sufficiency_gate.v1",
+        "competitive_replacement_sufficiency_gate_support_status=blocked",
+        "competitive_replacement_sufficiency_gate_claim_gate_status=not_claim_grade",
+        "competitive_replacement_sufficiency_gate_blocking_row_count=7",
+        "competitive_replacement_sufficiency_gate_all_claims_blocked=true",
+        "competitive_replacement_sufficiency_gate_public_engine_replacement_claim_allowed=false",
+        "competitive_replacement_sufficiency_gate_spark_displacement_claim_allowed=false",
+        "competitive_replacement_sufficiency_gate_superiority_claim_allowed=false",
+        "competitive_replacement_sufficiency_gate_production_platform_claim_allowed=false",
+        "competitive_replacement_sufficiency_gate_fallback_attempted=false",
+        "competitive_replacement_sufficiency_gate_external_engine_invoked=false",
+    ] {
+        assert!(
+            completed.contains(required),
+            "missing GAR-0025-A completed-ledger marker {required}"
+        );
+    }
+
+    let gar = read_repo_file("docs/architecture/global-architecture-review.md");
+    assert!(
+        gar.contains("`GAR-0025-A` adds `shardloom.competitive_replacement_sufficiency_gate.v1`")
+    );
+    assert!(gar.contains("competitive_replacement_sufficiency_gate_all_claims_blocked=true"));
+
+    let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
+    assert!(traceability.contains("GAR-0025-A"));
+    assert!(traceability.contains("shardloom.competitive_replacement_sufficiency_gate.v1"));
+    assert!(traceability.contains("No replacement claim"));
+}
+
+#[test]
 fn foundry_integration_pack_and_proof_docs_are_present() {
     let readiness = read_repo_file("docs/foundry/integration-pack-readiness.md");
     for required in [
