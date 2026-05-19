@@ -3805,6 +3805,28 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         return GeneratedSourceWriteReport(self.run(command, check=check))
 
+    def generated_source_sql_smoke(
+        self,
+        output_path: str | os.PathLike[str],
+        statement: str,
+        *,
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Run the scoped local source-free SQL generated-output smoke command."""
+
+        command: list[CommandPart] = [
+            "generated-source-sql-smoke",
+            str(output_path),
+            statement,
+            "--output-format",
+            output_format,
+        ]
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        return GeneratedSourceWriteReport(self.run(command, check=check))
+
     def execution_certificate_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only execution certificate planning envelope."""
 

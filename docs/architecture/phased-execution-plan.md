@@ -1312,33 +1312,6 @@ tracks. The following child slices are the concrete implementation queue for mak
 usable end to end. They are intentionally PR-sized, runtime-oriented, and evidence-bearing. Complete
 them in dependency order unless a later unblocker or review finding changes the sequence.
 
-- [ ] GAR-RUNTIME-IMPL-1A SQL source-free literals and `VALUES` local-output runtime
-  - Source: `GAR-RUNTIME-COMPLETE-1B`, `GAR-GEN-1`, source-free generated-output diagnostics.
-  - Current state: source-free SQL forms have deterministic unsupported diagnostics, while Python
-    generated sources can write local smoke outputs.
-  - Next slice outcome: execute SQL `SELECT` literal expressions and SQL `VALUES` as generated
-    sources that write a local JSONL/Vortex-smoke output with `GeneratedSourceCertificate` evidence.
-  - User-visible surface: CLI SQL smoke command, Python SQL helper, generated-output recipe,
-    status/use-case docs.
-  - Implementation scope: tiny fail-closed SQL literal parser, generated-source runtime adapter,
-    output evidence envelope, CLI/Python smoke tests.
-  - Evidence required: `input_dataset_count=0`, `source_io_performed=false`,
-    `generated_source_created=true`, generated-source kind/schema/row/plan digests,
-    output certificate, correctness digest, `fallback_attempted=false`,
-    `external_engine_invoked=false`, `claim_gate_status=fixture_smoke_only`.
-  - Acceptance: admitted literals/values write local output; invalid SQL, `FROM`, functions,
-    joins, subqueries, UDFs, object-store paths, and table writes fail with stable diagnostics.
-  - Verification: SQL runtime unit tests, CLI smoke, Python smoke,
-    `cargo test -p shardloom-cli --test generated_source_runtime_smoke`,
-    `python -m unittest discover python/tests`, `git diff --check`.
-  - Non-goals: no broad SQL parser, no SQL over local files, no SQL joins, no production SQL claim.
-  - Claim boundary: source-free SQL local fixture smoke only.
-  - Fallback boundary: no DataFusion, DuckDB, SQLite, Spark, Polars, pandas, or Vortex query-engine
-    execution.
-  - Dependencies/blockers: generated-source runtime and local output evidence from the completed
-    generated-source smokes.
-  - Ledger rule: ledger entry must list admitted SQL forms and blocked forms.
-
 - [ ] GAR-RUNTIME-IMPL-1B SQL local-source projection/filter/limit runtime
   - Source: `GAR-RUNTIME-COMPLETE-1B`, `GAR-RUNTIME-COMPLETE-1D`,
     `docs/architecture/evidence-aware-logical-optimizer.md`.

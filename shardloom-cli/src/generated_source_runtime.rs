@@ -40,6 +40,13 @@ const RANGE_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str =
 const RANGE_EXECUTION_CERTIFICATE_ID: &str = "generated-source.range.local-output.execution.v1";
 const MAX_GENERATED_RANGE_ROWS: usize = 1_000_000;
 
+const SQL_COMMAND: &str = "generated-source-sql-smoke";
+const SQL_SCHEMA_VERSION: &str = "shardloom.generated_source_sql_smoke.v1";
+const SQL_GENERATED_SOURCE_CERTIFICATE_ID: &str = "generated-source.sql.local-output.v1";
+const SQL_OUTPUT_NATIVE_IO_CERTIFICATE_ID: &str = "generated-source.sql.local-output.native-io.v1";
+const SQL_EXECUTION_CERTIFICATE_ID: &str = "generated-source.sql.local-output.execution.v1";
+const MAX_SQL_GENERATED_ROWS: usize = 10_000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum UserRowsGeneratedSourceKind {
     UserRows,
@@ -191,6 +198,61 @@ struct GeneratedRangeSmokeReport {
     end: i64,
     step: i64,
     column_name: String,
+    schema: Vec<GeneratedColumn>,
+    rows: Vec<GeneratedRow>,
+    output_bytes: u64,
+    output_digest: String,
+    schema_digest: String,
+    plan_digest: String,
+    write_millis: u128,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SqlGeneratedSourceKind {
+    LiteralSelect,
+    Values,
+}
+
+impl SqlGeneratedSourceKind {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::LiteralSelect => "sql_literal_select",
+            Self::Values => "sql_values",
+        }
+    }
+
+    const fn materialization_boundary(self) -> &'static str {
+        match self {
+            Self::LiteralSelect => "sql_literal_select_to_local_jsonl_sink",
+            Self::Values => "sql_values_to_local_jsonl_sink",
+        }
+    }
+
+    const fn claim_gate_reason(self) -> &'static str {
+        match self {
+            Self::LiteralSelect => "one_scoped_local_sql_literal_select_generated_output_smoke",
+            Self::Values => "one_scoped_local_sql_values_generated_output_smoke",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedSqlSmokeRequest {
+    output_path: PathBuf,
+    output_format: GeneratedOutputFormat,
+    statement: String,
+    source_kind: SqlGeneratedSourceKind,
+    schema: Vec<GeneratedColumn>,
+    rows: Vec<GeneratedRow>,
+    allow_overwrite: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedSqlSmokeReport {
+    output_path: PathBuf,
+    output_format: GeneratedOutputFormat,
+    statement: String,
+    source_kind: SqlGeneratedSourceKind,
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
     output_bytes: u64,
@@ -526,6 +588,111 @@ pub(crate) fn handle_generated_source_range_smoke(
         CommandStatus::Success,
         format!(
             "generated range local-output smoke wrote {} row(s)",
+            report.rows.len()
+        ),
+        report.to_text(),
+        vec![],
+        report.fields(),
+    );
+    ExitCode::SUCCESS
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_generated_source_sql_smoke(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(output_target) = args.next() else {
+        eprintln!(
+            "usage: shardloom {SQL_COMMAND} <local-output-path> <sql-statement> [--output-format jsonl] [--allow-overwrite]"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(statement_raw) = args.next() else {
+        return emit_error(
+            SQL_COMMAND,
+            format,
+            "generated-source SQL smoke failed",
+            &ShardLoomError::InvalidOperation(
+                "generated-source SQL smoke requires a SQL statement argument".to_string(),
+            ),
+        );
+    };
+
+    let mut output_format = GeneratedOutputFormat::Jsonl;
+    let mut allow_overwrite = false;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--output-format" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        SQL_COMMAND,
+                        format,
+                        "generated-source SQL smoke failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--output-format requires a value".to_string(),
+                        ),
+                    );
+                };
+                output_format = match GeneratedOutputFormat::parse(&value) {
+                    Ok(parsed) => parsed,
+                    Err(error) => {
+                        return emit_error(
+                            SQL_COMMAND,
+                            format,
+                            "generated-source SQL smoke failed",
+                            &error,
+                        );
+                    }
+                };
+            }
+            "--allow-overwrite" => allow_overwrite = true,
+            extra => {
+                return emit_error(
+                    SQL_COMMAND,
+                    format,
+                    "generated-source SQL smoke failed",
+                    &cli_unknown_arg_error(SQL_COMMAND, extra),
+                );
+            }
+        }
+    }
+
+    let request = match GeneratedSqlSmokeRequest::parse(
+        &output_target,
+        output_format,
+        &statement_raw,
+        allow_overwrite,
+    ) {
+        Ok(request) => request,
+        Err(error) => {
+            return emit_error(
+                SQL_COMMAND,
+                format,
+                "generated-source SQL smoke failed",
+                &error,
+            );
+        }
+    };
+
+    let report = match run_generated_sql_smoke(&request) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                SQL_COMMAND,
+                format,
+                "generated-source SQL smoke failed",
+                &error,
+            );
+        }
+    };
+
+    emit(
+        SQL_COMMAND,
+        format,
+        CommandStatus::Success,
+        format!(
+            "generated SQL source-free local-output smoke wrote {} row(s)",
             report.rows.len()
         ),
         report.to_text(),
@@ -893,6 +1060,190 @@ impl GeneratedRangeSmokeReport {
     }
 }
 
+impl GeneratedSqlSmokeRequest {
+    fn parse(
+        output_target: &str,
+        output_format: GeneratedOutputFormat,
+        statement_raw: &str,
+        allow_overwrite: bool,
+    ) -> Result<Self, ShardLoomError> {
+        let output_path = normalize_local_output_path(output_target)?;
+        let parsed = parse_source_free_sql(statement_raw)?;
+        if parsed.rows.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "generated-source SQL smoke produced no rows; scoped SQL smokes require at least one row".to_string(),
+            ));
+        }
+        if parsed.rows.len() > MAX_SQL_GENERATED_ROWS {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "generated-source SQL row count {} exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}",
+                parsed.rows.len()
+            )));
+        }
+        Ok(Self {
+            output_path,
+            output_format,
+            statement: parsed.statement,
+            source_kind: parsed.source_kind,
+            schema: parsed.schema,
+            rows: parsed.rows,
+            allow_overwrite,
+        })
+    }
+}
+
+impl GeneratedSqlSmokeReport {
+    #[allow(clippy::too_many_lines)]
+    fn fields(&self) -> Vec<(String, String)> {
+        vec![
+            ("schema_version".to_string(), SQL_SCHEMA_VERSION.to_string()),
+            (
+                "generated_source_smoke_report_id".to_string(),
+                SQL_GENERATED_SOURCE_CERTIFICATE_ID.to_string(),
+            ),
+            (
+                "execution_mode".to_string(),
+                "source_free_generated_output".to_string(),
+            ),
+            ("engine_mode".to_string(), "batch".to_string()),
+            ("runtime_execution".to_string(), "true".to_string()),
+            ("input_dataset_count".to_string(), "0".to_string()),
+            ("source_io_performed".to_string(), "false".to_string()),
+            (
+                "source_native_io_certificate_status".to_string(),
+                "not_applicable_no_source_dataset".to_string(),
+            ),
+            ("sql_parser_executed".to_string(), "true".to_string()),
+            ("sql_binder_executed".to_string(), "true".to_string()),
+            ("sql_planner_executed".to_string(), "true".to_string()),
+            ("sql_runtime_execution".to_string(), "true".to_string()),
+            (
+                "sql_statement_kind".to_string(),
+                self.source_kind.as_str().to_string(),
+            ),
+            ("sql_statement".to_string(), self.statement.clone()),
+            ("generated_source_created".to_string(), "true".to_string()),
+            (
+                "generated_source_kind".to_string(),
+                self.source_kind.as_str().to_string(),
+            ),
+            (
+                "generated_source_schema_digest".to_string(),
+                self.schema_digest.clone(),
+            ),
+            (
+                "generated_source_schema".to_string(),
+                canonical_schema(&self.schema),
+            ),
+            (
+                "generated_source_row_count".to_string(),
+                self.rows.len().to_string(),
+            ),
+            (
+                "generated_source_plan_digest".to_string(),
+                self.plan_digest.clone(),
+            ),
+            ("generated_source_seed".to_string(), "none".to_string()),
+            ("generation_deterministic".to_string(), "true".to_string()),
+            (
+                "generated_source_certificate_status".to_string(),
+                "present".to_string(),
+            ),
+            (
+                "generated_source_certificate_id".to_string(),
+                SQL_GENERATED_SOURCE_CERTIFICATE_ID.to_string(),
+            ),
+            ("output_io_performed".to_string(), "true".to_string()),
+            ("write_io".to_string(), "true".to_string()),
+            (
+                "output_format".to_string(),
+                self.output_format.as_str().to_string(),
+            ),
+            (
+                "output_path".to_string(),
+                self.output_path.display().to_string(),
+            ),
+            ("output_bytes".to_string(), self.output_bytes.to_string()),
+            ("output_digest".to_string(), self.output_digest.clone()),
+            (
+                "output_native_io_certificate_status".to_string(),
+                "certified_local_file_sink".to_string(),
+            ),
+            (
+                "output_native_io_certificate_id".to_string(),
+                SQL_OUTPUT_NATIVE_IO_CERTIFICATE_ID.to_string(),
+            ),
+            (
+                "execution_certificate_status".to_string(),
+                "certified".to_string(),
+            ),
+            (
+                "execution_certificate_id".to_string(),
+                SQL_EXECUTION_CERTIFICATE_ID.to_string(),
+            ),
+            ("correctness_digest".to_string(), self.output_digest.clone()),
+            (
+                "materialization_boundary".to_string(),
+                self.source_kind.materialization_boundary().to_string(),
+            ),
+            ("data_materialized".to_string(), "true".to_string()),
+            ("data_decoded".to_string(), "false".to_string()),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("network_probe".to_string(), "false".to_string()),
+            ("catalog_probe".to_string(), "false".to_string()),
+            ("foundry_runtime_invoked".to_string(), "false".to_string()),
+            ("foundry_spark_invoked".to_string(), "false".to_string()),
+            ("fallback_attempted".to_string(), "false".to_string()),
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("external_engine_invoked".to_string(), "false".to_string()),
+            (
+                "claim_gate_status".to_string(),
+                "fixture_smoke_only".to_string(),
+            ),
+            (
+                "claim_gate_reason".to_string(),
+                self.source_kind.claim_gate_reason().to_string(),
+            ),
+            (
+                "sql_source_free_runtime_smoke_supported".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "sql_production_runtime_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("performance_claim_allowed".to_string(), "false".to_string()),
+            ("production_claim_allowed".to_string(), "false".to_string()),
+            (
+                "sql_dataframe_runtime_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "object_store_lakehouse_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "output_write_millis".to_string(),
+                self.write_millis.to_string(),
+            ),
+        ]
+    }
+
+    fn to_text(&self) -> String {
+        format!(
+            "generated-source SQL smoke\nschema_version: {SQL_SCHEMA_VERSION}\nsql_statement_kind: {}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: certified_local_file_sink\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            self.source_kind.as_str(),
+            canonical_schema(&self.schema),
+            self.rows.len(),
+            self.output_path.display(),
+            self.output_format.as_str(),
+        )
+    }
+}
+
 fn run_generated_user_rows_smoke(
     request: &GeneratedUserRowsSmokeRequest,
 ) -> Result<GeneratedUserRowsSmokeReport, ShardLoomError> {
@@ -1005,6 +1356,59 @@ fn run_generated_range_smoke(
     })
 }
 
+fn run_generated_sql_smoke(
+    request: &GeneratedSqlSmokeRequest,
+) -> Result<GeneratedSqlSmokeReport, ShardLoomError> {
+    if request.output_path.exists() && !request.allow_overwrite {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "output path already exists: {}; pass --allow-overwrite to replace it",
+            request.output_path.display()
+        )));
+    }
+    if let Some(parent) = request.output_path.parent() {
+        if !parent.as_os_str().is_empty() {
+            fs::create_dir_all(parent).map_err(|error| {
+                ShardLoomError::Message(format!(
+                    "failed to create local output directory {}: {error}",
+                    parent.display()
+                ))
+            })?;
+        }
+    }
+
+    let start = Instant::now();
+    let content = render_jsonl(&request.schema, &request.rows)?;
+    fs::write(&request.output_path, content.as_bytes()).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to write local generated-source SQL output {}: {error}",
+            request.output_path.display()
+        ))
+    })?;
+    let write_millis = start.elapsed().as_millis();
+
+    let schema_text = canonical_schema(&request.schema);
+    let canonical_rows = canonical_rows(&request.schema, &request.rows);
+    let output_digest = fnv64_digest(&content);
+    Ok(GeneratedSqlSmokeReport {
+        output_path: request.output_path.clone(),
+        output_format: request.output_format,
+        statement: request.statement.clone(),
+        source_kind: request.source_kind,
+        schema: request.schema.clone(),
+        rows: request.rows.clone(),
+        output_bytes: u64::try_from(content.len()).unwrap_or(u64::MAX),
+        output_digest: output_digest.clone(),
+        schema_digest: fnv64_digest(&schema_text),
+        plan_digest: fnv64_digest(&format!(
+            "generated_source_kind={};output_format={};statement={};schema={schema_text};rows={canonical_rows}",
+            request.source_kind.as_str(),
+            request.output_format.as_str(),
+            request.statement
+        )),
+        write_millis,
+    })
+}
+
 fn parse_i64_arg(name: &str, value: &str) -> Result<i64, ShardLoomError> {
     value.trim().parse::<i64>().map_err(|_| {
         ShardLoomError::InvalidOperation(format!(
@@ -1064,6 +1468,544 @@ fn generated_range_rows(
         }
     }
     Ok(rows)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedSourceFreeSql {
+    statement: String,
+    source_kind: SqlGeneratedSourceKind,
+    schema: Vec<GeneratedColumn>,
+    rows: Vec<GeneratedRow>,
+}
+
+fn parse_source_free_sql(raw: &str) -> Result<ParsedSourceFreeSql, ShardLoomError> {
+    let statement = normalize_sql_statement(raw)?;
+    if keyword_prefix(&statement, "SELECT") {
+        parse_sql_literal_select(&statement)
+    } else if keyword_prefix(&statement, "VALUES") {
+        parse_sql_values(&statement)
+    } else {
+        Err(unsupported_sql_error(
+            "source-free SQL smoke supports only SELECT literal expressions and VALUES clauses",
+        ))
+    }
+}
+
+fn parse_sql_literal_select(statement: &str) -> Result<ParsedSourceFreeSql, ShardLoomError> {
+    let select_list = statement["SELECT".len()..].trim();
+    if select_list.is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL literal SELECT requires at least one literal expression",
+        ));
+    }
+    if contains_keyword_outside_quotes(select_list, "FROM") {
+        return Err(unsupported_sql_error(
+            "SQL literal SELECT smoke does not admit FROM clauses or input datasets",
+        ));
+    }
+    if contains_outside_quotes(select_list, '(') || contains_outside_quotes(select_list, ')') {
+        return Err(unsupported_sql_error(
+            "SQL literal SELECT smoke does not admit functions, subqueries, or parenthesized expressions",
+        ));
+    }
+
+    let items = split_sql_csv(select_list)?;
+    if items.is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL literal SELECT requires at least one literal expression",
+        ));
+    }
+    let mut schema = Vec::with_capacity(items.len());
+    let mut values = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        let (literal, alias) = split_select_alias(item, index + 1)?;
+        let (value_type, value) = parse_sql_literal(literal.trim())?;
+        if schema
+            .iter()
+            .any(|column: &GeneratedColumn| column.name == alias)
+        {
+            return Err(unsupported_sql_error(
+                "SQL literal SELECT aliases must be unique",
+            ));
+        }
+        schema.push(GeneratedColumn {
+            name: alias,
+            value_type,
+        });
+        values.push(value);
+    }
+    Ok(ParsedSourceFreeSql {
+        statement: statement.to_string(),
+        source_kind: SqlGeneratedSourceKind::LiteralSelect,
+        schema,
+        rows: vec![GeneratedRow { values }],
+    })
+}
+
+fn parse_sql_values(statement: &str) -> Result<ParsedSourceFreeSql, ShardLoomError> {
+    let values_body = statement["VALUES".len()..].trim();
+    if values_body.is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL VALUES smoke requires at least one row tuple",
+        ));
+    }
+    let raw_rows = parse_values_tuples(values_body)?;
+    if raw_rows.is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL VALUES smoke requires at least one row tuple",
+        ));
+    }
+    if raw_rows.len() > MAX_SQL_GENERATED_ROWS {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "generated-source SQL row count {} exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}",
+            raw_rows.len()
+        )));
+    }
+
+    let first_width = raw_rows[0].len();
+    if first_width == 0 {
+        return Err(unsupported_sql_error(
+            "SQL VALUES row tuples must contain at least one literal",
+        ));
+    }
+    let mut column_types: Vec<GeneratedValueType> = Vec::with_capacity(first_width);
+    let mut parsed_rows: Vec<Vec<(GeneratedValueType, String)>> =
+        Vec::with_capacity(raw_rows.len());
+    for row in raw_rows {
+        if row.len() != first_width {
+            return Err(unsupported_sql_error(
+                "SQL VALUES row tuples must all have the same width",
+            ));
+        }
+        let parsed_row = row
+            .iter()
+            .map(|literal| parse_sql_literal(literal.trim()))
+            .collect::<Result<Vec<_>, _>>()?;
+        if column_types.is_empty() {
+            column_types.extend(parsed_row.iter().map(|(value_type, _)| *value_type));
+        } else {
+            for (index, (value_type, _)) in parsed_row.iter().enumerate() {
+                column_types[index] = unify_sql_value_type(column_types[index], *value_type)?;
+            }
+        }
+        parsed_rows.push(parsed_row);
+    }
+
+    let schema = column_types
+        .iter()
+        .enumerate()
+        .map(|(index, value_type)| GeneratedColumn {
+            name: format!("column_{}", index + 1),
+            value_type: *value_type,
+        })
+        .collect::<Vec<_>>();
+    let rows = parsed_rows
+        .into_iter()
+        .map(|row| GeneratedRow {
+            values: row.into_iter().map(|(_, value)| value).collect(),
+        })
+        .collect();
+    Ok(ParsedSourceFreeSql {
+        statement: statement.to_string(),
+        source_kind: SqlGeneratedSourceKind::Values,
+        schema,
+        rows,
+    })
+}
+
+fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err(unsupported_sql_error(
+            "generated-source SQL statement must not be empty",
+        ));
+    }
+    let mut semicolon_positions = Vec::new();
+    let bytes = trimmed.as_bytes();
+    let mut in_quote = false;
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\'' => {
+                if in_quote && index + 1 < bytes.len() && bytes[index + 1] == b'\'' {
+                    index += 2;
+                    continue;
+                }
+                in_quote = !in_quote;
+            }
+            b';' if !in_quote => semicolon_positions.push(index),
+            _ => {}
+        }
+        index += 1;
+    }
+    if in_quote {
+        return Err(unsupported_sql_error(
+            "generated-source SQL statement has an unterminated string literal",
+        ));
+    }
+    if semicolon_positions.len() > 1 {
+        return Err(unsupported_sql_error(
+            "generated-source SQL smoke accepts only one statement",
+        ));
+    }
+    if let Some(position) = semicolon_positions.first().copied() {
+        if trimmed[position + 1..].trim().is_empty() {
+            Ok(trimmed[..position].trim().to_string())
+        } else {
+            Err(unsupported_sql_error(
+                "generated-source SQL smoke rejects multiple statements",
+            ))
+        }
+    } else {
+        Ok(trimmed.to_string())
+    }
+}
+
+fn keyword_prefix(statement: &str, keyword: &str) -> bool {
+    let Some(prefix) = statement.get(..keyword.len()) else {
+        return false;
+    };
+    prefix.eq_ignore_ascii_case(keyword)
+        && statement
+            .as_bytes()
+            .get(keyword.len())
+            .is_some_and(|value| value.is_ascii_whitespace() || *value == b'(')
+}
+
+fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut in_quote = false;
+    let mut paren_depth = 0_i32;
+    let mut chars = raw.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\'' => {
+                current.push('\'');
+                if in_quote && chars.peek() == Some(&'\'') {
+                    current.push('\'');
+                    chars.next();
+                    continue;
+                }
+                in_quote = !in_quote;
+            }
+            '(' if !in_quote => {
+                paren_depth += 1;
+                current.push('(');
+            }
+            ')' if !in_quote => {
+                paren_depth -= 1;
+                if paren_depth < 0 {
+                    return Err(unsupported_sql_error(
+                        "generated-source SQL has unmatched closing parenthesis",
+                    ));
+                }
+                current.push(')');
+            }
+            ',' if !in_quote && paren_depth == 0 => {
+                let part = current.trim();
+                if part.is_empty() {
+                    return Err(unsupported_sql_error(
+                        "generated-source SQL list entries must not be empty",
+                    ));
+                }
+                parts.push(part.to_string());
+                current.clear();
+            }
+            _ => current.push(ch),
+        }
+    }
+    if in_quote {
+        return Err(unsupported_sql_error(
+            "generated-source SQL has an unterminated string literal",
+        ));
+    }
+    if paren_depth != 0 {
+        return Err(unsupported_sql_error(
+            "generated-source SQL has unmatched parentheses",
+        ));
+    }
+    let part = current.trim();
+    if part.is_empty() {
+        return Err(unsupported_sql_error(
+            "generated-source SQL list entries must not be empty",
+        ));
+    }
+    parts.push(part.to_string());
+    Ok(parts)
+}
+
+fn parse_values_tuples(raw: &str) -> Result<Vec<Vec<String>>, ShardLoomError> {
+    let mut rows = Vec::new();
+    let bytes = raw.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+            index += 1;
+        }
+        if index >= bytes.len() {
+            break;
+        }
+        if bytes[index] != b'(' {
+            return Err(unsupported_sql_error(
+                "SQL VALUES smoke expects row tuples like VALUES (1, 'a'), (2, 'b')",
+            ));
+        }
+        index += 1;
+        let start = index;
+        let mut in_quote = false;
+        while index < bytes.len() {
+            match bytes[index] {
+                b'\'' => {
+                    if in_quote && index + 1 < bytes.len() && bytes[index + 1] == b'\'' {
+                        index += 2;
+                        continue;
+                    }
+                    in_quote = !in_quote;
+                }
+                b')' if !in_quote => break,
+                b'(' if !in_quote => {
+                    return Err(unsupported_sql_error(
+                        "SQL VALUES smoke does not admit nested expressions or subqueries",
+                    ));
+                }
+                _ => {}
+            }
+            index += 1;
+        }
+        if index >= bytes.len() || in_quote {
+            return Err(unsupported_sql_error(
+                "SQL VALUES smoke has an unterminated row tuple or string literal",
+            ));
+        }
+        let row_body = raw[start..index].trim();
+        if row_body.is_empty() {
+            return Err(unsupported_sql_error(
+                "SQL VALUES row tuples must contain at least one literal",
+            ));
+        }
+        rows.push(split_sql_csv(row_body)?);
+        index += 1;
+        while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+            index += 1;
+        }
+        if index < bytes.len() {
+            if bytes[index] != b',' {
+                return Err(unsupported_sql_error(
+                    "SQL VALUES smoke expects commas between row tuples",
+                ));
+            }
+            index += 1;
+        }
+    }
+    Ok(rows)
+}
+
+fn split_select_alias(item: &str, column_index: usize) -> Result<(&str, String), ShardLoomError> {
+    let mut as_position = None;
+    let bytes = item.as_bytes();
+    let mut in_quote = false;
+    let mut index = 0;
+    while index + 1 < bytes.len() {
+        match bytes[index] {
+            b'\'' => {
+                if in_quote && index + 1 < bytes.len() && bytes[index + 1] == b'\'' {
+                    index += 2;
+                    continue;
+                }
+                in_quote = !in_quote;
+            }
+            b'a' | b'A' if !in_quote && bytes[index + 1].eq_ignore_ascii_case(&b's') => {
+                let before_ok = index == 0 || bytes[index - 1].is_ascii_whitespace();
+                let after_index = index + 2;
+                let after_ok =
+                    after_index >= bytes.len() || bytes[after_index].is_ascii_whitespace();
+                if before_ok && after_ok && as_position.replace(index).is_some() {
+                    return Err(unsupported_sql_error(
+                        "SQL literal SELECT supports at most one AS alias per expression",
+                    ));
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    if in_quote {
+        return Err(unsupported_sql_error(
+            "SQL literal SELECT has an unterminated string literal",
+        ));
+    }
+    if let Some(position) = as_position {
+        let literal = item[..position].trim();
+        let alias = item[position + 2..].trim();
+        if literal.is_empty() || alias.is_empty() {
+            return Err(unsupported_sql_error(
+                "SQL literal SELECT AS aliases require both an expression and a name",
+            ));
+        }
+        validate_sql_identifier(alias)?;
+        Ok((literal, alias.to_string()))
+    } else {
+        Ok((item.trim(), format!("column_{column_index}")))
+    }
+}
+
+fn parse_sql_literal(raw: &str) -> Result<(GeneratedValueType, String), ShardLoomError> {
+    let text = raw.trim();
+    if text.is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL source-free literals must not be empty",
+        ));
+    }
+    if text.starts_with('\'') {
+        return parse_sql_string_literal(text).map(|value| (GeneratedValueType::Utf8, value));
+    }
+    if text.eq_ignore_ascii_case("true") {
+        return Ok((GeneratedValueType::Bool, "true".to_string()));
+    }
+    if text.eq_ignore_ascii_case("false") {
+        return Ok((GeneratedValueType::Bool, "false".to_string()));
+    }
+    if text.eq_ignore_ascii_case("null") {
+        return Err(unsupported_sql_error(
+            "SQL NULL literals are not admitted in the first source-free smoke; null semantics are tracked by the operator-semantics slice",
+        ));
+    }
+    if !text.contains('.') && !text.contains('e') && !text.contains('E') {
+        if let Ok(value) = text.parse::<i64>() {
+            return Ok((GeneratedValueType::Int64, value.to_string()));
+        }
+    }
+    if let Ok(value) = text.parse::<f64>() {
+        if value.is_finite() {
+            return Ok((GeneratedValueType::Float64, value.to_string()));
+        }
+    }
+    Err(unsupported_sql_error(
+        "SQL source-free smoke admits only int64, finite float64, bool, and single-quoted utf8 literals",
+    ))
+}
+
+fn parse_sql_string_literal(raw: &str) -> Result<String, ShardLoomError> {
+    if !raw.ends_with('\'') || raw.len() < 2 {
+        return Err(unsupported_sql_error(
+            "SQL string literals must be single-quoted",
+        ));
+    }
+    let inner = &raw[1..raw.len() - 1];
+    let mut value = String::new();
+    let mut chars = inner.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\'' {
+            if chars.peek() == Some(&'\'') {
+                value.push('\'');
+                chars.next();
+            } else {
+                return Err(unsupported_sql_error(
+                    "SQL string literals must escape quotes as doubled single quotes",
+                ));
+            }
+        } else {
+            value.push(ch);
+        }
+    }
+    Ok(value)
+}
+
+fn unify_sql_value_type(
+    current: GeneratedValueType,
+    next: GeneratedValueType,
+) -> Result<GeneratedValueType, ShardLoomError> {
+    match (current, next) {
+        (left, right) if left == right => Ok(left),
+        (GeneratedValueType::Int64, GeneratedValueType::Float64)
+        | (GeneratedValueType::Float64, GeneratedValueType::Int64) => {
+            Ok(GeneratedValueType::Float64)
+        }
+        _ => Err(unsupported_sql_error(
+            "SQL VALUES smoke requires each column to have a single compatible literal type",
+        )),
+    }
+}
+
+fn validate_sql_identifier(value: &str) -> Result<(), ShardLoomError> {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return Err(unsupported_sql_error("SQL identifiers must not be empty"));
+    };
+    if !(first == '_' || first.is_ascii_alphabetic()) {
+        return Err(unsupported_sql_error(
+            "SQL aliases must start with a letter or underscore",
+        ));
+    }
+    if chars.any(|ch| !(ch == '_' || ch.is_ascii_alphanumeric())) {
+        return Err(unsupported_sql_error(
+            "SQL aliases may contain only letters, numbers, and underscores",
+        ));
+    }
+    Ok(())
+}
+
+fn contains_keyword_outside_quotes(raw: &str, keyword: &str) -> bool {
+    let keyword_bytes = keyword.as_bytes();
+    let bytes = raw.as_bytes();
+    let mut in_quote = false;
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\'' => {
+                if in_quote && index + 1 < bytes.len() && bytes[index + 1] == b'\'' {
+                    index += 2;
+                    continue;
+                }
+                in_quote = !in_quote;
+            }
+            _ if !in_quote
+                && index + keyword_bytes.len() <= bytes.len()
+                && bytes[index..index + keyword_bytes.len()]
+                    .eq_ignore_ascii_case(keyword_bytes) =>
+            {
+                let before_ok = index == 0 || !bytes[index - 1].is_ascii_alphanumeric();
+                let after_index = index + keyword_bytes.len();
+                let after_ok =
+                    after_index >= bytes.len() || !bytes[after_index].is_ascii_alphanumeric();
+                if before_ok && after_ok {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    false
+}
+
+fn contains_outside_quotes(raw: &str, needle: char) -> bool {
+    let bytes = raw.as_bytes();
+    let needle = needle as u8;
+    let mut in_quote = false;
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'\'' => {
+                if in_quote && index + 1 < bytes.len() && bytes[index + 1] == b'\'' {
+                    index += 2;
+                    continue;
+                }
+                in_quote = !in_quote;
+            }
+            byte if !in_quote && byte == needle => return true,
+            _ => {}
+        }
+        index += 1;
+    }
+    false
+}
+
+fn unsupported_sql_error(reason: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "{reason}; broader SQL remains blocked by GAR-RUNTIME-IMPL-1B and no fallback engine was invoked"
+    ))
 }
 
 fn local_path_from_file_uri(rest: &str) -> Result<String, ShardLoomError> {

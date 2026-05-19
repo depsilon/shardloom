@@ -551,8 +551,9 @@ End-to-end contract:
 
 Source-free generated output is the flow for requests that create output without reading an input
 dataset. The repo has the certificate contract for the full flow plus scoped local user-row,
-literal-table, calendar/date-dimension, and range JSONL fixture-smoke runtime paths. It keeps
-generated-output execution distinct from no-input smoke and benchmark fixture generation.
+literal-table, calendar/date-dimension, range, SQL `VALUES`, and SQL literal `SELECT` JSONL
+fixture-smoke runtime paths. It keeps generated-output execution distinct from no-input smoke and
+benchmark fixture generation.
 
 The governing GAR item is `GAR-GEN-1 source-free generated-output execution and
 GeneratedSourceCertificate`. GAR-GEN-1A/GAR-GEN-1B expose
@@ -564,6 +565,9 @@ user-generated JSONL output smoke paths. GAR-GEN-1D adds `generated-source-range
 GAR-GEN-1E adds the source-free SQL/DataFrame/Python/API admission matrix
 `shardloom.generated_source_api_admission.v1` so users and agents can inspect supported,
 report-only, and blocked forms without executing unsupported runtime.
+GAR-RUNTIME-IMPL-1A adds `generated-source-sql-smoke` plus Python
+`ctx.sql_values(...).write(...)` and `ctx.sql_literal_select(...).write(...)` for scoped local
+source-free SQL `VALUES` and literal `SELECT` JSONL output smoke paths.
 GAR-COMPAT-1B projects the same generated-output posture into the universal compatibility
 scoreboard through `shardloom.universal_compatibility.generated_output_contract.v1`, making the
 website/status, CLI compatibility capability, Python `ctx.compatibility_scoreboard()`, SQL/DataFrame
@@ -574,8 +578,8 @@ posture, and Foundry/object-store blockers read from the same compatibility-leve
 | Case | Meaning | Current posture | Evidence boundary |
 | --- | --- | --- | --- |
 | `no_dataset_smoke` | Status, capability, or proof command runs with no input dataset and no output data execution. | Smoke-only capability/proof behavior; also present as the first generated-source contract row. | `generated_source_created=false`, `output_io_performed=false`, `generated_source_certificate_status=not_applicable_no_generated_rows`; no source Native I/O certificate, no generated rows, no output data claim. |
-| `user_generated_source` | User Python code creates rows, then ShardLoom consumes those rows as a generated/literal/calendar source. | Scoped local JSONL fixture smoke through `generated-source-user-rows-smoke`, `ctx.from_rows([...]).write(...)`, `ctx.literal_table([...]).write(...)`, and `ctx.calendar(...).write(...)`; broader SQL/DataFrame and non-local sinks remain report-only or blocked. | Deterministic claim only for the scoped local user-generated paths when row creation, schema digest, row count, plan digest, sink evidence, and no-fallback evidence exist. |
-| `engine_native_generated_source` | ShardLoom plan contains generator nodes such as `range`, `sequence`, `values`, or a deterministic synthetic profile. | Scoped local JSONL fixture smoke for the `range` generator through `generated-source-range-smoke` and `ctx.range(...).write(...)`; other engine-native generator nodes remain report-only. | Deterministic claim only for the scoped local range path when row count, schema digest, plan digest, sink evidence, materialization boundary, and no-fallback evidence exist. |
+| `user_generated_source` | User Python code creates rows, then ShardLoom consumes those rows as a generated/literal/calendar/source-free SQL source. | Scoped local JSONL fixture smoke through `generated-source-user-rows-smoke`, `ctx.from_rows([...]).write(...)`, `ctx.literal_table([...]).write(...)`, `ctx.calendar(...).write(...)`, `generated-source-sql-smoke`, `ctx.sql_values(...).write(...)`, and `ctx.sql_literal_select(...).write(...)`; broader SQL/DataFrame and non-local sinks remain report-only or blocked. | Deterministic claim only for the scoped local user-generated and source-free SQL paths when row creation, schema digest, row count, plan digest, sink evidence, and no-fallback evidence exist. |
+| `engine_native_generated_source` | ShardLoom plan contains generator nodes such as `range`, `sequence`, engine-native `values`, or a deterministic synthetic profile. | Scoped local JSONL fixture smoke for the `range` generator through `generated-source-range-smoke` and `ctx.range(...).write(...)`; other engine-native generator nodes remain report-only. | Deterministic claim only for the scoped local range path when row count, schema digest, plan digest, sink evidence, materialization boundary, and no-fallback evidence exist. |
 
 ### Planned API Shape
 
@@ -587,32 +591,34 @@ ctx.from_rows([{"id": 1, "label": "alpha"}]).write("target/generated.jsonl")
 ctx.literal_table([{"code": "A", "weight": 1.5}]).write("target/generated-literal.jsonl")
 ctx.calendar("2026-05-18", "2026-05-21", column="dt").write("target/calendar.jsonl")
 ctx.range(0, 1000).write("target/generated-range.jsonl")
+ctx.sql_values("VALUES (1, 'alpha'), (2, 'beta')").write("target/generated-sql-values.jsonl")
+ctx.sql_literal_select("SELECT 1 AS id, 'alpha' AS label").write("target/generated-sql-select.jsonl")
 ```
 
-SQL posture should eventually classify:
+The current SQL smoke subset classifies:
 
 ```sql
 SELECT 1 AS value;
 VALUES (1, 'alpha'), (2, 'beta');
 ```
 
-as source-free literal/projection forms when a SQL parser, binder, planner, generator runtime, and
-output sink have evidence. Until then, SQL literal `SELECT`, SQL `VALUES`, source-free projection,
-and optional `generate_series`/`range` vocabulary stay report-only capability rows.
+as source-free literal/VALUES forms when they use admitted literal types and local JSONL output.
+Broader SQL source-free projection, SQL over input datasets, functions, joins, subqueries, UDFs, and
+optional `generate_series`/`range` vocabulary stay report-only capability rows.
 
 DataFrame-style builder methods should classify source-free builders and local writes without
 implying broad DataFrame runtime. The runtime-supported generated-output builders today are scoped
-local user-row, literal-table, calendar/date-dimension, and range JSONL smokes; expression-backed
-`with_column`, joins, aggregations, SQL, non-local output, and other source-free builders require
-future admission evidence.
+local user-row, literal-table, calendar/date-dimension, range, SQL `VALUES`, and SQL literal
+`SELECT` JSONL smokes; expression-backed `with_column`, joins, aggregations, broad SQL, non-local
+output, and other source-free builders require future admission evidence.
 
 Python context helpers now expose deterministic unsupported reports for the remaining source-free
-runtime candidates: `ctx.sequence(...)`, `ctx.sql_values(...)`, `ctx.sql_literal_select(...)`,
-`ctx.dataframe_source_free_projection(...)`, `ctx.dataframe_generated_with_column(...)`,
+runtime candidates: `ctx.sequence(...)`, `ctx.dataframe_source_free_projection(...)`,
+`ctx.dataframe_generated_with_column(...)`,
 `ctx.generated_output_to_object_store(...)`, and `ctx.foundry_generated_output(...)`. These helpers
 return `workflow-unsupported-plan` envelopes with source-free blocker IDs and required evidence;
-they do not parse SQL, execute DataFrame plans, generate rows, write outputs, probe object stores,
-invoke Foundry, invoke external engines, or attempt fallback.
+they do not execute DataFrame plans, generate rows, write outputs, probe object stores, invoke
+Foundry, invoke external engines, or attempt fallback.
 
 ### Source-Free API Admission Matrix
 
@@ -626,9 +632,9 @@ planner, runtime, or write operation.
 | `python_ctx_range` | `fixture_smoke_supported` | Admits only scoped local JSONL range writes with generated-source and output evidence. |
 | `python_ctx_literal_table` | `fixture_smoke_supported` | Admits only scoped local JSONL literal-table writes with generated-source and output evidence. |
 | `python_ctx_calendar` | `fixture_smoke_supported` | Admits only scoped local JSONL calendar/date-dimension writes with generated-source and output evidence. |
-| `python_generated_source_write` | `fixture_smoke_supported` | Write helper is admitted only when attached to supported `user_rows`, `literal_table`, `calendar`, or `range` generated sources. |
-| `sql_literal_select` | `report_only` | `blocker_id=gar-gen-1.sql_literal_select_runtime_not_implemented`; no parser, binder, planner, or runtime execution. |
-| `sql_values` | `report_only` | `blocker_id=gar-gen-1.sql_values_runtime_not_implemented`; no parser, binder, planner, or runtime execution. |
+| `python_generated_source_write` | `fixture_smoke_supported` | Write helper is admitted only when attached to supported `user_rows`, `literal_table`, `calendar`, `range`, `sql_values`, or `sql_literal_select` generated sources. |
+| `sql_literal_select` | `fixture_smoke_supported` | Admits only scoped source-free literal `SELECT` local JSONL writes with parser/binder/planner, generated-source, output, execution, and no-fallback evidence. |
+| `sql_values` | `fixture_smoke_supported` | Admits only scoped source-free `VALUES` local JSONL writes with parser/binder/planner, generated-source, output, execution, and no-fallback evidence. |
 | `sql_source_free_projection` | `report_only` | `blocker_id=gar-gen-1.sql_source_free_projection_runtime_not_implemented`; no SQL runtime or output claim. |
 | `sql_generate_series_range` | `report_only` | `blocker_id=gar-gen-1.sql_generate_series_range_runtime_not_implemented`; SQL vocabulary only. |
 | `dataframe_source_free_projection` | `report_only` | `blocker_id=gar-gen-1.dataframe_source_free_projection_runtime_not_implemented`; no broad DataFrame runtime. |

@@ -1692,12 +1692,20 @@ fn assert_generated_output_compatibility_fields(output: &str) {
         true
     )));
     assert!(output.contains(&string_field_pair(
+        "universal_compatibility_generated_output_row_sql_literal_select_support_status",
+        "smoke-supported"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_generated_output_row_sql_literal_select_runtime_execution",
+        true
+    )));
+    assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_sql_values_support_status",
-        "report-only"
+        "smoke-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_generated_output_row_sql_values_runtime_execution",
-        false
+        true
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_row_local_output_only_generated_source_posture_blocker_id",

@@ -948,7 +948,7 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "\"support_status\": \"blocked\"",
         "No object-store runtime",
         "No production lakehouse",
-        "No SQL parser",
+        "Only source-free SQL VALUES/literal",
         "Future validation target only",
     ] {
         assert!(

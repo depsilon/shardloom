@@ -33,6 +33,7 @@ from .models import Diagnostic, OutputEnvelope
 from .query import (
     GeneratedRangeSource,
     GeneratedRowsSource,
+    GeneratedSqlSource,
     LazyFrame,
     UnsupportedWorkflowOperationReport,
     WorkflowSource,
@@ -43,6 +44,8 @@ from .query import (
     from_rows,
     literal_table as generated_literal_table,
     range as generated_range,
+    sql_literal_select as generated_sql_literal_select,
+    sql_values as generated_sql_values,
     read_csv,
     read_json,
     read_parquet,
@@ -283,9 +286,10 @@ _WRITE_BOUNDARY = (
     "fallback, or production output claim."
 )
 _GENERATED_OUTPUT_BOUNDARY = (
-    "Scoped local generated-output smokes only; user rows and engine-native range write local JSONL "
-    "with generated-source and output evidence, but no broad DataFrame runtime, SQL runtime, "
-    "object-store/lakehouse, Foundry, performance, or production claim."
+    "Scoped local generated-output smokes only; user rows, engine-native range, and source-free "
+    "SQL VALUES/literal SELECT write local JSONL with generated-source and output evidence, but "
+    "no broad DataFrame runtime, broad SQL runtime, object-store/lakehouse, Foundry, performance, "
+    "or production claim."
 )
 
 DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
@@ -381,30 +385,34 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "sql_values",
         "sql_frontend",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="sql-values",
-        blocker_id="gar-gen-1.sql_values_runtime_not_implemented",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
         required_evidence=(
             "sql_parser",
             "sql_binder",
             "sql_planner",
             "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
         ),
-        claim_boundary=_UNSUPPORTED_BOUNDARY,
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
     ),
     _df_method(
         "sql_literal_select",
         "sql_frontend",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="sql-literal-select",
-        blocker_id="gar-gen-1.sql_source_free_projection_runtime_not_implemented",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
         required_evidence=(
             "sql_parser",
             "sql_binder",
             "sql_planner",
             "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
         ),
-        claim_boundary=_UNSUPPORTED_BOUNDARY,
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
     ),
     _df_method(
         "dataframe_source_free_projection",
@@ -4297,33 +4305,23 @@ class ShardLoomContext:
     def sql_values(
         self,
         values_clause: object,
-        *,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for SQL VALUES generated output."""
+    ) -> GeneratedSqlSource:
+        """Create a scoped SQL VALUES generated source for local output smokes."""
 
-        target = _require_non_empty_text("SQL VALUES clause", values_clause)
-        return self._source_free_unsupported(
-            "sql-values",
-            "sql_values",
-            target,
-            check=check,
+        return generated_sql_values(
+            values_clause,
+            client=self.client,
         )
 
     def sql_literal_select(
         self,
         expression: object,
-        *,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for SQL source-free literal SELECT."""
+    ) -> GeneratedSqlSource:
+        """Create a scoped SQL literal SELECT generated source for local output smokes."""
 
-        target = _require_non_empty_text("SQL literal SELECT expression", expression)
-        return self._source_free_unsupported(
-            "sql-literal-select",
-            "sql_literal_select",
-            target,
-            check=check,
+        return generated_sql_literal_select(
+            expression,
+            client=self.client,
         )
 
     def dataframe_source_free_projection(
