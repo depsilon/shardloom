@@ -148,6 +148,11 @@ Classification vocabulary:
 | Sparse, bitpacked, mask/rank intersection, and smallvec performance fixes | `runtime_opportunity` | Candidate inputs for `GAR-RUNTIME-IMPL-4J`, source-backed scan, and native microbenchmark follow-through. | No performance/superiority claim and no encoded-native promotion without ShardLoom evidence. |
 | `Executor::spawn_io` and local async file write behavior | `native_provider_candidate` | Candidate for `GAR-RUNTIME-IMPL-4H`, `GAR-RUNTIME-IMPL-4G`, and later object-store/write lifecycle gates. | No hidden runtime, daemon, object-store write, or async side-effect support. |
 
+`GAR-VORTEX-071C` mapped these candidates into active runtime slices without admitting support:
+`GAR-RUNTIME-IMPL-4D`, `4F`, `4G`, `4H`, `4I`, `4J`, `4N`, and `4P`. Runtime support still requires
+the owning slice to implement executable behavior or deterministic blockers, tests, certificates,
+materialization/decode evidence, no-fallback evidence, and claim-gate evidence.
+
 Required blockers before any 0.71 item becomes executable:
 
 - Default builds must remain lightweight and must not compile upstream Vortex unless the relevant

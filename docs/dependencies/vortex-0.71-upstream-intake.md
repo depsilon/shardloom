@@ -104,7 +104,9 @@ The phase plan owns these follow-through slices:
   `docs/architecture/phased-execution-completed-ledger.md`.
 - `GAR-VORTEX-071B`: feature-gated dependency bump and dependency-footprint proof. Complete once
   the matching PR lands; moved to the completed ledger in that PR.
-- `GAR-VORTEX-071C`: runtime opportunity mapping into existing runtime slices.
+- `GAR-VORTEX-071C`: runtime opportunity mapping into existing runtime slices. Complete once the
+  matching PR lands; mapped into `GAR-RUNTIME-IMPL-4D`, `4F`, `4G`, `4H`, `4I`, `4J`, `4N`, and
+  `4P`.
 - `GAR-VORTEX-071D`: Dependabot and release-intake workflow hardening.
 
 No ShardLoom runtime support changes are approved until those slices attach evidence.
