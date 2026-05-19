@@ -1089,6 +1089,7 @@ def compute_flow_page(source: Path) -> str:
     <nav class="page-subnav" aria-label="Compute flow sections">
       <div class="shell">
         <a href="#flow-overview">Overview</a>
+        <a href="#route-model">Route model</a>
         <a href="#flow-modes">Mode lanes</a>
         <a href="#engine-fabric">Engine fabric</a>
         <a href="#provider-admission">Provider admission</a>
@@ -1101,14 +1102,41 @@ def compute_flow_page(source: Path) -> str:
         <div>
           <p class="eyebrow">Plain-English route</p>
           <h2>One request, one visible route.</h2>
-          <p class="section-lede">ShardLoom should never make users infer what happened. The public flow separates the user access surface from the runtime contract, the source/preparation lane, the workload engine semantics, the provider path, and the evidence envelope.</p>
+          <p class="section-lede">ShardLoom should never make users infer what happened. Python, SQL, CLI, and future DataFrame surfaces are front doors; the execution route is determined separately from the source, preparation policy, output sink, and evidence level.</p>
         </div>
         <aside class="terminal-panel flow-command-panel">
-          <div class="console-row"><code>policy</code><span>no fallback, credentials, governance, capability admission</span></div>
-          <div class="console-row"><code>mode</code><span>requested, selected, reason, unsupported diagnostic if needed</span></div>
-          <div class="console-row"><code>provider</code><span>Vortex source, prepared artifact, native kernel, or blocked path</span></div>
-          <div class="console-row"><code>output</code><span>result ref, evidence refs, timing, claim_gate_status</span></div>
+          <div class="console-row"><code>front door</code><span>Python, SQL, CLI, adapter, benchmark, or future API</span></div>
+          <div class="console-row"><code>route</code><span>source -> preparation -> execution -> output -> evidence</span></div>
+          <div class="console-row"><code>provider</code><span>Vortex source, prepared artifact, ShardLoom kernel, or blocked path</span></div>
+          <div class="console-row"><code>claim</code><span>typed evidence refs, timing, no-fallback fields, claim_gate_status</span></div>
         </aside>
+      </div>
+    </section>
+    <section id="route-model">
+      <div class="shell">
+        <p class="eyebrow">Workflow vs route</p>
+        <h2>SQL and Python express the work. Routes explain how it ran.</h2>
+        <p class="section-lede">A normal user story is <code>read/generate -> transform/query -> write</code>. ShardLoom reports the internal path as <code>InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact</code> when those stages apply.</p>
+        <div class="comparison-guidance">
+          <article>
+            <h3>Common user workflow</h3>
+            <ul>
+              <li>Enter through Python, SQL, CLI, or a future DataFrame front door.</li>
+              <li>Read local data or generate rows without an input dataset.</li>
+              <li>Run admitted ShardLoom/Vortex work without external fallback.</li>
+              <li>Write local output and inspect evidence.</li>
+            </ul>
+          </article>
+          <article>
+            <h3>Engine route evidence</h3>
+            <ul>
+              <li>Source route: no input, generated rows, local file, existing Vortex, or future platform source.</li>
+              <li>Preparation route: direct transient, certified import/stage, prepared Vortex, or native Vortex.</li>
+              <li>Output route: scalar/report, local sink, Vortex result, fanout, or deterministic blocker.</li>
+              <li>Evidence route: minimal runtime, certified, full replay, and claim gate.</li>
+            </ul>
+          </article>
+        </div>
       </div>
     </section>
     <section id="flow-modes">
@@ -1117,10 +1145,10 @@ def compute_flow_page(source: Path) -> str:
         <h2>Source and preparation choices stay explicit.</h2>
         <p class="section-lede">These lanes are not interchangeable timing rows. Compatibility import carries ingest/stage/certification work. Prepared and native Vortex lanes are the current runtime-development direction. Direct transient and auto stay constrained by diagnostics and selected-mode reporting.</p>
         <div class="mode-lanes mission-mode-lanes">
-          <article class="mode-lane"><span class="lane-tag">Certification</span><h3>compatibility_import_certified</h3><p>Reads compatibility input, imports to Vortex, writes/reopens/scans, computes, and certifies the workflow.</p></article>
-          <article class="mode-lane"><span class="lane-tag">Runtime direction</span><h3>prepared_vortex</h3><p>Runs scoped scenarios from prepared Vortex artifacts with source-backed scan and no-fallback evidence.</p></article>
-          <article class="mode-lane"><span class="lane-tag">Native artifact</span><h3>native_vortex</h3><p>Runs from existing Vortex input where the local row carries Native I/O and claim-boundary fields.</p></article>
-          <article class="mode-lane"><span class="lane-tag">Diagnostic</span><h3>direct_compatibility_transient / auto</h3><p>Direct transient remains narrow and not Vortex-native; auto must report selected mode and reason.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Certified import/stage route</span><h3>compatibility_import_certified</h3><p>Reads compatibility input, imports to Vortex, writes/reopens/scans, computes, and certifies the full ingest/stage workflow.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Prepared steady-state route</span><h3>prepared_vortex</h3><p>Prepares Vortex once, then runs scoped queries from prepared artifacts with source-backed scan and no-fallback evidence.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Already-Vortex route</span><h3>native_vortex</h3><p>Runs from existing Vortex input where the local row carries Native I/O, provider admission, and claim-boundary fields.</p></article>
+          <article class="mode-lane"><span class="lane-tag">Direct one-shot route</span><h3>direct_compatibility_transient / auto</h3><p>Direct transient remains narrow and not Vortex-native; auto is only a transparent selector with a selected mode and reason.</p></article>
         </div>
       </div>
     </section>
@@ -3319,17 +3347,17 @@ def mode_comparison_visual(
     timing_table = (comparative or {}).get("engine_timing_overview", {})
     cards = [
         (
-            "compatibility_import_certified geomean",
+            "certified import/stage route geomean",
             dashboard_table_value(timing_table, "shardloom", "Geomean"),
             "certification lane with import, write/reopen, scan, sink, and evidence work",
         ),
         (
-            "shardloom-vortex geomean",
+            "Vortex-oriented route geomean",
             dashboard_table_value(timing_table, "shardloom-vortex", "Geomean"),
             "Vortex-oriented local lane from the promoted benchmark artifact",
         ),
         (
-            "shardloom-prepared-vortex geomean",
+            "prepared steady-state route geomean",
             dashboard_table_value(timing_table, "shardloom-prepared-vortex", "Geomean"),
             "prepared-artifact lane and current runtime-development direction",
         ),
@@ -3839,8 +3867,8 @@ def benchmark_page(summary: dict[str, Any]) -> str:
           <article>
             <h3>What to compare</h3>
             <ul>
-              <li><code>compatibility_import_certified</code> vs <code>prepared_vortex</code></li>
-              <li><code>prepared_vortex</code> vs <code>native_vortex</code> batch smoke</li>
+              <li>certified import/stage route vs prepared steady-state route</li>
+              <li>warm prepared route vs already-Vortex batch smoke</li>
               <li>source-backed scan fields vs materialized compatibility path fields</li>
             </ul>
           </article>
@@ -3858,7 +3886,7 @@ def benchmark_page(summary: dict[str, Any]) -> str:
     <section id="local-timing-context">
       <div class="shell">
         <h2>Local Timing Context</h2>
-        <p class="section-lede">The mode view keeps compatibility certification, Vortex-oriented, prepared Vortex, and batch smoke lanes separated. These numbers are local context for attribution before optimization, not a leaderboard.</p>
+        <p class="section-lede">The mode view keeps certified import/stage, prepared steady-state, already-Vortex, and batch smoke routes separated. These numbers are local context for attribution before optimization, not a leaderboard.</p>
         {mode_visual}
         <h3>Representative timing decomposition</h3>
         <p class="section-lede">The decomposition highlights why compatibility import totals should not be read as pure query speed: parse/import, Vortex write, scan, operator, sink, and evidence work are separate fields.</p>
@@ -4204,10 +4232,13 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
+    compute_flow_source = ROOT / "docs" / "architecture" / "compute-engine-flow-reference.md"
+    (DATA_DIR / "compute-engine-flow-reference.md").write_text(
+        compute_flow_source.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     (WEBSITE / "compute-engine-flow.html").write_text(
-        compute_flow_page(
-            ROOT / "docs" / "architecture" / "compute-engine-flow-reference.md",
-        ),
+        compute_flow_page(compute_flow_source),
         encoding="utf-8",
     )
     (WEBSITE / "status.html").write_text(status_page(use_cases), encoding="utf-8")

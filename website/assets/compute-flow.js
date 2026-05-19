@@ -7,7 +7,7 @@
     views: [
       { title: "Access and users", detail: "CLI, Python, benchmarks, adapters, and future REST/event surfaces preserve the shared typed protocol." },
       { title: "Runtime contract", detail: "Policy, capability, semantic profile, execution mode, and engine mode are admitted before execution." },
-      { title: "Mode lanes", detail: "Compatibility, prepared Vortex, native Vortex, direct transient, and auto lanes stay explicit." },
+      { title: "Route model", detail: "Python, SQL, CLI, and adapters are front doors; source, preparation, execution, output, and evidence define the route." },
       { title: "Evidence and downstream use", detail: "Typed outputs carry result refs, diagnostics, certificates, timing fields, and claim gates." }
     ],
     access: [
@@ -19,14 +19,14 @@
     runtime: [
       { title: "Policy", detail: "Governance, credentials, and no fallback" },
       { title: "Capability matrix", detail: "Source, operator, sink, and feature gates" },
-      { title: "Explicit execution mode", detail: "Requested, selected, and reason" },
+      { title: "Explicit route", detail: "Requested mode, selected mode, and reason" },
       { title: "Claim gate", detail: "claim_grade, fixture_smoke_only, or not_claim_grade" }
     ],
     lanes: [
-      { title: "compatibility_import_certified", detail: "Current ingest/stage certification lane" },
-      { title: "prepared_vortex", detail: "Current/preferred performance lane" },
-      { title: "native_vortex", detail: "Current scoped native-artifact lane" },
-      { title: "direct_compatibility_transient", detail: "Scoped CSV smoke and unsupported diagnostics" },
+      { title: "Certified import/stage", detail: "compatibility_import_certified" },
+      { title: "Prepared steady-state", detail: "prepared_vortex" },
+      { title: "Already-Vortex", detail: "native_vortex" },
+      { title: "Direct one-shot", detail: "direct_compatibility_transient plus unsupported diagnostics" },
       { title: "auto", detail: "Transparent selector, not a hidden engine" }
     ],
     engine: [
@@ -42,10 +42,10 @@
       { title: "Adapter consumers", detail: "Downstream readers do not imply hidden execution modes" }
     ],
     modes: [
-      ["compatibility_import_certified", "Read compatibility input, import to Vortex, write/reopen/scan, compute, certify", "Certified ingest/stage workflow", "Can be claim-grade for ingest/stage workload"],
-      ["prepared_vortex", "Prepare Vortex once, then run many queries/scenarios from prepared artifacts", "Main performance comparison path", "Preferred benchmark path"],
-      ["native_vortex", "Existing .vortex input, Vortex-native scan/operator path", "Cleanest native query path", "Cleanest native-engine lane"],
-      ["direct_compatibility_transient", "Read compatibility input and compute directly without persistent Vortex write/reopen", "Small one-shot jobs, quick ETL", "Not Vortex-native"],
+      ["compatibility_import_certified", "Certified import/stage route", "Read compatibility input, import to Vortex, write/reopen/scan, compute, certify", "Not pure query-speed timing"],
+      ["prepared_vortex", "Prepared Vortex steady-state route", "Prepare Vortex once, then run many queries/scenarios from prepared artifacts", "Current runtime-development path"],
+      ["native_vortex", "Already-Vortex route", "Existing .vortex input, Vortex-native scan/operator path", "Cleanest native-engine lane"],
+      ["direct_compatibility_transient", "Direct one-shot route", "Read compatibility input and compute directly without persistent Vortex write/reopen", "Not Vortex-native"],
       ["auto", "Transparent mode choice based on input/request/policy", "User convenience", "Must report selected mode and reason"]
     ],
     timing: [
@@ -211,7 +211,10 @@
         ["COMPAT_INPUT", "VORTEX_INPUT", "OBJECT_INPUT", "TABLE_INPUT", "STREAM_INPUT", "VORTEX_SINK", "REST_EVENT", "CLI_RESULT", "PY_RESULT", "ADAPTER_RESULT", "BENCH_RESULT"]
       ),
       modes: modeRows.map(function (row) {
-        return [row[0], row[1], row[2], row[4]];
+        if (row.length >= 6) {
+          return [row[0], row[1], row[2], row[5]];
+        }
+        return [row[0], row[1], row[2], row[3]];
       }),
       timing: timingBlock.split(/\r?\n/).map(stripMarkdown).filter(Boolean),
       engineFields: engineFieldBlock.split(/\r?\n/).map(stripMarkdown).filter(Boolean),

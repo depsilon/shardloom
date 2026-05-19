@@ -298,8 +298,8 @@
           <article>
             <h3>What to compare</h3>
             <ul>
-              <li><code>compatibility_import_certified</code> vs <code>prepared_vortex</code></li>
-              <li><code>prepared_vortex</code> vs <code>native_vortex</code> batch smoke</li>
+              <li>certified import/stage route vs prepared steady-state route</li>
+              <li>warm prepared route vs already-Vortex batch smoke</li>
               <li>source-backed scan fields vs materialized compatibility path fields</li>
             </ul>
           </article>
@@ -317,8 +317,8 @@
     <section id="local-timing-context">
       <div class="shell">
         <h2>Local Timing Context</h2>
-        <p class="section-lede">The mode view keeps compatibility certification, Vortex-oriented, prepared Vortex, and batch smoke lanes separated. These numbers are local context for attribution before optimization, not a leaderboard.</p>
-        <div class="mode-comparison-grid"><article class="mode-comparison-card"><span>compatibility_import_certified geomean</span><strong>441.84 ms</strong><p>certification lane with import, write/reopen, scan, sink, and evidence work</p></article><article class="mode-comparison-card"><span>shardloom-vortex geomean</span><strong>1.48 ms</strong><p>Vortex-oriented local lane from the promoted benchmark artifact</p></article><article class="mode-comparison-card"><span>shardloom-prepared-vortex geomean</span><strong>1.40 ms</strong><p>prepared-artifact lane and current runtime-development direction</p></article><article class="mode-comparison-card"><span>prepared_vortex batch smoke total/compute</span><strong>6.618 ms</strong><p>scoped session-backed batch runner structural smoke evidence</p></article><article class="mode-comparison-card"><span>native_vortex batch smoke total/compute</span><strong>5.914 ms</strong><p>native Vortex batch runner structural smoke evidence</p></article></div>
+        <p class="section-lede">The mode view keeps certified import/stage, prepared steady-state, already-Vortex, and batch smoke routes separated. These numbers are local context for attribution before optimization, not a leaderboard.</p>
+        <div class="mode-comparison-grid"><article class="mode-comparison-card"><span>certified import/stage route geomean</span><strong>441.84 ms</strong><p>certification lane with import, write/reopen, scan, sink, and evidence work</p></article><article class="mode-comparison-card"><span>Vortex-oriented route geomean</span><strong>1.48 ms</strong><p>Vortex-oriented local lane from the promoted benchmark artifact</p></article><article class="mode-comparison-card"><span>prepared steady-state route geomean</span><strong>1.40 ms</strong><p>prepared-artifact lane and current runtime-development direction</p></article><article class="mode-comparison-card"><span>prepared_vortex batch smoke total/compute</span><strong>6.618 ms</strong><p>scoped session-backed batch runner structural smoke evidence</p></article><article class="mode-comparison-card"><span>native_vortex batch smoke total/compute</span><strong>5.914 ms</strong><p>native Vortex batch runner structural smoke evidence</p></article></div>
         <h3>Representative timing decomposition</h3>
         <p class="section-lede">The decomposition highlights why compatibility import totals should not be read as pure query speed: parse/import, Vortex write, scan, operator, sink, and evidence work are separate fields.</p>
         <div class="table-scroll"><table>

@@ -66,7 +66,8 @@
         <div class="hero-media" aria-label="ShardLoom logo">
           <img class="hero-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
           <div class="hero-console terminal-panel" aria-label="Current evidence posture">
-            <div class="console-row"><code>Mode</code><span>compatibility_import_certified, prepared_vortex, native_vortex, direct_compatibility_transient, auto</span></div>
+            <div class="console-row"><code>Front door</code><span>Python, SQL, CLI, adapters, benchmarks</span></div>
+            <div class="console-row"><code>Route</code><span>source -> preparation -> execution -> output -> evidence</span></div>
             <div class="console-row"><code>Policy</code><span>fallback_attempted=false, external_engine_invoked=false</span></div>
             <div class="console-row"><code>Evidence</code><span>execution certificates, Native I/O, source-backed scan, materialization/decode, and timing fields</span></div>
             <div class="console-row"><code>Claim</code><span>pre-release local evidence; no performance or production platform claim</span></div>
@@ -124,9 +125,9 @@
           </div>
         </div>
         <div class="proof-grid">
-          <article class="proof-card signal-card"><strong>Compatibility import</strong><span>Certification lane that includes ingest, stage, write/reopen, scan, result, and evidence work.</span></article>
-          <article class="proof-card signal-card"><strong>Prepared Vortex</strong><span>Preferred path for query-runtime evidence from already prepared Vortex artifacts.</span></article>
-          <article class="proof-card signal-card"><strong>Native Vortex</strong><span>Scoped native-artifact lane with visible admission, Native I/O, and no-fallback fields.</span></article>
+          <article class="proof-card signal-card"><strong>Certified import/stage route</strong><span>Compatibility route that includes ingest, stage, write/reopen, scan, result, and evidence work.</span></article>
+          <article class="proof-card signal-card"><strong>Prepared steady-state route</strong><span>Preferred route for query-runtime evidence after a Vortex artifact is prepared once.</span></article>
+          <article class="proof-card signal-card"><strong>Already-Vortex route</strong><span>Scoped native-artifact route with visible admission, Native I/O, and no-fallback fields.</span></article>
         </div>
       </div>
     </section>
@@ -171,7 +172,7 @@
         <div class="flow-table-wrap">
           <table class="flow-table" aria-label="Execution mode summary parsed from the architecture reference">
             <thead>
-              <tr><th>Mode</th><th>What it means</th><th>Primary use</th><th>Claim posture</th></tr>
+              <tr><th>Mode</th><th>User-facing label</th><th>Route meaning</th><th>Claim posture</th></tr>
             </thead>
             <tbody data-flow-modes></tbody>
           </table>
@@ -226,7 +227,7 @@
         <p class="section-lede">The site publishes generated, committed pages rather than relying on a Cloudflare build step. The Field Guide now provides short technical dossiers for the main evidence and claim-boundary terms.</p>
         <div class="evidence-path" aria-label="Evidence path">
           <article class="evidence-step"><strong>Request</strong><span>typed workload, source, policy, output intent</span></article>
-          <article class="evidence-step"><strong>Mode</strong><span>compatibility, prepared Vortex, native Vortex, or explicit unsupported path</span></article>
+          <article class="evidence-step"><strong>Route</strong><span>certified import/stage, prepared steady-state, already-Vortex, direct one-shot, or explicit unsupported path</span></article>
           <article class="evidence-step"><strong>Source/preparation</strong><span>compatibility import, prepared artifact, native source, or blocked adapter</span></article>
           <article class="evidence-step"><strong>Provider</strong><span>Vortex provider, ShardLoom-native kernel, residual-native path, or diagnostic</span></article>
           <article class="evidence-step"><strong>Result</strong><span>result ref, sink artifact, replay path, or unsupported status</span></article>
