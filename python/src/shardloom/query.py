@@ -580,7 +580,7 @@ class LazyFrame:
         *,
         check: bool = False,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
-        """Collect rows for admitted local CSV SQL smoke shapes."""
+        """Collect rows for admitted local CSV/flat JSONL SQL smoke shapes."""
 
         if statement := self._sql_local_source_statement():
             return self.client.sql_local_source_smoke(statement, check=check)
@@ -602,9 +602,11 @@ class LazyFrame:
         if statement is None:
             raise ValueError(
                 "LazyFrame.write currently requires a local CSV source with "
-                "select(...), filter(...), and limit(...) operations, or "
+                "select(...), filter(...), and limit(...) operations, "
                 "aggregate(...), filter(...), and limit(...) operations, or "
-                "filter(...), group_by(...).agg(...), and limit(...) operations"
+                "filter(...), group_by(...).agg(...), and limit(...) operations; "
+                "or a local flat JSONL/NDJSON source with select(...), filter(...), "
+                "and limit(...) operations"
             )
         return self.client.sql_local_source_smoke(
             statement,
@@ -1004,7 +1006,7 @@ class LazyFrame:
         )
 
     def _sql_local_source_statement(self) -> str | None:
-        if self.source.source_format != "csv":
+        if not _is_query_builder_local_source(self.source):
             return None
         projection_list: tuple[str, ...] | None = None
         aggregate_list: tuple[str, ...] | None = None
@@ -1779,6 +1781,19 @@ def _is_local_source_sql_ref(value: str) -> bool:
 def _is_local_csv_source_ref(value: str) -> bool:
     lower = value.strip().lower()
     return _is_local_source_sql_ref(value) and lower.endswith(".csv")
+
+
+def _is_local_jsonl_source_ref(value: str) -> bool:
+    lower = value.strip().lower()
+    return _is_local_source_sql_ref(value) and lower.endswith((".jsonl", ".ndjson"))
+
+
+def _is_query_builder_local_source(source: WorkflowSource) -> bool:
+    if source.source_format == "csv":
+        return _is_local_csv_source_ref(source.uri)
+    if source.source_format == "json":
+        return _is_local_jsonl_source_ref(source.uri)
+    return False
 
 
 def _single_quoted_sql_strings(statement: str) -> tuple[str, ...]:

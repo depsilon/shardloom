@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F-S2 Python query-builder JSONL local source bridge
+  - Branch/PR: `codex/python-jsonl-query-builder-runtime` / #795.
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `python/README.md`
+    - `README.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/generated/python-local-csv-query-builder-smoke.md`
+    - `website/use-cases/python-local-csv-query-builder-smoke.html`
+    - `website/use-cases/index.html`
+    - `website/status.html`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: expose the already admitted scoped flat JSONL/NDJSON local SQL source runtime through
+    Python `read_json(...).select(...).filter(...).limit(...).collect()/write(...)`, while keeping
+    plain `.json`, nested JSON, JSONPath, aggregates, joins, object-store, and broad DataFrame
+    runtime blocked.
+  - Runtime behavior:
+    - `LazyFrame` now lowers local `.jsonl` and `.ndjson` `read_json` projection/filter/limit
+      workflows into `sql-local-source-smoke`.
+    - The lowerer still admits CSV-only scalar aggregate, one-column group-by, top-N, and scoped
+      CSV join shapes; JSONL/NDJSON remains projection/filter/limit only.
+    - The JSONL parser now accepts a leading UTF-8 BOM on the first non-empty row so Windows
+      PowerShell-generated JSONL fixtures do not fail before runtime evidence is emitted.
+  - Evidence:
+    - JSONL Python smoke reports `source_format=jsonl`, `source_io_performed=true`,
+      SourceState-style fields from the CLI envelope, local output Native I/O certificate status
+      when written, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python website/build_static_pages.py --benchmark-manifest website/assets/benchmarks/latest/manifest.json`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-cli jsonl_parser_handles`
+    - `python -c` smoke using
+      `ctx.read_json(...).select(...).filter(...).limit(...).write(...)`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: this admits only local flat JSONL/NDJSON Python query-builder
+    projection/filter/limit fixture-smoke execution through ShardLoom-owned SQL local-source
+    runtime. It does not add plain JSON, nested JSON, JSONPath, JSON aggregates, JSON joins,
+    object-store/table runtime, broad SQL/DataFrame support, performance claims, or production
+    support.
+  - Fallback boundary: Python only orchestrates the ShardLoom CLI; JSONL parsing, binding,
+    planning, row evaluation, local output, and evidence are ShardLoom-owned with no external
+    engine fallback.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E/5A-S2 scoped Python generated-row transform runtime
   - Branch/PR: `codex/generated-rows-transform-runtime` / #794.
   - Primary files:

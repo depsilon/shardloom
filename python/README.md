@@ -326,13 +326,17 @@ and transformations only. `plan()`, `explain()`, `estimate()`, `certify()`, and
 not read input files, infer schemas, materialize rows, probe object stores,
 write output, or invoke fallback engines.
 
-One scoped local CSV query-builder workflow family is executable through the
-same typed CLI bridge. A workflow shaped as
+One scoped local CSV plus flat JSONL/NDJSON query-builder workflow family is
+executable through the same typed CLI bridge. A workflow shaped as
 `read_csv(...).select(...).filter(...).limit(...)` lowers to ShardLoom's
 `sql-local-source-smoke` path, runs ShardLoom-owned projection/filter/limit
-semantics, and returns a typed evidence report. Filters admit scoped comparison, cast,
-date-literal, string `LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over
-already admitted leaves. The same bridge admits scoped
+semantics, and returns a typed evidence report. The same projection/filter/limit
+shape is admitted for `read_json(...)` only when the source path is local
+`.jsonl` or `.ndjson`; plain `.json`, nested JSON expansion, and JSONPath
+remain deterministic unsupported surfaces. Filters admit scoped comparison,
+cast, date-literal, string `LIKE`, null, logical `AND`/`OR`/`NOT`, and
+balanced grouping parentheses over already admitted leaves. CSV remains the
+only query-builder source admitted for scoped
 scalar aggregates shaped as
 `read_csv(...).filter(...).aggregate(...).limit(1)` for `COUNT`, `SUM`, `AVG`,
 `MIN`, and `MAX`, and one-column grouped aggregates shaped as
@@ -350,6 +354,11 @@ id,label,amount
 2,beta,15
 3,gamma,
 "@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv
+@'
+{"id":1,"label":"alpha","amount":8}
+{"id":2,"label":"beta","amount":15}
+{"id":3,"label":"gamma","amount":21}
+'@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.jsonl
 $env:PYTHONPATH = "python\src"
 @'
 import shardloom as sl
@@ -360,6 +369,13 @@ workflow = (
     .select("id", "label")
     .filter("amount >= 10 AND (label LIKE '%ta' OR label LIKE 'gam%')")
     .limit(1)
+)
+json_rows = (
+    ctx.read_json("target/sql-local-source-smoke.jsonl")
+    .select("id", "label")
+    .filter("amount >= 10")
+    .limit(2)
+    .write("target/sql-local-source-json-result.jsonl", allow_overwrite=True)
 )
 
 collected = workflow.collect()
@@ -403,6 +419,7 @@ print(written.fallback_attempted, written.external_engine_invoked)
 print(written.evidence_summary.output_native_io_certificate_status)
 print(written.claim_summary.claim_gate_status)
 print(collected.logical_predicate_operator, collected.logical_predicate_leaf_count)
+print(json_rows.output_path, json_rows.envelope.field("source_format"))
 print(aggregate.result_jsonl)
 print(aggregate.aggregate_operator_family)
 print(aggregate.aggregate_functions)
@@ -439,9 +456,10 @@ print(sql_written.output_path)
 print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 ```
 
-This is a fixture-smoke local CSV path only. It does not make the Python client
-a pandas/Polars-like execution engine, does not add broad SQL/DataFrame
-runtime, generalized grouped aggregation, ordering/collation parity, object
+This is a fixture-smoke local CSV path plus a flat JSONL/NDJSON
+projection/filter/limit bridge only. It does not make the Python client a
+pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
+generalized grouped aggregation, ordering/collation parity, nested JSON, object
 stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
@@ -603,8 +621,9 @@ print(join.claim_boundary)
 ```
 
 This matrix is mostly report-only, with the scoped local CSV `collect` and
-`write` rows marked as fixture-smoke-supported only for the admitted
-projection/filter/limit, scalar aggregate, and one-column grouped aggregate shapes described above.
+`write` rows and the flat JSONL/NDJSON projection/filter/limit bridge marked as
+fixture-smoke-supported only for the admitted projection/filter/limit, scalar
+aggregate, and one-column grouped aggregate shapes described above.
 It does not import DataFrame
 libraries, invoke external engines, or upgrade DataFrame/notebook support to
 claim-grade status. Other lazy source, `filter`, `select`, `limit`, and

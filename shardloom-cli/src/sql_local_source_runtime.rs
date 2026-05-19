@@ -2414,6 +2414,11 @@ fn parse_jsonl_source_content(
         .filter(|line| !line.trim().is_empty())
         .enumerate()
     {
+        let line = if line_index == 0 {
+            line.strip_prefix('\u{feff}').unwrap_or(line)
+        } else {
+            line
+        };
         let fields = parse_flat_json_object(line).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "JSONL row {} is not admitted by this scoped source runtime: {error}",
@@ -4128,6 +4133,16 @@ mod tests {
         );
         assert_eq!(rows[0].get("score"), Some(&ScalarValue::Null));
         assert_eq!(rows[1].get("score"), Some(&ScalarValue::Float64(2.5)));
+    }
+
+    #[test]
+    fn jsonl_parser_handles_leading_utf8_bom() {
+        let (header, rows) = parse_jsonl_source_content("\u{feff}{\"id\":1,\"label\":\"alpha\"}\n")
+            .expect("jsonl with leading BOM parses");
+
+        assert_eq!(header, vec!["id", "label"]);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].get("id"), Some(&ScalarValue::Int64(1)));
     }
 
     #[test]

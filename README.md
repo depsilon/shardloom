@@ -131,13 +131,15 @@ Currently wired surfaces include:
   evidence, materialization/decode fields, and no-fallback/no-external-engine evidence; Python
   query-builder
   `ctx.read_csv(...).select(...).filter(...).limit().collect()/write(...)` and
+  `ctx.read_json(...).select(...).filter(...).limit().collect()/write(...)` for local flat
+  `.jsonl`/`.ndjson` sources and
   `ctx.read_csv(...).filter(...).aggregate(...).limit(1).collect()/write(...)` and
   `ctx.read_csv(...).filter(...).group_by(...).agg(...).limit(n).collect()/write(...)` and
   `ctx.read_csv(...).select(...).filter(...).sort(...).limit(n).collect()/write(...)` wrap these
   same scoped projection/scalar/grouped/top-N paths; direct Python client calls can inspect typed
   join evidence from the CLI join smoke. This is not broad SQL/DataFrame runtime, Python/DataFrame
-  join support, generalized join/grouped aggregate/ordering support, a SQL compatibility claim,
-  object-store/table support, or a production claim
+  join support, nested JSON runtime, generalized join/grouped aggregate/ordering support, a SQL
+  compatibility claim, object-store/table support, or a production claim
 - scoped prepared/native Vortex query paths for `selective filter`, `wide projection`,
   `filter + projection + limit`, `group by aggregation`, `multi-key group by`, `hash join`, and
   `join + aggregate`, `sort and top-k`, `top-N per group`, `row number window`, and
