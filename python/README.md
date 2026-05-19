@@ -763,9 +763,10 @@ print(generated.all_no_fallback_no_external_engine)
 ```
 
 This compatibility contract is still a capability map. It can say local JSONL generated-output
-smokes exist for user rows, literal tables, calendar/date dimensions, range, sequence, SQL `VALUES`, and SQL
-literal `SELECT`, but it keeps broader SQL runtime, DataFrame generated expressions,
-object-store/lakehouse output, and Foundry generated-output runtime as report-only or blocked.
+smokes exist for user rows, literal tables, calendar/date dimensions, range, sequence, scoped
+generated-row projection/literal `with_column`, SQL `VALUES`, and SQL literal `SELECT`, but it keeps
+broader SQL runtime, broad DataFrame generated expressions, object-store/lakehouse output, and
+Foundry generated-output runtime as report-only or blocked.
 
 The supported user-row local smoke uses Python rows supplied by the caller,
 writes a local JSONL file, and returns generated-source/output evidence:
@@ -789,6 +790,37 @@ print(report.fallback_attempted)
 print(report.external_engine_invoked)
 print(report.claim_gate_status)
 ```
+
+The same `GeneratedRowsSource` can now perform a narrow source-free row transform before the write.
+This is intentionally limited to projection plus deterministic literal `with_column` values, then
+the transformed rows still pass through ShardLoom's generated-source local-output command:
+
+```python
+transformed = (
+    ctx.from_rows(
+        [
+            {"id": 1, "label": "alpha"},
+            {"id": 2, "label": "beta"},
+        ]
+    )
+    .with_column("segment", "lit('north')")
+    .select("id", "segment")
+    .write("target/generated-reference-transformed.jsonl", allow_overwrite=True)
+)
+
+print(transformed.generated_source_kind)
+print(transformed.generated_source_row_count)
+print(transformed.generated_source_certificate_status)
+print(transformed.output_native_io_certificate_status)
+print(transformed.fallback_attempted)
+print(transformed.external_engine_invoked)
+print(transformed.claim_gate_status)
+```
+
+This slice is not a broad DataFrame runtime. `with_column` accepts only `lit(...)` expressions or
+direct Python bool/int/float literals, `select` only projects existing generated-row columns, and
+unsupported expressions fail before execution rather than falling back to pandas, Polars, Spark,
+DataFusion, DuckDB, or another engine.
 
 Equivalent CLI command:
 
@@ -917,10 +949,11 @@ The contract separates three cases:
 
 - `no_dataset_smoke`: status/capability/proof smoke only; no generated rows, no
   source Native I/O certificate, and no output data claim.
-- `user_generated_source`: scoped local user rows, literal tables, and calendar/date dimensions are
-  supported for JSONL fixture-smoke writes through `ctx.from_rows(...).write(...)`,
-  `ctx.literal_table(...).write(...)`, and `ctx.calendar(...).write(...)`; broader generated-source
-  APIs remain report-only.
+- `user_generated_source`: scoped local user rows, literal tables, calendar/date dimensions, and
+  generated-row projection/literal `with_column` are supported for JSONL fixture-smoke writes
+  through `ctx.from_rows(...).write(...)`, `ctx.from_rows(...).with_column(...).select(...).write(...)`,
+  `ctx.literal_table(...).write(...)`, and `ctx.calendar(...).write(...)`; broader
+  generated-source APIs remain report-only.
 - `engine_native_generated_source`: scoped local `range` and `sequence` JSONL fixture smokes
   are supported through `ctx.range(...).write(...)` and `ctx.sequence(...).write(...)`;
   engine-native `values`, SQL `generate_series`/`range`, and deterministic synthetic profiles
@@ -934,12 +967,15 @@ source-free API admission rows classify:
 - `python_ctx_from_rows`, `python_ctx_literal_table`, `python_ctx_calendar`,
   `python_ctx_range`, `python_ctx_sequence`, and `python_generated_source_write`
   as `fixture_smoke_supported` only for scoped local JSONL generated-output
-  smokes with generated-source and output evidence.
+  smokes with generated-source and output evidence. `GeneratedRowsSource.select(...)` and
+  `GeneratedRowsSource.with_column(...)` are scoped Python conveniences over the user-row,
+  literal-table, and calendar rows before that same write path.
 - SQL literal `SELECT` and SQL `VALUES`
   as `fixture_smoke_supported` only for scoped local JSONL source-free generated-output smokes with
   generated-source and output evidence.
-- SQL source-free projection, SQL `generate_series`/`range` vocabulary, DataFrame source-free
-  projection, and generated `with_column` forms as `report_only` with deterministic blocker IDs.
+- SQL source-free projection, SQL `generate_series`/`range` vocabulary, broad DataFrame
+  source-free projection, and expression-backed generated `with_column` forms as `report_only` with
+  deterministic blocker IDs.
 
 Admission capability discovery does not parse SQL, bind names, plan a query,
 generate rows, write output, probe object stores, invoke Foundry, or invoke
@@ -956,11 +992,11 @@ Generated-output runtime must report
 `generation_deterministic`, `output_io_performed`,
 `output_native_io_certificate_status`, `generated_source_certificate_status`,
 `fallback_attempted=false`, `external_engine_invoked=false`, and
-`claim_gate_status`. The current user-row, literal-table, calendar, range, sequence, SQL `VALUES`, and SQL
-literal `SELECT` paths report `claim_gate_status=fixture_smoke_only` in their scoped local JSONL
-lanes. S3/object-store writes remain report-only/gated, and Foundry generated-output smoke must go
-through Foundry
-output APIs rather than direct S3 paths.
+`claim_gate_status`. The current user-row, transformed user-row, literal-table, calendar, range,
+sequence, SQL `VALUES`, and SQL literal `SELECT` paths report
+`claim_gate_status=fixture_smoke_only` in their scoped local JSONL lanes. S3/object-store writes
+remain report-only/gated, and Foundry generated-output smoke must go through Foundry output APIs
+rather than direct S3 paths.
 
 The Python context also exposes deterministic unsupported report helpers for the
 remaining source-free forms. These helpers do not execute a DataFrame plan, generate rows, write

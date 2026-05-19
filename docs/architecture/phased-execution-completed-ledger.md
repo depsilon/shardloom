@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E/5A-S2 scoped Python generated-row transform runtime
+  - Branch/PR: `codex/generated-rows-transform-runtime` / #794.
+  - Primary files:
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `docs/use-cases/generated/source-free-generated-output-boundary.md`
+    - `website/status.html`
+    - `website/use-cases/index.html`
+    - `website/use-cases/source-free-generated-output-boundary.html`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: promote a narrow generated-row transform surface so source-free Python user rows can
+    project existing generated columns and add/replace deterministic literal columns before writing
+    through the existing generated-source local-output runtime.
+  - Runtime behavior:
+    - Added `GeneratedRowsSource.select(...)` for projection over retained generated-row values.
+    - Added `GeneratedRowsSource.with_column(...)` for deterministic literal columns using
+      `lit(...)` expressions or direct Python bool/int/float literals.
+    - Transformed generated rows re-enter the existing `generated-source-user-rows-smoke` command,
+      preserving generated-source/output certificates and local JSONL fixture-smoke claim gates.
+  - Evidence:
+    - Runtime output still reports `input_dataset_count=0`, `source_io_performed=false`,
+      `generated_source_created=true`, `generated_source_kind=user_rows`, generated-source row and
+      schema evidence, output Native I/O certificate status, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python website/build_static_pages.py --benchmark-manifest website/assets/benchmarks/latest/manifest.json`
+    - `python scripts/check_website_readiness.py`
+    - `C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe website\validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -c` smoke using `ctx.from_rows(...).with_column(...).select(...).write(...)`
+    - `git diff --check`
+  - Claim boundary: this is scoped generated-row convenience over local JSONL generated-output
+    fixture smokes only. It does not admit broad DataFrame expression runtime, SQL
+    `generate_series`, object-store/lakehouse/Foundry output, production support, package
+    publication, performance claims, Spark replacement claims, or fallback execution.
+
 - [x] Session label: GAR-USER-SURFACE-1E-S1 Python evidence and claim summary ergonomics
   - Branch/PR: `codex/python-evidence-summary-ergonomics` / #792.
   - Primary files:

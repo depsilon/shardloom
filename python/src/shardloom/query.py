@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import math
 import os
 from dataclasses import dataclass
@@ -166,6 +167,60 @@ class GeneratedRowsSource:
     rows_arg: str
     client: ShardLoomClient
     source_kind: str = "user_rows"
+    rows: tuple[tuple[tuple[str, object], ...], ...] = ()
+
+    def select(self, *columns: object) -> "GeneratedRowsSource":
+        """Project a scoped source-free row set before writing it locally.
+
+        This is a generated-row convenience path, not broad DataFrame runtime.
+        The transformed rows still write through ShardLoom's generated-source
+        local-output command and preserve the no-source/no-fallback evidence
+        emitted by that command.
+        """
+
+        selected = _normalize_generated_select_columns(columns)
+        available = self._column_names()
+        missing = tuple(column for column in selected if column not in available)
+        if missing:
+            raise ValueError(
+                "generated row projection referenced unknown column(s): "
+                + ", ".join(missing)
+            )
+        projected_rows = [
+            {column: dict(row)[column] for column in selected} for row in self.rows
+        ]
+        return _generated_rows_source(
+            projected_rows,
+            client=self.client,
+            source_kind=self.source_kind,
+        )
+
+    def with_column(self, name: object, expression: object) -> "GeneratedRowsSource":
+        """Add or replace one deterministic literal column before local output.
+
+        The first admitted slice intentionally supports only `lit(...)`
+        expressions or direct Python bool/int/float literals. Broader
+        expression-backed generated DataFrame runtime remains blocked until
+        the expression engine and evidence model are promoted.
+        """
+
+        column = _require_non_empty("generated column name", name)
+        literal = _generated_literal_expression(expression)
+        transformed_rows = []
+        for row in self.rows:
+            updated = dict(row)
+            updated[column] = literal
+            transformed_rows.append(updated)
+        return _generated_rows_source(
+            transformed_rows,
+            client=self.client,
+            source_kind=self.source_kind,
+        )
+
+    def _column_names(self) -> tuple[str, ...]:
+        if not self.rows:
+            raise ValueError("generated row transforms require retained row values")
+        return tuple(column for column, _value in self.rows[0])
 
     def write(
         self,
@@ -1165,12 +1220,10 @@ def from_rows(
 ) -> GeneratedRowsSource:
     """Create a scoped source-free generated row set for local output smoke writes."""
 
-    schema_arg, rows_arg = _generated_rows_args(rows)
-    return GeneratedRowsSource(
-        schema_arg=schema_arg,
-        rows_arg=rows_arg,
+    return _generated_rows_source(
+        rows,
         client=_client_from_config(client, client_config),
-        source_kind=_normalize_generated_source_kind(source_kind),
+        source_kind=source_kind,
     )
 
 
@@ -1399,7 +1452,7 @@ def from_arrow_ipc(
 
 def _generated_rows_args(
     rows: Sequence[Mapping[str, object]],
-) -> tuple[str, str]:
+) -> tuple[str, str, tuple[tuple[tuple[str, object], ...], ...]]:
     if isinstance(rows, (str, bytes, bytearray)) or not isinstance(rows, Sequence):
         raise TypeError("rows must be a non-empty sequence of mappings")
     if not rows:
@@ -1416,6 +1469,7 @@ def _generated_rows_args(
         raise ValueError("row column names must be unique")
     value_types = tuple(_generated_value_type(first[column]) for column in columns)
     row_tokens: list[str] = []
+    normalized_rows: list[tuple[tuple[str, object], ...]] = []
     for index, row in enumerate(rows):
         if not isinstance(row, Mapping):
             raise TypeError(f"row {index} is not a mapping")
@@ -1427,16 +1481,36 @@ def _generated_rows_args(
                 "all generated rows must have the same columns in the same order"
             )
         parts = []
+        normalized_row = []
         for column, value_type in zip(columns, value_types):
+            value = row[column]
             parts.append(
-                f"{_generated_token(column)}={_generated_token(_generated_value(value_type, row[column]))}"
+                f"{_generated_token(column)}={_generated_token(_generated_value(value_type, value))}"
             )
+            normalized_row.append((column, value))
         row_tokens.append(",".join(parts))
+        normalized_rows.append(tuple(normalized_row))
     schema_arg = ",".join(
         f"{_generated_token(column)}:{value_type}"
         for column, value_type in zip(columns, value_types)
     )
-    return schema_arg, ";".join(row_tokens)
+    return schema_arg, ";".join(row_tokens), tuple(normalized_rows)
+
+
+def _generated_rows_source(
+    rows: Sequence[Mapping[str, object]],
+    *,
+    client: ShardLoomClient,
+    source_kind: str,
+) -> GeneratedRowsSource:
+    schema_arg, rows_arg, normalized_rows = _generated_rows_args(rows)
+    return GeneratedRowsSource(
+        schema_arg=schema_arg,
+        rows_arg=rows_arg,
+        client=client,
+        source_kind=_normalize_generated_source_kind(source_kind),
+        rows=normalized_rows,
+    )
 
 
 def _generated_value_type(value: object) -> str:
@@ -1485,6 +1559,54 @@ def _normalize_generated_source_kind(value: str) -> str:
             "generated source kind must be one of ('user_rows', 'literal_table', 'calendar')"
         )
     return normalized
+
+
+def _normalize_generated_select_columns(columns: tuple[object, ...]) -> tuple[str, ...]:
+    if len(columns) == 1 and isinstance(columns[0], Sequence) and not isinstance(
+        columns[0],
+        (str, bytes, bytearray),
+    ):
+        values = tuple(columns[0])
+    else:
+        values = columns
+    if not values:
+        raise ValueError("generated row projection must include at least one column")
+    normalized = tuple(
+        _require_non_empty("generated projection column", value) for value in values
+    )
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("generated row projection columns must be unique")
+    return normalized
+
+
+def _generated_literal_expression(expression: object) -> object:
+    if isinstance(expression, str):
+        text = expression.strip()
+        if not text:
+            raise ValueError("generated with_column expression must not be empty")
+        if not (text.startswith("lit(") and text.endswith(")")):
+            raise ValueError(
+                "generated with_column currently supports only lit(...) expressions "
+                "or direct Python bool/int/float literals"
+            )
+        inner = text[4:-1].strip()
+        if not inner:
+            raise ValueError("lit(...) expression must include a value")
+        lowered = inner.lower()
+        if lowered in {"true", "false"}:
+            return lowered == "true"
+        if lowered in {"null", "none"}:
+            raise ValueError("generated with_column does not support null literals yet")
+        try:
+            parsed = ast.literal_eval(inner)
+        except (SyntaxError, ValueError) as exc:
+            raise ValueError(
+                "lit(...) expression must contain a bool, int, float, or quoted string"
+            ) from exc
+        _generated_value_type(parsed)
+        return parsed
+    _generated_value_type(expression)
+    return expression
 
 
 def _normalize_date(name: str, value: str | date) -> date:
