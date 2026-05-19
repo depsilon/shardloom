@@ -21,6 +21,7 @@ use std::{
 use shardloom_core::{
     ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow, ExpressionKind,
     OutputFormat, ScalarValue, ShardLoomError, UnaryOp, evaluate_filter, evaluate_projection,
+    format_iso_date32, parse_iso_date32,
 };
 
 use crate::{
@@ -1410,6 +1411,16 @@ impl ParsedPredicate {
             Self::Compare { .. } | Self::IsNull { .. } | Self::IsNotNull { .. } => "not_applicable",
         }
     }
+
+    fn uses_date_literal(&self) -> bool {
+        matches!(
+            self,
+            Self::Compare {
+                value: ScalarValue::Date32(_),
+                ..
+            }
+        )
+    }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1680,6 +1691,10 @@ impl SqlLocalSourceReport {
             (
                 "string_predicate_operator".to_string(),
                 self.parsed.predicate.string_operator().to_string(),
+            ),
+            (
+                "date_literal_runtime_execution".to_string(),
+                self.parsed.predicate.uses_date_literal().to_string(),
             ),
             ("projection_pushed_down".to_string(), "false".to_string()),
             ("filter_pushed_down".to_string(), "false".to_string()),
@@ -2344,6 +2359,18 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
                 column: (*column).clone(),
             })
         }
+        [column, op_raw, date_keyword, literal_raw]
+            if date_keyword.eq_ignore_ascii_case("date") =>
+        {
+            validate_sql_column_ref(column)?;
+            let op = parse_comparison_op(op_raw)?;
+            let value = parse_sql_date_literal(literal_raw)?;
+            Ok(ParsedPredicate::Compare {
+                column: (*column).clone(),
+                op,
+                value,
+            })
+        }
         [column, op_raw, literal_raw] => {
             validate_sql_column_ref(column)?;
             if op_raw.eq_ignore_ascii_case("like") {
@@ -2365,9 +2392,16 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             }
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> LIKE <string-pattern>, <column> IS NULL, or <column> IS NOT NULL",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> LIKE <string-pattern>, <column> IS NULL, or <column> IS NOT NULL",
         )),
     }
+}
+
+fn parse_sql_date_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
+    let value = parse_sql_string_literal(raw)?;
+    parse_iso_date32(&value)
+        .map(ScalarValue::Date32)
+        .map_err(|_| unsupported_sql_error("DATE literals must use DATE 'YYYY-MM-DD'"))
 }
 
 fn parse_like_string_predicate(
@@ -2477,6 +2511,8 @@ fn parse_csv_scalar(raw: &str) -> ScalarValue {
         } else {
             ScalarValue::Utf8(raw.to_string())
         }
+    } else if let Ok(parsed) = parse_iso_date32(value) {
+        ScalarValue::Date32(parsed)
     } else {
         ScalarValue::Utf8(raw.to_string())
     }
@@ -2716,7 +2752,7 @@ fn scalar_to_json(value: &ScalarValue) -> String {
         ScalarValue::Null | ScalarValue::Float64(_) => "null".to_string(),
         ScalarValue::Utf8(value) => format!("\"{}\"", json_escape(value)),
         ScalarValue::Binary(value) => format!("\"binary[len={}]\"", value.len()),
-        ScalarValue::Date32(value) => value.to_string(),
+        ScalarValue::Date32(value) => format!("\"{}\"", format_iso_date32(*value)),
     }
 }
 

@@ -525,6 +525,10 @@ plan before coding.
   `utf8_starts_with` / `utf8_contains` and local SQL `LIKE 'prefix%'` / `LIKE '%contains%'`
   lowering, with deterministic blockers for unsupported LIKE shapes and no fallback/external
   engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D-S2 adds scoped ISO Date32 runtime support for parsing/formatting,
+  `date_year` / `date_month` / `date_day`, UTF-8/Date32 casts, local SQL
+  `DATE 'YYYY-MM-DD'` predicates, CSV ISO date inference, and deterministic invalid-date or
+  non-Date32 operand blockers with no fallback/external engine invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 

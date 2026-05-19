@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D-S2 ISO Date32 literal and extraction runtime
+  - Branch/PR: `codex/gar-runtime-4d-date-expression-runtime` / #772.
+  - Primary files:
+    - `shardloom-core/src/expression.rs`
+    - `shardloom-core/src/lib.rs`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-contract-tests/tests/expression_operator_semantics.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `docs/architecture/global-architecture-review.md`
+    - `docs/architecture/rfc-phase-traceability.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/phased-execution-completed-ledger.md`
+  - Scope: promote a scoped GAR-RUNTIME-IMPL-4D date-family runtime slice by adding ShardLoom-native
+    ISO Date32 parse/format helpers, Date32 extraction functions, UTF-8/Date32 casts, local SQL
+    `DATE 'YYYY-MM-DD'` literal lowering, and CSV ISO date inference for the local CSV SQL smoke.
+  - Runtime enablement:
+    - `parse_iso_date32` and `format_iso_date32` over admitted `YYYY-MM-DD` values.
+    - `date_year`, `date_month`, and `date_day` over Date32/null operands.
+    - `CAST(utf8 AS date32)` and `CAST(date32 AS utf8)` in core expression semantics.
+    - `WHERE <column> <op> DATE 'YYYY-MM-DD'` in `sql-local-source-smoke`.
+    - Local CSV ISO date values are inferred as Date32 for scoped predicate evaluation.
+  - Evidence:
+    - `expression_family=date_extract`
+    - `input_dtype=date32|null`
+    - `output_dtype=int64|date32|utf8`
+    - `null_policy=null_propagating`
+    - `operator_family=date_extract|cast`
+    - `predicate_operator_family=comparison`
+    - `date_literal_runtime_execution=true`
+    - `data_decoded=false` for core expression semantics
+    - `data_materialized=true` for scoped local CSV row materialization
+    - `claim_gate_status=not_claim_grade` for core semantics
+    - `claim_gate_status=fixture_smoke_only` for local SQL smoke
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+  - Blockers preserved:
+    - Invalid or non-zero-padded DATE literals are unsupported.
+    - Non-Date32 operands for date extraction emit deterministic unsupported diagnostics.
+    - Timestamp, timezone, interval, date arithmetic, and broad ANSI date/time semantics remain
+      unsupported.
+    - SQL/DataFrame production runtime, external engine execution, and fallback execution remain
+      blocked.
+  - Verification:
+    - `cargo test -p shardloom-contract-tests --test expression_operator_semantics`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary: ShardLoom may claim only scoped ISO Date32 parse/format, extraction, cast, and
+    local SQL DATE literal predicate execution for admitted expression/SQL smoke paths. It may not
+    claim timestamp/timezone completeness, date arithmetic, broad SQL/DataFrame runtime, object-store
+    or lakehouse support, external engine execution, or fallback execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D-S1 UTF-8 string predicate runtime
   - Branch/PR: `codex/gar-runtime-4d-null-expression-runtime` / #771.
   - Primary files:
