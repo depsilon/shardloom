@@ -23,7 +23,8 @@
     "foundry_spark_invoked=false",
     "fallback_attempted=false",
     "external_engine_invoked=false",
-    "public_foundry_claim_allowed=false"
+    "public_foundry_claim_allowed=false",
+    "claim_gate_status"
   ],
   "claim_boundary": "Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.",
   "runnable_example": "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1",

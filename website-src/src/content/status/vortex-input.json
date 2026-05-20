@@ -13,7 +13,9 @@
   "evidence": [
     "prepared_state_id",
     "execution_mode=native_vortex",
-    "fallback_attempted=false"
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
+    "claim_gate_status"
   ],
   "works": "Prepared/native Vortex benchmark and source-backed scan lanes are visible with no-fallback fields.",
   "blocked": "Broad encoded-native operator coverage and production Vortex writer support remain gated.",

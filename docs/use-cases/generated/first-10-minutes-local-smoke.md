@@ -34,6 +34,7 @@ python examples\local-python-smoke\run.py --repo-root .
 - `external_engine_invoked=false`
 - `protocol_version`
 - `resolved_cli_path`
+- `claim_gate_status`
 
 ## Expected Output Or Evidence
 

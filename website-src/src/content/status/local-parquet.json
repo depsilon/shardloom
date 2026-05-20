@@ -14,7 +14,10 @@
   "evidence": [
     "source_format",
     "feature_gate_status",
-    "output_native_io_certificate_status"
+    "output_native_io_certificate_status",
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
+    "claim_gate_status"
   ],
   "works": "Scoped Parquet fixture paths are documented where feature gates and flat scalar constraints are satisfied.",
   "blocked": "Default builds may block Parquet writes; nested/complex types and production Parquet parity require later runtime slices.",

@@ -2954,6 +2954,30 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         );
     }
 
+    let runtime_promotion_validator = read_repo_file("scripts/check_runtime_promotion_evidence.py");
+    for required in [
+        "REQUIRED_PUBLIC_EVIDENCE_TOKENS",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_gate_status",
+        "REQUIRED_BENCHMARK_MANIFEST_FIELDS",
+        "missing_required_lanes",
+        "REQUIRED_COMPATIBILITY_TIMING_FIELDS",
+        "REQUIRED_PREPARED_TIMING_FIELDS",
+        "validate_runtime_promotion_evidence",
+    ] {
+        assert!(
+            runtime_promotion_validator.contains(required),
+            "missing runtime promotion validator field {required}"
+        );
+    }
+
+    let website_readiness = read_repo_file("scripts/check_website_readiness.py");
+    assert!(
+        website_readiness.contains("validate_runtime_promotion_evidence"),
+        "website readiness must include runtime promotion evidence validation"
+    );
+
     let glossary_validator = read_repo_file("scripts/check_use_case_glossary.py");
     for required in [
         "REQUIRED_TERMS",

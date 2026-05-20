@@ -95,7 +95,8 @@
         "fallback_attempted=false",
         "external_engine_invoked=false",
         "protocol_version",
-        "resolved_cli_path"
+        "resolved_cli_path",
+        "claim_gate_status"
       ],
       "claim_boundary": "Local source-checkout smoke only; no dataset execution, package-publication, production, SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim.",
       "runnable_example": "python examples\\local-python-smoke\\run.py --repo-root .",
@@ -1050,6 +1051,7 @@
         "upstream_vortex_write_called",
         "upstream_vortex_scan_called",
         "session_id",
+        "session_state_scope",
         "output_plan_reuse_hit",
         "result_replay_reuse_hit",
         "reuse_reason",
@@ -1199,7 +1201,8 @@
         "foundry_spark_invoked=false",
         "fallback_attempted=false",
         "external_engine_invoked=false",
-        "public_foundry_claim_allowed=false"
+        "public_foundry_claim_allowed=false",
+        "claim_gate_status"
       ],
       "claim_boundary": "Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.",
       "runnable_example": "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1",

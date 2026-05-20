@@ -13,7 +13,10 @@
   "evidence": [
     "benchmark_profile",
     "expected_lanes",
-    "performance_claim_allowed=false"
+    "performance_claim_allowed=false",
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
+    "claim_gate_status"
   ],
   "works": "Committed static benchmark artifacts expose lanes, missing reasons, coverage, and claim boundaries.",
   "blocked": "Benchmark evidence is not a leaderboard, public speed claim, or Spark-replacement claim.",

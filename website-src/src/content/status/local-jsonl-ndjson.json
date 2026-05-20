@@ -14,7 +14,9 @@
   "evidence": [
     "source_format",
     "source_state_id",
-    "fallback_attempted=false"
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
+    "claim_gate_status"
   ],
   "works": "Flat local JSONL/NDJSON fixture smokes are admitted through scoped local-source and ingest paths.",
   "blocked": "Nested JSON, JSONPath, broad schema evolution, and production JSON processing remain outside the claim.",

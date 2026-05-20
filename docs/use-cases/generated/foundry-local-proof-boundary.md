@@ -39,6 +39,7 @@ python scripts\foundry_proof_of_use.py --rows 64 --iterations 1
 - `fallback_attempted=false`
 - `external_engine_invoked=false`
 - `public_foundry_claim_allowed=false`
+- `claim_gate_status`
 
 ## Expected Output Or Evidence
 

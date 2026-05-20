@@ -14,6 +14,8 @@
   "evidence": [
     "protocol_version",
     "resolved_cli_path",
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
     "claim_gate_status"
   ],
   "works": "The Python wrapper exposes status/capability checks, scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC workflows, and local compatibility sink fanout through the local CLI.",

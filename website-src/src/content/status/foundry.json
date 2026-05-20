@@ -13,7 +13,10 @@
   "evidence": [
     "foundry_runtime_invoked",
     "foundry_spark_invoked=false",
-    "public_foundry_claim_allowed=false"
+    "public_foundry_claim_allowed=false",
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
+    "claim_gate_status"
   ],
   "works": "Local/dev-stack proof docs and no-dataset/generated-output boundaries are documented.",
   "blocked": "No Foundry production runtime, package publication, or Spark-backed ShardLoom execution claim.",

@@ -13,6 +13,8 @@
   "evidence": [
     "source_format",
     "source_adapter_status",
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
     "claim_gate_status"
   ],
   "works": "Flat local JSON source smokes are visible through Python/local-source evidence paths.",

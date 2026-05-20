@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from check_runtime_promotion_evidence import validate_runtime_promotion_evidence
+
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_PAGES = [
@@ -331,6 +333,9 @@ def main() -> int:
             blockers.append(f"missing expected page: {page}")
         else:
             validate_html_page(path, repo_root, website, blockers)
+
+    for blocker in validate_runtime_promotion_evidence(repo_root=repo_root):
+        blockers.append(f"runtime promotion evidence: {blocker}")
 
     for page in website.rglob("*.html"):
         if page.name == "validate_static_assets.js":
