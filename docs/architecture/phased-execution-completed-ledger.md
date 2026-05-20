@@ -16,6 +16,70 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTF-8 string transform projection runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-string-transform-projections-4d` / #849.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - ShardLoom-native expression semantics
+    - SQL/Python local-source computed projection smokes
+  - Scope:
+    - Admitted scoped local SQL projections of the form `LOWER(<column>) AS <column>`,
+      `UPPER(<column>) AS <column>`, and `TRIM(<column>) AS <column>` for explicit local-source
+      projection/filter/limit smokes.
+    - Lowered admitted string transforms into ShardLoom-native function-call and alias expression
+      semantics instead of delegating to an external engine.
+    - Added deterministic blockers for malformed transform projections, missing source columns,
+      duplicate output names, and unsupported join/aggregate combinations.
+    - Extended Python input-backed `with_column(...)` so admitted local query-builder workflows can
+      use `sl.col("label").lower()`, `.upper()`, or `.trim()` after an explicit `select(...)`.
+    - Updated Python README, use-case index, generated website content, and phase-plan current
+      state with the scoped UTF-8 string transform surface and claim boundary.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder `with_column(...)`, direct Python
+      `client.sql_local_source_smoke(...)`, use-case docs, generated website content, and Python
+      README.
+  - Evidence:
+    - Rows emit `sql_statement_kind=local_source_computed_projection_*`,
+      `string_transform_projection_runtime_execution=true`,
+      `string_transform_projection_operator`,
+      `string_transform_projection_source_column`,
+      `string_transform_projection_output_column`, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo check -p shardloom-cli`
+    - `cargo test -p shardloom-cli string_transform_projection -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke string_transform_projection -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts benchmarks/traditional_analytics website website-src`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `node website-src/scripts/sync-content.mjs`
+    - `node website-src/node_modules/astro/bin/astro.mjs sync`
+    - `node website-src/node_modules/@astrojs/check/bin/astro-check.js`
+    - `node website-src/node_modules/astro/bin/astro.mjs build`
+    - `node website-src/scripts/postbuild-static.mjs`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `git diff --check`
+  - Non-goals:
+    - No locale/collation completeness, regex/string pattern language, generalized expression
+      projections, broad SQL/DataFrame runtime, production claim, performance claim, or external
+      fallback.
+  - Claim boundary:
+    - Scoped UTF-8 `LOWER`/`UPPER`/`TRIM` computed projection fixture smoke only.
+  - Fallback boundary:
+    - Parser admission, expression lowering, transform execution, and fixture evidence remain
+      ShardLoom-native. External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, arithmetic,
+      and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D exact mixed numeric coercion runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-mixed-numeric-coercions-4d` / #848.

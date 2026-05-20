@@ -341,14 +341,18 @@ or documentation updates alone are insufficient.
     runtime-admitted for explicit projection/filter/limit rows with
     `numeric_arithmetic_projection_*` evidence, ShardLoom-native null propagation, exact
     `int64`/`float64` mixed numeric coercion, deterministic duplicate-output-name blockers, and
-    deterministic division-by-zero/lossy-coercion/unsupported-shape blockers.
+    deterministic division-by-zero/lossy-coercion/unsupported-shape blockers. Scoped UTF-8
+    transform projections of the form `LOWER(column) AS column`, `UPPER(column) AS column`, and
+    `TRIM(column) AS column` are runtime-admitted with `string_transform_projection_*` evidence,
+    ShardLoom-native null propagation, and deterministic duplicate-output-name/source-column/
+    unsupported-shape blockers.
     Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`
     / `NOT LIKE`, scoped UTF-8 lower/upper/trim transforms, bounded `IN` / `NOT IN`,
     cast/date/timestamp, Date32 extracts, Date32 day arithmetic, scoped UTC timestamp extracts,
     scoped numeric arithmetic comparison operators, scoped numeric arithmetic `with_column(...)`,
-    and logical predicates into the same local SQL smoke path, plus `where(...)` as a familiar
-    filter alias. User workflows still lack broad typed
+    scoped UTF-8 string transform `with_column(...)`, and logical predicates into the same local SQL
+    smoke path, plus `where(...)` as a familiar filter alias. User workflows still lack broad typed
     coercions, generalized arithmetic expression trees and generalized projections,
     timezone-database helpers, interval/date-time completeness, subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression

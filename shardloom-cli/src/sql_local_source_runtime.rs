@@ -171,6 +171,7 @@ struct ParsedSqlLocalSource {
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
+    string_transform_projections: Vec<ParsedStringTransformProjection>,
     aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
     order_by: Option<ParsedOrderBy>,
@@ -200,6 +201,13 @@ struct ParsedNumericArithmeticProjection {
     column: String,
     op: NumericArithmeticOp,
     rhs: ScalarValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedStringTransformProjection {
+    alias: String,
+    column: String,
+    op: StringTransformOp,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -301,6 +309,7 @@ struct ParsedProjectionList {
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
+    string_transform_projections: Vec<ParsedStringTransformProjection>,
     aggregates: Vec<ParsedAggregate>,
 }
 
@@ -1588,6 +1597,13 @@ fn evaluate_projection_output(
                 .map(numeric_arithmetic_projection_expression)
                 .collect::<Result<Vec<_>, ShardLoomError>>()?,
         )
+        .chain(
+            parsed
+                .string_transform_projections
+                .iter()
+                .map(string_transform_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
         .collect::<Vec<_>>();
     let mut output_rows = Vec::new();
     for row_index in selected_row_indexes.iter().take(parsed.limit) {
@@ -1641,6 +1657,28 @@ fn numeric_arithmetic_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(binary),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn string_transform_projection_expression(
+    projection: &ParsedStringTransformProjection,
+) -> Result<Expression, ShardLoomError> {
+    let transformed = Expression::new(
+        ExprId::new(format!("project.string_transform.{}", projection.alias))?,
+        ExpressionKind::FunctionCall {
+            name: projection.op.function_name().to_string(),
+            args: vec![Expression::column(
+                ExprId::new(format!("project.{}", projection.column))?,
+                ColumnRef::new(projection.column.clone())?,
+            )],
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(transformed),
             alias: projection.alias.clone(),
         },
     ))
@@ -2548,7 +2586,7 @@ fn validate_order_by_source(
 }
 
 fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
-    if (parsed.has_literal_projection() || parsed.has_numeric_arithmetic_projection())
+    if parsed.has_computed_projection()
         && (parsed.is_aggregate()
             || !parsed.group_by.is_empty()
             || parsed.order_by.is_some()
@@ -2556,7 +2594,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column> or <column> (+|-|*|/) <numeric-literal> AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, or LOWER|UPPER|TRIM(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -2585,7 +2623,7 @@ fn validate_scalar_aggregate_sources(
     parsed: &ParsedSqlLocalSource,
     header: &[String],
 ) -> Result<(), ShardLoomError> {
-    if parsed.has_literal_projection() || parsed.has_numeric_arithmetic_projection() {
+    if parsed.has_computed_projection() {
         return Err(unsupported_sql_error(
             "scalar aggregate SELECT list cannot mix aggregate functions with computed projections in this scoped smoke",
         ));
@@ -2636,6 +2674,17 @@ fn validate_projection_source_columns(
             )));
         }
     }
+    for projection in &parsed.string_transform_projections {
+        if !header
+            .iter()
+            .any(|candidate| candidate == &projection.column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "string transform projection source column {:?} is not present in the CSV header",
+                projection.column
+            )));
+        }
+    }
     Ok(())
 }
 
@@ -2654,7 +2703,7 @@ fn validate_predicate_source_columns(
 }
 
 fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
-    if parsed.literal_projections.is_empty() && parsed.numeric_arithmetic_projections.is_empty() {
+    if !parsed.has_computed_projection() {
         return Ok(());
     }
     let mut output_names = BTreeSet::new();
@@ -2674,6 +2723,13 @@ fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(),
     }
     for arithmetic_projection in &parsed.numeric_arithmetic_projections {
         if !output_names.insert(arithmetic_projection.alias.as_str()) {
+            return Err(unsupported_sql_error(
+                "computed projection smoke requires unique output column names",
+            ));
+        }
+    }
+    for transform_projection in &parsed.string_transform_projections {
+        if !output_names.insert(transform_projection.alias.as_str()) {
             return Err(unsupported_sql_error(
                 "computed projection smoke requires unique output column names",
             ));
@@ -2705,6 +2761,7 @@ fn bind_join_sql_local_source(
         || parsed.order_by.is_some()
         || !parsed.literal_projections.is_empty()
         || !parsed.numeric_arithmetic_projections.is_empty()
+        || !parsed.string_transform_projections.is_empty()
         || parsed.projections.is_empty()
     {
         return Err(unsupported_sql_error(
@@ -2827,6 +2884,16 @@ impl ParsedSqlLocalSource {
         !self.numeric_arithmetic_projections.is_empty()
     }
 
+    fn has_string_transform_projection(&self) -> bool {
+        !self.string_transform_projections.is_empty()
+    }
+
+    fn has_computed_projection(&self) -> bool {
+        self.has_literal_projection()
+            || self.has_numeric_arithmetic_projection()
+            || self.has_string_transform_projection()
+    }
+
     fn statement_kind(&self) -> &'static str {
         if self.is_join() && self.has_filter() {
             "local_source_inner_equi_join_filter_limit"
@@ -2847,6 +2914,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_numeric_arithmetic_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_string_transform_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_string_transform_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_literal_projection() && self.has_filter() {
             "local_source_literal_projection_filter_limit"
@@ -2880,6 +2951,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_numeric_arithmetic_projection() {
             "computed-projection-limit"
+        } else if self.has_string_transform_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_string_transform_projection() {
+            "computed-projection-limit"
         } else if self.has_literal_projection() && self.has_filter() {
             "literal-projection-filter-limit"
         } else if self.has_literal_projection() {
@@ -2911,6 +2986,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_numeric_arithmetic_projection() {
+            "computed_projection_limit"
+        } else if self.has_string_transform_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_string_transform_projection() {
             "computed_projection_limit"
         } else if self.has_literal_projection() && self.has_filter() {
             "literal_projection_filter_limit"
@@ -2955,6 +3034,11 @@ impl ParsedSqlLocalSource {
                 )
                 .chain(
                     self.numeric_arithmetic_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
+                    self.string_transform_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
                 )
@@ -3005,6 +3089,42 @@ impl ParsedSqlLocalSource {
             self.numeric_arithmetic_projections
                 .iter()
                 .map(|projection| projection.rhs.dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn string_transform_projection_operators(&self) -> String {
+        if self.string_transform_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.string_transform_projections
+                .iter()
+                .map(|projection| projection.op.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn string_transform_projection_source_columns(&self) -> String {
+        if self.string_transform_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.string_transform_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn string_transform_projection_output_columns(&self) -> String {
+        if self.string_transform_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.string_transform_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -4791,6 +4911,22 @@ impl SqlLocalSourceReport {
                 "numeric_arithmetic_projection_rhs_dtype".to_string(),
                 self.parsed.numeric_arithmetic_projection_rhs_dtypes(),
             ),
+            (
+                "string_transform_projection_runtime_execution".to_string(),
+                self.parsed.has_string_transform_projection().to_string(),
+            ),
+            (
+                "string_transform_projection_operator".to_string(),
+                self.parsed.string_transform_projection_operators(),
+            ),
+            (
+                "string_transform_projection_source_column".to_string(),
+                self.parsed.string_transform_projection_source_columns(),
+            ),
+            (
+                "string_transform_projection_output_column".to_string(),
+                self.parsed.string_transform_projection_output_columns(),
+            ),
             ("projection_pushed_down".to_string(), "false".to_string()),
             ("filter_pushed_down".to_string(), "false".to_string()),
             ("limit_pushed_down".to_string(), "false".to_string()),
@@ -5902,6 +6038,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
         projections: projection_list.projections,
         literal_projections: projection_list.literal_projections,
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
+        string_transform_projections: projection_list.string_transform_projections,
         aggregates: projection_list.aggregates,
         group_by,
         order_by,
@@ -5939,6 +6076,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut projections = Vec::with_capacity(entries.len());
     let mut literal_projections = Vec::new();
     let mut numeric_arithmetic_projections = Vec::new();
+    let mut string_transform_projections = Vec::new();
     let mut aggregates = Vec::new();
     let projection_count = entries.len();
     for projection in entries {
@@ -5950,11 +6088,13 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                 ));
             }
             projections.push("*".to_string());
-        } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
-            aggregates.push(aggregate);
         } else if let Some(arithmetic_projection) = parse_numeric_arithmetic_projection(projection)?
         {
             numeric_arithmetic_projections.push(arithmetic_projection);
+        } else if let Some(transform_projection) = parse_string_transform_projection(projection)? {
+            string_transform_projections.push(transform_projection);
+        } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
+            aggregates.push(aggregate);
         } else if let Some(literal_projection) = parse_literal_projection(projection)? {
             literal_projections.push(literal_projection);
         } else {
@@ -5966,6 +6106,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         projections,
         literal_projections,
         numeric_arithmetic_projections,
+        string_transform_projections,
         aggregates,
     })
 }
@@ -6034,6 +6175,44 @@ fn parse_numeric_arithmetic_projection(
         column: tokens[0].clone(),
         op,
         rhs,
+    }))
+}
+
+fn parse_string_transform_projection(
+    raw: &str,
+) -> Result<Option<ParsedStringTransformProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes(raw, "as") else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    let Some(open_index) = expression_raw.find('(') else {
+        return Ok(None);
+    };
+    let function_raw = expression_raw[..open_index].trim();
+    let op = match function_raw.to_ascii_lowercase().as_str() {
+        "lower" => StringTransformOp::Lower,
+        "upper" => StringTransformOp::Upper,
+        "trim" => StringTransformOp::Trim,
+        _ => return Ok(None),
+    };
+    if expression_raw.is_empty() || alias.is_empty() || !expression_raw.ends_with(')') {
+        return Err(unsupported_sql_error(
+            "string transform projections must be written as LOWER|UPPER|TRIM(<column>) AS <column>",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let argument = expression_raw[open_index + 1..expression_raw.len() - 1].trim();
+    if argument.is_empty() {
+        return Err(unsupported_sql_error(
+            "string transform projections require one source column argument",
+        ));
+    }
+    validate_sql_column_ref(argument)?;
+    Ok(Some(ParsedStringTransformProjection {
+        alias: alias.to_string(),
+        column: argument.to_string(),
+        op,
     }))
 }
 
@@ -7836,6 +8015,45 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_string_transform_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,LOWER(label) AS lowered,UPPER(label) AS raised,TRIM(label) AS trimmed FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("string transform projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert!(parsed.literal_projections.is_empty());
+        assert!(parsed.numeric_arithmetic_projections.is_empty());
+        assert_eq!(parsed.string_transform_projections.len(), 3);
+        assert_eq!(parsed.string_transform_projections[0].alias, "lowered");
+        assert_eq!(parsed.string_transform_projections[0].column, "label");
+        assert_eq!(
+            parsed.string_transform_projections[0].op,
+            StringTransformOp::Lower
+        );
+        assert_eq!(
+            parsed.string_transform_projection_output_columns(),
+            "lowered,raised,trimmed"
+        );
+        assert_eq!(
+            parsed.string_transform_projection_source_columns(),
+            "label,label,label"
+        );
+        assert_eq!(
+            parsed.string_transform_projection_operators(),
+            "lower,upper,trim"
+        );
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn literal_projection_duplicate_output_names_are_blocked() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,'north' AS id FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
@@ -7864,6 +8082,25 @@ mod tests {
 
         let error = bind_sql_local_source(&parsed, &header, None)
             .expect_err("duplicate arithmetic projection output name is blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("computed projection smoke requires unique output column names"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn string_transform_projection_duplicate_output_names_are_blocked() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,LOWER(label) AS id FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+        )
+        .expect("string transform projection statement parses before binding");
+        let header = vec!["id".to_string(), "label".to_string(), "amount".to_string()];
+
+        let error = bind_sql_local_source(&parsed, &header, None)
+            .expect_err("duplicate transform projection output name is blocked");
 
         assert!(
             error
