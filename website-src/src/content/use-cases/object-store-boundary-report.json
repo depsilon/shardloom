@@ -41,6 +41,7 @@
     "docs/architecture/universal-compatibility-coverage-scoreboard.md"
   ],
   "related_use_cases": [
+    "object-store-local-emulator-read-smoke",
     "table-lakehouse-boundary-report",
     "output-result-sink-and-fanout-boundary"
   ]

@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4N object-store read admission with local-emulator proof
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-object-store-read-admission-4n` / #866.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4N object-store read admission with local emulator/public fixture proof`
+    - `GAR-SCALE-1E object-store and table-scale execution ladder`
+    - `docs/architecture/object-store-request-planner.md`
+    - `docs/architecture/vortex-public-api-inventory.md`
+  - Vortex-first provider check:
+    - Subject area: object-store read admission and byte-range read evidence.
+    - Upstream Vortex concept checked: Vortex 0.71 `VortexReadAt::read_at` validation and async I/O
+      hooks are candidate inputs for later provider admission.
+    - Decision: `blocked_until_vortex_or_shardloom_evidence` for real providers; local-emulator
+      fixture read proof uses ShardLoom policy/evidence without invoking Vortex object-store I/O.
+    - Gates still blocked: real S3/GCS/ADLS providers, credentials, network probes, provider
+      listing, local cache writes, object-store writes, table/lakehouse commits, distributed
+      runtime, and production object-store claims.
+    - `fallback_attempted=false`: emitted on success and blocker paths.
+  - Scope:
+    - Added `object-store-read-smoke <local-object-path> [--profile local-emulator]
+      [--range offset:length]` as the first explicit object-store read runtime proof.
+    - Implemented full-file and byte-range reads against local fixture objects only, with
+      deterministic remote-provider blockers for `s3://`, `gs://`, `abfs://`, and `abfss://`.
+    - Emitted SourceState evidence (`source_state_id`, `source_state_digest`,
+      `source_fingerprint_kind`, `source_content_digest`), read digest/size/range fields, and
+      Native I/O certificate posture.
+    - Kept credential resolution, provider probes, network probes, listing, cache writes,
+      object-store writes, commits, external engines, and fallback execution disabled.
+    - Added Python client wrapper `object_store_read_smoke(...)`, Use Case Atlas metadata,
+      website status row, generated use-case/status content, and architecture docs.
+  - Evidence:
+    - `provider_profile=local-emulator`, `object_store_read_status`, `byte_range_read_status`,
+      `full_file_read_status`, `bytes_read`, `object_size_bytes`, `source_state_id`,
+      `source_state_digest`, `source_fingerprint_kind`, `source_content_digest`,
+      `credential_resolution_performed=false`, `network_probe_performed=false`,
+      `provider_probe_performed=false`, `native_io_certificate_status`,
+      `claim_gate_status`, `object_store_io`, `object_store_read_io`, `object_store_write_io=false`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Verification:
+    - Focused Rust CLI tests for local-emulator success and remote-provider blockers.
+    - Python client wrapper test.
+    - Use-case index, use-case coverage, runtime-promotion evidence, Python compileall, website
+      sync/build/readiness/static validation, release-readiness metadata, traditional benchmark
+      harness, cargo fmt, workspace tests, clippy, and `git diff --check`.
+  - Claim boundary:
+    - This is provider/profile-scoped local-emulator technical-preview read proof only. It is not
+      real S3/GCS/ADLS, credentialed cloud, public bucket, object-store write, table/lakehouse,
+      distributed, production, performance, or Spark-replacement support.
+  - Fallback boundary:
+    - Storage access does not authorize external query execution. External engines remain
+      baseline/oracle-only and are not invoked by the read smoke or blocker paths.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4M runtime promotion evidence gate
   - Date: 2026-05-20
   - Branch/PR: `runtime-promotion-evidence-gate-4m` / #865.

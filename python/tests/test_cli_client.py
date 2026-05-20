@@ -3115,6 +3115,56 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(envelope.diagnostics[0].fallback.attempted)
         self.assertFalse(envelope.fallback.attempted)
 
+    def test_object_store_read_smoke_wrapper_calls_local_emulator_profile(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "object-store-read-smoke",
+                    "target/object.bin",
+                    "--profile",
+                    "local-emulator",
+                    "--range",
+                    "4:8",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "object-store-read-smoke",
+                    "status": "success",
+                    "summary": "object-store local-emulator read smoke",
+                    "human_text": "local-emulator object-store read smoke",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "object_store_read_status", "value": "succeeded"},
+                        {"key": "provider_profile", "value": "local-emulator"},
+                        {"key": "byte_range_read_status", "value": "performed_local_emulator"},
+                        {"key": "source_state_id", "value": "object-store-local-emulator-fnv64-demo"},
+                        {"key": "native_io_certificate_status", "value": "fixture_smoke_only"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "object_store_io", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        envelope = ShardLoomClient(binary=binary).object_store_read_smoke(
+            "target/object.bin",
+            byte_range=(4, 8),
+        )
+
+        self.assertEqual(envelope.status, "success")
+        self.assertEqual(envelope.field("object_store_read_status"), "succeeded")
+        self.assertTrue(envelope.field_bool("object_store_io"))
+        self.assertFalse(envelope.field_bool("fallback_attempted"))
+        self.assertFalse(envelope.field_bool("external_engine_invoked"))
+
     def test_invalid_json_raises_protocol_error(self) -> None:
         binary = self.fake_cli("print('not-json')")
 

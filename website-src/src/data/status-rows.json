@@ -319,6 +319,38 @@
     ]
   },
   {
+    "capability": "Object-store local-emulator read",
+    "status": "smoke_supported",
+    "inputs": [
+      "local_emulator_object_file"
+    ],
+    "outputs": [
+      "source_state_evidence",
+      "native_io_certificate",
+      "read_digest"
+    ],
+    "route": "object_store_read_smoke",
+    "platform": "local_emulator",
+    "evidence": [
+      "provider_profile=local-emulator",
+      "object_store_read_status",
+      "source_state_id",
+      "source_state_digest",
+      "credential_resolution_performed=false",
+      "network_probe_performed=false",
+      "native_io_certificate_status",
+      "claim_gate_status",
+      "fallback_attempted=false",
+      "external_engine_invoked=false"
+    ],
+    "works": "An explicit local-emulator profile can read a local fixture object as full-file or byte-range smoke and emit SourceState plus Native I/O evidence.",
+    "blocked": "Real S3/GCS/ADLS providers, credentials, network probes, object-store writes, table commits, distributed runtime, and production object-store claims remain blocked.",
+    "references": [
+      "docs/architecture/object-store-request-planner.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
     "capability": "Iceberg / Delta / Hudi",
     "status": "blocked",
     "inputs": [

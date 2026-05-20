@@ -1,0 +1,52 @@
+{
+  "id": "object-store-local-emulator-read-smoke",
+  "title": "Object-store local-emulator read smoke",
+  "capability_family": "object_store_boundaries",
+  "audience": "user validating ShardLoom's first provider/profile-scoped object-store read proof without cloud credentials",
+  "status": "smoke_supported",
+  "execution_mode": "object_store_read_smoke",
+  "engine_mode": "batch",
+  "inputs": [
+    "local_emulator_object_file"
+  ],
+  "outputs": [
+    "source_state_evidence",
+    "native_io_certificate",
+    "read_digest"
+  ],
+  "evidence_fields": [
+    "provider_profile=local-emulator",
+    "object_store_read_status",
+    "byte_range_read_status",
+    "full_file_read_status",
+    "source_state_id",
+    "source_state_digest",
+    "source_fingerprint_kind",
+    "source_content_digest",
+    "credential_resolution_performed=false",
+    "network_probe_performed=false",
+    "native_io_certificate_status",
+    "claim_gate_status",
+    "fallback_attempted=false",
+    "external_engine_invoked=false"
+  ],
+  "claim_boundary": "Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, writes, commits, table/lakehouse runtime, distributed runtime, production use, and performance claims remain blocked.",
+  "runnable_example": "target\\debug\\shardloom object-store-read-smoke target\\object-store-fixture.bin --profile local-emulator --range 0:16 --format json",
+  "expected_output_evidence": "A fixture-smoke report with SourceState digest fields, selected byte-range evidence, Native I/O certificate status, credential/network probes disabled, fallback_attempted=false, and external_engine_invoked=false.",
+  "common_mistakes": [
+    "using_real_s3_uri",
+    "expecting_credentials_to_resolve",
+    "treating_local_emulator_smoke_as_production_object_store_support"
+  ],
+  "references": [
+    "docs/architecture/object-store-request-planner.md",
+    "docs/architecture/phased-execution-plan.md",
+    "docs/architecture/vortex-public-api-inventory.md",
+    "python/README.md"
+  ],
+  "related_use_cases": [
+    "object-store-boundary-report",
+    "table-lakehouse-boundary-report",
+    "output-result-sink-and-fanout-boundary"
+  ]
+}
