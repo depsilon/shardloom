@@ -39,8 +39,8 @@
 
     <section class="page-hero">
       <p class="eyebrow">Benchmark evidence</p>
-      <h1>Evidence, not a leaderboard.</h1>
-      <p class="lede">These artifacts explain what ShardLoom measured locally: workflow coverage, prepared/native direction, no-fallback evidence, and claim boundaries. They do not claim public speed, superiority, production readiness, or Apache Spark substitution.</p>
+      <h1>Benchmark Evidence, Not a Leaderboard</h1>
+      <p class="lede">These artifacts explain what ShardLoom measured locally: route timing, workflow coverage, prepared/native direction, no-fallback evidence, and claim boundaries. They do not claim public speed, superiority, production support, or Apache Spark substitution.</p>
     </section>
 
     <section class="strip">
@@ -66,39 +66,158 @@
     </div>
     </section>
 
+    <section>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Route timing dashboard</p>
+          <h2>Read ShardLoom routes before reading raw timing rows.</h2>
+        </div>
+        <a class="button" href="/field-guide/benchmark-evidence">Benchmark field guide</a>
+      </div>
+      <div class="route-dashboard"><article class="route-dashboard-card">
+              <span class="badge">ShardLoom route</span>
+              <h3>Certified cold ingest/stage route</h3>
+              <p>Includes source read, parse, Vortex ingest, write/reopen, scan, operator, sink, and evidence timing.</p>
+              <dl class="mini-meta">
+                <div><dt>Rows</dt><dd>40</dd></div>
+                <div><dt>Median total</dt><dd>562.94 ms</dd></div>
+                <div><dt>Median scan</dt><dd>9.16 ms</dd></div>
+                <div><dt>Median operator</dt><dd>9.16 ms</dd></div>
+                <div><dt>Claim gates</dt><dd>blocked, claim_grade</dd></div>
+              </dl>
+            </article><article class="route-dashboard-card">
+              <span class="badge">ShardLoom route</span>
+              <h3>Prepared warm query route</h3>
+              <p>Starts after VortexPreparedState exists; do not read it as source read or ingest timing.</p>
+              <dl class="mini-meta">
+                <div><dt>Rows</dt><dd>80</dd></div>
+                <div><dt>Median total</dt><dd>0.86 ms</dd></div>
+                <div><dt>Median scan</dt><dd>0.86 ms</dd></div>
+                <div><dt>Median operator</dt><dd>0.86 ms</dd></div>
+                <div><dt>Claim gates</dt><dd>blocked, fixture_smoke_only</dd></div>
+              </dl>
+            </article><article class="route-dashboard-card">
+              <span class="badge">ShardLoom route</span>
+              <h3>Native Vortex route</h3>
+              <p>Starts from already-Vortex input and keeps compatibility import outside the timing scope.</p>
+              <dl class="mini-meta">
+                <div><dt>Rows</dt><dd>0</dd></div>
+                <div><dt>Median total</dt><dd>n/a</dd></div>
+                <div><dt>Median scan</dt><dd>n/a</dd></div>
+                <div><dt>Median operator</dt><dd>n/a</dd></div>
+                <div><dt>Claim gates</dt><dd>not reported</dd></div>
+              </dl>
+            </article><article class="route-dashboard-card">
+              <span class="badge">ShardLoom route</span>
+              <h3>Direct transient route</h3>
+              <p>One-shot compatibility route without persistent Vortex preparation.</p>
+              <dl class="mini-meta">
+                <div><dt>Rows</dt><dd>0</dd></div>
+                <div><dt>Median total</dt><dd>n/a</dd></div>
+                <div><dt>Median scan</dt><dd>n/a</dd></div>
+                <div><dt>Median operator</dt><dd>n/a</dd></div>
+                <div><dt>Claim gates</dt><dd>not reported</dd></div>
+              </dl>
+            </article><article class="route-dashboard-card">
+              <span class="badge">baseline</span>
+              <h3>External baseline context</h3>
+              <p>Comparison context only; external engines never satisfy ShardLoom evidence gates.</p>
+              <dl class="mini-meta">
+                <div><dt>Rows</dt><dd>240</dd></div>
+                <div><dt>Median total</dt><dd>73.75 ms</dd></div>
+                <div><dt>Median scan</dt><dd>n/a</dd></div>
+                <div><dt>Median operator</dt><dd>n/a</dd></div>
+                <div><dt>Claim gates</dt><dd>blocked, external_baseline_only, unsupported</dd></div>
+              </dl>
+            </article></div>
+    </section>
+
     <section class="section-grid">
       <div>
-        <h2>How to read this page</h2>
-        <p>Compare ShardLoom routes with each other first: certified cold route, prepared warm route, native Vortex route, and source-backed scan evidence. External engines provide local baseline context only.</p>
+        <p class="eyebrow">Interpretation rule</p>
+        <h2>Cold and warm rows mean different things.</h2>
+        <p>Certified cold rows include ingest/stage/certification work. Prepared warm rows start after VortexPreparedState exists. External engines provide local baseline context only and never satisfy ShardLoom evidence gates.</p>
       </div>
       <div class="card-grid">
         <article class="card">
-      <span class="badge">Do compare</span>
-      <h3>Certified cold route</h3>
+      <span class="badge">Cold route</span>
+      <h3>Certified cold ingest/stage</h3>
       <p>Compatibility import rows include ingress, parse, Vortex ingest, write/reopen, scan, result sink, and evidence work.</p>
     </article>
         <article class="card">
-      <span class="badge">Do compare</span>
-      <h3>Prepared warm route</h3>
+      <span class="badge">Warm route</span>
+      <h3>Prepared warm query</h3>
       <p>Prepared/native rows are the runtime-development direction after Vortex preparation exists.</p>
     </article>
         <article class="card">
-      <span class="badge">Do not rank</span>
-      <h3>External engines</h3>
+      <span class="badge">Baseline only</span>
+      <h3>External baselines</h3>
       <p>Pandas, Polars, DuckDB, DataFusion, Dask, and Spark rows are baseline context, not ShardLoom evidence gates.</p>
     </article>
       </div>
     </section>
 
-    <section>
-      <h2>Artifact lane availability</h2>
-      <p class="narrow">The website renders a committed artifact. It does not discover installed Python libraries during page render.</p>
-      <div class="table-wrap "><table><thead><tr><th>Expected lane</th><th>Status</th><th>Version / reason</th></tr></thead><tbody><tr><td>shardloom</td><td>available</td><td>workspace-local-release-532ba0b</td></tr><tr><td>shardloom-prepared-vortex</td><td>available</td><td>workspace-local-release-532ba0b</td></tr><tr><td>shardloom-vortex</td><td>available</td><td>workspace-local-release-532ba0b</td></tr><tr><td>pandas</td><td>available</td><td>3.0.3</td></tr><tr><td>polars-eager</td><td>available</td><td>1.40.1</td></tr><tr><td>polars-lazy</td><td>available</td><td>1.40.1 (lazy scan API)</td></tr><tr><td>duckdb</td><td>available</td><td>1.5.2</td></tr><tr><td>datafusion</td><td>available</td><td>53.0.0</td></tr><tr><td>dask</td><td>available</td><td>2026.3.0</td></tr><tr><td>native-vortex</td><td>available</td><td>from promoted benchmark artifact</td></tr></tbody></table></div>
+    <section class="section-grid">
+      <div>
+        <p class="eyebrow">Completeness</p>
+        <h2>The website renders a committed artifact.</h2>
+        <p>It does not discover installed Python libraries during page render. Expected, available, and missing lanes remain visible in the manifest.</p>
+      </div>
+      <div class="artifact-panel">
+        <dl class="mini-meta">
+          <div><dt>Artifact status</dt><dd>complete</dd></div>
+          <div><dt>Generated</dt><dd>2026-05-19T11:21:05.796643+00:00</dd></div>
+          <div><dt>Claim boundary</dt><dd>local_comparative_not_claim_grade</dd></div>
+          <div><dt>Performance claim allowed</dt><dd>False</dd></div>
+          <div><dt>Benchmark SHA</dt><dd>532ba0b104525b65a10f40ddb017ebc939f676af</dd></div>
+        </dl>
+      </div>
     </section>
 
     <section>
-      <h2>Claim-gate distribution</h2>
-      <div class="table-wrap "><table><thead><tr><th>Claim gate</th><th>Rows</th><th>Share</th></tr></thead><tbody><tr><td>blocked</td><td>144</td><td>40.0%</td></tr><tr><td>external_baseline_only</td><td>132</td><td>36.7%</td></tr><tr><td>fixture_smoke_only</td><td>48</td><td>13.3%</td></tr><tr><td>claim_grade</td><td>24</td><td>6.7%</td></tr><tr><td>unsupported</td><td>12</td><td>3.3%</td></tr></tbody></table></div>
+      <div class="section-heading">
+        <div>
+          <h2>Artifact lane availability</h2>
+          <p>Missing lanes are shown with reasons rather than silently omitted.</p>
+        </div>
+      </div>
+      <div class="table-wrap "><table><thead><tr><th>Expected lane</th><th>Status</th><th>Version / reason</th></tr></thead><tbody><tr><td>shardloom</td><td>available</td><td>workspace-local-release-532ba0b</td></tr><tr><td>shardloom-prepared-vortex</td><td>available</td><td>workspace-local-release-532ba0b</td></tr><tr><td>shardloom-vortex</td><td>available</td><td>workspace-local-release-532ba0b</td></tr><tr><td>pandas</td><td>available</td><td>3.0.3</td></tr><tr><td>polars-eager</td><td>available</td><td>1.40.1</td></tr><tr><td>polars-lazy</td><td>available</td><td>1.40.1 (lazy scan API)</td></tr><tr><td>duckdb</td><td>available</td><td>1.5.2</td></tr><tr><td>datafusion</td><td>available</td><td>53.0.0</td></tr><tr><td>dask</td><td>available</td><td>2026.3.0</td></tr><tr><td>native-vortex</td><td>available</td><td>from promoted benchmark artifact</td></tr></tbody></table></div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Scenario coverage</h2>
+        <p>Coverage counts help explain the scope of this local artifact before anyone opens raw tables.</p>
+      </div>
+      <div class="strip mini-strip"><div class="metric">
+      <strong>360</strong>
+      <span>Published rows</span>
+      <span>committed artifact</span>
+    </div><div class="metric">
+      <strong>40</strong>
+      <span>Scenarios</span>
+      <span>distinct scenario names</span>
+    </div><div class="metric">
+      <strong>2</strong>
+      <span>Formats</span>
+      <span>storage formats</span>
+    </div><div class="metric">
+      <strong>9</strong>
+      <span>Engines</span>
+      <span>ShardLoom + baseline lanes</span>
+    </div><div class="metric">
+      <strong>156</strong>
+      <span>Blocked/unsupported rows</span>
+      <span>visible, not hidden</span>
+    </div></div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Claim-gate distribution</h2>
+        <p>Rows remain split by claim gate so local smoke, blocked, unsupported, claim-grade, and external baseline context are not conflated.</p>
+      </div>
+      <div><div class="table-wrap "><table><thead><tr><th>Claim gate</th><th>Rows</th><th>Share</th></tr></thead><tbody><tr><td>blocked</td><td>144</td><td>40.0%</td></tr><tr><td>external_baseline_only</td><td>132</td><td>36.7%</td></tr><tr><td>fixture_smoke_only</td><td>48</td><td>13.3%</td></tr><tr><td>claim_grade</td><td>24</td><td>6.7%</td></tr><tr><td>unsupported</td><td>12</td><td>3.3%</td></tr></tbody></table></div></div>
     </section>
 
     <section>
@@ -108,13 +227,16 @@
     </section>
 
     <section>
-      <h2>Local timing context</h2>
-      <p class="narrow">This table is timing context for engineering interpretation. It is not a public ranking.</p>
+      <h2>Raw timing tables</h2>
+      <p class="narrow">Raw local timing is available for engineering interpretation, but it stays collapsed by default and remains non-claim evidence.</p>
+      <details class="drawer">
+      <summary>Open raw local timing context</summary>
       <div class="table-wrap "><table><thead><tr><th>Engine</th><th>Available</th><th>Success / total</th><th>Geomean</th><th>CSV/Parquet</th><th>local fastest count</th><th>local timing context</th></tr></thead><tbody><tr><td>shardloom</td><td>yes</td><td>24/40</td><td>441.84 ms</td><td>441.84 ms</td><td>0</td><td>100.0%</td></tr><tr><td>shardloom-prepared-vortex</td><td>yes</td><td>24/40</td><td>1.40 ms</td><td>1.40 ms</td><td>15</td><td>0.3%</td></tr><tr><td>shardloom-vortex</td><td>yes</td><td>24/40</td><td>1.48 ms</td><td>1.48 ms</td><td>9</td><td>0.3%</td></tr><tr><td>pandas</td><td>yes</td><td>24/40</td><td>172.52 ms</td><td>172.52 ms</td><td>0</td><td>39.0%</td></tr><tr><td>polars-eager</td><td>yes</td><td>22/40</td><td>67.06 ms</td><td>67.06 ms</td><td>0</td><td>15.2%</td></tr><tr><td>polars-lazy</td><td>yes</td><td>20/40</td><td>55.62 ms</td><td>55.62 ms</td><td>0</td><td>12.6%</td></tr><tr><td>duckdb</td><td>yes</td><td>22/40</td><td>82.58 ms</td><td>82.58 ms</td><td>0</td><td>18.7%</td></tr><tr><td>datafusion</td><td>yes</td><td>22/40</td><td>45.43 ms</td><td>45.43 ms</td><td>0</td><td>10.3%</td></tr><tr><td>dask</td><td>yes</td><td>22/40</td><td>169.58 ms</td><td>169.58 ms</td><td>0</td><td>38.4%</td></tr></tbody></table></div>
+    </details>
     </section>
 
     <section>
-      <h2>ShardLoom timing rows</h2>
+      <h2>ShardLoom detailed evidence rows</h2>
       <details class="drawer">
       <summary>Open scoped ShardLoom timing rows</summary>
       <div class="table-wrap "><table><thead><tr><th>Scenario</th><th>Mode</th><th>Format</th><th>Total ms</th><th>Scan ms</th><th>Compute ms</th><th>Claim gate</th></tr></thead><tbody><tr><td>csv: selective filter</td><td>compatibility_import_certified</td><td>csv</td><td>158.6181</td><td>7.36</td><td>7.36</td><td>not_claim_grade</td></tr><tr><td>csv: filter + projection + limit</td><td>compatibility_import_certified</td><td>csv</td><td>148.204</td><td>4.384</td><td>4.384</td><td>not_claim_grade</td></tr><tr><td>csv: group by aggregation</td><td>compatibility_import_certified</td><td>csv</td><td>140.1875</td><td>15.848</td><td>15.848</td><td>not_claim_grade</td></tr><tr><td>csv: hash join</td><td>compatibility_import_certified</td><td>csv</td><td>192.3146</td><td>5.193</td><td>5.193</td><td>not_claim_grade</td></tr><tr><td>csv: top-N per group</td><td>compatibility_import_certified</td><td>csv</td><td>168.1261</td><td>4.874</td><td>4.874</td><td>not_claim_grade</td></tr><tr><td>csv: selective filter</td><td>prepared_vortex</td><td>csv</td><td>2.018</td><td>2.018</td><td>2.018</td><td>fixture_smoke_only</td></tr><tr><td>csv: filter + projection + limit</td><td>prepared_vortex</td><td>csv</td><td>0.319</td><td>0.319</td><td>0.319</td><td>fixture_smoke_only</td></tr><tr><td>csv: group by aggregation</td><td>prepared_vortex</td><td>csv</td><td>1.527</td><td>1.527</td><td>1.527</td><td>fixture_smoke_only</td></tr><tr><td>csv: hash join</td><td>prepared_vortex</td><td>csv</td><td>3.167</td><td>3.167</td><td>3.167</td><td>fixture_smoke_only</td></tr><tr><td>csv: top-N per group</td><td>prepared_vortex</td><td>csv</td><td>2.002</td><td>2.002</td><td>2.002</td><td>fixture_smoke_only</td></tr><tr><td>csv: clean/cast/filter/write</td><td>compatibility_import_certified</td><td>csv</td><td>180.6791</td><td>7.56</td><td>7.56</td><td>not_claim_grade</td></tr><tr><td>csv: malformed timestamp / dirty CSV</td><td>compatibility_import_certified</td><td>csv</td><td>244.8204</td><td>7.425</td><td>7.425</td><td>not_claim_grade</td></tr><tr><td>csv: clean/cast/filter/write</td><td>prepared_vortex</td><td>csv</td><td>0.516</td><td>0.516</td><td>0.516</td><td>fixture_smoke_only</td></tr><tr><td>csv: malformed timestamp / dirty CSV</td><td>prepared_vortex</td><td>csv</td><td>0.31</td><td>0.31</td><td>0.31</td><td>fixture_smoke_only</td></tr><tr><td>jsonl: nested JSON field scan</td><td>compatibility_import_certified</td><td>jsonl</td><td>355.3696</td><td>20.239</td><td>20.239</td><td>not_claim_grade</td></tr><tr><td>jsonl: nested JSON field scan</td><td>prepared_vortex</td><td>jsonl</td><td>8.473</td><td>8.473</td><td>8.473</td><td>fixture_smoke_only</td></tr><tr><td>csv: null-heavy aggregate</td><td>compatibility_import_certified</td><td>csv</td><td>197.9295</td><td>4.805</td><td>4.805</td><td>not_claim_grade</td></tr><tr><td>csv: null-heavy aggregate</td><td>prepared_vortex</td><td>csv</td><td>4.491</td><td>4.491</td><td>4.491</td><td>fixture_smoke_only</td></tr><tr><td>csv: small change over large base</td><td>compatibility_import_certified</td><td>csv</td><td>147.9737</td><td>3.191</td><td>3.191</td><td>not_claim_grade</td></tr><tr><td>csv: small change over large base</td><td>prepared_vortex</td><td>csv</td><td>3.748</td><td>3.748</td><td>3.748</td><td>fixture_smoke_only</td></tr></tbody></table></div>
