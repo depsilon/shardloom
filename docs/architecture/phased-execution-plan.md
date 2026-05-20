@@ -321,12 +321,19 @@ or documentation updates alone are insufficient.
     evidence and deterministic blockers for invalid day counts or unsupported non-Date32 shapes.
     Scoped UTF-8 `LOWER(column)`, `UPPER(column)`, and `TRIM(column)` transform predicates are
     runtime-admitted with `string_transform_*` evidence and deterministic blockers for non-UTF-8
-    or unsupported expression shapes; this is not locale/collation completeness.
+    or unsupported expression shapes; this is not locale/collation completeness. Scoped UTC
+    timestamp-micros parsing/formatting, UTF-8/timestamp/date casts,
+    `TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z'` literals, and
+    `TIMESTAMP_YEAR` / `TIMESTAMP_MONTH` / `TIMESTAMP_DAY` / `TIMESTAMP_HOUR` /
+    `TIMESTAMP_MINUTE` / `TIMESTAMP_SECOND` extract predicates are runtime-admitted with
+    `timestamp_*` evidence and deterministic blockers for non-UTC timezone shapes or unsupported
+    expression shapes.
     Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`,
-    scoped UTF-8 lower/upper/trim transforms, bounded `IN`, cast/date, Date32 extracts, Date32 day arithmetic, and logical predicates into the
+    scoped UTF-8 lower/upper/trim transforms, bounded `IN`, cast/date/timestamp, Date32 extracts,
+    Date32 day arithmetic, scoped UTC timestamp extracts, and logical predicates into the
     same local SQL smoke path, plus `where(...)` as a familiar filter alias. User workflows still lack broad typed
-    coercions, timestamp/timezone helpers, interval/date-time completeness, NULL/subquery-backed IN semantics,
+    coercions, timezone-database helpers, interval/date-time completeness, NULL/subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
     family coverage.
   - Next slice outcome: add one implementation PR per expression family: null/is-not-null hardening

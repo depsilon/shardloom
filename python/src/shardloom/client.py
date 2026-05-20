@@ -533,6 +533,36 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def timestamp_literal_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted UTC timestamp literal path."""
+
+        return self.envelope.field_bool("timestamp_literal_runtime_execution", False) is True
+
+    @property
+    def timestamp_extract_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted UTC timestamp extract predicate path."""
+
+        return self.envelope.field_bool("timestamp_extract_runtime_execution", False) is True
+
+    @property
+    def timestamp_extract_operator(self) -> tuple[str, ...]:
+        """Return UTC timestamp extract operators emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_extract_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def timestamp_extract_source_columns(self) -> tuple[str, ...]:
+        """Return UTC timestamp extract source columns emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_extract_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def date_arithmetic_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted Date32 day-arithmetic predicate path."""
 

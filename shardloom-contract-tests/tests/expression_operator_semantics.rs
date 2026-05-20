@@ -2,7 +2,10 @@ use shardloom_core::{
     BinaryOp, ColumnRef, ComparisonOp, ExprId, Expression, ExpressionEvaluationStatus,
     ExpressionInputRow, ExpressionKind, LogicalDType, NullBehavior, ScalarValue, UnaryOp,
     date32_day, date32_month, date32_year, evaluate_expression, evaluate_filter, evaluate_limit,
-    evaluate_projection, format_iso_date32, parse_iso_date32,
+    evaluate_projection, format_iso_date32, format_iso_timestamp_micros, parse_iso_date32,
+    parse_iso_timestamp_micros, timestamp_micros_day, timestamp_micros_hour,
+    timestamp_micros_minute, timestamp_micros_month, timestamp_micros_second,
+    timestamp_micros_year,
 };
 
 fn expr_id(value: &str) -> ExprId {
@@ -350,6 +353,118 @@ fn expression_semantics_casts_iso_utf8_and_date32_without_fallback() {
     assert_eq!(utf8_report.operator_family, "cast");
     assert!(!utf8_report.fallback_attempted);
     assert!(!utf8_report.external_engine_invoked);
+}
+
+#[test]
+fn expression_semantics_parses_formats_extracts_and_casts_timestamp_micros_without_fallback() {
+    let value = parse_iso_timestamp_micros("2026-05-19T12:30:45.123456Z").expect("valid timestamp");
+    assert_eq!(
+        format_iso_timestamp_micros(value),
+        "2026-05-19T12:30:45.123456Z"
+    );
+    assert_eq!(
+        format_iso_timestamp_micros(
+            parse_iso_timestamp_micros("1970-01-01T00:00:00Z").expect("epoch timestamp")
+        ),
+        "1970-01-01T00:00:00Z"
+    );
+    assert_eq!(
+        format_iso_timestamp_micros(
+            parse_iso_timestamp_micros("1969-12-31T23:59:59.999999Z").expect("negative timestamp")
+        ),
+        "1969-12-31T23:59:59.999999Z"
+    );
+    assert!(parse_iso_timestamp_micros("2026-05-19T12:30:45+00:00").is_err());
+    assert!(parse_iso_timestamp_micros("2026-05-19T12:30:45.1234567Z").is_err());
+    assert!(parse_iso_timestamp_micros("2026-05-19T12:30:60Z").is_err());
+
+    assert_eq!(timestamp_micros_year(value), 2026);
+    assert_eq!(timestamp_micros_month(value), 5);
+    assert_eq!(timestamp_micros_day(value), 19);
+    assert_eq!(timestamp_micros_hour(value), 12);
+    assert_eq!(timestamp_micros_minute(value), 30);
+    assert_eq!(timestamp_micros_second(value), 45);
+
+    let row = row(&[("event_ts", ScalarValue::TimestampMicros(value))]);
+    for (name, expected) in [
+        ("timestamp_year", 2026_i64),
+        ("timestamp_month", 5_i64),
+        ("timestamp_day", 19_i64),
+        ("timestamp_hour", 12_i64),
+        ("timestamp_minute", 30_i64),
+        ("timestamp_second", 45_i64),
+    ] {
+        let expression = Expression::new(
+            expr_id(&format!("{name}-expr")),
+            ExpressionKind::FunctionCall {
+                name: name.to_string(),
+                args: vec![Expression::column(
+                    expr_id(&format!("{name}-column")),
+                    col("event_ts"),
+                )],
+            },
+        );
+        let report = evaluate_expression(&expression, &row);
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.value, Some(ScalarValue::Int64(expected)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(report.operator_family, "timestamp_extract");
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    let utf8_to_timestamp = Expression::cast(
+        expr_id("utf8-to-timestamp"),
+        Expression::literal(
+            expr_id("timestamp-text"),
+            ScalarValue::Utf8("2026-05-19T12:30:45.123456Z".to_string()),
+        ),
+        LogicalDType::TimestampMicros,
+    );
+    let timestamp_report = evaluate_expression(&utf8_to_timestamp, &ExpressionInputRow::new());
+    assert_eq!(
+        timestamp_report.status,
+        ExpressionEvaluationStatus::Evaluated
+    );
+    assert_eq!(
+        timestamp_report.value,
+        Some(ScalarValue::TimestampMicros(value))
+    );
+    assert_eq!(
+        timestamp_report.output_dtype,
+        Some(LogicalDType::TimestampMicros)
+    );
+    assert!(!timestamp_report.fallback_attempted);
+    assert!(!timestamp_report.external_engine_invoked);
+
+    let timestamp_to_utf8 = Expression::cast(
+        expr_id("timestamp-to-utf8"),
+        Expression::literal(expr_id("timestamp"), ScalarValue::TimestampMicros(value)),
+        LogicalDType::Utf8,
+    );
+    let utf8_report = evaluate_expression(&timestamp_to_utf8, &ExpressionInputRow::new());
+    assert_eq!(
+        utf8_report.value,
+        Some(ScalarValue::Utf8("2026-05-19T12:30:45.123456Z".to_string()))
+    );
+
+    let timestamp_to_date32 = Expression::cast(
+        expr_id("timestamp-to-date32"),
+        Expression::literal(
+            expr_id("timestamp-date"),
+            ScalarValue::TimestampMicros(value),
+        ),
+        LogicalDType::Date32,
+    );
+    let date_report = evaluate_expression(&timestamp_to_date32, &ExpressionInputRow::new());
+    assert_eq!(
+        date_report.value,
+        Some(ScalarValue::Date32(
+            parse_iso_date32("2026-05-19").expect("date")
+        ))
+    );
 }
 
 #[test]

@@ -5,7 +5,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -456,6 +456,21 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(sl.col("event_dt").date_day() >= 19),
             "DATE_DAY(event_dt) >= 19",
         )
+        self.assertEqual(
+            str(sl.col("event_ts").cast("timestamp").timestamp_hour() == 12),
+            "TIMESTAMP_HOUR(CAST(event_ts AS timestamp_micros)) = 12",
+        )
+        self.assertEqual(
+            str(
+                sl.col("event_ts")
+                >= datetime(2026, 5, 19, 12, 30, 45, 123456, tzinfo=timezone.utc)
+            ),
+            "event_ts >= TIMESTAMP '2026-05-19T12:30:45.123456Z'",
+        )
+        self.assertEqual(
+            str(sl.col("event_ts").timestamp_second() == 45),
+            "TIMESTAMP_SECOND(event_ts) = 45",
+        )
         self.assertEqual(str(sl.col("f.amount") >= 10), "f.amount >= 10")
         self.assertEqual(str(sl.col("label").startswith("al")), "label LIKE 'al%'")
         self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
@@ -464,7 +479,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("label").trim() == "gamma"), "TRIM(label) = 'gamma'")
         self.assertEqual(str(sl.col("closed_at").is_not_null()), "closed_at IS NOT NULL")
 
-        with self.assertRaisesRegex(ValueError, "datetime literals are not admitted"):
+        with self.assertRaisesRegex(ValueError, "timezone-aware"):
             sl.col("event_dt") >= datetime(2026, 5, 19, 12, 30)
         with self.assertRaises(ValueError):
             sl.col("label").contains("%")
@@ -547,6 +562,65 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.date_arithmetic_operator, ())
         self.assertEqual(report.date_arithmetic_days, ())
         self.assertEqual(report.date_arithmetic_source_columns, ())
+
+    def test_column_expression_builder_exposes_timestamp_report_fields(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,event_ts FROM 'target/input.csv' WHERE (event_ts >= TIMESTAMP '2026-05-19T12:00:00Z' AND TIMESTAMP_HOUR(event_ts) = 12) LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"event_ts\\":\\"2026-05-19T12:30:45Z\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "predicate_operator_family", "value": "logical_predicate"},
+                        {"key": "logical_predicate_runtime_execution", "value": "true"},
+                        {"key": "timestamp_literal_runtime_execution", "value": "true"},
+                        {"key": "timestamp_extract_runtime_execution", "value": "true"},
+                        {"key": "timestamp_extract_operator", "value": "timestamp_hour"},
+                        {"key": "timestamp_extract_source_column", "value": "event_ts"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "event_ts")
+            .where(
+                (sl.col("event_ts") >= datetime(2026, 5, 19, 12, tzinfo=timezone.utc))
+                & (sl.col("event_ts").timestamp_hour() == 12)
+            )
+            .limit(10)
+            .collect()
+        )
+
+        self.assertTrue(report.timestamp_literal_runtime_execution)
+        self.assertTrue(report.timestamp_extract_runtime_execution)
+        self.assertEqual(report.timestamp_extract_operator, ("timestamp_hour",))
+        self.assertEqual(report.timestamp_extract_source_columns, ("event_ts",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_column_expression_builder_exposes_string_transform_report_fields(self) -> None:
         binary = self.fake_cli(

@@ -6,7 +6,7 @@ import ast
 import math
 import os
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Mapping, Sequence, cast
 from urllib.parse import quote
 
@@ -223,6 +223,36 @@ class ColumnExpression:
         """Return a scoped Date32 day-of-month extract expression for date predicates."""
 
         return ColumnExpression(f"DATE_DAY({self.sql})")
+
+    def timestamp_year(self) -> "ColumnExpression":
+        """Return a scoped UTC timestamp year-extract expression for predicates."""
+
+        return ColumnExpression(f"TIMESTAMP_YEAR({self.sql})")
+
+    def timestamp_month(self) -> "ColumnExpression":
+        """Return a scoped UTC timestamp month-extract expression for predicates."""
+
+        return ColumnExpression(f"TIMESTAMP_MONTH({self.sql})")
+
+    def timestamp_day(self) -> "ColumnExpression":
+        """Return a scoped UTC timestamp day-of-month extract expression for predicates."""
+
+        return ColumnExpression(f"TIMESTAMP_DAY({self.sql})")
+
+    def timestamp_hour(self) -> "ColumnExpression":
+        """Return a scoped UTC timestamp hour extract expression for predicates."""
+
+        return ColumnExpression(f"TIMESTAMP_HOUR({self.sql})")
+
+    def timestamp_minute(self) -> "ColumnExpression":
+        """Return a scoped UTC timestamp minute extract expression for predicates."""
+
+        return ColumnExpression(f"TIMESTAMP_MINUTE({self.sql})")
+
+    def timestamp_second(self) -> "ColumnExpression":
+        """Return a scoped UTC timestamp second extract expression for predicates."""
+
+        return ColumnExpression(f"TIMESTAMP_SECOND({self.sql})")
 
 
 @dataclass(frozen=True, slots=True)
@@ -2278,9 +2308,11 @@ def _normalize_output_column_name(value: object) -> str:
 
 def _normalize_cast_dtype(value: object) -> str:
     dtype = _require_non_empty("cast dtype", value).lower()
-    if dtype not in {"int64", "float64", "utf8", "boolean", "date32"}:
+    if dtype == "timestamp":
+        dtype = "timestamp_micros"
+    if dtype not in {"int64", "float64", "utf8", "boolean", "date32", "timestamp_micros"}:
         raise ValueError(
-            "cast dtype must be one of ('int64', 'float64', 'utf8', 'boolean', 'date32')"
+            "cast dtype must be one of ('int64', 'float64', 'utf8', 'boolean', 'date32', 'timestamp_micros')"
         )
     return dtype
 
@@ -2320,10 +2352,7 @@ def _sql_literal(value: object) -> str:
             raise ValueError("SQL float literals must be finite")
         return str(value)
     if isinstance(value, datetime):
-        raise ValueError(
-            "SQL predicate datetime literals are not admitted by the scoped date32 runtime; "
-            "use datetime.date values for DATE predicates"
-        )
+        return f"TIMESTAMP '{_normalize_timestamp_literal(value)}'"
     if isinstance(value, date):
         return f"DATE '{value.isoformat()}'"
     if isinstance(value, str):
@@ -2331,6 +2360,19 @@ def _sql_literal(value: object) -> str:
     raise TypeError(
         "SQL predicate literals must be bool, int, float, str, date, datetime, or None"
     )
+
+
+def _normalize_timestamp_literal(value: datetime) -> str:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(
+            "SQL predicate datetime literals must be timezone-aware; scoped timestamp_micros admits UTC ISO timestamps only"
+        )
+    value = value.astimezone(timezone.utc)
+    if value.microsecond:
+        text = value.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    else:
+        text = value.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return text
 
 
 def _predicate_sql(value: object) -> str:

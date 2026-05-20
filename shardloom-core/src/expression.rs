@@ -826,11 +826,65 @@ fn eval_function_call(
         "date_day" | "day" => eval_date_extract(name, args, row, |days| {
             i32::try_from(date32_day(days)).expect("day fits i32")
         }),
+        "timestamp_year" => eval_timestamp_extract(name, args, row, |micros| {
+            i64::from(timestamp_micros_year(micros))
+        }),
+        "timestamp_month" => eval_timestamp_extract(name, args, row, |micros| {
+            timestamp_micros_month(micros).into()
+        }),
+        "timestamp_day" => eval_timestamp_extract(name, args, row, |micros| {
+            timestamp_micros_day(micros).into()
+        }),
+        "timestamp_hour" => eval_timestamp_extract(name, args, row, |micros| {
+            timestamp_micros_hour(micros).into()
+        }),
+        "timestamp_minute" => eval_timestamp_extract(name, args, row, |micros| {
+            timestamp_micros_minute(micros).into()
+        }),
+        "timestamp_second" => eval_timestamp_extract(name, args, row, |micros| {
+            timestamp_micros_second(micros).into()
+        }),
         "date_add_days" => eval_date_add_days(name, args, row, 1),
         "date_sub_days" => eval_date_add_days(name, args, row, -1),
         _ => Err(EvalFailure::unsupported(
             "function_call",
             format!("function {name:?} is not admitted by the current native semantics baseline"),
+        )),
+    }
+}
+
+fn eval_timestamp_extract(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    extract: impl FnOnce(i64) -> i64,
+) -> EvalResult<EvalValue> {
+    if args.len() != 1 {
+        return Err(EvalFailure::invalid(
+            "timestamp_extract",
+            format!("function {name:?} requires exactly one TimestampMicros argument"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let data_materialized = value.data_materialized;
+    match value.value {
+        ScalarValue::Null => Ok(EvalValue::null(
+            LogicalDType::Int64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        ScalarValue::TimestampMicros(micros) => Ok(EvalValue::new(
+            ScalarValue::Int64(extract(micros)),
+            LogicalDType::Int64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        other => Err(EvalFailure::unsupported(
+            "timestamp_extract",
+            format!(
+                "function {name:?} supports TimestampMicros/null operands only, got {}",
+                other.dtype().as_str()
+            ),
         )),
     }
 }
@@ -1263,9 +1317,26 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
         (ScalarValue::Date32(value), LogicalDType::Utf8) => {
             ScalarValue::Utf8(format_iso_date32(*value))
         }
+        (ScalarValue::TimestampMicros(value), LogicalDType::Utf8) => {
+            ScalarValue::Utf8(format_iso_timestamp_micros(*value))
+        }
+        (ScalarValue::Date32(value), LogicalDType::TimestampMicros) => {
+            ScalarValue::TimestampMicros(i64::from(*value) * MICROS_PER_DAY)
+        }
+        (ScalarValue::TimestampMicros(value), LogicalDType::Date32) => {
+            ScalarValue::Date32(timestamp_micros_date32(*value))
+        }
         (ScalarValue::Utf8(value), LogicalDType::Date32) => {
             ScalarValue::Date32(parse_iso_date32(value).map_err(|_| {
                 EvalFailure::invalid("cast", "utf8 value cannot be parsed as ISO date32")
+            })?)
+        }
+        (ScalarValue::Utf8(value), LogicalDType::TimestampMicros) => {
+            ScalarValue::TimestampMicros(parse_iso_timestamp_micros(value).map_err(|_| {
+                EvalFailure::invalid(
+                    "cast",
+                    "utf8 value cannot be parsed as UTC ISO timestamp_micros",
+                )
             })?)
         }
         (ScalarValue::Utf8(value), LogicalDType::Int64) => {
@@ -1345,6 +1416,8 @@ fn function_operator_family(name: &str) -> &'static str {
             "string_transform"
         }
         "date_year" | "year" | "date_month" | "month" | "date_day" | "day" => "date_extract",
+        "timestamp_year" | "timestamp_month" | "timestamp_day" | "timestamp_hour"
+        | "timestamp_minute" | "timestamp_second" => "timestamp_extract",
         "date_add_days" | "date_sub_days" => "date_arithmetic",
         _ => "function",
     }
@@ -1382,6 +1455,100 @@ pub fn date32_month(days: i32) -> u32 {
 #[must_use]
 pub fn date32_day(days: i32) -> u32 {
     civil_from_days(days).2
+}
+
+/// Parses a scoped UTC ISO timestamp into microseconds since the Unix epoch.
+///
+/// This runtime slice admits only `YYYY-MM-DDTHH:MM:SSZ` plus optional fractional seconds
+/// up to six digits. Offset time zones and named time zones remain deterministic blockers.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the input is not an admitted UTC timestamp.
+pub fn parse_iso_timestamp_micros(value: &str) -> Result<i64> {
+    let text = value.trim();
+    let Some(timestamp) = text.strip_suffix('Z') else {
+        return Err(ShardLoomError::InvalidOperation(
+            "UTC timestamp_micros literals must end with Z".to_string(),
+        ));
+    };
+    let Some((date, time)) = timestamp.split_once('T') else {
+        return Err(ShardLoomError::InvalidOperation(
+            "UTC timestamp_micros literals must use YYYY-MM-DDTHH:MM:SSZ".to_string(),
+        ));
+    };
+    let (year, month, day) = parse_iso_ymd(date)?;
+    let (hour, minute, second, micros) = parse_iso_time_micros(time)?;
+    let days = i64::from(days_from_civil(year, month, day));
+    let seconds_of_day = i64::from(hour) * 3_600 + i64::from(minute) * 60 + i64::from(second);
+    Ok(days * MICROS_PER_DAY + seconds_of_day * MICROS_PER_SECOND + i64::from(micros))
+}
+
+/// Formats a timestamp-micros value as a scoped UTC ISO timestamp.
+#[must_use]
+pub fn format_iso_timestamp_micros(value: i64) -> String {
+    let micros_of_day = value.rem_euclid(MICROS_PER_DAY);
+    let (year, month, day) = civil_from_days(timestamp_micros_date32(value));
+    let hour = micros_of_day / MICROS_PER_HOUR;
+    let minute = (micros_of_day % MICROS_PER_HOUR) / MICROS_PER_MINUTE;
+    let second = (micros_of_day % MICROS_PER_MINUTE) / MICROS_PER_SECOND;
+    let micros = micros_of_day % MICROS_PER_SECOND;
+    if micros == 0 {
+        format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
+    } else {
+        format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{micros:06}Z")
+    }
+}
+
+/// Returns the UTC Date32 day for a timestamp-micros value.
+#[must_use]
+pub fn timestamp_micros_date32(value: i64) -> i32 {
+    timestamp_micros_day_index(value)
+}
+
+/// Returns the UTC-calendar year component of a timestamp-micros value.
+#[must_use]
+pub fn timestamp_micros_year(value: i64) -> i32 {
+    date32_year(timestamp_micros_date32(value))
+}
+
+/// Returns the UTC-calendar month component of a timestamp-micros value.
+#[must_use]
+pub fn timestamp_micros_month(value: i64) -> u32 {
+    date32_month(timestamp_micros_date32(value))
+}
+
+/// Returns the UTC-calendar day-of-month component of a timestamp-micros value.
+#[must_use]
+pub fn timestamp_micros_day(value: i64) -> u32 {
+    date32_day(timestamp_micros_date32(value))
+}
+
+/// Returns the UTC hour component of a timestamp-micros value.
+#[must_use]
+pub fn timestamp_micros_hour(value: i64) -> u32 {
+    timestamp_time_component(value, MICROS_PER_DAY, MICROS_PER_HOUR)
+}
+
+/// Returns the UTC minute component of a timestamp-micros value.
+#[must_use]
+pub fn timestamp_micros_minute(value: i64) -> u32 {
+    timestamp_time_component(value, MICROS_PER_HOUR, MICROS_PER_MINUTE)
+}
+
+/// Returns the UTC second component of a timestamp-micros value.
+#[must_use]
+pub fn timestamp_micros_second(value: i64) -> u32 {
+    timestamp_time_component(value, MICROS_PER_MINUTE, MICROS_PER_SECOND)
+}
+
+fn timestamp_micros_day_index(value: i64) -> i32 {
+    i32::try_from(value.div_euclid(MICROS_PER_DAY))
+        .expect("i64 timestamp_micros day range fits Date32")
+}
+
+fn timestamp_time_component(value: i64, period_micros: i64, unit_micros: i64) -> u32 {
+    let component = value.rem_euclid(MICROS_PER_DAY) % period_micros / unit_micros;
+    u32::try_from(component).expect("timestamp component fits u32")
 }
 
 fn parse_iso_ymd(value: &str) -> Result<(i32, u32, u32)> {
@@ -1427,6 +1594,75 @@ fn parse_iso_ymd(value: &str) -> Result<(i32, u32, u32)> {
     Ok((year, month, day))
 }
 
+fn parse_iso_time_micros(value: &str) -> Result<(u32, u32, u32, u32)> {
+    let (hms, micros) = match value.split_once('.') {
+        Some((hms, fraction)) => {
+            if fraction.is_empty()
+                || fraction.len() > 6
+                || !fraction.bytes().all(|b| b.is_ascii_digit())
+            {
+                return Err(ShardLoomError::InvalidOperation(
+                    "UTC timestamp fractional seconds must use 1..=6 digits".to_string(),
+                ));
+            }
+            let mut padded = fraction.to_string();
+            while padded.len() < 6 {
+                padded.push('0');
+            }
+            let micros = padded.parse::<u32>().map_err(|_| {
+                ShardLoomError::InvalidOperation(
+                    "UTC timestamp fractional seconds must be numeric".to_string(),
+                )
+            })?;
+            (hms, micros)
+        }
+        None => (value, 0),
+    };
+    let mut parts = hms.split(':');
+    let (Some(hour), Some(minute), Some(second), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return Err(ShardLoomError::InvalidOperation(
+            "UTC timestamp time must use HH:MM:SS".to_string(),
+        ));
+    };
+    if hour.len() != 2 || minute.len() != 2 || second.len() != 2 {
+        return Err(ShardLoomError::InvalidOperation(
+            "UTC timestamp time must use zero-padded HH:MM:SS".to_string(),
+        ));
+    }
+    let hour = parse_two_digit_time_component(hour, "hour")?;
+    let minute = parse_two_digit_time_component(minute, "minute")?;
+    let second = parse_two_digit_time_component(second, "second")?;
+    if hour > 23 {
+        return Err(ShardLoomError::InvalidOperation(
+            "UTC timestamp hour must be in 00..=23".to_string(),
+        ));
+    }
+    if minute > 59 {
+        return Err(ShardLoomError::InvalidOperation(
+            "UTC timestamp minute must be in 00..=59".to_string(),
+        ));
+    }
+    if second > 59 {
+        return Err(ShardLoomError::InvalidOperation(
+            "UTC timestamp second must be in 00..=59".to_string(),
+        ));
+    }
+    Ok((hour, minute, second, micros))
+}
+
+fn parse_two_digit_time_component(value: &str, name: &str) -> Result<u32> {
+    if !value.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "UTC timestamp {name} must be numeric"
+        )));
+    }
+    value.parse::<u32>().map_err(|_| {
+        ShardLoomError::InvalidOperation(format!("UTC timestamp {name} must be numeric"))
+    })
+}
+
 const fn days_in_month(year: i32, month: u32) -> u32 {
     match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
@@ -1470,6 +1706,11 @@ fn civil_from_days(days: i32) -> (i32, u32, u32) {
         u32::try_from(day).expect("day is positive"),
     )
 }
+
+const MICROS_PER_SECOND: i64 = 1_000_000;
+const MICROS_PER_MINUTE: i64 = 60 * MICROS_PER_SECOND;
+const MICROS_PER_HOUR: i64 = 60 * MICROS_PER_MINUTE;
+const MICROS_PER_DAY: i64 = 24 * MICROS_PER_HOUR;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NullBehavior {

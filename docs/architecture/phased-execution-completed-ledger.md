@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTC timestamp-micros expression runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-timestamp-expression-4d` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - RFC 0021 expression-engine/kernel registry guidance
+    - scoped SQL/Python local runtime smokes
+  - Scope:
+    - Added ShardLoom-native UTC timestamp-micros parsing/formatting helpers for
+      `YYYY-MM-DDTHH:MM:SSZ` and optional microsecond fractions.
+    - Added timestamp extract functions: `timestamp_year`, `timestamp_month`, `timestamp_day`,
+      `timestamp_hour`, `timestamp_minute`, and `timestamp_second`.
+    - Added scoped casts among UTF-8, Date32, and TimestampMicros where evidence-backed.
+    - Added SQL local-source support for `TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z'`
+      comparisons, `CAST(column AS timestamp_micros)`, and `TIMESTAMP_*` extract predicates.
+    - Added Python query-builder support for timezone-aware `datetime` literals,
+      `cast("timestamp"|"timestamp_micros")`, and `sl.col(...).timestamp_*()` helpers.
+    - Added typed Python report accessors for timestamp literal/extract evidence fields.
+    - Kept timezone offsets, timezone databases, intervals, leap seconds, and broad ANSI temporal
+      completeness explicitly out of scope.
+  - User-visible surface:
+    - Core expression semantics, `sql-local-source-smoke`, Python `sl.col(...)` predicates,
+      typed SQL smoke report properties, and `python/README.md`.
+  - Evidence:
+    - SQL reports emit `timestamp_literal_runtime_execution`,
+      `timestamp_extract_runtime_execution`, `timestamp_extract_operator`, and
+      `timestamp_extract_source_column`.
+    - Output JSONL/CSV rendering formats timestamp values as scoped UTC ISO strings rather than
+      raw microsecond integers.
+    - Unsupported non-UTC or malformed timestamp literals fail deterministically before fallback.
+  - Verification:
+    - `cargo test -p shardloom-contract-tests --test expression_operator_semantics`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests scripts website-src`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Non-goals:
+    - No timezone database, non-UTC offset semantics, interval completeness, regex/string
+      completeness, broad SQL/DataFrame claim, performance claim, object-store/table runtime,
+      package publication, or external engine fallback.
+  - Claim boundary:
+    - This closes one scoped UTC timestamp-micros runtime slice inside GAR-RUNTIME-IMPL-4D. The
+      parent item remains open for broader coercions, interval/date-time completeness,
+      NULL/subquery-backed IN semantics, and arbitrary predicate-tree breadth.
+  - Fallback boundary:
+    - Expression evaluation remains ShardLoom-native. Timestamp parsing, casting, extracts, SQL
+      lowering, and Python builder lowering do not invoke Spark, DataFusion, DuckDB, Polars, pandas,
+      or any external query engine.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` unchecked until the remaining expression-family breadth and
+      deterministic blockers are implemented.
+
 - [x] Session label: GAR-WEB-REDESIGN-2I Astro/Starlight static-site migration
   - Date: 2026-05-20
   - Source:
