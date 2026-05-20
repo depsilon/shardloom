@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4L Python session local query/output reuse
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-python-session-output-reuse-4l` / #864.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse runtime`
+    - `GAR-IOREUSE-1C` OutputPlan reuse
+    - `GAR-USER-SURFACE-1A` context/session entrypoint completion
+  - Scope:
+    - Extended Python `ShardLoomSession` beyond prepare-once reuse with `collect(...)`,
+      `write(...)`, and `fanout(...)` helpers for admitted local query-builder workflows.
+    - Added `SessionSqlResult` handles that wrap existing `SqlLocalSourceSmokeReport` evidence
+      with session-local source/output reuse fields.
+    - Cached local collect/write/fanout reports only when the SQL statement, local source
+      fingerprints, and any local output artifact fingerprints still match.
+    - Kept output/session reuse separate from the underlying CLI report so ShardLoom execution
+      evidence remains unchanged and no fallback/external-engine boundary is hidden.
+    - Updated README, Python README, compute-flow docs, Use Case Atlas output/fanout metadata,
+      generated website data, and the active phase plan.
+  - Evidence:
+    - `session_id`, `session_state_scope`, `operation`, `source_state_reuse_hit`,
+      `output_plan_reuse_hit`, `result_replay_reuse_hit`, `reuse_reason`,
+      source/output fingerprint digests, `output_plan_digest`, `cache_hit_count`,
+      `cache_miss_count`, `source_state_reuse_count`, `output_plan_reuse_count`,
+      `result_replay_reuse_count`, `fallback_attempted=false`, `external_engine_invoked=false`,
+      and `claim_gate_status`.
+  - Invalidation rules:
+    - Reuse is blocked when any local source fingerprint is missing or changed.
+    - Write/fanout reuse is blocked when any expected output artifact is missing or changed.
+    - Reuse is scoped by operation, SQL statement, output format, and local output paths.
+  - Verification:
+    - Python session output reuse/invalidation smoke test.
+    - Python client/query-builder suite.
+    - Python compileall.
+    - Use-case index/coverage checks.
+    - Astro sync/check/build/postbuild and website readiness/static-asset validation.
+    - Release readiness and traditional benchmark harness contract tests.
+    - Cargo fmt check and `git diff --check`.
+  - Claim boundary:
+    - This is scoped Python in-process reuse for local query-builder collect/write/fanout reports
+      only. It is not persistent OutputPlan cache support, broad result replay, object-store/table
+      output, distributed cache, production SQL/DataFrame support, performance evidence, or a
+      Spark replacement claim.
+  - Fallback boundary:
+    - Reuse uses only ShardLoom CLI reports and local fingerprint checks. External engines remain
+      baselines only and are not invoked for session execution or reuse.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4L Python `ShardLoomSession` prepared-state reuse
   - Date: 2026-05-20
   - Branch/PR: `runtime-python-session-prepare-reuse-4l` / #863.

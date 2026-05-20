@@ -123,12 +123,15 @@ surface over existing `OutputEnvelope` fields and diagnostics. Unsupported or
 report-only scopes remain unsupported or report-only, and
 `fallback_attempted=false` / `external_engine_invoked=false` stay visible.
 
-`ShardLoomSession` is available as a scoped, caller-owned Python session for local prepare-once
-reuse. It currently caches `ctx.prepare_vortex(...)` / `vortex_ingest` reports only when the local
-source fingerprint and prepared Vortex artifact fingerprint still match. Session evidence exposes
-`session_id`, `session_state_scope`, cache hit/miss counts, source/prepared reuse counts, explicit
-close status, and no-fallback/no-external-engine fields. It does not imply a daemon, remote server,
-hidden global cache, DataFrame/SQL runtime, object-store/lakehouse runtime, or performance claim.
+`ShardLoomSession` is available as a scoped, caller-owned Python session for local prepare-once and
+local query/output reuse. It caches `ctx.prepare_vortex(...)` / `vortex_ingest` reports only when
+the local source fingerprint and prepared Vortex artifact fingerprint still match. It also caches
+admitted local query-builder `collect(...)`, `write(...)`, and `fanout(...)` results when the SQL
+statement, local source fingerprints, and local output artifact fingerprints still match. Session
+evidence exposes `session_id`, `session_state_scope`, cache hit/miss counts, source/prepared/output
+reuse counts, explicit close status, and no-fallback/no-external-engine fields. It does not imply a
+daemon, remote server, hidden global cache, DataFrame/SQL production runtime, object-store/lakehouse
+runtime, or performance claim.
 
 ```python
 import shardloom as sl
@@ -144,15 +147,24 @@ with ctx.session(session_id="local-demo") as session:
         "target/vortex-ingest-source.csv",
         "target/vortex-ingest-source.vortex",
     )
+    query = ctx.read_csv("target/vortex-ingest-source.csv").select("id").limit(2)
+    first_output = session.write(
+        query,
+        "target/session-out.jsonl",
+        allow_overwrite=True,
+    )
+    second_output = session.write(query, "target/session-out.jsonl")
 
 print(first.reuse_hit, second.reuse_hit)
+print(first_output.reuse_hit, second_output.output_plan_reuse_hit)
 print(second.evidence())
 print(session.evidence())
 ```
 
 Reuse is invalidated when the source content/size/mtime or prepared artifact content/size/mtime
-changes. OutputPlan reuse, schema/dictionary caches, buffer pools, CLI batch sessions, and broader
-workflow session reuse remain planned under GAR-RUNTIME-IMPL-4L/5I.
+changes. Local query/output reuse is invalidated when a source or output artifact fingerprint
+changes. Schema/dictionary caches, buffer pools, CLI batch sessions, object-store/table reuse, and
+broader workflow session reuse remain planned under GAR-RUNTIME-IMPL-4L/5I.
 
 Allocation profiling and scoped buffer-pool optimization are planned as `GAR-PERF-2G`, not current
 Python runtime support. Any future Python-visible buffer reuse must stay opt-in or explicitly
