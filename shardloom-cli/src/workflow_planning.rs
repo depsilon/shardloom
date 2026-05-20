@@ -839,6 +839,11 @@ fn workflow_unsupported_operation(token: &str) -> Option<WorkflowUnsupportedOper
         "limit" => Some(workflow_unsupported_limit()),
         "write-vortex" => Some(workflow_unsupported_write_vortex()),
         "write-parquet" => Some(workflow_unsupported_write_parquet()),
+        "write-arrow-ipc" | "write-arrow" | "write-ipc" => {
+            Some(workflow_unsupported_write_arrow_ipc())
+        }
+        "write-avro" => Some(workflow_unsupported_write_avro()),
+        "write-orc" => Some(workflow_unsupported_write_orc()),
         "sql" => Some(workflow_unsupported_sql()),
         "sql-parse" | "sql_parse" => Some(workflow_unsupported_sql_parse()),
         "sql-bind" | "sql_bind" => Some(workflow_unsupported_sql_bind()),
@@ -1226,6 +1231,54 @@ fn workflow_unsupported_write_parquet() -> WorkflowUnsupportedOperation {
         blocker_id: "cg21.workflow.write_parquet.compatibility_export_unsupported",
         required_evidence: "translation_fidelity_report,decoded_columnar_boundary,write_intent",
         suggested_next_action: "Use plan-export for compatibility-export posture without writing an artifact.",
+        diagnostic_code: DiagnosticCode::UnsupportedOutputFormat,
+        materialization_required: true,
+        write_required: true,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_write_arrow_ipc() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "write_arrow_ipc",
+        label: "Arrow IPC compatibility export",
+        surface: "compatibility_export_write",
+        feature: "cg21.workflow.write_arrow_ipc",
+        blocker_id: "cg21.workflow.write_arrow_ipc.compatibility_export_unsupported",
+        required_evidence: "translation_fidelity_report,decoded_columnar_boundary,write_intent",
+        suggested_next_action: "Use scoped local-source output smokes or plan-export for compatibility-export posture before relying on broad Arrow IPC writes.",
+        diagnostic_code: DiagnosticCode::UnsupportedOutputFormat,
+        materialization_required: true,
+        write_required: true,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_write_avro() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "write_avro",
+        label: "Avro compatibility export",
+        surface: "compatibility_export_write",
+        feature: "cg21.workflow.write_avro",
+        blocker_id: "cg21.workflow.write_avro.compatibility_export_unsupported",
+        required_evidence: "translation_fidelity_report,schema_evolution_policy,write_intent",
+        suggested_next_action: "Use scoped local-source output smokes or plan-export for compatibility-export posture before relying on broad Avro writes.",
+        diagnostic_code: DiagnosticCode::UnsupportedOutputFormat,
+        materialization_required: true,
+        write_required: true,
+        runtime_required: true,
+    }
+}
+
+fn workflow_unsupported_write_orc() -> WorkflowUnsupportedOperation {
+    WorkflowUnsupportedOperation {
+        operation: "write_orc",
+        label: "ORC compatibility export",
+        surface: "compatibility_export_write",
+        feature: "cg21.workflow.write_orc",
+        blocker_id: "cg21.workflow.write_orc.compatibility_export_unsupported",
+        required_evidence: "translation_fidelity_report,stripe_statistics_policy,write_intent",
+        suggested_next_action: "Use scoped local-source output smokes or plan-export for compatibility-export posture before relying on broad ORC writes.",
         diagnostic_code: DiagnosticCode::UnsupportedOutputFormat,
         materialization_required: true,
         write_required: true,

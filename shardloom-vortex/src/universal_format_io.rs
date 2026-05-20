@@ -7,10 +7,12 @@
 //! and fail closed for unsupported Arrow types.
 
 use std::{
+    cell::RefCell,
     collections::{BTreeMap, BTreeSet},
     fs::File,
-    io::BufReader,
+    io::{BufReader, Write},
     path::Path,
+    rc::Rc,
 };
 
 use arrow_array::{
@@ -237,29 +239,10 @@ pub fn encode_flat_parquet_rows(
     columns: &[String],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<u8>> {
-    validate_flat_columns(columns, "local Parquet output")?;
-    let fields_and_arrays = columns
-        .iter()
-        .enumerate()
-        .map(|(column_index, column)| parquet_column_array(column, column_index, rows))
-        .collect::<Result<Vec<_>>>()?;
-    let fields = fields_and_arrays
-        .iter()
-        .map(|(field, _array)| field.clone())
-        .collect::<Vec<_>>();
-    let arrays = fields_and_arrays
-        .into_iter()
-        .map(|(_field, array)| array)
-        .collect::<Vec<_>>();
-    let schema = Arc::new(Schema::new(fields));
-    let batch = RecordBatch::try_new(Arc::clone(&schema), arrays).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to build local Parquet output record batch: {error}"
-        ))
-    })?;
+    let batch = flat_rows_to_record_batch(columns, rows, "local Parquet output")?;
 
-    let mut writer =
-        parquet::arrow::ArrowWriter::try_new(Vec::new(), schema, None).map_err(|error| {
+    let mut writer = parquet::arrow::ArrowWriter::try_new(Vec::new(), batch.schema(), None)
+        .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
                 "failed to create local Parquet output writer: {error}"
             ))
@@ -274,6 +257,148 @@ pub fn encode_flat_parquet_rows(
             "failed to close local Parquet output writer: {error}"
         ))
     })
+}
+
+/// Encode flat scalar rows into local Arrow IPC bytes for scoped runtime smokes.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when column names are invalid,
+/// row shapes do not match the declared columns, a column contains mixed scalar
+/// families, or a value cannot be represented by the scoped Arrow IPC sink.
+pub fn encode_flat_arrow_ipc_rows(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
+    let batch = flat_rows_to_record_batch(columns, rows, "local Arrow IPC output")?;
+    let mut writer = arrow_ipc::writer::FileWriter::try_new(Vec::new(), batch.schema().as_ref())
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local Arrow IPC output writer: {error}"
+            ))
+        })?;
+    writer.write(&batch).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to write local Arrow IPC output batch: {error}"
+        ))
+    })?;
+    writer.into_inner().map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to close local Arrow IPC output writer: {error}"
+        ))
+    })
+}
+
+/// Encode flat scalar rows into local Avro bytes for scoped runtime smokes.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when column names are invalid,
+/// row shapes do not match the declared columns, a column contains mixed scalar
+/// families, or a value cannot be represented by the scoped Avro sink.
+pub fn encode_flat_avro_rows(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
+    let batch = flat_rows_to_record_batch(columns, rows, "local Avro output")?;
+    let mut writer =
+        arrow_avro::writer::AvroWriter::new(Vec::new(), batch.schema().as_ref().clone()).map_err(
+            |error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to create local Avro output writer: {error}"
+                ))
+            },
+        )?;
+    writer.write(&batch).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to write local Avro output batch: {error}"
+        ))
+    })?;
+    writer.finish().map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to finish local Avro output writer: {error}"
+        ))
+    })?;
+    Ok(writer.into_inner())
+}
+
+/// Encode flat scalar rows into local ORC bytes for scoped runtime smokes.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when column names are invalid,
+/// row shapes do not match the declared columns, a column contains mixed scalar
+/// families, or a value cannot be represented by the scoped ORC sink.
+pub fn encode_flat_orc_rows(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
+    let batch = flat_rows_to_record_batch(columns, rows, "local ORC output")?;
+    let buffer = SharedBufferWriter::default();
+    let retained_buffer = buffer.clone();
+    let mut writer = orc_rust::ArrowWriterBuilder::new(buffer, batch.schema())
+        .try_build()
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local ORC output writer: {error}"
+            ))
+        })?;
+    writer.write(&batch).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!("failed to write local ORC output batch: {error}"))
+    })?;
+    writer.close().map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to close local ORC output writer: {error}"
+        ))
+    })?;
+    Ok(retained_buffer.into_bytes())
+}
+
+fn flat_rows_to_record_batch(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+    context: &str,
+) -> Result<RecordBatch> {
+    validate_flat_columns(columns, context)?;
+    let fields_and_arrays = columns
+        .iter()
+        .enumerate()
+        .map(|(column_index, column)| flat_output_column_array(column, column_index, rows, context))
+        .collect::<Result<Vec<_>>>()?;
+    let fields = fields_and_arrays
+        .iter()
+        .map(|(field, _array)| field.clone())
+        .collect::<Vec<_>>();
+    let arrays = fields_and_arrays
+        .into_iter()
+        .map(|(_field, array)| array)
+        .collect::<Vec<_>>();
+    let schema = Arc::new(Schema::new(fields));
+    RecordBatch::try_new(Arc::clone(&schema), arrays).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!("failed to build {context} record batch: {error}"))
+    })
+}
+
+#[derive(Clone, Default)]
+struct SharedBufferWriter {
+    buffer: Rc<RefCell<Vec<u8>>>,
+}
+
+impl SharedBufferWriter {
+    fn into_bytes(self) -> Vec<u8> {
+        match Rc::try_unwrap(self.buffer) {
+            Ok(buffer) => buffer.into_inner(),
+            Err(buffer) => buffer.borrow().clone(),
+        }
+    }
+}
+
+impl Write for SharedBufferWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.buffer.borrow_mut().extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 fn validate_flat_columns(columns: &[String], context: &str) -> Result<()> {
@@ -298,22 +423,23 @@ fn validate_flat_columns(columns: &[String], context: &str) -> Result<()> {
     Ok(())
 }
 
-fn parquet_column_array(
+fn flat_output_column_array(
     column: &str,
     column_index: usize,
     rows: &[Vec<(String, ScalarValue)>],
+    context: &str,
 ) -> Result<(Field, ArrayRef)> {
     let values = rows
         .iter()
         .map(|row| {
             let Some((name, value)) = row.get(column_index) else {
                 return Err(ShardLoomError::InvalidOperation(format!(
-                    "local Parquet output row is missing column '{column}' at index {column_index}"
+                    "{context} row is missing column '{column}' at index {column_index}"
                 )));
             };
             if name != column {
                 return Err(ShardLoomError::InvalidOperation(format!(
-                    "local Parquet output row column mismatch at index {column_index}: expected '{column}', found '{name}'"
+                    "{context} row column mismatch at index {column_index}: expected '{column}', found '{name}'"
                 )));
             }
             Ok(value)
@@ -327,7 +453,7 @@ fn parquet_column_array(
             None => Ok(Some(candidate)),
             Some(existing) if existing == candidate => Ok(Some(existing)),
             Some(existing) => Err(ShardLoomError::InvalidOperation(format!(
-                "local Parquet output column '{column}' mixes scalar families {existing} and {candidate}; scoped Parquet output requires one non-null scalar family per column"
+                "{context} column '{column}' mixes scalar families {existing} and {candidate}; scoped compatibility output requires one non-null scalar family per column"
             ))),
         })?
         .unwrap_or("utf8");
@@ -335,15 +461,17 @@ fn parquet_column_array(
         .iter()
         .any(|value| matches!(value, ScalarValue::Null));
     match kind {
-        "boolean" => Ok(parquet_bool_column(column, &values, nullable)?),
-        "int64" => Ok(parquet_int64_column(column, &values, nullable)?),
-        "uint64" => Ok(parquet_uint64_column(column, &values, nullable)?),
-        "float64" => Ok(parquet_float64_column(column, &values, nullable)?),
-        "utf8" => Ok(parquet_utf8_column(column, &values, nullable)?),
-        "date32" => Ok(parquet_date32_column(column, &values, nullable)?),
-        "timestamp_micros" => Ok(parquet_timestamp_micros_column(column, &values, nullable)?),
+        "boolean" => Ok(parquet_bool_column(column, &values, nullable, context)?),
+        "int64" => Ok(parquet_int64_column(column, &values, nullable, context)?),
+        "uint64" => Ok(parquet_uint64_column(column, &values, nullable, context)?),
+        "float64" => Ok(parquet_float64_column(column, &values, nullable, context)?),
+        "utf8" => Ok(parquet_utf8_column(column, &values, nullable, context)?),
+        "date32" => Ok(parquet_date32_column(column, &values, nullable, context)?),
+        "timestamp_micros" => Ok(parquet_timestamp_micros_column(
+            column, &values, nullable, context,
+        )?),
         other => Err(ShardLoomError::InvalidOperation(format!(
-            "local Parquet output column '{column}' has unsupported scalar family {other}"
+            "{context} column '{column}' has unsupported scalar family {other}"
         ))),
     }
 }
@@ -352,13 +480,14 @@ fn parquet_bool_column(
     column: &str,
     values: &[&ScalarValue],
     nullable: bool,
+    context: &str,
 ) -> Result<(Field, ArrayRef)> {
     let mut builder = BooleanBuilder::with_capacity(values.len());
     for value in values {
         match value {
             ScalarValue::Boolean(value) => builder.append_value(*value),
             ScalarValue::Null => builder.append_null(),
-            other => return Err(unexpected_sink_value(column, "boolean", other)),
+            other => return Err(unexpected_sink_value(context, column, "boolean", other)),
         }
     }
     Ok((
@@ -371,13 +500,14 @@ fn parquet_int64_column(
     column: &str,
     values: &[&ScalarValue],
     nullable: bool,
+    context: &str,
 ) -> Result<(Field, ArrayRef)> {
     let mut builder = Int64Builder::with_capacity(values.len());
     for value in values {
         match value {
             ScalarValue::Int64(value) => builder.append_value(*value),
             ScalarValue::Null => builder.append_null(),
-            other => return Err(unexpected_sink_value(column, "int64", other)),
+            other => return Err(unexpected_sink_value(context, column, "int64", other)),
         }
     }
     Ok((
@@ -390,13 +520,14 @@ fn parquet_uint64_column(
     column: &str,
     values: &[&ScalarValue],
     nullable: bool,
+    context: &str,
 ) -> Result<(Field, ArrayRef)> {
     let mut builder = UInt64Builder::with_capacity(values.len());
     for value in values {
         match value {
             ScalarValue::UInt64(value) => builder.append_value(*value),
             ScalarValue::Null => builder.append_null(),
-            other => return Err(unexpected_sink_value(column, "uint64", other)),
+            other => return Err(unexpected_sink_value(context, column, "uint64", other)),
         }
     }
     Ok((
@@ -409,13 +540,14 @@ fn parquet_float64_column(
     column: &str,
     values: &[&ScalarValue],
     nullable: bool,
+    context: &str,
 ) -> Result<(Field, ArrayRef)> {
     let mut builder = Float64Builder::with_capacity(values.len());
     for value in values {
         match value {
             ScalarValue::Float64(value) => builder.append_value(*value),
             ScalarValue::Null => builder.append_null(),
-            other => return Err(unexpected_sink_value(column, "float64", other)),
+            other => return Err(unexpected_sink_value(context, column, "float64", other)),
         }
     }
     Ok((
@@ -428,13 +560,14 @@ fn parquet_utf8_column(
     column: &str,
     values: &[&ScalarValue],
     nullable: bool,
+    context: &str,
 ) -> Result<(Field, ArrayRef)> {
     let mut builder = StringBuilder::with_capacity(values.len(), values.len() * 8);
     for value in values {
         match value {
             ScalarValue::Utf8(value) => builder.append_value(value),
             ScalarValue::Null => builder.append_null(),
-            other => return Err(unexpected_sink_value(column, "utf8", other)),
+            other => return Err(unexpected_sink_value(context, column, "utf8", other)),
         }
     }
     Ok((
@@ -447,13 +580,14 @@ fn parquet_date32_column(
     column: &str,
     values: &[&ScalarValue],
     nullable: bool,
+    context: &str,
 ) -> Result<(Field, ArrayRef)> {
     let mut builder = Date32Builder::with_capacity(values.len());
     for value in values {
         match value {
             ScalarValue::Date32(value) => builder.append_value(*value),
             ScalarValue::Null => builder.append_null(),
-            other => return Err(unexpected_sink_value(column, "date32", other)),
+            other => return Err(unexpected_sink_value(context, column, "date32", other)),
         }
     }
     Ok((
@@ -466,13 +600,21 @@ fn parquet_timestamp_micros_column(
     column: &str,
     values: &[&ScalarValue],
     nullable: bool,
+    context: &str,
 ) -> Result<(Field, ArrayRef)> {
     let mut builder = TimestampMicrosecondBuilder::with_capacity(values.len());
     for value in values {
         match value {
             ScalarValue::TimestampMicros(value) => builder.append_value(*value),
             ScalarValue::Null => builder.append_null(),
-            other => return Err(unexpected_sink_value(column, "timestamp_micros", other)),
+            other => {
+                return Err(unexpected_sink_value(
+                    context,
+                    column,
+                    "timestamp_micros",
+                    other,
+                ));
+            }
         }
     }
     Ok((
@@ -499,9 +641,14 @@ fn scalar_family(value: &ScalarValue) -> &'static str {
     }
 }
 
-fn unexpected_sink_value(column: &str, expected: &str, value: &ScalarValue) -> ShardLoomError {
+fn unexpected_sink_value(
+    context: &str,
+    column: &str,
+    expected: &str,
+    value: &ScalarValue,
+) -> ShardLoomError {
     ShardLoomError::InvalidOperation(format!(
-        "local Parquet output column '{column}' expected {expected} but found {}",
+        "{context} column '{column}' expected {expected} but found {}",
         scalar_family(value)
     ))
 }

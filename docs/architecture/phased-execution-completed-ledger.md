@@ -16,6 +16,80 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4G feature-gated Arrow IPC/Avro/ORC local-output sink slice
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-local-output-formats-4g` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`
+    - `docs/skills/translation-layer.md`
+    - `docs/skills/vortex-internals.md`
+    - `docs/skills/vortex/vortex-arrow-interop.md`
+  - Scope:
+    - Promoted feature-gated flat scalar Arrow IPC, Avro, and ORC local output sinks for
+      `sql-local-source-smoke` beside the existing JSONL, CSV, and Parquet local sink paths.
+    - Added `shardloom_vortex::encode_flat_arrow_ipc_rows(...)`,
+      `encode_flat_avro_rows(...)`, and `encode_flat_orc_rows(...)` under
+      `--features universal-format-io`, reusing the shared flat scalar row-to-Arrow-batch
+      conversion and preserving deterministic blockers for unsupported scalar families.
+    - Added default-build blockers for Arrow IPC, Avro, and ORC output requests so unsupported
+      writers fail closed without creating output files.
+    - Added Python query-builder methods `write_arrow_ipc(...)`, `write_avro(...)`, and
+      `write_orc(...)` for admitted local-source workflows, plus format normalization aliases.
+    - Updated capability/status and use-case surfaces to show feature-gated flat scalar
+      Parquet/Arrow IPC/Avro/ORC local source and sink smokes while keeping fanout, Vortex sink,
+      broad type/nesting, object-store/table, and production claims blocked.
+  - User-visible surface:
+    - `sql-local-source-smoke --output-format arrow-ipc|avro|orc`, Python
+      `ctx.read_csv(...).write_arrow_ipc(...)`, `write_avro(...)`, `write_orc(...)`,
+      status/capability fields, use-case index, and compute-flow docs.
+  - Evidence:
+    - Admitted rows emit `output_format=arrow_ipc|avro|orc`, `output_io_performed=true`,
+      `write_io=true`, local output bytes/digest, `certified_local_*_sink`,
+      format-specific output certificate refs, `object_store_io=false`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+    - Default builds return deterministic feature-gate sink blockers and do not write target
+      files.
+  - Verification:
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_local_arrow_ipc_output_with_certificate_fields -- --nocapture`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_local_avro_output_with_certificate_fields -- --nocapture`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_local_orc_output_with_certificate_fields -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_arrow_ipc_output_without_universal_format_feature -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_avro_output_without_universal_format_feature -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_orc_output_without_universal_format_feature -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_arrow_ipc_invokes_sql_smoke_output python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_avro_and_orc_normalize_formats`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy -p shardloom-cli --features universal-format-io --all-targets -- -D warnings`
+    - `cargo clippy -p shardloom-vortex --features universal-format-io --lib -- -D warnings`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests scripts benchmarks/traditional_analytics website-src`
+    - `node scripts/sync-content.mjs`, `node node_modules/astro/bin/astro.mjs build`, and
+      `node scripts/postbuild-static.mjs`
+    - `node node_modules/@astrojs/check/dist/index.js`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_universal_ingress_routes.py`
+    - `git diff --check`
+  - Non-goals:
+    - No Vortex sink promotion, multi-output fanout, result replay proof, broad structured-format
+      type/nesting or metadata-fidelity claim, object-store/table write, package publication,
+      production claim, or performance claim.
+  - Claim boundary:
+    - Feature-gated flat scalar local compatibility-export sink smokes only. These are local
+      fixture-smoke/runtime-admission rows, not broad output parity or production sink support.
+  - Fallback boundary:
+    - Arrow IPC, Avro, and ORC output encoding is an explicit ShardLoom/Vortex-owned compatibility
+      export boundary. No pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray, database, warehouse,
+      or managed-platform fallback execution is invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4G` unchecked until Vortex output, fanout orchestration, replay proof,
+      and fidelity/loss reporting are implemented for admitted formats.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F1 compatibility import attribution foundation
   - Date: 2026-05-20
   - Branch/PR: `runtime-compat-import-attribution-4f1` / pending.

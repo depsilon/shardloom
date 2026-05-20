@@ -526,8 +526,9 @@ pub use traditional_analytics::{
 };
 #[cfg(feature = "universal-format-io")]
 pub use universal_format_io::{
-    FlatLocalSourceTable, encode_flat_parquet_rows, read_flat_arrow_ipc_source,
-    read_flat_avro_source, read_flat_orc_source, read_flat_parquet_source,
+    FlatLocalSourceTable, encode_flat_arrow_ipc_rows, encode_flat_avro_rows, encode_flat_orc_rows,
+    encode_flat_parquet_rows, read_flat_arrow_ipc_source, read_flat_avro_source,
+    read_flat_orc_source, read_flat_parquet_source,
 };
 pub use vortex_ingest::{
     VortexPreparedStateWriteReport, VortexPreparedStateWriteRequest,

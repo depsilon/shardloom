@@ -2157,6 +2157,138 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_local_csv_query_builder_write_arrow_ipc_invokes_sql_smoke_output(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
+                    "--output-format",
+                    "arrow-ipc",
+                    "--output",
+                    "target/out.arrow",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_path", "value": "target/out.arrow"},
+                        {"key": "output_format", "value": "arrow_ipc"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "3"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_arrow_ipc_sink"},
+                        {"key": "output_certificate_ref", "value": "sql-local-source.local-arrow-ipc-output.native-io.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .limit(2)
+            .write_arrow_ipc("target/out.arrow", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.output_path, "target/out.arrow")
+        self.assertEqual(report.output_format, "arrow_ipc")
+        self.assertTrue(report.output_io_performed)
+        self.assertEqual(
+            report.output_native_io_certificate_status,
+            "certified_local_arrow_ipc_sink",
+        )
+        self.assertEqual(
+            report.envelope.field("output_certificate_ref"),
+            "sql-local-source.local-arrow-ipc-output.native-io.v1",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_write_avro_and_orc_normalize_formats(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                assert args[0] == "sql-local-source-smoke", args
+                output_format = args[args.index("--output-format") + 1]
+                output_path = args[args.index("--output") + 1]
+                certificate_status = {
+                    "avro": "certified_local_avro_sink",
+                    "orc": "certified_local_orc_sink",
+                }[output_format]
+                certificate_ref = {
+                    "avro": "sql-local-source.local-avro-output.native-io.v1",
+                    "orc": "sql-local-source.local-orc-output.native-io.v1",
+                }[output_format]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1}\\n"},
+                        {"key": "output_path", "value": output_path},
+                        {"key": "output_format", "value": output_format},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_native_io_certificate_status", "value": certificate_status},
+                        {"key": "output_certificate_ref", "value": certificate_ref},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        avro_report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id"])
+            .limit(1)
+            .write_avro("target/out.avro", allow_overwrite=True)
+        )
+        orc_report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id"])
+            .limit(1)
+            .write_orc("target/out.orc", allow_overwrite=True)
+        )
+
+        self.assertEqual(avro_report.output_format, "avro")
+        self.assertEqual(
+            avro_report.output_native_io_certificate_status,
+            "certified_local_avro_sink",
+        )
+        self.assertEqual(orc_report.output_format, "orc")
+        self.assertEqual(
+            orc_report.output_native_io_certificate_status,
+            "certified_local_orc_sink",
+        )
+
     def test_local_csv_query_builder_write_parquet_checks_errors_by_default(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -3726,6 +3858,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "limit": "limit",
                     "write-vortex": "write_vortex",
                     "write-parquet": "write_parquet",
+                    "write-arrow-ipc": "write_arrow_ipc",
+                    "write-avro": "write_avro",
+                    "write-orc": "write_orc",
                     "sql-parse": "sql_parse",
                     "sql-bind": "sql_bind",
                     "sql-plan": "sql_plan",
@@ -3749,6 +3884,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "collect", "from-pandas", "from-arrow-table", "from-arrow-ipc",
                     "to-pandas", "to-arrow", "to-arrow-table", "to-arrow-ipc",
                     "to-numpy", "to-python-objects", "write-vortex", "write-parquet",
+                    "write-arrow-ipc", "write-avro", "write-orc",
                     "quarantine", "preview", "head", "take", "display",
                 }
                 runtime_required = operation not in {
