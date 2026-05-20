@@ -725,6 +725,44 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def null_coalesce_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted null coalesce projection."""
+
+        return (
+            self.envelope.field_bool(
+                "null_coalesce_projection_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def null_coalesce_projection_source_columns(self) -> tuple[str, ...]:
+        """Return null coalesce projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("null_coalesce_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def null_coalesce_projection_output_columns(self) -> tuple[str, ...]:
+        """Return null coalesce projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("null_coalesce_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def null_coalesce_projection_fallback_dtypes(self) -> tuple[str, ...]:
+        """Return null coalesce projection fallback dtypes emitted by the smoke."""
+
+        value = self.envelope.field("null_coalesce_projection_fallback_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def numeric_arithmetic_projection_operator(self) -> tuple[str, ...]:
         """Return numeric arithmetic projection operators emitted by the smoke."""
 

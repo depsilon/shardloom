@@ -2378,6 +2378,78 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_with_column_null_coalesce_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,COALESCE(label, 'unknown') AS label_clean,COALESCE(amount, 0) AS amount_clean,COALESCE(CAST(event_date AS date32), DATE '2026-01-01') AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source null coalesce projection",
+                    "human_text": "sql local source null coalesce projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label_clean\\":\\"unknown\\",\\"amount_clean\\":0,\\"event_day\\":\\"2026-01-01\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "null_coalesce_projection_runtime_execution", "value": "true"},
+                        {"key": "null_coalesce_projection_source_column", "value": "label,amount,event_date"},
+                        {"key": "null_coalesce_projection_output_column", "value": "label_clean,amount_clean,event_day"},
+                        {"key": "null_coalesce_projection_fallback_dtype", "value": "utf8,int64,date32"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("label_clean", sl.col("label").fill_null("unknown"))
+            .with_column("amount_clean", sl.col("amount").fill_null(0))
+            .with_column(
+                "event_day",
+                sl.col("event_date").cast("date32").fill_null(date(2026, 1, 1)),
+            )
+            .filter(sl.col("id") >= 1)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.null_coalesce_projection_runtime_execution)
+        self.assertEqual(
+            report.null_coalesce_projection_source_columns,
+            ("label", "amount", "event_date"),
+        )
+        self.assertEqual(
+            report.null_coalesce_projection_output_columns,
+            ("label_clean", "amount_clean", "event_day"),
+        )
+        self.assertEqual(
+            report.null_coalesce_projection_fallback_dtypes,
+            ("utf8", "int64", "date32"),
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_write_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

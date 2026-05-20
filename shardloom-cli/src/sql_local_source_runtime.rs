@@ -171,6 +171,7 @@ struct ParsedSqlLocalSource {
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
     cast_projections: Vec<ParsedCastProjection>,
+    null_coalesce_projections: Vec<ParsedNullCoalesceProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
@@ -204,6 +205,14 @@ struct ParsedCastProjection {
     alias: String,
     column: String,
     target_dtype: LogicalDType,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedNullCoalesceProjection {
+    alias: String,
+    column: String,
+    source_cast_dtype: Option<LogicalDType>,
+    fallback: ScalarValue,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -342,6 +351,7 @@ struct ParsedProjectionList {
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
     cast_projections: Vec<ParsedCastProjection>,
+    null_coalesce_projections: Vec<ParsedNullCoalesceProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
@@ -1499,6 +1509,7 @@ fn run_sql_local_source_smoke(
         right_source.as_ref().map(|source| source.header.as_slice()),
     )?;
     apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
+    validate_null_coalesce_projection_values(&parsed, &source)?;
 
     let compute_start = Instant::now();
     let (selected_row_count, joined_row_count, output_rows) =
@@ -1636,6 +1647,13 @@ fn evaluate_projection_output(
         )
         .chain(
             parsed
+                .null_coalesce_projections
+                .iter()
+                .map(null_coalesce_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
+        .chain(
+            parsed
                 .numeric_arithmetic_projections
                 .iter()
                 .map(numeric_arithmetic_projection_expression)
@@ -1741,6 +1759,37 @@ fn date_arithmetic_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(arithmetic),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn null_coalesce_projection_expression(
+    projection: &ParsedNullCoalesceProjection,
+) -> Result<Expression, ShardLoomError> {
+    let coalesce = Expression::new(
+        ExprId::new(format!("project.null_coalesce.{}", projection.alias))?,
+        ExpressionKind::FunctionCall {
+            name: "coalesce".to_string(),
+            args: vec![
+                Expression::column(
+                    ExprId::new(format!("project.{}", projection.column))?,
+                    ColumnRef::new(projection.column.clone())?,
+                ),
+                Expression::literal(
+                    ExprId::new(format!(
+                        "project.null_coalesce.literal.{}",
+                        projection.alias
+                    ))?,
+                    projection.fallback.clone(),
+                ),
+            ],
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(coalesce),
             alias: projection.alias.clone(),
         },
     ))
@@ -2052,10 +2101,64 @@ fn apply_temporal_literal_column_coercions(
         source,
         right_source.as_deref_mut(),
     )?;
+    apply_null_coalesce_projection_coercions(parsed, source)?;
     apply_date_arithmetic_projection_coercions(parsed, source)?;
     apply_date_extract_projection_coercions(parsed, source)?;
     apply_timestamp_literal_predicate_coercions(&parsed.predicate, parsed, source, right_source)?;
     apply_timestamp_extract_projection_coercions(parsed, source)
+}
+
+fn apply_null_coalesce_projection_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.null_coalesce_projections {
+        let source_dtype = projection
+            .source_cast_dtype
+            .clone()
+            .unwrap_or_else(|| projection.fallback.dtype());
+        match source_dtype {
+            LogicalDType::Date32 => coerce_source_column_to_date32(source, &projection.column)?,
+            LogicalDType::TimestampMicros => {
+                coerce_source_column_to_timestamp_micros(source, &projection.column)?;
+            }
+            LogicalDType::Boolean
+            | LogicalDType::Int64
+            | LogicalDType::UInt64
+            | LogicalDType::Float64
+            | LogicalDType::Utf8
+            | LogicalDType::Binary
+            | LogicalDType::Struct
+            | LogicalDType::List
+            | LogicalDType::Unknown
+            | LogicalDType::Extension(_) => {}
+        }
+    }
+    Ok(())
+}
+
+fn validate_null_coalesce_projection_values(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.null_coalesce_projections {
+        let fallback_dtype = projection.fallback.dtype();
+        for row in &source.rows {
+            let Some(value) = row.get(&projection.column) else {
+                continue;
+            };
+            if value.is_null() || value.dtype() == fallback_dtype {
+                continue;
+            }
+            return Err(unsupported_sql_error(&format!(
+                "COALESCE projection source column {:?} contains {} values but fallback literal has {} dtype; scoped null coalesce requires matching non-null source and fallback dtypes",
+                projection.column,
+                value.dtype().as_str(),
+                fallback_dtype.as_str()
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn apply_date_arithmetic_projection_coercions(
@@ -2784,7 +2887,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -2871,6 +2974,17 @@ fn validate_projection_source_columns(
         {
             return Err(unsupported_sql_error(&format!(
                 "cast projection source column {:?} is not present in the local source header",
+                projection.column
+            )));
+        }
+    }
+    for projection in &parsed.null_coalesce_projections {
+        if !header
+            .iter()
+            .any(|candidate| candidate == &projection.column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "COALESCE projection source column {:?} is not present in the local source header",
                 projection.column
             )));
         }
@@ -2969,6 +3083,13 @@ fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(),
             ));
         }
     }
+    for coalesce_projection in &parsed.null_coalesce_projections {
+        if !output_names.insert(coalesce_projection.alias.as_str()) {
+            return Err(unsupported_sql_error(
+                "computed projection smoke requires unique output column names",
+            ));
+        }
+    }
     for date_projection in &parsed.date_arithmetic_projections {
         if !output_names.insert(date_projection.alias.as_str()) {
             return Err(unsupported_sql_error(
@@ -3023,6 +3144,7 @@ fn bind_join_sql_local_source(
         || parsed.order_by.is_some()
         || !parsed.literal_projections.is_empty()
         || !parsed.cast_projections.is_empty()
+        || !parsed.null_coalesce_projections.is_empty()
         || !parsed.numeric_arithmetic_projections.is_empty()
         || !parsed.date_arithmetic_projections.is_empty()
         || !parsed.string_transform_projections.is_empty()
@@ -3150,6 +3272,10 @@ impl ParsedSqlLocalSource {
         !self.cast_projections.is_empty()
     }
 
+    fn has_null_coalesce_projection(&self) -> bool {
+        !self.null_coalesce_projections.is_empty()
+    }
+
     fn has_numeric_arithmetic_projection(&self) -> bool {
         !self.numeric_arithmetic_projections.is_empty()
     }
@@ -3173,6 +3299,7 @@ impl ParsedSqlLocalSource {
     fn has_computed_projection(&self) -> bool {
         self.has_literal_projection()
             || self.has_cast_projection()
+            || self.has_null_coalesce_projection()
             || self.has_numeric_arithmetic_projection()
             || self.has_date_arithmetic_projection()
             || self.has_string_transform_projection()
@@ -3200,6 +3327,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_cast_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_cast_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_null_coalesce_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_null_coalesce_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
@@ -3253,6 +3384,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_cast_projection() {
             "computed-projection-limit"
+        } else if self.has_null_coalesce_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_null_coalesce_projection() {
+            "computed-projection-limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_numeric_arithmetic_projection() {
@@ -3304,6 +3439,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_cast_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_cast_projection() {
+            "computed_projection_limit"
+        } else if self.has_null_coalesce_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_null_coalesce_projection() {
             "computed_projection_limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
@@ -3372,6 +3511,11 @@ impl ParsedSqlLocalSource {
                         .map(|projection| projection.alias.clone()),
                 )
                 .chain(
+                    self.null_coalesce_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
                     self.numeric_arithmetic_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
@@ -3431,6 +3575,42 @@ impl ParsedSqlLocalSource {
             self.cast_projections
                 .iter()
                 .map(|projection| projection.target_dtype.as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn null_coalesce_projection_source_columns(&self) -> String {
+        if self.null_coalesce_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.null_coalesce_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn null_coalesce_projection_output_columns(&self) -> String {
+        if self.null_coalesce_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.null_coalesce_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn null_coalesce_projection_fallback_dtypes(&self) -> String {
+        if self.null_coalesce_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.null_coalesce_projections
+                .iter()
+                .map(|projection| projection.fallback.dtype().as_str().to_string())
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -5418,6 +5598,22 @@ impl SqlLocalSourceReport {
                 self.parsed.cast_projection_target_dtypes(),
             ),
             (
+                "null_coalesce_projection_runtime_execution".to_string(),
+                self.parsed.has_null_coalesce_projection().to_string(),
+            ),
+            (
+                "null_coalesce_projection_source_column".to_string(),
+                self.parsed.null_coalesce_projection_source_columns(),
+            ),
+            (
+                "null_coalesce_projection_output_column".to_string(),
+                self.parsed.null_coalesce_projection_output_columns(),
+            ),
+            (
+                "null_coalesce_projection_fallback_dtype".to_string(),
+                self.parsed.null_coalesce_projection_fallback_dtypes(),
+            ),
+            (
                 "numeric_arithmetic_projection_runtime_execution".to_string(),
                 self.parsed.has_numeric_arithmetic_projection().to_string(),
             ),
@@ -6636,6 +6832,7 @@ fn parsed_sql_local_source_from_parts(
         projections: projection_list.projections,
         literal_projections: projection_list.literal_projections,
         cast_projections: projection_list.cast_projections,
+        null_coalesce_projections: projection_list.null_coalesce_projections,
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
         date_arithmetic_projections: projection_list.date_arithmetic_projections,
         string_transform_projections: projection_list.string_transform_projections,
@@ -6678,6 +6875,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut projections = Vec::with_capacity(entries.len());
     let mut literal_projections = Vec::new();
     let mut cast_projections = Vec::new();
+    let mut null_coalesce_projections = Vec::new();
     let mut numeric_arithmetic_projections = Vec::new();
     let mut date_arithmetic_projections = Vec::new();
     let mut string_transform_projections = Vec::new();
@@ -6699,6 +6897,8 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             numeric_arithmetic_projections.push(arithmetic_projection);
         } else if let Some(cast_projection) = parse_cast_projection(projection)? {
             cast_projections.push(cast_projection);
+        } else if let Some(null_coalesce_projection) = parse_null_coalesce_projection(projection)? {
+            null_coalesce_projections.push(null_coalesce_projection);
         } else if let Some(date_arithmetic_projection) =
             parse_date_arithmetic_projection(projection)?
         {
@@ -6722,6 +6922,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         projections,
         literal_projections,
         cast_projections,
+        null_coalesce_projections,
         numeric_arithmetic_projections,
         date_arithmetic_projections,
         string_transform_projections,
@@ -6840,6 +7041,99 @@ fn parse_cast_projection(raw: &str) -> Result<Option<ParsedCastProjection>, Shar
         column: column.to_string(),
         target_dtype: parse_cast_target_dtype(target_raw)?,
     }))
+}
+
+fn parse_null_coalesce_projection(
+    raw: &str,
+) -> Result<Option<ParsedNullCoalesceProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    if !expression_raw
+        .get(..9)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("coalesce("))
+    {
+        return Ok(None);
+    }
+    if alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "COALESCE projections require an output alias",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let open_index = "coalesce".len();
+    let close_index =
+        matching_closing_parenthesis(expression_raw, open_index)?.ok_or_else(|| {
+            unsupported_sql_error(
+                "COALESCE projections must use COALESCE(<column>, <literal>) AS <column>",
+            )
+        })?;
+    if !expression_raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "COALESCE projections must be a single COALESCE(<column>, <literal>) expression before AS",
+        ));
+    }
+    let inner = expression_raw[open_index + 1..close_index].trim();
+    let args = split_sql_csv(inner)?;
+    let [column_raw, fallback_raw] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "COALESCE projections require exactly two arguments: <column>, <literal>",
+        ));
+    };
+    let (column, source_cast_dtype) = parse_null_coalesce_column_arg(column_raw)?;
+    let fallback = parse_projection_literal_value(fallback_raw)?;
+    if matches!(fallback, ScalarValue::Null) {
+        return Err(unsupported_sql_error(
+            "COALESCE projections require a non-NULL fallback literal in this scoped runtime slice",
+        ));
+    }
+    Ok(Some(ParsedNullCoalesceProjection {
+        alias: alias.to_string(),
+        column,
+        source_cast_dtype,
+        fallback,
+    }))
+}
+
+fn parse_null_coalesce_column_arg(
+    raw: &str,
+) -> Result<(String, Option<LogicalDType>), ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
+    {
+        validate_sql_column_ref(trimmed)?;
+        return Ok((trimmed.to_string(), None));
+    }
+    let close_index = matching_closing_parenthesis(trimmed, 4)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "COALESCE CAST arguments must use CAST(<column> AS date32) or CAST(<column> AS timestamp_micros)",
+        )
+    })?;
+    if !trimmed[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "COALESCE CAST arguments must be a single CAST(<column> AS dtype) expression",
+        ));
+    }
+    let inner = trimmed[5..close_index].trim();
+    let as_index = find_keyword_outside_quotes(inner, "as").ok_or_else(|| {
+        unsupported_sql_error("COALESCE CAST arguments must use CAST(<column> AS dtype)")
+    })?;
+    let column = inner[..as_index].trim();
+    let target_raw = inner[as_index + 2..].trim();
+    validate_sql_column_ref(column)?;
+    let target_dtype = parse_cast_target_dtype(target_raw)?;
+    match target_dtype {
+        LogicalDType::Date32 | LogicalDType::TimestampMicros => {
+            Ok((column.to_string(), Some(target_dtype)))
+        }
+        _ => Err(unsupported_sql_error(
+            "COALESCE CAST arguments currently admit date32 or timestamp_micros target dtypes only",
+        )),
+    }
 }
 
 fn parse_date_arithmetic_projection(
@@ -8939,6 +9233,49 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_null_coalesce_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,COALESCE(label, 'unknown') AS label_clean,COALESCE(event_date, DATE '2026-01-01') AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("null coalesce projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.null_coalesce_projections.len(), 2);
+        assert_eq!(parsed.null_coalesce_projections[0].alias, "label_clean");
+        assert_eq!(parsed.null_coalesce_projections[0].column, "label");
+        assert_eq!(
+            parsed.null_coalesce_projections[0].fallback,
+            ScalarValue::Utf8("unknown".to_string())
+        );
+        assert_eq!(parsed.null_coalesce_projections[1].alias, "event_day");
+        assert_eq!(parsed.null_coalesce_projections[1].column, "event_date");
+        assert!(matches!(
+            parsed.null_coalesce_projections[1].fallback,
+            ScalarValue::Date32(_)
+        ));
+        assert_eq!(
+            parsed.null_coalesce_projection_source_columns(),
+            "label,event_date"
+        );
+        assert_eq!(
+            parsed.null_coalesce_projection_output_columns(),
+            "label_clean,event_day"
+        );
+        assert_eq!(
+            parsed.null_coalesce_projection_fallback_dtypes(),
+            "utf8,date32"
+        );
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn parses_scoped_string_transform_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,LOWER(label) AS lowered,UPPER(label) AS raised,TRIM(label) AS trimmed FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
@@ -9102,6 +9439,40 @@ mod tests {
             error.to_string().contains(
                 "date arithmetic projection source column \"missing_date\" is not present"
             ),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn null_coalesce_projection_missing_source_column_is_blocked() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,COALESCE(missing_label, 'unknown') AS label_clean FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect("null coalesce projection statement parses before binding");
+        let header = vec!["id".to_string(), "label".to_string()];
+
+        let error = bind_sql_local_source(&parsed, &header, None)
+            .expect_err("missing null coalesce source column is blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("COALESCE projection source column \"missing_label\" is not present"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn null_coalesce_projection_null_fallback_is_blocked() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,COALESCE(label, NULL) AS label_clean FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect_err("null fallback is blocked during parsing");
+
+        assert!(
+            error
+                .to_string()
+                .contains("COALESCE projections require a non-NULL fallback literal"),
             "{error}"
         );
     }

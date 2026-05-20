@@ -221,6 +221,11 @@ class ColumnExpression:
 
         return ColumnExpression(f"TRIM({self.sql})")
 
+    def fill_null(self, value: object) -> "ColumnExpression":
+        """Return a scoped `COALESCE(column, literal)` null-cleanup expression."""
+
+        return ColumnExpression(f"COALESCE({self.sql}, {_sql_literal(value)})")
+
     def isin(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `IN (...)` predicate."""
 
@@ -1140,27 +1145,30 @@ class LazyFrame:
                 expression_sql = _sql_cast_projection_expression(expression)
             except (TypeError, ValueError):
                 try:
-                    expression_sql = _sql_numeric_arithmetic_projection_expression(expression)
+                    expression_sql = _sql_null_coalesce_projection_expression(expression)
                 except (TypeError, ValueError):
                     try:
-                        expression_sql = _sql_date_arithmetic_projection_expression(expression)
+                        expression_sql = _sql_numeric_arithmetic_projection_expression(expression)
                     except (TypeError, ValueError):
                         try:
-                            expression_sql = _sql_string_transform_projection_expression(expression)
+                            expression_sql = _sql_date_arithmetic_projection_expression(expression)
                         except (TypeError, ValueError):
                             try:
-                                expression_sql = _sql_temporal_extract_projection_expression(
-                                    expression
-                                )
+                                expression_sql = _sql_string_transform_projection_expression(expression)
                             except (TypeError, ValueError):
-                                expression_text = _require_non_empty(
-                                    "column expression", expression
-                                )
-                                return self._unsupported_operation(
-                                    "with-column",
-                                    f"{column_name}={expression_text}",
-                                    check=check,
-                                )
+                                try:
+                                    expression_sql = _sql_temporal_extract_projection_expression(
+                                        expression
+                                    )
+                                except (TypeError, ValueError):
+                                    expression_text = _require_non_empty(
+                                        "column expression", expression
+                                    )
+                                    return self._unsupported_operation(
+                                        "with-column",
+                                        f"{column_name}={expression_text}",
+                                        check=check,
+                                    )
         if self._can_append_projection_column(column_name):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         return self._unsupported_operation(
@@ -2814,6 +2822,26 @@ def _sql_cast_projection_expression(expression: object) -> str:
     return f"CAST({column} AS {dtype})"
 
 
+def _sql_null_coalesce_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError("computed with_column currently admits COALESCE column expressions")
+    function = text[:open_index].strip().upper()
+    if function != "COALESCE":
+        raise ValueError("computed with_column currently admits COALESCE column expressions")
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 2:
+        raise ValueError("COALESCE with_column expressions require exactly two arguments")
+    column = _normalize_nullable_projection_column(args[0])
+    fallback = args[1].strip()
+    if fallback.upper() == "NULL":
+        raise ValueError("COALESCE with_column expressions require a non-NULL fallback")
+    return f"COALESCE({column}, {fallback})"
+
+
 def _sql_date_arithmetic_projection_expression(expression: object) -> str:
     if not isinstance(expression, ColumnExpression):
         raise TypeError("computed with_column requires a shardloom ColumnExpression")
@@ -2929,6 +2957,25 @@ def _normalize_temporal_extract_column(expression: str, dtype: str) -> str:
         if target != dtype:
             raise ValueError(f"temporal extract CAST target must be {dtype}")
         return f"CAST({_normalize_expression_column(column)} AS {dtype})"
+    return _normalize_expression_column(text)
+
+
+def _normalize_nullable_projection_column(expression: str) -> str:
+    text = _require_non_empty("COALESCE column expression", expression)
+    if text.upper().startswith("CAST("):
+        if not text.endswith(")"):
+            raise ValueError("COALESCE CAST expression must be closed")
+        inner = text[5:-1].strip()
+        upper_inner = inner.upper()
+        marker = " AS "
+        marker_index = upper_inner.find(marker)
+        if marker_index < 0:
+            raise ValueError("COALESCE CAST expression must use CAST(column AS dtype)")
+        column = _normalize_expression_column(inner[:marker_index].strip())
+        dtype = _normalize_cast_dtype(inner[marker_index + len(marker) :].strip())
+        if dtype not in {"date32", "timestamp_micros"}:
+            raise ValueError("COALESCE CAST target must be date32 or timestamp_micros")
+        return f"CAST({column} AS {dtype})"
     return _normalize_expression_column(text)
 
 
