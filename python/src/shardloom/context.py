@@ -46,6 +46,7 @@ from .query import (
     from_rows,
     literal_table as generated_literal_table,
     range as generated_range,
+    read_arrow_ipc,
     sql_literal_select as generated_sql_literal_select,
     sql_values as generated_sql_values,
     read_csv,
@@ -4996,6 +4997,16 @@ class ShardLoomContext:
         """Declare a lazy Parquet compatibility source using this context's client."""
 
         return read_parquet(uri, schema=schema, client=self.client, engine_mode=self.engine)
+
+    def read_arrow_ipc(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
+        """Declare a lazy Arrow IPC compatibility source using this context's client."""
+
+        return read_arrow_ipc(uri, schema=schema, client=self.client, engine_mode=self.engine)
 
     def prepare_vortex(
         self,

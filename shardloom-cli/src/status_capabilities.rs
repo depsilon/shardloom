@@ -675,10 +675,10 @@ const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
         output_io_performed: false,
         native_io_certificate_status: "scoped_compatibility_import_certificate",
         generated_source_certificate_status: "not_applicable",
-        blocker_id: "gar-compat-1a.arrow_ipc.zero_copy_evidence_missing",
-        required_future_evidence: "zero_copy_streaming_output_fidelity_evidence",
+        blocker_id: "gar-runtime-impl-4f.arrow_ipc.broader_runtime_evidence_missing",
+        required_future_evidence: "zero_copy_streaming_nested_type_output_fidelity_and_default_build_evidence",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "interop boundary only",
+        claim_boundary: "feature-gated flat scalar local source smoke only; no broad Arrow IPC runtime/output",
     },
     UniversalCompatibilityRow {
         id: "avro",

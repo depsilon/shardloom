@@ -411,21 +411,24 @@ or documentation updates alone are insufficient.
     top-level `.json` object/array local input are now runtime-admitted through
     `sql-local-source-smoke` with SourceState-style evidence, route fields, content fingerprints,
     schema digests, source-format-aware adapter IDs, and deterministic blockers for nested JSON
-    values. Feature-gated local flat scalar `.parquet` input is also runtime-admitted when
-    `shardloom-cli` is built with `--features universal-format-io`; default builds return a
-    deterministic Parquet adapter blocker. The Python query-builder can lower local flat `.json`,
-    `.jsonl`, `.ndjson`, and feature-gated `.parquet`
+    values. Feature-gated local flat scalar `.parquet`, `.arrow`, `.ipc`, and `.feather` input is
+    also runtime-admitted when `shardloom-cli` is built with `--features universal-format-io`;
+    default builds return a deterministic Parquet or Arrow IPC adapter blocker. The Python
+    query-builder can lower local flat `.json`, `.jsonl`, `.ndjson`, and feature-gated
+    `.parquet`/Arrow IPC
     projection/optional-filter/limit,
     preview/select-star, scalar aggregate/optional-filter/limit, one-column group-by
     aggregate/optional-filter/limit, and single-key numeric top-N workflows into that runtime path.
-    Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON versus admitted Parquet
+    Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON versus admitted
+    Parquet/Arrow IPC
     source certificate refs, execution certificate refs, materialization boundaries, pushdown status,
     adapter status, route status, and claim reasons are source-format-aware. Nested/general JSON,
-    broader Parquet type/nesting coverage, Arrow IPC, Avro, and ORC do not all have ordinary
+    broader Parquet/Arrow IPC type/nesting coverage, Avro, and ORC do not all have ordinary
     user-facing SourceState runtime parity.
-  - Next slice outcome: promote one remaining local input format at a time into UniversalIngress/
-    InputAdapter registry coverage with SourceState evidence, `vortex_ingest_status`, certified
-    route status, and deterministic blockers for unsupported formats/features.
+  - Next slice outcome: continue promoting remaining local input formats one at a time into
+    UniversalIngress/InputAdapter registry coverage with SourceState evidence,
+    `vortex_ingest_status`, certified route status, and deterministic blockers for unsupported
+    formats/features.
   - Runtime enablement: admitted local input adapters that create reusable SourceState evidence for
     actual user reads and can feed `vortex_ingest` into `VortexPreparedState` when preparation is
     admitted.
@@ -997,14 +1000,15 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5D local input adapter runtime parity
   - Source: `GAR-RUNTIME-IMPL-4F`, `GAR-IOREUSE-1A`, universal compatibility scoreboard.
   - Current state: local CSV plus scoped flat JSONL/NDJSON, flat top-level `.json`, and
-    feature-gated flat scalar `.parquet` local SQL
+    feature-gated flat scalar `.parquet`/Arrow IPC local SQL
     smokes exist, the Python query-builder now bridges local CSV, flat JSON/JSONL/NDJSON, and
-    feature-gated flat scalar Parquet
+    feature-gated flat scalar Parquet/Arrow IPC
     projection/optional-filter/limit,
     preview/select-star, scalar-aggregate/optional-filter/limit, one-column group-by
     aggregate/optional-filter/limit, and single-key numeric top-N workflows, and local-source
     evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON versus admitted
-    Parquet rows. Nested JSON/JSONPath, broader Parquet type/nesting coverage, Arrow IPC, Avro, ORC,
+    Parquet/Arrow IPC rows. Nested JSON/JSONPath, broader Parquet/Arrow IPC type/nesting coverage,
+    Avro, ORC,
     Excel, database files, and unsupported formats are
     not uniformly represented by runtime SourceState adapters.
   - Next slice outcome: promote one local input format at a time into a SourceState adapter registry
@@ -1431,7 +1435,7 @@ runnable, documented, tested, and claim-safe.
   - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python
     capability matrix, `docs/getting-started/examples.md`.
   - Current state: Python `read_csv(...)`, local flat JSON/JSONL/NDJSON `read_json(...)`, and
-    feature-gated local flat scalar `read_parquet(...)`
+    feature-gated local flat scalar `read_parquet(...)` / `read_arrow_ipc(...)`
     query-builder chains support scoped projection/optional-filter/limit, preview/select-star, explicit-projection
     literal `with_column(...)`, `where(...)`, Python `sl.col(...).between(...)`, `head(...)`/
     `take(...)`, `count()`, scalar aggregate/optional-filter/limit, one-column grouped
@@ -1448,7 +1452,8 @@ runnable, documented, tested, and claim-safe.
     output writers, and collect/write ergonomics.
   - Runtime enablement: familiar DataFrame/query-builder workflows that execute through ShardLoom
     native runtime paths for admitted local inputs and outputs.
-  - User-visible surface: `ctx.read_csv`, `ctx.read_json`, `ctx.read_parquet`, `ctx.read_vortex`,
+  - User-visible surface: `ctx.read_csv`, `ctx.read_json`, `ctx.read_parquet`,
+    `ctx.read_arrow_ipc`, `ctx.read_vortex`,
     `.select`, `.filter`, `.with_column`, `.group_by`, `.agg`, `.join`, `.sort`, `.limit`,
     `.collect`, `.write`, `.explain`, method capability matrix.
   - Implementation scope: Python query builder, SQL/local runtime lowering, expression IR, local
