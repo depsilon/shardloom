@@ -2041,6 +2041,89 @@ fn sql_local_source_smoke_executes_null_aware_in_predicates_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_between_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-between-predicate", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE amount BETWEEN 10 AND 20 AND label LIKE '%ta' LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("logical_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("logical_predicate_operator", "and")));
+    assert!(stdout.contains(&field("logical_predicate_leaf_count", "3")));
+    assert!(stdout.contains(&field("string_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":4,\\\"label\\\":\\\"delta\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_not_between_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-not-between-predicate", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE amount NOT BETWEEN 10 AND 20 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("logical_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("logical_predicate_operator", "not")));
+    assert!(stdout.contains(&field("logical_predicate_leaf_count", "2")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_logical_and_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-logical-and", "csv");
     fs::write(
@@ -2203,6 +2286,47 @@ fn sql_local_source_smoke_executes_date_literal_filters_without_fallback() {
     assert!(stdout.contains("\"status\":\"success\""));
     assert!(stdout.contains(&field("predicate_operator_family", "comparison")));
     assert!(stdout.contains(&field("date_literal_runtime_execution", "true")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"event_date\\\":\\\"2026-05-19\\\"}\\n{\\\"id\\\":3,\\\"event_date\\\":\\\"2026-05-20\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_date_between_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-date-between-predicate", "csv");
+    fs::write(
+        &source_path,
+        "id,event_date,label\n1,2026-05-18,old\n2,2026-05-19,today\n3,2026-05-20,next\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,event_date FROM '{}' WHERE event_date BETWEEN DATE '2026-05-19' AND DATE '2026-05-20' LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("date_literal_runtime_execution", "true")));
+    assert!(stdout.contains(&field("logical_predicate_operator", "and")));
+    assert!(stdout.contains(&field("logical_predicate_leaf_count", "2")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
     assert!(stdout.contains(
         "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"event_date\\\":\\\"2026-05-19\\\"}\\n{\\\"id\\\":3,\\\"event_date\\\":\\\"2026-05-20\\\"}\\n\""
@@ -3109,6 +3233,58 @@ fn sql_local_source_smoke_blocks_unsupported_in_predicate_shapes_without_fallbac
                 source_path.display()
             ),
             "IN predicates require non-empty literal values",
+        ),
+    ];
+
+    for (statement, expected_reason) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .output()
+            .expect("sql-local-source-smoke command runs");
+        assert!(
+            !output.status.success(),
+            "statement={statement} stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(
+            stdout.contains(expected_reason),
+            "statement={statement} expected={expected_reason} stdout={stdout}"
+        );
+        assert!(stdout.contains("no fallback execution was attempted"));
+        assert!(stdout.contains("external_engine_invoked=false"));
+    }
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_unsupported_between_shapes_without_fallback() {
+    let source_path = unique_path("sql-local-source-between-blocked", "csv");
+    fs::write(&source_path, "id,amount\n1,8\n2,15\n").expect("write source csv");
+
+    let cases = [
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE amount BETWEEN 10 20 LIMIT 10",
+                source_path.display()
+            ),
+            "BETWEEN predicates require an AND separator between lower and upper bounds",
+        ),
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE amount BETWEEN 10 AND LIMIT 10",
+                source_path.display()
+            ),
+            "BETWEEN predicates require non-empty lower and upper literal bounds",
+        ),
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE amount BETWEEN DATE '2026-05-19' AND 20 LIMIT 10",
+                source_path.display()
+            ),
+            "requires ISO date strings or nulls",
         ),
     ];
 

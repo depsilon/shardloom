@@ -312,7 +312,10 @@ or documentation updates alone are insufficient.
     and `date32` are runtime-admitted for local row smoke paths, scoped bounded
     `column IN (<literal>,...)` predicates are runtime-admitted with `in_predicate_*` evidence and
     SQL three-valued `WHERE`-filter semantics for `NULL` list values plus blockers for empty,
-    mixed DATE/non-DATE, mixed TIMESTAMP/non-TIMESTAMP, oversized, and subquery-backed lists, and scoped
+    mixed DATE/non-DATE, mixed TIMESTAMP/non-TIMESTAMP, oversized, and subquery-backed lists,
+    direct SQL `column [NOT] BETWEEN <lower> AND <upper>` predicates are runtime-admitted by
+    lowering to ShardLoom-native comparison/logical predicates for scalar, `DATE`, and `TIMESTAMP`
+    literal bounds with deterministic blockers for malformed bounds, and scoped
     local SQL logical `AND`/`OR`/`NOT` predicates plus balanced grouping parentheses are
     runtime-admitted over already admitted leaf predicates. Scoped Date32 extracts through
     `DATE_YEAR(column)` / `DATE_MONTH(column)` / `DATE_DAY(column)` predicates are runtime-admitted
