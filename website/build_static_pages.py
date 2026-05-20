@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-"""Build the minimal ShardLoom public website.
+"""Build the ShardLoom public website.
 
-The public site is intentionally small: one cohesive home page, one benchmark
-evidence page, one compute-flow translation page, and static assets served by
-Cloudflare. Repo docs remain in the repository instead of being mirrored into a
-large website atlas.
+The current generator keeps Cloudflare deployment static while the public site
+evolves into a light-mode evidence-console surface. Repo docs remain in the repository as the deep
+source of truth; generated pages translate the current route, benchmark, and claim-boundary model
+for human readers.
 """
 
 from __future__ import annotations
@@ -306,20 +306,66 @@ def home_page(manifest: dict[str, Any], results: dict[str, Any]) -> str:
     available_count = len(manifest.get("available_lanes", []))
     expected_count = len(manifest.get("expected_lanes", []))
     generated = manifest.get("generated_at_utc", "unknown")
+    start_href = "https://github.com/depsilon/shardloom/blob/main/docs/getting-started/first-10-minutes.md"
+    field_guide_href = "https://github.com/depsilon/shardloom/tree/main/docs/use-cases/field-guide"
+    python_example = """import shardloom as sl
+
+ctx = sl.context()
+report = (
+    ctx.read_csv("orders.csv")
+       .select(["order_id", "amount", "status"])
+       .where(sl.col("status") == "paid")
+       .limit(100)
+       .write_jsonl("out/paid-orders.jsonl")
+)
+
+print(report.claim_gate_status)
+print(report.fallback_attempted)"""
     body = f"""
-    <section class="hero">
+    <section class="hero console-hero">
       <div class="hero-copy">
         <p class="eyebrow">Pre-release technical preview</p>
-        <h1>Evidence-first compute over Vortex data.</h1>
-        <p class="lede">ShardLoom is a Vortex-first, no-fallback local compute engine foundation. The public site is intentionally simple: benchmark evidence, a human-readable compute-flow map, and the repository.</p>
+        <h1>Evidence-gated compute over Vortex-prepared data.</h1>
+        <p class="lede">ShardLoom prepares admitted inputs, runs prepared/native workflows, writes outputs, and emits evidence proving what happened without hiding unsupported work behind fallback engines.</p>
+        <div class="status-chips" aria-label="ShardLoom public status">
+          <span>technical preview</span>
+          <span>no fallback</span>
+          <span>Vortex-first</span>
+          <span>claim-gated</span>
+          <span>local-first</span>
+          <span>not production claim</span>
+        </div>
         <div class="actions">
-          <a class="button primary" href="/benchmarks">Read benchmark evidence</a>
-          <a class="button" href="/compute-engine-flow">Understand compute flow</a>
+          <a class="button primary" href="{start_href}">Start local proof</a>
+          <a class="button" href="{field_guide_href}">Read Field Guide</a>
+          <a class="button" href="/benchmarks">View benchmark evidence</a>
           <a class="button ghost" href="https://github.com/depsilon/shardloom">Open GitHub</a>
         </div>
       </div>
-      <div class="hero-mark" aria-label="ShardLoom logo">
-        <img src="/assets/logo/shardloom-logo.png" alt="ShardLoom">
+      <div class="route-console" aria-label="ShardLoom route and evidence console">
+        <div class="console-brand">
+          <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+          <span>Evidence Console</span>
+        </div>
+        <div class="pipeline" aria-label="Compute route">
+          <span>Source</span>
+          <span>UniversalIngress</span>
+          <span>vortex_ingest</span>
+          <span>VortexPreparedState</span>
+          <span>Execution</span>
+          <span>OutputPlan</span>
+          <span>Evidence</span>
+          <span>ClaimGate</span>
+        </div>
+        <div class="evidence-grid">
+          <div><span>selected_execution_mode</span><strong>prepared_vortex</strong></div>
+          <div><span>vortex_ingest_status</span><strong>prepared_state_created</strong></div>
+          <div><span>prepared_state_reuse_hit</span><strong>true</strong></div>
+          <div><span>fallback_attempted</span><strong>false</strong></div>
+          <div><span>external_engine_invoked</span><strong>false</strong></div>
+          <div><span>claim_gate_status</span><strong>fixture_smoke_only</strong></div>
+        </div>
+        <p class="console-note">Prepared rows begin after <code>VortexPreparedState</code> exists. Certified import/stage rows include source read, parse, ingest, write/reopen, compute, output, and evidence.</p>
       </div>
     </section>
 
@@ -332,22 +378,89 @@ def home_page(manifest: dict[str, Any], results: dict[str, Any]) -> str:
 
     <section class="section-grid">
       <div>
-        <p class="eyebrow">What matters</p>
-        <h2>One public story, three surfaces.</h2>
-        <p>ShardLoom should not require a visitor to learn the phase plan before understanding the project. The site now keeps the public story tight: what the evidence says, how execution routes work, and where the repo lives.</p>
+        <p class="eyebrow">Why it exists</p>
+        <h2>Make compute routes inspectable.</h2>
+        <p>ShardLoom is being built for workflows where it matters whether a row was parsed, prepared, scanned, decoded, materialized, written, replayed, or blocked. The public surface should show those boundaries instead of hiding them behind a broad engine label.</p>
       </div>
       <div class="card-grid">
-        {card("Benchmark evidence", "Local timing context, expected lanes, missing lanes, and claim gates stay visible without becoming a ranking.", "Evidence")}
-        {card("Compute-flow translation", "SQL, Python, CLI, and adapters are front doors. Source, preparation, execution, output, and evidence define the route.", "Architecture")}
-        {card("Repository first", "Detailed docs, phase plans, RFCs, and implementation history stay in GitHub instead of becoming a sprawling website.", "Source")}
+        {card("Normal engines hide what happened", "ShardLoom emits evidence fields for execution mode, source state, materialization, output, fallback status, and claim gate.", "Evidence")}
+        {card("Benchmarks blur setup and query time", "ShardLoom separates certified cold ingest/stage timing from prepared warm query timing and native Vortex timing.", "Timing")}
+        {card("Compatibility paths can become fallback traps", "ShardLoom keeps unsupported paths visible and blocks deterministically instead of delegating execution elsewhere.", "No fallback")}
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <p class="eyebrow">Route model</p>
+        <h2>The front door is not the execution route.</h2>
+        <p>Users can enter through Python, SQL, CLI, benchmarks, or future adapters. ShardLoom still records the source route, ingress route, preparation route, execution route, output route, and evidence route separately.</p>
+      </div>
+      <div class="route-card-grid">
+        {card("Certified import/stage", "<code>compatibility_import_certified</code><br>Cold audited ingest/stage route. Not pure query speed.", "cold route")}
+        {card("Prepare Vortex once", "<code>vortex_ingest</code><br>Admitted non-Vortex source to <code>VortexPreparedState</code>.", "prepare once")}
+        {card("Prepared Vortex", "<code>prepared_vortex</code><br>Warm route that executes from prepared state.", "warm route")}
+        {card("Native Vortex", "<code>native_vortex</code><br>Already-Vortex input with no compatibility parse/import.", "native")}
+        {card("Generated source", "<code>GeneratedSourceCertificate</code><br>No input dataset; generated rows still need output evidence.", "source-free")}
+        {card("Direct one-shot", "<code>direct_compatibility_transient</code><br>Quick local route, not Vortex-native.", "direct")}
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <p class="eyebrow">Try it</p>
+        <h2>Code first, evidence next.</h2>
+        <p>The supported local surface is intentionally scoped. The important part is that successful and blocked paths both report what happened, what was not attempted, and what claim gate applies.</p>
+      </div>
+      <div class="code-panel">
+        <div class="panel-label">Python local smoke shape</div>
+        <pre><code>{esc(python_example)}</code></pre>
+        <div class="code-evidence">
+          <span><strong>fallback_attempted</strong>false</span>
+          <span><strong>external_engine_invoked</strong>false</span>
+          <span><strong>claim_gate_status</strong>fixture_smoke_only</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <p class="eyebrow">Can I use it?</p>
+        <h2>Status stays visible.</h2>
+        <p>The rebuilt site will keep supported, smoke-supported, report-only, blocked, unsupported, and not-planned paths in the same place so users do not have to infer maturity from scattered docs.</p>
+      </div>
+      <div class="status-preview">
+        <div><strong>Local CSV</strong><span>smoke/runtime supported</span></div>
+        <div><strong>Local JSONL/NDJSON</strong><span>smoke supported for flat scalar rows</span></div>
+        <div><strong>Local Parquet</strong><span>feature-gated scoped support</span></div>
+        <div><strong>Vortex input</strong><span>prepared/native runtime direction</span></div>
+        <div><strong>S3/GCS/ADLS</strong><span>blocked/report-only</span></div>
+        <div><strong>Foundry</strong><span>local proof boundary only</span></div>
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <p class="eyebrow">Benchmark evidence</p>
+        <h2>Evidence, not a leaderboard.</h2>
+        <p>The benchmark page should answer which route was measured, which lanes were expected, which lanes were available, and whether any row is claim-grade. Raw timing tables belong behind interpretation.</p>
+        <div class="actions">
+          <a class="button primary" href="/benchmarks">Open benchmark evidence</a>
+          <a class="button" href="/compute-engine-flow">Open architecture map</a>
+        </div>
+      </div>
+      <div class="benchmark-preview">
+        <div><span>benchmark_profile</span><strong>{esc(manifest.get("benchmark_profile", "unknown"))}</strong></div>
+        <div><span>available_lanes</span><strong>{available_count} / {expected_count}</strong></div>
+        <div><span>performance_claim_allowed</span><strong>false</strong></div>
+        <div><span>claim_boundary</span><strong>local evidence only</strong></div>
       </div>
     </section>
 
     <section class="section-grid">
       <div>
         <p class="eyebrow">Claim boundary</p>
-        <h2>What the site will not imply.</h2>
-        <p>ShardLoom is not presented as a production platform, an Apache Spark substitute, a broad SQL/DataFrame platform, an object-store/lakehouse runtime, a Foundry product, or a public performance winner.</p>
+        <h2>What this site will not imply.</h2>
+        <p>ShardLoom is pre-release. The website can make the system easier to understand, but it cannot upgrade runtime, benchmark, package, or platform claims without evidence.</p>
       </div>
       <div class="boundary-list">
         <span>No performance or superiority claim</span>
@@ -357,19 +470,10 @@ def home_page(manifest: dict[str, Any], results: dict[str, Any]) -> str:
         <span>No hidden fallback engine</span>
       </div>
     </section>
-
-    <section class="section-grid">
-      <div>
-        <p class="eyebrow">Compute route</p>
-        <h2>Front door is not the execution route.</h2>
-        <p>A user can enter through Python, SQL, CLI, or benchmarks. ShardLoom still records the route through ingress, preparation, execution, output, and evidence.</p>
-      </div>
-      <div class="route compact-route">{route_steps()}</div>
-    </section>
 """
     return page(
         "ShardLoom",
-        "Pre-release Vortex-first, no-fallback compute engine foundation with benchmark evidence and a human-readable compute-flow map.",
+        "Evidence-gated compute over Vortex-prepared data with no fallback, route-level evidence, and claim-safe benchmark interpretation.",
         body,
         "home",
     )

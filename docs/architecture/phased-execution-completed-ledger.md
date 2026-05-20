@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-REDESIGN-2C homepage product-console rebuild
+  - Branch/PR: `codex/website-homepage-console-redesign` / #828.
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `scripts/check_website_readiness.py`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `website/assets/site.css`
+    - `website/build_static_pages.py`
+    - `website/index.html`
+    - `website/validate_static_assets.js`
+  - Scope: rebuild `/` from the minimal reset page into a light-mode evidence-console homepage
+    while preserving the current static generator and Cloudflare-style static output. The page now
+    uses the transparent ShardLoom logo on a light console surface and presents the route model as
+    `Source -> UniversalIngress -> vortex_ingest -> VortexPreparedState -> Execution -> OutputPlan
+    -> Evidence -> ClaimGate`.
+  - User-visible changes:
+    - Hero headline: "Evidence-gated compute over Vortex-prepared data."
+    - Primary CTAs: Start local proof, Read Field Guide, View benchmark evidence, and Open GitHub.
+    - Evidence console fields:
+      `selected_execution_mode`, `vortex_ingest_status`, `prepared_state_reuse_hit`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`.
+    - Route cards distinguish certified cold ingest/stage, prepare-once Vortex ingest, prepared
+      Vortex, native Vortex, generated source, and direct one-shot routes.
+    - Status and benchmark previews remain claim-safe and link users to the benchmark artifact and
+      GitHub docs rather than implying unsupported public runtime breadth.
+  - Validator updates:
+    - Static asset validation now requires the new homepage route/evidence language and CTAs.
+    - Website readiness no longer treats Field Guide/Use Case wording as stale merely because the
+      rebuilt homepage links to repo docs for those concepts; removed public website directories
+      are still forbidden until their explicit rebuild slice lands.
+    - Release readiness metadata tests now pin the light-mode evidence-console generator posture and
+      homepage copy.
+  - Visual QA:
+    - Desktop screenshot: `target/website-homepage-console-redesign/home-desktop.png`.
+    - Mobile CDP screenshot: `target/website-homepage-console-redesign/home-mobile-cdp.png`.
+    - Mobile CDP layout metrics: `innerWidth=390`, `scrollWidth=390`, `bodyScrollWidth=390`.
+    - The raw Chrome CLI mobile screenshot path was also generated for comparison, but CDP device
+      metrics are the authoritative mobile viewport proof for this slice.
+  - Verification:
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - bundled Node runtime: `website\validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q scripts website`
+    - `git diff --check`
+  - Claim boundary: homepage interpretation only. This does not add runtime behavior, benchmark
+    recomputation, package publication, production support, performance or superiority claims, Spark
+    replacement claims, object-store/lakehouse/Foundry support, or broad SQL/DataFrame runtime
+    support.
+  - Fallback boundary: the homepage keeps `fallback_attempted=false` and
+    `external_engine_invoked=false` visible and states that external engines remain baseline
+    context only, never ShardLoom fallback execution.
+
 - [x] Session label: GAR-WEB-REDESIGN-2A/2B reference synthesis and content model
   - Branch/PR: `codex/website-redesign-plan-slice` / #827.
   - Primary files:

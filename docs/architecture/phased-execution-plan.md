@@ -235,9 +235,10 @@ explicitly reprioritized.
 Current non-runtime sequence:
 
 1. Non-runtime closeout is complete through GAR-0043-B, GAR-VORTEX-071D, and the completed
-   `GAR-WEB-REDESIGN-2A/2B` website redesign planning slice.
-2. Complete the open `GAR-WEB-REDESIGN-2` implementation slices below before returning to the
-   runtime implementation queue unless the user explicitly reprioritizes runtime work.
+   `GAR-WEB-REDESIGN-2A/2B` planning slice plus `GAR-WEB-REDESIGN-2C` homepage slice.
+2. Complete the open `GAR-WEB-REDESIGN-2D` through `GAR-WEB-REDESIGN-2G` implementation slices
+   below before returning to the runtime implementation queue unless the user explicitly
+   reprioritizes runtime work.
 3. Continue moving completed website/runtime sessions to the ledger immediately after PR/session
    close.
 
@@ -261,44 +262,10 @@ evidence-gated compute. The public site must show the route
 OutputPlan -> SinkArtifact -> Evidence -> ClaimGate`, while keeping benchmark, support, and
 claim-boundary language honest.
 
-Completed kickoff: `GAR-WEB-REDESIGN-2A reference synthesis and visual direction` and
-`GAR-WEB-REDESIGN-2B information architecture and content model` are captured in the completed
-ledger and the three `website-redesign-*` architecture docs. Remaining items below are the active
-implementation queue.
-
-- [ ] GAR-WEB-REDESIGN-2C homepage product-console rebuild
-  - Source: `docs/architecture/website-redesign-reference-synthesis.md`,
-    `docs/architecture/website-redesign-information-architecture.md`,
-    `docs/architecture/website-redesign-content-model.md`, current `website/index.html`,
-    ShardLoom transparent logo assets.
-  - Current state: the current homepage is intentionally minimal after the reset; it does not yet
-    deliver the richer command-center/product-console experience requested in the redesign spec.
-  - Next slice outcome: rebuild `/` as a light-mode product-console homepage with route/evidence
-    hero, Start/Field Guide/Benchmark CTAs, supported code example, claim-boundary chips, and
-    compact capability/status preview.
-  - User-visible surface: `/`, shared header/footer, sitemap/redirects as needed.
-  - Implementation scope: `website/build_static_pages.py`, `website/index.html`,
-    `website/assets/site.css`, logo usage, generated route links, website validators.
-  - Evidence required: route/evidence console fields, visible `fallback_attempted=false`,
-    `external_engine_invoked=false`, `claim_gate_status`, current technical-preview/non-production
-    boundary, benchmark artifact link, GitHub source-of-truth link.
-  - Acceptance: first viewport communicates ShardLoom in under five seconds; transparent logo is
-    displayed on a light surface; CTAs route to working pages; no blocked/report-only path is
-    framed as supported; mobile and desktop layouts have no overlap or horizontal overflow.
-  - Verification: `python website/build_static_pages.py`, `python scripts/check_website_readiness.py`,
-    `node website/validate_static_assets.js`, browser screenshots for `/` at mobile and desktop,
-    `git diff --check`.
-  - Non-goals: no runtime behavior changes, package publication, benchmark recomputation, external
-    search service, third-party visual copying, or public support-claim expansion.
-  - Claim boundary: homepage is an interpretation layer only; no performance, superiority,
-    Spark-replacement, production, SQL/DataFrame, object-store/lakehouse, Foundry, or package-ready
-    claim.
-  - Fallback boundary: homepage copy must state or imply external engines are baselines only and
-    never ShardLoom fallback execution.
-  - Dependencies/blockers: completed `GAR-WEB-REDESIGN-2A/2B` docs, current benchmark manifest,
-    compute-flow route vocabulary, transparent logo assets, and website validator updates.
-  - Ledger rule: ledger entry must include visual QA paths/screenshots and exact page routes
-    changed.
+Completed slices: `GAR-WEB-REDESIGN-2A reference synthesis and visual direction`,
+`GAR-WEB-REDESIGN-2B information architecture and content model`, and
+`GAR-WEB-REDESIGN-2C homepage product-console rebuild` are captured in the completed ledger.
+Remaining items below are the active implementation queue.
 
 - [ ] GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild
   - Source: Use Case Atlas docs, universal compatibility scoreboard, compute-flow reference,
