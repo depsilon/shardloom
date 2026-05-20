@@ -73,6 +73,485 @@
           <p>Certificates, no-fallback fields, materialization boundaries, timing, and claim gate.</p>
         </article></section>
 
+    <section class="diagram-gallery">
+      <div class="section-heading">
+        <div>
+          <h2>Rendered architecture diagrams</h2>
+          <p>These diagrams are translated from the canonical Mermaid source at build time so the public page shows the route shape first and keeps source text as an audit trail.</p>
+        </div>
+      </div>
+      <article class="flow-diagram" data-rendered-diagram>
+              <div class="diagram-kicker">Rendered diagram 01</div>
+              <h3>Human-Readable Mental Model</h3>
+              <div class="diagram-track" role="list" aria-label="Human-Readable Mental Model route diagram">
+                <div class="diagram-node" role="listitem">
+                  <span>ACCESS</span>
+                  <strong>1. Access</strong>
+                  <p>CLI / Python / benchmark / adapter</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>REQUEST</span>
+                  <strong>2. Typed request</strong>
+                  <p>workload + source + output intent</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>ADMISSION</span>
+                  <strong>3. Admission</strong>
+                  <p>policy + capability + semantics</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>MODE</span>
+                  <strong>4. Explicit modes</strong>
+                  <p>execution mode + engine mode</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>PROVIDER</span>
+                  <strong>5. Provider path</strong>
+                  <p>Vortex / ShardLoom kernel / diagnostic</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>OUTPUT</span>
+                  <strong>6. Output path</strong>
+                  <p>result ref / sink artifact / unsupported status</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>EVIDENCE</span>
+                  <strong>7. Evidence and claim gate</strong>
+                  <p>certificates + no-fallback + claim status</p>
+                </div>
+              </div>
+
+            </article><article class="flow-diagram" data-rendered-diagram>
+              <div class="diagram-kicker">Rendered diagram 02</div>
+              <h3>View 1 - Access And Users</h3>
+              <div class="diagram-track" role="list" aria-label="View 1 - Access And Users route diagram">
+                <div class="diagram-node" role="listitem">
+                  <span>PEOPLE</span>
+                  <strong>People and automation</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>USER</span>
+                  <strong>End users</strong>
+                  <p>analyst / engineer / app developer</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>ADAPTER_AUTHOR</span>
+                  <strong>Adapter authors</strong>
+                  <p>DB / orchestration / BI / notebook</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>OPERATOR</span>
+                  <strong>Operators and agents</strong>
+                  <p>CI / release gates / automation</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>ACCESS</span>
+                  <strong>Access surfaces</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>CLI</span>
+                  <strong>CLI</strong>
+                  <p>current canonical entrypoint</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>PYTHON</span>
+                  <strong>Python client</strong>
+                  <p>typed wrapper over CLI protocol</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>BENCH</span>
+                  <strong>Benchmark harness</strong>
+                  <p>comparison reports and evidence</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>REST</span>
+                  <strong>REST / event API</strong>
+                  <p>report-only contract</p>
+                </div>
+              </div>
+              <div class="diagram-branches" aria-label="Additional nodes in this diagram">
+              <span>
+                  <strong>SDK / notebook clients</strong>
+                  <em>planned</em>
+                </span><span>
+                  <strong>Thin adapters</strong>
+                  <em>planned DB-API / SQLAlchemy / Ibis / dbt / BI</em>
+                </span><span>
+                  <strong>Shared protocol</strong>
+
+                </span><span>
+                  <strong>Typed request envelope</strong>
+                  <em>workload + source + policy + output intent</em>
+                </span><span>
+                  <strong>Typed output envelope</strong>
+                  <em>result refs + diagnostics + evidence + claim gate</em>
+                </span><span>
+                  <strong>CLI text / JSON / artifacts</strong>
+
+                </span><span>
+                  <strong>Python typed models / artifact refs</strong>
+
+                </span><span>
+                  <strong>Adapter-facing result refs</strong>
+
+                </span>
+            </div>
+            </article><article class="flow-diagram" data-rendered-diagram>
+              <div class="diagram-kicker">Rendered diagram 03</div>
+              <h3>View 2 - Runtime Contract</h3>
+              <div class="diagram-track" role="list" aria-label="View 2 - Runtime Contract route diagram">
+                <div class="diagram-node" role="listitem">
+                  <span>SOURCE</span>
+                  <strong>Source descriptors</strong>
+                  <p>format / schema / URI / pushdown</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>POLICY</span>
+                  <strong>Policy</strong>
+                  <p>governance / credentials / no fallback</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>CAPABILITY</span>
+                  <strong>Capability matrix</strong>
+                  <p>source + operator + sink + feature gates</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>INGRESS</span>
+                  <strong>UniversalIngress</strong>
+                  <p>InputAdapter -&gt; SourceState or blocker</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>VORTEX_INGEST</span>
+                  <strong>vortex_ingest</strong>
+                  <p>SourceState -&gt; VortexPreparedState</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>SEMANTICS</span>
+                  <strong>Semantic profile</strong>
+                  <p>schema / expression / workload constitution</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>MODE</span>
+                  <strong>Explicit execution mode</strong>
+                  <p>requested + selected + reason</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>ENGINE</span>
+                  <strong>Engine mode</strong>
+                  <p>batch / live / hybrid / auto</p>
+                </div>
+              </div>
+              <div class="diagram-branches" aria-label="Additional nodes in this diagram">
+              <span>
+                  <strong>1. Request binding</strong>
+
+                </span><span>
+                  <strong>Typed request</strong>
+                  <em>query / workload / downstream intent</em>
+                </span><span>
+                  <strong>Generated source declaration</strong>
+                  <em>range / sequence / values / literal rows / calendar</em>
+                </span><span>
+                  <strong>Output intent</strong>
+                  <em>result / Vortex artifact / export / platform ref</em>
+                </span><span>
+                  <strong>2. Admission before execution</strong>
+
+                </span><span>
+                  <strong>3. Provider decision</strong>
+
+                </span><span>
+                  <strong>Source or preparation boundary</strong>
+
+                </span><span>
+                  <strong>Plan IR and physical plan</strong>
+
+                </span>
+            </div>
+            </article><article class="flow-diagram" data-rendered-diagram>
+              <div class="diagram-kicker">Rendered diagram 04</div>
+              <h3>View 3 - Execution Mode Lanes</h3>
+              <div class="diagram-track" role="list" aria-label="View 3 - Execution Mode Lanes route diagram">
+                <div class="diagram-node" role="listitem">
+                  <span>COMPAT</span>
+                  <strong>compatibility_import_certified</strong>
+                  <p>certified cold ingest/stage lane</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>UNIVERSAL_INGRESS</span>
+                  <strong>UniversalIngress</strong>
+                  <p>InputAdapter -&gt; SourceState</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>VORTEX_INGEST</span>
+                  <strong>vortex_ingest</strong>
+                  <p>SourceState -&gt; VortexPreparedState</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>COMPAT_BOUNDARY</span>
+                  <strong>Certified ingest boundary</strong>
+                  <p>UniversalIngress -&gt; certified vortex_ingest -&gt; Vortex write/reopen</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>PROVIDER</span>
+                  <strong>Provider admission</strong>
+                  <p>Vortex provider / ShardLoom kernel / diagnostic</p>
+                </div>
+              </div>
+              <div class="diagram-branches" aria-label="Additional nodes in this diagram">
+              <span>
+                  <strong>requested_execution_mode</strong>
+
+                </span><span>
+                  <strong>auto</strong>
+                  <em>transparent selector</em>
+                </span><span>
+                  <strong>selected_execution_mode</strong>
+                  <em>mode_selection_reason required</em>
+                </span><span>
+                  <strong>prepared_vortex</strong>
+                  <em>warm route from VortexPreparedState</em>
+                </span><span>
+                  <strong>native_vortex</strong>
+                  <em>current scoped native-artifact lane</em>
+                </span><span>
+                  <strong>direct_compatibility_transient</strong>
+                  <em>scoped CSV filter paths + unsupported diagnostics</em>
+                </span><span>
+                  <strong>Prepared boundary</strong>
+                  <em>VortexPreparedState required</em>
+                </span><span>
+                  <strong>Native Vortex boundary</strong>
+                  <em>existing .vortex -&gt; Source / Scan / Split</em>
+                </span>
+            </div>
+            </article><article class="flow-diagram" data-rendered-diagram>
+              <div class="diagram-kicker">Rendered diagram 05</div>
+              <h3>View 4 - Engine Fabric Layer</h3>
+              <div class="diagram-track" role="list" aria-label="View 4 - Engine Fabric Layer route diagram">
+                <div class="diagram-node" role="listitem">
+                  <span>REQUEST</span>
+                  <strong>Typed request</strong>
+                  <p>workload + source + output intent</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>ENGINE_REQUEST</span>
+                  <strong>requested_engine_mode</strong>
+                  <p>auto / batch / live / hybrid</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>ENGINE_SELECTION</span>
+                  <strong>engine-selection-plan</strong>
+                  <p>selected_engine_mode + allowed/rejected modes</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>MATRIX</span>
+                  <strong>engine-capability-matrix</strong>
+                  <p>batch/live/hybrid rows</p>
+                </div>
+              </div>
+              <div class="diagram-branches" aria-label="Additional nodes in this diagram">
+              <span>
+                  <strong>GAR-0013 streaming capability matrix</strong>
+                  <em>local / object-store / zero-copy / zero-decode / backpressure</em>
+                </span><span>
+                  <strong>Current scoped engine surfaces</strong>
+
+                </span><span>
+                  <strong>batch</strong>
+                  <em>bounded snapshot local Vortex analytics</em>
+                </span><span>
+                  <strong>live-change-contract-plan</strong>
+                  <em>change records + watermark/checkpoint vocabulary</em>
+                </span><span>
+                  <strong>live-fixture-run</strong>
+                  <em>in-memory fixture operators + certificates</em>
+                </span><span>
+                  <strong>hybrid-overlay-run</strong>
+                  <em>base snapshot + hot delta fixture evidence</em>
+                </span><span>
+                  <strong>streaming-plan / streaming-batch-plan / backpressure-plan</strong>
+                  <em>full matrix + blocked diagnostics</em>
+                </span><span>
+                  <strong>Claim and effect boundary</strong>
+
+                </span>
+            </div>
+            </article><article class="flow-diagram" data-rendered-diagram>
+              <div class="diagram-kicker">Rendered diagram 06</div>
+              <h3>View 5 - I/O And Downstream Use</h3>
+              <div class="diagram-track" role="list" aria-label="View 5 - I/O And Downstream Use route diagram">
+                <div class="diagram-node" role="listitem">
+                  <span>SOURCES</span>
+                  <strong>Input families</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>LOCAL</span>
+                  <strong>Local compatibility files</strong>
+                  <p>CSV / Parquet / JSONL / Arrow IPC / Avro / ORC</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>VORTEX</span>
+                  <strong>Existing Vortex artifacts</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>GENERATED</span>
+                  <strong>Generated sources</strong>
+                  <p>range / sequence / values / literal rows / calendar</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>REMOTE</span>
+                  <strong>Remote/table/stream refs</strong>
+                  <p>object-store / catalog / event stream</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>DECISION</span>
+                  <strong>Runtime decision</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>ADMIT</span>
+                  <strong>Admitted local path</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>BLOCK</span>
+                  <strong>Deterministic diagnostic</strong>
+                  <p>support_status=unsupported</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>SINKS</span>
+                  <strong>Output and sink paths</strong>
+
+                </div>
+              </div>
+              <div class="diagram-branches" aria-label="Additional nodes in this diagram">
+              <span>
+                  <strong>Typed result/ref only</strong>
+
+                </span><span>
+                  <strong>Vortex result artifact</strong>
+                  <em>scoped replay evidence</em>
+                </span><span>
+                  <strong>Local compatibility export</strong>
+                  <em>scoped or planned by format</em>
+                </span><span>
+                  <strong>Table/object-store/REST/event delivery</strong>
+                  <em>planned or report-only</em>
+                </span><span>
+                  <strong>Consumers</strong>
+
+                </span><span>
+                  <strong>CLI text / JSON / artifacts</strong>
+
+                </span><span>
+                  <strong>Python typed models</strong>
+
+                </span><span>
+                  <strong>Adapter consumers</strong>
+
+                </span>
+            </div>
+            </article><article class="flow-diagram" data-rendered-diagram>
+              <div class="diagram-kicker">Rendered diagram 07</div>
+              <h3>View 6 - Evidence, Observability, And Claims</h3>
+              <div class="diagram-track" role="list" aria-label="View 6 - Evidence, Observability, And Claims route diagram">
+                <div class="diagram-node" role="listitem">
+                  <span>OUTCOME</span>
+                  <strong>Execution result or unsupported diagnostic</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>RUNTIME_EVIDENCE</span>
+                  <strong>Runtime evidence</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>CERTS</span>
+                  <strong>Certificates</strong>
+                  <p>execution / Native I/O / generated-source</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>MATERIALIZATION</span>
+                  <strong>Materialization and decode boundary</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>POLICY</span>
+                  <strong>Policy evidence</strong>
+                  <p>fallback_attempted=false external_engine_invoked=false</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>SOURCE_SINK</span>
+                  <strong>Source/sink evidence</strong>
+                  <p>SourceState / PreparedState / OutputPlan</p>
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>OPTIMIZATION_EVIDENCE</span>
+                  <strong>Optimization and timing evidence</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>TIMING</span>
+                  <strong>Stage timing ledger</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>SCAN</span>
+                  <strong>Vortex Scan pushdown evidence</strong>
+
+                </div>
+              </div>
+              <div class="diagram-branches" aria-label="Additional nodes in this diagram">
+              <span>
+                  <strong>Encoded-kernel admission evidence</strong>
+
+                </span><span>
+                  <strong>Fused residual pipeline evidence</strong>
+
+                </span><span>
+                  <strong>Session and reuse evidence</strong>
+
+                </span><span>
+                  <strong>Resource/build profile evidence</strong>
+
+                </span><span>
+                  <strong>Native microbenchmark rows</strong>
+                  <em>subsystem only</em>
+                </span><span>
+                  <strong>Optional exports</strong>
+
+                </span><span>
+                  <strong>OpenLineage facets</strong>
+                  <em>report-only / opt-in</em>
+                </span><span>
+                  <strong>OpenTelemetry spans</strong>
+                  <em>report-only / opt-in</em>
+                </span>
+            </div>
+            </article><article class="flow-diagram" data-rendered-diagram>
+              <div class="diagram-kicker">Rendered diagram 08</div>
+              <h3>Claim Gate Flow</h3>
+              <div class="diagram-track" role="list" aria-label="Claim Gate Flow route diagram">
+                <div class="diagram-node" role="listitem">
+                  <span>A</span>
+                  <strong>Execution result</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>B</span>
+                  <strong>Correctness evidence</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>C</span>
+                  <strong>Benchmark evidence</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>D</span>
+                  <strong>Execution certificate</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>E</span>
+                  <strong>Native I/O certificate</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>F</span>
+                  <strong>Materialization/decode evidence</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>G</span>
+                  <strong>No-fallback evidence</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>H</span>
+                  <strong>All required evidence present?</strong>
+
+                </div><span class="diagram-arrow" aria-hidden="true">-&gt;</span><div class="diagram-node" role="listitem">
+                  <span>I</span>
+                  <strong>claim_grade</strong>
+
+                </div>
+              </div>
+              <div class="diagram-branches" aria-label="Additional nodes in this diagram">
+              <span>
+                  <strong>not_claim_grade</strong>
+
+                </span><span>
+                  <strong>support_status=unsupported</strong>
+                  <em>claim_gate_status=not_claim_grade</em>
+                </span><span>
+                  <strong>not claimable</strong>
+
+                </span><span>
+                  <strong>fixture_smoke_only</strong>
+
+                </span><span>
+                  <strong>external_baseline_only</strong>
+
+                </span>
+            </div>
+            </article>
+    </section>
+
     <section class="section-grid">
       <div>
         <h2>Prepared Vortex means prepared state.</h2>
@@ -139,7 +618,7 @@
 
     ACCESS --&gt; REQUEST --&gt; ADMISSION --&gt; MODE --&gt; PROVIDER --&gt; OUTPUT --&gt; EVIDENCE</code></pre>
     </details><details class="drawer">
-      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <summary>Raw Mermaid source: View 1 - Access And Users</summary>
       <pre><code>flowchart LR
     subgraph PEOPLE[&quot;People and automation&quot;]
         USER[&quot;End users&lt;br/&gt;analyst / engineer / app developer&quot;]
@@ -183,7 +662,7 @@
     OUTPUT --&gt; ADAPTER_RESULT[&quot;Adapter-facing result refs&quot;]
     OUTPUT --&gt; BENCH_RESULT[&quot;Benchmark coverage + timing report&quot;]</code></pre>
     </details><details class="drawer">
-      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <summary>Raw Mermaid source: View 2 - Runtime Contract</summary>
       <pre><code>flowchart TD
     subgraph REQUEST_PHASE[&quot;1. Request binding&quot;]
         REQUEST[&quot;Typed request&lt;br/&gt;query / workload / downstream intent&quot;]
@@ -230,7 +709,7 @@
     ADMISSION --&gt;|&quot;supported&quot;| EXECUTE --&gt; RESULT --&gt; SINK --&gt; GENERATED_CERT --&gt; EVIDENCE
     EVIDENCE --&gt; CLAIM --&gt; ENVELOPE</code></pre>
     </details><details class="drawer">
-      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <summary>Raw Mermaid source: View 3 - Execution Mode Lanes</summary>
       <pre><code>flowchart TD
     REQUESTED[&quot;requested_execution_mode&quot;]
     AUTO[&quot;auto&lt;br/&gt;transparent selector&quot;]
@@ -267,7 +746,7 @@
     DIRECT --&gt; DIRECT_BOUNDARY --&gt; PROVIDER
     PROVIDER --&gt;|&quot;scoped CSV filter paths today&quot;| SELECTIVE_BLOCKER</code></pre>
     </details><details class="drawer">
-      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <summary>Raw Mermaid source: View 4 - Engine Fabric Layer</summary>
       <pre><code>flowchart TD
     REQUEST[&quot;Typed request&lt;br/&gt;workload + source + output intent&quot;]
     ENGINE_REQUEST[&quot;requested_engine_mode&lt;br/&gt;auto / batch / live / hybrid&quot;]
@@ -300,7 +779,7 @@
     HYBRID_FIXTURE --&gt; FIXTURE_CLAIM
     FIXTURE_CLAIM --&gt; NO_EFFECTS --&gt; PLANNED_GATES</code></pre>
     </details><details class="drawer">
-      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <summary>Raw Mermaid source: View 5 - I/O And Downstream Use</summary>
       <pre><code>flowchart LR
     subgraph SOURCES[&quot;Input families&quot;]
         LOCAL[&quot;Local compatibility files&lt;br/&gt;CSV / Parquet / JSONL / Arrow IPC / Avro / ORC&quot;]
@@ -347,7 +826,7 @@
     VORTEX_OUT --&gt; BENCH_OUT
     LOCAL_EXPORT --&gt; CLI_OUT</code></pre>
     </details><details class="drawer">
-      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <summary>Raw Mermaid source: View 6 - Evidence, Observability, And Claims</summary>
       <pre><code>flowchart TD
     OUTCOME[&quot;Execution result or unsupported diagnostic&quot;]
 

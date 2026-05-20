@@ -237,7 +237,8 @@ Current non-runtime sequence:
 
 1. Non-runtime closeout is complete through GAR-0043-B, GAR-VORTEX-071D, and the completed
    `GAR-WEB-REDESIGN-2A/2B`, `GAR-WEB-REDESIGN-2C`, `GAR-WEB-REDESIGN-2D`,
-   `GAR-WEB-REDESIGN-2E`, `GAR-WEB-REDESIGN-2F`, and `GAR-WEB-REDESIGN-2G` website slices.
+   `GAR-WEB-REDESIGN-2E`, `GAR-WEB-REDESIGN-2F`, `GAR-WEB-REDESIGN-2G`, and
+   `GAR-WEB-REDESIGN-2H` website slices.
 2. Return to the runtime implementation queue unless the user explicitly reprioritizes new
    non-runtime work.
 3. Continue moving completed website/runtime sessions to the ledger immediately after PR/session
@@ -268,8 +269,9 @@ Completed slices: `GAR-WEB-REDESIGN-2A reference synthesis and visual direction`
 `GAR-WEB-REDESIGN-2C homepage product-console rebuild`,
 `GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild`,
 `GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild`, and
-`GAR-WEB-REDESIGN-2F performance, accessibility, and claim-safety gate`, and
-`GAR-WEB-REDESIGN-2G framework migration decision and implementation gate` are captured in the completed ledger.
+`GAR-WEB-REDESIGN-2F performance, accessibility, and claim-safety gate`,
+`GAR-WEB-REDESIGN-2G framework migration decision and implementation gate`, and
+`GAR-WEB-REDESIGN-2H architecture diagram rendering and README simplification` are captured in the completed ledger.
 There are no remaining website redesign items in the active non-runtime queue.
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only

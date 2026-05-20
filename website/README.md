@@ -11,7 +11,7 @@ The current public site is light-mode and evidence-console oriented:
 - `/use-cases`: filterable use-case browser generated from `docs/use-cases/use-case-index.yml`.
 - `/benchmarks`: committed benchmark artifact interpretation. Evidence, not a leaderboard.
 - `/architecture` and `/compute-engine-flow`: human-readable route translation of the canonical
-  compute-flow reference.
+  compute-flow reference, including static rendered diagrams translated from the Mermaid source.
 - `/status`: filterable support/status matrix with blocked and report-only rows visible.
 
 Detailed RFCs, phase history, recipes, and source-of-truth docs remain in the repository. The
@@ -30,6 +30,8 @@ The generator:
 
 - copies `docs/architecture/compute-engine-flow-reference.md` to
   `website/assets/data/compute-engine-flow-reference.md`;
+- translates the canonical Mermaid blocks into static, readable HTML diagrams while keeping raw
+  Mermaid source collapsed for audit/source fidelity;
 - renders `index.html`, `start.html`, `field-guide.html`, `use-cases.html`, `benchmarks.html`,
   `architecture.html`, `compute-engine-flow.html`, `status.html`, `404.html`, and `sitemap.xml`;
 - renders generated dossier/use-case detail pages under `field-guide/` and `use-cases/`;
