@@ -73,6 +73,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             schema={"id": "int64"},
             binary=["definitely-missing-shardloom"],
         )
+        avro_frame = sl.read_avro(
+            "events.avro",
+            schema={"id": "int64"},
+            binary=["definitely-missing-shardloom"],
+        )
+        orc_frame = sl.read_orc(
+            "events.orc",
+            schema={"id": "int64"},
+            binary=["definitely-missing-shardloom"],
+        )
 
         self.assertIsInstance(frame, LazyFrame)
         self.assertEqual(frame.source_format, "csv")
@@ -81,6 +91,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(arrow_frame.source_format, "arrow-ipc")
         self.assertEqual(arrow_frame.source.schema_map["id"], "int64")
         self.assertEqual(arrow_frame.operation_summary, "read_arrow_ipc(events.arrow)")
+        self.assertEqual(avro_frame.source_format, "avro")
+        self.assertEqual(avro_frame.operation_summary, "read_avro(events.avro)")
+        self.assertEqual(orc_frame.source_format, "orc")
+        self.assertEqual(orc_frame.operation_summary, "read_orc(events.orc)")
         self.assertEqual(
             frame.operation_summary,
             "read_csv(events.csv) -> filter(id > 0) -> select(id,amount) -> limit(10)",
@@ -408,6 +422,110 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             report.envelope.field("source_adapter_id"),
             "local_arrow_ipc_input_adapter",
         )
+        self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_avro_query_builder_collect_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.avro' WHERE amount >= 10 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "source_format", "value": "avro"},
+                        {"key": "source_adapter_id", "value": "local_avro_input_adapter"},
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_avro("target/input.avro")
+            .select("id", "label")
+            .filter("amount >= 10")
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("source_adapter_id"), "local_avro_input_adapter")
+        self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_orc_query_builder_collect_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.orc' WHERE amount >= 10 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "source_format", "value": "orc"},
+                        {"key": "source_adapter_id", "value": "local_orc_input_adapter"},
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_orc("target/input.orc")
+            .select("id", "label")
+            .filter("amount >= 10")
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("source_adapter_id"), "local_orc_input_adapter")
         self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)

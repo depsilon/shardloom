@@ -1,8 +1,8 @@
 //! Scoped local-source SQL runtime smoke.
 //!
 //! This module intentionally admits one small SQL shape over local
-//! CSV/JSONL/JSON and feature-gated local Parquet/Arrow IPC:
-//! `SELECT <columns> FROM <local.csv|local.jsonl|local.json|local.parquet|local.arrow|local.ipc> [WHERE <scoped predicate>] [ORDER BY <column> ASC|DESC] LIMIT <n>`
+//! CSV/JSONL/JSON and feature-gated local Parquet/Arrow IPC/Avro/ORC:
+//! `SELECT <columns> FROM <local.csv|local.jsonl|local.json|local.parquet|local.arrow|local.ipc|local.avro|local.orc> [WHERE <scoped predicate>] [ORDER BY <column> ASC|DESC] LIMIT <n>`
 //! plus one explicit local inner equi-join shape.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
@@ -468,13 +468,15 @@ enum LocalSourceFormat {
     JsonLines,
     Parquet,
     ArrowIpc,
+    Avro,
+    Orc,
 }
 
 impl LocalSourceFormat {
     fn from_path(path: &Path) -> Result<Self, ShardLoomError> {
         let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
             return Err(unsupported_sql_error(
-                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC sources only in this slice",
+                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC sources only in this slice",
             ));
         };
         match extension.to_ascii_lowercase().as_str() {
@@ -483,8 +485,10 @@ impl LocalSourceFormat {
             "jsonl" | "ndjson" => Ok(Self::JsonLines),
             "parquet" => Ok(Self::Parquet),
             "arrow" | "ipc" | "feather" => Ok(Self::ArrowIpc),
+            "avro" => Ok(Self::Avro),
+            "orc" => Ok(Self::Orc),
             _ => Err(unsupported_sql_error(
-                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC sources only in this slice",
+                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC sources only in this slice",
             )),
         }
     }
@@ -496,6 +500,8 @@ impl LocalSourceFormat {
             Self::JsonLines => "jsonl",
             Self::Parquet => "parquet",
             Self::ArrowIpc => "arrow_ipc",
+            Self::Avro => "avro",
+            Self::Orc => "orc",
         }
     }
 
@@ -506,6 +512,8 @@ impl LocalSourceFormat {
             Self::JsonLines => "JSONL",
             Self::Parquet => "Parquet",
             Self::ArrowIpc => "Arrow IPC",
+            Self::Avro => "Avro",
+            Self::Orc => "ORC",
         }
     }
 }
@@ -1283,6 +1291,8 @@ fn source_adapter_id_for_format(source_format: LocalSourceFormat) -> &'static st
         LocalSourceFormat::JsonLines => "local_jsonl_input_adapter",
         LocalSourceFormat::Parquet => "local_parquet_input_adapter",
         LocalSourceFormat::ArrowIpc => "local_arrow_ipc_input_adapter",
+        LocalSourceFormat::Avro => "local_avro_input_adapter",
+        LocalSourceFormat::Orc => "local_orc_input_adapter",
     }
 }
 
@@ -4372,6 +4382,8 @@ impl SqlLocalSourceReport {
             LocalSourceFormat::JsonLines => "local_jsonl_input_adapter",
             LocalSourceFormat::Parquet => "local_parquet_input_adapter",
             LocalSourceFormat::ArrowIpc => "local_arrow_ipc_input_adapter",
+            LocalSourceFormat::Avro => "local_avro_input_adapter",
+            LocalSourceFormat::Orc => "local_orc_input_adapter",
         }
     }
 
@@ -4448,6 +4460,8 @@ fn read_local_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
         }
         LocalSourceFormat::Parquet => read_parquet_source_content(path)?,
         LocalSourceFormat::ArrowIpc => read_arrow_ipc_source_content(path)?,
+        LocalSourceFormat::Avro => read_avro_source_content(path)?,
+        LocalSourceFormat::Orc => read_orc_source_content(path)?,
     };
     Ok(CsvSourceData {
         source_format,
@@ -4511,6 +4525,46 @@ fn read_arrow_ipc_source_content(
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
     Err(unsupported_sql_error(
         "local Arrow IPC source runtime requires building shardloom-cli with --features universal-format-io; default builds expose Arrow IPC as a deterministic blocked adapter",
+    ))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn read_avro_source_content(
+    path: &Path,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let table = shardloom_vortex::read_flat_avro_source(path, MAX_INPUT_ROWS)?;
+    for column in &table.header {
+        validate_sql_identifier(column)?;
+    }
+    Ok((table.header, table.rows))
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn read_avro_source_content(
+    _path: &Path,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    Err(unsupported_sql_error(
+        "local Avro source runtime requires building shardloom-cli with --features universal-format-io; default builds expose Avro as a deterministic blocked adapter",
+    ))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn read_orc_source_content(
+    path: &Path,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let table = shardloom_vortex::read_flat_orc_source(path, MAX_INPUT_ROWS)?;
+    for column in &table.header {
+        validate_sql_identifier(column)?;
+    }
+    Ok((table.header, table.rows))
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn read_orc_source_content(
+    _path: &Path,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    Err(unsupported_sql_error(
+        "local ORC source runtime requires building shardloom-cli with --features universal-format-io; default builds expose ORC as a deterministic blocked adapter",
     ))
 }
 
@@ -4940,7 +4994,7 @@ fn reject_remote_source_path(path: &Path) -> Result<(), ShardLoomError> {
     let value = path.to_string_lossy();
     if value.contains("://") || value.starts_with("s3:") || value.starts_with("gs:") {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke supports local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC file paths only; object-store and remote URI reads remain blocked",
+            "SQL local-source smoke supports local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC file paths only; object-store and remote URI reads remain blocked",
         ));
     }
     Ok(())
@@ -5277,7 +5331,7 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
         || LocalSourceFormat::from_path(&right_source_path)? != LocalSourceFormat::Csv
     {
         return Err(unsupported_sql_error(
-            "JOIN smoke is scoped to local CSV sources; JSON/JSONL/NDJSON/Parquet/Arrow IPC joins remain blocked",
+            "JOIN smoke is scoped to local CSV sources; JSON/JSONL/NDJSON/Parquet/Arrow IPC/Avro/ORC joins remain blocked",
         ));
     }
     if left_alias == right_alias {
@@ -5341,7 +5395,7 @@ fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
     } else {
         if raw.split_whitespace().count() != 1 {
             return Err(unsupported_sql_error(
-                "FROM source must be a single local CSV/JSONL/JSON/Parquet/Arrow IPC path or single-quoted path",
+                "FROM source must be a single local CSV/JSONL/JSON/Parquet/Arrow IPC/Avro/ORC path or single-quoted path",
             ));
         }
         raw.to_string()

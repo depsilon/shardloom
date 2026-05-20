@@ -16,6 +16,80 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F feature-gated local Avro/ORC source smoke
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-avro-orc-source-4f` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
+    - `GAR-RUNTIME-IMPL-5D local input adapter runtime parity`
+    - `GAR-USER-SURFACE-1C DataFrame/query-builder parity for ordinary local workflows`
+    - UniversalIngress route taxonomy and compatibility scoreboard
+  - Scope:
+    - Promoted feature-gated local flat scalar Avro (`.avro`) and ORC (`.orc`) file sources into
+      `sql-local-source-smoke` and Python query-builder collect paths.
+    - Added `shardloom_vortex::read_flat_avro_source(...)` and
+      `shardloom_vortex::read_flat_orc_source(...)` beside the existing scoped Parquet/Arrow IPC
+      readers, using shared flat-schema validation and deterministic unsupported Arrow type
+      diagnostics.
+    - Added deterministic default-build blockers when `shardloom-cli` is not built with
+      `--features universal-format-io`.
+    - Added Python `sl.read_avro(...)` / `ctx.read_avro(...)` and `sl.read_orc(...)` /
+      `ctx.read_orc(...)` lowering for scoped local projection/filter/limit, preview/select-star,
+      aggregate, group-by, and top-N paths already admitted through the SQL local-source runtime
+      bridge.
+    - Updated the UniversalIngress taxonomy, compatibility scoreboard, use-case atlas, website
+      status/use-case data, public website static output, and active phase-plan wording to show
+      Avro/ORC as feature-gated flat scalar local source smokes, not broad format parity.
+  - User-visible surface:
+    - `sql-local-source-smoke`, Python `sl.read_avro(...)`, Python `ctx.read_avro(...)`, Python
+      `sl.read_orc(...)`, Python `ctx.read_orc(...)`, the status/use-case pages,
+      `python/README.md`, and the active phase plan.
+  - Evidence:
+    - Feature-gated Avro/ORC source reports expose `source_format=avro` or `source_format=orc`,
+      `source_adapter_id=local_avro_input_adapter` or `local_orc_input_adapter`,
+      SourceState-style route/source evidence, `materialization_boundary` values tied to the
+      source format, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+    - Default builds return explicit Avro/ORC adapter blockers and still report no fallback or
+      external engine invocation.
+  - Verification:
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_avro_projection_filter_limit_with_source_state_evidence`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_orc_projection_filter_limit_with_source_state_evidence`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke without_universal_format_feature`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_universal_ingress_routes.py`
+    - `cargo fmt --all -- --check`
+    - `python -m compileall -q python/src python/tests scripts website-src`
+    - `node website-src/node_modules/@astrojs/check/bin/astro-check.js`
+    - `node website-src/node_modules/astro/bin/astro.mjs build` plus
+      `node website-src/scripts/postbuild-static.mjs`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Non-goals:
+    - No broad Avro schema-evolution claim, logical-type completeness claim, broad ORC
+      stripe/statistics runtime claim, Avro/ORC output sink, object-store/table runtime, package
+      publication, performance claim, or external engine fallback.
+  - Claim boundary:
+    - This is a feature-gated local flat scalar Avro/ORC source smoke only. Avro and ORC remain
+      compatibility source/export boundaries and do not become native execution substrates or
+      production support claims.
+  - Fallback boundary:
+    - Avro/ORC file decoding is isolated in the approved feature-gated local adapter path and feeds
+      ShardLoom-owned local expression/operator semantics. It does not invoke pandas, PyArrow
+      Python, Spark, DataFusion, DuckDB, Polars, or another external execution engine.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4F` and `GAR-RUNTIME-IMPL-5D` unchecked until the remaining local
+      adapter formats and blockers reach parity.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F feature-gated local Arrow IPC source smoke
   - Date: 2026-05-20
   - Branch/PR: `runtime-arrow-ipc-source-4f` / pending.

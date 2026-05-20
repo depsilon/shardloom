@@ -346,7 +346,8 @@ print(unsupported.fallback_attempted)
 ```
 
 The same top-level helpers are exported as `sl.read_vortex`, `sl.read_csv`,
-`sl.read_json`, `sl.read_parquet`, and `sl.read_arrow_ipc`. Most helper chains
+`sl.read_json`, `sl.read_parquet`, `sl.read_arrow_ipc`, `sl.read_avro`, and
+`sl.read_orc`. Most helper chains
 still declare sources and transformations only. `plan()`, `explain()`,
 `estimate()`, `certify()`, and
 `unsupported_report()` are explicit report calls over CLI JSON surfaces; they do
@@ -354,7 +355,7 @@ not read input files, infer schemas, materialize rows, probe object stores,
 write output, or invoke fallback engines.
 
 One scoped local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar
-Parquet/Arrow IPC query-builder workflow family is
+Parquet/Arrow IPC/Avro/ORC query-builder workflow family is
 executable through the same typed CLI bridge. A workflow shaped as
 `read_csv(...).select(...).limit(...)`, with an optional `filter(...)`, lowers
 to ShardLoom's `sql-local-source-smoke` path, runs ShardLoom-owned
@@ -370,7 +371,12 @@ Parquet adapter blocker. `read_arrow_ipc(...)` admits the same scoped shape for
 local flat scalar `.arrow`, `.ipc`, or `.feather` files under the same feature
 gate; default binaries return an explicit Arrow IPC adapter blocker. This is a
 file-backed local source adapter, not an in-memory Arrow table fallback,
-zero-copy Arrow runtime, or Arrow IPC output surface. Filters admit scoped comparison,
+zero-copy Arrow runtime, or Arrow IPC output surface. `read_avro(...)` and
+`read_orc(...)` admit the same scoped shape for local flat scalar `.avro` and
+`.orc` files under the same feature gate; default binaries return explicit Avro
+or ORC adapter blockers. These are decoded local file smoke adapters, not Avro
+schema-evolution support, ORC stripe/statistics runtime support, or Avro/ORC
+output surfaces. Filters admit scoped comparison,
 cast, date-literal, scoped UTC `TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z'` literals,
 Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
 `DATE_DAY(...)`, UTC timestamp extract predicates with
@@ -392,11 +398,11 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons into the same
 ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed literal `with_column(...)` is also admitted after an explicit `select(...)` for local
-CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC projection/filter/limit workflows. The first slice accepts only
+CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC projection/filter/limit workflows. The first slice accepts only
 deterministic `lit(...)` values or direct bool/int/float literals, emits literal-projection
 evidence, and blocks non-literal expressions before fallback.
 CSV, local flat
-JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC are admitted for scoped scalar aggregates shaped as
+JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
 `MIN`, and `MAX`. The convenience `count()` method lowers to the same
 `COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. One-column grouped aggregates shaped as
@@ -581,13 +587,13 @@ print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 ```
 
 This is a fixture-smoke local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar
-Parquet/Arrow IPC bridge for the scoped
+Parquet/Arrow IPC/Avro/ORC bridge for the scoped
 projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
 preview/head/take select-star, input-backed literal `with_column`, and single-key numeric top-N shapes.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 non-literal `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON,
-broader Parquet/Arrow IPC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
+broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
 The Python query builder admits one local CSV inner equi-join shape through the
@@ -751,7 +757,7 @@ print(join.claim_boundary)
 ```
 
 This matrix is mostly report-only, with the scoped local CSV `collect` and
-`write` rows plus the flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC
+`write` rows plus the flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
 projection/optional-filter/limit bridges marked as
 fixture-smoke-supported only for the admitted projection/optional-filter/limit,
 preview/select-star, scalar aggregate, and one-column grouped aggregate shapes described above.

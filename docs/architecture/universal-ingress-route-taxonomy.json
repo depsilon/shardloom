@@ -212,9 +212,9 @@
       ],
       "source_kind": "non_vortex_source",
       "universal_ingress_status": "smoke_supported",
-      "source_adapter_id": "avro_input_adapter",
+      "source_adapter_id": "local_avro_input_adapter",
       "source_adapter_status": "smoke_supported",
-      "source_adapter_blocker_id": "gar-compat-1a.avro.logical_type_evidence_missing",
+      "source_adapter_blocker_id": "gar-runtime-impl-4f.avro.broader_runtime_evidence_missing",
       "ingress_route": "vortex_ingest",
       "ingress_route_label": "Vortex ingest / prepare once route",
       "ingress_certification_level": "source_state_required",
@@ -230,7 +230,7 @@
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "Scoped compatibility import evidence only; no native Avro execution claim."
+      "claim_boundary": "Feature-gated flat scalar local Avro source smoke only; no schema-evolution, logical-type completeness, Avro output, or production claim."
     },
     {
       "source_surface_id": "orc",
@@ -241,9 +241,9 @@
       ],
       "source_kind": "non_vortex_source",
       "universal_ingress_status": "smoke_supported",
-      "source_adapter_id": "orc_input_adapter",
+      "source_adapter_id": "local_orc_input_adapter",
       "source_adapter_status": "smoke_supported",
-      "source_adapter_blocker_id": "gar-compat-1a.orc.statistics_writer_evidence_missing",
+      "source_adapter_blocker_id": "gar-runtime-impl-4f.orc.broader_runtime_evidence_missing",
       "ingress_route": "vortex_ingest",
       "ingress_route_label": "Vortex ingest / prepare once route",
       "ingress_certification_level": "source_state_required",
@@ -259,7 +259,7 @@
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "Scoped compatibility import evidence only; no native ORC execution claim."
+      "claim_boundary": "Feature-gated flat scalar local ORC source smoke only; no stripe/statistics runtime, ORC output, or production claim."
     },
     {
       "source_surface_id": "excel",

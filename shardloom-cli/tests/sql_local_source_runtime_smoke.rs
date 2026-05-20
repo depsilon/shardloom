@@ -198,6 +198,64 @@ fn write_arrow_ipc_smoke_source(path: &std::path::Path) {
     writer.finish().expect("finish arrow ipc writer");
 }
 
+#[cfg(feature = "universal-format-io")]
+fn write_avro_smoke_source(path: &std::path::Path) {
+    use arrow_array::{BooleanArray, Int64Array, RecordBatch, StringArray};
+    use arrow_avro::writer::AvroWriter;
+    use arrow_schema::{DataType, Field, Schema};
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("label", DataType::Utf8, false),
+        Field::new("amount", DataType::Int64, false),
+        Field::new("active", DataType::Boolean, false),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(vec![1, 2, 3, 4])),
+            Arc::new(StringArray::from(vec!["alpha", "beta", "gamma", "delta"])),
+            Arc::new(Int64Array::from(vec![8, 15, 0, 21])),
+            Arc::new(BooleanArray::from(vec![true, false, true, true])),
+        ],
+    )
+    .expect("record batch");
+    let file = File::create(path).expect("create avro source");
+    let mut writer = AvroWriter::new(file, schema.as_ref().clone()).expect("avro writer");
+    writer.write(&batch).expect("write avro batch");
+    writer.finish().expect("finish avro writer");
+}
+
+#[cfg(feature = "universal-format-io")]
+fn write_orc_smoke_source(path: &std::path::Path) {
+    use arrow_array::{BooleanArray, Int64Array, RecordBatch, StringArray};
+    use arrow_schema::{DataType, Field, Schema};
+    use orc_rust::ArrowWriterBuilder;
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("label", DataType::Utf8, false),
+        Field::new("amount", DataType::Int64, false),
+        Field::new("active", DataType::Boolean, false),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(vec![1, 2, 3, 4])),
+            Arc::new(StringArray::from(vec!["alpha", "beta", "gamma", "delta"])),
+            Arc::new(Int64Array::from(vec![8, 15, 0, 21])),
+            Arc::new(BooleanArray::from(vec![true, false, true, true])),
+        ],
+    )
+    .expect("record batch");
+    let file = File::create(path).expect("create orc source");
+    let mut writer = ArrowWriterBuilder::new(file, schema)
+        .try_build()
+        .expect("orc writer");
+    writer.write(&batch).expect("write orc batch");
+    writer.close().expect("close orc writer");
+}
+
 #[test]
 fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback() {
     let source_path = unique_path("sql-local-source", "csv");
@@ -428,6 +486,140 @@ fn sql_local_source_smoke_executes_arrow_ipc_projection_filter_limit_with_source
     fs::remove_file(source_path).expect("remove source arrow ipc");
 }
 
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_executes_avro_projection_filter_limit_with_source_state_evidence() {
+    let source_path = unique_path("sql-local-source", "avro");
+    write_avro_smoke_source(&source_path);
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "avro")));
+    assert!(stdout.contains(&field("source_adapter_id", "local_avro_input_adapter")));
+    assert!(stdout.contains(&field("source_adapter_status", "smoke_supported")));
+    assert!(stdout.contains(&field("ingress_route", "direct_transient")));
+    assert!(stdout.contains(&field(
+        "vortex_ingest_status",
+        "not_performed_direct_transient"
+    )));
+    assert!(stdout.contains(&field(
+        "selected_execution_mode",
+        "direct_compatibility_transient"
+    )));
+    assert!(stdout.contains(&field("timing_scope", "direct_one_shot")));
+    assert!(stdout.contains(&field("input_row_count", "4")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(&field("projected_columns", "id,label")));
+    assert!(stdout.contains(&field(
+        "source_certificate_ref",
+        "sql-local-source.avro.compatibility-source.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "local_avro_row_materialization_to_expression_semantics"
+    )));
+    assert!(stdout.contains(&field("data_decoded", "true")));
+    assert!(stdout.contains(&field("data_materialized", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":4,\\\"label\\\":\\\"delta\\\"}\\n\""
+        )
+    );
+
+    fs::remove_file(source_path).expect("remove source avro");
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_executes_orc_projection_filter_limit_with_source_state_evidence() {
+    let source_path = unique_path("sql-local-source", "orc");
+    write_orc_smoke_source(&source_path);
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "orc")));
+    assert!(stdout.contains(&field("source_adapter_id", "local_orc_input_adapter")));
+    assert!(stdout.contains(&field("source_adapter_status", "smoke_supported")));
+    assert!(stdout.contains(&field("ingress_route", "direct_transient")));
+    assert!(stdout.contains(&field(
+        "vortex_ingest_status",
+        "not_performed_direct_transient"
+    )));
+    assert!(stdout.contains(&field(
+        "selected_execution_mode",
+        "direct_compatibility_transient"
+    )));
+    assert!(stdout.contains(&field("timing_scope", "direct_one_shot")));
+    assert!(stdout.contains(&field("input_row_count", "4")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(&field("projected_columns", "id,label")));
+    assert!(stdout.contains(&field(
+        "source_certificate_ref",
+        "sql-local-source.orc.compatibility-source.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "local_orc_row_materialization_to_expression_semantics"
+    )));
+    assert!(stdout.contains(&field("data_decoded", "true")));
+    assert!(stdout.contains(&field("data_materialized", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":4,\\\"label\\\":\\\"delta\\\"}\\n\""
+        )
+    );
+
+    fs::remove_file(source_path).expect("remove source orc");
+}
+
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
 fn sql_local_source_smoke_blocks_parquet_without_universal_format_feature() {
@@ -479,6 +671,58 @@ fn sql_local_source_smoke_blocks_arrow_ipc_without_universal_format_feature() {
     assert!(stdout.contains("external_engine_invoked=false"));
 
     fs::remove_file(source_path).expect("remove source arrow ipc");
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+#[test]
+fn sql_local_source_smoke_blocks_avro_without_universal_format_feature() {
+    let source_path = unique_path("sql-local-source-blocked", "avro");
+    fs::write(&source_path, b"not a real avro file").expect("write source avro placeholder");
+
+    let statement = format!("SELECT id FROM '{}' LIMIT 1", source_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("requires building shardloom-cli with --features universal-format-io"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source avro");
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+#[test]
+fn sql_local_source_smoke_blocks_orc_without_universal_format_feature() {
+    let source_path = unique_path("sql-local-source-blocked", "orc");
+    fs::write(&source_path, b"not a real orc file").expect("write source orc placeholder");
+
+    let statement = format!("SELECT id FROM '{}' LIMIT 1", source_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("requires building shardloom-cli with --features universal-format-io"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source orc");
 }
 
 #[test]
@@ -2626,7 +2870,7 @@ fn sql_local_source_smoke_blocks_remote_sources_before_execution() {
     assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(stdout.contains(
-        "local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC file paths only"
+        "local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC file paths only"
     ));
     assert!(stdout.contains("no fallback execution was attempted"));
     assert!(stdout.contains("\"attempted\":false"));
