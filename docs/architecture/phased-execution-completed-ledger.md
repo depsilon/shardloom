@@ -16,6 +16,44 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F0 UniversalIngress and vortex_ingest route taxonomy
+  - Branch/PR: `codex/close-universal-ingress-route-taxonomy` / #818.
+  - Primary files:
+    - `docs/architecture/universal-ingress-route-taxonomy.md`
+    - `docs/architecture/universal-ingress-route-taxonomy.json`
+    - `scripts/check_universal_ingress_routes.py`
+    - `website/build_static_pages.py`
+    - `website/status.html`
+    - `website/benchmarks.html`
+    - `website/compute-engine-flow.html`
+    - `docs/architecture/phased-execution-plan.md`
+  - Scope: close the already-landed route-taxonomy prerequisite out of the live planned queue.
+  - Runtime-safety behavior:
+    - `prepared_vortex` is canonicalized as execution from `VortexPreparedState`, not direct
+      non-Vortex input.
+    - Non-Vortex inputs are projected through `UniversalIngress/InputAdapter -> SourceState ->
+      vortex_ingest -> VortexPreparedState` before prepared execution.
+    - `compatibility_import_certified` is framed as the certified cold route over the same source
+      universe, with unsupported sources represented as deterministic blockers.
+  - Validator:
+    - `scripts/check_universal_ingress_routes.py` validates the machine-readable taxonomy, required
+      source aliases, direct-source prohibition for `prepared_vortex`, prepared-state requirement,
+      route statuses/blockers, timing scopes, and no-fallback/no-external-engine fields.
+  - Public wording:
+    - Website status, benchmarks, and compute-flow pages distinguish certified cold route, prepared
+      warm route, existing Vortex route, generated-source route, and direct one-shot route.
+  - Verification:
+    - `python scripts/check_universal_ingress_routes.py`
+    - `python scripts/check_website_readiness.py`
+    - `python -m compileall -q scripts`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Claim boundary: route taxonomy and validators only. Recognizing a source surface does not mean
+    runtime support, object-store/table/Foundry support, package publication, performance claim, or
+    Spark-displacement claim.
+  - Fallback boundary: taxonomy rows preserve `fallback_attempted=false` and
+    `external_engine_invoked=false`; no route delegates to external engines.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D Date32 extract predicate runtime slice
   - Branch/PR: `codex/runtime-date-extract-predicates` / #817.
   - Primary files:
