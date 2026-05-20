@@ -1952,6 +1952,97 @@ fn sql_local_source_smoke_executes_string_transform_predicates_without_fallback(
 }
 
 #[test]
+fn sql_local_source_smoke_executes_numeric_arithmetic_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-numeric-arithmetic", "csv");
+    fs::write(
+        &source_path,
+        "id,amount,ratio\n1,8,0.25\n2,15,0.5\n3,21,0.75\n4,,1.25\n",
+    )
+    .expect("write source csv");
+
+    let add_statement = format!(
+        "SELECT id,amount FROM '{}' WHERE amount + 5 >= 20 LIMIT 10",
+        source_path.display()
+    );
+    let add_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &add_statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        add_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&add_output.stdout),
+        String::from_utf8_lossy(&add_output.stderr)
+    );
+    let stdout = String::from_utf8(add_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "numeric_arithmetic")));
+    assert!(stdout.contains(&field("numeric_arithmetic_runtime_execution", "true")));
+    assert!(stdout.contains(&field("numeric_arithmetic_operator", "add")));
+    assert!(stdout.contains(&field("numeric_arithmetic_source_column", "amount")));
+    assert!(stdout.contains(&field("numeric_arithmetic_rhs_dtype", "int64")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"amount\\\":15}\\n{\\\"id\\\":3,\\\"amount\\\":21}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    let float_statement = format!(
+        "SELECT id,ratio FROM '{}' WHERE ratio * 2.0 > 1.0 LIMIT 10",
+        source_path.display()
+    );
+    let float_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &float_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        float_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&float_output.stdout),
+        String::from_utf8_lossy(&float_output.stderr)
+    );
+    let stdout = String::from_utf8(float_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("numeric_arithmetic_operator", "multiply")));
+    assert!(stdout.contains(&field("numeric_arithmetic_rhs_dtype", "float64")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":3,\\\"ratio\\\":0.75}\\n{\\\"id\\\":4,\\\"ratio\\\":1.25}\\n\""
+    ));
+
+    let divide_by_zero_statement = format!(
+        "SELECT id FROM '{}' WHERE amount / 0 >= 1 LIMIT 10",
+        source_path.display()
+    );
+    let divide_by_zero_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &divide_by_zero_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!divide_by_zero_output.status.success());
+    let output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&divide_by_zero_output.stdout),
+        String::from_utf8_lossy(&divide_by_zero_output.stderr)
+    );
+    assert!(output.contains("numeric arithmetic division by zero is not admitted"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_in_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-in-predicate", "csv");
     fs::write(
