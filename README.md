@@ -1,8 +1,11 @@
 # ShardLoom
 
 Website: [shardloom.io](https://shardloom.io) (pre-release, claim-safe static site deployed from
-`website/`). The public site is intentionally small: a light-mode overview, benchmark evidence, a
-human-readable compute-flow translation, and a GitHub repository link.
+`website/`). The current public site is a compact light-mode surface with overview, benchmark
+evidence, compute-flow translation, and a GitHub repository link. A fuller light-mode product/docs
+rebuild is planned under `GAR-WEB-REDESIGN-2`, using the transparent ShardLoom logo on light
+surfaces, a route/evidence console, Field Guide, use-case browser, status matrix, and benchmark
+dashboard while preserving the same claim boundaries.
 
 Public technical-preview posture: ShardLoom is a pre-release, Vortex-first, no-fallback local
 compute engine foundation with evidence-certified local execution slices. It is an independent

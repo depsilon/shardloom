@@ -1093,7 +1093,9 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
 
     let website_readme = read_repo_file("website/README.md");
     for required in [
-        "intentionally small",
+        "compact and light-mode",
+        "GAR-WEB-REDESIGN-2",
+        "transparent ShardLoom logo on light surfaces",
         "`/`: concise overview",
         "`/benchmarks`: committed benchmark artifact interpretation",
         "`/compute-engine-flow`: human-readable route translation",
@@ -1101,7 +1103,7 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
     ] {
         assert!(
             website_readme.contains(required),
-            "missing minimal website README field {required}"
+            "missing website README posture field {required}"
         );
     }
 
