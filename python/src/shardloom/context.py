@@ -729,9 +729,9 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "Scoped local-source SQL query-builder fanout smoke for admitted local JSONL/CSV "
-            "and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC output targets only; "
-            "no Vortex-native output fanout, replay/fidelity proof, object-store/table sink, "
-            "external engine, fallback, or production claim."
+            "and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC/Vortex output targets "
+            "only; no replay/fidelity proof, object-store/table sink, external engine, fallback, "
+            "or production claim."
         ),
     ),
     _df_method(
@@ -861,12 +861,22 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "write_vortex",
         "write",
-        "unsupported_write_diagnostic",
-        diagnostic_operation="write-vortex",
-        blocker_id="cg21.workflow.write_vortex.write_policy_unsupported",
-        required_evidence=("sink_write_evidence", "native_io_certificate", "commit_evidence"),
-        write_io=False,
-        claim_boundary=_WRITE_BOUNDARY,
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "feature_gated_local_vortex_output",
+            "output_native_io_certificate",
+            "upstream_vortex_write_called",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Feature-gated flat scalar local Vortex output smoke for admitted local-source "
+            "query-builder workflows only; no broad Vortex writer, object-store/table commit, "
+            "external engine, fallback, fanout claim beyond scoped local smoke, or production claim."
+        ),
     ),
     _df_method(
         "write_parquet",

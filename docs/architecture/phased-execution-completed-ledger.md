@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4G scoped local-source Vortex output and fanout sink
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-local-source-vortex-output-4g` / #860.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`
+    - Vortex native output contract
+    - Output and fanout use-case boundary
+  - Scope:
+    - Admitted `--output-format vortex` for `sql-local-source-smoke` primary local output.
+    - Admitted `--fanout-output vortex=<local.vortex>` for scoped local-source SQL/Python fanout.
+    - Added Python local-source query-builder `write_vortex(...)` runtime admission for workflows
+      that already lower into `sql-local-source-smoke`.
+    - Kept default builds deterministic and claim-safe: local-source Vortex output requests fail
+      before any partial writes unless `shardloom-cli` is built with `--features vortex-write`.
+  - Evidence:
+    - Vortex local-source output rows emit `output_format=vortex`,
+      `output_native_io_certificate_status=certified_local_vortex_sink`,
+      `vortex_output_runtime_execution=true`, `vortex_output_reopen_verified=true`,
+      `vortex_artifact_digest`, Vortex output row/column counts, Vortex writer/digest/reopen
+      timing fields, `upstream_vortex_write_called=true`, `upstream_vortex_scan_called=true`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Vortex fanout rows preserve per-output fanout digest/certificate fields and aggregate Vortex
+      artifact/reopen evidence without treating output export as compute fallback.
+  - Vortex-first provider check:
+    - Subject area: local-source SQL/Python Vortex output and fanout.
+    - Upstream Vortex concept checked: existing local Vortex writer/open/scan APIs through
+      `shardloom-vortex::write_flat_scalar_vortex_prepared_state`.
+    - Decision: `use_vortex_native_provider` through the existing ShardLoom wrapper.
+    - Residual handling: unsupported value families, non-local/object-store targets, non-`.vortex`
+      targets, and default-build Vortex writes block deterministically; no external residual
+      executor is invoked.
+    - Materialization/decode boundary: current local-source SQL rows are already decoded/materialized
+      for scoped expression smokes before export; this is a local output sink, not encoded query
+      execution, table commit, or broad Vortex writer support.
+  - Verification:
+    - `cargo test -p shardloom-cli sql_local_source_smoke_blocks_vortex -- --nocapture`
+    - `cargo test -p shardloom-cli --features vortex-write sql_local_source_smoke_writes_local_vortex -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_vortex_invokes_sql_smoke_output`
+  - Claim boundary:
+    - Scoped local flat scalar SQL/Python local-source Vortex output and fanout only. This does not
+      claim broad Vortex writer support, encoded query output, object-store/table sink,
+      claim-grade replay/fidelity, performance, production SQL/DataFrame support, or package
+      publication.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, pandas, Dask, Ray, database, warehouse, or Vortex
+      query-engine fallback is used.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E scoped generated-source Vortex output sink
   - Date: 2026-05-20
   - Branch/PR: `runtime-generated-vortex-output-4e` / #859.
@@ -58,8 +105,8 @@ phase plan first.
     - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_generated_source_write_vortex_invokes_vortex_sink_and_exposes_evidence`
   - Claim boundary:
     - Scoped local flat scalar generated-source Vortex output only. This does not claim a broad
-      Vortex writer, local-source Vortex output, object-store/table sink, production SQL/DataFrame
-      support, performance, or package publication.
+      Vortex writer, object-store/table sink, production SQL/DataFrame support, performance, or
+      package publication.
   - Fallback boundary:
     - No Spark, DataFusion, DuckDB, Polars, pandas, or Vortex query-engine integration is used.
 

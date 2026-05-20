@@ -1012,9 +1012,10 @@ class SqlWorkflow:
     ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="vortex")`.
 
-        Source-free SQL can route through the generated-source Vortex sink when
-        the CLI is built with `--features vortex-write`. Local-source SQL keeps
-        its own deterministic sink support/blocker behavior.
+        Source-free SQL can route through the generated-source Vortex sink, and
+        local-source SQL can route through the scoped local-source Vortex sink,
+        when the CLI is built with `--features vortex-write`. Default binaries
+        return deterministic Vortex sink blockers.
         """
 
         return self.write(
@@ -1497,11 +1498,23 @@ class LazyFrame:
         self,
         target_uri: str | os.PathLike[str],
         *,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for native Vortex workflow writes."""
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Write an admitted local source result to a scoped local Vortex sink.
 
-        return self._unsupported_operation("write-vortex", str(target_uri), check=check)
+        The CLI must be built with `--features vortex-write`; default binaries
+        return ShardLoom's deterministic Vortex sink blocker.
+        """
+
+        if self._sql_local_source_statement() is None:
+            return self._unsupported_operation("write-vortex", str(target_uri), check=check)
+        return self.write(
+            target_uri,
+            output_format="vortex",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
 
     def sql(
         self,

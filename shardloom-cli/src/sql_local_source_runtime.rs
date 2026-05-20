@@ -7,7 +7,8 @@
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
 //! `Polars`, `pandas`, object stores, catalogs, or Vortex query-engine
-//! integrations.
+//! integrations. Local Vortex output is a scoped writer sink behind
+//! `vortex-write`, not a Vortex query-engine integration or table commit.
 
 use std::{
     cmp::Ordering,
@@ -42,6 +43,7 @@ const ARROW_IPC_OUTPUT_CERTIFICATE_ID: &str =
     "sql-local-source.local-arrow-ipc-output.native-io.v1";
 const AVRO_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-avro-output.native-io.v1";
 const ORC_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-orc-output.native-io.v1";
+const VORTEX_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-vortex-output.native-io.v1";
 const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
 const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
@@ -67,9 +69,17 @@ struct SqlLocalSourceOutputTarget {
 struct SqlRenderedOutput {
     format: SqlLocalSourceOutputFormat,
     path: PathBuf,
-    content: Vec<u8>,
-    digest: String,
-    bytes: u64,
+    payload: SqlOutputPayload,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum SqlOutputPayload {
+    Bytes {
+        content: Vec<u8>,
+        digest: String,
+        bytes: u64,
+    },
+    Vortex,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,6 +89,7 @@ struct SqlWrittenOutput {
     digest: String,
     bytes: u64,
     write_millis: u128,
+    vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,6 +100,7 @@ enum SqlLocalSourceOutputFormat {
     ArrowIpc,
     Avro,
     Orc,
+    Vortex,
 }
 
 impl SqlLocalSourceOutputFormat {
@@ -100,8 +112,9 @@ impl SqlLocalSourceOutputFormat {
             "arrow" | "arrow-ipc" | "arrow_ipc" | "ipc" | "feather" => Ok(Self::ArrowIpc),
             "avro" => Ok(Self::Avro),
             "orc" => Ok(Self::Orc),
+            "vortex" | "vtx" => Ok(Self::Vortex),
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported SQL local-source output format {other:?}; scoped local SQL supports local JSONL, CSV, and feature-gated Parquet/Arrow IPC/Avro/ORC only"
+                "unsupported SQL local-source output format {other:?}; scoped local SQL supports local JSONL, CSV, and feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex only"
             ))),
         }
     }
@@ -114,6 +127,7 @@ impl SqlLocalSourceOutputFormat {
             Self::ArrowIpc => "arrow_ipc",
             Self::Avro => "avro",
             Self::Orc => "orc",
+            Self::Vortex => "vortex",
         }
     }
 
@@ -125,6 +139,7 @@ impl SqlLocalSourceOutputFormat {
             Self::ArrowIpc => "arrow_ipc",
             Self::Avro => "avro",
             Self::Orc => "orc",
+            Self::Vortex => "vortex",
         }
     }
 
@@ -136,6 +151,7 @@ impl SqlLocalSourceOutputFormat {
             Self::ArrowIpc => "certified_local_arrow_ipc_sink",
             Self::Avro => "certified_local_avro_sink",
             Self::Orc => "certified_local_orc_sink",
+            Self::Vortex => "certified_local_vortex_sink",
         }
     }
 
@@ -147,6 +163,7 @@ impl SqlLocalSourceOutputFormat {
             Self::ArrowIpc => ARROW_IPC_OUTPUT_CERTIFICATE_ID,
             Self::Avro => AVRO_OUTPUT_CERTIFICATE_ID,
             Self::Orc => ORC_OUTPUT_CERTIFICATE_ID,
+            Self::Vortex => VORTEX_OUTPUT_CERTIFICATE_ID,
         }
     }
 
@@ -162,6 +179,21 @@ impl SqlLocalSourceOutputFormat {
             Self::ArrowIpc => encode_arrow_ipc_output_rows(columns, rows),
             Self::Avro => encode_avro_output_rows(columns, rows),
             Self::Orc => encode_orc_output_rows(columns, rows),
+            Self::Vortex => Err(unsupported_sql_error(
+                "local Vortex SQL output uses the Vortex writer path, not byte rendering",
+            )),
+        }
+    }
+
+    fn inline_result_rows(
+        self,
+        columns: &[String],
+        rows: &[Vec<(String, ScalarValue)>],
+    ) -> Result<Vec<u8>, ShardLoomError> {
+        if matches!(self, Self::Vortex) {
+            Ok(rows_to_jsonl(rows).into_bytes())
+        } else {
+            self.render_rows(columns, rows)
         }
     }
 }
@@ -828,7 +860,7 @@ pub(crate) fn handle_sql_local_source_smoke(
 ) -> ExitCode {
     let Some(statement_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl|csv|parquet|arrow-ipc|avro|orc] [--output local.jsonl|local.csv|local.parquet|local.arrow|local.avro|local.orc] [--fanout-output format=local-path]... [--allow-overwrite] [--format text|json]"
+            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--output local.jsonl|local.csv|local.parquet|local.arrow|local.avro|local.orc|local.vortex] [--fanout-output format=local-path]... [--allow-overwrite] [--format text|json]"
         );
         return ExitCode::from(2);
     };
@@ -1022,10 +1054,11 @@ fn validate_sql_local_source_output_request(
                 | SqlLocalSourceOutputFormat::ArrowIpc
                 | SqlLocalSourceOutputFormat::Avro
                 | SqlLocalSourceOutputFormat::Orc
+                | SqlLocalSourceOutputFormat::Vortex
         )
     {
         return Err(ShardLoomError::InvalidOperation(
-            "SQL local-source CSV, Parquet, Arrow IPC, Avro, or ORC output requires --output <local path>".to_string(),
+            "SQL local-source CSV, Parquet, Arrow IPC, Avro, ORC, or Vortex output requires --output <local path>".to_string(),
         ));
     }
     let mut paths = BTreeSet::new();
@@ -1626,11 +1659,11 @@ fn run_sql_local_source_smoke(
     let output_columns = output_column_names(&parsed, &source);
     let result_jsonl = rows_to_jsonl(&output_rows);
     let result_digest = fnv64_digest(&result_jsonl);
-    let output_bytes_content = request
+    let inline_output_content = request
         .output_format
-        .render_rows(&output_columns, &output_rows)?;
-    let output_digest = fnv64_digest_bytes(&output_bytes_content);
-    let fanout_outputs = render_sql_fanout_outputs(request, &output_columns, &output_rows)?;
+        .inline_result_rows(&output_columns, &output_rows)?;
+    let inline_output_digest = fnv64_digest_bytes(&inline_output_content);
+    let prepared_outputs = prepare_sql_outputs(request, &output_columns, &output_rows)?;
     let source_schema_digest = fnv64_digest(&source.header.join(","));
     let plan_digest = fnv64_digest(&format!(
         "{}|{}|{}|{}|{}|{}",
@@ -1644,17 +1677,24 @@ fn run_sql_local_source_smoke(
         fanout_plan_digest_fragment(request)
     ));
     let evidence_render_millis = evidence_start.elapsed().as_millis();
-    let output_bytes = u64::try_from(output_bytes_content.len()).unwrap_or(u64::MAX);
+    let inline_output_bytes = u64::try_from(inline_output_content.len()).unwrap_or(u64::MAX);
     preflight_sql_output_writes(request)?;
-    let (_primary_write_millis, mut written_outputs) =
-        write_optional_sql_output(request, &output_bytes_content, &output_digest, output_bytes)?;
-    for rendered in fanout_outputs {
-        written_outputs.push(write_sql_output(rendered, request.allow_overwrite)?);
-    }
+    let written_outputs = write_sql_outputs(
+        prepared_outputs,
+        &output_columns,
+        &output_rows,
+        request.allow_overwrite,
+    )?;
     let output_write_millis = written_outputs
         .iter()
         .map(|output| output.write_millis)
         .sum::<u128>();
+    let (output_digest, output_bytes) = primary_output_evidence(
+        request,
+        &written_outputs,
+        &inline_output_digest,
+        inline_output_bytes,
+    );
 
     Ok(SqlLocalSourceReport {
         request: request.clone(),
@@ -3069,27 +3109,54 @@ fn usize_to_f64(value: usize) -> f64 {
         .expect("usize decimal text parses as finite f64")
 }
 
-fn render_sql_fanout_outputs(
+fn prepare_sql_outputs(
     request: &SqlLocalSourceRequest,
     columns: &[String],
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<Vec<SqlRenderedOutput>, ShardLoomError> {
-    request
-        .fanout_outputs
-        .iter()
-        .map(|target| {
-            let content = target.format.render_rows(columns, rows)?;
-            let digest = fnv64_digest_bytes(&content);
-            let bytes = u64::try_from(content.len()).unwrap_or(u64::MAX);
-            Ok(SqlRenderedOutput {
-                format: target.format,
-                path: target.path.clone(),
-                content,
-                digest,
-                bytes,
-            })
-        })
-        .collect()
+    let mut prepared = Vec::new();
+    if let Some(output_path) = request.output_path.as_ref() {
+        prepared.push(prepare_sql_output(
+            request.output_format,
+            output_path.clone(),
+            columns,
+            rows,
+        )?);
+    }
+    prepared.extend(
+        request
+            .fanout_outputs
+            .iter()
+            .map(|target| prepare_sql_output(target.format, target.path.clone(), columns, rows))
+            .collect::<Result<Vec<_>, _>>()?,
+    );
+    Ok(prepared)
+}
+
+fn prepare_sql_output(
+    format: SqlLocalSourceOutputFormat,
+    path: PathBuf,
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<SqlRenderedOutput, ShardLoomError> {
+    let payload = if matches!(format, SqlLocalSourceOutputFormat::Vortex) {
+        validate_sql_vortex_output_plan(&path)?;
+        SqlOutputPayload::Vortex
+    } else {
+        let content = format.render_rows(columns, rows)?;
+        let digest = fnv64_digest_bytes(&content);
+        let bytes = u64::try_from(content.len()).unwrap_or(u64::MAX);
+        SqlOutputPayload::Bytes {
+            content,
+            digest,
+            bytes,
+        }
+    };
+    Ok(SqlRenderedOutput {
+        format,
+        path,
+        payload,
+    })
 }
 
 fn fanout_plan_digest_fragment(request: &SqlLocalSourceRequest) -> String {
@@ -3120,28 +3187,40 @@ fn preflight_sql_output_writes(request: &SqlLocalSourceRequest) -> Result<(), Sh
     Ok(())
 }
 
-fn write_optional_sql_output(
+fn primary_output_evidence(
     request: &SqlLocalSourceRequest,
-    output_content: &[u8],
-    output_digest: &str,
-    output_bytes: u64,
-) -> Result<(u128, Vec<SqlWrittenOutput>), ShardLoomError> {
-    let Some(output_path) = request.output_path.as_ref() else {
-        return Ok((0, Vec::new()));
+    written_outputs: &[SqlWrittenOutput],
+    inline_output_digest: &str,
+    inline_output_bytes: u64,
+) -> (String, u64) {
+    let Some(primary_path) = request.output_path.as_ref() else {
+        return (inline_output_digest.to_string(), inline_output_bytes);
     };
-    let rendered = SqlRenderedOutput {
-        format: request.output_format,
-        path: output_path.clone(),
-        content: output_content.to_vec(),
-        digest: output_digest.to_string(),
-        bytes: output_bytes,
-    };
-    let written = write_sql_output(rendered, request.allow_overwrite)?;
-    Ok((written.write_millis, vec![written]))
+    written_outputs
+        .iter()
+        .find(|output| &output.path == primary_path)
+        .map_or_else(
+            || (inline_output_digest.to_string(), inline_output_bytes),
+            |output| (output.digest.clone(), output.bytes),
+        )
+}
+
+fn write_sql_outputs(
+    rendered_outputs: Vec<SqlRenderedOutput>,
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+    allow_overwrite: bool,
+) -> Result<Vec<SqlWrittenOutput>, ShardLoomError> {
+    rendered_outputs
+        .into_iter()
+        .map(|rendered| write_sql_output(rendered, columns, rows, allow_overwrite))
+        .collect()
 }
 
 fn write_sql_output(
     rendered: SqlRenderedOutput,
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
     allow_overwrite: bool,
 ) -> Result<SqlWrittenOutput, ShardLoomError> {
     if rendered.path.exists() && !allow_overwrite {
@@ -3160,19 +3239,60 @@ fn write_sql_output(
             })?;
         }
     }
-    let write_start = Instant::now();
-    fs::write(&rendered.path, &rendered.content).map_err(|error| {
-        ShardLoomError::Message(format!(
-            "failed to write local SQL output {}: {error}",
-            rendered.path.display()
-        ))
-    })?;
+    match rendered.payload {
+        SqlOutputPayload::Bytes {
+            content,
+            digest,
+            bytes,
+        } => {
+            let write_start = Instant::now();
+            fs::write(&rendered.path, &content).map_err(|error| {
+                ShardLoomError::Message(format!(
+                    "failed to write local SQL output {}: {error}",
+                    rendered.path.display()
+                ))
+            })?;
+            Ok(SqlWrittenOutput {
+                format: rendered.format,
+                path: rendered.path,
+                digest,
+                bytes,
+                write_millis: write_start.elapsed().as_millis(),
+                vortex_report: None,
+            })
+        }
+        SqlOutputPayload::Vortex => write_sql_vortex_output(
+            rendered.format,
+            rendered.path,
+            columns,
+            rows,
+            allow_overwrite,
+        ),
+    }
+}
+
+fn write_sql_vortex_output(
+    format: SqlLocalSourceOutputFormat,
+    path: PathBuf,
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+    allow_overwrite: bool,
+) -> Result<SqlWrittenOutput, ShardLoomError> {
+    let request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
+        &path,
+        columns.to_vec(),
+        rows.to_vec(),
+    )
+    .allow_overwrite(allow_overwrite);
+    let report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(request)?;
+    let write_millis = report.write_micros / 1_000;
     Ok(SqlWrittenOutput {
-        format: rendered.format,
-        path: rendered.path,
-        digest: rendered.digest,
-        bytes: rendered.bytes,
-        write_millis: write_start.elapsed().as_millis(),
+        format,
+        path,
+        digest: report.artifact_digest.clone(),
+        bytes: report.bytes_written,
+        write_millis,
+        vortex_report: Some(report),
     })
 }
 
@@ -7132,6 +7252,92 @@ impl SqlLocalSourceReport {
                 self.fanout_output_write_millis().to_string(),
             ),
             (
+                "vortex_output_runtime_execution".to_string(),
+                self.vortex_output_runtime_execution().to_string(),
+            ),
+            (
+                "vortex_output_count".to_string(),
+                self.vortex_output_count().to_string(),
+            ),
+            (
+                "vortex_output_paths".to_string(),
+                self.vortex_output_paths(),
+            ),
+            (
+                "vortex_output_digests".to_string(),
+                self.vortex_output_digests(),
+            ),
+            (
+                "vortex_artifact_digest".to_string(),
+                self.primary_vortex_artifact_digest(),
+            ),
+            (
+                "vortex_output_reopen_verified".to_string(),
+                self.vortex_output_reopen_verified().to_string(),
+            ),
+            (
+                "vortex_output_row_count".to_string(),
+                self.primary_vortex_row_count().to_string(),
+            ),
+            (
+                "vortex_output_row_counts".to_string(),
+                self.vortex_output_row_counts(),
+            ),
+            (
+                "vortex_output_column_count".to_string(),
+                self.primary_vortex_column_count().to_string(),
+            ),
+            (
+                "vortex_output_column_counts".to_string(),
+                self.vortex_output_column_counts(),
+            ),
+            (
+                "vortex_output_column_families".to_string(),
+                self.vortex_output_column_families(),
+            ),
+            (
+                "vortex_artifact_bytes".to_string(),
+                self.vortex_output_artifact_bytes(),
+            ),
+            (
+                "vortex_write_millis".to_string(),
+                self.vortex_write_millis().to_string(),
+            ),
+            (
+                "vortex_digest_millis".to_string(),
+                self.vortex_digest_millis().to_string(),
+            ),
+            (
+                "vortex_reopen_verify_millis".to_string(),
+                self.vortex_reopen_verify_millis().to_string(),
+            ),
+            (
+                "vortex_output_timing_scope".to_string(),
+                if self.vortex_output_runtime_execution() {
+                    "local_sql_output_write"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "vortex_output_certification_level".to_string(),
+                if self.vortex_output_runtime_execution() {
+                    "local_reopen_row_count_proof"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "upstream_vortex_write_called".to_string(),
+                self.vortex_output_runtime_execution().to_string(),
+            ),
+            (
+                "upstream_vortex_scan_called".to_string(),
+                self.vortex_output_reopen_verified().to_string(),
+            ),
+            (
                 "source_read_millis".to_string(),
                 self.source.read_millis.to_string(),
             ),
@@ -7391,6 +7597,121 @@ impl SqlLocalSourceReport {
     fn fanout_output_write_millis(&self) -> u128 {
         self.fanout_written_outputs()
             .map(|output| output.write_millis)
+            .sum()
+    }
+
+    fn vortex_written_outputs(&self) -> impl Iterator<Item = &SqlWrittenOutput> {
+        self.written_outputs
+            .iter()
+            .filter(|output| matches!(output.format, SqlLocalSourceOutputFormat::Vortex))
+    }
+
+    fn vortex_output_runtime_execution(&self) -> bool {
+        self.vortex_written_outputs().next().is_some()
+    }
+
+    fn vortex_output_count(&self) -> usize {
+        self.vortex_written_outputs().count()
+    }
+
+    fn vortex_output_paths(&self) -> String {
+        csv_or_not_applicable(
+            self.vortex_written_outputs()
+                .map(|output| output.path.display().to_string()),
+        )
+    }
+
+    fn vortex_output_digests(&self) -> String {
+        csv_or_not_applicable(
+            self.vortex_written_outputs()
+                .map(|output| output.digest.clone()),
+        )
+    }
+
+    fn primary_vortex_artifact_digest(&self) -> String {
+        self.vortex_written_outputs().next().map_or_else(
+            || "not_applicable".to_string(),
+            |output| output.digest.clone(),
+        )
+    }
+
+    fn vortex_output_reopen_verified(&self) -> bool {
+        self.vortex_written_outputs().any(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .is_some_and(|report| report.upstream_vortex_scan_called)
+        })
+    }
+
+    fn vortex_output_row_counts(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.row_count.to_string())
+        }))
+    }
+
+    fn primary_vortex_row_count(&self) -> u64 {
+        self.vortex_written_outputs()
+            .next()
+            .and_then(|output| output.vortex_report.as_ref())
+            .map_or(0, |report| report.row_count)
+    }
+
+    fn vortex_output_column_counts(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.column_count.to_string())
+        }))
+    }
+
+    fn primary_vortex_column_count(&self) -> usize {
+        self.vortex_written_outputs()
+            .next()
+            .and_then(|output| output.vortex_report.as_ref())
+            .map_or(0, |report| report.column_count)
+    }
+
+    fn vortex_output_column_families(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(shardloom_vortex::VortexPreparedStateWriteReport::column_family_summary)
+        }))
+    }
+
+    fn vortex_output_artifact_bytes(&self) -> String {
+        csv_or_not_applicable(self.vortex_written_outputs().filter_map(|output| {
+            output
+                .vortex_report
+                .as_ref()
+                .map(|report| report.bytes_written.to_string())
+        }))
+    }
+
+    fn vortex_write_millis(&self) -> u128 {
+        self.vortex_written_outputs()
+            .filter_map(|output| output.vortex_report.as_ref())
+            .map(|report| report.write_micros / 1_000)
+            .sum()
+    }
+
+    fn vortex_digest_millis(&self) -> u128 {
+        self.vortex_written_outputs()
+            .filter_map(|output| output.vortex_report.as_ref())
+            .map(|report| report.digest_micros / 1_000)
+            .sum()
+    }
+
+    fn vortex_reopen_verify_millis(&self) -> u128 {
+        self.vortex_written_outputs()
+            .filter_map(|output| output.vortex_report.as_ref())
+            .map(|report| report.reopen_scan_micros / 1_000)
             .sum()
     }
 
@@ -8000,6 +8321,25 @@ fn normalize_local_vortex_ingest_target_path(value: &str) -> Result<PathBuf, Sha
         ));
     }
     Ok(path)
+}
+
+fn validate_sql_vortex_output_plan(path: &Path) -> Result<(), ShardLoomError> {
+    if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
+        return Err(unsupported_sql_error(
+            "local Vortex SQL output runtime requires building shardloom-cli with --features vortex-write; default builds expose Vortex as a deterministic blocked sink",
+        ));
+    }
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    if !extension.eq_ignore_ascii_case("vortex") {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex SQL output writes local .vortex targets only; object-store, table, and non-Vortex sinks remain blocked"
+                .to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn strip_utf8_bom_from_first_header_cell(header: &mut [String]) {
@@ -10755,6 +11095,15 @@ fn csv_escape(value: &str) -> String {
         format!("\"{}\"", value.replace('"', "\"\""))
     } else {
         value.to_string()
+    }
+}
+
+fn csv_or_not_applicable(values: impl Iterator<Item = String>) -> String {
+    let joined = values.collect::<Vec<_>>().join(",");
+    if joined.is_empty() {
+        "not_applicable".to_string()
+    } else {
+        joined
     }
 }
 

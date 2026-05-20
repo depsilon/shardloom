@@ -2074,6 +2074,217 @@ fn sql_local_source_smoke_writes_local_orc_output_with_certificate_fields() {
     );
 }
 
+#[cfg(feature = "vortex-write")]
+#[test]
+fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
+    let source_path = unique_path("sql-local-source-vortex-output", "csv");
+    let output_path = unique_path("sql-local-source-vortex-output", "vortex");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label,amount FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--output",
+            output_path.to_str().expect("utf8 output path"),
+            "--output-format",
+            "vortex",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_path.exists(), "local Vortex output was written");
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("result_format", "inline_jsonl")));
+    assert!(stdout.contains(&field("output_format", "vortex")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("write_io", "true")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_vortex_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "output_certificate_ref",
+        "sql-local-source.local-vortex-output.native-io.v1"
+    )));
+    assert!(stdout.contains(&field("vortex_output_runtime_execution", "true")));
+    assert!(stdout.contains(&field("vortex_output_count", "1")));
+    assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
+    assert!(stdout.contains(&field("vortex_output_row_count", "2")));
+    assert!(stdout.contains(&field("vortex_output_column_count", "3")));
+    assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+    assert!(stdout.contains(&field("object_store_io", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(output_path).expect("remove output vortex");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
+    let source_path = unique_path("sql-local-source-vortex-fanout", "csv");
+    let csv_output_path = unique_path("sql-local-source-vortex-fanout", "csv");
+    let vortex_output_path = unique_path("sql-local-source-vortex-fanout", "vortex");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label,amount FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let csv_target = format!("csv={}", csv_output_path.display());
+    let vortex_target = format!("vortex={}", vortex_output_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--fanout-output",
+            &csv_target,
+            "--fanout-output",
+            &vortex_target,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let csv = fs::read_to_string(&csv_output_path).expect("read csv fanout");
+    assert!(csv.starts_with("id,label,amount\n"));
+    assert!(
+        vortex_output_path.exists(),
+        "local Vortex fanout was written"
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("output_route", "local_fanout")));
+    assert!(stdout.contains(&field("fanout_output_count", "2")));
+    assert!(stdout.contains(&field("fanout_output_formats", "csv,vortex")));
+    assert!(stdout.contains("csv:sql-local-source.csv.local-csv-output.native-io.v1"));
+    assert!(stdout.contains("vortex:sql-local-source.local-vortex-output.native-io.v1"));
+    assert!(stdout.contains("vortex:certified_local_vortex_sink"));
+    assert!(stdout.contains(&field("vortex_output_runtime_execution", "true")));
+    assert!(stdout.contains(&field("vortex_output_count", "1")));
+    assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
+    assert!(stdout.contains(&field("vortex_output_row_count", "2")));
+    assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(csv_output_path).expect("remove csv fanout");
+    fs::remove_file(vortex_output_path).expect("remove vortex fanout");
+}
+
+#[cfg(not(feature = "vortex-write"))]
+#[test]
+fn sql_local_source_smoke_blocks_vortex_output_without_vortex_write_feature() {
+    let source_path = unique_path("sql-local-source-vortex-output-blocked", "csv");
+    let output_path = unique_path("sql-local-source-vortex-output-blocked", "vortex");
+    fs::write(&source_path, "id,label\n1,alpha\n").expect("write source csv");
+
+    let statement = format!("SELECT id,label FROM '{}' LIMIT 1", source_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--output",
+            output_path.to_str().expect("utf8 output path"),
+            "--output-format",
+            "vortex",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("requires building shardloom-cli with --features vortex-write"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(!output_path.exists());
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[cfg(not(feature = "vortex-write"))]
+#[test]
+fn sql_local_source_smoke_blocks_vortex_fanout_without_partial_writes() {
+    let source_path = unique_path("sql-local-source-vortex-fanout-blocked", "csv");
+    let csv_output_path = unique_path("sql-local-source-vortex-fanout-blocked", "csv");
+    let vortex_output_path = unique_path("sql-local-source-vortex-fanout-blocked", "vortex");
+    fs::write(&source_path, "id,label\n1,alpha\n").expect("write source csv");
+
+    let statement = format!("SELECT id,label FROM '{}' LIMIT 1", source_path.display());
+    let csv_target = format!("csv={}", csv_output_path.display());
+    let vortex_target = format!("vortex={}", vortex_output_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--fanout-output",
+            &csv_target,
+            "--fanout-output",
+            &vortex_target,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("requires building shardloom-cli with --features vortex-write"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(!csv_output_path.exists());
+    assert!(!vortex_output_path.exists());
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
 #[cfg(feature = "universal-format-io")]
 #[test]
 fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
@@ -2429,7 +2640,7 @@ fn sql_local_source_smoke_blocks_csv_output_without_local_output_path() {
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"status\":\"error\""));
     assert!(stdout.contains(
-        "SQL local-source CSV, Parquet, Arrow IPC, Avro, or ORC output requires --output <local path>"
+        "SQL local-source CSV, Parquet, Arrow IPC, Avro, ORC, or Vortex output requires --output <local path>"
     ));
     assert!(stdout.contains("\"attempted\":false"));
 

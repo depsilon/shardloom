@@ -2068,7 +2068,6 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("agg", dataframe_methods.unsupported_methods)
         self.assertIn("window", dataframe_methods.unsupported_methods)
         self.assertIn("data_quality", dataframe_methods.unsupported_methods)
-        self.assertIn("write_vortex", dataframe_methods.unsupported_methods)
         self.assertIn("from_pandas", dataframe_methods.unsupported_methods)
         self.assertEqual(
             dataframe_methods.row("read_vortex").support_status,
@@ -2130,12 +2129,19 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(dataframe_methods.row("fanout").runtime_execution)
         self.assertTrue(dataframe_methods.row("fanout").write_io)
         self.assertEqual(
+            dataframe_methods.row("write_vortex").required_evidence,
+            (
+                "sql_local_source_smoke",
+                "feature_gated_local_vortex_output",
+                "output_native_io_certificate",
+                "upstream_vortex_write_called",
+            ),
+        )
+        self.assertTrue(dataframe_methods.row("write_vortex").runtime_execution)
+        self.assertTrue(dataframe_methods.row("write_vortex").write_io)
+        self.assertEqual(
             dataframe_methods.row("join").blocker_id,
             "cg21.workflow.join.operator_unsupported",
-        )
-        self.assertEqual(
-            dataframe_methods.row("write_vortex").required_evidence,
-            ("sink_write_evidence", "native_io_certificate", "commit_evidence"),
         )
         self.assertTrue(dataframe_methods.row("to_pandas").materialization_required)
         self.assertEqual(
