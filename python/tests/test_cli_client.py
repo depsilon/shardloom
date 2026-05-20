@@ -837,6 +837,9 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "input_row_count", "value": "2"},
                         {"key": "writer_row_count", "value": "2"},
                         {"key": "reopen_row_count", "value": "2"},
+                        {"key": "reopen_verification_status", "value": "reopen_row_count_verified"},
+                        {"key": "certification_level", "value": "ingest_certified"},
+                        {"key": "certification_status", "value": "fixture_smoke_certified"},
                         {"key": "source_io_performed", "value": "true"},
                         {"key": "prepared_state_created", "value": "true"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
@@ -865,6 +868,9 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.input_row_count, 2)
         self.assertEqual(result.writer_row_count, 2)
         self.assertEqual(result.reopen_row_count, 2)
+        self.assertEqual(result.reopen_verification_status, "reopen_row_count_verified")
+        self.assertEqual(result.certification_level, "ingest_certified")
+        self.assertEqual(result.certification_status, "fixture_smoke_certified")
         self.assertTrue(result.source_io_performed)
         self.assertTrue(result.prepared_state_created)
         self.assertFalse(result.fallback_attempted)
@@ -880,6 +886,8 @@ class ShardLoomClientTests(unittest.TestCase):
                     "vortex-ingest-smoke",
                     "target/source.csv",
                     "target/source.vortex",
+                    "--certification-level",
+                    "ingest_minimal",
                     "--format",
                     "json",
                 ], sys.argv
@@ -901,10 +909,13 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "vortex_artifact_digest", "value": "fnv64:def"},
                         {"key": "input_row_count", "value": "2"},
                         {"key": "writer_row_count", "value": "2"},
-                        {"key": "reopen_row_count", "value": "2"},
+                        {"key": "reopen_row_count", "value": "0"},
+                        {"key": "reopen_verification_status", "value": "not_performed_ingest_minimal"},
+                        {"key": "certification_level", "value": "ingest_minimal"},
+                        {"key": "certification_status", "value": "minimal_ingest_evidence_reported"},
                         {"key": "source_io_performed", "value": "true"},
                         {"key": "prepared_state_created", "value": "true"},
-                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "claim_gate_status", "value": "not_claim_grade"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ],
@@ -914,10 +925,17 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
 
-        result = ctx.prepare_vortex("target/source.csv", "target/source.vortex")
+        result = ctx.prepare_vortex(
+            "target/source.csv",
+            "target/source.vortex",
+            certification_level="ingest_minimal",
+        )
 
         self.assertEqual(result.envelope.command, "vortex-ingest-smoke")
         self.assertEqual(result.vortex_ingest_status, "prepared_state_created")
+        self.assertEqual(result.reopen_verification_status, "not_performed_ingest_minimal")
+        self.assertEqual(result.certification_level, "ingest_minimal")
+        self.assertEqual(result.claim_gate_status, "not_claim_grade")
 
     def test_capabilities_scope_uses_explicit_scope(self) -> None:
         binary = self.fake_cli(

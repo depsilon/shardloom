@@ -265,7 +265,7 @@ evidence is incomplete. That is a claim/evidence blocker, not a different input 
 Current scoped runtime surface:
 
 ```powershell
-cargo run -q -p shardloom-cli --features vortex-write -- vortex-ingest-smoke <local-source.csv|json|jsonl> <target.vortex> --allow-overwrite --format json
+cargo run -q -p shardloom-cli --features vortex-write -- vortex-ingest-smoke <local-source.csv|json|jsonl> <target.vortex> --allow-overwrite --certification-level ingest_certified --format json
 ```
 
 From Python, the same route is exposed as `ctx.prepare_vortex(...)` and
@@ -273,8 +273,11 @@ From Python, the same route is exposed as `ctx.prepare_vortex(...)` and
 upstream Vortex APIs. Default builds return a deterministic feature-gate blocker with
 `source_io_performed=false`, `vortex_ingest_performed=false`, `prepared_state_created=false`,
 `fallback_attempted=false`, and `external_engine_invoked=false`. The admitted feature-gated path is
-a local flat non-null int/uint/float/UTF-8/date32/timestamp fixture smoke only; it is not broad Vortex writer support, object-store/table
-output support, or a performance claim.
+a local flat non-null int/uint/float/UTF-8/date32/timestamp fixture smoke only. Certification depth
+is explicit: `ingest_minimal` records artifact bytes/digest and writer evidence without reopen
+verification, `ingest_certified` reopens/scans for row-count proof, and `ingest_full_replay` fails
+closed until a workflow supplies downstream output replay evidence. This is not broad Vortex writer
+support, object-store/table output support, or a performance claim.
 
 ## Current Runtime Snapshot
 

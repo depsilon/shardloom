@@ -271,6 +271,24 @@ class VortexIngestSmokeReport:
         return self.envelope.field_int("reopen_row_count", 0) or 0
 
     @property
+    def reopen_verification_status(self) -> str | None:
+        """Return the Vortex reopen verification status."""
+
+        return self.envelope.field("reopen_verification_status")
+
+    @property
+    def certification_level(self) -> str | None:
+        """Return the requested ingest certification depth."""
+
+        return self.envelope.field("certification_level")
+
+    @property
+    def certification_status(self) -> str | None:
+        """Return the certification status for the prepare-once route."""
+
+        return self.envelope.field("certification_status")
+
+    @property
     def source_io_performed(self) -> bool:
         """Whether source I/O was performed by the smoke."""
 
@@ -5161,6 +5179,7 @@ class ShardLoomClient:
         target_vortex_path: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        certification_level: str = "ingest_certified",
         check: bool = True,
     ) -> VortexIngestSmokeReport:
         """Run the scoped local `vortex_ingest` prepare-once smoke command."""
@@ -5172,6 +5191,8 @@ class ShardLoomClient:
         ]
         if allow_overwrite:
             command.append("--allow-overwrite")
+        if certification_level != "ingest_certified":
+            command.extend(["--certification-level", certification_level])
         return VortexIngestSmokeReport(self.run(command, check=check))
 
     def execution_certificate_plan(self, *, check: bool = True) -> OutputEnvelope:

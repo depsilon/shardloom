@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F1 `vortex_ingest` certification-depth policy
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-vortex-ingest-cert-depth-4f1` / #862.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest attribution`
+    - Compatibility cold-route bottleneck review
+    - `vortex_ingest` prepare-once lifecycle
+  - Scope:
+    - Added explicit `VortexIngestCertificationLevel` policy for the scoped local
+      `vortex_ingest` helper.
+    - Kept `ingest_certified` as the default prepare-once route with Vortex reopen/scan
+      row-count proof.
+    - Added `ingest_minimal` to record artifact bytes/digest and writer row-count evidence without
+      the proof-oriented reopen scan.
+    - Made `ingest_full_replay` fail closed for the prepare-only helper until a downstream
+      output/result replay workflow supplies the required replay evidence.
+    - Exposed certification level/status and reopen verification status through CLI JSON, Python
+      typed reports, Python context helpers, use-case docs, compute-flow docs, and generated
+      website data/pages.
+  - Evidence:
+    - `certification_level`, `certification_status`, `reopen_verification_status`,
+      `upstream_vortex_write_called`, `upstream_vortex_scan_called`, `writer_row_count`,
+      `reopen_row_count`, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status` distinguish minimal, certified, and blocked full-replay requests.
+    - `ingest_minimal` emits `claim_gate_status=not_claim_grade` and
+      `upstream_vortex_scan_called=false`.
+    - `ingest_full_replay` does not write the target artifact and returns a deterministic blocker
+      that includes the no-fallback boundary.
+  - Vortex-first provider check:
+    - The slice reuses the existing upstream Vortex writer and optional reopen/scan path; it adds a
+      ShardLoom policy wrapper instead of inventing a separate writer or replay abstraction.
+  - Verification:
+    - Focused default-build feature-gate test.
+    - Feature-gated Vortex ingest minimal/certified/full-replay tests.
+    - Python helper/context dispatch tests.
+    - Use-case and website readiness checks.
+    - Full workspace test and clippy gates are recorded on the PR before merge.
+  - Claim boundary:
+    - This is certification-depth and attribution policy for a scoped local prepare-once smoke; it
+      is not compatibility cold-route performance proof, broad Vortex writer support,
+      persistent prepared-state reuse, object-store/table output, production support, or a
+      performance claim.
+  - Fallback boundary:
+    - No pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray, database, warehouse, managed
+      platform, object store, or query-engine integration is invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4G local OutputPlan replay and fidelity evidence
   - Date: 2026-05-20
   - Branch/PR: `runtime-outputplan-replay-4g` / #861.

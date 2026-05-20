@@ -55,7 +55,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   feature-gated local Vortex sinks with local replay/fidelity evidence;
 - local Vortex/prepared-native benchmark evidence for selected traditional analytics scenarios;
 - feature-gated local `vortex_ingest` smoke that prepares admitted flat scalar local sources into a
-  local `.vortex` artifact and emits `VortexPreparedState` evidence;
+  local `.vortex` artifact and emits `VortexPreparedState` evidence with explicit
+  `ingest_minimal` / `ingest_certified` certification-depth semantics;
 - report-only or blocked status for broader SQL/DataFrame, object-store, lakehouse/table,
   distributed, live/hybrid production, Foundry production, and package-publication claims.
 

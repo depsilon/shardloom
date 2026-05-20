@@ -20,6 +20,7 @@ pub struct VortexPreparedStateWriteRequest {
     pub columns: Vec<String>,
     pub rows: Vec<Vec<(String, ScalarValue)>>,
     pub allow_overwrite: bool,
+    pub certification_level: VortexIngestCertificationLevel,
 }
 
 impl VortexPreparedStateWriteRequest {
@@ -35,6 +36,7 @@ impl VortexPreparedStateWriteRequest {
             columns,
             rows,
             allow_overwrite: false,
+            certification_level: VortexIngestCertificationLevel::IngestCertified,
         }
     }
 
@@ -43,6 +45,55 @@ impl VortexPreparedStateWriteRequest {
     pub const fn allow_overwrite(mut self, allow_overwrite: bool) -> Self {
         self.allow_overwrite = allow_overwrite;
         self
+    }
+
+    /// Set the requested ingest certification depth.
+    #[must_use]
+    pub const fn certification_level(
+        mut self,
+        certification_level: VortexIngestCertificationLevel,
+    ) -> Self {
+        self.certification_level = certification_level;
+        self
+    }
+}
+
+/// Certification depth for the scoped local `vortex_ingest` lifecycle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexIngestCertificationLevel {
+    /// Write a local artifact and report bytes/digest/writer evidence only.
+    IngestMinimal,
+    /// Write and reopen/scan the artifact for row-count proof.
+    IngestCertified,
+    /// Requires downstream result replay/output evidence, so this prepare-only helper blocks it.
+    IngestFullReplay,
+}
+
+impl VortexIngestCertificationLevel {
+    /// Parse a command/API certification-depth token.
+    ///
+    /// # Errors
+    /// Returns an error when the value is not one of the admitted certification
+    /// depth tokens.
+    pub fn parse(value: &str) -> Result<Self> {
+        match value.trim() {
+            "ingest_minimal" => Ok(Self::IngestMinimal),
+            "ingest_certified" => Ok(Self::IngestCertified),
+            "ingest_full_replay" => Ok(Self::IngestFullReplay),
+            other => Err(ShardLoomError::InvalidOperation(format!(
+                "unknown vortex_ingest certification level '{other}'; expected ingest_minimal, ingest_certified, or ingest_full_replay; no fallback execution was attempted"
+            ))),
+        }
+    }
+
+    /// Return the canonical evidence token for this certification depth.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::IngestMinimal => "ingest_minimal",
+            Self::IngestCertified => "ingest_certified",
+            Self::IngestFullReplay => "ingest_full_replay",
+        }
     }
 }
 
@@ -61,6 +112,7 @@ pub struct VortexPreparedStateWriteReport {
     pub reopen_row_count: u64,
     pub write_micros: u128,
     pub reopen_scan_micros: u128,
+    pub reopen_verification_status: String,
     pub timing_scope: String,
     pub certification_level: String,
     pub preparation_included: bool,
@@ -102,8 +154,11 @@ impl VortexPreparedStateWriteReport {
     #[must_use]
     pub fn statistics_summary(&self) -> String {
         format!(
-            "writer_row_count={};reopen_row_count={};bytes_written={}",
-            self.writer_row_count, self.reopen_row_count, self.bytes_written
+            "writer_row_count={};reopen_row_count={};reopen_verification_status={};bytes_written={}",
+            self.writer_row_count,
+            self.reopen_row_count,
+            self.reopen_verification_status,
+            self.bytes_written
         )
     }
 }
@@ -143,6 +198,13 @@ pub fn write_flat_scalar_vortex_prepared_state(
 ) -> Result<VortexPreparedStateWriteReport> {
     use std::fs;
 
+    if request.certification_level == VortexIngestCertificationLevel::IngestFullReplay {
+        return Err(ShardLoomError::InvalidOperation(
+            "local vortex_ingest ingest_full_replay requires downstream result replay/output evidence; use ingest_certified for prepare-once proof or run an output/replay workflow; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+
     let row_count = validate_flat_rows(&request.columns, &request.rows)?;
     let column_families = scalar_column_families(&request.columns, &request.rows)?;
     if request.target_path.exists() && !request.allow_overwrite {
@@ -165,15 +227,36 @@ pub fn write_flat_scalar_vortex_prepared_state(
     let array = flat_rows_to_vortex_struct(&request.columns, &request.rows, &column_families)?;
     let write_result = write_vortex_array(&request.target_path, &array)?;
 
-    let reopen_start = Instant::now();
-    let reopen_row_count = reopen_vortex_row_count(&request.target_path)?;
-    let reopen_scan_micros = reopen_start.elapsed().as_micros();
-    if write_result.writer_row_count != row_count || reopen_row_count != row_count {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest row-count proof mismatch: source={row_count} writer={} reopen={reopen_row_count}",
-            write_result.writer_row_count
-        )));
-    }
+    let (
+        reopen_row_count,
+        reopen_scan_micros,
+        reopen_verification_status,
+        upstream_vortex_scan_called,
+    ) = if request.certification_level == VortexIngestCertificationLevel::IngestCertified {
+        let reopen_start = Instant::now();
+        let reopen_row_count = reopen_vortex_row_count(&request.target_path)?;
+        let reopen_scan_micros = reopen_start.elapsed().as_micros();
+        if write_result.writer_row_count != row_count || reopen_row_count != row_count {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local vortex_ingest row-count proof mismatch: source={row_count} writer={} reopen={reopen_row_count}",
+                write_result.writer_row_count
+            )));
+        }
+        (
+            reopen_row_count,
+            reopen_scan_micros,
+            "reopen_row_count_verified".to_string(),
+            true,
+        )
+    } else {
+        if write_result.writer_row_count != row_count {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local vortex_ingest writer row count mismatch: source={row_count} writer={}; no fallback execution was attempted",
+                write_result.writer_row_count
+            )));
+        }
+        (0, 0, "not_performed_ingest_minimal".to_string(), false)
+    };
 
     Ok(VortexPreparedStateWriteReport {
         target_path: request.target_path,
@@ -187,12 +270,13 @@ pub fn write_flat_scalar_vortex_prepared_state(
         reopen_row_count,
         write_micros: write_result.write_micros,
         reopen_scan_micros,
+        reopen_verification_status,
         timing_scope: "vortex_ingest_prepare_once".to_string(),
-        certification_level: "ingest_certified".to_string(),
+        certification_level: request.certification_level.as_str().to_string(),
         preparation_included: true,
         query_timing_starts_after_preparation: false,
         upstream_vortex_write_called: true,
-        upstream_vortex_scan_called: true,
+        upstream_vortex_scan_called,
     })
 }
 
@@ -573,6 +657,10 @@ mod tests {
 
         assert_eq!(report.row_count, 2);
         assert_eq!(report.reopen_row_count, 2);
+        assert_eq!(
+            report.reopen_verification_status,
+            "reopen_row_count_verified"
+        );
         assert!(report.artifact_digest.starts_with("fnv64:"));
         assert_eq!(report.timing_scope, "vortex_ingest_prepare_once");
         assert_eq!(report.certification_level, "ingest_certified");
@@ -580,5 +668,68 @@ mod tests {
         assert!(!report.query_timing_starts_after_preparation);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
+    fn local_flat_scalar_minimal_ingest_skips_reopen_scan() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-minimal-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".to_string(), "label".to_string()],
+            vec![vec![
+                ("id".to_string(), ScalarValue::Int64(1)),
+                ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+            ]],
+        )
+        .certification_level(VortexIngestCertificationLevel::IngestMinimal);
+
+        let report = write_flat_scalar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 1);
+        assert_eq!(report.writer_row_count, 1);
+        assert_eq!(report.reopen_row_count, 0);
+        assert_eq!(
+            report.reopen_verification_status,
+            "not_performed_ingest_minimal"
+        );
+        assert_eq!(report.certification_level, "ingest_minimal");
+        assert!(report.upstream_vortex_write_called);
+        assert!(!report.upstream_vortex_scan_called);
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[test]
+    fn local_flat_scalar_full_replay_is_blocked_without_output_replay() {
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-full-replay-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let request = VortexPreparedStateWriteRequest::new(
+            &path,
+            vec!["id".to_string(), "label".to_string()],
+            vec![vec![
+                ("id".to_string(), ScalarValue::Int64(1)),
+                ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
+            ]],
+        )
+        .certification_level(VortexIngestCertificationLevel::IngestFullReplay);
+
+        let error = write_flat_scalar_vortex_prepared_state(request)
+            .expect_err("full replay requires downstream output evidence");
+
+        assert!(
+            error
+                .to_string()
+                .contains("ingest_full_replay requires downstream result replay/output evidence")
+        );
+        assert!(!path.exists());
     }
 }

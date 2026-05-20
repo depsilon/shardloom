@@ -5171,6 +5171,7 @@ class ShardLoomContext:
         target_vortex_path: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
+        certification_level: str = "ingest_certified",
         check: bool = True,
     ) -> VortexIngestSmokeReport:
         """Prepare an admitted local source into a local `VortexPreparedState` smoke."""
@@ -5179,6 +5180,7 @@ class ShardLoomContext:
             source_path,
             target_vortex_path,
             allow_overwrite=allow_overwrite,
+            certification_level=certification_level,
             check=check,
         )
 
