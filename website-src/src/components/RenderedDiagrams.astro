@@ -1,0 +1,33 @@
+---
+import { renderedDiagramData } from "../lib/diagrams";
+
+const diagrams = renderedDiagramData();
+---
+
+<div class="diagram-gallery">
+  {diagrams.map((diagram) => (
+    <article class="flow-diagram" data-rendered-diagram={`diagram-${diagram.number}`}>
+      <p class="diagram-kicker">Diagram {diagram.number}</p>
+      <h3>{diagram.heading}</h3>
+      <div class="diagram-track">
+        {diagram.nodes.map((node, index) => (
+          <>
+            <div class="diagram-node">
+              <span>{node.id}</span>
+              <strong>{node.title}</strong>
+              {node.detail && <p>{node.detail}</p>}
+            </div>
+            {index < diagram.nodes.length - 1 && <div class="diagram-arrow" aria-hidden="true">-&gt;</div>}
+          </>
+        ))}
+      </div>
+      {diagram.branches.length > 0 && (
+        <div class="diagram-branches" aria-label="Related branches">
+          {diagram.branches.map((branch) => (
+            <span><strong>{branch.title}</strong><em>{branch.id}</em></span>
+          ))}
+        </div>
+      )}
+    </article>
+  ))}
+</div>

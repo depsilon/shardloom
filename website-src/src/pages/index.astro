@@ -1,0 +1,74 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import RouteConsole from "../components/RouteConsole.astro";
+import { routeMetrics } from "../lib/data";
+
+const metrics = routeMetrics();
+---
+
+<SiteLayout title="ShardLoom" description="Evidence-gated compute over Vortex-prepared data." path="/" active="home">
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Technical preview</p>
+      <h1>Evidence-gated compute over Vortex-prepared data.</h1>
+      <p class="lede">
+        ShardLoom prepares admitted inputs, runs prepared/native workflows, writes outputs, and emits evidence proving what happened.
+      </p>
+      <div class="actions">
+        <a class="button primary" href="/start">Start local proof</a>
+        <a class="button" href="/field-guide">Read Field Guide</a>
+        <a class="button ghost" href="/benchmarks">View benchmark evidence</a>
+      </div>
+      <div class="status-chips" aria-label="Current posture">
+        <span>technical preview</span><span>no fallback</span><span>Vortex-first</span><span>claim-gated</span><span>local-first</span><span>not production claim</span>
+      </div>
+    </div>
+    <RouteConsole />
+  </section>
+
+  <section>
+    <div class="strip">
+      <div class="metric"><strong>{metrics.routeRows}</strong><span>ShardLoom evidence rows rendered</span></div>
+      <div class="metric"><strong>{metrics.availableLanes}</strong><span>available benchmark lanes</span></div>
+      <div class="metric"><strong>{metrics.missingLanes}</strong><span>missing lanes disclosed</span></div>
+      <div class="metric"><strong>false</strong><span>fallback/external engine for ShardLoom rows</span></div>
+    </div>
+  </section>
+
+  <section class="section-grid">
+    <div>
+      <p class="eyebrow">Why it exists</p>
+      <h2>Compute routes should be inspectable.</h2>
+      <p class="narrow">ShardLoom keeps source admission, Vortex preparation, execution, output, and evidence separate so unsupported work blocks deterministically.</p>
+    </div>
+    <div class="card-grid">
+      <article class="card"><span class="badge">Evidence</span><h3>Normal engines hide what happened.</h3><p>ShardLoom emits evidence fields such as fallback_attempted, external_engine_invoked, and claim_gate_status.</p></article>
+      <article class="card"><span class="badge">Timing</span><h3>Benchmarks separate route work.</h3><p>Certified cold routes are not presented as pure query speed; prepared warm routes start after preparation.</p></article>
+      <article class="card"><span class="badge">No fallback</span><h3>Unsupported paths fail closed.</h3><p>External engines are baselines only, never fallback execution for ShardLoom rows.</p></article>
+      <article class="card"><span class="badge">Output</span><h3>Outputs are planned separately.</h3><p>OutputPlan and SinkArtifact keep output and fanout distinct from source input format.</p></article>
+    </div>
+  </section>
+
+  <section class="section-grid">
+    <div>
+      <p class="eyebrow">Try it</p>
+      <h2>Start with a supported local proof.</h2>
+      <p class="narrow">The public site shows runnable local posture without implying package publication or production support.</p>
+    </div>
+    <div class="code-panel">
+      <div class="panel-label">Python surface shape</div>
+      <pre><code>import shardloom as sl
+
+ctx = sl.context()
+result = (
+    ctx.read_csv("orders.csv")
+       .filter(sl.col("status") == "paid")
+       .limit(10)
+       .collect()
+)
+
+print(result.evidence["claim_gate_status"])</code></pre>
+      <div class="code-evidence"><span><strong>fallback_attempted</strong>false</span><span><strong>external_engine_invoked</strong>false</span><span><strong>claim_gate_status</strong>visible</span></div>
+    </div>
+  </section>
+</SiteLayout>

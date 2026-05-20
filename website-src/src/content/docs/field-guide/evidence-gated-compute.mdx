@@ -1,0 +1,47 @@
+---
+title: "Evidence-gated compute"
+description: "Every supported route must emit evidence before any claim can be upgraded."
+sidebar: {"label":"Evidence-gated compute"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Every supported route must emit evidence before any claim can be upgraded.
+
+## Plain-English Meaning
+
+Every supported route must emit evidence before any claim can be upgraded.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `all routes`
+- Category: Start Here
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `evidence_level`
+- `claim_gate_status`
+- `claim_boundary`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [evidence-audit-claim-gates](/use-cases/evidence-audit-claim-gates)
+- [benchmark-interpretation-evidence-not-leaderboard](/use-cases/benchmark-interpretation-evidence-not-leaderboard)
+
+## Reference Files
+
+- `docs/architecture/compute-engine-flow-reference.md`
+- `docs/use-cases/use-case-index.yml`

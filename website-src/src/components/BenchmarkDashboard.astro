@@ -1,0 +1,108 @@
+---
+import { benchmark, manifest, routeMetrics } from "../lib/data";
+
+const metrics = routeMetrics();
+const dashboard = (benchmark as any).comparative_dashboard ?? {};
+const claimDistribution = dashboard.claim_gate_distribution ?? {};
+const engineOverview = dashboard.engine_timing_overview ?? {};
+const engineHeaders = Array.isArray(engineOverview.headers) ? engineOverview.headers : ["Engine", "Available", "Success / total", "Geomean", "CSV/Parquet geomean", "Local fastest count"];
+const engineRows = Array.isArray(engineOverview.rows) ? engineOverview.rows : [];
+const publishedRows = ((benchmark as any).published_benchmark_rows ?? []).slice(0, 80);
+const manifestAny = manifest as any;
+---
+
+<section class="page-hero">
+  <p class="eyebrow">Benchmarks</p>
+  <h1>Benchmark Evidence, Not a Leaderboard</h1>
+  <p class="lede">
+    The website renders committed static artifacts. It does not run local benchmarks during build and does not turn external baselines into fallback execution.
+  </p>
+</section>
+
+<section>
+  <p class="eyebrow">Route timing dashboard</p>
+  <h2>Route timing dashboard</h2>
+  <div class="route-dashboard">
+    <article class="route-dashboard-card"><span class="badge">Certified cold ingest/stage route</span><p>Includes source read, parse, Vortex import, write/reopen, compute, sink, and evidence timing.</p></article>
+    <article class="route-dashboard-card"><span class="badge">Prepared warm query route</span><p>Starts after VortexPreparedState exists unless preparation is explicitly included.</p></article>
+    <article class="route-dashboard-card"><span class="badge">Native Vortex route</span><p>Starts from an existing Vortex input and keeps no-fallback evidence visible.</p></article>
+    <article class="route-dashboard-card"><span class="badge">Direct transient route</span><p>One-shot local compatibility route, not a Vortex-native claim.</p></article>
+    <article class="route-dashboard-card"><span class="badge">External baseline context</span><p>External engines are baseline-only and never ShardLoom fallback execution.</p></article>
+  </div>
+</section>
+
+<section>
+  <div class="strip mini-strip">
+    <div class="metric"><strong>{manifestAny.benchmark_profile}</strong><span>benchmark profile</span></div>
+    <div class="metric"><strong>{manifestAny.artifact_status}</strong><span>artifact completeness</span></div>
+    <div class="metric"><strong>{metrics.availableLanes}/{metrics.expectedLanes}</strong><span>available lanes</span></div>
+    <div class="metric"><strong>{metrics.claimGrade}</strong><span>claim-grade ShardLoom rows</span></div>
+    <div class="metric"><strong>{metrics.sourceStateRows}</strong><span>source-state rows</span></div>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Artifact lane availability</p>
+    <h2>Expected lanes stay visible.</h2>
+    <p class="narrow">Missing lanes are reported from the manifest instead of disappearing from the published page.</p>
+  </div>
+  <div class="artifact-panel">
+    <dl class="mini-meta">
+      <div><dt>Expected lanes</dt><dd>{manifestAny.expected_lanes.join(", ")}</dd></div>
+      <div><dt>Available lanes</dt><dd>{manifestAny.available_lanes.join(", ")}</dd></div>
+      <div><dt>Missing lanes</dt><dd>{manifestAny.missing_lanes.length ? manifestAny.missing_lanes.join(", ") : "none"}</dd></div>
+      <div><dt>Performance claim</dt><dd>{String(manifestAny.performance_claim_allowed)}</dd></div>
+      <div><dt>Claim boundary</dt><dd>{manifestAny.claim_boundary}</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Claim-gate distribution</p>
+    <h2>Route-level evidence before timing interpretation.</h2>
+    <p class="narrow">Timing rows remain local context, not superiority proof. Compatibility cold timing is not pure query speed.</p>
+  </div>
+  <div class="benchmark-preview">
+    {Object.entries(claimDistribution).map(([key, value]) => (
+      <div><span>{key}</span><strong>{String(value)}</strong></div>
+    ))}
+    <div><span>Prepared/native source-state coverage</span><strong>{metrics.sourceStateRows} rows</strong></div>
+    <div><span>source_state_coverage_all_requested_scenarios_classified</span><strong>published as evidence where emitted</strong></div>
+  </div>
+</section>
+
+<section>
+  <h2>Raw timing tables</h2>
+  <p class="narrow">Raw tables are collapsed by default. These rows retain source/read/parse/import/write/reopen/scan/operator/sink/evidence timing fields when present.</p>
+  <details class="drawer">
+    <summary>Engine timing overview</summary>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>{engineHeaders.map((header: string) => <th>{header}</th>)}</tr></thead>
+        <tbody>
+          {engineRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  <details class="drawer">
+    <summary>Published benchmark row sample</summary>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Engine</th><th>Scenario</th><th>Format</th><th>Status</th><th>Mode</th><th>Total ms</th><th>Fallback</th><th>External engine</th><th>Claim gate</th></tr></thead>
+        <tbody>
+          {publishedRows.map((row: any) => (
+            <tr>
+              <td>{row.engine}</td><td>{row.scenario_name}</td><td>{row.storage_format}</td><td>{row.status}</td><td>{row.selected_execution_mode}</td>
+              <td>{row.total_runtime_millis}</td><td>{String(row.fallback_attempted)}</td><td>{String(row.external_engine_invoked)}</td><td>{row.claim_gate_status}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>

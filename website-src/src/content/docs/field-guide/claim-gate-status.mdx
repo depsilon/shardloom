@@ -1,0 +1,47 @@
+---
+title: "claim_gate_status"
+description: "The field that says whether evidence is claim-grade, fixture-smoke-only, report-only, or blocked."
+sidebar: {"label":"claim_gate_status"}
+---
+
+
+<span class="status-chip status-runtime-supported">runtime_supported</span>
+
+The field that says whether evidence is claim-grade, fixture-smoke-only, report-only, or blocked.
+
+## Plain-English Meaning
+
+The field that says whether evidence is claim-grade, fixture-smoke-only, report-only, or blocked.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Evidence -> ClaimGate`
+- Category: Evidence + Certificates
+
+## Current Support
+
+Status: `runtime_supported`
+
+## Evidence Fields
+
+- `claim_gate_status`
+- `claim_boundary`
+- `evidence_preserved`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [evidence-audit-claim-gates](/use-cases/evidence-audit-claim-gates)
+- [benchmark-interpretation-evidence-not-leaderboard](/use-cases/benchmark-interpretation-evidence-not-leaderboard)
+
+## Reference Files
+
+- `docs/architecture/compute-engine-flow-reference.md`
+- `docs/use-cases/use-case-index.yml`

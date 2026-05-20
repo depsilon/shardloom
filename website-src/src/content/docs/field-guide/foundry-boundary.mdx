@@ -1,0 +1,47 @@
+---
+title: "Foundry boundary"
+description: "Local/dev-stack Foundry proof posture without production Foundry runtime or Spark substitution claims."
+sidebar: {"label":"Foundry boundary"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Local/dev-stack Foundry proof posture without production Foundry runtime or Spark substitution claims.
+
+## Plain-English Meaning
+
+Local/dev-stack Foundry proof posture without production Foundry runtime or Spark substitution claims.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Foundry proof boundary`
+- Category: Platform Boundaries
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `foundry_runtime_invoked`
+- `foundry_spark_invoked=false`
+- `public_foundry_claim_allowed=false`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [foundry-local-proof-boundary](/use-cases/foundry-local-proof-boundary)
+- [source-free-generated-output-boundary](/use-cases/source-free-generated-output-boundary)
+
+## Reference Files
+
+- `docs/foundry/proof-of-use-certification.md`
+- `docs/use-cases/use-case-index.yml`

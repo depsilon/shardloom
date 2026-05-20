@@ -1,0 +1,25 @@
+{
+  "capability": "Local JSONL / NDJSON",
+  "status": "smoke_supported",
+  "inputs": [
+    "local_jsonl",
+    "local_ndjson"
+  ],
+  "outputs": [
+    "jsonl",
+    "evidence"
+  ],
+  "route": "direct_compatibility_transient vortex_ingest",
+  "platform": "local",
+  "evidence": [
+    "source_format",
+    "source_state_id",
+    "fallback_attempted=false"
+  ],
+  "works": "Flat local JSONL/NDJSON fixture smokes are admitted through scoped local-source and ingest paths.",
+  "blocked": "Nested JSON, JSONPath, broad schema evolution, and production JSON processing remain outside the claim.",
+  "references": [
+    "docs/use-cases/use-case-index.yml",
+    "python/README.md"
+  ]
+}

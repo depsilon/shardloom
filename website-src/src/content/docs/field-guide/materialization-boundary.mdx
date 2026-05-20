@@ -1,0 +1,47 @@
+---
+title: "Materialization boundary"
+description: "Evidence describing when data was decoded, materialized, or kept source-backed."
+sidebar: {"label":"Materialization boundary"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Evidence describing when data was decoded, materialized, or kept source-backed.
+
+## Plain-English Meaning
+
+Evidence describing when data was decoded, materialized, or kept source-backed.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Evidence`
+- Category: Evidence + Certificates
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `materialization_boundary`
+- `data_decoded`
+- `data_materialized`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [prepared-native-vortex-runtime-direction](/use-cases/prepared-native-vortex-runtime-direction)
+- [evidence-audit-claim-gates](/use-cases/evidence-audit-claim-gates)
+
+## Reference Files
+
+- `docs/architecture/compute-engine-flow-reference.md`
+- `docs/benchmarks/local-taxonomy-benchmark.md`

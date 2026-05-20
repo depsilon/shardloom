@@ -1,0 +1,24 @@
+{
+  "capability": "Benchmarks",
+  "status": "smoke_supported",
+  "inputs": [
+    "benchmark_artifact"
+  ],
+  "outputs": [
+    "benchmark_dashboard",
+    "evidence"
+  ],
+  "route": "benchmark_publishing",
+  "platform": "local",
+  "evidence": [
+    "benchmark_profile",
+    "expected_lanes",
+    "performance_claim_allowed=false"
+  ],
+  "works": "Committed static benchmark artifacts expose lanes, missing reasons, coverage, and claim boundaries.",
+  "blocked": "Benchmark evidence is not a leaderboard, public speed claim, or Spark-replacement claim.",
+  "references": [
+    "docs/benchmarks/local-taxonomy-benchmark.md",
+    "docs/benchmarks/baseline-comparison-boundary.md"
+  ]
+}

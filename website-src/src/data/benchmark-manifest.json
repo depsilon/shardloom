@@ -1,0 +1,79 @@
+{
+  "artifact_paths": {
+    "html": null,
+    "json": "website/assets/benchmarks/latest/benchmark-results.json",
+    "markdown": null
+  },
+  "artifact_status": "complete",
+  "available_lanes": [
+    "dask",
+    "datafusion",
+    "duckdb",
+    "native-vortex",
+    "pandas",
+    "polars-eager",
+    "polars-lazy",
+    "shardloom",
+    "shardloom-prepared-vortex",
+    "shardloom-vortex"
+  ],
+  "benchmark_git_sha": "532ba0b104525b65a10f40ddb017ebc939f676af",
+  "benchmark_profile": "full_local",
+  "claim_boundary": "local_comparative_not_claim_grade",
+  "environment": {
+    "artifact_environment": {
+      "cpu_count": 8,
+      "machine": "AMD64",
+      "platform": "Windows-10-10.0.26220-SP0",
+      "processor": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",
+      "python_version": "3.11.4",
+      "total_memory_bytes": 34048368640
+    },
+    "cpu_count": 8,
+    "platform": "Windows-10-10.0.26220-SP0",
+    "python": "3.11.4",
+    "website_promoter": "scripts/promote_benchmark_artifact.py"
+  },
+  "expected_lanes": [
+    "shardloom",
+    "shardloom-prepared-vortex",
+    "shardloom-vortex",
+    "pandas",
+    "polars-eager",
+    "polars-lazy",
+    "duckdb",
+    "datafusion",
+    "dask",
+    "native-vortex"
+  ],
+  "generated_at_utc": "2026-05-19T11:21:05.796643+00:00",
+  "lane_availability_reasons": {
+    "dask": "available, version 2026.3.0",
+    "datafusion": "available, version 53.0.0",
+    "duckdb": "available, version 1.5.2",
+    "native-vortex": "alias vocabulary for promoted shardloom-vortex/native_vortex evidence",
+    "pandas": "available, version 3.0.3",
+    "polars-eager": "available, version 1.40.1",
+    "polars-lazy": "available, version 1.40.1 (lazy scan API)",
+    "shardloom": "available, version workspace-local-release-532ba0b",
+    "shardloom-prepared-vortex": "available, version workspace-local-release-532ba0b",
+    "shardloom-vortex": "available, version workspace-local-release-532ba0b"
+  },
+  "lane_versions": {
+    "dask": "2026.3.0",
+    "datafusion": "53.0.0",
+    "duckdb": "1.5.2",
+    "native-vortex": "from promoted benchmark artifact",
+    "pandas": "3.0.3",
+    "polars-eager": "1.40.1",
+    "polars-lazy": "1.40.1 (lazy scan API)",
+    "shardloom": "workspace-local-release-532ba0b",
+    "shardloom-prepared-vortex": "workspace-local-release-532ba0b",
+    "shardloom-vortex": "workspace-local-release-532ba0b"
+  },
+  "missing_lanes": [],
+  "missing_required_lanes": [],
+  "performance_claim_allowed": false,
+  "schema_version": "shardloom.website_benchmark_manifest.v1",
+  "shardloom_git_sha": "532ba0b104525b65a10f40ddb017ebc939f676af"
+}

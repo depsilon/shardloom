@@ -1,0 +1,47 @@
+---
+title: "No fallback"
+description: "Unsupported work blocks or reports a deterministic diagnostic instead of running through another engine."
+sidebar: {"label":"No fallback"}
+---
+
+
+<span class="status-chip status-runtime-supported">runtime_supported</span>
+
+Unsupported work blocks or reports a deterministic diagnostic instead of running through another engine.
+
+## Plain-English Meaning
+
+Unsupported work blocks or reports a deterministic diagnostic instead of running through another engine.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `all routes`
+- Category: Start Here
+
+## Current Support
+
+Status: `runtime_supported`
+
+## Evidence Fields
+
+- `fallback_attempted=false`
+- `external_engine_invoked=false`
+- `blocker_id`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [sql-dataframe-capability-posture](/use-cases/sql-dataframe-capability-posture)
+- [object-store-boundary-report](/use-cases/object-store-boundary-report)
+
+## Reference Files
+
+- `README.md`
+- `docs/architecture/compute-engine-flow-reference.md`

@@ -1,0 +1,39 @@
+---
+import SiteLayout from "../../layouts/SiteLayout.astro";
+import StatusChip from "../../components/StatusChip.astro";
+import ReferenceList from "../../components/ReferenceList.astro";
+import { formatList, useCases } from "../../lib/data";
+
+export function getStaticPaths() {
+  return useCases.map((item) => ({ params: { id: item.id }, props: { item } }));
+}
+
+const { item } = Astro.props;
+const pageTitle = item.title.length > 52 ? `${item.id} use case` : item.title;
+const pageDescription = item.claim_boundary.length > 190 ? `${item.claim_boundary.slice(0, 187)}...` : item.claim_boundary;
+---
+
+<SiteLayout title={pageTitle} description={pageDescription} path={`/use-cases/${item.id}`} active="use-cases">
+  <section class="page-hero">
+    <p class="eyebrow">Use Case</p>
+    <h1>{item.title}</h1>
+    <p class="lede">{item.claim_boundary}</p>
+    <div class="status-chips"><StatusChip value={item.status} /></div>
+  </section>
+  <section class="dossier-grid">
+    <article class="dossier-card"><h2>User goal</h2><p>{item.audience}</p></article>
+    <article class="dossier-card"><h2>Execution mode</h2><p>{item.execution_mode}</p></article>
+    <article class="dossier-card"><h2>Engine mode</h2><p>{item.engine_mode}</p></article>
+    <article class="dossier-card"><h2>Inputs / outputs</h2><p>{formatList(item.inputs)} -&gt; {formatList(item.outputs)}</p></article>
+    <article class="dossier-card"><h2>Runnable example or blocker</h2><p>{item.runnable_example}</p></article>
+    <article class="dossier-card"><h2>Expected output/evidence</h2><p>{item.expected_output_evidence}</p></article>
+  </section>
+  <section class="section-grid">
+    <div><h2>Evidence fields</h2><ul class="pill-list">{item.evidence_fields.map((field) => <li>{field}</li>)}</ul></div>
+    <div><h2>Common mistakes</h2><ul class="pill-list">{item.common_mistakes.map((mistake) => <li>{mistake}</li>)}</ul></div>
+  </section>
+  <section class="section-grid">
+    <div><h2>Reference files</h2><ReferenceList references={item.references} /></div>
+    <div><h2>Related use cases</h2><div class="related-links">{item.related_use_cases.map((id) => <a href={`/use-cases/${id}`}>{id}</a>)}</div></div>
+  </section>
+</SiteLayout>

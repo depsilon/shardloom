@@ -1,0 +1,48 @@
+---
+title: "Benchmark evidence"
+description: "Committed local timing and coverage artifacts interpreted as evidence, not a leaderboard."
+sidebar: {"label":"Benchmark evidence"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Committed local timing and coverage artifacts interpreted as evidence, not a leaderboard.
+
+## Plain-English Meaning
+
+Committed local timing and coverage artifacts interpreted as evidence, not a leaderboard.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Benchmark artifact`
+- Category: Benchmarks
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `benchmark_profile`
+- `expected_lanes`
+- `available_lanes`
+- `performance_claim_allowed=false`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [benchmark-interpretation-evidence-not-leaderboard](/use-cases/benchmark-interpretation-evidence-not-leaderboard)
+- [query-scenario-cookbook-smoke](/use-cases/query-scenario-cookbook-smoke)
+
+## Reference Files
+
+- `docs/benchmarks/local-taxonomy-benchmark.md`
+- `docs/benchmarks/baseline-comparison-boundary.md`

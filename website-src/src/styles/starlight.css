@@ -1,0 +1,25 @@
+:root {
+  --sl-color-accent-low: #d9f4fb;
+  --sl-color-accent: #0c95bb;
+  --sl-color-accent-high: #083e74;
+  --sl-color-white: #111827;
+  --sl-color-gray-1: #1f2d3a;
+  --sl-color-gray-2: #405363;
+  --sl-color-gray-3: #5f6f7d;
+  --sl-color-gray-4: #bdccd8;
+  --sl-color-gray-5: #dbe5ec;
+  --sl-color-gray-6: #f3f7fa;
+  --sl-color-black: #fbfcfd;
+  --sl-font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sl-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+:root[data-theme="dark"] {
+  --sl-color-black: #fbfcfd;
+  --sl-color-white: #111827;
+}
+
+.site-title {
+  color: #071a52;
+  font-weight: 800;
+}

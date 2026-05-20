@@ -1,0 +1,47 @@
+---
+title: "Output fanout"
+description: "One prepared source or result writing multiple output formats without coupling input and output types."
+sidebar: {"label":"Output fanout"}
+---
+
+
+<span class="status-chip status-planned">planned</span>
+
+One prepared source or result writing multiple output formats without coupling input and output types.
+
+## Plain-English Meaning
+
+One prepared source or result writing multiple output formats without coupling input and output types.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Output fanout route`
+- Category: I/O + Outputs
+
+## Current Support
+
+Status: `planned`
+
+## Evidence Fields
+
+- `fanout_output_count`
+- `output_plan_reuse_hit`
+- `output_replay_millis`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [output-result-sink-and-fanout-boundary](/use-cases/output-result-sink-and-fanout-boundary)
+- [source-free-generated-output-boundary](/use-cases/source-free-generated-output-boundary)
+
+## Reference Files
+
+- `docs/architecture/phased-execution-plan.md`
+- `docs/use-cases/use-case-index.yml`

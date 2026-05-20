@@ -1,0 +1,47 @@
+---
+title: "prepared_vortex"
+description: "Prepared warm execution over an existing VortexPreparedState, not direct non-Vortex input."
+sidebar: {"label":"prepared_vortex"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Prepared warm execution over an existing VortexPreparedState, not direct non-Vortex input.
+
+## Plain-English Meaning
+
+Prepared warm execution over an existing VortexPreparedState, not direct non-Vortex input.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Prepared Vortex route`
+- Category: Prepared/Native Vortex
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `execution_mode=prepared_vortex`
+- `timing_scope=warm_prepared_query`
+- `prepared_state_id`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [prepared-native-vortex-runtime-direction](/use-cases/prepared-native-vortex-runtime-direction)
+- [vortex-ingest-prepare-once-local](/use-cases/vortex-ingest-prepare-once-local)
+
+## Reference Files
+
+- `docs/architecture/compute-engine-flow-reference.md`
+- `docs/benchmarks/local-taxonomy-benchmark.md`

@@ -271,7 +271,8 @@ Completed slices: `GAR-WEB-REDESIGN-2A reference synthesis and visual direction`
 `GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild`, and
 `GAR-WEB-REDESIGN-2F performance, accessibility, and claim-safety gate`,
 `GAR-WEB-REDESIGN-2G framework migration decision and implementation gate`, and
-`GAR-WEB-REDESIGN-2H architecture diagram rendering and README simplification` are captured in the completed ledger.
+`GAR-WEB-REDESIGN-2H architecture diagram rendering and README simplification`, and
+`GAR-WEB-REDESIGN-2I Astro/Starlight static-site migration` are captured in the completed ledger.
 There are no remaining website redesign items in the active non-runtime queue.
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only

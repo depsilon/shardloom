@@ -1,0 +1,47 @@
+---
+title: "Source adapter status"
+description: "The visible admit/block posture for an input adapter and source format."
+sidebar: {"label":"Source adapter status"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+The visible admit/block posture for an input adapter and source format.
+
+## Plain-English Meaning
+
+The visible admit/block posture for an input adapter and source format.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `UniversalIngress`
+- Category: UniversalIngress
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `source_adapter_id`
+- `source_adapter_status`
+- `source_adapter_blocker_id`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [compatibility-import-certified-local](/use-cases/compatibility-import-certified-local)
+- [python-local-csv-query-builder-smoke](/use-cases/python-local-csv-query-builder-smoke)
+
+## Reference Files
+
+- `docs/architecture/compute-engine-flow-reference.md`
+- `docs/use-cases/use-case-index.yml`

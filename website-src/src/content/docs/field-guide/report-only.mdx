@@ -1,0 +1,47 @@
+---
+title: "report_only"
+description: "A visible design or capability posture that is not runtime execution."
+sidebar: {"label":"report_only"}
+---
+
+
+<span class="status-chip status-report-only">report_only</span>
+
+A visible design or capability posture that is not runtime execution.
+
+## Plain-English Meaning
+
+A visible design or capability posture that is not runtime execution.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `capability posture`
+- Category: Unsupported Diagnostics
+
+## Current Support
+
+Status: `report_only`
+
+## Evidence Fields
+
+- `support_status=report_only`
+- `runtime_execution=false`
+- `claim_gate_status=not_claim_grade`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [sql-dataframe-capability-posture](/use-cases/sql-dataframe-capability-posture)
+- [package-channel-readiness-boundary](/use-cases/package-channel-readiness-boundary)
+
+## Reference Files
+
+- `docs/use-cases/use-case-index.yml`
+- `docs/architecture/phased-execution-plan.md`

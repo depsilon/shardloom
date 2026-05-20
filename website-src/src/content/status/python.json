@@ -1,0 +1,24 @@
+{
+  "capability": "Python",
+  "status": "runtime_supported",
+  "inputs": [
+    "python"
+  ],
+  "outputs": [
+    "typed_report",
+    "evidence"
+  ],
+  "route": "python_client direct_compatibility_transient generated_source",
+  "platform": "local",
+  "evidence": [
+    "protocol_version",
+    "resolved_cli_path",
+    "claim_gate_status"
+  ],
+  "works": "The Python wrapper exposes status/capability checks and scoped local workflows through the local CLI.",
+  "blocked": "It is not yet a native in-process SparkSession-equivalent runtime for all SQL/DataFrame operations.",
+  "references": [
+    "python/README.md",
+    "docs/getting-started/first-10-minutes.md"
+  ]
+}

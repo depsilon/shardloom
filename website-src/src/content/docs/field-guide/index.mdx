@@ -1,0 +1,91 @@
+---
+title: "Field Guide"
+description: "A concise Starlight-powered atlas for ShardLoom routes, evidence terms, and support boundaries."
+sidebar: {"label":"Field Guide"}
+---
+
+
+A compact atlas for ShardLoom vocabulary. This Starlight-powered Field Guide explains the route and evidence vocabulary behind the public website, including UniversalIngress, vortex_ingest, VortexPreparedState, No fallback, and claim_gate_status.
+
+## Category Table Of Contents
+
+- [Start Here](#start-here)
+- [Execution Routes](#execution-routes)
+- [UniversalIngress](#universalingress)
+- [Vortex Ingest](#vortex-ingest)
+- [Prepared/Native Vortex](#prepared-native-vortex)
+- [Evidence + Certificates](#evidence-certificates)
+- [Benchmarks](#benchmarks)
+- [I/O + Outputs](#i-o-outputs)
+- [Scale + Resource Envelope](#scale-resource-envelope)
+- [Platform Boundaries](#platform-boundaries)
+- [Unsupported Diagnostics](#unsupported-diagnostics)
+
+## Start Here
+
+- [What is ShardLoom?](/field-guide/what-is-shardloom/) - A pre-release compute engine focused on Vortex-prepared routes, explicit evidence, and no hidden fallback.
+- [Evidence-gated compute](/field-guide/evidence-gated-compute/) - Every supported route must emit evidence before any claim can be upgraded.
+- [No fallback](/field-guide/no-fallback/) - Unsupported work blocks or reports a deterministic diagnostic instead of running through another engine.
+
+## Execution Routes
+
+- [compatibility_import_certified](/field-guide/compatibility-import-certified/) - The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs.
+- [direct_compatibility_transient](/field-guide/direct-compatibility-transient/) - A scoped one-shot local route without persistent Vortex preparation.
+- [Generated source route](/field-guide/generated-source-route/) - No input dataset is read; ShardLoom creates deterministic rows and writes local outputs with evidence.
+
+## UniversalIngress
+
+- [UniversalIngress](/field-guide/universal-ingress/) - The source admission layer that recognizes, admits, or blocks every potential input family.
+- [SourceState](/field-guide/source-state/) - Reusable source identity, schema, fingerprint, adapter posture, and source evidence.
+- [Source adapter status](/field-guide/source-adapter-status/) - The visible admit/block posture for an input adapter and source format.
+
+## Vortex Ingest
+
+- [vortex_ingest](/field-guide/vortex-ingest/) - The prepare-once stage that turns admitted non-Vortex sources into VortexPreparedState.
+- [VortexPreparedState](/field-guide/vortex-prepared-state/) - The prepared artifact/state that prepared_vortex executes from.
+- [Prepared state reuse](/field-guide/prepared-state-reuse/) - Reuse of a prepared Vortex artifact across scenarios, queries, or outputs.
+
+## Prepared/Native Vortex
+
+- [prepared_vortex](/field-guide/prepared-vortex/) - Prepared warm execution over an existing VortexPreparedState, not direct non-Vortex input.
+- [native_vortex](/field-guide/native-vortex/) - Execution over input that already exists as Vortex before the query starts.
+- [Source-backed scan](/field-guide/source-backed-scan/) - Prepared/native scan evidence showing columns, pushdown, decode, and materialization posture.
+
+## Evidence + Certificates
+
+- [claim_gate_status](/field-guide/claim-gate-status/) - The field that says whether evidence is claim-grade, fixture-smoke-only, report-only, or blocked.
+- [Native I/O certificate](/field-guide/native-io-certificate/) - Evidence for admitted local source or sink I/O without external engine fallback.
+- [Materialization boundary](/field-guide/materialization-boundary/) - Evidence describing when data was decoded, materialized, or kept source-backed.
+- [Result-sink replay](/field-guide/result-sink-replay/) - Output proof that a local result sink can be replayed or checked for evidence consistency.
+
+## Benchmarks
+
+- [Benchmark evidence](/field-guide/benchmark-evidence/) - Committed local timing and coverage artifacts interpreted as evidence, not a leaderboard.
+- [Certified cold route](/field-guide/certified-cold-route/) - Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence.
+- [Prepared warm route](/field-guide/prepared-warm-route/) - Timing scope for query/runtime after VortexPreparedState already exists.
+- [external_baseline_only](/field-guide/external-baseline-only/) - Competitor engines are comparison context only and never satisfy ShardLoom evidence gates.
+
+## I/O + Outputs
+
+- [OutputPlan](/field-guide/output-plan/) - The output planning layer that stays separate from input format and execution route.
+- [SinkArtifact](/field-guide/sink-artifact/) - The written output artifact plus digest, format, replay, and certificate posture.
+- [Output fanout](/field-guide/output-fanout/) - One prepared source or result writing multiple output formats without coupling input and output types.
+
+## Scale + Resource Envelope
+
+- [Scale classes](/field-guide/scale-classes/) - Bounded scale claims such as local smoke, local claim-grade, split-local, object-store runtime, and distributed runtime.
+
+## Platform Boundaries
+
+- [Object-store boundary](/field-guide/object-store-boundary/) - S3/GCS/ADLS remain separate blocked/report-only routes until runtime evidence is admitted.
+- [Table/lakehouse boundary](/field-guide/table-lakehouse-boundary/) - Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims.
+- [Foundry boundary](/field-guide/foundry-boundary/) - Local/dev-stack Foundry proof posture without production Foundry runtime or Spark substitution claims.
+
+## Unsupported Diagnostics
+
+- [Deterministic blockers](/field-guide/deterministic-blockers/) - Unsupported work must return an explicit blocker instead of silently disappearing or falling back.
+- [report_only](/field-guide/report-only/) - A visible design or capability posture that is not runtime execution.
+
+## Claim Boundary
+
+The Field Guide explains vocabulary. It does not create a runtime, performance, production, SQL/DataFrame, object-store, lakehouse, Foundry, package-publication, Spark-displacement, or fallback-execution claim.

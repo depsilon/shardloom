@@ -1,0 +1,105 @@
+---
+import StatusChip from "./StatusChip.astro";
+import ReferenceList from "./ReferenceList.astro";
+import { fieldGuideTerms } from "../lib/data";
+
+const categories = [...new Set(fieldGuideTerms.map((term) => term.category))];
+const statuses = [...new Set(fieldGuideTerms.map((term) => term.status))].sort();
+const routes = [...new Set(fieldGuideTerms.map((term) => term.route))].sort();
+const readingPaths = [
+  "New to ShardLoom",
+  "Run a local workflow",
+  "Understand benchmarks",
+  "Understand Vortex-native paths",
+  "Use Python/SQL/DataFrame",
+  "Know what is blocked",
+  "Foundry/platform context",
+];
+---
+
+<section class="page-hero">
+  <p class="eyebrow">Field Guide</p>
+  <h1>A compact atlas for ShardLoom vocabulary.</h1>
+  <p class="lede">
+    UniversalIngress, vortex_ingest, VortexPreparedState, No fallback, claim_gate_status, and benchmark evidence terms are grouped for non-experts.
+  </p>
+</section>
+
+<section class="atlas-shell" data-filter-scope>
+  <aside class="atlas-rail">
+    <div>
+      <h2>Read by path</h2>
+      <div class="toc-list">
+        {readingPaths.map((path) => <a href="#terms">{path}</a>)}
+      </div>
+    </div>
+    <div>
+      <h3>Categories</h3>
+      <div class="toc-list">
+        {categories.map((category) => <a href={`#${category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>{category}</a>)}
+      </div>
+    </div>
+    <p class="blocked-note">Field Guide entries explain vocabulary. They do not expand support or claim status.</p>
+  </aside>
+  <div class="atlas-main" id="terms">
+    <div class="filter-bar">
+      <label>Search <input type="search" data-filter="search" placeholder="route, evidence field, term..." /></label>
+      <label>Status
+        <select data-filter="status">
+          <option value="">All statuses</option>
+          {statuses.map((status) => <option value={status}>{status}</option>)}
+        </select>
+      </label>
+      <label>Route
+        <select data-filter="route">
+          <option value="">All routes</option>
+          {routes.map((route) => <option value={route}>{route}</option>)}
+        </select>
+      </label>
+      <p class="filter-count" data-filter-count></p>
+    </div>
+    {categories.map((category) => (
+      <section class="atlas-section" id={category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}>
+        <div class="section-heading">
+          <h2>{category}</h2>
+          <p>{fieldGuideTerms.filter((term) => term.category === category).length} terms</p>
+        </div>
+        <div class="term-list">
+          {fieldGuideTerms.filter((term) => term.category === category).map((term) => (
+            <a
+              class="term-row"
+              href={`/field-guide/${term.slug}`}
+              data-filter-card
+              data-status={term.status}
+              data-route={term.route}
+            >
+              <span>{term.title}</span>
+              <p>{term.summary}</p>
+              <small>
+                <StatusChip value={term.status} />
+                <em>{term.route}</em>
+                <em>{term.evidence_fields.join(", ")}</em>
+              </small>
+            </a>
+          ))}
+        </div>
+      </section>
+    ))}
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">References</p>
+    <h2>Source-linked by design.</h2>
+    <p class="narrow">Field Guide terms cite exact repository files so the public site remains an interpretation layer, not a second source of truth.</p>
+  </div>
+  <div class="card-grid">
+    {fieldGuideTerms.slice(0, 4).map((term) => (
+      <article class="card">
+        <span class="badge">{term.title}</span>
+        <ReferenceList references={term.references} />
+      </article>
+    ))}
+  </div>
+</section>

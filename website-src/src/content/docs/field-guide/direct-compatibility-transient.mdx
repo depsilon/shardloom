@@ -1,0 +1,47 @@
+---
+title: "direct_compatibility_transient"
+description: "A scoped one-shot local route without persistent Vortex preparation."
+sidebar: {"label":"direct_compatibility_transient"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+A scoped one-shot local route without persistent Vortex preparation.
+
+## Plain-English Meaning
+
+A scoped one-shot local route without persistent Vortex preparation.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Direct one-shot route`
+- Category: Execution Routes
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `execution_mode`
+- `source_format`
+- `materialization_boundary`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [sql-local-source-csv-smoke](/use-cases/sql-local-source-csv-smoke)
+- [python-local-csv-query-builder-smoke](/use-cases/python-local-csv-query-builder-smoke)
+
+## Reference Files
+
+- `python/README.md`
+- `docs/architecture/compute-engine-flow-reference.md`

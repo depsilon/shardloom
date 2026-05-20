@@ -1,0 +1,47 @@
+---
+title: "Prepared warm route"
+description: "Timing scope for query/runtime after VortexPreparedState already exists."
+sidebar: {"label":"Prepared warm route"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Timing scope for query/runtime after VortexPreparedState already exists.
+
+## Plain-English Meaning
+
+Timing scope for query/runtime after VortexPreparedState already exists.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `prepared_vortex`
+- Category: Benchmarks
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `timing_scope=warm_prepared_query`
+- `preparation_included=false`
+- `prepared_state_id`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [prepared-native-vortex-runtime-direction](/use-cases/prepared-native-vortex-runtime-direction)
+- [benchmark-interpretation-evidence-not-leaderboard](/use-cases/benchmark-interpretation-evidence-not-leaderboard)
+
+## Reference Files
+
+- `docs/benchmarks/local-taxonomy-benchmark.md`
+- `docs/use-cases/use-case-index.yml`

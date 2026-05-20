@@ -1,0 +1,47 @@
+---
+title: "Certified cold route"
+description: "Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence."
+sidebar: {"label":"Certified cold route"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence.
+
+## Plain-English Meaning
+
+Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `compatibility_import_certified`
+- Category: Benchmarks
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `timing_scope=cold_certified_end_to_end`
+- `preparation_included=true`
+- `total_runtime_millis`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [compatibility-import-certified-local](/use-cases/compatibility-import-certified-local)
+- [benchmark-interpretation-evidence-not-leaderboard](/use-cases/benchmark-interpretation-evidence-not-leaderboard)
+
+## Reference Files
+
+- `docs/benchmarks/local-taxonomy-benchmark.md`
+- `docs/architecture/compute-engine-flow-reference.md`

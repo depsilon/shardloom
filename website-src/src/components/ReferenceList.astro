@@ -1,0 +1,15 @@
+---
+import { repoLink } from "../lib/data";
+
+interface Props {
+  references?: string[];
+}
+
+const { references = [] } = Astro.props;
+---
+
+<ul class="reference-list">
+  {references.map((reference) => (
+    <li><a href={repoLink(reference)}>{reference}</a></li>
+  ))}
+</ul>

@@ -1,0 +1,46 @@
+{
+  "audience": "user asking how to install ShardLoom today",
+  "blocked_explanation": "Public channels need trusted publishing, provenance, clean install proof, security gates, release approval, and publication-specific evidence.",
+  "capability_family": "package_release_install_channels",
+  "claim_boundary": "Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, or package-publication claim.",
+  "common_mistakes": [
+    "running_pip_install_shardloom_from_public_registry",
+    "assuming_release_dry_run_published_anything",
+    "installing_external_baselines_as_runtime_dependencies"
+  ],
+  "engine_mode": "batch_status",
+  "evidence_fields": [
+    "package_install_mode",
+    "clean_env_install_status",
+    "cli_binary_resolved",
+    "smoke_status",
+    "sbom_status",
+    "provenance_status",
+    "fallback_attempted=false",
+    "external_engine_invoked=false"
+  ],
+  "execution_mode": "local_release_dry_run",
+  "expected_output_evidence": "target/release-dry-run-proof/transcript.json records local source artifacts and no-publication status.",
+  "id": "package-channel-readiness-boundary",
+  "inputs": [
+    "source_checkout"
+  ],
+  "outputs": [
+    "local_wheel_dry_run_report",
+    "install_channel_matrix"
+  ],
+  "references": [
+    "docs/getting-started/first-10-minutes.md",
+    "docs/getting-started/install.md",
+    "docs/release/hard-release-readiness-gate.md",
+    "docs/architecture/adoption-commercial-readiness-friction-reduction.md",
+    "README.md"
+  ],
+  "related_use_cases": [
+    "first-10-minutes-local-smoke",
+    "foundry-local-proof-boundary"
+  ],
+  "runnable_example": "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1",
+  "status": "report_only",
+  "title": "Package, release, and install channel boundary"
+}

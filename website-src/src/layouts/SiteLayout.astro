@@ -1,0 +1,53 @@
+---
+import { siteNav } from "../lib/data";
+
+interface Props {
+  title: string;
+  description: string;
+  path: string;
+  active?: string;
+}
+
+const { title, description, path, active = "" } = Astro.props;
+const canonical = path === "/" ? "https://shardloom.io/" : `https://shardloom.io${path}`;
+const pageTitle = title === "ShardLoom" ? "ShardLoom" : `${title} | ShardLoom`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/assets/logo/shardloom-favicon.png" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <title>{pageTitle}</title>
+    <link rel="stylesheet" href="/assets/site.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="ShardLoom home">
+        <img src="/assets/logo/shardloom-favicon.png" width="40" height="40" alt="" aria-hidden="true" />
+        <span>ShardLoom</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        {siteNav.map(([label, href, key]) => (
+          <a href={href} class:list={{ active: active === key }}>{label}</a>
+        ))}
+      </nav>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <p>ShardLoom is pre-release, local-first, and claim-gated.</p>
+      <a href="https://github.com/depsilon/shardloom">Open GitHub</a>
+    </footer>
+    <script is:inline src="/assets/site.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "audience": "new local user or reviewer",
+  "capability_family": "onboarding_first_10_minutes",
+  "claim_boundary": "Local source-checkout smoke only; no dataset execution, package-publication, production, SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim.",
+  "common_mistakes": [
+    "expecting_dataset_output",
+    "treating_no_dataset_smoke_as_generated_output",
+    "assuming_package_publication"
+  ],
+  "engine_mode": "batch_status",
+  "evidence_fields": [
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
+    "protocol_version",
+    "resolved_cli_path"
+  ],
+  "execution_mode": "no_dataset_smoke",
+  "expected_output_evidence": "Status, smoke, and capabilities JSON with fallback_attempted=false and external_engine_invoked=false.",
+  "id": "first-10-minutes-local-smoke",
+  "inputs": [
+    "none"
+  ],
+  "outputs": [
+    "status_report",
+    "capabilities_report",
+    "smoke_report"
+  ],
+  "references": [
+    "README.md",
+    "docs/getting-started/first-10-minutes.md",
+    "docs/getting-started/examples.md",
+    "examples/local-python-smoke/README.md",
+    "python/README.md"
+  ],
+  "related_use_cases": [
+    "python-wrapper-client-smoke",
+    "evidence-audit-claim-gates"
+  ],
+  "runnable_example": "python examples\\local-python-smoke\\run.py --repo-root .",
+  "status": "ready_local",
+  "title": "First 10 minutes local smoke"
+}

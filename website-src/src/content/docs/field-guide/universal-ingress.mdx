@@ -1,0 +1,47 @@
+---
+title: "UniversalIngress"
+description: "The source admission layer that recognizes, admits, or blocks every potential input family."
+sidebar: {"label":"UniversalIngress"}
+---
+
+
+<span class="status-chip status-report-only">report_only</span>
+
+The source admission layer that recognizes, admits, or blocks every potential input family.
+
+## Plain-English Meaning
+
+The source admission layer that recognizes, admits, or blocks every potential input family.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `UniversalIngress`
+- Category: UniversalIngress
+
+## Current Support
+
+Status: `report_only`
+
+## Evidence Fields
+
+- `source_adapter_status`
+- `source_adapter_blocker_id`
+- `ingress_status`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [vortex-ingest-prepare-once-local](/use-cases/vortex-ingest-prepare-once-local)
+- [object-store-boundary-report](/use-cases/object-store-boundary-report)
+
+## Reference Files
+
+- `docs/architecture/universal-ingress-route-taxonomy.md`
+- `docs/architecture/compute-engine-flow-reference.md`

@@ -1,0 +1,48 @@
+---
+title: "SourceState"
+description: "Reusable source identity, schema, fingerprint, adapter posture, and source evidence."
+sidebar: {"label":"SourceState"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Reusable source identity, schema, fingerprint, adapter posture, and source evidence.
+
+## Plain-English Meaning
+
+Reusable source identity, schema, fingerprint, adapter posture, and source evidence.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `UniversalIngress -> SourceState`
+- Category: UniversalIngress
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `source_state_id`
+- `source_state_digest`
+- `schema_digest`
+- `source_state_reuse_hit`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [prepared-native-vortex-runtime-direction](/use-cases/prepared-native-vortex-runtime-direction)
+- [query-scenario-cookbook-smoke](/use-cases/query-scenario-cookbook-smoke)
+
+## Reference Files
+
+- `docs/architecture/universal-input-contract.md`
+- `docs/use-cases/use-case-index.yml`

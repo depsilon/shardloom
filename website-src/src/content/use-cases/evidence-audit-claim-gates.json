@@ -1,0 +1,46 @@
+{
+  "audience": "reviewer who needs to know what proof a run produced",
+  "capability_family": "evidence_audit_claim_gates",
+  "claim_boundary": "Audit fields explain scoped local evidence only; missing evidence blocks claims and never permits hidden fallback.",
+  "common_mistakes": [
+    "omitting_claim_gate_status",
+    "assuming_missing_evidence_means_supported",
+    "ignoring_materialization_boundary"
+  ],
+  "engine_mode": "batch",
+  "evidence_fields": [
+    "execution_mode",
+    "engine_mode",
+    "native_io_certificate_status",
+    "materialization_boundary",
+    "result_replay_verified",
+    "claim_gate_status",
+    "fallback_attempted=false",
+    "external_engine_invoked=false"
+  ],
+  "execution_mode": "compatibility_import_certified",
+  "expected_output_evidence": "A local benchmark smoke artifact with certificate, result-sink, materialization, claim gate, and no-fallback fields.",
+  "id": "evidence-audit-claim-gates",
+  "inputs": [
+    "local_certified_workload"
+  ],
+  "outputs": [
+    "execution_certificate",
+    "native_io_certificate",
+    "claim_gate_status",
+    "result_replay_evidence"
+  ],
+  "references": [
+    "docs/getting-started/certified-local-workload.md",
+    "docs/architecture/compute-engine-flow-reference.md",
+    "docs/benchmarks/local-taxonomy-benchmark.md",
+    "docs/architecture/operational-evidence-policy-hardening.md"
+  ],
+  "related_use_cases": [
+    "compatibility-import-certified-local",
+    "benchmark-interpretation-evidence-not-leaderboard"
+  ],
+  "runnable_example": "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1",
+  "status": "ready_local",
+  "title": "Evidence, audit, and claim gates"
+}

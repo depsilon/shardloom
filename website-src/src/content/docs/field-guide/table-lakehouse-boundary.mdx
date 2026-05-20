@@ -1,0 +1,47 @@
+---
+title: "Table/lakehouse boundary"
+description: "Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims."
+sidebar: {"label":"Table/lakehouse boundary"}
+---
+
+
+<span class="status-chip status-blocked">blocked</span>
+
+Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims.
+
+## Plain-English Meaning
+
+Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Future table route`
+- Category: Platform Boundaries
+
+## Current Support
+
+Status: `blocked`
+
+## Evidence Fields
+
+- `table_format_involved`
+- `table_snapshot_id`
+- `output_commit_status`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [table-lakehouse-boundary-report](/use-cases/table-lakehouse-boundary-report)
+- [object-store-boundary-report](/use-cases/object-store-boundary-report)
+
+## Reference Files
+
+- `docs/use-cases/use-case-index.yml`
+- `docs/architecture/phased-execution-plan.md`
