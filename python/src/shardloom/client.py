@@ -705,6 +705,30 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def numeric_abs_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted numeric ABS predicate."""
+
+        return self.envelope.field_bool("numeric_abs_runtime_execution", False) is True
+
+    @property
+    def numeric_abs_source_columns(self) -> tuple[str, ...]:
+        """Return numeric ABS predicate source columns emitted by the smoke."""
+
+        value = self.envelope.field("numeric_abs_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_abs_rhs_dtypes(self) -> tuple[str, ...]:
+        """Return numeric ABS predicate literal dtypes emitted by the smoke."""
+
+        value = self.envelope.field("numeric_abs_rhs_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def numeric_arithmetic_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted numeric arithmetic projection."""
 
@@ -908,6 +932,33 @@ class SqlLocalSourceSmokeReport:
         """Return numeric arithmetic projection literal dtypes emitted by the smoke."""
 
         value = self.envelope.field("numeric_arithmetic_projection_rhs_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_abs_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted numeric ABS projection."""
+
+        return (
+            self.envelope.field_bool("numeric_abs_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def numeric_abs_projection_source_columns(self) -> tuple[str, ...]:
+        """Return numeric ABS projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("numeric_abs_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_abs_projection_output_columns(self) -> tuple[str, ...]:
+        """Return numeric ABS projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("numeric_abs_projection_output_column", "")
         if not value or value == "not_applicable":
             return ()
         return tuple(part for part in value.split(",") if part)

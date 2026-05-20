@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import math
 import os
 from dataclasses import dataclass
@@ -145,6 +146,16 @@ class ColumnExpression:
         """Return a scoped numeric division expression for predicates."""
 
         return self._numeric_binary("/", value)
+
+    def __abs__(self) -> "ColumnExpression":
+        """Return a scoped `ABS(column)` numeric absolute-value expression."""
+
+        return self.abs()
+
+    def abs(self) -> "ColumnExpression":
+        """Return a scoped `ABS(column)` numeric absolute-value expression."""
+
+        return ColumnExpression(f"ABS({self.sql})")
 
     def is_null(self) -> PredicateExpression:
         """Return a scoped `IS NULL` predicate."""
@@ -1998,6 +2009,14 @@ def length(column_expression: object) -> ColumnExpression:
     return column_expression.length()
 
 
+def abs(column_expression: object) -> ColumnExpression:
+    """Return a scoped `ABS(column)` numeric absolute-value expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("abs requires a shardloom column expression")
+    return column_expression.abs()
+
+
 def column(name: object) -> ColumnExpression:
     """Alias for `col(...)`."""
 
@@ -2760,7 +2779,7 @@ def _normalize_date_arithmetic_days(value: object) -> int:
         ):
             raise ValueError("date arithmetic days must be a signed integer literal")
         days = int(text)
-    if abs(days) > 366_000:
+    if builtins.abs(days) > 366_000:
         raise ValueError("date arithmetic days admits absolute values <= 366000")
     return days
 
@@ -2822,6 +2841,21 @@ def _sql_numeric_arithmetic_projection_expression(expression: object) -> str:
     return text
 
 
+def _sql_numeric_abs_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError("computed with_column currently admits ABS column expressions")
+    function = text[:open_index].strip().upper()
+    if function != "ABS":
+        raise ValueError("computed with_column currently admits ABS column expressions")
+    column = text[open_index + 1 : -1].strip()
+    normalized = _normalize_expression_column(column)
+    return f"ABS({normalized})"
+
+
 def _sql_computed_projection_expression(expression: object) -> str:
     parsers = (
         _sql_cast_projection_expression,
@@ -2829,6 +2863,7 @@ def _sql_computed_projection_expression(expression: object) -> str:
         _sql_nullif_projection_expression,
         _sql_conditional_projection_expression,
         _sql_numeric_arithmetic_projection_expression,
+        _sql_numeric_abs_projection_expression,
         _sql_date_arithmetic_projection_expression,
         _sql_string_length_projection_expression,
         _sql_string_transform_projection_expression,

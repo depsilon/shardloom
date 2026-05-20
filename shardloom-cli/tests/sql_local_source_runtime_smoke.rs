@@ -863,6 +863,74 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
 }
 
 #[test]
+fn sql_local_source_smoke_executes_numeric_abs_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-numeric-abs-projection", "csv");
+    fs::write(&source_path, "id,amount\n1,-5\n2,3\n3,-4\n4,\n").expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,ABS(amount) AS magnitude FROM '{}' WHERE ABS(amount) >= 4 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("predicate_operator_family", "numeric_abs")));
+    assert!(stdout.contains(&field("numeric_abs_runtime_execution", "true")));
+    assert!(stdout.contains(&field("numeric_abs_source_column", "amount")));
+    assert!(stdout.contains(&field("numeric_abs_rhs_dtype", "int64")));
+    assert!(stdout.contains(&field("numeric_abs_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field("numeric_abs_projection_source_column", "amount")));
+    assert!(stdout.contains(&field("numeric_abs_projection_output_column", "magnitude")));
+    assert!(stdout.contains(&field("projected_columns", "id,magnitude")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"magnitude\\\":5}\\n{\\\"id\\\":3,\\\"magnitude\\\":4}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,ABS(missing) AS magnitude FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(
+        blocked_output
+            .contains("numeric abs projection source column \\\"missing\\\" is not present")
+    );
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-cast-projection", "csv");
     fs::write(
@@ -3308,6 +3376,43 @@ fn sql_local_source_smoke_executes_string_length_predicate_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_numeric_abs_predicate_without_fallback() {
+    let source_path = unique_path("sql-local-source-numeric-abs", "csv");
+    fs::write(&source_path, "id,amount\n1,-5\n2,3\n3,-4\n4,\n").expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,amount FROM '{}' WHERE ABS(amount) >= 4 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "numeric_abs")));
+    assert!(stdout.contains(&field("numeric_abs_runtime_execution", "true")));
+    assert!(stdout.contains(&field("numeric_abs_source_column", "amount")));
+    assert!(stdout.contains(&field("numeric_abs_rhs_dtype", "int64")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"amount\\\":-5}\\n{\\\"id\\\":3,\\\"amount\\\":-4}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_date_arithmetic_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-date-arithmetic", "csv");
     fs::write(
@@ -4188,6 +4293,51 @@ fn sql_local_source_smoke_blocks_unsupported_string_length_shapes_without_fallba
         (
             format!(
                 "SELECT id FROM '{}' WHERE LENGTH(label, id) >= 4 LIMIT 10",
+                source_path.display()
+            ),
+            "SQL identifiers may contain only ASCII letters, numbers, and underscores",
+        ),
+    ];
+
+    for (statement, expected_reason) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .output()
+            .expect("sql-local-source-smoke command runs");
+        assert!(
+            !output.status.success(),
+            "statement={statement} stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(
+            stdout.contains(expected_reason),
+            "statement={statement} expected={expected_reason} stdout={stdout}"
+        );
+        assert!(stdout.contains("no fallback execution was attempted"));
+        assert!(stdout.contains("external_engine_invoked=false"));
+    }
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_unsupported_numeric_abs_shapes_without_fallback() {
+    let source_path = unique_path("sql-local-source-numeric-abs-blocked", "csv");
+    fs::write(&source_path, "id,amount\n1,-5\n2,3\n").expect("write source csv");
+
+    let cases = [
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE ABS(amount) >= 'large' LIMIT 10",
+                source_path.display()
+            ),
+            "numeric arithmetic expressions admit int64 or finite float64 literals only",
+        ),
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE ABS(amount, id) >= 4 LIMIT 10",
                 source_path.display()
             ),
             "SQL identifiers may contain only ASCII letters, numbers, and underscores",

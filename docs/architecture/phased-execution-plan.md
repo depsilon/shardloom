@@ -340,12 +340,19 @@ or documentation updates alone are insufficient.
     same-family `int64`, same-family finite `float64`, and exact `int64`/`float64` mixed numeric
     coercion families with `numeric_arithmetic_*` evidence, ShardLoom-native null propagation, and
     deterministic blockers for division by zero, lossy mixed coercion, or unsupported expression
-    shapes. Scoped local-source numeric arithmetic
+    shapes. Scoped numeric absolute-value predicates of the form
+    `ABS(column) <comparison> <numeric literal>` are runtime-admitted with `numeric_abs_*`
+    evidence, ShardLoom-native null propagation, deterministic overflow/type/unsupported-shape
+    blockers, and no external fallback. Scoped local-source numeric arithmetic
     projections of the form `<column> (+|-|*|/) <numeric literal> AS <column>` are also
     runtime-admitted for explicit projection/filter/limit rows with
     `numeric_arithmetic_projection_*` evidence, ShardLoom-native null propagation, exact
     `int64`/`float64` mixed numeric coercion, deterministic duplicate-output-name blockers, and
-    deterministic division-by-zero/lossy-coercion/unsupported-shape blockers. Scoped UTF-8
+    deterministic division-by-zero/lossy-coercion/unsupported-shape blockers. Scoped numeric
+    absolute-value projections of the form `ABS(column) AS column` are runtime-admitted with
+    `numeric_abs_projection_*` evidence, ShardLoom-native null propagation, deterministic
+    duplicate-output-name/source-column/overflow/type/unsupported-shape blockers, and no external
+    fallback. Scoped UTF-8
     transform projections of the form `LOWER(column) AS column`, `UPPER(column) AS column`, and
     `TRIM(column) AS column` are runtime-admitted with `string_transform_projection_*` evidence,
     ShardLoom-native null propagation, and deterministic duplicate-output-name/source-column/
@@ -391,9 +398,10 @@ or documentation updates alone are insufficient.
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`
     / `NOT LIKE`, scoped UTF-8 lower/upper/trim transforms, bounded `IN` / `NOT IN`,
     cast/date/timestamp, Date32 extracts, Date32 day arithmetic, scoped UTC timestamp extracts,
-    scoped numeric arithmetic comparison operators, scoped numeric arithmetic `with_column(...)`,
-    scoped cast `with_column(...)`, scoped Date32 day arithmetic `with_column(...)`, scoped UTF-8
-    string transform and length `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
+    scoped numeric arithmetic comparison operators, scoped numeric absolute-value predicates and
+    `with_column(...)`, scoped numeric arithmetic `with_column(...)`, scoped cast `with_column(...)`,
+    scoped Date32 day arithmetic `with_column(...)`, scoped UTF-8 string transform and length
+    `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
     scoped null-cleanup `with_column(...)` via `.fill_null(...)` and `.null_if(...)`, scoped
     conditional `with_column(...)` via `sl.case_when(...)`, and logical predicates into the same
     local SQL

@@ -395,6 +395,8 @@ literals with SQL three-valued `WHERE`-filter semantics. Typed reports expose
 `in_predicate_null_semantics`, plus `numeric_arithmetic_runtime_execution`,
 `numeric_arithmetic_operator`, `numeric_arithmetic_source_column`, and
 `numeric_arithmetic_rhs_dtype` when arithmetic predicates are used, plus
+`numeric_abs_runtime_execution`, `numeric_abs_source_column`, and
+`numeric_abs_rhs_dtype` when `ABS(column)` predicates are used, plus
 `string_length_runtime_execution`, `string_length_source_column`, and `string_length_rhs_dtype`
 when UTF-8 length predicates are used.
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
@@ -404,13 +406,14 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
 `timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons, and the scoped
-UTF-8 `length()` helper and numeric `+`, `-`, `*`, and `/` operators for left-side arithmetic predicates into the same
+UTF-8 `length()` helper, numeric `abs()` helper, and numeric `+`, `-`, `*`, and `/` operators for left-side arithmetic predicates into the same
 ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed computed `with_column(...)` is also admitted after an explicit `select(...)` for local
 CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
 projection/filter/limit workflows. The current slice accepts deterministic `lit(...)` values,
-direct bool/int/float literals, and scoped numeric arithmetic expressions shaped as
-`sl.col("amount") + 5`, `-`, `*`, or `/` with an int/finite-float literal, plus scoped UTF-8
+direct bool/int/float literals, scoped numeric arithmetic expressions shaped as
+`sl.col("amount") + 5`, `-`, `*`, or `/` with an int/finite-float literal, scoped
+`sl.col("amount").abs()` / `sl.abs(sl.col("amount"))` numeric absolute-value projections, plus scoped UTF-8
 `sl.col("label").lower()`, `.upper()`, and `.trim()` projections, scoped
 `sl.col("label").length()` / `sl.length(sl.col("label"))` projections, scoped
 `sl.col("amount").cast("float64")` / `.cast("date32")` / `.cast("timestamp_micros")`
@@ -426,7 +429,8 @@ cleanup projections such as `sl.col("label").null_if("missing")` or
 conditional projections such as
 `sl.case_when(sl.col("amount") >= 10, "large", "small")`. Literal projections emit
 `literal_projection_*` evidence; cast projections emit `cast_projection_*` evidence; numeric
-arithmetic projections emit `numeric_arithmetic_projection_*` evidence; string transform
+arithmetic projections emit `numeric_arithmetic_projection_*` evidence; numeric absolute-value
+projections emit `numeric_abs_projection_*` evidence; string transform
 projections emit `string_transform_projection_*` evidence; string length projections emit
 `string_length_projection_*` evidence; date/time extract projections emit
 `date_extract_projection_*` and `timestamp_extract_projection_*` evidence; date arithmetic
@@ -515,6 +519,14 @@ arithmetic_column = (
     .limit(10)
     .collect()
 )
+abs_column = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id")
+    .with_column("magnitude", sl.abs(sl.col("amount")))
+    .filter(sl.col("amount").abs() >= 10)
+    .limit(10)
+    .collect()
+)
 in_filtered = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
@@ -595,6 +607,11 @@ print(
     arithmetic_column.numeric_arithmetic_projection_output_columns,
 )
 print(
+    abs_column.result_rows,
+    abs_column.numeric_abs_projection_runtime_execution,
+    abs_column.numeric_abs_projection_output_columns,
+)
+print(
     in_filtered.in_predicate_runtime_execution,
     in_filtered.in_list_value_count,
     in_filtered.in_list_null_value_count,
@@ -653,8 +670,8 @@ print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 This is a fixture-smoke local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar
 Parquet/Arrow IPC/Avro/ORC bridge for the scoped
 projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
-preview/head/take select-star, input-backed literal, scoped numeric arithmetic, and scoped
-UTF-8 string length `with_column`,
+preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
+ABS, and scoped UTF-8 string length `with_column`,
 and single-key numeric top-N shapes.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,

@@ -820,6 +820,7 @@ fn eval_function_call(
             eval_string_transform(name, args, row, |value| value.trim().to_string())
         }
         "utf8_length" | "length" => eval_string_length(name, args, row),
+        "numeric_abs" | "abs" => eval_numeric_abs(name, args, row),
         "date_year" | "year" => eval_date_extract(name, args, row, date32_year),
         "date_month" | "month" => eval_date_extract(name, args, row, |days| {
             i32::try_from(date32_month(days)).expect("month fits i32")
@@ -1132,6 +1133,49 @@ fn eval_string_length(
             "string_length",
             format!(
                 "function {name:?} supports UTF-8/null operands only, got {}",
+                other.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn eval_numeric_abs(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() != 1 {
+        return Err(EvalFailure::invalid(
+            "numeric_abs",
+            format!("function {name:?} requires exactly one numeric argument"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let data_materialized = value.data_materialized;
+    match value.value {
+        ScalarValue::Null => Ok(EvalValue::null(value.dtype, NullBehavior::NullPropagating)
+            .carry_materialization(data_materialized)),
+        ScalarValue::Int64(value) => {
+            let output = value.checked_abs().ok_or_else(|| {
+                EvalFailure::invalid("numeric_abs", "int64 absolute value overflow")
+            })?;
+            Ok(EvalValue::new(
+                ScalarValue::Int64(output),
+                LogicalDType::Int64,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        ScalarValue::Float64(value) if value.is_finite() => Ok(EvalValue::new(
+            ScalarValue::Float64(value.abs()),
+            LogicalDType::Float64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        other => Err(EvalFailure::unsupported(
+            "numeric_abs",
+            format!(
+                "function {name:?} supports finite int64/float64/null operands only, got {}",
                 other.dtype().as_str()
             ),
         )),
@@ -1570,6 +1614,7 @@ fn function_operator_family(name: &str) -> &'static str {
             "string_transform"
         }
         "utf8_length" | "length" => "string_length",
+        "numeric_abs" | "abs" => "numeric_abs",
         "date_year" | "year" | "date_month" | "month" | "date_day" | "day" => "date_extract",
         "timestamp_year" | "timestamp_month" | "timestamp_day" | "timestamp_hour"
         | "timestamp_minute" | "timestamp_second" => "timestamp_extract",
@@ -2852,6 +2897,47 @@ mod tests {
         assert_eq!(report.value, Some(ScalarValue::Int64(4)));
         assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
         assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_numeric_abs_without_fallback() {
+        let expression = Expression::new(
+            expr_id("abs"),
+            ExpressionKind::FunctionCall {
+                name: "abs".to_string(),
+                args: vec![Expression::column(expr_id("amount"), col("amount"))],
+            },
+        );
+        let report = evaluate_expression(&expression, &row(&[("amount", ScalarValue::Int64(-42))]));
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "numeric_abs");
+        assert_eq!(report.value, Some(ScalarValue::Int64(42)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_blocks_numeric_abs_overflow_without_fallback() {
+        let expression = Expression::new(
+            expr_id("abs-overflow"),
+            ExpressionKind::FunctionCall {
+                name: "abs".to_string(),
+                args: vec![Expression::column(expr_id("amount"), col("amount"))],
+            },
+        );
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("amount", ScalarValue::Int64(i64::MIN))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::InvalidInput);
+        assert_eq!(report.operator_family, "numeric_abs");
+        assert!(report.has_errors());
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
     }
