@@ -44,6 +44,10 @@ The Python query-builder runtime admits local CSV, flat JSON/JSONL/NDJSON, and f
 - `source_state_digest`
 - `filter_runtime_execution`
 - `predicate_operator_family`
+- `null_predicate_runtime_execution`
+- `null_predicate_operator`
+- `null_predicate_source_column`
+- `null_predicate_null_semantics`
 - `string_transform_runtime_execution`
 - `string_transform_operator`
 - `string_transform_source_column`
