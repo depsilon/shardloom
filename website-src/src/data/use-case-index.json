@@ -808,7 +808,7 @@
     {
       "audience": "user asking what ShardLoom can write today and what fanout means",
       "capability_family": "output_and_fanout",
-      "claim_boundary": "Result-sink smoke is local and scoped; cross-format fanout, S3/object-store write, table commits, and production sink support remain planned or blocked.",
+      "claim_boundary": "Result-sink and fanout smoke is local and scoped; Vortex-native output fanout, replay/fidelity proof, S3/object-store write, table commits, and production sink support remain planned or blocked.",
       "common_mistakes": [
         "coupling_input_format_to_output_format",
         "treating_local_sink_as_s3_write",
@@ -816,17 +816,19 @@
       ],
       "engine_mode": "batch",
       "evidence_fields": [
-        "result_sink_write_millis",
-        "result_replay_verified",
         "output_native_io_certificate_status",
         "output_format",
-        "output_plan_reuse_hit",
+        "output_fanout_performed",
+        "fanout_output_count",
+        "fanout_output_formats",
+        "fanout_output_digests",
+        "fanout_result_reuse_hit",
         "claim_gate_status",
         "fallback_attempted=false",
         "external_engine_invoked=false"
       ],
       "execution_mode": "compatibility_import_certified",
-      "expected_output_evidence": "A local result-sink proof artifact and future fanout fields only when admitted by GAR-IOREUSE slices.",
+      "expected_output_evidence": "A local result-sink or fanout proof artifact with per-output digest/certificate fields for admitted local sinks; full replay/fidelity evidence only after later OutputPlan slices.",
       "id": "output-result-sink-and-fanout-boundary",
       "inputs": [
         "local_benchmark_fixture",
@@ -834,8 +836,9 @@
       ],
       "outputs": [
         "local_result_sink_artifact",
-        "output_certificate",
-        "planned_multi_format_fanout"
+        "local_jsonl_csv_fanout",
+        "feature_gated_structured_fanout",
+        "output_certificate"
       ],
       "references": [
         "docs/architecture/io-reuse-and-fanout-architecture.md",
@@ -848,7 +851,7 @@
         "source-free-generated-output-boundary",
         "object-store-boundary-report"
       ],
-      "runnable_example": "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1",
+      "runnable_example": "ctx.read_csv(\"target/input.csv\").select(\"id\").limit(10).fanout({\"jsonl\": \"target/out.jsonl\", \"csv\": \"target/out.csv\"}, allow_overwrite=True)",
       "status": "smoke_supported",
       "title": "Output and fanout boundary"
     },

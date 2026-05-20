@@ -16,6 +16,76 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4G scoped local SQL/Python output fanout runtime slice
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-output-fanout-4g` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`
+    - `GAR-RUNTIME-IMPL-5E SQL/Python route parity and simplified user surface`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/use-cases/use-case-index.yml`
+  - Scope:
+    - Added repeated `sql-local-source-smoke --fanout-output format=local-path` CLI support for
+      writing one admitted local-source SQL result to multiple local sinks.
+    - Added Python `.fanout(...)` workflow helpers for admitted local-source `SqlWorkflow` and
+      `LazyFrame` surfaces, with deterministic blockers for unsupported/source-free paths.
+    - Admitted local JSONL and CSV fanout sinks in the default build and feature-gated flat scalar
+      Parquet, Arrow IPC, Avro, and ORC fanout sinks under `--features universal-format-io`.
+    - Rendered and preflighted all requested fanout outputs before writing any output so blocked
+      feature-gated or duplicate/existing-path requests fail without partial sink writes.
+    - Added fanout evidence fields for output count, formats, paths, bytes, digests, certificate
+      refs, Native I/O certificate statuses, per-fanout write timing, output-plan posture, and
+      result reuse for fanout.
+    - Updated Python capability views, Python README, compute-flow docs, use-case data, status data,
+      Astro/Starlight content mirrors, and committed static website output for the scoped fanout
+      surface.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke ... --fanout-output jsonl=out.jsonl --fanout-output csv=out.csv`
+      and Python `ctx.read_csv(...).select(...).fanout({"jsonl": "...", "csv": "..."})`.
+  - Evidence:
+    - Fanout reports preserve `fallback_attempted=false`, `external_engine_invoked=false`,
+      `claim_gate_status=fixture_smoke_only`, local output bytes/digests, per-output certificate
+      refs/statuses, `output_fanout_performed=true`, and `fanout_result_reuse_hit=true`.
+    - Feature-gated structured fanout sinks remain blocked in default builds before any output is
+      written.
+  - Verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke -- --nocapture`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder python.tests.test_cli_client`
+    - `python -m compileall -q python/src python/tests`
+    - `node website-src/scripts/sync-content.mjs`
+    - `node website-src/node_modules/@astrojs/check/bin/astro-check.js`
+    - `node website-src/node_modules/astro/bin/astro.mjs build`
+    - `node website-src/scripts/postbuild-static.mjs`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_universal_ingress_routes.py`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Non-goals:
+    - No Vortex output sink, generated-source fanout, prepared/native fanout, claim-grade replay or
+      fidelity proof, object-store/table output, benchmark recomputation, package publication,
+      production claim, or performance claim.
+  - Claim boundary:
+    - Scoped local-source compatibility fanout only. This proves a local result can be reused for
+      multiple local output writes with evidence; it is not broad output parity, production sink
+      support, Vortex-native output fanout, or table/object-store commit support.
+  - Fallback boundary:
+    - Fanout output rendering is performed by ShardLoom's local compatibility sink writers. No
+      pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray, database, warehouse, managed platform,
+      or external fallback engine is invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4G` and related fanout/runtime parity items open until Vortex output,
+      OutputPlan registry consolidation, replay/fidelity proof, prepared/native/generated fanout,
+      benchmark fanout evidence, and object-store/table boundaries are implemented or explicitly
+      blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4G feature-gated Arrow IPC/Avro/ORC local-output sink slice
   - Date: 2026-05-20
   - Branch/PR: `runtime-local-output-formats-4g` / pending.

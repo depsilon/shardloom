@@ -2092,6 +2092,86 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_local_csv_query_builder_fanout_invokes_sql_smoke_outputs(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--fanout-output",
+                    "jsonl=target/out.jsonl",
+                    "--fanout-output",
+                    "csv=target/out.csv",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source fanout output",
+                    "human_text": "sql local source fanout output",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_route", "value": "local_fanout"},
+                        {"key": "output_format", "value": "jsonl"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "3"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_fanout_performed", "value": "true"},
+                        {"key": "fanout_output_count", "value": "2"},
+                        {"key": "fanout_output_formats", "value": "jsonl,csv"},
+                        {"key": "fanout_output_paths", "value": "target/out.jsonl,target/out.csv"},
+                        {"key": "fanout_output_digests", "value": "jsonl:abc,csv:def"},
+                        {"key": "fanout_output_native_io_certificate_statuses", "value": "jsonl:certified_local_jsonl_sink,csv:certified_local_csv_sink"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_fanout_sinks"},
+                        {"key": "fanout_result_reuse_hit", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .limit(2)
+            .fanout(
+                {"jsonl": "target/out.jsonl", "csv": "target/out.csv"},
+                allow_overwrite=True,
+            )
+        )
+
+        self.assertEqual(report.envelope.field("output_route"), "local_fanout")
+        self.assertTrue(report.output_io_performed)
+        self.assertTrue(report.output_fanout_performed)
+        self.assertEqual(report.fanout_output_count, 2)
+        self.assertEqual(report.fanout_output_formats, ("jsonl", "csv"))
+        self.assertEqual(
+            report.fanout_output_paths,
+            ("target/out.jsonl", "target/out.csv"),
+        )
+        self.assertEqual(report.fanout_output_digests, ("jsonl:abc", "csv:def"))
+        self.assertTrue(report.fanout_result_reuse_hit)
+        self.assertEqual(
+            report.output_native_io_certificate_status,
+            "certified_local_fanout_sinks",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_write_parquet_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

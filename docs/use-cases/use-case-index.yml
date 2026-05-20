@@ -239,11 +239,11 @@ use_cases:
     execution_mode: compatibility_import_certified
     engine_mode: batch
     inputs: [local_benchmark_fixture, prepared_vortex_artifact]
-    outputs: [local_result_sink_artifact, output_certificate, planned_multi_format_fanout]
-    evidence_fields: [result_sink_write_millis, result_replay_verified, output_native_io_certificate_status, output_format, output_plan_reuse_hit, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
-    claim_boundary: "Result-sink smoke is local and scoped; cross-format fanout, S3/object-store write, table commits, and production sink support remain planned or blocked."
-    runnable_example: "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1"
-    expected_output_evidence: "A local result-sink proof artifact and future fanout fields only when admitted by GAR-IOREUSE slices."
+    outputs: [local_result_sink_artifact, local_jsonl_csv_fanout, feature_gated_structured_fanout, output_certificate]
+    evidence_fields: [result_sink_write_millis, output_native_io_certificate_status, output_format, output_fanout_performed, fanout_output_count, fanout_output_formats, fanout_output_digests, fanout_result_reuse_hit, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Result-sink and fanout smoke is local and scoped; Vortex-native output fanout, replay/fidelity proof, S3/object-store write, table commits, and production sink support remain planned or blocked."
+    runnable_example: "ctx.read_csv(\"target/input.csv\").select(\"id\").limit(10).fanout({\"jsonl\": \"target/out.jsonl\", \"csv\": \"target/out.csv\"}, allow_overwrite=True)"
+    expected_output_evidence: "A local result-sink or fanout proof artifact with per-output digest/certificate fields for admitted local sinks; full replay/fidelity evidence only after later OutputPlan slices."
     common_mistakes: [coupling_input_format_to_output_format, treating_local_sink_as_s3_write, assuming_lakehouse_commit]
     references: [docs/architecture/io-reuse-and-fanout-architecture.md, docs/architecture/compute-engine-flow-reference.md, docs/benchmarks/local-taxonomy-benchmark.md, examples/local-vortex-benchmark/README.md]
     related_use_cases: [compatibility-import-certified-local, source-free-generated-output-boundary, object-store-boundary-report]

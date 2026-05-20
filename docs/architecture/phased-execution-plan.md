@@ -527,10 +527,12 @@ or documentation updates alone are insufficient.
     format-specific certificate fields, and feature-gated flat scalar Parquet, Arrow IPC, Avro,
     and ORC sink slices are admitted through `sql-local-source-smoke` / Python
     `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`, and `write_orc(...)` when
-    `shardloom-cli --features universal-format-io` is used. Broader type/nesting and metadata
-    fidelity for those compatibility exports, Vortex output, replay proof, and multi-output fanout
-    are not ordinary user-facing runtime features.
-  - Next slice outcome: add Vortex output, reusable OutputPlan registry/fanout orchestration, and
+    `shardloom-cli --features universal-format-io` is used. Scoped local-source SQL/Python fanout
+    can write one computed result to multiple local JSONL/CSV sinks, plus feature-gated flat scalar
+    Parquet/Arrow IPC/Avro/ORC sinks, with per-output bytes, digest, and certificate evidence.
+    Broader type/nesting and metadata fidelity for those compatibility exports, Vortex output,
+    replay proof, OutputPlan registry reuse, and claim-grade fanout are not complete.
+  - Next slice outcome: add Vortex output, reusable OutputPlan registry consolidation, and
     replay/fidelity reporting for admitted formats, with per-output digest, replay status, and
     metadata fidelity/loss.
   - Runtime enablement: local output writers and fanout execution with OutputPlan evidence and

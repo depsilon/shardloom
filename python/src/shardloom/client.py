@@ -21,6 +21,7 @@ from .models import ClaimSummary, EvidenceSummary, OutputEnvelope
 
 CommandPart = str | os.PathLike[str]
 Binary = CommandPart | Sequence[CommandPart]
+FanoutOutputs = Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]]
 DEFAULT_PROFILE_ORDER = ("release", "debug")
 ETL_INPUT_FORMATS = frozenset(
     {"csv", "jsonl", "ndjson", "parquet", "arrow-ipc", "arrow_ipc", "avro", "orc", "vortex"}
@@ -657,6 +658,50 @@ class SqlLocalSourceSmokeReport:
         """Return the output Native I/O certificate status, when present."""
 
         return self.envelope.field("output_native_io_certificate_status")
+
+    @property
+    def output_fanout_performed(self) -> bool:
+        """Whether the smoke wrote more than one local fanout output."""
+
+        return self.envelope.field_bool("output_fanout_performed", False) is True
+
+    @property
+    def fanout_output_count(self) -> int:
+        """Return the number of local fanout outputs written by the smoke."""
+
+        return self.envelope.field_int("fanout_output_count", 0) or 0
+
+    @property
+    def fanout_output_formats(self) -> tuple[str, ...]:
+        """Return the fanout output formats, excluding the primary output."""
+
+        return _csv_values(self.envelope.field("fanout_output_formats"))
+
+    @property
+    def fanout_output_paths(self) -> tuple[str, ...]:
+        """Return the fanout output paths, excluding the primary output."""
+
+        return _csv_values(self.envelope.field("fanout_output_paths"))
+
+    @property
+    def fanout_output_digests(self) -> tuple[str, ...]:
+        """Return `format:digest` entries for fanout outputs."""
+
+        return _csv_values(self.envelope.field("fanout_output_digests"))
+
+    @property
+    def fanout_output_native_io_certificate_statuses(self) -> tuple[str, ...]:
+        """Return `format:status` entries for fanout output certificates."""
+
+        return _csv_values(
+            self.envelope.field("fanout_output_native_io_certificate_statuses")
+        )
+
+    @property
+    def fanout_result_reuse_hit(self) -> bool:
+        """Whether the smoke reused the computed result for local fanout outputs."""
+
+        return self.envelope.field_bool("fanout_result_reuse_hit", False) is True
 
     @property
     def aggregate_runtime_execution(self) -> bool:
@@ -4393,6 +4438,7 @@ class ShardLoomClient:
         *,
         output_path: str | os.PathLike[str] | None = None,
         output_format: str = "inline-jsonl",
+        fanout_outputs: FanoutOutputs | None = None,
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport:
@@ -4406,6 +4452,8 @@ class ShardLoomClient:
         ]
         if output_path is not None:
             command.extend(["--output", str(output_path)])
+        for fanout_format, fanout_path in _iter_fanout_outputs(fanout_outputs):
+            command.extend(["--fanout-output", f"{fanout_format}={fanout_path}"])
         if allow_overwrite:
             command.append("--allow-overwrite")
         return SqlLocalSourceSmokeReport(self.run(command, check=check))
@@ -5536,6 +5584,22 @@ def _required_field(envelope: OutputEnvelope, key: str) -> str:
             f"ShardLoom command {envelope.command!r} did not emit required field {key!r}"
         )
     return value
+
+
+def _iter_fanout_outputs(
+    fanout_outputs: FanoutOutputs | None,
+) -> tuple[tuple[str, str], ...]:
+    if fanout_outputs is None:
+        return ()
+    if isinstance(fanout_outputs, Mapping):
+        items = fanout_outputs.items()
+    else:
+        items = fanout_outputs
+    normalized: list[tuple[str, str]] = []
+    for item in items:
+        fanout_format, fanout_path = item
+        normalized.append((str(fanout_format), str(fanout_path)))
+    return tuple(normalized)
 
 
 def _jsonl_object_rows(value: str, *, field_name: str) -> tuple[Mapping[str, Any], ...]:

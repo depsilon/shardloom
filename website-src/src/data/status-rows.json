@@ -229,7 +229,8 @@
     ],
     "outputs": [
       "typed_report",
-      "evidence"
+      "evidence",
+      "local_fanout"
     ],
     "route": "python_client direct_compatibility_transient generated_source",
     "platform": "local",
@@ -238,7 +239,7 @@
       "resolved_cli_path",
       "claim_gate_status"
     ],
-    "works": "The Python wrapper exposes status/capability checks and scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC workflows through the local CLI.",
+    "works": "The Python wrapper exposes status/capability checks, scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC workflows, and local compatibility sink fanout through the local CLI.",
     "blocked": "It is not yet a native in-process SparkSession-equivalent runtime for all SQL/DataFrame operations.",
     "references": [
       "python/README.md",
@@ -254,7 +255,8 @@
     ],
     "outputs": [
       "diagnostic",
-      "evidence"
+      "evidence",
+      "local_fanout"
     ],
     "route": "direct_compatibility_transient report_only",
     "platform": "local",
@@ -263,7 +265,7 @@
       "runtime_execution",
       "claim_gate_status"
     ],
-    "works": "Scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC SQL/query-builder smokes exist for projection/filter/limit, aggregates, top-N, and a narrow CSV join bridge.",
+    "works": "Scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC SQL/query-builder smokes exist for projection/filter/limit, aggregates, top-N, a narrow CSV join bridge, and local compatibility sink fanout.",
     "blocked": "Broad SQL/DataFrame runtime parity, catalogs, subqueries, generalized joins, broad Parquet/Arrow IPC semantics, and production semantics remain blocked.",
     "references": [
       "python/README.md",
