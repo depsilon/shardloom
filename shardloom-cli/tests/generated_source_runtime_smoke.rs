@@ -1091,6 +1091,32 @@ fn sql_smoke_writes_generate_series_projection_jsonl() {
 }
 
 #[test]
+fn sql_smoke_allows_from_in_projection_alias_identifier() {
+    let output_path = unique_output_path("generated-sql-range-from-alias");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "SELECT value AS from_col FROM range(1, 3)",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(written, "{\"from_col\":1}\n{\"from_col\":2}\n");
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
 fn sql_smoke_blocks_unadmitted_generate_series_forms() {
     for (name, statement, expected_error) in [
         (

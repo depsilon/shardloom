@@ -2815,10 +2815,10 @@ fn find_keyword_outside_quotes_and_parens(raw: &str, keyword: &str) -> Option<us
                 && bytes[index..index + keyword_bytes.len()]
                     .eq_ignore_ascii_case(keyword_bytes) =>
             {
-                let before_ok = index == 0 || !bytes[index - 1].is_ascii_alphanumeric();
+                let before_ok = index == 0 || !is_identifier_byte(bytes[index - 1]);
                 let after_index = index + keyword_bytes.len();
                 let after_ok =
-                    after_index >= bytes.len() || !bytes[after_index].is_ascii_alphanumeric();
+                    after_index >= bytes.len() || !is_identifier_byte(bytes[after_index]);
                 if before_ok && after_ok {
                     return Some(index);
                 }
@@ -2828,6 +2828,10 @@ fn find_keyword_outside_quotes_and_parens(raw: &str, keyword: &str) -> Option<us
         index += 1;
     }
     None
+}
+
+fn is_identifier_byte(byte: u8) -> bool {
+    byte == b'_' || byte.is_ascii_alphanumeric()
 }
 
 fn contains_outside_quotes(raw: &str, needle: char) -> bool {
