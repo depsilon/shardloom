@@ -3681,6 +3681,46 @@ fn sql_local_source_smoke_executes_boolean_predicates_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_preserves_is_true_null_semantics_under_not_without_fallback() {
+    let source_path = unique_path("sql-local-source-boolean-is-true-null-semantics", "csv");
+    fs::write(
+        &source_path,
+        "id,active,label\n1,true,alpha\n2,false,beta\n3,,missing\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE NOT (active IS TRUE) LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("logical_predicate_operator", "not")));
+    assert!(stdout.contains(&field("boolean_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("boolean_predicate_operator", "is_true")));
+    assert!(stdout.contains(&field("boolean_predicate_source_column", "active")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"missing\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_blocks_is_not_boolean_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-boolean-predicate-blocked", "csv");
     fs::write(
