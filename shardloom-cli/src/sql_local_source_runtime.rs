@@ -175,6 +175,7 @@ struct ParsedSqlLocalSource {
     nullif_projections: Vec<ParsedNullIfProjection>,
     conditional_projections: Vec<ParsedConditionalProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
+    numeric_abs_projections: Vec<ParsedNumericAbsProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
@@ -240,6 +241,12 @@ struct ParsedNumericArithmeticProjection {
     column: String,
     op: NumericArithmeticOp,
     rhs: ScalarValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedNumericAbsProjection {
+    alias: String,
+    column: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -380,6 +387,7 @@ struct ParsedProjectionList {
     nullif_projections: Vec<ParsedNullIfProjection>,
     conditional_projections: Vec<ParsedConditionalProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
+    numeric_abs_projections: Vec<ParsedNumericAbsProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
@@ -406,6 +414,11 @@ enum ParsedPredicate {
         column: String,
         op: NumericArithmeticOp,
         rhs: ScalarValue,
+        comparison: ComparisonOp,
+        value: ScalarValue,
+    },
+    NumericAbsCompare {
+        column: String,
         comparison: ComparisonOp,
         value: ScalarValue,
     },
@@ -1742,6 +1755,13 @@ fn projection_expressions(
         )
         .chain(
             parsed
+                .numeric_abs_projections
+                .iter()
+                .map(numeric_abs_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
+        .chain(
+            parsed
                 .date_arithmetic_projections
                 .iter()
                 .map(date_arithmetic_projection_expression)
@@ -1938,6 +1958,28 @@ fn numeric_arithmetic_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(binary),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn numeric_abs_projection_expression(
+    projection: &ParsedNumericAbsProjection,
+) -> Result<Expression, ShardLoomError> {
+    let abs = Expression::new(
+        ExprId::new(format!("project.numeric_abs.{}", projection.alias))?,
+        ExpressionKind::FunctionCall {
+            name: "abs".to_string(),
+            args: vec![Expression::column(
+                ExprId::new(format!("project.{}", projection.column))?,
+                ColumnRef::new(projection.column.clone())?,
+            )],
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(abs),
             alias: projection.alias.clone(),
         },
     ))
@@ -2451,6 +2493,7 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::Compare { .. }
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::NumericArithmeticCompare { .. }
+        | ParsedPredicate::NumericAbsCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
         | ParsedPredicate::StringLengthCompare { .. }
         | ParsedPredicate::TimestampExtractCompare { .. }
@@ -2505,6 +2548,7 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::Compare { .. }
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::NumericArithmeticCompare { .. }
+        | ParsedPredicate::NumericAbsCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
         | ParsedPredicate::DateExtractCompare { .. }
         | ParsedPredicate::StringLengthCompare { .. }
@@ -3179,6 +3223,14 @@ fn validate_projection_source_columns(
             "CSV header",
         )?;
     }
+    for projection in &parsed.numeric_abs_projections {
+        require_header_column(
+            header,
+            &projection.column,
+            "numeric abs projection source column",
+            "CSV header",
+        )?;
+    }
     for projection in &parsed.cast_projections {
         require_header_column(
             header,
@@ -3311,6 +3363,13 @@ fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(),
             ));
         }
     }
+    for abs_projection in &parsed.numeric_abs_projections {
+        if !output_names.insert(abs_projection.alias.as_str()) {
+            return Err(unsupported_sql_error(
+                "computed projection smoke requires unique output column names",
+            ));
+        }
+    }
     for cast_projection in &parsed.cast_projections {
         if !output_names.insert(cast_projection.alias.as_str()) {
             return Err(unsupported_sql_error(
@@ -3403,6 +3462,7 @@ fn bind_join_sql_local_source(
         || !parsed.null_coalesce_projections.is_empty()
         || !parsed.conditional_projections.is_empty()
         || !parsed.numeric_arithmetic_projections.is_empty()
+        || !parsed.numeric_abs_projections.is_empty()
         || !parsed.date_arithmetic_projections.is_empty()
         || !parsed.string_length_projections.is_empty()
         || !parsed.string_transform_projections.is_empty()
@@ -3546,6 +3606,10 @@ impl ParsedSqlLocalSource {
         !self.numeric_arithmetic_projections.is_empty()
     }
 
+    fn has_numeric_abs_projection(&self) -> bool {
+        !self.numeric_abs_projections.is_empty()
+    }
+
     fn has_date_arithmetic_projection(&self) -> bool {
         !self.date_arithmetic_projections.is_empty()
     }
@@ -3573,6 +3637,7 @@ impl ParsedSqlLocalSource {
             || self.has_nullif_projection()
             || self.has_conditional_projection()
             || self.has_numeric_arithmetic_projection()
+            || self.has_numeric_abs_projection()
             || self.has_date_arithmetic_projection()
             || self.has_string_length_projection()
             || self.has_string_transform_projection()
@@ -3616,6 +3681,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_numeric_arithmetic_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_numeric_abs_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_numeric_abs_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
@@ -3685,6 +3754,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_numeric_arithmetic_projection() {
             "computed-projection-limit"
+        } else if self.has_numeric_abs_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_numeric_abs_projection() {
+            "computed-projection-limit"
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_date_arithmetic_projection() {
@@ -3752,6 +3825,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_numeric_arithmetic_projection() {
+            "computed_projection_limit"
+        } else if self.has_numeric_abs_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_numeric_abs_projection() {
             "computed_projection_limit"
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
@@ -3836,6 +3913,11 @@ impl ParsedSqlLocalSource {
                 )
                 .chain(
                     self.numeric_arithmetic_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
+                    self.numeric_abs_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
                 )
@@ -4079,6 +4161,30 @@ impl ParsedSqlLocalSource {
             self.numeric_arithmetic_projections
                 .iter()
                 .map(|projection| projection.rhs.dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn numeric_abs_projection_source_columns(&self) -> String {
+        if self.numeric_abs_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.numeric_abs_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn numeric_abs_projection_output_columns(&self) -> String {
+        if self.numeric_abs_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.numeric_abs_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -4339,6 +4445,7 @@ impl ParsedPredicate {
             Self::Compare { column, .. }
             | Self::CastCompare { column, .. }
             | Self::NumericArithmeticCompare { column, .. }
+            | Self::NumericAbsCompare { column, .. }
             | Self::DateArithmeticCompare { column, .. }
             | Self::DateExtractCompare { column, .. }
             | Self::StringLengthCompare { column, .. }
@@ -4376,6 +4483,11 @@ impl ParsedPredicate {
                 comparison,
                 value,
             } => numeric_arithmetic_compare_expression(column, *op, rhs, *comparison, value),
+            Self::NumericAbsCompare {
+                column,
+                comparison,
+                value,
+            } => numeric_abs_compare_expression(column, *comparison, value),
             Self::DateArithmeticCompare {
                 column,
                 op,
@@ -4452,6 +4564,7 @@ impl ParsedPredicate {
             Self::Compare { .. } => "comparison",
             Self::CastCompare { .. } => "cast",
             Self::NumericArithmeticCompare { .. } => "numeric_arithmetic",
+            Self::NumericAbsCompare { .. } => "numeric_abs",
             Self::DateArithmeticCompare { .. } => "date_arithmetic",
             Self::DateExtractCompare { .. } => "date_extract",
             Self::StringLengthCompare { .. } => "string_length",
@@ -4475,6 +4588,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4508,6 +4622,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4530,6 +4645,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4563,6 +4679,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4596,6 +4713,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4618,6 +4736,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -4651,6 +4770,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -4686,6 +4806,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -4707,6 +4828,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4740,6 +4862,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4773,6 +4896,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4808,6 +4932,100 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn uses_numeric_abs(&self) -> bool {
+        match self {
+            Self::NumericAbsCompare { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_numeric_abs() || right.uses_numeric_abs()
+            }
+            Self::Not { inner } => inner.uses_numeric_abs(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn numeric_abs_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_numeric_abs_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_numeric_abs_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::NumericAbsCompare { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_numeric_abs_source_columns(columns);
+                right.push_numeric_abs_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_numeric_abs_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn numeric_abs_rhs_dtypes(&self) -> String {
+        let mut dtypes = Vec::new();
+        self.push_numeric_abs_rhs_dtypes(&mut dtypes);
+        if dtypes.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            dtypes.join(",")
+        }
+    }
+
+    fn push_numeric_abs_rhs_dtypes(&self, dtypes: &mut Vec<String>) {
+        match self {
+            Self::NumericAbsCompare { value, .. } => {
+                dtypes.push(value.dtype().as_str().to_string());
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_numeric_abs_rhs_dtypes(dtypes);
+                right.push_numeric_abs_rhs_dtypes(dtypes);
+            }
+            Self::Not { inner } => inner.push_numeric_abs_rhs_dtypes(dtypes),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4845,6 +5063,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4864,6 +5083,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4893,6 +5113,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4928,6 +5149,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4952,6 +5174,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4974,6 +5197,7 @@ impl ParsedPredicate {
             Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4995,6 +5219,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5017,6 +5242,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5042,6 +5268,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5064,6 +5291,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -5097,6 +5325,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -5130,6 +5359,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -5162,6 +5392,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5184,6 +5415,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5217,6 +5449,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5250,6 +5483,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5272,6 +5506,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5305,6 +5540,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5338,6 +5574,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5371,6 +5608,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5457,6 +5695,33 @@ fn numeric_arithmetic_compare_expression(
             op: comparison,
             right: Box::new(Expression::literal(
                 ExprId::new("where.numeric_arithmetic.compare_literal")?,
+                value.clone(),
+            )),
+        },
+    ))
+}
+
+fn numeric_abs_compare_expression(
+    column: &str,
+    comparison: ComparisonOp,
+    value: &ScalarValue,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.numeric_abs_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::new(
+                ExprId::new(format!("where.numeric_abs.{column}"))?,
+                ExpressionKind::FunctionCall {
+                    name: "abs".to_string(),
+                    args: vec![Expression::column(
+                        ExprId::new(format!("where.{column}"))?,
+                        ColumnRef::new(column.to_string())?,
+                    )],
+                },
+            )),
+            op: comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.numeric_abs.literal")?,
                 value.clone(),
             )),
         },
@@ -6081,6 +6346,18 @@ impl SqlLocalSourceReport {
                 self.parsed.predicate.numeric_arithmetic_rhs_dtypes(),
             ),
             (
+                "numeric_abs_runtime_execution".to_string(),
+                self.parsed.predicate.uses_numeric_abs().to_string(),
+            ),
+            (
+                "numeric_abs_source_column".to_string(),
+                self.parsed.predicate.numeric_abs_source_columns(),
+            ),
+            (
+                "numeric_abs_rhs_dtype".to_string(),
+                self.parsed.predicate.numeric_abs_rhs_dtypes(),
+            ),
+            (
                 "logical_predicate_runtime_execution".to_string(),
                 self.parsed.predicate.uses_logical_predicate().to_string(),
             ),
@@ -6281,6 +6558,18 @@ impl SqlLocalSourceReport {
             (
                 "numeric_arithmetic_projection_rhs_dtype".to_string(),
                 self.parsed.numeric_arithmetic_projection_rhs_dtypes(),
+            ),
+            (
+                "numeric_abs_projection_runtime_execution".to_string(),
+                self.parsed.has_numeric_abs_projection().to_string(),
+            ),
+            (
+                "numeric_abs_projection_source_column".to_string(),
+                self.parsed.numeric_abs_projection_source_columns(),
+            ),
+            (
+                "numeric_abs_projection_output_column".to_string(),
+                self.parsed.numeric_abs_projection_output_columns(),
             ),
             (
                 "date_arithmetic_projection_runtime_execution".to_string(),
@@ -7497,6 +7786,7 @@ fn parsed_sql_local_source_from_parts(
         nullif_projections: projection_list.nullif_projections,
         conditional_projections: projection_list.conditional_projections,
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
+        numeric_abs_projections: projection_list.numeric_abs_projections,
         date_arithmetic_projections: projection_list.date_arithmetic_projections,
         string_length_projections: projection_list.string_length_projections,
         string_transform_projections: projection_list.string_transform_projections,
@@ -7543,6 +7833,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut nullif_projections = Vec::new();
     let mut conditional_projections = Vec::new();
     let mut numeric_arithmetic_projections = Vec::new();
+    let mut numeric_abs_projections = Vec::new();
     let mut date_arithmetic_projections = Vec::new();
     let mut string_length_projections = Vec::new();
     let mut string_transform_projections = Vec::new();
@@ -7562,6 +7853,8 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         } else if let Some(arithmetic_projection) = parse_numeric_arithmetic_projection(projection)?
         {
             numeric_arithmetic_projections.push(arithmetic_projection);
+        } else if let Some(abs_projection) = parse_numeric_abs_projection(projection)? {
+            numeric_abs_projections.push(abs_projection);
         } else if let Some(cast_projection) = parse_cast_projection(projection)? {
             cast_projections.push(cast_projection);
         } else if let Some(null_coalesce_projection) = parse_null_coalesce_projection(projection)? {
@@ -7599,6 +7892,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         nullif_projections,
         conditional_projections,
         numeric_arithmetic_projections,
+        numeric_abs_projections,
         date_arithmetic_projections,
         string_length_projections,
         string_transform_projections,
@@ -7672,6 +7966,46 @@ fn parse_numeric_arithmetic_projection(
         column: tokens[0].clone(),
         op,
         rhs,
+    }))
+}
+
+fn parse_numeric_abs_projection(
+    raw: &str,
+) -> Result<Option<ParsedNumericAbsProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes(raw, "as") else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    if !expression_raw.to_ascii_uppercase().starts_with("ABS(") {
+        return Ok(None);
+    }
+    let alias = raw[as_index + "as".len()..].trim();
+    let Some(open_index) = expression_raw.find('(') else {
+        return Err(unsupported_sql_error(
+            "numeric abs projections must be written as ABS(<column>) AS <column>",
+        ));
+    };
+    let Some(close_index) = expression_raw.rfind(')') else {
+        return Err(unsupported_sql_error(
+            "numeric abs projections must be written as ABS(<column>) AS <column>",
+        ));
+    };
+    if close_index + 1 != expression_raw.len() {
+        return Err(unsupported_sql_error(
+            "numeric abs projections must be written as ABS(<column>) AS <column>",
+        ));
+    }
+    let column = expression_raw[open_index + 1..close_index].trim();
+    if column.is_empty() || alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "numeric abs projections must be written as ABS(<column>) AS <column>",
+        ));
+    }
+    validate_sql_column_ref(column)?;
+    validate_sql_identifier(alias)?;
+    Ok(Some(ParsedNumericAbsProjection {
+        alias: alias.to_string(),
+        column: column.to_string(),
     }))
 }
 
@@ -8418,6 +8752,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_numeric_arithmetic_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_numeric_abs_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_string_length_predicate(raw)? {
         return Ok(predicate);
     }
@@ -8512,7 +8849,7 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, ABS(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -9051,6 +9388,39 @@ fn parse_numeric_arithmetic_literal(raw: &str) -> Result<ScalarValue, ShardLoomE
             "numeric arithmetic expressions admit int64 or finite float64 literals only",
         )),
     }
+}
+
+fn parse_numeric_abs_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed
+        .get(..3)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("abs"))
+        || trimmed.as_bytes().get(3) != Some(&b'(')
+    {
+        return Ok(None);
+    }
+    let open_index = "abs".len();
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?
+        .ok_or_else(|| unsupported_sql_error("numeric abs predicates must use ABS(<column>)"))?;
+    let inner = trimmed[open_index + 1..close_index].trim();
+    let tail = trimmed[close_index + 1..].trim();
+    if inner.is_empty() || tail.is_empty() {
+        return Err(unsupported_sql_error(
+            "numeric abs predicates require a source column, comparison operator, and numeric literal",
+        ));
+    }
+    validate_sql_column_ref(inner)?;
+    let tokens = split_whitespace_outside_quotes(tail)?;
+    let [op_raw, literal_raw] = tokens.as_slice() else {
+        return Err(unsupported_sql_error(
+            "numeric abs predicates admit ABS(<column>) <op> <numeric-literal> only",
+        ));
+    };
+    Ok(Some(ParsedPredicate::NumericAbsCompare {
+        column: inner.to_string(),
+        comparison: parse_comparison_op(op_raw)?,
+        value: parse_numeric_arithmetic_literal(literal_raw)?,
+    }))
 }
 
 fn parse_string_length_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
@@ -10036,6 +10406,30 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_numeric_abs_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,ABS(amount) AS magnitude FROM 'target/input.csv' WHERE ABS(amount) >= 4 LIMIT 5",
+        )
+        .expect("numeric abs projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert!(parsed.literal_projections.is_empty());
+        assert_eq!(parsed.numeric_abs_projections.len(), 1);
+        assert_eq!(parsed.numeric_abs_projections[0].alias, "magnitude");
+        assert_eq!(parsed.numeric_abs_projections[0].column, "amount");
+        assert_eq!(parsed.numeric_abs_projection_output_columns(), "magnitude");
+        assert_eq!(parsed.numeric_abs_projection_source_columns(), "amount");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn parses_scoped_cast_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
@@ -10728,6 +11122,28 @@ mod tests {
         assert!(parsed.predicate.uses_string_length());
         assert_eq!(parsed.predicate.string_length_source_columns(), "label");
         assert_eq!(parsed.predicate.string_length_rhs_dtypes(), "int64");
+    }
+
+    #[test]
+    fn parses_scoped_numeric_abs_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,amount FROM 'target/input.csv' WHERE ABS(amount) >= 4 LIMIT 5",
+        )
+        .expect("numeric abs predicate statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "amount"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::NumericAbsCompare {
+                ref column,
+                comparison: ComparisonOp::GtEq,
+                value: ScalarValue::Int64(4)
+            } if column == "amount"
+        ));
+        assert_eq!(parsed.predicate.family(), "numeric_abs");
+        assert!(parsed.predicate.uses_numeric_abs());
+        assert_eq!(parsed.predicate.numeric_abs_source_columns(), "amount");
+        assert_eq!(parsed.predicate.numeric_abs_rhs_dtypes(), "int64");
     }
 
     #[test]
