@@ -509,6 +509,18 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("in_list_value_count", 0) or 0
 
     @property
+    def in_list_null_value_count(self) -> int:
+        """Return the number of NULL literals in the admitted IN predicate tree."""
+
+        return self.envelope.field_int("in_list_null_value_count", 0) or 0
+
+    @property
+    def in_predicate_null_semantics(self) -> str | None:
+        """Return the null-semantics contract for admitted IN predicates."""
+
+        return self.envelope.field("in_predicate_null_semantics")
+
+    @property
     def date_extract_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted Date32 extract predicate path."""
 

@@ -16,6 +16,61 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped null-aware IN predicate runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-null-aware-in-4d` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - RFC 0021 expression-engine/kernel registry guidance
+    - scoped SQL/Python local runtime smokes
+  - Scope:
+    - Promoted `column IN (..., NULL, ...)` from a deterministic blocker to scoped local runtime
+      behavior using ShardLoom-native SQL three-valued `WHERE`-filter semantics.
+    - Kept empty lists, oversized lists, trailing empty values, mixed DATE/non-DATE,
+      mixed TIMESTAMP/non-TIMESTAMP, and subquery-backed `IN` shapes explicitly blocked.
+    - Added SQL evidence fields for `in_list_null_value_count` and
+      `in_predicate_null_semantics`.
+    - Updated Python `sl.col(...).isin(...)` lowering to admit `None` as `NULL` only inside
+      bounded `IN` predicates; ordinary `NULL` comparisons still require `is_null()` /
+      `is_not_null()`.
+    - Added typed Python report accessors for the new null-aware `IN` evidence fields.
+  - User-visible surface:
+    - `sql-local-source-smoke`, Python `sl.col(...).isin(...)`, typed SQL smoke reports,
+      `python/README.md`, and the active phase plan.
+  - Evidence:
+    - SQL reports emit `in_predicate_runtime_execution`, `in_list_value_count`,
+      `in_list_null_value_count`, and `in_predicate_null_semantics`.
+    - Null-aware `IN` rows retain `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+    - `NULL` list entries preserve SQL three-valued filter behavior: matching non-null values
+      pass; unmatched rows and NULL source values do not pass the `WHERE` filter.
+  - Verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test expression_operator_semantics`
+    - `python -m compileall -q python/src python/tests scripts website-src`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Non-goals:
+    - No subquery-backed `IN`, `NOT IN` parity, arbitrary predicate completeness, broad
+      SQL/DataFrame claim, performance claim, object-store/table runtime, package publication, or
+      external engine fallback.
+  - Claim boundary:
+    - This closes one scoped null-aware `IN` runtime slice inside GAR-RUNTIME-IMPL-4D. The parent
+      item remains open for broader coercions, interval/date-time completeness, subquery-backed
+      `IN`, and arbitrary predicate-tree breadth.
+  - Fallback boundary:
+    - `IN` evaluation remains ShardLoom-native through the existing expression evaluator. The SQL
+      parser, Python builder, and smoke runtime do not invoke Spark, DataFusion, DuckDB, Polars,
+      pandas, or any external query engine.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` unchecked until the remaining expression-family breadth and
+      deterministic blockers are implemented.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTC timestamp-micros expression runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-timestamp-expression-4d` / pending.

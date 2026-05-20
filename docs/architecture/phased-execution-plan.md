@@ -311,7 +311,8 @@ or documentation updates alone are insufficient.
     scoped local SQL `CAST(column AS dtype)` predicates for `int64`, `float64`, `utf8`, `boolean`,
     and `date32` are runtime-admitted for local row smoke paths, scoped bounded
     `column IN (<literal>,...)` predicates are runtime-admitted with `in_predicate_*` evidence and
-    blockers for empty, NULL, mixed DATE/non-DATE, oversized, and subquery-backed lists, and scoped
+    SQL three-valued `WHERE`-filter semantics for `NULL` list values plus blockers for empty,
+    mixed DATE/non-DATE, mixed TIMESTAMP/non-TIMESTAMP, oversized, and subquery-backed lists, and scoped
     local SQL logical `AND`/`OR`/`NOT` predicates plus balanced grouping parentheses are
     runtime-admitted over already admitted leaf predicates. Scoped Date32 extracts through
     `DATE_YEAR(column)` / `DATE_MONTH(column)` / `DATE_DAY(column)` predicates are runtime-admitted
@@ -333,7 +334,7 @@ or documentation updates alone are insufficient.
     scoped UTF-8 lower/upper/trim transforms, bounded `IN`, cast/date/timestamp, Date32 extracts,
     Date32 day arithmetic, scoped UTC timestamp extracts, and logical predicates into the
     same local SQL smoke path, plus `where(...)` as a familiar filter alias. User workflows still lack broad typed
-    coercions, timezone-database helpers, interval/date-time completeness, NULL/subquery-backed IN semantics,
+    coercions, timezone-database helpers, interval/date-time completeness, subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
     family coverage.
   - Next slice outcome: add one implementation PR per expression family: null/is-not-null hardening

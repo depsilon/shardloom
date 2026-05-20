@@ -177,7 +177,7 @@ class ColumnExpression:
         """Return a scoped bounded `IN (...)` predicate."""
 
         normalized = _normalize_in_values(values)
-        joined = ",".join(_sql_literal(value) for value in normalized)
+        joined = ",".join(_sql_in_literal(value) for value in normalized)
         return PredicateExpression(f"{self.sql} IN ({joined})")
 
     def between(self, lower: object, upper: object) -> PredicateExpression:
@@ -2362,6 +2362,12 @@ def _sql_literal(value: object) -> str:
     )
 
 
+def _sql_in_literal(value: object) -> str:
+    if value is None:
+        return "NULL"
+    return _sql_literal(value)
+
+
 def _normalize_timestamp_literal(value: datetime) -> str:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(
@@ -2398,8 +2404,6 @@ def _normalize_in_values(values: tuple[object, ...]) -> tuple[object, ...]:
         normalized = values
     if not normalized:
         raise ValueError("IN predicates require at least one value")
-    if any(value is None for value in normalized):
-        raise ValueError("IN predicates do not admit NULL values; use is_null()")
     if len(normalized) > 32:
         raise ValueError("IN predicates admit at most 32 values")
     return normalized

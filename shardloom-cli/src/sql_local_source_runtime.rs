@@ -3111,6 +3111,29 @@ impl ParsedPredicate {
         }
     }
 
+    fn in_list_null_value_count(&self) -> usize {
+        match self {
+            Self::InList { values, .. } => values
+                .iter()
+                .filter(|value| matches!(value, ScalarValue::Null))
+                .count(),
+            Self::Logical { left, right, .. } => {
+                left.in_list_null_value_count() + right.in_list_null_value_count()
+            }
+            Self::Not { inner } => inner.in_list_null_value_count(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::StringMatch { .. } => 0,
+        }
+    }
+
     fn uses_date_extract(&self) -> bool {
         match self {
             Self::DateExtractCompare { .. } => true,
@@ -3612,7 +3635,7 @@ fn in_list_expression(column: &str, values: &[ScalarValue]) -> Result<Expression
     let mut values = values.iter().enumerate();
     let Some((first_index, first_value)) = values.next() else {
         return Err(unsupported_sql_error(
-            "IN predicates require at least one non-null literal value",
+            "IN predicates require at least one literal value",
         ));
     };
     let mut expression = in_list_equality_expression(column, first_value, first_index)?;
@@ -4047,6 +4070,19 @@ impl SqlLocalSourceReport {
             (
                 "in_list_value_count".to_string(),
                 self.parsed.predicate.in_list_value_count().to_string(),
+            ),
+            (
+                "in_list_null_value_count".to_string(),
+                self.parsed.predicate.in_list_null_value_count().to_string(),
+            ),
+            (
+                "in_predicate_null_semantics".to_string(),
+                if self.parsed.predicate.in_list_null_value_count() > 0 {
+                    "sql_three_valued_where_filter"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
             ),
             (
                 "date_literal_runtime_execution".to_string(),
@@ -5859,7 +5895,7 @@ fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
     let values_raw = tail[1..tail.len() - 1].trim();
     if values_raw.is_empty() {
         return Err(unsupported_sql_error(
-            "IN predicates require at least one non-null literal value",
+            "IN predicates require at least one literal value",
         ));
     }
     if values_raw.ends_with(',') {
@@ -5877,14 +5913,6 @@ fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
         .iter()
         .map(|entry| parse_in_list_literal(entry))
         .collect::<Result<Vec<_>, ShardLoomError>>()?;
-    if values
-        .iter()
-        .any(|value| matches!(value, ScalarValue::Null))
-    {
-        return Err(unsupported_sql_error(
-            "IN predicates do not admit NULL list values in this scoped runtime slice",
-        ));
-    }
     let has_date = values
         .iter()
         .any(|value| matches!(value, ScalarValue::Date32(_)));
@@ -5893,10 +5921,10 @@ fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
         .any(|value| matches!(value, ScalarValue::TimestampMicros(_)));
     let has_non_date = values
         .iter()
-        .any(|value| !matches!(value, ScalarValue::Date32(_)));
+        .any(|value| !matches!(value, ScalarValue::Date32(_) | ScalarValue::Null));
     let has_non_timestamp = values
         .iter()
-        .any(|value| !matches!(value, ScalarValue::TimestampMicros(_)));
+        .any(|value| !matches!(value, ScalarValue::TimestampMicros(_) | ScalarValue::Null));
     if has_date && has_non_date {
         return Err(unsupported_sql_error(
             "IN predicates do not admit mixed DATE and non-DATE literal lists in this scoped runtime slice",
@@ -6770,7 +6798,7 @@ mod tests {
         assert!(
             empty_error
                 .to_string()
-                .contains("IN predicates require at least one non-null literal value")
+                .contains("IN predicates require at least one literal value")
         );
         assert!(
             empty_error
@@ -6778,20 +6806,23 @@ mod tests {
                 .contains("external_engine_invoked=false")
         );
 
-        let null_error = parse_sql_local_source_statement(
+        let null_admitted = parse_sql_local_source_statement(
             "SELECT id FROM 'target/input.csv' WHERE label IN ('alpha', NULL) LIMIT 5",
         )
-        .expect_err("NULL IN list values remain blocked");
-        assert!(
-            null_error
-                .to_string()
-                .contains("IN predicates do not admit NULL list values")
-        );
-        assert!(
-            null_error
-                .to_string()
-                .contains("external_engine_invoked=false")
-        );
+        .expect("NULL IN list values use SQL three-valued semantics");
+        assert_eq!(null_admitted.predicate.in_list_value_count(), 2);
+        assert_eq!(null_admitted.predicate.in_list_null_value_count(), 1);
+        assert!(matches!(
+            null_admitted.predicate,
+            ParsedPredicate::InList {
+                ref column,
+                ref values,
+            } if column == "label"
+                && values == &vec![
+                    ScalarValue::Utf8("alpha".to_string()),
+                    ScalarValue::Null,
+                ]
+        ));
 
         let mixed_date_error = parse_sql_local_source_statement(
             "SELECT id FROM 'target/input.csv' WHERE label IN (DATE '2026-05-19', 'alpha') LIMIT 5",

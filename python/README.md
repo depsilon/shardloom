@@ -374,9 +374,11 @@ Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
 Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
 bounded `IN (...)`, inclusive `between(...)` range predicates, string
 `LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
-leaves. `where(...)` is a familiar alias for `filter(...)`. `IN` lists admit up to 32 non-null
-literal values from one scalar family, including `DATE 'YYYY-MM-DD'` lists, and expose
-`in_predicate_runtime_execution` plus `in_list_value_count` in typed reports.
+leaves. `where(...)` is a familiar alias for `filter(...)`. `IN` lists admit up to 32
+literal values from one scalar family, including `DATE 'YYYY-MM-DD'` lists and `NULL`
+literals with SQL three-valued `WHERE`-filter semantics. Typed reports expose
+`in_predicate_runtime_execution`, `in_list_value_count`, `in_list_null_value_count`, and
+`in_predicate_null_semantics`.
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
 `startswith()`, `endswith()`, `like(...)`, `between(...)`, bounded `isin(...)`, `cast(dtype)`,
@@ -517,7 +519,12 @@ print(preview.result_rows)
 print(head.result_rows)
 print(take.result_rows)
 print(filtered.logical_predicate_operator, filtered.logical_predicate_leaf_count)
-print(in_filtered.in_predicate_runtime_execution, in_filtered.in_list_value_count)
+print(
+    in_filtered.in_predicate_runtime_execution,
+    in_filtered.in_list_value_count,
+    in_filtered.in_list_null_value_count,
+    in_filtered.in_predicate_null_semantics,
+)
 print(json_rows.output_path, json_rows.envelope.field("source_format"))
 print(aggregate.first_result_row)
 print(aggregate.aggregate_operator_family)
@@ -558,7 +565,12 @@ sql_written = ctx.sql(
 ).write("target/sql-local-source-from-sql.jsonl", allow_overwrite=True)
 
 print(sql_rows.result_rows)
-print(sql_in_rows.in_predicate_runtime_execution, sql_in_rows.in_list_value_count)
+print(
+    sql_in_rows.in_predicate_runtime_execution,
+    sql_in_rows.in_list_value_count,
+    sql_in_rows.in_list_null_value_count,
+    sql_in_rows.in_predicate_null_semantics,
+)
 print(sql_written.output_path)
 print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 ```
