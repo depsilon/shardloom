@@ -2097,6 +2097,8 @@ class ShardLoomClientTests(unittest.TestCase):
                 "sql_local_source_smoke",
                 "local_jsonl_csv_or_feature_gated_structured_output",
                 "output_native_io_certificate",
+                "result_replay_verified",
+                "output_fidelity_report_status",
             ),
         )
         self.assertEqual(
@@ -2105,6 +2107,8 @@ class ShardLoomClientTests(unittest.TestCase):
                 "sql_local_source_smoke",
                 "local_jsonl_output",
                 "output_native_io_certificate",
+                "result_replay_verified",
+                "output_fidelity_report_status",
             ),
         )
         self.assertEqual(
@@ -2113,6 +2117,8 @@ class ShardLoomClientTests(unittest.TestCase):
                 "sql_local_source_smoke",
                 "local_csv_output",
                 "output_native_io_certificate",
+                "result_replay_verified",
+                "output_fidelity_report_status",
             ),
         )
         self.assertTrue(dataframe_methods.row("write_csv").runtime_execution)
@@ -2123,6 +2129,8 @@ class ShardLoomClientTests(unittest.TestCase):
                 "sql_local_source_smoke",
                 "local_output_fanout",
                 "output_native_io_certificate",
+                "result_replay_verified",
+                "output_fidelity_report_status",
                 "no_fallback_evidence",
             ),
         )
@@ -2134,6 +2142,8 @@ class ShardLoomClientTests(unittest.TestCase):
                 "sql_local_source_smoke",
                 "feature_gated_local_vortex_output",
                 "output_native_io_certificate",
+                "result_replay_verified",
+                "output_fidelity_report_status",
                 "upstream_vortex_write_called",
             ),
         )

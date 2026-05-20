@@ -1804,6 +1804,17 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
         "output_certificate_ref",
         "sql-local-source.csv.local-csv-output.native-io.v1"
     )));
+    assert!(stdout.contains("\"output_plan_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("result_replay_verified", "true")));
+    assert!(stdout.contains(&field(
+        "output_replay_status",
+        "verified_local_sink_artifacts"
+    )));
+    assert!(stdout.contains(&field(
+        "output_fidelity_report_status",
+        "scoped_local_output_fidelity_reported"
+    )));
+    assert!(stdout.contains("csv:csv_text_roundtrip_loses_static_type_metadata"));
     assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains(&field("object_store_io", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
@@ -1875,7 +1886,15 @@ fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
     )));
     assert!(stdout.contains("jsonl:sql-local-source.csv.local-jsonl-output.native-io.v1"));
     assert!(stdout.contains("csv:sql-local-source.csv.local-csv-output.native-io.v1"));
-    assert!(stdout.contains(&field("result_replay_verified", "false")));
+    assert!(stdout.contains(&field("result_replay_verified", "true")));
+    assert!(stdout.contains(&field(
+        "output_replay_status",
+        "verified_local_sink_artifacts"
+    )));
+    assert!(stdout.contains("jsonl:verified_local_file_digest"));
+    assert!(stdout.contains("csv:verified_local_file_digest"));
+    assert!(stdout.contains("jsonl:logical_rows_replay_verified"));
+    assert!(stdout.contains("csv:logical_rows_replay_verified_type_metadata_not_preserved"));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
@@ -2131,6 +2150,12 @@ fn sql_local_source_smoke_writes_local_vortex_output_with_certificate_fields() {
     assert!(stdout.contains(&field("vortex_output_column_count", "3")));
     assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"fnv64:"));
     assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("result_replay_verified", "true")));
+    assert!(stdout.contains(&field(
+        "output_replay_status",
+        "verified_local_sink_artifacts"
+    )));
+    assert!(stdout.contains("vortex:flat_scalar_only_no_broad_vortex_writer_fidelity_claim"));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
     assert!(stdout.contains(&field("object_store_io", "false")));
@@ -2197,6 +2222,10 @@ fn sql_local_source_smoke_writes_local_vortex_fanout_with_evidence() {
     assert!(stdout.contains(&field("vortex_output_count", "1")));
     assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
     assert!(stdout.contains(&field("vortex_output_row_count", "2")));
+    assert!(stdout.contains(&field("result_replay_verified", "true")));
+    assert!(stdout.contains("csv:verified_local_file_digest"));
+    assert!(stdout.contains("vortex:verified_vortex_reopen_row_count"));
+    assert!(stdout.contains("vortex:vortex_flat_scalar_reopen_verified"));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
@@ -2346,6 +2375,11 @@ fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
     assert!(stdout.contains(&field("fanout_output_formats", "parquet,arrow_ipc")));
     assert!(stdout.contains("parquet:sql-local-source.local-parquet-output.native-io.v1"));
     assert!(stdout.contains("arrow_ipc:sql-local-source.local-arrow-ipc-output.native-io.v1"));
+    assert!(stdout.contains(&field("result_replay_verified", "true")));
+    assert!(stdout.contains("parquet:verified_local_file_digest"));
+    assert!(stdout.contains("arrow_ipc:verified_local_file_digest"));
+    assert!(stdout.contains("parquet:flat_scalar_schema_replay_verified"));
+    assert!(stdout.contains("arrow_ipc:flat_scalar_schema_replay_verified"));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
