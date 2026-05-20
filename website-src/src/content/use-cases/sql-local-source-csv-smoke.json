@@ -1,17 +1,39 @@
 {
-  "audience": "user who wants to try one tiny SQL query over an admitted local file from CLI or ctx.sql without fallback",
-  "blocked_explanation": "Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, Python/DataFrame joins beyond the scoped local CSV inner equi-join bridge, outer/semi/anti/cross joins, multi-key and expression joins, timestamp/timezone completeness, subquery-backed IN, NOT IN, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks/fanout, and production SQL/DataFrame support require later runtime slices.",
+  "id": "sql-local-source-csv-smoke",
+  "title": "SQL local source projection/optional-filter/IN/limit, aggregate, group-by, top-N, and join smoke",
   "capability_family": "sql_dataframe_report_only",
-  "claim_boundary": "Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/optional-filter/limit with comparison, cast, DATE literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 LOWER/UPPER/TRIM transform predicates, and balanced parenthesized leaves; scalar aggregate, one-column group-by aggregate, single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; optional local JSONL/CSV sinks; feature-gated flat scalar local Parquet sink; and one Python local CSV inner equi-join bridge. Bounded IN admits up to 32 scalar literals from one family, including NULL list values with SQL three-valued WHERE-filter semantics, and blocks empty, mixed DATE/non-DATE, mixed TIMESTAMP/non-TIMESTAMP, trailing empty, oversized, and subquery-backed lists. No broad SQL/DataFrame runtime, production SQL, broad Parquet/Arrow/Avro/ORC/Vortex output, fanout, object-store/table source, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NOT IN, arbitrary predicate-tree completeness, external fallback, or performance claim.",
-  "common_mistakes": [
-    "treating_smoke_as_sql_compatibility",
-    "expecting_parquet_or_s3_sql_sources",
-    "expecting_broad_python_dataframe_join_support",
-    "expecting_general_join_or_grouped_aggregate_support",
-    "expecting_general_order_by_or_null_ordering_support",
-    "expecting_subquery_in_semantics"
-  ],
+  "audience": "user who wants to try one tiny SQL query over an admitted local file from CLI or ctx.sql without fallback",
+  "status": "smoke_supported",
+  "execution_mode": "direct_compatibility_transient",
   "engine_mode": "batch",
+  "inputs": [
+    "local_csv",
+    "local_json",
+    "local_jsonl",
+    "local_ndjson",
+    "local_parquet_feature_gated",
+    "local_arrow_ipc_feature_gated",
+    "local_avro_feature_gated",
+    "local_orc_feature_gated"
+  ],
+  "outputs": [
+    "inline_jsonl_result",
+    "result_rows",
+    "first_result_row",
+    "optional_local_jsonl_output",
+    "optional_local_csv_output",
+    "optional_feature_gated_local_parquet_output",
+    "optional_feature_gated_local_arrow_ipc_output",
+    "optional_feature_gated_local_avro_output",
+    "optional_feature_gated_local_orc_output",
+    "scalar_aggregate_result",
+    "grouped_aggregate_result",
+    "topn_result",
+    "join_result",
+    "sql_local_source_evidence",
+    "evidence_summary",
+    "claim_summary"
+  ],
   "evidence_fields": [
     "schema_version=shardloom.sql_local_source_smoke.v1",
     "sql_parser_executed=true",
@@ -67,33 +89,17 @@
     "external_engine_invoked=false",
     "claim_gate_status=fixture_smoke_only"
   ],
-  "execution_mode": "direct_compatibility_transient",
-  "expected_output_evidence": "A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL/CSV or feature-gated flat scalar Parquet output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV/JSON/JSONL/Parquet/Arrow IPC/Avro/ORC source evidence where admitted, string_transform_runtime_execution/operator/source_column when requested, date extract/arithmetic fields when requested, IN value/null/semantics evidence when requested, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.",
-  "id": "sql-local-source-csv-smoke",
-  "inputs": [
-    "local_csv",
-    "local_json",
-    "local_jsonl",
-    "local_ndjson",
-    "local_parquet_feature_gated",
-    "local_arrow_ipc_feature_gated",
-    "local_avro_feature_gated",
-    "local_orc_feature_gated"
-  ],
-  "outputs": [
-    "inline_jsonl_result",
-    "result_rows",
-    "first_result_row",
-    "optional_local_jsonl_output",
-    "optional_local_csv_output",
-    "optional_feature_gated_local_parquet_output",
-    "scalar_aggregate_result",
-    "grouped_aggregate_result",
-    "topn_result",
-    "join_result",
-    "sql_local_source_evidence",
-    "evidence_summary",
-    "claim_summary"
+  "claim_boundary": "Scoped local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/filter/limit with comparison, cast, DATE literals, Date32 extract/day arithmetic, bounded IN/NOT IN, BETWEEN/NOT BETWEEN, null/string/logical predicates, LIKE/NOT LIKE, UTF-8 LOWER/UPPER/TRIM, and balanced parentheses; scalar aggregate, one-column group-by aggregate, single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; local JSONL/CSV sinks; feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC sinks; and one Python local CSV inner equi-join bridge. IN/NOT IN admits up to 32 scalar literals from one family, including NULL list values with SQL three-valued WHERE-filter semantics, and blocks empty, mixed DATE/TIMESTAMP families, trailing empty, oversized, and subquery-backed lists. No broad SQL/DataFrame runtime, production SQL, broad structured-format/output fidelity, fanout, object-store/table source, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, arbitrary predicate-tree completeness, external fallback, or performance claim.",
+  "runnable_example": "New-Item -ItemType Directory -Force target | Out-Null; \"id,customer_id,amount`n1,10,8`n2,20,15`n3,30,21`n4,99,13`n\" | Set-Content -Encoding utf8 target\\sql-local-source-join-fact.csv; \"customer_id,segment`n10,seed`n20,enterprise`n30,startup`n\" | Set-Content -Encoding utf8 target\\sql-local-source-join-dim.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke \"SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10\" --format json; $env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.read_csv('target/sql-local-source-join-fact.csv').join(ctx.read_csv('target/sql-local-source-join-dim.csv'), on='customer_id').select('f.id','d.segment').filter('f.amount >= 10').limit(10).collect(); print(r.output_row_count, r.join_runtime_execution, r.fallback_attempted, r.external_engine_invoked)\"",
+  "blocked_explanation": "Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, Python/DataFrame joins beyond the scoped local CSV inner equi-join bridge, outer/semi/anti/cross joins, multi-key and expression joins, timestamp/timezone completeness, subquery-backed IN/NOT IN, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks/fanout, and production SQL/DataFrame support require later runtime slices.",
+  "expected_output_evidence": "A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL/CSV or feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV/JSON/JSONL/Parquet/Arrow IPC/Avro/ORC source evidence where admitted, string_transform_runtime_execution/operator/source_column when requested, date extract/arithmetic fields when requested, IN value/null/semantics evidence when requested, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.",
+  "common_mistakes": [
+    "treating_smoke_as_sql_compatibility",
+    "expecting_parquet_or_s3_sql_sources",
+    "expecting_broad_python_dataframe_join_support",
+    "expecting_general_join_or_grouped_aggregate_support",
+    "expecting_general_order_by_or_null_ordering_support",
+    "expecting_subquery_in_semantics"
   ],
   "references": [
     "README.md",
@@ -106,8 +112,5 @@
     "sql-dataframe-capability-posture",
     "source-free-generated-output-boundary",
     "local-file-etl-cleanup-smoke"
-  ],
-  "runnable_example": "New-Item -ItemType Directory -Force target | Out-Null; \"id,customer_id,amount`n1,10,8`n2,20,15`n3,30,21`n4,99,13`n\" | Set-Content -Encoding utf8 target\\sql-local-source-join-fact.csv; \"customer_id,segment`n10,seed`n20,enterprise`n30,startup`n\" | Set-Content -Encoding utf8 target\\sql-local-source-join-dim.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke \"SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10\" --format json; $env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.read_csv('target/sql-local-source-join-fact.csv').join(ctx.read_csv('target/sql-local-source-join-dim.csv'), on='customer_id').select('f.id','d.segment').filter('f.amount >= 10').limit(10).collect(); print(r.output_row_count, r.join_runtime_execution, r.fallback_attempted, r.external_engine_invoked)\"",
-  "status": "smoke_supported",
-  "title": "SQL local source projection/optional-filter/IN/limit, aggregate, group-by, top-N, and join smoke"
+  ]
 }

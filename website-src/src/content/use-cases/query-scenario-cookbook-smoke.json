@@ -1,13 +1,19 @@
 {
-  "audience": "user mapping a familiar analytics operation to a ShardLoom smoke scenario",
+  "id": "query-scenario-cookbook-smoke",
+  "title": "Query scenario cookbook smoke",
   "capability_family": "query_scenario_cookbook",
-  "claim_boundary": "Cookbook scenarios are scoped local evidence; they do not imply broad SQL, DataFrame, optimizer parity, performance, or production analytics support.",
-  "common_mistakes": [
-    "assuming_all_sql_group_by_shapes_are_supported",
-    "ignoring_dataset_profile",
-    "using_external_baselines_as_fallback"
-  ],
+  "audience": "user mapping a familiar analytics operation to a ShardLoom smoke scenario",
+  "status": "smoke_supported",
+  "execution_mode": "compatibility_import_certified",
   "engine_mode": "batch",
+  "inputs": [
+    "local_benchmark_fixture"
+  ],
+  "outputs": [
+    "scenario_timing_rows",
+    "correctness_digest",
+    "evidence_rows"
+  ],
   "evidence_fields": [
     "scenario",
     "correctness_digest",
@@ -19,16 +25,13 @@
     "fallback_attempted=false",
     "external_engine_invoked=false"
   ],
-  "execution_mode": "compatibility_import_certified",
+  "claim_boundary": "Cookbook scenarios are scoped local evidence; they do not imply broad SQL, DataFrame, optimizer parity, performance, or production analytics support.",
+  "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv --scenario \"group by aggregation\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-group-by-smoke.json --regenerate",
   "expected_output_evidence": "A benchmark artifact for one named scenario with no-fallback evidence and correctness/timing rows.",
-  "id": "query-scenario-cookbook-smoke",
-  "inputs": [
-    "local_benchmark_fixture"
-  ],
-  "outputs": [
-    "scenario_timing_rows",
-    "correctness_digest",
-    "evidence_rows"
+  "common_mistakes": [
+    "assuming_all_sql_group_by_shapes_are_supported",
+    "ignoring_dataset_profile",
+    "using_external_baselines_as_fallback"
   ],
   "references": [
     "benchmarks/traditional_analytics/README.md",
@@ -39,8 +42,5 @@
   "related_use_cases": [
     "local-file-etl-cleanup-smoke",
     "prepared-native-vortex-runtime-direction"
-  ],
-  "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv --scenario \"group by aggregation\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-group-by-smoke.json --regenerate",
-  "status": "smoke_supported",
-  "title": "Query scenario cookbook smoke"
+  ]
 }

@@ -2041,6 +2041,98 @@ fn sql_local_source_smoke_executes_null_aware_in_predicates_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_direct_not_in_and_not_like_without_fallback() {
+    let source_path = unique_path("sql-local-source-not-in-not-like-predicate", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE label NOT IN ('alpha','gamma') AND label NOT LIKE '%lt%' LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("logical_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("logical_predicate_operator", "and")));
+    assert!(stdout.contains(&field("logical_predicate_leaf_count", "2")));
+    assert!(stdout.contains(&field("in_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_list_value_count", "2")));
+    assert!(stdout.contains(&field("string_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("string_predicate_operator", "contains")));
+    assert!(stdout.contains(&field("selected_row_count", "1")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_preserves_not_in_sql_three_valued_null_semantics() {
+    let source_path = unique_path("sql-local-source-not-in-null-semantics", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,,21\n4,gamma,13\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE label NOT IN ('alpha', NULL) LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("logical_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("logical_predicate_operator", "not")));
+    assert!(stdout.contains(&field("in_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_list_value_count", "2")));
+    assert!(stdout.contains(&field("in_list_null_value_count", "1")));
+    assert!(stdout.contains(&field(
+        "in_predicate_null_semantics",
+        "sql_three_valued_where_filter"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "0")));
+    assert!(stdout.contains("\"result_jsonl\",\"value\":\"\""));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_between_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-between-predicate", "csv");
     fs::write(

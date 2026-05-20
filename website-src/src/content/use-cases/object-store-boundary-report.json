@@ -1,14 +1,20 @@
 {
-  "audience": "user asking whether S3, GCS, or ADLS runtime I/O works",
-  "blocked_explanation": "Runtime object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed.",
+  "id": "object-store-boundary-report",
+  "title": "Object-store and cloud storage boundary",
   "capability_family": "object_store_boundaries",
-  "claim_boundary": "Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.",
-  "common_mistakes": [
-    "expecting_public_s3_read",
-    "assuming_signed_url_support",
-    "treating_planner_as_runtime_io"
-  ],
+  "audience": "user asking whether S3, GCS, or ADLS runtime I/O works",
+  "status": "blocked",
+  "execution_mode": "report_only_blocked",
   "engine_mode": "none",
+  "inputs": [
+    "s3_uri",
+    "gcs_uri",
+    "adls_uri"
+  ],
+  "outputs": [
+    "object_store_plan",
+    "deterministic_blocker"
+  ],
   "evidence_fields": [
     "credential_policy_status",
     "network_probe_allowed=false",
@@ -19,17 +25,14 @@
     "fallback_attempted=false",
     "external_engine_invoked=false"
   ],
-  "execution_mode": "report_only_blocked",
+  "claim_boundary": "Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.",
+  "runnable_example": "target\\debug\\shardloom object-store-request-plan --format json",
+  "blocked_explanation": "Runtime object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed.",
   "expected_output_evidence": "A blocked or report-only object-store plan with no provider probe and no external engine invocation.",
-  "id": "object-store-boundary-report",
-  "inputs": [
-    "s3_uri",
-    "gcs_uri",
-    "adls_uri"
-  ],
-  "outputs": [
-    "object_store_plan",
-    "deterministic_blocker"
+  "common_mistakes": [
+    "expecting_public_s3_read",
+    "assuming_signed_url_support",
+    "treating_planner_as_runtime_io"
   ],
   "references": [
     "docs/architecture/compute-engine-flow-reference.md",
@@ -40,8 +43,5 @@
   "related_use_cases": [
     "table-lakehouse-boundary-report",
     "output-result-sink-and-fanout-boundary"
-  ],
-  "runnable_example": "target\\debug\\shardloom object-store-request-plan --format json",
-  "status": "blocked",
-  "title": "Object-store and cloud storage boundary"
+  ]
 }

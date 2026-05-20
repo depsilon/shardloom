@@ -1,13 +1,22 @@
 {
-  "audience": "user who needs local compatibility input imported into a Vortex-backed evidence path",
+  "id": "compatibility-import-certified-local",
+  "title": "Compatibility import certified local workload",
   "capability_family": "compatibility_import_certified",
-  "claim_boundary": "Certified cold-route evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.",
-  "common_mistakes": [
-    "comparing_import_certification_to_external_engine_query_time",
-    "hiding_import_costs",
-    "omitting_result_sink_evidence"
-  ],
+  "audience": "user who needs local compatibility input imported into a Vortex-backed evidence path",
+  "status": "smoke_supported",
+  "execution_mode": "compatibility_import_certified",
   "engine_mode": "batch",
+  "inputs": [
+    "local_csv",
+    "local_parquet",
+    "local_jsonl_when_scenario_admits_it"
+  ],
+  "outputs": [
+    "vortex_prepared_state",
+    "result_sink_artifact",
+    "execution_certificate",
+    "native_io_certificate"
+  ],
   "evidence_fields": [
     "source_adapter_status",
     "ingress_route",
@@ -27,19 +36,13 @@
     "fallback_attempted=false",
     "external_engine_invoked=false"
   ],
-  "execution_mode": "compatibility_import_certified",
+  "claim_boundary": "Certified cold-route evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.",
+  "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv,parquet --scenario \"selective filter\" --dataset-profile tiny_smoke --rows 256 --iterations 3 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\\shardloom-local-taxonomy-smoke.json --regenerate",
   "expected_output_evidence": "Benchmark JSON with compatibility import timing separated from Vortex scan/operator/result-sink evidence.",
-  "id": "compatibility-import-certified-local",
-  "inputs": [
-    "local_csv",
-    "local_parquet",
-    "local_jsonl_when_scenario_admits_it"
-  ],
-  "outputs": [
-    "vortex_prepared_state",
-    "result_sink_artifact",
-    "execution_certificate",
-    "native_io_certificate"
+  "common_mistakes": [
+    "comparing_import_certification_to_external_engine_query_time",
+    "hiding_import_costs",
+    "omitting_result_sink_evidence"
   ],
   "references": [
     "docs/getting-started/certified-local-workload.md",
@@ -51,8 +54,5 @@
   "related_use_cases": [
     "prepared-native-vortex-runtime-direction",
     "benchmark-interpretation-evidence-not-leaderboard"
-  ],
-  "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv,parquet --scenario \"selective filter\" --dataset-profile tiny_smoke --rows 256 --iterations 3 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\\shardloom-local-taxonomy-smoke.json --regenerate",
-  "status": "smoke_supported",
-  "title": "Compatibility import certified local workload"
+  ]
 }
