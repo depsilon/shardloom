@@ -948,6 +948,77 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
     fs::remove_file(output_path).expect("remove output csv");
 }
 
+#[test]
+fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
+    let source_path = unique_path("sql-local-source-jsonl-csv-fanout", "csv");
+    let jsonl_output_path = unique_path("sql-local-source-jsonl-csv-fanout", "jsonl");
+    let csv_output_path = unique_path("sql-local-source-jsonl-csv-fanout", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label,amount FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let jsonl_target = format!("jsonl={}", jsonl_output_path.display());
+    let csv_target = format!("csv={}", csv_output_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--fanout-output",
+            &jsonl_target,
+            "--fanout-output",
+            &csv_target,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let jsonl = fs::read_to_string(&jsonl_output_path).expect("read jsonl fanout");
+    assert!(jsonl.contains(r#""label":"beta""#));
+    assert!(jsonl.contains(r#""label":"gamma""#));
+    let csv = fs::read_to_string(&csv_output_path).expect("read csv fanout");
+    assert!(csv.starts_with("id,label,amount\n"));
+    assert!(csv.contains("2,beta,15"));
+    assert!(csv.contains("3,gamma,21"));
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("output_route", "local_fanout")));
+    assert!(stdout.contains(&field("output_fanout_performed", "true")));
+    assert!(stdout.contains(&field("fanout_output_count", "2")));
+    assert!(stdout.contains(&field("fanout_output_formats", "jsonl,csv")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("write_io", "true")));
+    assert!(stdout.contains(&field("result_reuse_for_fanout", "true")));
+    assert!(stdout.contains(&field("fanout_result_reuse_hit", "true")));
+    assert!(stdout.contains("\"fanout_output_digests\",\"value\":\"jsonl:fnv64:"));
+    assert!(stdout.contains("csv:fnv64:"));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_fanout_sinks"
+    )));
+    assert!(stdout.contains("jsonl:sql-local-source.csv.local-jsonl-output.native-io.v1"));
+    assert!(stdout.contains("csv:sql-local-source.csv.local-csv-output.native-io.v1"));
+    assert!(stdout.contains(&field("result_replay_verified", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(jsonl_output_path).expect("remove jsonl fanout");
+    fs::remove_file(csv_output_path).expect("remove csv fanout");
+}
+
 #[cfg(feature = "universal-format-io")]
 #[test]
 fn sql_local_source_smoke_writes_local_parquet_output_with_certificate_fields() {
@@ -1138,6 +1209,75 @@ fn sql_local_source_smoke_writes_local_orc_output_with_certificate_fields() {
     );
 }
 
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_writes_feature_gated_structured_fanout_outputs() {
+    let source_path = unique_path("sql-local-source-structured-fanout", "csv");
+    let parquet_output_path = unique_path("sql-local-source-structured-fanout", "parquet");
+    let arrow_output_path = unique_path("sql-local-source-structured-fanout", "arrow");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label,amount FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let parquet_target = format!("parquet={}", parquet_output_path.display());
+    let arrow_target = format!("arrow-ipc={}", arrow_output_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--fanout-output",
+            &parquet_target,
+            "--fanout-output",
+            &arrow_target,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let parquet =
+        shardloom_vortex::read_flat_parquet_source(&parquet_output_path, 10).expect("read parquet");
+    let arrow =
+        shardloom_vortex::read_flat_arrow_ipc_source(&arrow_output_path, 10).expect("read arrow");
+    for table in [&parquet, &arrow] {
+        assert_eq!(table.header, vec!["id", "label", "amount"]);
+        assert_eq!(table.rows.len(), 2);
+        assert_eq!(
+            table.rows[0].get("label"),
+            Some(&shardloom_core::ScalarValue::Utf8("beta".to_string()))
+        );
+        assert_eq!(
+            table.rows[1].get("label"),
+            Some(&shardloom_core::ScalarValue::Utf8("gamma".to_string()))
+        );
+    }
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("output_route", "local_fanout")));
+    assert!(stdout.contains(&field("fanout_output_count", "2")));
+    assert!(stdout.contains(&field("fanout_output_formats", "parquet,arrow_ipc")));
+    assert!(stdout.contains("parquet:sql-local-source.local-parquet-output.native-io.v1"));
+    assert!(stdout.contains("arrow_ipc:sql-local-source.local-arrow-ipc-output.native-io.v1"));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(parquet_output_path).expect("remove parquet fanout");
+    fs::remove_file(arrow_output_path).expect("remove arrow fanout");
+}
+
 #[cfg(not(feature = "universal-format-io"))]
 #[test]
 fn sql_local_source_smoke_blocks_parquet_output_without_universal_format_feature() {
@@ -1249,6 +1389,49 @@ fn sql_local_source_smoke_blocks_orc_output_without_universal_format_feature() {
         "orc",
         "ORC",
     );
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+#[test]
+fn sql_local_source_smoke_blocks_feature_gated_fanout_without_partial_writes() {
+    let source_path = unique_path("sql-local-source-fanout-output-blocked", "csv");
+    let csv_output_path = unique_path("sql-local-source-fanout-output-blocked", "csv");
+    let parquet_output_path = unique_path("sql-local-source-fanout-output-blocked", "parquet");
+    fs::write(&source_path, "id,label\n1,alpha\n").expect("write source csv");
+
+    let statement = format!("SELECT id,label FROM '{}' LIMIT 1", source_path.display());
+    let csv_target = format!("csv={}", csv_output_path.display());
+    let parquet_target = format!("parquet={}", parquet_output_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--fanout-output",
+            &csv_target,
+            "--fanout-output",
+            &parquet_target,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains(
+        "local Parquet output runtime requires building shardloom-cli with --features universal-format-io"
+    ));
+    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(!csv_output_path.exists());
+    assert!(!parquet_output_path.exists());
+
+    fs::remove_file(source_path).expect("remove source csv");
 }
 
 #[test]

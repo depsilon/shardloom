@@ -12,6 +12,7 @@ from urllib.parse import quote
 
 from .client import (
     Binary,
+    CommandPart,
     DEFAULT_PROFILE_ORDER,
     EngineSelectionPlan,
     GeneratedSourceWriteReport,
@@ -807,6 +808,31 @@ class SqlWorkflow:
             check=check,
         )
 
+    def fanout(
+        self,
+        outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Write an admitted local-source SQL result to multiple local sinks."""
+
+        normalized_outputs = _normalize_fanout_outputs(outputs)
+        if _is_source_free_sql_statement(self.statement):
+            return self._unsupported_operation(
+                "fanout",
+                "source_free_sql_fanout_requires_generated_output_fanout_runtime",
+                check=check,
+            )
+        if _is_local_source_sql_statement(self.statement):
+            return self.client.sql_local_source_smoke(
+                self.statement,
+                fanout_outputs=normalized_outputs,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            )
+        return self._unsupported_operation("fanout", self.statement, check=check)
+
     def _unsupported_operation(
         self,
         operation: str,
@@ -1196,6 +1222,25 @@ class LazyFrame:
         return self.write(
             target_uri,
             output_format="orc",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def fanout(
+        self,
+        outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Write an admitted local source result to multiple local sinks."""
+
+        statement = self._sql_local_source_statement()
+        if statement is None:
+            return self._unsupported_operation("fanout", check=check)
+        return self.client.sql_local_source_smoke(
+            statement,
+            fanout_outputs=_normalize_fanout_outputs(outputs),
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -2883,6 +2928,36 @@ def _normalize_local_output_format(value: str) -> str:
         "scoped local writes currently support local JSONL, CSV, and feature-gated "
         "Parquet/Arrow IPC/Avro/ORC only"
     )
+
+
+def _normalize_fanout_outputs(
+    outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
+) -> tuple[tuple[str, CommandPart], ...]:
+    if isinstance(outputs, Mapping):
+        items = outputs.items()
+    elif _is_non_string_sequence(outputs):
+        items = outputs
+    else:
+        raise TypeError("fanout outputs must be a mapping or sequence of (format, path) pairs")
+
+    normalized: list[tuple[str, CommandPart]] = []
+    for item in items:
+        if not _is_non_string_sequence(item) or len(item) != 2:
+            raise ValueError("fanout outputs must contain (format, path) pairs")
+        output_format, output_path = item
+        if not isinstance(output_format, str):
+            raise TypeError("fanout output format names must be strings")
+        if not isinstance(output_path, (str, os.PathLike)):
+            raise TypeError("fanout output paths must be strings or path-like objects")
+        normalized.append(
+            (
+                _normalize_local_output_format(output_format),
+                _require_non_empty("fanout output path", output_path),
+            )
+        )
+    if not normalized:
+        raise ValueError("fanout outputs must not be empty")
+    return tuple(normalized)
 
 
 def _is_non_string_sequence(value: object) -> bool:

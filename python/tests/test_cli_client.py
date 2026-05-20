@@ -2096,7 +2096,7 @@ class ShardLoomClientTests(unittest.TestCase):
             dataframe_methods.row("write").required_evidence,
             (
                 "sql_local_source_smoke",
-                "local_jsonl_or_csv_output",
+                "local_jsonl_csv_or_feature_gated_structured_output",
                 "output_native_io_certificate",
             ),
         )
@@ -2118,6 +2118,17 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(dataframe_methods.row("write_csv").runtime_execution)
         self.assertTrue(dataframe_methods.row("write_jsonl").write_io)
+        self.assertEqual(
+            dataframe_methods.row("fanout").required_evidence,
+            (
+                "sql_local_source_smoke",
+                "local_output_fanout",
+                "output_native_io_certificate",
+                "no_fallback_evidence",
+            ),
+        )
+        self.assertTrue(dataframe_methods.row("fanout").runtime_execution)
+        self.assertTrue(dataframe_methods.row("fanout").write_io)
         self.assertEqual(
             dataframe_methods.row("join").blocker_id,
             "cg21.workflow.join.operator_unsupported",

@@ -53,7 +53,32 @@ struct SqlLocalSourceRequest {
     statement: String,
     output_format: SqlLocalSourceOutputFormat,
     output_path: Option<PathBuf>,
+    fanout_outputs: Vec<SqlLocalSourceOutputTarget>,
     allow_overwrite: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlLocalSourceOutputTarget {
+    format: SqlLocalSourceOutputFormat,
+    path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlRenderedOutput {
+    format: SqlLocalSourceOutputFormat,
+    path: PathBuf,
+    content: Vec<u8>,
+    digest: String,
+    bytes: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlWrittenOutput {
+    format: SqlLocalSourceOutputFormat,
+    path: PathBuf,
+    digest: String,
+    bytes: u64,
+    write_millis: u128,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -583,6 +608,7 @@ struct SqlLocalSourceReport {
     output_digest: String,
     output_write_millis: u128,
     output_bytes: u64,
+    written_outputs: Vec<SqlWrittenOutput>,
     operator_compute_millis: u128,
     evidence_render_millis: u128,
     total_runtime_millis: u128,
@@ -615,83 +641,16 @@ pub(crate) fn handle_sql_local_source_smoke(
 ) -> ExitCode {
     let Some(statement_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl|csv|parquet] [--output local.jsonl|local.csv|local.parquet] [--allow-overwrite] [--format text|json]"
+            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl|csv|parquet|arrow-ipc|avro|orc] [--output local.jsonl|local.csv|local.parquet|local.arrow|local.avro|local.orc] [--fanout-output format=local-path]... [--allow-overwrite] [--format text|json]"
         );
         return ExitCode::from(2);
     };
 
-    let mut output_format = SqlLocalSourceOutputFormat::InlineJsonl;
-    let mut output_path = None;
-    let mut allow_overwrite = false;
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--output-format" => {
-                let Some(value) = args.next() else {
-                    return emit_error(
-                        COMMAND,
-                        format,
-                        "SQL local-source smoke failed",
-                        &ShardLoomError::InvalidOperation(
-                            "--output-format requires a value".to_string(),
-                        ),
-                    );
-                };
-                output_format = match SqlLocalSourceOutputFormat::parse(&value) {
-                    Ok(parsed) => parsed,
-                    Err(error) => {
-                        return emit_error(
-                            COMMAND,
-                            format,
-                            "SQL local-source smoke failed",
-                            &error,
-                        );
-                    }
-                };
-            }
-            "--output" => {
-                let Some(value) = args.next() else {
-                    return emit_error(
-                        COMMAND,
-                        format,
-                        "SQL local-source smoke failed",
-                        &ShardLoomError::InvalidOperation("--output requires a value".to_string()),
-                    );
-                };
-                output_path = match normalize_local_output_path(&value) {
-                    Ok(parsed) => Some(parsed),
-                    Err(error) => {
-                        return emit_error(
-                            COMMAND,
-                            format,
-                            "SQL local-source smoke failed",
-                            &error,
-                        );
-                    }
-                };
-            }
-            "--allow-overwrite" => allow_overwrite = true,
-            extra => {
-                return emit_error(
-                    COMMAND,
-                    format,
-                    "SQL local-source smoke failed",
-                    &cli_unknown_arg_error(COMMAND, extra),
-                );
-            }
+    let request = match parse_sql_local_source_request(statement_raw, args) {
+        Ok(request) => request,
+        Err(error) => {
+            return emit_error(COMMAND, format, "SQL local-source smoke failed", &error);
         }
-    }
-
-    if let Err(error) =
-        validate_sql_local_source_output_request(output_format, output_path.as_deref())
-    {
-        return emit_error(COMMAND, format, "SQL local-source smoke failed", &error);
-    }
-
-    let request = SqlLocalSourceRequest {
-        statement: statement_raw,
-        output_format,
-        output_path,
-        allow_overwrite,
     };
     let report = match run_sql_local_source_smoke(&request) {
         Ok(report) => report,
@@ -713,6 +672,62 @@ pub(crate) fn handle_sql_local_source_smoke(
         report.fields(),
     );
     ExitCode::SUCCESS
+}
+
+fn parse_sql_local_source_request(
+    statement: String,
+    mut args: impl Iterator<Item = String>,
+) -> Result<SqlLocalSourceRequest, ShardLoomError> {
+    let mut output_format = SqlLocalSourceOutputFormat::InlineJsonl;
+    let mut output_path = None;
+    let mut fanout_outputs = Vec::new();
+    let mut allow_overwrite = false;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--output-format" => {
+                let Some(value) = args.next() else {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "--output-format requires a value".to_string(),
+                    ));
+                };
+                output_format = SqlLocalSourceOutputFormat::parse(&value)?;
+            }
+            "--output" => {
+                let Some(value) = args.next() else {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "--output requires a value".to_string(),
+                    ));
+                };
+                output_path = Some(normalize_local_output_path(&value)?);
+            }
+            "--fanout-output" => {
+                let Some(value) = args.next() else {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "--fanout-output requires a value like csv=local.csv".to_string(),
+                    ));
+                };
+                fanout_outputs.push(parse_sql_local_source_fanout_output(&value)?);
+            }
+            "--allow-overwrite" => allow_overwrite = true,
+            extra => {
+                return Err(cli_unknown_arg_error(COMMAND, extra));
+            }
+        }
+    }
+
+    validate_sql_local_source_output_request(
+        output_format,
+        output_path.as_deref(),
+        &fanout_outputs,
+    )?;
+
+    Ok(SqlLocalSourceRequest {
+        statement,
+        output_format,
+        output_path,
+        fanout_outputs,
+        allow_overwrite,
+    })
 }
 
 #[allow(clippy::too_many_lines)]
@@ -810,6 +825,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
 fn validate_sql_local_source_output_request(
     output_format: SqlLocalSourceOutputFormat,
     output_path: Option<&Path>,
+    fanout_outputs: &[SqlLocalSourceOutputTarget],
 ) -> Result<(), ShardLoomError> {
     if output_path.is_none()
         && matches!(
@@ -825,7 +841,40 @@ fn validate_sql_local_source_output_request(
             "SQL local-source CSV, Parquet, Arrow IPC, Avro, or ORC output requires --output <local path>".to_string(),
         ));
     }
+    let mut paths = BTreeSet::new();
+    if let Some(output_path) = output_path {
+        paths.insert(normalized_output_path_key(output_path));
+    }
+    for target in fanout_outputs {
+        if !paths.insert(normalized_output_path_key(&target.path)) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "SQL local-source fanout output path is duplicated: {}; no fallback execution was attempted",
+                target.path.display()
+            )));
+        }
+    }
     Ok(())
+}
+
+fn parse_sql_local_source_fanout_output(
+    value: &str,
+) -> Result<SqlLocalSourceOutputTarget, ShardLoomError> {
+    let Some((format_raw, path_raw)) = value.split_once('=') else {
+        return Err(ShardLoomError::InvalidOperation(
+            "--fanout-output must use format=local-path, for example csv=out.csv".to_string(),
+        ));
+    };
+    let format = SqlLocalSourceOutputFormat::parse(format_raw)?;
+    Ok(SqlLocalSourceOutputTarget {
+        format,
+        path: normalize_local_output_path(path_raw)?,
+    })
+}
+
+fn normalized_output_path_key(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase()
 }
 
 fn run_vortex_ingest_smoke(
@@ -1392,20 +1441,31 @@ fn run_sql_local_source_smoke(
         .output_format
         .render_rows(&output_columns, &output_rows)?;
     let output_digest = fnv64_digest_bytes(&output_bytes_content);
+    let fanout_outputs = render_sql_fanout_outputs(request, &output_columns, &output_rows)?;
     let source_schema_digest = fnv64_digest(&source.header.join(","));
     let plan_digest = fnv64_digest(&format!(
-        "{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}",
         parsed.normalized_statement,
         source_schema_digest,
         source.source_digest,
         right_source
             .as_ref()
             .map_or_else(String::new, |source| source.source_digest.clone()),
-        request.output_format.as_str()
+        request.output_format.as_str(),
+        fanout_plan_digest_fragment(request)
     ));
     let evidence_render_millis = evidence_start.elapsed().as_millis();
     let output_bytes = u64::try_from(output_bytes_content.len()).unwrap_or(u64::MAX);
-    let output_write_millis = write_optional_sql_output(request, &output_bytes_content)?;
+    preflight_sql_output_writes(request)?;
+    let (_primary_write_millis, mut written_outputs) =
+        write_optional_sql_output(request, &output_bytes_content, &output_digest, output_bytes)?;
+    for rendered in fanout_outputs {
+        written_outputs.push(write_sql_output(rendered, request.allow_overwrite)?);
+    }
+    let output_write_millis = written_outputs
+        .iter()
+        .map(|output| output.write_millis)
+        .sum::<u128>();
 
     Ok(SqlLocalSourceReport {
         request: request.clone(),
@@ -1422,6 +1482,7 @@ fn run_sql_local_source_smoke(
         output_digest,
         output_write_millis,
         output_bytes,
+        written_outputs,
         operator_compute_millis,
         evidence_render_millis,
         total_runtime_millis: total_start.elapsed().as_millis(),
@@ -2249,20 +2310,88 @@ fn usize_to_f64(value: usize) -> f64 {
         .expect("usize decimal text parses as finite f64")
 }
 
+fn render_sql_fanout_outputs(
+    request: &SqlLocalSourceRequest,
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<SqlRenderedOutput>, ShardLoomError> {
+    request
+        .fanout_outputs
+        .iter()
+        .map(|target| {
+            let content = target.format.render_rows(columns, rows)?;
+            let digest = fnv64_digest_bytes(&content);
+            let bytes = u64::try_from(content.len()).unwrap_or(u64::MAX);
+            Ok(SqlRenderedOutput {
+                format: target.format,
+                path: target.path.clone(),
+                content,
+                digest,
+                bytes,
+            })
+        })
+        .collect()
+}
+
+fn fanout_plan_digest_fragment(request: &SqlLocalSourceRequest) -> String {
+    request
+        .fanout_outputs
+        .iter()
+        .map(|target| format!("{}={}", target.format.sink_format(), target.path.display()))
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+fn preflight_sql_output_writes(request: &SqlLocalSourceRequest) -> Result<(), ShardLoomError> {
+    if request.allow_overwrite {
+        return Ok(());
+    }
+    let targets = request
+        .output_path
+        .iter()
+        .chain(request.fanout_outputs.iter().map(|target| &target.path));
+    for path in targets {
+        if path.exists() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "SQL local-source output path already exists: {}; pass --allow-overwrite to replace it",
+                path.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn write_optional_sql_output(
     request: &SqlLocalSourceRequest,
     output_content: &[u8],
-) -> Result<u128, ShardLoomError> {
+    output_digest: &str,
+    output_bytes: u64,
+) -> Result<(u128, Vec<SqlWrittenOutput>), ShardLoomError> {
     let Some(output_path) = request.output_path.as_ref() else {
-        return Ok(0);
+        return Ok((0, Vec::new()));
     };
-    if output_path.exists() && !request.allow_overwrite {
+    let rendered = SqlRenderedOutput {
+        format: request.output_format,
+        path: output_path.clone(),
+        content: output_content.to_vec(),
+        digest: output_digest.to_string(),
+        bytes: output_bytes,
+    };
+    let written = write_sql_output(rendered, request.allow_overwrite)?;
+    Ok((written.write_millis, vec![written]))
+}
+
+fn write_sql_output(
+    rendered: SqlRenderedOutput,
+    allow_overwrite: bool,
+) -> Result<SqlWrittenOutput, ShardLoomError> {
+    if rendered.path.exists() && !allow_overwrite {
         return Err(ShardLoomError::InvalidOperation(format!(
             "SQL local-source output path already exists: {}; pass --allow-overwrite to replace it",
-            output_path.display()
+            rendered.path.display()
         )));
     }
-    if let Some(parent) = output_path.parent() {
+    if let Some(parent) = rendered.path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).map_err(|error| {
                 ShardLoomError::Message(format!(
@@ -2273,13 +2402,19 @@ fn write_optional_sql_output(
         }
     }
     let write_start = Instant::now();
-    fs::write(output_path, output_content).map_err(|error| {
+    fs::write(&rendered.path, &rendered.content).map_err(|error| {
         ShardLoomError::Message(format!(
             "failed to write local SQL output {}: {error}",
-            output_path.display()
+            rendered.path.display()
         ))
     })?;
-    Ok(write_start.elapsed().as_millis())
+    Ok(SqlWrittenOutput {
+        format: rendered.format,
+        path: rendered.path,
+        digest: rendered.digest,
+        bytes: rendered.bytes,
+        write_millis: write_start.elapsed().as_millis(),
+    })
 }
 
 fn bind_sql_local_source(
@@ -4244,32 +4379,70 @@ impl SqlLocalSourceReport {
             ),
             (
                 "output_route".to_string(),
-                if self.request.output_path.is_some() {
-                    "local_sink"
-                } else {
-                    "inline_result"
-                }
-                .to_string(),
+                self.output_route_label().to_string(),
             ),
-            (
-                "output_plan_id".to_string(),
-                format!(
-                    "sql-local-source.{}.{}.output-plan.v1",
-                    self.source_format_label(),
-                    self.request.output_format.sink_format()
-                ),
-            ),
+            ("output_plan_id".to_string(), self.output_plan_id()),
             (
                 "output_plan_status".to_string(),
-                if self.request.output_path.is_some() {
+                if self.output_io_performed() {
                     "smoke_supported"
                 } else {
                     "not_applicable_inline_result"
                 }
                 .to_string(),
             ),
+            (
+                "output_plan_reuse_allowed".to_string(),
+                self.output_fanout_performed().to_string(),
+            ),
+            ("output_plan_reuse_hit".to_string(), "false".to_string()),
+            (
+                "result_reuse_for_fanout".to_string(),
+                self.output_fanout_performed().to_string(),
+            ),
+            (
+                "fanout_result_reuse_hit".to_string(),
+                self.output_fanout_performed().to_string(),
+            ),
+            ("result_replay_verified".to_string(), "false".to_string()),
             ("output_bytes".to_string(), self.output_bytes.to_string()),
             ("output_digest".to_string(), self.output_digest.clone()),
+            (
+                "output_fanout_performed".to_string(),
+                self.output_fanout_performed().to_string(),
+            ),
+            (
+                "fanout_output_count".to_string(),
+                self.fanout_output_count().to_string(),
+            ),
+            (
+                "fanout_output_formats".to_string(),
+                self.fanout_output_formats(),
+            ),
+            (
+                "fanout_output_paths".to_string(),
+                self.fanout_output_paths(),
+            ),
+            (
+                "fanout_output_bytes".to_string(),
+                self.fanout_output_bytes(),
+            ),
+            (
+                "fanout_output_digests".to_string(),
+                self.fanout_output_digests(),
+            ),
+            (
+                "fanout_output_certificate_refs".to_string(),
+                self.fanout_output_certificate_refs(),
+            ),
+            (
+                "fanout_output_native_io_certificate_statuses".to_string(),
+                self.fanout_output_certificate_statuses(),
+            ),
+            (
+                "fanout_output_write_millis".to_string(),
+                self.fanout_output_write_millis().to_string(),
+            ),
             (
                 "source_read_millis".to_string(),
                 self.source.read_millis.to_string(),
@@ -4326,29 +4499,19 @@ impl SqlLocalSourceReport {
             ("data_materialized".to_string(), "true".to_string()),
             (
                 "output_io_performed".to_string(),
-                self.request.output_path.is_some().to_string(),
+                self.output_io_performed().to_string(),
             ),
             (
                 "write_io".to_string(),
-                self.request.output_path.is_some().to_string(),
+                self.output_io_performed().to_string(),
             ),
             (
                 "output_native_io_certificate_status".to_string(),
-                if self.request.output_path.is_some() {
-                    self.request.output_format.certificate_status()
-                } else {
-                    "not_requested"
-                }
-                .to_string(),
+                self.output_certificate_status(),
             ),
             (
                 "output_certificate_ref".to_string(),
-                if self.request.output_path.is_some() {
-                    self.request.output_format.certificate_ref()
-                } else {
-                    ""
-                }
-                .to_string(),
+                self.output_certificate_ref(),
             ),
             ("object_store_io".to_string(), "false".to_string()),
             ("network_probe".to_string(), "false".to_string()),
@@ -4388,8 +4551,17 @@ impl SqlLocalSourceReport {
             || "not requested".to_string(),
             |path| path.display().to_string(),
         );
+        let fanout = if self.output_fanout_performed() {
+            format!(
+                "\nfanout outputs: {} ({})",
+                self.fanout_output_count(),
+                self.fanout_output_formats()
+            )
+        } else {
+            String::new()
+        };
         format!(
-            "SQL local-source smoke\nschema_version: {SCHEMA_VERSION}\nsource: {}\nrows read: {}\nrows selected: {}\nrows output: {}\noutput: {output}\nresult:\n{}fallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "SQL local-source smoke\nschema_version: {SCHEMA_VERSION}\nsource: {}\nrows read: {}\nrows selected: {}\nrows output: {}\noutput: {output}{fanout}\nresult:\n{}fallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
             self.parsed.source_path.display(),
             self.source.rows.len(),
             self.selected_row_count,
@@ -4453,6 +4625,153 @@ impl SqlLocalSourceReport {
             "local_{}_row_materialization_to_expression_semantics",
             self.source_format_label()
         )
+    }
+
+    fn output_io_performed(&self) -> bool {
+        !self.written_outputs.is_empty()
+    }
+
+    fn output_fanout_performed(&self) -> bool {
+        !self.request.fanout_outputs.is_empty()
+    }
+
+    fn fanout_written_outputs(&self) -> impl Iterator<Item = &SqlWrittenOutput> {
+        let primary_path = self.request.output_path.as_ref();
+        self.written_outputs
+            .iter()
+            .filter(move |output| Some(&output.path) != primary_path)
+    }
+
+    fn fanout_output_count(&self) -> usize {
+        self.fanout_written_outputs().count()
+    }
+
+    fn fanout_output_formats(&self) -> String {
+        self.fanout_written_outputs()
+            .map(|output| output.format.sink_format())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn fanout_output_paths(&self) -> String {
+        self.fanout_written_outputs()
+            .map(|output| output.path.display().to_string())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn fanout_output_bytes(&self) -> String {
+        self.fanout_written_outputs()
+            .map(|output| format!("{}:{}", output.format.sink_format(), output.bytes))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn fanout_output_digests(&self) -> String {
+        self.fanout_written_outputs()
+            .map(|output| format!("{}:{}", output.format.sink_format(), output.digest))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn fanout_output_certificate_refs(&self) -> String {
+        self.fanout_written_outputs()
+            .map(|output| {
+                format!(
+                    "{}:{}",
+                    output.format.sink_format(),
+                    output.format.certificate_ref()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn fanout_output_certificate_statuses(&self) -> String {
+        self.fanout_written_outputs()
+            .map(|output| {
+                format!(
+                    "{}:{}",
+                    output.format.sink_format(),
+                    output.format.certificate_status()
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn fanout_output_write_millis(&self) -> u128 {
+        self.fanout_written_outputs()
+            .map(|output| output.write_millis)
+            .sum()
+    }
+
+    fn output_route_label(&self) -> &'static str {
+        match (
+            self.request.output_path.is_some(),
+            self.output_fanout_performed(),
+        ) {
+            (true, true) => "local_sink_and_fanout",
+            (true, false) => "local_sink",
+            (false, true) => "local_fanout",
+            (false, false) => "inline_result",
+        }
+    }
+
+    fn output_plan_id(&self) -> String {
+        if self.output_fanout_performed() {
+            format!(
+                "sql-local-source.{}.fanout.output-plan.v1",
+                self.source_format_label()
+            )
+        } else {
+            format!(
+                "sql-local-source.{}.{}.output-plan.v1",
+                self.source_format_label(),
+                self.request.output_format.sink_format()
+            )
+        }
+    }
+
+    fn output_certificate_status(&self) -> String {
+        match (
+            self.request.output_path.is_some(),
+            self.output_fanout_performed(),
+        ) {
+            (true, true) => format!(
+                "{},certified_local_fanout_sinks",
+                self.request.output_format.certificate_status()
+            ),
+            (true, false) => self.request.output_format.certificate_status().to_string(),
+            (false, true) => "certified_local_fanout_sinks".to_string(),
+            (false, false) => "not_requested".to_string(),
+        }
+    }
+
+    fn output_certificate_ref(&self) -> String {
+        if !self.output_fanout_performed() {
+            return if self.request.output_path.is_some() {
+                self.request.output_format.certificate_ref().to_string()
+            } else {
+                "not_requested".to_string()
+            };
+        }
+        let mut refs = Vec::new();
+        if self.request.output_path.is_some() {
+            refs.push(format!(
+                "{}:{}",
+                self.request.output_format.sink_format(),
+                self.request.output_format.certificate_ref()
+            ));
+        }
+        refs.extend(self.fanout_written_outputs().map(|output| {
+            format!(
+                "{}:{}",
+                output.format.sink_format(),
+                output.format.certificate_ref()
+            )
+        }));
+        refs.join(",")
     }
 
     fn pushdown_status(&self) -> String {

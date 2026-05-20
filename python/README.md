@@ -415,7 +415,10 @@ or `write_csv(...)` for the scoped local CSV sink. They can also use
 `write_parquet(...)` or `write(..., output_format="parquet")` for the scoped
 feature-gated flat scalar Parquet sink when the CLI is built with
 `--features universal-format-io`; default binaries return ShardLoom's
-deterministic Parquet sink blocker. Written local sinks emit
+deterministic Parquet sink blocker. The scoped `.fanout(...)` helper can reuse one
+computed result for multiple admitted local compatibility sinks such as JSONL and
+CSV, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC when the CLI is
+built with `--features universal-format-io`. Written local sinks emit
 format-specific output Native I/O certificate fields:
 
 ```powershell
@@ -483,6 +486,13 @@ json_rows = (
 collected = workflow.collect()
 written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
 csv_written = workflow.write_csv("target/sql-local-source-result.csv", allow_overwrite=True)
+fanout_written = workflow.fanout(
+    {
+        "jsonl": "target/sql-local-source-fanout.jsonl",
+        "csv": "target/sql-local-source-fanout.csv",
+    },
+    allow_overwrite=True,
+)
 aggregate = (
     ctx.read_json("target/sql-local-source-smoke.jsonl")
     .aggregate("count(*)", "sum(amount)", "avg(amount)", "min(amount)", "max(amount)")
@@ -523,6 +533,9 @@ print(written.output_native_io_certificate_status)
 print(csv_written.output_path)
 print(csv_written.output_format)
 print(csv_written.output_native_io_certificate_status)
+print(fanout_written.fanout_output_count)
+print(fanout_written.fanout_output_formats)
+print(fanout_written.fanout_result_reuse_hit)
 print(written.fallback_attempted, written.external_engine_invoked)
 print(written.evidence_summary.output_native_io_certificate_status)
 print(written.claim_summary.claim_gate_status)
@@ -675,11 +688,12 @@ future Python `explain()` trace should expose optimizer rule status, before/afte
 rewrite safety, evidence preservation, no-fallback fields, and claim gates without implying broad
 SQL/DataFrame execution or Polars/DataFusion optimizer parity.
 
-Reusable I/O state and cross-format fanout are planned as `GAR-IOREUSE-1`, not current Python
-runtime support. Future Python capability/write views may expose `SourceState`,
-`VortexPreparedState`, `OutputPlan`, cache invalidation, reuse levels, and fanout evidence, but
-input and output formats remain decoupled and reuse evidence will not imply performance,
-production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
+Reusable I/O state and broad cross-format fanout are planned as `GAR-IOREUSE-1`. The current Python
+runtime exposes only a scoped local-source `.fanout(...)` smoke over admitted local compatibility
+sinks. Future Python capability/write views may expose broader `SourceState`,
+`VortexPreparedState`, `OutputPlan`, cache invalidation, reuse levels, generated-source fanout, and
+Vortex-native sink fanout evidence, but input and output formats remain decoupled and reuse evidence
+will not imply performance, production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
 
 Unsupported workflow affordances are explicit report surfaces too. These calls
 are meant to make familiar pandas/Arrow/DataFrame/notebook methods discoverable

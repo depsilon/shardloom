@@ -714,6 +714,27 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         ),
     ),
     _df_method(
+        "fanout",
+        "write",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "local_output_fanout",
+            "output_native_io_certificate",
+            "no_fallback_evidence",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Scoped local-source SQL query-builder fanout smoke for admitted local JSONL/CSV "
+            "and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC output targets only; "
+            "no Vortex-native output fanout, replay/fidelity proof, object-store/table sink, "
+            "external engine, fallback, or production claim."
+        ),
+    ),
+    _df_method(
         "to_pandas",
         "materialization",
         "unsupported_materialization_diagnostic",
