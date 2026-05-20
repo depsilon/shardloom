@@ -204,6 +204,106 @@ class PreparedVortexArtifacts:
 
 
 @dataclass(frozen=True, slots=True)
+class VortexIngestSmokeReport:
+    """Typed view over a scoped local `vortex_ingest` prepare-once smoke."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def source_path(self) -> str:
+        """Return the local source path admitted by UniversalIngress."""
+
+        return _required_field(self.envelope, "source_path")
+
+    @property
+    def target_vortex_path(self) -> str:
+        """Return the local Vortex artifact path written by the smoke."""
+
+        return _required_field(self.envelope, "target_vortex_path")
+
+    @property
+    def source_format(self) -> str:
+        """Return the local source format."""
+
+        return _required_field(self.envelope, "source_format")
+
+    @property
+    def vortex_ingest_status(self) -> str:
+        """Return the `vortex_ingest` route status."""
+
+        return _required_field(self.envelope, "vortex_ingest_status")
+
+    @property
+    def prepared_state_id(self) -> str:
+        """Return the prepared-state identifier."""
+
+        return _required_field(self.envelope, "prepared_state_id")
+
+    @property
+    def prepared_state_digest(self) -> str:
+        """Return the prepared-state digest."""
+
+        return _required_field(self.envelope, "prepared_state_digest")
+
+    @property
+    def vortex_artifact_digest(self) -> str:
+        """Return the local Vortex artifact digest."""
+
+        return _required_field(self.envelope, "vortex_artifact_digest")
+
+    @property
+    def input_row_count(self) -> int:
+        """Return the input row count written into the prepared artifact."""
+
+        return self.envelope.field_int("input_row_count", 0) or 0
+
+    @property
+    def writer_row_count(self) -> int:
+        """Return the upstream Vortex writer row count."""
+
+        return self.envelope.field_int("writer_row_count", 0) or 0
+
+    @property
+    def reopen_row_count(self) -> int:
+        """Return the row count observed after reopening/scanning the artifact."""
+
+        return self.envelope.field_int("reopen_row_count", 0) or 0
+
+    @property
+    def source_io_performed(self) -> bool:
+        """Whether source I/O was performed by the smoke."""
+
+        return self.envelope.field_bool("source_io_performed", False) is True
+
+    @property
+    def prepared_state_created(self) -> bool:
+        """Whether this smoke created a local `VortexPreparedState`."""
+
+        return self.envelope.field_bool("prepared_state_created", False) is True
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether the smoke command attempted fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether the smoke command invoked an external engine."""
+
+        return _envelope_external_engine_invoked(self.envelope)
+
+    @property
+    def claim_gate_status(self) -> str:
+        """Return the route claim-gate status."""
+
+        return _required_field(self.envelope, "claim_gate_status")
+
+
+@dataclass(frozen=True, slots=True)
 class GeneratedSourceWriteReport:
     """Typed view over a scoped local generated-source write smoke."""
 
@@ -4243,6 +4343,25 @@ class ShardLoomClient:
         if allow_overwrite:
             command.append("--allow-overwrite")
         return SqlLocalSourceSmokeReport(self.run(command, check=check))
+
+    def vortex_ingest_smoke(
+        self,
+        source_path: str | os.PathLike[str],
+        target_vortex_path: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> VortexIngestSmokeReport:
+        """Run the scoped local `vortex_ingest` prepare-once smoke command."""
+
+        command: list[CommandPart] = [
+            "vortex-ingest-smoke",
+            str(source_path),
+            str(target_vortex_path),
+        ]
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        return VortexIngestSmokeReport(self.run(command, check=check))
 
     def execution_certificate_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the report-only execution certificate planning envelope."""

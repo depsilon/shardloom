@@ -94,7 +94,7 @@ route.
 
 | Area | Current repo state | Planned or gated updates |
 | --- | --- | --- |
-| Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are represented in benchmark/report fields. `prepared_vortex` starts from `VortexPreparedState`, not source files directly. | More `vortex_ingest` and prepared/native Vortex paths; `auto` must keep reporting the selected concrete mode. |
+| Execution modes | `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, `direct_compatibility_transient`, and `auto` are represented in benchmark/report fields. `prepared_vortex` starts from `VortexPreparedState`, not source files directly. The scoped `vortex-ingest-smoke` path, when built with `--features vortex-write`, can prepare admitted local flat non-null int/uint/float/UTF-8/date32/timestamp CSV/JSON/JSONL/feature-gated Parquet rows into a local `.vortex` artifact and reopen/scan it for `VortexPreparedState` evidence. Default builds return a deterministic feature-gate blocker. | Broader `vortex_ingest`, prepared/native Vortex query execution, richer Vortex writer/layout support, and prepared-state reuse; `auto` must keep reporting the selected concrete mode. |
 | Batch engine mode | Current practical foundation for bounded local Vortex analytics and benchmark evidence. | Broader operator coverage, source/sink certification, and claim-grade workload evidence. |
 | Live engine mode | `engine-selection-plan`, `engine-capability-matrix`, `live-change-contract-plan`, Python helpers, and scoped in-memory `live-fixture-run` reports exist. | Durable state/checkpoints, broker/source adapters, freshness evidence, and workload certification. |
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and scoped in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. |
@@ -135,6 +135,12 @@ Currently wired surfaces include:
   digest, and no-fallback/no-external-engine evidence; range and sequence builders support
   `limit(...)`, `head(...)`, and `take(...)` bound adjustment before invoking the same engine-native
   generator smoke
+- feature-gated local `vortex_ingest` through `vortex-ingest-smoke` and Python
+  `ctx.prepare_vortex(...)` / `ShardLoomClient.vortex_ingest_smoke(...)`, which writes an admitted
+  local flat non-null int/uint/float/UTF-8/date32/timestamp source into a local `.vortex` artifact, reopens/scans it for row-count proof,
+  emits `VortexPreparedState` refs/digests and route timing fields, and preserves
+  `fallback_attempted=false` / `external_engine_invoked=false`; this is a scoped fixture smoke, not
+  a broad Vortex writer, object-store/table sink, or performance claim
 - scoped local CSV/JSONL/flat JSON plus feature-gated flat scalar Parquet SQL execution through `sql-local-source-smoke` for projection/optional-filter/limit,
   scalar aggregate, one-column group-by aggregate, single-key numeric `ORDER BY ... LIMIT ...`
   top-N, scoped `CAST(column AS dtype)` predicates for `int64`, `float64`, `utf8`, `boolean`, and

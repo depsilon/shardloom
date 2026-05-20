@@ -28,6 +28,7 @@ from .client import (
     SemanticConformanceSuite,
     ShardLoomClient,
     WorkloadCertificationDossier,
+    VortexIngestSmokeReport,
 )
 from .models import Diagnostic, OutputEnvelope
 from .query import (
@@ -4995,6 +4996,23 @@ class ShardLoomContext:
         """Declare a lazy Parquet compatibility source using this context's client."""
 
         return read_parquet(uri, schema=schema, client=self.client, engine_mode=self.engine)
+
+    def prepare_vortex(
+        self,
+        source_path: str | os.PathLike[str],
+        target_vortex_path: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> VortexIngestSmokeReport:
+        """Prepare an admitted local source into a local `VortexPreparedState` smoke."""
+
+        return self.client.vortex_ingest_smoke(
+            source_path,
+            target_vortex_path,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
 
     def from_rows(self, rows: Sequence[Mapping[str, object]]) -> GeneratedRowsSource:
         """Create a scoped source-free generated row set using this context's client."""

@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Source-free generated output boundary | ShardLoom Use Cases</title>
-  <meta name="description" content="ShardLoom use-case posture for Source-free generated output boundary.">
-  <link rel="canonical" href="https://shardloom.io/use-cases/source-free-generated-output-boundary">
+  <title>Vortex ingest prepare-once local smoke | ShardLoom Use Cases</title>
+  <meta name="description" content="ShardLoom use-case posture for Vortex ingest prepare-once local smoke.">
+  <link rel="canonical" href="https://shardloom.io/use-cases/vortex-ingest-prepare-once-local">
   <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
   <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
   <link rel="stylesheet" href="/assets/site.css">
 
-  <meta property="og:title" content="Source-free generated output boundary | ShardLoom Use Cases">
-  <meta property="og:description" content="ShardLoom use-case posture for Source-free generated output boundary.">
+  <meta property="og:title" content="Vortex ingest prepare-once local smoke | ShardLoom Use Cases">
+  <meta property="og:description" content="ShardLoom use-case posture for Vortex ingest prepare-once local smoke.">
   <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://shardloom.io/use-cases/source-free-generated-output-boundary">
+  <meta property="og:url" content="https://shardloom.io/use-cases/vortex-ingest-prepare-once-local">
   <meta name="twitter:card" content="summary_large_image">
 </head>
 <body class="command-shell">
@@ -48,7 +48,7 @@
   <main data-pagefind-body>
     <span class="sr-only" data-pagefind-ignore data-pagefind-filter="section">Use Case Atlas</span>
     <span class="sr-only" data-pagefind-ignore data-pagefind-filter="status">smoke_supported</span>
-    <span class="sr-only" data-pagefind-ignore data-pagefind-filter="execution_mode">source_free_generated_output</span>
+    <span class="sr-only" data-pagefind-ignore data-pagefind-filter="execution_mode">vortex_ingest_to_prepared_vortex</span>
     <span class="sr-only" data-pagefind-ignore data-pagefind-filter="engine_mode">batch</span>
     <section id="top" class="field-guide-atlas atlas-shell atlas-surface">
 
@@ -204,7 +204,7 @@
                 </li>
 
                 <li>
-                  <a class="atlas-side-term" href="/use-cases/vortex-ingest-prepare-once-local">
+                  <a class="atlas-side-term active" href="/use-cases/vortex-ingest-prepare-once-local">
                     <span>Vortex ingest prepare-once local smoke</span>
                     <em>smoke supported</em>
                   </a>
@@ -239,7 +239,7 @@
                 </li>
 
                 <li>
-                  <a class="atlas-side-term active" href="/use-cases/source-free-generated-output-boundary">
+                  <a class="atlas-side-term" href="/use-cases/source-free-generated-output-boundary">
                     <span>Source-free generated output boundary</span>
                     <em>smoke supported</em>
                   </a>
@@ -316,7 +316,7 @@
       <div class="atlas-main">
         <div class="atlas-topbar">
           <div>
-            <span class="atlas-path">/use-cases/source-free-generated-output-boundary</span>
+            <span class="atlas-path">/use-cases/vortex-ingest-prepare-once-local</span>
             <strong>Use Case Atlas</strong>
           </div>
 
@@ -348,8 +348,8 @@
       <div class="shell">
         <img class="page-header-logo" src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
         <p class="eyebrow">Use Case Atlas</p>
-        <h1>Source-free generated output boundary</h1>
-        <p class="lede">Source-free generated output boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+        <h1>Vortex ingest prepare-once local smoke</h1>
+        <p class="lede">Vortex ingest prepare-once local smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
         <span class="claim-badge fixture">smoke supported</span>
       </div>
     </section>
@@ -357,37 +357,37 @@
       <div class="shell use-case-layout">
         <article class="doc-body">
           <h2 id="plain-english-summary">Plain-English Summary</h2>
-          <p>Source-free generated output boundary has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
+          <p>Vortex ingest prepare-once local smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.</p>
           <h2 id="status-table">Status Table</h2>
           <div class="table-scroll"><table>
 <thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>
 <tr><td>Status</td><td>smoke supported</td></tr>
-<tr><td>Audience</td><td>user who wants range, sequence, values, calendar, or literal-table output without input data</td></tr>
-<tr><td>Execution mode</td><td>source_free_generated_output</td></tr>
+<tr><td>Audience</td><td>user who wants to create a local VortexPreparedState from an admitted local source</td></tr>
+<tr><td>Execution mode</td><td>vortex_ingest_to_prepared_vortex</td></tr>
 <tr><td>Engine mode</td><td>batch</td></tr>
-<tr><td>Platform</td><td>foundry-local</td></tr>
-<tr><td>Evidence level</td><td>generated-source</td></tr>
-<tr><td>Inputs</td><td>none, generated_rows, generated_rows_projection, generated_rows_literal_with_column, literal_table_rows, calendar_dimension, range, sequence, sql_values, sql_literal_select, sql_generate_series_range, ctx_sql_source_free</td></tr>
-<tr><td>Outputs</td><td>local_jsonl_output_artifact, local_csv_output_artifact, generated_source_certificate, output_native_io_certificate</td></tr>
+<tr><td>Platform</td><td>local</td></tr>
+<tr><td>Evidence level</td><td>claim-gate</td></tr>
+<tr><td>Inputs</td><td>local_csv_flat_non_null_scalars, local_json_flat_non_null_scalars, local_jsonl_flat_non_null_scalars, local_parquet_when_features_enabled</td></tr>
+<tr><td>Outputs</td><td>local_vortex_artifact, vortex_prepared_state_evidence</td></tr>
 </tbody></table></div>
-          <h2>Quick Example</h2><pre><code data-language="powershell">$env:PYTHONPATH = &quot;python\src&quot;; python -c &quot;from shardloom import context; ctx=context(repo_root=&#x27;.&#x27;); a=ctx.from_rows([{&#x27;id&#x27;: 1, &#x27;label&#x27;: &#x27;alpha&#x27;}]).write(&#x27;target/generated-reference.jsonl&#x27;, allow_overwrite=True); t=ctx.from_rows([{&#x27;id&#x27;: 1, &#x27;label&#x27;: &#x27;alpha&#x27;}, {&#x27;id&#x27;: 2, &#x27;label&#x27;: &#x27;beta&#x27;}]).with_column(&#x27;batch_id&#x27;, 1).select(&#x27;id&#x27;, &#x27;batch_id&#x27;).write(&#x27;target/generated-reference-transformed.jsonl&#x27;, allow_overwrite=True); b=ctx.literal_table([{&#x27;code&#x27;:&#x27;A&#x27;,&#x27;weight&#x27;:1.5}]).write(&#x27;target/generated-literal.jsonl&#x27;, allow_overwrite=True); c=ctx.calendar(&#x27;2026-05-18&#x27;,&#x27;2026-05-20&#x27;, column=&#x27;dt&#x27;).write(&#x27;target/generated-calendar.jsonl&#x27;, allow_overwrite=True); d=ctx.range(0, 50, column=&#x27;id&#x27;).limit(5).write(&#x27;target/generated-range.jsonl&#x27;, allow_overwrite=True); s=ctx.sequence(0, 50, column=&#x27;id&#x27;).take(5).write(&#x27;target/generated-sequence.jsonl&#x27;, allow_overwrite=True); e=ctx.sql_values(&quot;VALUES (1, &#x27;alpha&#x27;), (2, &#x27;beta&#x27;)&quot;).write(&#x27;target/generated-sql-values.jsonl&#x27;, allow_overwrite=True); f=ctx.sql_literal_select(&quot;SELECT 1 AS id, &#x27;alpha&#x27; AS label&quot;).write(&#x27;target/generated-sql-select.jsonl&#x27;, allow_overwrite=True); g=ctx.sql(&quot;SELECT 2 AS id, &#x27;beta&#x27; AS label&quot;).write(&#x27;target/generated-sql-from-context.jsonl&#x27;, allow_overwrite=True); h=ctx.sql(&quot;SELECT * FROM generate_series(0, 4)&quot;).write(&#x27;target/generated-sql-series.jsonl&#x27;, allow_overwrite=True); print(a.claim_gate_status, t.generated_source_row_count, b.generated_source_kind, c.generated_source_row_count, d.generated_source_kind, d.generated_source_row_count, s.generated_source_kind, s.generated_source_row_count, e.generated_source_kind, f.generated_source_kind, g.generated_source_kind, h.generated_source_kind, h.generated_source_range_end_inclusive)&quot;</code></pre>
-          <div class="notice-panel use-case-blocker"><strong>Current blocker.</strong><span>The source-free API admission matrix and Python context unsupported helpers keep SQL source-free projection beyond the admitted literal SELECT/VALUES/generate_series/range smoke subset, broad DataFrame source-free projection, expression-backed generated with_column, engine-native values/synthetic profiles, object-store writes, and Foundry generated-output runtime blocked/report-only until separate evidence lands.</span></div>
+          <h2>Quick Example</h2><pre><code data-language="powershell">New-Item -ItemType Directory -Force target | Out-Null; &quot;id,label,amount`n1,alpha,8`n2,beta,15`n&quot; | Set-Content -Encoding utf8 target\vortex-ingest-source.csv; cargo run -q -p shardloom-cli --features vortex-write -- vortex-ingest-smoke target\vortex-ingest-source.csv target\vortex-ingest-source.vortex --allow-overwrite --format json; $env:PYTHONPATH = &quot;python\src&quot;; python -c &quot;from shardloom import context; ctx=context(repo_root=&#x27;.&#x27;, profile_order=(&#x27;debug&#x27;,&#x27;release&#x27;)); r=ctx.prepare_vortex(&#x27;target/vortex-ingest-source.csv&#x27;,&#x27;target/vortex-ingest-source.vortex&#x27;, allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.input_row_count, r.fallback_attempted, r.external_engine_invoked)&quot;</code></pre>
+
           <h2 id="claim-boundary">Claim Boundary</h2>
-          <p>Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range/sequence limit/head/take bound adjustment, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV fixture smokes through explicit helpers or ctx.sql(...).write(...) only; no broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.</p>
+          <p>Feature-gated local prepare-once fixture smoke over flat non-null int/uint/float/UTF-8/date32/timestamp rows only; default builds block deterministically. No broad Vortex writer, object-store/table sink, production SQL/DataFrame, performance, superiority, Foundry, package-publication, or Spark-replacement claim.</p>
           <h2 id="internal-flow">Internal Flow</h2>
-          <div class="use-case-flow"><article><strong>Inputs</strong><span>none, generated_rows, generated_rows_projection, generated_rows_literal_with_column, literal_table_rows, calendar_dimension, range, sequence, sql_values, sql_literal_select, sql_generate_series_range, ctx_sql_source_free</span></article><article><strong>Execution mode</strong><span>source_free_generated_output</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>local_jsonl_output_artifact, local_csv_output_artifact, generated_source_certificate, output_native_io_certificate</span></article><article><strong>Evidence</strong><span>input_dataset_count=0, source_io_performed=false, generated_source_created=true, generated_source_kind, generated_source_schema_digest, generated_source_row_count, output_io_performed, generated_source_certificate_status, output_native_io_certificate_status, generated_source_api_admission_schema_version, support_status, blocker_id, fallback_attempted=false, external_engine_invoked=false, claim_gate_status</span></article><article><strong>Claim gate</strong><span>Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range/sequence limit/head/take bound adjustment, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV fixture smokes through explicit helpers or ctx.sql(...).write(...) only; no broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.</span></article></div>
+          <div class="use-case-flow"><article><strong>Inputs</strong><span>local_csv_flat_non_null_scalars, local_json_flat_non_null_scalars, local_jsonl_flat_non_null_scalars, local_parquet_when_features_enabled</span></article><article><strong>Execution mode</strong><span>vortex_ingest_to_prepared_vortex</span></article><article><strong>Engine mode</strong><span>batch</span></article><article><strong>Outputs</strong><span>local_vortex_artifact, vortex_prepared_state_evidence</span></article><article><strong>Evidence</strong><span>source_adapter_id, source_state_id, source_state_digest, ingress_route=vortex_ingest, vortex_ingest_status, prepared_state_id, prepared_state_digest, vortex_artifact_digest, writer_row_count, reopen_row_count, timing_scope=ingest_only, fallback_attempted=false, external_engine_invoked=false, claim_gate_status</span></article><article><strong>Claim gate</strong><span>Feature-gated local prepare-once fixture smoke over flat non-null int/uint/float/UTF-8/date32/timestamp rows only; default builds block deterministically. No broad Vortex writer, object-store/table sink, production SQL/DataFrame, performance, superiority, Foundry, package-publication, or Spark-replacement claim.</span></article></div>
           <h2 id="expected-evidence-fields">Expected Evidence Fields</h2>
-          <ul><li>input_dataset_count=0</li><li>source_io_performed=false</li><li>generated_source_created=true</li><li>generated_source_kind</li><li>generated_source_schema_digest</li><li>generated_source_row_count</li><li>output_io_performed</li><li>generated_source_certificate_status</li><li>output_native_io_certificate_status</li><li>generated_source_api_admission_schema_version</li><li>support_status</li><li>blocker_id</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li><li>claim_gate_status</li></ul>
+          <ul><li>source_adapter_id</li><li>source_state_id</li><li>source_state_digest</li><li>ingress_route=vortex_ingest</li><li>vortex_ingest_status</li><li>prepared_state_id</li><li>prepared_state_digest</li><li>vortex_artifact_digest</li><li>writer_row_count</li><li>reopen_row_count</li><li>timing_scope=ingest_only</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li><li>claim_gate_status</li></ul>
           <h2 id="expected-output-or-evidence">Expected Output Or Evidence</h2>
-          <p>A local JSONL/CSV output plus fields including generated_source_kind=user_rows, literal_table, calendar, range, sequence, sql_values, sql_literal_select, or sql_generate_series_range; generated_source_row_count for base and transformed generated rows; generated_source_range_* and generated_source_sql_generator_function for SQL generator rows; generated_source_certificate_status=present; output_native_io_certificate_status=certified_local_file_sink; fallback_attempted=false; and external_engine_invoked=false.</p>
+          <p>A local .vortex artifact plus VortexPreparedState id/digest, writer/reopen row-count proof, source-state fields, and no-fallback/no-external-engine evidence.</p>
           <h2 id="common-mistakes">Common Mistakes</h2>
-          <ul><li>confusing_no_dataset_smoke_with_generated_output</li><li>claiming_source_native_io_without_source_read</li><li>writing_to_s3</li></ul>
+          <ul><li>assuming_prepared_vortex_reads_csv_directly</li><li>treating_vortex_ingest_as_query_runtime</li><li>expecting_default_build_to_write_vortex</li><li>treating_smoke_as_performance_claim</li></ul>
           <h2 id="reference-files">Reference Files</h2>
-          <div class="citation-list" data-citation-block="reference-files"><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a><p><strong>What this proves:</strong> Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/foundry/proof-of-use-certification.md"><code>docs/foundry/proof-of-use-certification.md</code></a><p><strong>What this proves:</strong> Foundry-style local proof boundary and no-production-Foundry claim posture.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/python/README.md"><code>python/README.md</code></a><p><strong>What this proves:</strong> Python wrapper posture, local smoke usage, and Python API claim boundaries.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/phased-execution-plan.md"><code>docs/architecture/phased-execution-plan.md</code></a><p><strong>What this proves:</strong> Active planned work, claim boundaries, non-goals, and ledger move rules.</p></article></div>
+          <div class="citation-list" data-citation-block="reference-files"><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/README.md"><code>README.md</code></a><p><strong>What this proves:</strong> Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/python/README.md"><code>python/README.md</code></a><p><strong>What this proves:</strong> Python wrapper posture, local smoke usage, and Python API claim boundaries.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md"><code>docs/getting-started/examples.md</code></a><p><strong>What this proves:</strong> Current example catalog and local workflow entrypoints.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md"><code>docs/architecture/compute-engine-flow-reference.md</code></a><p><strong>What this proves:</strong> Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.</p></article><article class="citation-card"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-ingress-route-taxonomy.md"><code>docs/architecture/universal-ingress-route-taxonomy.md</code></a><p><strong>What this proves:</strong> UniversalIngress, vortex_ingest, VortexPreparedState, and route-timing contract boundaries.</p></article></div>
           <h2 id="related-field-guide-terms">Related Field Guide Terms</h2>
-          <div class="related-use-cases related-field-guide-terms"><a class="related-use-case" href="/field-guide/fixture-smoke"><span>Engine Modes</span><strong>Fixture Smoke</strong></a><a class="related-use-case" href="/field-guide/python-wrapper-client"><span>User Workflows</span><strong>Python Wrapper Client</strong></a><a class="related-use-case" href="/field-guide/source-free-generated-output"><span>User Workflows</span><strong>Source-Free Generated Output</strong></a><a class="related-use-case" href="/field-guide/output-fanout"><span>User Workflows</span><strong>Output Fanout</strong></a><a class="related-use-case" href="/field-guide/output-plan-reuse"><span>I/O And Output</span><strong>OutputPlan Reuse</strong></a><a class="related-use-case" href="/field-guide/foundry-dev-stack-smoke"><span>Platform Boundaries</span><strong>Foundry Dev-Stack Smoke</strong></a></div>
+          <div class="related-use-cases related-field-guide-terms"><a class="related-use-case" href="/field-guide/prepared-vortex"><span>Execution Modes</span><strong>Prepared Vortex</strong></a><a class="related-use-case" href="/field-guide/prepared-vortex-artifact"><span>Vortex Runtime</span><strong>VortexPreparedState</strong></a></div>
           <h2 id="related-use-cases">Related Use Cases</h2>
-          <div class="related-use-cases"><a class="related-use-case" href="/use-cases/first-10-minutes-local-smoke"><span>ready local</span><strong>First 10 minutes local smoke</strong></a><a class="related-use-case" href="/use-cases/foundry-local-proof-boundary"><span>smoke supported</span><strong>Foundry-style local proof boundary</strong></a><a class="related-use-case" href="/use-cases/output-result-sink-and-fanout-boundary"><span>smoke supported</span><strong>Output and fanout boundary</strong></a></div>
+          <div class="related-use-cases"><a class="related-use-case" href="/use-cases/prepared-native-vortex-runtime-direction"><span>smoke supported</span><strong>Prepared/native Vortex runtime direction</strong></a><a class="related-use-case" href="/use-cases/compatibility-import-certified-local"><span>smoke supported</span><strong>Compatibility import certified local workload</strong></a><a class="related-use-case" href="/use-cases/output-result-sink-and-fanout-boundary"><span>smoke supported</span><strong>Output and fanout boundary</strong></a></div>
         </article>
       </div>
     </section>
