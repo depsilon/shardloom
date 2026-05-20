@@ -560,6 +560,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "logical_predicate_runtime_execution", "value": "true"},
                         {"key": "string_predicate_runtime_execution", "value": "true"},
                         {"key": "null_predicate_runtime_execution", "value": "true"},
+                        {"key": "null_predicate_operator", "value": "is_null"},
+                        {"key": "null_predicate_source_column", "value": "closed_at"},
+                        {"key": "null_predicate_null_semantics", "value": "sql_is_null_is_not_null"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"}
@@ -591,6 +594,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.claim_summary.fallback_attempted)
         self.assertFalse(report.claim_summary.external_engine_invoked)
         self.assertFalse(report.claim_summary.public_performance_claim_allowed)
+        self.assertTrue(report.null_predicate_runtime_execution)
+        self.assertEqual(report.null_predicate_operator, ("is_null",))
+        self.assertEqual(report.null_predicate_source_columns, ("closed_at",))
+        self.assertEqual(
+            report.null_predicate_null_semantics,
+            "sql_is_null_is_not_null",
+        )
 
     def test_column_expression_builder_formats_admitted_predicate_families(self) -> None:
         self.assertEqual(

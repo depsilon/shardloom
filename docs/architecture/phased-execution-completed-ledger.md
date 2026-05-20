@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL null-predicate runtime hardening
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-null-predicate-hardening-4d` / #868.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - Python query-builder `sl.col(...).is_null()` / `is_not_null()` lowering
+    - SQL local-source runtime smoke evidence.
+  - Scope:
+    - Added explicit `null_predicate_runtime_execution`, `null_predicate_operator`,
+      `null_predicate_source_column`, and `null_predicate_null_semantics` fields to the SQL
+      local-source JSON envelope.
+    - Added typed Python report accessors for admitted null-predicate evidence.
+    - Added runtime smoke tests proving `IS NULL` over local CSV null fields and `IS NOT NULL` over
+      local JSONL explicit `null` values execute with ShardLoom-native null semantics.
+    - Updated Use Case Atlas and website content metadata so the supported SQL/Python local-source
+      surfaces expose the null-predicate evidence fields.
+  - Evidence:
+    - `predicate_operator_family=null_predicate`, `filter_runtime_execution=true`,
+      `null_predicate_runtime_execution=true`, `null_predicate_operator=is_null|is_not_null`,
+      `null_predicate_source_column`, `null_predicate_null_semantics=sql_is_null_is_not_null`,
+      selected row counts, inline JSONL results, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust CLI tests for `IS NULL` and `IS NOT NULL`.
+    - Focused Python query-builder report-accessor test.
+    - Cargo format, Use Case Atlas checks, website sync/build/readiness/static validation,
+      release-readiness metadata, traditional benchmark harness, and `git diff --check`.
+  - Claim boundary:
+    - Scoped local SQL/Python query-builder null-predicate fixture smoke only. This is not broad
+      SQL/DataFrame parity, generalized expression-tree completeness, nested JSON support,
+      production SQL support, performance evidence, or claim-grade compute.
+  - Fallback boundary:
+    - Null predicates are evaluated by ShardLoom expression semantics over admitted local rows.
+      External engines remain baseline/oracle-only and are not invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4N object-store read admission with local-emulator proof
   - Date: 2026-05-20
   - Branch/PR: `runtime-object-store-read-admission-4n` / #866.

@@ -537,6 +537,36 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_bool("filter_runtime_execution", False) is True
 
     @property
+    def null_predicate_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted IS NULL / IS NOT NULL predicate."""
+
+        return self.envelope.field_bool("null_predicate_runtime_execution", False) is True
+
+    @property
+    def null_predicate_operator(self) -> tuple[str, ...]:
+        """Return null predicate operators emitted by the smoke."""
+
+        value = self.envelope.field("null_predicate_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def null_predicate_source_columns(self) -> tuple[str, ...]:
+        """Return source columns used by admitted null predicates."""
+
+        value = self.envelope.field("null_predicate_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def null_predicate_null_semantics(self) -> str | None:
+        """Return the null-semantics contract for admitted null predicates."""
+
+        return self.envelope.field("null_predicate_null_semantics")
+
+    @property
     def logical_predicate_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted logical predicate path."""
 

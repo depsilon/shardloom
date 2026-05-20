@@ -3482,6 +3482,99 @@ fn sql_local_source_smoke_preserves_not_in_sql_three_valued_null_semantics() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_is_null_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-is-null-predicate", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,,15\n3,gamma,21\n4,NULL,13\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE label IS NULL LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "null_predicate")));
+    assert!(stdout.contains(&field("filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("null_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("null_predicate_operator", "is_null")));
+    assert!(stdout.contains(&field("null_predicate_source_column", "label")));
+    assert!(stdout.contains(&field(
+        "null_predicate_null_semantics",
+        "sql_is_null_is_not_null"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":null}\\n{\\\"id\\\":4,\\\"label\\\":null}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_is_not_null_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-is-not-null-predicate", "jsonl");
+    fs::write(
+        &source_path,
+        "{\"id\":1,\"closed_at\":null}\n{\"id\":2,\"closed_at\":\"2026-05-19\"}\n{\"id\":3,\"closed_at\":null}\n",
+    )
+    .expect("write source jsonl");
+
+    let statement = format!(
+        "SELECT id,closed_at FROM '{}' WHERE closed_at IS NOT NULL LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "jsonl")));
+    assert!(stdout.contains(&field("predicate_operator_family", "null_predicate")));
+    assert!(stdout.contains(&field("filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("null_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("null_predicate_operator", "is_not_null")));
+    assert!(stdout.contains(&field("null_predicate_source_column", "closed_at")));
+    assert!(stdout.contains(&field(
+        "null_predicate_null_semantics",
+        "sql_is_null_is_not_null"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "1")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"closed_at\\\":\\\"2026-05-19\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source jsonl");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_between_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-between-predicate", "csv");
     fs::write(

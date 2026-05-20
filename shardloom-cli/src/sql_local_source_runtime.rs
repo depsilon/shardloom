@@ -5044,6 +5044,98 @@ impl ParsedPredicate {
         }
     }
 
+    fn uses_null_predicate(&self) -> bool {
+        match self {
+            Self::IsNull { .. } | Self::IsNotNull { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_null_predicate() || right.uses_null_predicate()
+            }
+            Self::Not { inner } => inner.uses_null_predicate(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn null_predicate_operator(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_null_predicate_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_null_predicate_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::IsNull { .. } => operators.push("is_null"),
+            Self::IsNotNull { .. } => operators.push("is_not_null"),
+            Self::Logical { left, right, .. } => {
+                left.push_null_predicate_operators(operators);
+                right.push_null_predicate_operators(operators);
+            }
+            Self::Not { inner } => inner.push_null_predicate_operators(operators),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn null_predicate_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_null_predicate_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_null_predicate_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::IsNull { column } | Self::IsNotNull { column } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_null_predicate_source_columns(columns);
+                right.push_null_predicate_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_null_predicate_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
     fn uses_string_predicate(&self) -> bool {
         match self {
             Self::StringMatch { .. } => true,
@@ -6957,6 +7049,27 @@ impl SqlLocalSourceReport {
             (
                 "filter_runtime_execution".to_string(),
                 self.parsed.has_filter().to_string(),
+            ),
+            (
+                "null_predicate_runtime_execution".to_string(),
+                self.parsed.predicate.uses_null_predicate().to_string(),
+            ),
+            (
+                "null_predicate_operator".to_string(),
+                self.parsed.predicate.null_predicate_operator(),
+            ),
+            (
+                "null_predicate_source_column".to_string(),
+                self.parsed.predicate.null_predicate_source_columns(),
+            ),
+            (
+                "null_predicate_null_semantics".to_string(),
+                if self.parsed.predicate.uses_null_predicate() {
+                    "sql_is_null_is_not_null"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
             ),
             (
                 "string_predicate_runtime_execution".to_string(),
