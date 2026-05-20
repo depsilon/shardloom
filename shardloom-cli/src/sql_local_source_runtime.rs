@@ -923,7 +923,6 @@ impl VortexIngestReport {
                 "execution_route_label".to_string(),
                 "Prepared Vortex route".to_string(),
             ),
-            ("timing_scope".to_string(), "ingest_only".to_string()),
             (
                 "certification_policy".to_string(),
                 "scoped_vortex_ingest_lifecycle_smoke".to_string(),
@@ -1030,7 +1029,21 @@ impl VortexIngestReport {
             ),
             (
                 "preparation_included_in_timing".to_string(),
-                "true".to_string(),
+                self.vortex_report.preparation_included.to_string(),
+            ),
+            (
+                "query_timing_starts_after_preparation".to_string(),
+                self.vortex_report
+                    .query_timing_starts_after_preparation
+                    .to_string(),
+            ),
+            (
+                "timing_scope".to_string(),
+                self.vortex_report.timing_scope.clone(),
+            ),
+            (
+                "certification_level".to_string(),
+                self.vortex_report.certification_level.clone(),
             ),
             (
                 "warm_query_timing_included".to_string(),
@@ -1055,6 +1068,10 @@ impl VortexIngestReport {
             (
                 "vortex_write_millis".to_string(),
                 self.vortex_report.write_micros.div_ceil(1000).to_string(),
+            ),
+            (
+                "vortex_digest_millis".to_string(),
+                self.vortex_report.digest_micros.div_ceil(1000).to_string(),
             ),
             (
                 "vortex_reopen_millis".to_string(),

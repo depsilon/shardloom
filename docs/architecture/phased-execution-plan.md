@@ -465,13 +465,17 @@ or documentation updates alone are insufficient.
     `shardloom-cli/src/vortex_ingest.rs`, benchmark timing evidence,
     `GAR-RUNTIME-IMPL-4F`, `GAR-RUNTIME-IMPL-4K`, and `GAR-RUNTIME-IMPL-4M`.
   - Current state: `compatibility_import_certified` is preserved as the certified cold
-    ingest/stage route, but current compatibility timing can blend source read/parse, Vortex write,
-    reopen/scan, and scenario compute. The feature-gated `vortex_ingest` helper creates a scoped
-    local `VortexPreparedState`, but it is intentionally narrow, flat-scalar, local-only, and still
-    performs proof-oriented read/reopen work that is not yet tiered by certification depth.
-  - Next slice outcome: make compatibility import faster and clearer by adding exclusive stage
-    attribution, certification-depth fields, and prepare-once state evidence before deeper ingest
-    optimization.
+    ingest/stage route. The attribution foundation now exposes SourceState/PreparedState IDs and
+    digests, route timing scope, certification level, source stat/read/parse, source-to-columnar,
+    Vortex array build/write/digest/reopen-verify/scan, operator timing scope, and total runtime
+    fields in the traditional benchmark row contract. The feature-gated `vortex_ingest` helper
+    creates a scoped local `VortexPreparedState` and now computes artifact digests from in-memory
+    bytes instead of rereading the file solely for digest evidence. It remains intentionally narrow,
+    flat-scalar, local-only, and still performs proof-oriented reopen work that is not yet fully
+    tiered by certification depth.
+  - Next slice outcome: finish the optimization path by enforcing certification-depth policy,
+    splitting deeper source-to-columnar ingest work where feasible, promoting prepare-once reuse
+    across repeated certified workflows, and keeping benchmark/website interpretation aligned.
   - Runtime enablement: certified ingest/stage execution remains supported, while repeated
     workflows can certify or prepare once and then run `prepared_vortex` from
     `VortexPreparedState` without reinterpreting compatibility cold timing as query speed.
@@ -495,7 +499,9 @@ or documentation updates alone are insufficient.
     cumulative fields are either replaced with exclusive fields or explicitly marked as cumulative;
     `prepared_vortex` rows reference `VortexPreparedState` and do not perform `vortex_ingest` inside
     warm-query timing; `ingest_minimal` cannot become claim-grade; `ingest_full_replay` requires
-    replay/output evidence; unsupported format/features emit deterministic blockers.
+    replay/output evidence; unsupported format/features emit deterministic blockers. Remaining
+    optimization work must not remove compatibility certification, weaken no-fallback fields, or
+    present attribution-only changes as performance improvements.
   - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
     `cargo test -p shardloom-contract-tests --test release_readiness_metadata`, focused
     `vortex_ingest` tests, Python report tests, website readiness, benchmark artifact completeness,

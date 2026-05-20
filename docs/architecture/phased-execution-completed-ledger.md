@@ -16,6 +16,90 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F1 compatibility import attribution foundation
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-compat-import-attribution-4f1` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest attribution`
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
+    - `GAR-IOREUSE-1A SourceState`, `GAR-IOREUSE-1B VortexPreparedState`, and the route model
+      `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan ->
+      SinkArtifact`
+  - Scope:
+    - Added compatibility cold-route attribution fields to `TraditionalAnalyticsReport` and the
+      benchmark harness contract: `source_stat_micros`, `source_parse_micros`,
+      `source_to_columnar_micros`, `compatibility_to_vortex_import_timing_scope`,
+      `vortex_array_build_micros`, `vortex_digest_micros`,
+      `vortex_reopen_verify_micros`, `vortex_scan_micros`, `operator_compute_micros`,
+      `operator_compute_timing_scope`, `total_runtime_micros`, `timing_scope`,
+      `preparation_included`, `query_timing_starts_after_preparation`, and
+      `certification_level`.
+    - Added SourceState and VortexPreparedState identity fields to compatibility report evidence:
+      source/prepared state IDs and digests, schema digest, plan digest, source fingerprint kind,
+      local source-content digest posture, prepared-state created/reused flags, and invalidation
+      reason.
+    - Split traditional Vortex artifact writes into array-build timing, Vortex write timing,
+      digest timing, and reopen-verify timing, while keeping the current scan/operator limitation
+      explicit through `operator_compute_timing_scope`.
+    - Updated the feature-gated `vortex_ingest` prepare-once helper to compute the artifact digest
+      from bytes already in memory before writing the local artifact, instead of rereading the file
+      solely for digest evidence.
+    - Propagated `vortex_ingest_prepare_once`, `ingest_certified`,
+      `preparation_included_in_timing`, `query_timing_starts_after_preparation`, and
+      `vortex_digest_millis` into the CLI JSON evidence surface.
+    - Updated benchmark and compute-flow documentation so `compatibility_import_certified` is read
+      as certified cold ingest/stage timing, not pure query speed.
+  - User-visible surface:
+    - `traditional-analytics-run` JSON/human evidence, traditional benchmark JSON/Markdown rows,
+      `vortex-ingest-smoke` JSON evidence, compute-flow docs, benchmark docs, and contract tests.
+  - Evidence:
+    - Compatibility rows now expose `timing_scope=cold_certified_end_to_end`,
+      `preparation_included=true`, `query_timing_starts_after_preparation=false`, certification
+      level, SourceState/PreparedState IDs and digests, and no-fallback/no-external-engine fields.
+    - `compatibility_to_vortex_import_timing_scope` currently discloses
+      `source_read_parse_plus_vortex_array_build_plus_vortex_write`.
+    - `operator_compute_timing_scope` discloses
+      `included_in_vortex_scan_micros_for_current_streaming_loop` until scan and operator compute
+      are isolated further.
+  - Verification:
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state --lib`
+    - `cargo test -p shardloom-vortex --features vortex-write local_flat_scalar_rows_write_and_reopen_vortex_artifact --lib`
+    - `cargo test -p shardloom-cli --features vortex-write --test sql_local_source_runtime_smoke`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo clippy -p shardloom-cli --features vortex-write --all-targets -- -D warnings`
+    - `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q benchmarks/traditional_analytics scripts python/src python/tests website-src`
+    - `node website-src/node_modules/@astrojs/check/bin/astro-check.js`
+    - `node website-src/node_modules/astro/bin/astro.mjs build` plus
+      `node website-src/scripts/postbuild-static.mjs`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_universal_ingress_routes.py`
+    - `cargo fmt --all -- --check`
+    - `git diff --check`
+  - Non-goals:
+    - No removal of `compatibility_import_certified`, no default speed-route relabeling, no
+      performance claim, no broad format support claim, no object-store/table/lakehouse/Foundry
+      production support, no package publication, and no external-engine fallback.
+  - Claim boundary:
+    - This is attribution and evidence-contract work. It makes bottlenecks visible and reduces
+      avoidable digest rereads in the local prepare-once helper, but it does not publish a new
+      performance result or upgrade any runtime to production/claim-grade support.
+  - Fallback boundary:
+    - Source parse, Vortex ingest, certification, replay, and prepared query evidence remain
+      ShardLoom/Vortex-native scoped paths. pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray,
+      databases, warehouses, and managed platforms remain baselines/oracles only and are not
+      fallback execution.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4F1` unchecked until certification-depth enforcement,
+      prepare-once reuse across repeated certified workflows, and deeper chunked/columnar ingest
+      optimization are complete.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F feature-gated local Avro/ORC source smoke
   - Date: 2026-05-20
   - Branch/PR: `runtime-avro-orc-source-4f` / pending.

@@ -48,6 +48,7 @@ impl VortexPreparedStateWriteRequest {
 
 /// Evidence returned by the scoped local `vortex_ingest` helper.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct VortexPreparedStateWriteReport {
     pub target_path: PathBuf,
     pub row_count: u64,
@@ -55,10 +56,15 @@ pub struct VortexPreparedStateWriteReport {
     pub column_families: Vec<(String, String)>,
     pub bytes_written: u64,
     pub artifact_digest: String,
+    pub digest_micros: u128,
     pub writer_row_count: u64,
     pub reopen_row_count: u64,
     pub write_micros: u128,
     pub reopen_scan_micros: u128,
+    pub timing_scope: String,
+    pub certification_level: String,
+    pub preparation_included: bool,
+    pub query_timing_starts_after_preparation: bool,
     pub upstream_vortex_write_called: bool,
     pub upstream_vortex_scan_called: bool,
 }
@@ -156,26 +162,16 @@ pub fn write_flat_scalar_vortex_prepared_state(
         })?;
     }
 
-    let write_start = Instant::now();
     let array = flat_rows_to_vortex_struct(&request.columns, &request.rows, &column_families)?;
-    let writer_row_count = write_vortex_array(&request.target_path, &array)?;
-    let write_micros = write_start.elapsed().as_micros();
-
-    let bytes = fs::read(&request.target_path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to read local vortex_ingest artifact '{}' for digest: {error}",
-            request.target_path.display()
-        ))
-    })?;
-    let bytes_written = usize_to_u64(bytes.len())?;
-    let artifact_digest = fnv64_digest_bytes(&bytes);
+    let write_result = write_vortex_array(&request.target_path, &array)?;
 
     let reopen_start = Instant::now();
     let reopen_row_count = reopen_vortex_row_count(&request.target_path)?;
     let reopen_scan_micros = reopen_start.elapsed().as_micros();
-    if writer_row_count != row_count || reopen_row_count != row_count {
+    if write_result.writer_row_count != row_count || reopen_row_count != row_count {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest row-count proof mismatch: source={row_count} writer={writer_row_count} reopen={reopen_row_count}"
+            "local vortex_ingest row-count proof mismatch: source={row_count} writer={} reopen={reopen_row_count}",
+            write_result.writer_row_count
         )));
     }
 
@@ -184,12 +180,17 @@ pub fn write_flat_scalar_vortex_prepared_state(
         row_count,
         column_count: request.columns.len(),
         column_families,
-        bytes_written,
-        artifact_digest,
-        writer_row_count,
+        bytes_written: write_result.bytes_written,
+        artifact_digest: write_result.artifact_digest,
+        digest_micros: write_result.digest_micros,
+        writer_row_count: write_result.writer_row_count,
         reopen_row_count,
-        write_micros,
+        write_micros: write_result.write_micros,
         reopen_scan_micros,
+        timing_scope: "vortex_ingest_prepare_once".to_string(),
+        certification_level: "ingest_certified".to_string(),
+        preparation_included: true,
+        query_timing_starts_after_preparation: false,
         upstream_vortex_write_called: true,
         upstream_vortex_scan_called: true,
     })
@@ -417,7 +418,19 @@ fn unexpected_vortex_ingest_value(
 }
 
 #[cfg(feature = "vortex-write")]
-fn write_vortex_array(path: &Path, array: &vortex::array::ArrayRef) -> Result<u64> {
+struct LocalVortexWriteResult {
+    writer_row_count: u64,
+    bytes_written: u64,
+    artifact_digest: String,
+    digest_micros: u128,
+    write_micros: u128,
+}
+
+#[cfg(feature = "vortex-write")]
+fn write_vortex_array(
+    path: &Path,
+    array: &vortex::array::ArrayRef,
+) -> Result<LocalVortexWriteResult> {
     use std::fs;
 
     use vortex::VortexSessionDefault as _;
@@ -430,6 +443,7 @@ fn write_vortex_array(path: &Path, array: &vortex::array::ArrayRef) -> Result<u6
     let runtime = SingleThreadRuntime::default();
     let session = VortexSession::default().with_handle(runtime.handle());
     let mut bytes = Vec::new();
+    let write_start = Instant::now();
     let summary = runtime
         .block_on(
             session
@@ -445,13 +459,23 @@ fn write_vortex_array(path: &Path, array: &vortex::array::ArrayRef) -> Result<u6
             expected_rows
         )));
     }
+    let digest_start = Instant::now();
+    let artifact_digest = fnv64_digest_bytes(&bytes);
+    let digest_micros = digest_start.elapsed().as_micros();
+    let bytes_written = usize_to_u64(bytes.len())?;
     fs::write(path, bytes).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to write local vortex_ingest artifact '{}': {error}",
             path.display()
         ))
     })?;
-    Ok(summary.row_count())
+    Ok(LocalVortexWriteResult {
+        writer_row_count: summary.row_count(),
+        bytes_written,
+        artifact_digest,
+        digest_micros,
+        write_micros: write_start.elapsed().as_micros(),
+    })
 }
 
 #[cfg(feature = "vortex-write")]
@@ -550,6 +574,10 @@ mod tests {
         assert_eq!(report.row_count, 2);
         assert_eq!(report.reopen_row_count, 2);
         assert!(report.artifact_digest.starts_with("fnv64:"));
+        assert_eq!(report.timing_scope, "vortex_ingest_prepare_once");
+        assert_eq!(report.certification_level, "ingest_certified");
+        assert!(report.preparation_included);
+        assert!(!report.query_timing_starts_after_preparation);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }
