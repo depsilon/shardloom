@@ -34,6 +34,7 @@ const COMMAND: &str = "sql-local-source-smoke";
 const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
 const JSONL_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
 const CSV_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-csv-output.native-io.v1";
+const PARQUET_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-parquet-output.native-io.v1";
 const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
 const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
@@ -52,6 +53,7 @@ struct SqlLocalSourceRequest {
 enum SqlLocalSourceOutputFormat {
     InlineJsonl,
     Csv,
+    Parquet,
 }
 
 impl SqlLocalSourceOutputFormat {
@@ -59,8 +61,9 @@ impl SqlLocalSourceOutputFormat {
         match value.trim().to_ascii_lowercase().as_str() {
             "inline-jsonl" | "jsonl" | "json-lines" | "ndjson" => Ok(Self::InlineJsonl),
             "csv" => Ok(Self::Csv),
+            "parquet" => Ok(Self::Parquet),
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported SQL local-source output format {other:?}; scoped local SQL supports local JSONL or CSV only"
+                "unsupported SQL local-source output format {other:?}; scoped local SQL supports local JSONL, CSV, or feature-gated Parquet only"
             ))),
         }
     }
@@ -69,6 +72,7 @@ impl SqlLocalSourceOutputFormat {
         match self {
             Self::InlineJsonl => "inline_jsonl",
             Self::Csv => "csv",
+            Self::Parquet => "parquet",
         }
     }
 
@@ -76,6 +80,7 @@ impl SqlLocalSourceOutputFormat {
         match self {
             Self::InlineJsonl => "jsonl",
             Self::Csv => "csv",
+            Self::Parquet => "parquet",
         }
     }
 
@@ -83,6 +88,7 @@ impl SqlLocalSourceOutputFormat {
         match self {
             Self::InlineJsonl => "certified_local_jsonl_sink",
             Self::Csv => "certified_local_csv_sink",
+            Self::Parquet => "certified_local_parquet_sink",
         }
     }
 
@@ -90,13 +96,19 @@ impl SqlLocalSourceOutputFormat {
         match self {
             Self::InlineJsonl => JSONL_OUTPUT_CERTIFICATE_ID,
             Self::Csv => CSV_OUTPUT_CERTIFICATE_ID,
+            Self::Parquet => PARQUET_OUTPUT_CERTIFICATE_ID,
         }
     }
 
-    fn render_rows(self, columns: &[String], rows: &[Vec<(String, ScalarValue)>]) -> String {
+    fn render_rows(
+        self,
+        columns: &[String],
+        rows: &[Vec<(String, ScalarValue)>],
+    ) -> Result<Vec<u8>, ShardLoomError> {
         match self {
-            Self::InlineJsonl => rows_to_jsonl(rows),
-            Self::Csv => rows_to_csv(columns, rows),
+            Self::InlineJsonl => Ok(rows_to_jsonl(rows).into_bytes()),
+            Self::Csv => Ok(rows_to_csv(columns, rows).into_bytes()),
+            Self::Parquet => encode_parquet_output_rows(columns, rows),
         }
     }
 }
@@ -471,7 +483,7 @@ pub(crate) fn handle_sql_local_source_smoke(
 ) -> ExitCode {
     let Some(statement_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl|csv] [--output local.jsonl|local.csv] [--allow-overwrite] [--format text|json]"
+            "usage: shardloom {COMMAND} <sql-statement> [--output-format inline-jsonl|csv|parquet] [--output local.jsonl|local.csv|local.parquet] [--allow-overwrite] [--format text|json]"
         );
         return ExitCode::from(2);
     };
@@ -575,9 +587,14 @@ fn validate_sql_local_source_output_request(
     output_format: SqlLocalSourceOutputFormat,
     output_path: Option<&Path>,
 ) -> Result<(), ShardLoomError> {
-    if output_path.is_none() && matches!(output_format, SqlLocalSourceOutputFormat::Csv) {
+    if output_path.is_none()
+        && matches!(
+            output_format,
+            SqlLocalSourceOutputFormat::Csv | SqlLocalSourceOutputFormat::Parquet
+        )
+    {
         return Err(ShardLoomError::InvalidOperation(
-            "SQL local-source CSV output requires --output <local.csv>".to_string(),
+            "SQL local-source CSV or Parquet output requires --output <local path>".to_string(),
         ));
     }
     Ok(())
@@ -633,10 +650,10 @@ fn run_sql_local_source_smoke(
     let output_columns = output_column_names(&parsed, &source);
     let result_jsonl = rows_to_jsonl(&output_rows);
     let result_digest = fnv64_digest(&result_jsonl);
-    let output_content = request
+    let output_bytes_content = request
         .output_format
-        .render_rows(&output_columns, &output_rows);
-    let output_digest = fnv64_digest(&output_content);
+        .render_rows(&output_columns, &output_rows)?;
+    let output_digest = fnv64_digest_bytes(&output_bytes_content);
     let source_schema_digest = fnv64_digest(&source.header.join(","));
     let plan_digest = fnv64_digest(&format!(
         "{}|{}|{}|{}|{}",
@@ -649,8 +666,8 @@ fn run_sql_local_source_smoke(
         request.output_format.as_str()
     ));
     let evidence_render_millis = evidence_start.elapsed().as_millis();
-    let output_bytes = u64::try_from(output_content.len()).unwrap_or(u64::MAX);
-    let output_write_millis = write_optional_sql_output(request, &output_content)?;
+    let output_bytes = u64::try_from(output_bytes_content.len()).unwrap_or(u64::MAX);
+    let output_write_millis = write_optional_sql_output(request, &output_bytes_content)?;
 
     Ok(SqlLocalSourceReport {
         request: request.clone(),
@@ -1370,7 +1387,7 @@ fn usize_to_f64(value: usize) -> f64 {
 
 fn write_optional_sql_output(
     request: &SqlLocalSourceRequest,
-    output_content: &str,
+    output_content: &[u8],
 ) -> Result<u128, ShardLoomError> {
     let Some(output_path) = request.output_path.as_ref() else {
         return Ok(0);
@@ -1392,7 +1409,7 @@ fn write_optional_sql_output(
         }
     }
     let write_start = Instant::now();
-    fs::write(output_path, output_content.as_bytes()).map_err(|error| {
+    fs::write(output_path, output_content).map_err(|error| {
         ShardLoomError::Message(format!(
             "failed to write local SQL output {}: {error}",
             output_path.display()
@@ -5032,6 +5049,24 @@ fn rows_to_csv(columns: &[String], rows: &[Vec<(String, ScalarValue)>]) -> Strin
         output.push('\n');
     }
     output
+}
+
+#[cfg(feature = "universal-format-io")]
+fn encode_parquet_output_rows(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>, ShardLoomError> {
+    shardloom_vortex::encode_flat_parquet_rows(columns, rows)
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn encode_parquet_output_rows(
+    _columns: &[String],
+    _rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>, ShardLoomError> {
+    Err(unsupported_sql_error(
+        "local Parquet output runtime requires building shardloom-cli with --features universal-format-io; default builds expose Parquet as a deterministic blocked sink",
+    ))
 }
 
 fn scalar_to_csv_value(value: &ScalarValue) -> String {

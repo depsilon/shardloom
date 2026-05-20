@@ -1656,6 +1656,71 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_local_csv_query_builder_write_parquet_invokes_sql_smoke_output(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
+                    "--output-format",
+                    "parquet",
+                    "--output",
+                    "target/out.parquet",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_path", "value": "target/out.parquet"},
+                        {"key": "output_format", "value": "parquet"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "3"},
+                        {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_parquet_sink"},
+                        {"key": "output_certificate_ref", "value": "sql-local-source.local-parquet-output.native-io.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select(["id", "label"])
+            .limit(2)
+            .write_parquet("target/out.parquet", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.output_path, "target/out.parquet")
+        self.assertEqual(report.output_format, "parquet")
+        self.assertTrue(report.output_io_performed)
+        self.assertEqual(
+            report.output_native_io_certificate_status,
+            "certified_local_parquet_sink",
+        )
+        self.assertEqual(
+            report.envelope.field("output_certificate_ref"),
+            "sql-local-source.local-parquet-output.native-io.v1",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_local_csv_query_builder_with_column_literal_write_csv_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

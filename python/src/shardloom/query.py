@@ -677,6 +677,27 @@ class SqlWorkflow:
             check=check,
         )
 
+    def write_parquet(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="parquet")`.
+
+        Local SQL-source Parquet output requires a CLI built with
+        `--features universal-format-io`; default binaries return a
+        deterministic Parquet sink blocker.
+        """
+
+        return self.write(
+            target_uri,
+            output_format="parquet",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
     def _unsupported_operation(
         self,
         operation: str,
@@ -930,13 +951,13 @@ class LazyFrame:
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport:
-        """Write an admitted local CSV/flat JSONL/flat JSON SQL smoke result to a local sink."""
+        """Write an admitted local source SQL smoke result to a local sink."""
 
         normalized_output_format = _normalize_local_output_format(output_format)
         statement = self._sql_local_source_statement()
         if statement is None:
             raise ValueError(
-                "LazyFrame.write currently requires a local CSV, flat JSONL/NDJSON, or flat JSON source with "
+                "LazyFrame.write currently requires a local CSV, flat JSONL/NDJSON, flat JSON, or feature-gated flat Parquet source with "
                 "select(...), optional filter(...), and limit(...) operations, "
                 "aggregate(...), optional filter(...), and limit(...) operations, or "
                 "optional filter(...), group_by(...).agg(...), and limit(...) operations, or "
@@ -982,6 +1003,28 @@ class LazyFrame:
             check=check,
         )
 
+    def write_parquet(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = False,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="parquet")`.
+
+        The CLI must be built with `--features universal-format-io`; default
+        binaries return ShardLoom's deterministic Parquet sink blocker.
+        """
+
+        if self._sql_local_source_statement() is None:
+            return self._unsupported_operation("write-parquet", str(target_uri), check=check)
+        return self.write(
+            target_uri,
+            output_format="parquet",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
     def to_pandas(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
         """Return the unsupported report for pandas materialization."""
 
@@ -1021,16 +1064,6 @@ class LazyFrame:
         """Return the unsupported report for native Vortex workflow writes."""
 
         return self._unsupported_operation("write-vortex", str(target_uri), check=check)
-
-    def write_parquet(
-        self,
-        target_uri: str | os.PathLike[str],
-        *,
-        check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for Parquet compatibility exports."""
-
-        return self._unsupported_operation("write-parquet", str(target_uri), check=check)
 
     def sql(
         self,
@@ -2477,7 +2510,11 @@ def _normalize_local_output_format(value: str) -> str:
         return "jsonl"
     if normalized == "csv":
         return "csv"
-    raise ValueError("scoped local writes currently support local JSONL or CSV only")
+    if normalized == "parquet":
+        return "parquet"
+    raise ValueError(
+        "scoped local writes currently support local JSONL, CSV, or feature-gated Parquet only"
+    )
 
 
 def _is_non_string_sequence(value: object) -> bool:

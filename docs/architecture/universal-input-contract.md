@@ -41,7 +41,9 @@ not by compiling every reader by default. Active implementation status for input
   - CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet also have scoped
     direct-transient `sql-local-source-smoke` runtime coverage for local projection/filter/limit
     style workflows. The Parquet path requires `shardloom-cli --features universal-format-io`; the
-    default build reports a deterministic Parquet adapter blocker.
+    default build reports a deterministic Parquet adapter blocker. The same gate admits scoped flat
+    scalar local Parquet output for that SQL local-source smoke and reports a deterministic Parquet
+    sink blocker in default builds.
   - Production-certified adapters remain separate phases and must emit full capability, pushdown,
     fidelity, and certificate evidence.
 - Catalog/table refs
