@@ -77,6 +77,7 @@ from .context import (
     UniversalCompatibilityRow,
     UniversalCompatibilityScoreboard,
     context,
+    session,
 )
 from ._version import __version__
 from .errors import (
@@ -135,6 +136,7 @@ from .query import (
     SqlWorkflow,
     round,
 )
+from .session import LocalFileFingerprint, SessionPreparedState, ShardLoomSession
 
 __all__ = [
     "__version__",
@@ -212,7 +214,11 @@ __all__ = [
     "WorkflowReadinessPlan",
     "WorkflowReadinessSmokeReport",
     "ShardLoomContext",
+    "ShardLoomSession",
+    "SessionPreparedState",
+    "LocalFileFingerprint",
     "context",
+    "session",
     "quickstart_proof",
     "GroupedLazyFrame",
     "GeneratedRangeSource",

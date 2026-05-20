@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from shardloom import (
     __version__,
     context as shardloom_context,
+    session as shardloom_session,
     ClaimGateCloseoutReport,
     ComputeCapabilityMatrix,
     CompatibilitySourceSmokeReport,
@@ -35,8 +36,10 @@ from shardloom import (
     ShardLoomClient,
     ShardLoomCommandError,
     ShardLoomContext,
+    ShardLoomSession,
     ShardLoomProtocolError,
     SqlLocalSourceSmokeReport,
+    SessionPreparedState,
     OutputEnvelope,
     PreparedVortexArtifacts,
     PredicateDtypeCoverageRow,
@@ -936,6 +939,131 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.reopen_verification_status, "not_performed_ingest_minimal")
         self.assertEqual(result.certification_level, "ingest_minimal")
         self.assertEqual(result.claim_gate_status, "not_claim_grade")
+
+    def test_context_session_reuses_prepared_vortex_state_when_fingerprints_match(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source_path = root / "source.csv"
+            target_path = root / "source.vortex"
+            count_path = root / "count.txt"
+            source_path.write_text("id,label\n1,alpha\n2,beta\n", encoding="utf-8")
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    from pathlib import Path
+                    count_path = Path({str(count_path)!r})
+                    count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
+                    count += 1
+                    count_path.write_text(str(count), encoding="utf-8")
+                    assert sys.argv[1] == "vortex-ingest-smoke", sys.argv
+                    assert sys.argv[2] == {str(source_path)!r}, sys.argv
+                    assert sys.argv[3] == {str(target_path)!r}, sys.argv
+                    Path(sys.argv[3]).write_text(f"vortex artifact {{count}}", encoding="utf-8")
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": "vortex-ingest-smoke",
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "source_path", "value": sys.argv[2]}},
+                            {{"key": "target_vortex_path", "value": sys.argv[3]}},
+                            {{"key": "source_format", "value": "csv"}},
+                            {{"key": "source_state_id", "value": f"source-state-{{count}}"}},
+                            {{"key": "source_state_digest", "value": f"sha256:source-{{count}}"}},
+                            {{"key": "vortex_ingest_status", "value": "prepared_state_created"}},
+                            {{"key": "prepared_state_id", "value": f"vortex-prepared-state-{{count}}"}},
+                            {{"key": "prepared_state_digest", "value": f"sha256:prepared-{{count}}"}},
+                            {{"key": "vortex_artifact_digest", "value": f"sha256:vortex-{{count}}"}},
+                            {{"key": "input_row_count", "value": "2"}},
+                            {{"key": "writer_row_count", "value": "2"}},
+                            {{"key": "reopen_row_count", "value": "2"}},
+                            {{"key": "reopen_verification_status", "value": "reopen_row_count_verified"}},
+                            {{"key": "certification_level", "value": "ingest_certified"}},
+                            {{"key": "certification_status", "value": "fixture_smoke_certified"}},
+                            {{"key": "source_io_performed", "value": "true"}},
+                            {{"key": "prepared_state_created", "value": "true"}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+            session = ctx.session(session_id="test-session")
+
+            first = session.prepare_vortex(
+                source_path,
+                target_path,
+                allow_overwrite=True,
+            )
+            second = session.prepare_vortex(source_path, target_path)
+
+            self.assertIsInstance(session, ShardLoomSession)
+            self.assertIsInstance(first, SessionPreparedState)
+            self.assertFalse(first.reuse_hit)
+            self.assertEqual(first.reuse_reason, "no_cached_prepared_state")
+            self.assertTrue(second.reuse_hit)
+            self.assertEqual(
+                second.reuse_reason,
+                "source_and_prepared_artifact_fingerprints_match",
+            )
+            self.assertEqual(second.prepared_state_id, first.prepared_state_id)
+            self.assertEqual(second.source_state_id, "source-state-1")
+            self.assertFalse(second.fallback_attempted)
+            self.assertFalse(second.external_engine_invoked)
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
+
+            source_path.write_text("id,label\n1,alpha\n3,gamma\n", encoding="utf-8")
+            third = session.prepare_vortex(
+                source_path,
+                target_path,
+                allow_overwrite=True,
+            )
+            self.assertFalse(third.reuse_hit)
+            self.assertEqual(third.reuse_reason, "source_fingerprint_changed")
+            self.assertEqual(third.prepared_state_id, "vortex-prepared-state-2")
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
+
+            evidence = session.evidence()
+            self.assertEqual(evidence["session_id"], "test-session")
+            self.assertEqual(evidence["session_state_scope"], "in_process_python_local")
+            self.assertEqual(evidence["cache_hit_count"], 1)
+            self.assertEqual(evidence["cache_miss_count"], 2)
+            self.assertEqual(evidence["source_state_reuse_count"], 1)
+            self.assertEqual(evidence["prepared_artifact_reuse_count"], 1)
+            self.assertEqual(evidence["output_plan_reuse_count"], 0)
+            self.assertFalse(evidence["fallback_attempted"])
+            self.assertFalse(evidence["external_engine_invoked"])
+
+            closed_evidence = session.close()
+            self.assertTrue(closed_evidence["session_closed"])
+            with self.assertRaisesRegex(RuntimeError, "ShardLoomSession is closed"):
+                session.prepare_vortex(source_path, target_path)
+
+    def test_top_level_session_helper_constructs_caller_owned_session(self) -> None:
+        sess = shardloom_session(
+            client=ShardLoomClient(binary=[sys.executable, "-c", "raise SystemExit(0)"]),
+            engine="batch",
+            session_id="top-level-session",
+        )
+
+        self.assertIsInstance(sess, ShardLoomSession)
+        evidence = sess.evidence()
+        self.assertEqual(evidence["session_id"], "top-level-session")
+        self.assertEqual(evidence["engine_mode"], "batch")
+        self.assertEqual(evidence["session_state_scope"], "in_process_python_local")
+        self.assertFalse(evidence["fallback_attempted"])
+        self.assertFalse(evidence["external_engine_invoked"])
+        self.assertFalse(evidence["session_closed"])
+        self.assertTrue(sess.close()["session_closed"])
 
     def test_capabilities_scope_uses_explicit_scope(self) -> None:
         binary = self.fake_cli(

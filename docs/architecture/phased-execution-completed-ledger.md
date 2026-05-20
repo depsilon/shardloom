@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4L Python `ShardLoomSession` prepared-state reuse
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-python-session-prepare-reuse-4l` / #863.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse runtime`
+    - `GAR-USER-SURFACE-1A import, context, and session entrypoint completion`
+    - `GAR-IOREUSE-1` SourceState/VortexPreparedState reuse contract
+  - Scope:
+    - Added a public Python `ShardLoomSession` with `ctx.session(...)` and `sl.session(...)`
+      convenience entrypoints.
+    - Added `SessionPreparedState` handles that wrap the existing `vortex_ingest` /
+      `VortexIngestSmokeReport` evidence with session-local reuse fields.
+    - Implemented fingerprint-gated prepared-state reuse for scoped local `vortex_ingest`
+      workflows. Reuse is admitted only when source file content/size/mtime and prepared-artifact
+      content/size/mtime still match the cached entry.
+    - Added explicit `close()` and context-manager cleanup semantics; closing clears the in-process
+      cache and blocks further session use.
+    - Updated README, Python README, compute-flow docs, use-case metadata, generated website data,
+      and the active phase plan to describe the new caller-owned session surface and remaining
+      runtime gaps.
+  - Evidence:
+    - `session_id`, `session_state_scope`, `engine_mode`, `cache_hit_count`, `cache_miss_count`,
+      `source_state_reuse_count`, `prepared_artifact_reuse_count`, `output_plan_reuse_count`,
+      `session_closed`, source/prepared-artifact fingerprints, reuse hit/reason,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`.
+    - Session reuse does not mutate the original CLI report; the session handle carries reuse
+      evidence separately from route execution evidence.
+  - Invalidation rules:
+    - Reuse is blocked when the source fingerprint is missing or changed.
+    - Reuse is blocked when the prepared Vortex artifact is missing or changed.
+    - Reuse is scoped by source path, target artifact path, and ingest certification level.
+  - Verification:
+    - Python session reuse/invalidation/close smoke tests.
+    - Python client/query-builder suite.
+    - Python compileall.
+    - Use-case index/coverage checks.
+    - Astro sync/check/build/postbuild and website readiness/static-asset validation.
+    - Release readiness and traditional benchmark harness contract tests.
+    - Full workspace test, workspace clippy, cargo fmt check, and `git diff --check`.
+  - Claim boundary:
+    - This is scoped Python in-process prepared-state reuse for local `vortex_ingest` workflows
+      only. It is not a daemon/service, hidden global cache, distributed cache, CLI batch session,
+      OutputPlan cache, schema/dictionary cache, buffer-pool reuse, production SQL/DataFrame
+      support, object-store/table/lakehouse support, Foundry production support, performance
+      claim, or Spark replacement claim.
+  - Fallback boundary:
+    - The session calls only explicit ShardLoom CLI routes and local fingerprint checks. It does not
+      invoke pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray, databases, warehouses, object
+      stores, managed platforms, or other external engines.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F1 `vortex_ingest` certification-depth policy
   - Date: 2026-05-20
   - Branch/PR: `runtime-vortex-ingest-cert-depth-4f1` / #862.

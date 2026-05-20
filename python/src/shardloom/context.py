@@ -58,6 +58,7 @@ from .query import (
     sequence as generated_sequence,
     sql as sql_workflow,
 )
+from .session import ShardLoomSession
 
 DEFAULT_CAPABILITY_SCOPES = (
     "python",
@@ -5184,6 +5185,15 @@ class ShardLoomContext:
             check=check,
         )
 
+    def session(self, *, session_id: str | None = None) -> ShardLoomSession:
+        """Create a caller-owned local session for scoped prepared-state reuse."""
+
+        return ShardLoomSession(
+            self.client,
+            engine=self.engine,
+            session_id=session_id,
+        )
+
     def from_rows(self, rows: Sequence[Mapping[str, object]]) -> GeneratedRowsSource:
         """Create a scoped source-free generated row set using this context's client."""
 
@@ -5375,6 +5385,36 @@ def context(
         timeout=timeout,
         engine=engine,
     )
+
+
+def session(
+    *,
+    client: ShardLoomClient | None = None,
+    engine: str = "auto",
+    binary: Binary | None = None,
+    env: Mapping[str, str] | None = None,
+    cwd: str | os.PathLike[str] | None = None,
+    repo_root: str | os.PathLike[str] | None = None,
+    profile_order: Sequence[str] | None = None,
+    timeout: float | None = None,
+    session_id: str | None = None,
+) -> ShardLoomSession:
+    """Return a caller-owned local ShardLoom session.
+
+    This is a convenience wrapper over `context(...).session(...)`; constructing
+    it does not run the CLI or create a daemon/global cache.
+    """
+
+    return context(
+        client=client,
+        engine=engine,
+        binary=binary,
+        env=env,
+        cwd=cwd,
+        repo_root=repo_root,
+        profile_order=profile_order,
+        timeout=timeout,
+    ).session(session_id=session_id)
 
 
 def _normalize_scope_name(scope: str) -> str:
