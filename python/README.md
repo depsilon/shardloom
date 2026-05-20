@@ -415,15 +415,18 @@ projections, and scoped Date32/UTC timestamp extract projections such as
 `sl.col("event_date").cast("date32").date_year()` or
 `sl.col("event_ts").cast("timestamp_micros").timestamp_hour()`, plus scoped Date32 day arithmetic
 projections such as `sl.col("event_date").cast("date32").date_add_days(7)` or
-`.date_sub_days(1)`. Literal projections emit
+`.date_sub_days(1)`, and scoped null-cleanup projections such as
+`sl.col("label").fill_null("unknown")` or
+`sl.col("event_date").cast("date32").fill_null(date(2026, 1, 1))`. Literal projections emit
 `literal_projection_*` evidence; cast projections emit `cast_projection_*` evidence; numeric
 arithmetic projections emit `numeric_arithmetic_projection_*` evidence; string transform
 projections emit `string_transform_projection_*` evidence; date/time extract projections emit
 `date_extract_projection_*` and `timestamp_extract_projection_*` evidence; date arithmetic
-projections emit `date_arithmetic_projection_*` evidence. Mixed `int64`/`float64`
-arithmetic promotes to `float64` only when the `int64` operand is exactly representable as
-`float64`; lossy mixed coercions block deterministically before fallback. Unsupported
-computed-column expressions still block before fallback.
+projections emit `date_arithmetic_projection_*` evidence; null coalesce projections emit
+`null_coalesce_projection_*` evidence. Mixed `int64`/`float64` arithmetic promotes to `float64`
+only when the `int64` operand is exactly representable as `float64`; lossy mixed coercions,
+`COALESCE(..., NULL)`, and non-null source/fallback dtype mismatches block deterministically before
+fallback. Unsupported computed-column expressions still block before fallback.
 CSV, local flat
 JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,

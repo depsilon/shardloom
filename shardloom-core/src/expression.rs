@@ -846,11 +846,32 @@ fn eval_function_call(
         }),
         "date_add_days" => eval_date_add_days(name, args, row, 1),
         "date_sub_days" => eval_date_add_days(name, args, row, -1),
+        "coalesce" => eval_coalesce(name, args, row),
         _ => Err(EvalFailure::unsupported(
             "function_call",
             format!("function {name:?} is not admitted by the current native semantics baseline"),
         )),
     }
+}
+
+fn eval_coalesce(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() != 2 {
+        return Err(EvalFailure::invalid(
+            "null_coalesce",
+            format!("function {name:?} requires exactly two arguments"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let fallback = eval_expression(&args[1], row)?;
+    let data_materialized = value.data_materialized || fallback.data_materialized;
+    if !value.value.is_null() {
+        return Ok(value.carry_materialization(data_materialized));
+    }
+    Ok(fallback.carry_materialization(data_materialized))
 }
 
 fn eval_timestamp_extract(
@@ -1445,6 +1466,7 @@ fn function_operator_family(name: &str) -> &'static str {
         "timestamp_year" | "timestamp_month" | "timestamp_day" | "timestamp_hour"
         | "timestamp_minute" | "timestamp_second" => "timestamp_extract",
         "date_add_days" | "date_sub_days" => "date_arithmetic",
+        "coalesce" => "null_coalesce",
         _ => "function",
     }
 }
@@ -2786,6 +2808,43 @@ mod tests {
         assert_eq!(null_report.null_behavior, NullBehavior::NullPropagating);
         assert!(!null_report.fallback_attempted);
         assert!(!null_report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_coalesce_without_fallback() {
+        let expression = Expression::new(
+            expr_id("coalesce"),
+            ExpressionKind::FunctionCall {
+                name: "coalesce".to_string(),
+                args: vec![
+                    Expression::column(expr_id("label"), col("label")),
+                    Expression::literal(
+                        expr_id("fallback"),
+                        ScalarValue::Utf8("unknown".to_string()),
+                    ),
+                ],
+            },
+        );
+        let present = evaluate_expression(
+            &expression,
+            &row(&[("label", ScalarValue::Utf8("alpha".to_string()))]),
+        );
+        assert_eq!(present.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(present.operator_family, "null_coalesce");
+        assert_eq!(present.value, Some(ScalarValue::Utf8("alpha".to_string())));
+        assert_eq!(present.output_dtype, Some(LogicalDType::Utf8));
+        assert!(!present.fallback_attempted);
+        assert!(!present.external_engine_invoked);
+
+        let missing = evaluate_expression(&expression, &row(&[("label", ScalarValue::Null)]));
+        assert_eq!(missing.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(
+            missing.value,
+            Some(ScalarValue::Utf8("unknown".to_string()))
+        );
+        assert_eq!(missing.output_dtype, Some(LogicalDType::Utf8));
+        assert!(!missing.fallback_attempted);
+        assert!(!missing.external_engine_invoked);
     }
 
     #[test]

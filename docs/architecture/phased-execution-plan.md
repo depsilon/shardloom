@@ -361,6 +361,12 @@ or documentation updates alone are insufficient.
     `boolean`, `date32`, and `timestamp_micros` are runtime-admitted over local-source
     projection/filter/limit rows with `cast_projection_*` evidence, ShardLoom-native null
     propagation, deterministic source-column/output-name/unsupported-dtype blockers, and no
+    external fallback. Scoped null-cleanup projections of the form
+    `COALESCE(column, literal) AS column`, including scoped `CAST(column AS date32)` or
+    `CAST(column AS timestamp_micros)` source arguments, are runtime-admitted over local-source
+    projection/filter/limit rows with `null_coalesce_projection_*` evidence, ShardLoom-native
+    null-aware fallback semantics, source-column coercion for admitted Date32/UTC timestamp
+    literals, deterministic source-column/output-name/null-fallback/type-mismatch blockers, and no
     external fallback.
     Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`
@@ -369,7 +375,8 @@ or documentation updates alone are insufficient.
     scoped numeric arithmetic comparison operators, scoped numeric arithmetic `with_column(...)`,
     scoped cast `with_column(...)`, scoped Date32 day arithmetic `with_column(...)`, scoped UTF-8
     string transform `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
-    and logical predicates into the same local SQL
+    scoped null-cleanup `with_column(...)` via `.fill_null(...)`, and logical predicates into the
+    same local SQL
     smoke path, plus `where(...)`
     as a familiar filter alias. User workflows still lack broad typed
     coercions, generalized arithmetic expression trees and generalized projections,

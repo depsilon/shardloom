@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped null coalesce projection runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-null-coalesce-projections-4d` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - ShardLoom-native null-aware expression semantics
+    - SQL/Python local-source computed projection smokes
+  - Scope:
+    - Admitted scoped local SQL projections of the form `COALESCE(<column>, <literal>) AS <column>`,
+      including scoped `CAST(<column> AS date32)` and `CAST(<column> AS timestamp_micros)` source
+      arguments.
+    - Lowered admitted null-cleanup projections to ShardLoom-native `coalesce` function-call and
+      alias expression nodes with null-aware fallback semantics and no external engine invocation.
+    - Added deterministic blockers for NULL fallback literals, malformed COALESCE syntax, missing
+      source columns, mismatched non-null source/fallback dtypes, duplicate output names, and
+      unsupported join/aggregate combinations.
+    - Extended Python input-backed `with_column(...)` so admitted local query-builder workflows can
+      use `sl.col("label").fill_null("unknown")`, numeric fallbacks, and
+      `sl.col("event_date").cast("date32").fill_null(date(...))` after an explicit `select(...)`.
+    - Updated Python README, use-case index, generated website content, and phase-plan current
+      state with the scoped null coalesce projection surface and claim boundary.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder `with_column(...)`, direct Python
+      `client.sql_local_source_smoke(...)`, use-case docs, generated website content, and Python
+      README.
+  - Evidence:
+    - Rows emit `sql_statement_kind=local_source_computed_projection_*`,
+      `null_coalesce_projection_runtime_execution`, `null_coalesce_projection_source_column`,
+      `null_coalesce_projection_output_column`, `null_coalesce_projection_fallback_dtype`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused core expression, parser, CLI smoke, and Python query-builder tests during
+      implementation.
+    - Full verification is recorded on the PR before merge.
+  - Non-goals:
+    - No generalized expression trees, arbitrary multi-argument COALESCE, lossy mixed-dtype
+      coercion, broad SQL/DataFrame runtime, production claim, performance claim, or external
+      fallback.
+  - Claim boundary:
+    - Scoped null coalesce computed projection fixture smoke only.
+  - Fallback boundary:
+    - Parser admission, optional temporal source coercion, expression lowering, null coalesce
+      execution, and fixture evidence remain ShardLoom-native. External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, arithmetic,
+      and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped Date32 day arithmetic projection runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-date-arithmetic-projections-4d` / #852.
