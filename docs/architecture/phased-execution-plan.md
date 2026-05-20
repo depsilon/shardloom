@@ -621,14 +621,19 @@ or documentation updates alone are insufficient.
     format-specific certificate fields, and feature-gated flat scalar Parquet, Arrow IPC, Avro,
     and ORC sink slices are admitted through `sql-local-source-smoke` / Python
     `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`, and `write_orc(...)` when
-    `shardloom-cli --features universal-format-io` is used. Scoped local-source SQL/Python fanout
-    can write one computed result to multiple local JSONL/CSV sinks, plus feature-gated flat scalar
-    Parquet/Arrow IPC/Avro/ORC sinks, with per-output bytes, digest, and certificate evidence.
-    Broader type/nesting and metadata fidelity for those compatibility exports, Vortex output,
-    replay proof, OutputPlan registry reuse, and claim-grade fanout are not complete.
-  - Next slice outcome: add Vortex output, reusable OutputPlan registry consolidation, and
-    replay/fidelity reporting for admitted formats, with per-output digest, replay status, and
-    metadata fidelity/loss.
+    `shardloom-cli --features universal-format-io` is used. Scoped local-source SQL/Python output
+    can also write local `.vortex` sinks through `--output-format vortex` / `write_vortex(...)`
+    when `shardloom-cli --features vortex-write` is used, emitting artifact digest, row/column
+    proof, upstream Vortex writer/reopen flags, and `certified_local_vortex_sink`; default builds
+    return deterministic Vortex sink blockers. Scoped local-source SQL/Python fanout can write one
+    computed result to multiple local JSONL/CSV sinks, plus feature-gated flat scalar
+    Parquet/Arrow IPC/Avro/ORC/Vortex sinks, with per-output bytes, digest, certificate evidence,
+    and Vortex output evidence where applicable. Broader type/nesting and metadata fidelity for
+    those compatibility exports, replay proof, OutputPlan registry reuse, and claim-grade fanout
+    are not complete.
+  - Next slice outcome: add reusable OutputPlan registry consolidation and replay/fidelity
+    reporting for admitted formats, with per-output digest, replay status, and metadata
+    fidelity/loss.
   - Runtime enablement: local output writers and fanout execution with OutputPlan evidence and
     replay proof where admitted.
   - User-visible surface: CLI/Python `.write` and `.fanout`, recipes, benchmark
@@ -652,9 +657,8 @@ or documentation updates alone are insufficient.
   - Non-goals: no object-store write, table commit, production sink claim, or performance claim.
   - Claim boundary: local output/fanout support per admitted format.
   - Fallback boundary: compatibility output is export, not external-engine execution.
-  - Dependencies/blockers: Vortex sink admission, OutputPlan registry consolidation, schema
-    translation/fidelity reports, replay verifier, generated/local/Vortex source evidence, and
-    fanout benchmark fields.
+  - Dependencies/blockers: OutputPlan registry consolidation, schema translation/fidelity reports,
+    replay verifier, generated/local/Vortex source evidence, and fanout benchmark fields.
   - Ledger rule: ledger entry must list format combinations and replay proof refs.
 
 - [ ] GAR-RUNTIME-IMPL-4I Vortex scan pushdown and encoded-predicate runtime completion

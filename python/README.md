@@ -463,10 +463,13 @@ or `write_csv(...)` for the scoped local CSV sink. They can also use
 `write_parquet(...)` or `write(..., output_format="parquet")` for the scoped
 feature-gated flat scalar Parquet sink when the CLI is built with
 `--features universal-format-io`; default binaries return ShardLoom's
-deterministic Parquet sink blocker. The scoped `.fanout(...)` helper can reuse one
-computed result for multiple admitted local compatibility sinks such as JSONL and
-CSV, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC when the CLI is
-built with `--features universal-format-io`. Written local sinks emit
+deterministic Parquet sink blocker. `write_vortex(...)` writes a scoped local
+flat scalar `.vortex` result when the CLI is built with `--features vortex-write`;
+default binaries return a deterministic Vortex sink blocker. The scoped
+`.fanout(...)` helper can reuse one computed result for multiple admitted local
+compatibility sinks such as JSONL and CSV, feature-gated flat scalar
+Parquet/Arrow IPC/Avro/ORC when the CLI is built with `--features universal-format-io`,
+and feature-gated local Vortex when built with `--features vortex-write`. Written local sinks emit
 format-specific output Native I/O certificate fields:
 
 ```powershell
@@ -778,11 +781,12 @@ rewrite safety, evidence preservation, no-fallback fields, and claim gates witho
 SQL/DataFrame execution or Polars/DataFusion optimizer parity.
 
 Reusable I/O state and broad cross-format fanout are planned as `GAR-IOREUSE-1`. The current Python
-runtime exposes only a scoped local-source `.fanout(...)` smoke over admitted local compatibility
-sinks. Future Python capability/write views may expose broader `SourceState`,
-`VortexPreparedState`, `OutputPlan`, cache invalidation, reuse levels, generated-source fanout, and
-Vortex-native sink fanout evidence, but input and output formats remain decoupled and reuse evidence
-will not imply performance, production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
+runtime exposes scoped local-source `.fanout(...)` smokes over admitted local compatibility sinks and
+feature-gated local Vortex output/fanout. Future Python capability/write views may expose broader
+`SourceState`, `VortexPreparedState`, `OutputPlan`, cache invalidation, reuse levels,
+generated-source fanout, and claim-grade replay/fidelity evidence, but input and output formats
+remain decoupled and reuse evidence will not imply performance, production, object-store/lakehouse,
+Foundry, or SQL/DataFrame support.
 
 Unsupported workflow affordances are explicit report surfaces too. These calls
 are meant to make familiar pandas/Arrow/DataFrame/notebook methods discoverable

@@ -1270,6 +1270,45 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field("output_native_io_certificate_status")
 
     @property
+    def vortex_output_runtime_execution(self) -> bool:
+        """Whether this local-source write used the scoped local Vortex sink."""
+
+        return self.envelope.field_bool("vortex_output_runtime_execution", False) is True
+
+    @property
+    def vortex_output_reopen_verified(self) -> bool:
+        """Whether any local-source Vortex output was reopened for row-count proof."""
+
+        return self.envelope.field_bool("vortex_output_reopen_verified", False) is True
+
+    @property
+    def vortex_artifact_digest(self) -> str | None:
+        """Return the first local-source Vortex artifact digest when present."""
+
+        value = self.envelope.field("vortex_artifact_digest")
+        if value in {None, "", "not_applicable"}:
+            return None
+        return value
+
+    @property
+    def vortex_output_row_count(self) -> int | None:
+        """Return the first local-source Vortex output row count when present."""
+
+        return self.envelope.field_int("vortex_output_row_count")
+
+    @property
+    def upstream_vortex_write_called(self) -> bool:
+        """Whether the scoped upstream Vortex writer boundary was invoked."""
+
+        return self.envelope.field_bool("upstream_vortex_write_called", False) is True
+
+    @property
+    def upstream_vortex_scan_called(self) -> bool:
+        """Whether the scoped upstream Vortex reopen/scan proof was invoked."""
+
+        return self.envelope.field_bool("upstream_vortex_scan_called", False) is True
+
+    @property
     def output_fanout_performed(self) -> bool:
         """Whether the smoke wrote more than one local fanout output."""
 
