@@ -2,10 +2,12 @@
 //!
 //! This module implements deliberately narrow local generated-output smokes. It
 //! accepts either rows already supplied by the user/API layer or narrow
-//! ShardLoom-native integer generators, writes a local JSONL/CSV sink, and emits
-//! generated-source/output evidence. It does not read source datasets, parse
-//! SQL, execute broad `DataFrame` expressions, touch object stores, invoke
-//! Foundry, or call fallback engines.
+//! ShardLoom-native integer generators, writes local sinks, and emits
+//! generated-source/output evidence. Default builds admit JSONL/CSV sinks; flat
+//! scalar Parquet, Arrow IPC, Avro, and ORC sinks are gated behind
+//! `universal-format-io`. It does not read source datasets, parse broad SQL,
+//! execute broad `DataFrame` expressions, touch object stores, invoke Foundry,
+//! or call fallback engines.
 
 use std::{
     collections::BTreeMap,
@@ -16,6 +18,8 @@ use std::{
     time::Instant,
 };
 
+#[cfg(feature = "universal-format-io")]
+use shardloom_core::ScalarValue;
 use shardloom_core::{CommandStatus, OutputFormat, ShardLoomError};
 
 use crate::{
@@ -81,25 +85,13 @@ impl UserRowsGeneratedSourceKind {
         }
     }
 
-    const fn materialization_boundary(self, output_format: GeneratedOutputFormat) -> &'static str {
-        match (self, output_format) {
-            (Self::UserRows, GeneratedOutputFormat::Jsonl) => {
-                "python_user_rows_to_local_jsonl_sink"
-            }
-            (Self::UserRows, GeneratedOutputFormat::Csv) => "python_user_rows_to_local_csv_sink",
-            (Self::LiteralTable, GeneratedOutputFormat::Jsonl) => {
-                "python_literal_table_to_local_jsonl_sink"
-            }
-            (Self::LiteralTable, GeneratedOutputFormat::Csv) => {
-                "python_literal_table_to_local_csv_sink"
-            }
-            (Self::Calendar, GeneratedOutputFormat::Jsonl) => {
-                "python_calendar_generator_to_local_jsonl_sink"
-            }
-            (Self::Calendar, GeneratedOutputFormat::Csv) => {
-                "python_calendar_generator_to_local_csv_sink"
-            }
-        }
+    fn materialization_boundary(self, output_format: GeneratedOutputFormat) -> String {
+        let source = match self {
+            Self::UserRows => "python_user_rows",
+            Self::LiteralTable => "python_literal_table",
+            Self::Calendar => "python_calendar_generator",
+        };
+        format!("{source}_to_local_{}_sink", output_format.sink_label())
     }
 
     const fn claim_gate_reason(self) -> &'static str {
@@ -115,6 +107,10 @@ impl UserRowsGeneratedSourceKind {
 enum GeneratedOutputFormat {
     Jsonl,
     Csv,
+    Parquet,
+    ArrowIpc,
+    Avro,
+    Orc,
 }
 
 impl GeneratedOutputFormat {
@@ -122,8 +118,12 @@ impl GeneratedOutputFormat {
         match value.trim().to_ascii_lowercase().as_str() {
             "jsonl" | "json-lines" | "ndjson" => Ok(Self::Jsonl),
             "csv" => Ok(Self::Csv),
+            "parquet" => Ok(Self::Parquet),
+            "arrow" | "arrow-ipc" | "arrow_ipc" | "ipc" | "feather" => Ok(Self::ArrowIpc),
+            "avro" => Ok(Self::Avro),
+            "orc" => Ok(Self::Orc),
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported generated-source output format {other:?}; scoped generated-source smokes support local JSONL and CSV only"
+                "unsupported generated-source output format {other:?}; scoped generated-source smokes support local JSONL/CSV and feature-gated Parquet/Arrow IPC/Avro/ORC only"
             ))),
         }
     }
@@ -132,6 +132,46 @@ impl GeneratedOutputFormat {
         match self {
             Self::Jsonl => "jsonl",
             Self::Csv => "csv",
+            Self::Parquet => "parquet",
+            Self::ArrowIpc => "arrow_ipc",
+            Self::Avro => "avro",
+            Self::Orc => "orc",
+        }
+    }
+
+    const fn sink_label(self) -> &'static str {
+        match self {
+            Self::Jsonl => "jsonl",
+            Self::Csv => "csv",
+            Self::Parquet => "parquet",
+            Self::ArrowIpc => "arrow_ipc",
+            Self::Avro => "avro",
+            Self::Orc => "orc",
+        }
+    }
+
+    const fn certificate_status(self) -> &'static str {
+        match self {
+            Self::Jsonl | Self::Csv => "certified_local_file_sink",
+            Self::Parquet => "certified_local_parquet_sink",
+            Self::ArrowIpc => "certified_local_arrow_ipc_sink",
+            Self::Avro => "certified_local_avro_sink",
+            Self::Orc => "certified_local_orc_sink",
+        }
+    }
+
+    fn render_rows(
+        self,
+        schema: &[GeneratedColumn],
+        rows: &[GeneratedRow],
+    ) -> Result<Vec<u8>, ShardLoomError> {
+        match self {
+            Self::Jsonl => Ok(render_jsonl(schema, rows)?.into_bytes()),
+            Self::Csv => Ok(render_csv(schema, rows)?.into_bytes()),
+            Self::Parquet => encode_parquet_output_rows(schema, rows),
+            Self::ArrowIpc => encode_arrow_ipc_output_rows(schema, rows),
+            Self::Avro => encode_avro_output_rows(schema, rows),
+            Self::Orc => encode_orc_output_rows(schema, rows),
         }
     }
 }
@@ -281,21 +321,12 @@ impl RangeGeneratedSourceKind {
         }
     }
 
-    const fn materialization_boundary(self, output_format: GeneratedOutputFormat) -> &'static str {
-        match (self, output_format) {
-            (Self::Range, GeneratedOutputFormat::Jsonl) => {
-                "engine_native_range_generator_to_local_jsonl_sink"
-            }
-            (Self::Range, GeneratedOutputFormat::Csv) => {
-                "engine_native_range_generator_to_local_csv_sink"
-            }
-            (Self::Sequence, GeneratedOutputFormat::Jsonl) => {
-                "engine_native_sequence_generator_to_local_jsonl_sink"
-            }
-            (Self::Sequence, GeneratedOutputFormat::Csv) => {
-                "engine_native_sequence_generator_to_local_csv_sink"
-            }
-        }
+    fn materialization_boundary(self, output_format: GeneratedOutputFormat) -> String {
+        let source = match self {
+            Self::Range => "engine_native_range_generator",
+            Self::Sequence => "engine_native_sequence_generator",
+        };
+        format!("{source}_to_local_{}_sink", output_format.sink_label())
     }
 
     const fn claim_gate_reason(self) -> &'static str {
@@ -329,23 +360,13 @@ impl SqlGeneratedSourceKind {
         }
     }
 
-    const fn materialization_boundary(self, output_format: GeneratedOutputFormat) -> &'static str {
-        match (self, output_format) {
-            (Self::LiteralSelect, GeneratedOutputFormat::Jsonl) => {
-                "sql_literal_select_to_local_jsonl_sink"
-            }
-            (Self::LiteralSelect, GeneratedOutputFormat::Csv) => {
-                "sql_literal_select_to_local_csv_sink"
-            }
-            (Self::Values, GeneratedOutputFormat::Jsonl) => "sql_values_to_local_jsonl_sink",
-            (Self::Values, GeneratedOutputFormat::Csv) => "sql_values_to_local_csv_sink",
-            (Self::GenerateSeriesRange, GeneratedOutputFormat::Jsonl) => {
-                "sql_generate_series_range_to_local_jsonl_sink"
-            }
-            (Self::GenerateSeriesRange, GeneratedOutputFormat::Csv) => {
-                "sql_generate_series_range_to_local_csv_sink"
-            }
-        }
+    fn materialization_boundary(self, output_format: GeneratedOutputFormat) -> String {
+        let source = match self {
+            Self::LiteralSelect => "sql_literal_select",
+            Self::Values => "sql_values",
+            Self::GenerateSeriesRange => "sql_generate_series_range",
+        };
+        format!("{source}_to_local_{}_sink", output_format.sink_label())
     }
 
     const fn claim_gate_reason(self) -> &'static str {
@@ -953,7 +974,7 @@ impl GeneratedUserRowsSmokeReport {
             ("output_digest".to_string(), self.output_digest.clone()),
             (
                 "output_native_io_certificate_status".to_string(),
-                "certified_local_file_sink".to_string(),
+                self.output_format.certificate_status().to_string(),
             ),
             (
                 "output_native_io_certificate_id".to_string(),
@@ -971,8 +992,7 @@ impl GeneratedUserRowsSmokeReport {
             (
                 "materialization_boundary".to_string(),
                 self.source_kind
-                    .materialization_boundary(self.output_format)
-                    .to_string(),
+                    .materialization_boundary(self.output_format),
             ),
             ("data_materialized".to_string(), "true".to_string()),
             ("data_decoded".to_string(), "false".to_string()),
@@ -1014,12 +1034,13 @@ impl GeneratedUserRowsSmokeReport {
 
     fn to_text(&self) -> String {
         format!(
-            "generated-source user rows smoke\nschema_version: {USER_ROWS_SCHEMA_VERSION}\ngenerated_source_kind: {}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: certified_local_file_sink\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "generated-source user rows smoke\nschema_version: {USER_ROWS_SCHEMA_VERSION}\ngenerated_source_kind: {}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: {}\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
             self.source_kind.as_str(),
             canonical_schema(&self.schema),
             self.rows.len(),
             self.output_path.display(),
             self.output_format.as_str(),
+            self.output_format.certificate_status(),
         )
     }
 }
@@ -1157,7 +1178,7 @@ impl GeneratedRangeSmokeReport {
             ("output_digest".to_string(), self.output_digest.clone()),
             (
                 "output_native_io_certificate_status".to_string(),
-                "certified_local_file_sink".to_string(),
+                self.output_format.certificate_status().to_string(),
             ),
             (
                 "output_native_io_certificate_id".to_string(),
@@ -1177,8 +1198,7 @@ impl GeneratedRangeSmokeReport {
             (
                 "materialization_boundary".to_string(),
                 self.source_kind
-                    .materialization_boundary(self.output_format)
-                    .to_string(),
+                    .materialization_boundary(self.output_format),
             ),
             ("data_materialized".to_string(), "true".to_string()),
             ("data_decoded".to_string(), "false".to_string()),
@@ -1220,7 +1240,7 @@ impl GeneratedRangeSmokeReport {
 
     fn to_text(&self) -> String {
         format!(
-            "generated-source {} smoke\nschema_version: {}\n{}: {}..{} step {}\ncolumn: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: certified_local_file_sink\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "generated-source {} smoke\nschema_version: {}\n{}: {}..{} step {}\ncolumn: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: {}\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
             self.source_kind.summary_noun(),
             self.source_kind.schema_version(),
             self.source_kind.summary_noun(),
@@ -1231,6 +1251,7 @@ impl GeneratedRangeSmokeReport {
             self.rows.len(),
             self.output_path.display(),
             self.output_format.as_str(),
+            self.output_format.certificate_status(),
         )
     }
 }
@@ -1343,7 +1364,7 @@ impl GeneratedSqlSmokeReport {
             ("output_digest".to_string(), self.output_digest.clone()),
             (
                 "output_native_io_certificate_status".to_string(),
-                "certified_local_file_sink".to_string(),
+                self.output_format.certificate_status().to_string(),
             ),
             (
                 "output_native_io_certificate_id".to_string(),
@@ -1361,8 +1382,7 @@ impl GeneratedSqlSmokeReport {
             (
                 "materialization_boundary".to_string(),
                 self.source_kind
-                    .materialization_boundary(self.output_format)
-                    .to_string(),
+                    .materialization_boundary(self.output_format),
             ),
             ("data_materialized".to_string(), "true".to_string()),
             ("data_decoded".to_string(), "false".to_string()),
@@ -1441,12 +1461,13 @@ impl GeneratedSqlSmokeReport {
 
     fn to_text(&self) -> String {
         format!(
-            "generated-source SQL smoke\nschema_version: {SQL_SCHEMA_VERSION}\nsql_statement_kind: {}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: certified_local_file_sink\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
+            "generated-source SQL smoke\nschema_version: {SQL_SCHEMA_VERSION}\nsql_statement_kind: {}\nschema: {}\nrows: {}\noutput: {}\noutput format: {}\ngenerated source certificate: present\noutput Native I/O certificate: {}\nfallback_attempted: false\nexternal_engine_invoked: false\nclaim_gate_status: fixture_smoke_only",
             self.source_kind.as_str(),
             canonical_schema(&self.schema),
             self.rows.len(),
             self.output_path.display(),
             self.output_format.as_str(),
+            self.output_format.certificate_status(),
         )
     }
 }
@@ -1472,8 +1493,10 @@ fn run_generated_user_rows_smoke(
     }
 
     let start = Instant::now();
-    let content = render_generated_output(request.output_format, &request.schema, &request.rows)?;
-    fs::write(&request.output_path, content.as_bytes()).map_err(|error| {
+    let content = request
+        .output_format
+        .render_rows(&request.schema, &request.rows)?;
+    fs::write(&request.output_path, &content).map_err(|error| {
         ShardLoomError::Message(format!(
             "failed to write local generated-source output {}: {error}",
             request.output_path.display()
@@ -1483,7 +1506,7 @@ fn run_generated_user_rows_smoke(
 
     let schema_text = canonical_schema(&request.schema);
     let canonical_rows = canonical_rows(&request.schema, &request.rows);
-    let output_digest = fnv64_digest(&content);
+    let output_digest = fnv64_digest_bytes(&content);
     Ok(GeneratedUserRowsSmokeReport {
         output_path: request.output_path.clone(),
         output_format: request.output_format,
@@ -1528,8 +1551,8 @@ fn run_generated_range_smoke(
     }];
     let rows = generated_range_rows(request.start, request.end, request.step)?;
     let start = Instant::now();
-    let content = render_generated_output(request.output_format, &schema, &rows)?;
-    fs::write(&request.output_path, content.as_bytes()).map_err(|error| {
+    let content = request.output_format.render_rows(&schema, &rows)?;
+    fs::write(&request.output_path, &content).map_err(|error| {
         ShardLoomError::Message(format!(
             "failed to write local generated-source output {}: {error}",
             request.output_path.display()
@@ -1538,7 +1561,7 @@ fn run_generated_range_smoke(
     let write_millis = start.elapsed().as_millis();
 
     let schema_text = canonical_schema(&schema);
-    let output_digest = fnv64_digest(&content);
+    let output_digest = fnv64_digest_bytes(&content);
     Ok(GeneratedRangeSmokeReport {
         output_path: request.output_path.clone(),
         output_format: request.output_format,
@@ -1586,8 +1609,10 @@ fn run_generated_sql_smoke(
     }
 
     let start = Instant::now();
-    let content = render_generated_output(request.output_format, &request.schema, &request.rows)?;
-    fs::write(&request.output_path, content.as_bytes()).map_err(|error| {
+    let content = request
+        .output_format
+        .render_rows(&request.schema, &request.rows)?;
+    fs::write(&request.output_path, &content).map_err(|error| {
         ShardLoomError::Message(format!(
             "failed to write local generated-source SQL output {}: {error}",
             request.output_path.display()
@@ -1597,7 +1622,7 @@ fn run_generated_sql_smoke(
 
     let schema_text = canonical_schema(&request.schema);
     let canonical_rows = canonical_rows(&request.schema, &request.rows);
-    let output_digest = fnv64_digest(&content);
+    let output_digest = fnv64_digest_bytes(&content);
     Ok(GeneratedSqlSmokeReport {
         output_path: request.output_path.clone(),
         output_format: request.output_format,
@@ -2579,17 +2604,6 @@ fn render_jsonl(
     Ok(output)
 }
 
-fn render_generated_output(
-    output_format: GeneratedOutputFormat,
-    schema: &[GeneratedColumn],
-    rows: &[GeneratedRow],
-) -> Result<String, ShardLoomError> {
-    match output_format {
-        GeneratedOutputFormat::Jsonl => render_jsonl(schema, rows),
-        GeneratedOutputFormat::Csv => render_csv(schema, rows),
-    }
-}
-
 fn render_csv(schema: &[GeneratedColumn], rows: &[GeneratedRow]) -> Result<String, ShardLoomError> {
     let mut output = String::new();
     for (index, column) in schema.iter().enumerate() {
@@ -2612,6 +2626,155 @@ fn render_csv(schema: &[GeneratedColumn], rows: &[GeneratedRow]) -> Result<Strin
         output.push('\n');
     }
     Ok(output)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn generated_column_names(schema: &[GeneratedColumn]) -> Vec<String> {
+    schema.iter().map(|column| column.name.clone()).collect()
+}
+
+#[cfg(feature = "universal-format-io")]
+fn generated_rows_to_scalar_rows(
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+    let mut scalar_rows = Vec::with_capacity(rows.len());
+    for row in rows {
+        if row.values.len() != schema.len() {
+            return Err(ShardLoomError::InvalidOperation(
+                "generated-source row/schema mismatch".to_string(),
+            ));
+        }
+        let mut scalar_row = Vec::with_capacity(schema.len());
+        for (column, value) in schema.iter().zip(&row.values) {
+            scalar_row.push((
+                column.name.clone(),
+                generated_value_to_scalar(value, column.value_type)?,
+            ));
+        }
+        scalar_rows.push(scalar_row);
+    }
+    Ok(scalar_rows)
+}
+
+#[cfg(feature = "universal-format-io")]
+fn generated_value_to_scalar(
+    value: &str,
+    value_type: GeneratedValueType,
+) -> Result<ScalarValue, ShardLoomError> {
+    match value_type {
+        GeneratedValueType::Int64 => value.parse::<i64>().map(ScalarValue::Int64).map_err(|_| {
+            ShardLoomError::InvalidOperation(format!(
+                "generated-source int64 value {value:?} is invalid"
+            ))
+        }),
+        GeneratedValueType::Float64 => {
+            let parsed = value.parse::<f64>().map_err(|_| {
+                ShardLoomError::InvalidOperation(format!(
+                    "generated-source float64 value {value:?} is invalid"
+                ))
+            })?;
+            if !parsed.is_finite() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "generated-source float64 value {value:?} must be finite"
+                )));
+            }
+            Ok(ScalarValue::Float64(parsed))
+        }
+        GeneratedValueType::Bool => match value {
+            "true" => Ok(ScalarValue::Boolean(true)),
+            "false" => Ok(ScalarValue::Boolean(false)),
+            _ => Err(ShardLoomError::InvalidOperation(format!(
+                "generated-source bool value {value:?} must be true or false"
+            ))),
+        },
+        GeneratedValueType::Utf8 => Ok(ScalarValue::Utf8(value.to_string())),
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+fn encode_parquet_output_rows(
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+) -> Result<Vec<u8>, ShardLoomError> {
+    shardloom_vortex::encode_flat_parquet_rows(
+        &generated_column_names(schema),
+        &generated_rows_to_scalar_rows(schema, rows)?,
+    )
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn encode_parquet_output_rows(
+    _schema: &[GeneratedColumn],
+    _rows: &[GeneratedRow],
+) -> Result<Vec<u8>, ShardLoomError> {
+    Err(structured_output_feature_error("Parquet"))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn encode_arrow_ipc_output_rows(
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+) -> Result<Vec<u8>, ShardLoomError> {
+    shardloom_vortex::encode_flat_arrow_ipc_rows(
+        &generated_column_names(schema),
+        &generated_rows_to_scalar_rows(schema, rows)?,
+    )
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn encode_arrow_ipc_output_rows(
+    _schema: &[GeneratedColumn],
+    _rows: &[GeneratedRow],
+) -> Result<Vec<u8>, ShardLoomError> {
+    Err(structured_output_feature_error("Arrow IPC"))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn encode_avro_output_rows(
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+) -> Result<Vec<u8>, ShardLoomError> {
+    shardloom_vortex::encode_flat_avro_rows(
+        &generated_column_names(schema),
+        &generated_rows_to_scalar_rows(schema, rows)?,
+    )
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn encode_avro_output_rows(
+    _schema: &[GeneratedColumn],
+    _rows: &[GeneratedRow],
+) -> Result<Vec<u8>, ShardLoomError> {
+    Err(structured_output_feature_error("Avro"))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn encode_orc_output_rows(
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+) -> Result<Vec<u8>, ShardLoomError> {
+    shardloom_vortex::encode_flat_orc_rows(
+        &generated_column_names(schema),
+        &generated_rows_to_scalar_rows(schema, rows)?,
+    )
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn encode_orc_output_rows(
+    _schema: &[GeneratedColumn],
+    _rows: &[GeneratedRow],
+) -> Result<Vec<u8>, ShardLoomError> {
+    Err(structured_output_feature_error("ORC"))
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn structured_output_feature_error(format_name: &str) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "local {format_name} generated-source output runtime requires building shardloom-cli \
+         with --features universal-format-io; default builds expose {format_name} as a \
+         deterministic blocked sink"
+    ))
 }
 
 fn render_csv_value(value: &str, value_type: GeneratedValueType) -> Result<String, ShardLoomError> {
@@ -2740,8 +2903,12 @@ fn json_escape(value: &str) -> String {
 }
 
 fn fnv64_digest(value: &str) -> String {
+    fnv64_digest_bytes(value.as_bytes())
+}
+
+fn fnv64_digest_bytes(value: &[u8]) -> String {
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for byte in value.as_bytes() {
+    for byte in value {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }

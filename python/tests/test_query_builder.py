@@ -3173,6 +3173,139 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(sql_report.fallback_attempted)
         self.assertFalse(sql_report.external_engine_invoked)
 
+    def test_generated_source_structured_output_helpers_invoke_generated_source_smokes(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                command = sys.argv[1]
+                if command == "generated-source-user-rows-smoke":
+                    assert sys.argv[1:] == [
+                        "generated-source-user-rows-smoke",
+                        "target/generated.parquet",
+                        "id:int64,label:utf8",
+                        "id=1,label=alpha",
+                        "--source-kind",
+                        "user_rows",
+                        "--output-format",
+                        "parquet",
+                        "--allow-overwrite",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    fields = [
+                        {"key": "output_path", "value": "target/generated.parquet"},
+                        {"key": "output_format", "value": "parquet"},
+                        {"key": "generated_source_kind", "value": "user_rows"},
+                        {"key": "generated_source_row_count", "value": "1"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_parquet_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    ]
+                elif command == "generated-source-range-smoke":
+                    assert sys.argv[1:] == [
+                        "generated-source-range-smoke",
+                        "target/range.arrow",
+                        "1",
+                        "4",
+                        "--step",
+                        "1",
+                        "--column",
+                        "id",
+                        "--output-format",
+                        "arrow-ipc",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    fields = [
+                        {"key": "output_path", "value": "target/range.arrow"},
+                        {"key": "output_format", "value": "arrow_ipc"},
+                        {"key": "generated_source_kind", "value": "range"},
+                        {"key": "generated_source_row_count", "value": "3"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_arrow_ipc_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    ]
+                elif command == "generated-source-sql-smoke":
+                    assert sys.argv[1:] == [
+                        "generated-source-sql-smoke",
+                        "target/sql.orc",
+                        "VALUES (1, 'alpha')",
+                        "--output-format",
+                        "orc",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    fields = [
+                        {"key": "output_path", "value": "target/sql.orc"},
+                        {"key": "output_format", "value": "orc"},
+                        {"key": "generated_source_kind", "value": "sql_values"},
+                        {"key": "generated_source_row_count", "value": "1"},
+                        {"key": "generated_source_certificate_status", "value": "present"},
+                        {"key": "output_native_io_certificate_status", "value": "certified_local_orc_sink"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    ]
+                else:
+                    raise AssertionError(sys.argv)
+
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "generated source structured output",
+                    "human_text": "generated source structured output",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        rows_report = ctx.from_rows([{"id": 1, "label": "alpha"}]).write_parquet(
+            "target/generated.parquet",
+            allow_overwrite=True,
+        )
+        range_report = ctx.range(1, 4, column="id").write_arrow_ipc("target/range.arrow")
+        sql_report = ctx.sql_values("VALUES (1, 'alpha')").write_orc("target/sql.orc")
+
+        self.assertEqual(rows_report.envelope.command, "generated-source-user-rows-smoke")
+        self.assertEqual(rows_report.output_format, "parquet")
+        self.assertEqual(
+            rows_report.output_native_io_certificate_status,
+            "certified_local_parquet_sink",
+        )
+        self.assertFalse(rows_report.fallback_attempted)
+        self.assertFalse(rows_report.external_engine_invoked)
+
+        self.assertEqual(range_report.envelope.command, "generated-source-range-smoke")
+        self.assertEqual(range_report.output_format, "arrow_ipc")
+        self.assertEqual(
+            range_report.output_native_io_certificate_status,
+            "certified_local_arrow_ipc_sink",
+        )
+        self.assertFalse(range_report.fallback_attempted)
+        self.assertFalse(range_report.external_engine_invoked)
+
+        self.assertEqual(sql_report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(sql_report.output_format, "orc")
+        self.assertEqual(
+            sql_report.output_native_io_certificate_status,
+            "certified_local_orc_sink",
+        )
+        self.assertFalse(sql_report.fallback_attempted)
+        self.assertFalse(sql_report.external_engine_invoked)
+
     def test_context_sql_local_source_collect_invokes_sql_smoke(self) -> None:
         statement = "SELECT id FROM 'target/input.csv' WHERE id >= 1 LIMIT 2"
         binary = self.fake_cli(

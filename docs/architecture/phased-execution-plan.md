@@ -376,14 +376,18 @@ or documentation updates alone are insufficient.
   - Current state: scoped local JSONL/CSV generated-output smokes now exist for `from_rows`,
     `literal_table`, `calendar`, `range`, `sequence`, SQL `VALUES`, SQL literal `SELECT`, scoped
     SQL `SELECT * FROM generate_series/range(...)`, and Python generated-row projection/literal
-    `with_column` before local writes with generated-source/output/no-fallback evidence. Python
-    range/sequence builders also support `limit(...)`, `head(...)`, and `take(...)` by adjusting
-    generator bounds before invoking the same engine-native range/sequence smoke. Remaining gaps are
-    broader SQL source-free projection, arbitrary SQL table functions, broad DataFrame
-    expression-backed projection/`with_column`, broader sink formats, object-store/Foundry
-    generated-output paths, and claim-grade output coverage.
-  - Next slice outcome: implement generated-source builders across CLI/Python/SQL with local
-    JSONL/CSV or Vortex output where admitted.
+    `with_column` before local writes with generated-source/output/no-fallback evidence. Those
+    generated-source surfaces also expose feature-gated flat scalar Parquet, Arrow IPC, Avro, and
+    ORC local sinks through `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`,
+    `write_orc(...)`, and `--output-format` when `shardloom-cli` is built with
+    `--features universal-format-io`; default builds return deterministic structured-sink blockers.
+    Python range/sequence builders also support `limit(...)`, `head(...)`, and `take(...)` by
+    adjusting generator bounds before invoking the same engine-native range/sequence smoke.
+    Remaining gaps are broader SQL source-free projection, arbitrary SQL table functions, broad
+    DataFrame expression-backed projection/`with_column`, Vortex output, object-store/Foundry
+    generated-output paths, broader structured-format fidelity, and claim-grade output coverage.
+  - Next slice outcome: implement Vortex generated-output admission, broader generator/expression
+    coverage, and claim-grade replay/fidelity evidence where admitted.
   - Runtime enablement: end-user generated-source execution that writes local output and emits a
     GeneratedSourceCertificate.
   - User-visible surface: Python `ctx.range`, `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`,

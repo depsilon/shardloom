@@ -384,8 +384,92 @@ class UnsupportedWorkflowReport:
         return tuple(dict.fromkeys(boundaries))
 
 
+class _GeneratedStructuredOutputMixin:
+    __slots__ = ()
+
+    def write_parquet(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="parquet")`.
+
+        The CLI must be built with `--features universal-format-io`; default
+        binaries return ShardLoom's deterministic Parquet sink blocker.
+        """
+
+        return self.write(  # type: ignore[attr-defined]
+            target_uri,
+            output_format="parquet",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_arrow_ipc(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="arrow-ipc")`.
+
+        The CLI must be built with `--features universal-format-io`; default
+        binaries return ShardLoom's deterministic Arrow IPC sink blocker.
+        """
+
+        return self.write(  # type: ignore[attr-defined]
+            target_uri,
+            output_format="arrow-ipc",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_avro(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="avro")`.
+
+        The CLI must be built with `--features universal-format-io`; default
+        binaries return ShardLoom's deterministic Avro sink blocker.
+        """
+
+        return self.write(  # type: ignore[attr-defined]
+            target_uri,
+            output_format="avro",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_orc(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="orc")`.
+
+        The CLI must be built with `--features universal-format-io`; default
+        binaries return ShardLoom's deterministic ORC sink blocker.
+        """
+
+        return self.write(  # type: ignore[attr-defined]
+            target_uri,
+            output_format="orc",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+
 @dataclass(frozen=True, slots=True)
-class GeneratedRowsSource:
+class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
     """Scoped source-free user rows that can write a local smoke output."""
 
     schema_arg: str
@@ -499,9 +583,8 @@ class GeneratedRowsSource:
             check=check,
         )
 
-
 @dataclass(frozen=True, slots=True)
-class GeneratedRangeSource:
+class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
     """Scoped ShardLoom-native integer generator that can write a local smoke output."""
 
     start: int
@@ -604,9 +687,8 @@ class GeneratedRangeSource:
             check=check,
         )
 
-
 @dataclass(frozen=True, slots=True)
-class GeneratedSqlSource:
+class GeneratedSqlSource(_GeneratedStructuredOutputMixin):
     """Scoped source-free SQL literal/VALUES query that can write local smoke output."""
 
     statement: str
@@ -661,7 +743,6 @@ class GeneratedSqlSource:
             allow_overwrite=allow_overwrite,
             check=check,
         )
-
 
 @dataclass(frozen=True, slots=True)
 class SqlWorkflow:

@@ -214,6 +214,154 @@ fn generated_source_smokes_write_local_csv_outputs() {
 }
 
 #[test]
+#[cfg(not(feature = "universal-format-io"))]
+fn generated_source_structured_outputs_fail_closed_without_feature() {
+    let output_path =
+        unique_output_path_with_extension("generated-user-rows-parquet-blocked", "parquet");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-user-rows-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "id:int64,label:utf8",
+            "id=1,label=alpha",
+            "--output-format",
+            "parquet",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-user-rows-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !output_path.exists(),
+        "blocked structured output should not create a sink"
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-user-rows-smoke\""));
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("requires building shardloom-cli with --features universal-format-io"));
+    assert!(stdout.contains("deterministic blocked sink"));
+    assert!(stdout.contains("\"attempted\":false"));
+    assert!(stdout.contains("\"allowed\":false"));
+}
+
+#[test]
+#[cfg(feature = "universal-format-io")]
+fn generated_source_smokes_write_feature_gated_structured_outputs() {
+    for (name, extension, command_args, expected_format, expected_certificate, expected_boundary) in [
+        (
+            "generated-user-rows-parquet",
+            "parquet",
+            vec![
+                "generated-source-user-rows-smoke".to_string(),
+                "id:int64,label:utf8,active:bool,score:float64".to_string(),
+                "id=1,label=alpha,active=true,score=1.5;id=2,label=beta,active=false,score=2.25"
+                    .to_string(),
+                "--output-format".to_string(),
+                "parquet".to_string(),
+            ],
+            "parquet",
+            "certified_local_parquet_sink",
+            "python_user_rows_to_local_parquet_sink",
+        ),
+        (
+            "generated-range-arrow-ipc",
+            "arrow",
+            vec![
+                "generated-source-range-smoke".to_string(),
+                "1".to_string(),
+                "4".to_string(),
+                "--column".to_string(),
+                "id".to_string(),
+                "--output-format".to_string(),
+                "arrow-ipc".to_string(),
+            ],
+            "arrow_ipc",
+            "certified_local_arrow_ipc_sink",
+            "engine_native_range_generator_to_local_arrow_ipc_sink",
+        ),
+        (
+            "generated-sql-avro",
+            "avro",
+            vec![
+                "generated-source-sql-smoke".to_string(),
+                "VALUES (1, 'alpha'), (2, 'beta')".to_string(),
+                "--output-format".to_string(),
+                "avro".to_string(),
+            ],
+            "avro",
+            "certified_local_avro_sink",
+            "sql_values_to_local_avro_sink",
+        ),
+        (
+            "generated-sequence-orc",
+            "orc",
+            vec![
+                "generated-source-sequence-smoke".to_string(),
+                "1".to_string(),
+                "4".to_string(),
+                "--column".to_string(),
+                "seq".to_string(),
+                "--output-format".to_string(),
+                "orc".to_string(),
+            ],
+            "orc",
+            "certified_local_orc_sink",
+            "engine_native_sequence_generator_to_local_orc_sink",
+        ),
+    ] {
+        let output_path = unique_output_path_with_extension(name, extension);
+        let mut args = vec![
+            command_args[0].as_str(),
+            output_path.to_str().expect("temp path is utf8"),
+        ];
+        args.extend(command_args.iter().skip(1).map(String::as_str));
+        args.extend(["--format", "json"]);
+
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args(args)
+            .output()
+            .expect("generated-source command runs");
+
+        assert!(
+            output.status.success(),
+            "stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "stderr={}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let written = fs::read(&output_path).expect("structured output was written");
+        assert!(!written.is_empty(), "structured sink must not be empty");
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(stdout.contains(&field("output_format", expected_format)));
+        assert!(stdout.contains(&field(
+            "output_native_io_certificate_status",
+            expected_certificate
+        )));
+        assert!(stdout.contains(&field("materialization_boundary", expected_boundary)));
+        assert!(stdout.contains(&field("fallback_attempted", "false")));
+        assert!(stdout.contains(&field("external_engine_invoked", "false")));
+        assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+        fs::remove_file(output_path).expect("remove structured output");
+    }
+}
+
+#[test]
 fn user_rows_smoke_supports_literal_table_and_calendar_source_kinds() {
     for (name, source_kind, schema, rows, expected_written, expected_boundary, expected_reason) in [
         (
