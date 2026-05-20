@@ -199,6 +199,80 @@ fn expression_semantics_string_predicates_propagate_nulls_and_block_non_utf8() {
 }
 
 #[test]
+fn expression_semantics_evaluates_utf8_string_transforms_without_fallback() {
+    let row = row(&[("label", ScalarValue::Utf8("  Alpha  ".into()))]);
+
+    for (name, expected) in [
+        ("utf8_lower", "  alpha  "),
+        ("utf8_upper", "  ALPHA  "),
+        ("utf8_trim", "Alpha"),
+    ] {
+        let expression = Expression::new(
+            expr_id(&format!("{name}-expr")),
+            ExpressionKind::FunctionCall {
+                name: name.to_string(),
+                args: vec![Expression::column(
+                    expr_id(&format!("{name}-column")),
+                    col("label"),
+                )],
+            },
+        );
+        let report = evaluate_expression(&expression, &row);
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.value, Some(ScalarValue::Utf8(expected.to_string())));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Utf8));
+        assert_eq!(report.operator_family, "string_transform");
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(report.data_materialized);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+}
+
+#[test]
+fn expression_semantics_string_transforms_propagate_nulls_and_block_non_utf8() {
+    let expression = Expression::new(
+        expr_id("lower-null"),
+        ExpressionKind::FunctionCall {
+            name: "utf8_lower".to_string(),
+            args: vec![Expression::column(expr_id("label"), col("label"))],
+        },
+    );
+    let null_report = evaluate_expression(&expression, &row(&[("label", ScalarValue::Null)]));
+
+    assert_eq!(null_report.status, ExpressionEvaluationStatus::Evaluated);
+    assert_eq!(null_report.value, Some(ScalarValue::Null));
+    assert_eq!(null_report.output_dtype, Some(LogicalDType::Utf8));
+    assert_eq!(null_report.operator_family, "string_transform");
+    assert!(!null_report.fallback_attempted);
+    assert!(!null_report.external_engine_invoked);
+
+    let invalid_report =
+        evaluate_expression(&expression, &row(&[("label", ScalarValue::Int64(1))]));
+
+    assert_eq!(
+        invalid_report.status,
+        ExpressionEvaluationStatus::Unsupported
+    );
+    assert!(invalid_report.has_errors());
+    assert!(!invalid_report.fallback_attempted);
+    assert!(!invalid_report.external_engine_invoked);
+    assert!(
+        invalid_report
+            .diagnostics
+            .iter()
+            .all(|d| !d.fallback.attempted)
+    );
+    assert!(
+        invalid_report
+            .diagnostics
+            .iter()
+            .any(|d| d.feature.as_deref() == Some("string_transform"))
+    );
+}
+
+#[test]
 fn expression_semantics_parses_formats_and_extracts_date32_without_fallback() {
     assert_eq!(parse_iso_date32("1970-01-01").expect("epoch date"), 0);
     assert_eq!(parse_iso_date32("1970-01-02").expect("next date"), 1);

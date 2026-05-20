@@ -814,6 +814,11 @@ fn eval_function_call(
         "utf8_ends_with" | "ends_with" => {
             eval_string_predicate(name, args, row, |value, needle| value.ends_with(needle))
         }
+        "utf8_lower" | "lower" => eval_string_transform(name, args, row, str::to_lowercase),
+        "utf8_upper" | "upper" => eval_string_transform(name, args, row, str::to_uppercase),
+        "utf8_trim" | "trim" => {
+            eval_string_transform(name, args, row, |value| value.trim().to_string())
+        }
         "date_year" | "year" => eval_date_extract(name, args, row, date32_year),
         "date_month" | "month" => eval_date_extract(name, args, row, |days| {
             i32::try_from(date32_month(days)).expect("month fits i32")
@@ -910,6 +915,41 @@ fn eval_date_extract(
             "date_extract",
             format!(
                 "function {name:?} supports Date32/null operands only, got {}",
+                other.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn eval_string_transform(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    transform: impl FnOnce(&str) -> String,
+) -> EvalResult<EvalValue> {
+    if args.len() != 1 {
+        return Err(EvalFailure::invalid(
+            "string_transform",
+            format!("function {name:?} requires exactly one UTF-8 argument"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let data_materialized = value.data_materialized;
+    match value.value {
+        ScalarValue::Null => Ok(
+            EvalValue::null(LogicalDType::Utf8, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        ),
+        ScalarValue::Utf8(value) => Ok(EvalValue::new(
+            ScalarValue::Utf8(transform(&value)),
+            LogicalDType::Utf8,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        other => Err(EvalFailure::unsupported(
+            "string_transform",
+            format!(
+                "function {name:?} supports UTF-8/null operands only, got {}",
                 other.dtype().as_str()
             ),
         )),
@@ -1301,6 +1341,9 @@ fn function_operator_family(name: &str) -> &'static str {
     match name.trim().to_ascii_lowercase().as_str() {
         "utf8_starts_with" | "starts_with" | "utf8_contains" | "contains" | "utf8_ends_with"
         | "ends_with" => "string_predicate",
+        "utf8_lower" | "lower" | "utf8_upper" | "upper" | "utf8_trim" | "trim" => {
+            "string_transform"
+        }
         "date_year" | "year" | "date_month" | "month" | "date_day" | "day" => "date_extract",
         "date_add_days" | "date_sub_days" => "date_arithmetic",
         _ => "function",

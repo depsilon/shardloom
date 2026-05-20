@@ -158,6 +158,21 @@ class ColumnExpression:
         value = _like_needle("endswith suffix", suffix)
         return self.like(f"%{value}")
 
+    def lower(self) -> "ColumnExpression":
+        """Return a scoped `LOWER(column)` UTF-8 transform expression."""
+
+        return ColumnExpression(f"LOWER({self.sql})")
+
+    def upper(self) -> "ColumnExpression":
+        """Return a scoped `UPPER(column)` UTF-8 transform expression."""
+
+        return ColumnExpression(f"UPPER({self.sql})")
+
+    def trim(self) -> "ColumnExpression":
+        """Return a scoped `TRIM(column)` UTF-8 transform expression."""
+
+        return ColumnExpression(f"TRIM({self.sql})")
+
     def isin(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `IN (...)` predicate."""
 

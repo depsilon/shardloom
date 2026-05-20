@@ -459,6 +459,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("f.amount") >= 10), "f.amount >= 10")
         self.assertEqual(str(sl.col("label").startswith("al")), "label LIKE 'al%'")
         self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
+        self.assertEqual(str(sl.col("label").lower() == "alpha"), "LOWER(label) = 'alpha'")
+        self.assertEqual(str(sl.col("label").upper() != "BETA"), "UPPER(label) != 'BETA'")
+        self.assertEqual(str(sl.col("label").trim() == "gamma"), "TRIM(label) = 'gamma'")
         self.assertEqual(str(sl.col("closed_at").is_not_null()), "closed_at IS NOT NULL")
 
         with self.assertRaisesRegex(ValueError, "datetime literals are not admitted"):
@@ -544,6 +547,63 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.date_arithmetic_operator, ())
         self.assertEqual(report.date_arithmetic_days, ())
         self.assertEqual(report.date_arithmetic_source_columns, ())
+
+    def test_column_expression_builder_exposes_string_transform_report_fields(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE LOWER(label) = 'alpha' LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"Alpha\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "predicate_operator_family", "value": "string_transform"},
+                        {"key": "string_transform_runtime_execution", "value": "true"},
+                        {"key": "string_transform_operator", "value": "lower"},
+                        {"key": "string_transform_source_column", "value": "label"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter(sl.col("label").lower() == "alpha")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "string_transform")
+        self.assertTrue(report.string_transform_runtime_execution)
+        self.assertEqual(report.string_transform_operator, ("lower",))
+        self.assertEqual(report.string_transform_source_columns, ("label",))
+        self.assertEqual(report.result_jsonl, '{"id":1,"label":"Alpha"}\n')
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
     def test_local_csv_query_builder_where_between_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
