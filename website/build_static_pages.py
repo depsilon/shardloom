@@ -764,7 +764,7 @@ def page(title: str, description: str, body: str, active: str, canonical_path: s
 {body}
   </main>
   <footer class="site-footer">
-    <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+    <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom" width="1280" height="640" loading="lazy" decoding="async">
     <p>Pre-release technical preview. Vortex-first. No fallback. Benchmark evidence is not a public speed or production claim.</p>
   </footer>
 </body>
@@ -1097,7 +1097,7 @@ print(report.fallback_attempted)"""
       </div>
       <div class="route-console" aria-label="ShardLoom route and evidence console">
         <div class="console-brand">
-          <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+          <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom" width="1280" height="640" decoding="async">
           <span>Evidence Console</span>
         </div>
         <div class="pipeline" aria-label="Compute route">
@@ -1550,7 +1550,7 @@ def use_case_page(case: dict[str, Any], index: dict[str, Any]) -> str:
     </section>
 """
     return page(
-        f"ShardLoom Use Case - {case['title']}",
+        f"ShardLoom Use Case - {compact(case['title'], 56)}",
         compact(case["claim_boundary"], 150),
         body,
         "use-cases",

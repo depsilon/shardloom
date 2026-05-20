@@ -235,9 +235,9 @@ explicitly reprioritized.
 Current non-runtime sequence:
 
 1. Non-runtime closeout is complete through GAR-0043-B, GAR-VORTEX-071D, and the completed
-   `GAR-WEB-REDESIGN-2A/2B`, `GAR-WEB-REDESIGN-2C`, `GAR-WEB-REDESIGN-2D`, and
-   `GAR-WEB-REDESIGN-2E` website slices.
-2. Complete the open `GAR-WEB-REDESIGN-2F` through `GAR-WEB-REDESIGN-2G` implementation slices
+   `GAR-WEB-REDESIGN-2A/2B`, `GAR-WEB-REDESIGN-2C`, `GAR-WEB-REDESIGN-2D`,
+   `GAR-WEB-REDESIGN-2E`, and `GAR-WEB-REDESIGN-2F` website slices.
+2. Complete the open `GAR-WEB-REDESIGN-2G` implementation slice
    below before returning to the runtime implementation queue unless the user explicitly
    reprioritizes runtime work.
 3. Continue moving completed website/runtime sessions to the ledger immediately after PR/session
@@ -265,39 +265,11 @@ claim-boundary language honest.
 
 Completed slices: `GAR-WEB-REDESIGN-2A reference synthesis and visual direction`,
 `GAR-WEB-REDESIGN-2B information architecture and content model`,
-`GAR-WEB-REDESIGN-2C homepage product-console rebuild`, and
-`GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild`, and
-`GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild` are captured in the completed ledger.
+`GAR-WEB-REDESIGN-2C homepage product-console rebuild`,
+`GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild`,
+`GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild`, and
+`GAR-WEB-REDESIGN-2F performance, accessibility, and claim-safety gate` are captured in the completed ledger.
 Remaining items below are the active implementation queue.
-
-- [ ] GAR-WEB-REDESIGN-2F performance, accessibility, and claim-safety gate
-  - Source: Core Web Vitals thresholds, WCAG 2.2 AA target, website readiness checks, static asset
-    validation, redesign quality bar.
-  - Current state: website readiness and static validation exist, but the redesigned richer site
-    will need stronger checks for accessibility, route coverage, retired/stale content, and
-    claim-safety regressions.
-  - Next slice outcome: extend validation so the rebuilt site fails on broken routes/assets,
-    missing metadata, inaccessible status color-only meaning, runtime raw-GitHub fetches, forbidden
-    claim language, missing reference blocks, and retired stale content.
-  - User-visible surface: all public website pages.
-  - Implementation scope: `scripts/check_website_readiness.py`, `website/validate_static_assets.js`,
-    optional lightweight browser/a11y smoke scripts, README/build docs.
-  - Evidence required: generated readiness report, asset validation output, route inventory,
-    metadata/canonical checks, forbidden-claim scan, keyboard/focus/reduced-motion checklist.
-  - Acceptance: redesigned site has deterministic local validation; status chips include text labels
-    not color-only meaning; no runtime external fetches; mobile/desktop pages meet layout checks;
-    claim boundaries are enforced by scripts where feasible.
-  - Verification: website readiness, static asset validation, compileall, browser smoke, `git diff
-    --check`.
-  - Non-goals: no paid analytics, external search SaaS, server-side rendering, runtime telemetry, or
-    Lighthouse-as-release-gate unless explicitly approved.
-  - Claim boundary: validation proves website publication hygiene only, not runtime or performance
-    claims for ShardLoom compute.
-  - Fallback boundary: validation must continue to reject copy implying external-engine fallback.
-  - Dependencies/blockers: rebuilt website route inventory, shared status-chip components,
-    canonical claim-boundary phrases, and local browser smoke path.
-  - Ledger rule: ledger entry must attach readiness report path, browser viewport list, and any
-    residual manual QA gaps.
 
 - [ ] GAR-WEB-REDESIGN-2G framework migration decision and implementation gate
   - Source: redesign stack recommendation, current Python static generator, Cloudflare static asset

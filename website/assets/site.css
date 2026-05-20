@@ -50,7 +50,11 @@ a {
 }
 
 a:focus-visible,
-summary:focus-visible {
+summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
   outline: 3px solid rgba(6, 169, 214, 0.35);
   outline-offset: 3px;
 }

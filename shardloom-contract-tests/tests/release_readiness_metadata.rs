@@ -1122,13 +1122,18 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
 
     let website_readiness = read_repo_file("scripts/check_website_readiness.py");
     for required in [
-        "shardloom.website_readiness.v2",
+        "shardloom.website_readiness.v3",
         "EXPECTED_REDIRECTS",
+        "EXPECTED_NAV_PATHS",
+        "STATUS_VOCABULARY",
         "status/index.html",
         "/docs",
         "benchmark manifest must keep performance_claim_allowed=false",
         "website compute-flow snapshot does not match canonical architecture doc",
         "canonical URL mismatch",
+        "missing responsive viewport metadata",
+        "image missing stable {dimension}",
+        "contains unlabeled",
         "runtime file references forbidden host",
     ] {
         assert!(
@@ -3142,10 +3147,13 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let readiness = read_repo_file("scripts/check_website_readiness.py");
     for required in [
-        "shardloom.website_readiness.v2",
+        "shardloom.website_readiness.v3",
         "REMOVED_WEBSITE_SURFACES",
         "removed public website surface still exists",
         "runtime file still references Pagefind",
+        "@media (prefers-reduced-motion: reduce)",
+        ":focus-visible",
+        "site CSS missing accessibility/readiness marker",
     ] {
         assert!(
             readiness.contains(required),
