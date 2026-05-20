@@ -1142,33 +1142,14 @@ class LazyFrame:
             expression_sql = _sql_literal(literal)
         except (TypeError, ValueError):
             try:
-                expression_sql = _sql_cast_projection_expression(expression)
+                expression_sql = _sql_computed_projection_expression(expression)
             except (TypeError, ValueError):
-                try:
-                    expression_sql = _sql_null_coalesce_projection_expression(expression)
-                except (TypeError, ValueError):
-                    try:
-                        expression_sql = _sql_numeric_arithmetic_projection_expression(expression)
-                    except (TypeError, ValueError):
-                        try:
-                            expression_sql = _sql_date_arithmetic_projection_expression(expression)
-                        except (TypeError, ValueError):
-                            try:
-                                expression_sql = _sql_string_transform_projection_expression(expression)
-                            except (TypeError, ValueError):
-                                try:
-                                    expression_sql = _sql_temporal_extract_projection_expression(
-                                        expression
-                                    )
-                                except (TypeError, ValueError):
-                                    expression_text = _require_non_empty(
-                                        "column expression", expression
-                                    )
-                                    return self._unsupported_operation(
-                                        "with-column",
-                                        f"{column_name}={expression_text}",
-                                        check=check,
-                                    )
+                expression_text = _require_non_empty("column expression", expression)
+                return self._unsupported_operation(
+                    "with-column",
+                    f"{column_name}={expression_text}",
+                    check=check,
+                )
         if self._can_append_projection_column(column_name):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         return self._unsupported_operation(
@@ -1979,6 +1960,16 @@ def col(name: object) -> ColumnExpression:
     """Return a scoped column expression for local ShardLoom predicates."""
 
     return ColumnExpression(_normalize_expression_column(name))
+
+
+def case_when(predicate: object, then_value: object, else_value: object) -> ColumnExpression:
+    """Return a scoped single-branch `CASE WHEN` computed-column expression."""
+
+    then_literal = _sql_literal(then_value)
+    else_literal = _sql_literal(else_value)
+    return ColumnExpression(
+        f"CASE WHEN {_predicate_sql(predicate)} THEN {then_literal} ELSE {else_literal} END"
+    )
 
 
 def column(name: object) -> ColumnExpression:
@@ -2805,6 +2796,27 @@ def _sql_numeric_arithmetic_projection_expression(expression: object) -> str:
     return text
 
 
+def _sql_computed_projection_expression(expression: object) -> str:
+    parsers = (
+        _sql_cast_projection_expression,
+        _sql_null_coalesce_projection_expression,
+        _sql_conditional_projection_expression,
+        _sql_numeric_arithmetic_projection_expression,
+        _sql_date_arithmetic_projection_expression,
+        _sql_string_transform_projection_expression,
+        _sql_temporal_extract_projection_expression,
+    )
+    last_error: TypeError | ValueError | None = None
+    for parser in parsers:
+        try:
+            return parser(expression)
+        except (TypeError, ValueError) as error:
+            last_error = error
+    if last_error is None:
+        raise ValueError("computed with_column expression is not admitted")
+    raise last_error
+
+
 def _sql_cast_projection_expression(expression: object) -> str:
     if not isinstance(expression, ColumnExpression):
         raise TypeError("computed with_column requires a shardloom ColumnExpression")
@@ -2840,6 +2852,39 @@ def _sql_null_coalesce_projection_expression(expression: object) -> str:
     if fallback.upper() == "NULL":
         raise ValueError("COALESCE with_column expressions require a non-NULL fallback")
     return f"COALESCE({column}, {fallback})"
+
+
+def _sql_conditional_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    upper = text.upper()
+    if not upper.startswith("CASE "):
+        raise ValueError("computed with_column currently admits CASE WHEN expressions")
+    when_marker = "WHEN "
+    then_marker = " THEN "
+    else_marker = " ELSE "
+    end_marker = " END"
+    when_index = upper.find(when_marker)
+    then_index = upper.find(then_marker)
+    else_index = upper.find(else_marker)
+    end_index = upper.rfind(end_marker)
+    if not (0 <= when_index < then_index < else_index < end_index):
+        raise ValueError(
+            "CASE with_column expressions must use CASE WHEN <predicate> THEN <literal> ELSE <literal> END"
+        )
+    if upper[:when_index].strip() != "CASE" or upper[end_index + len(end_marker) :].strip():
+        raise ValueError(
+            "CASE with_column expressions must be a single CASE WHEN expression"
+        )
+    predicate = _predicate_sql(text[when_index + len(when_marker) : then_index].strip())
+    then_literal = text[then_index + len(then_marker) : else_index].strip()
+    else_literal = text[else_index + len(else_marker) : end_index].strip()
+    if not then_literal or not else_literal:
+        raise ValueError("CASE with_column expressions require THEN and ELSE literals")
+    if then_literal.upper() == "NULL" or else_literal.upper() == "NULL":
+        raise ValueError("CASE with_column expressions require non-NULL branch literals")
+    return f"CASE WHEN {predicate} THEN {then_literal} ELSE {else_literal} END"
 
 
 def _sql_date_arithmetic_projection_expression(expression: object) -> str:

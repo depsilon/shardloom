@@ -172,6 +172,7 @@ struct ParsedSqlLocalSource {
     literal_projections: Vec<ParsedLiteralProjection>,
     cast_projections: Vec<ParsedCastProjection>,
     null_coalesce_projections: Vec<ParsedNullCoalesceProjection>,
+    conditional_projections: Vec<ParsedConditionalProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
@@ -213,6 +214,14 @@ struct ParsedNullCoalesceProjection {
     column: String,
     source_cast_dtype: Option<LogicalDType>,
     fallback: ScalarValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedConditionalProjection {
+    alias: String,
+    predicate: ParsedPredicate,
+    then_value: ScalarValue,
+    else_value: ScalarValue,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -352,6 +361,7 @@ struct ParsedProjectionList {
     literal_projections: Vec<ParsedLiteralProjection>,
     cast_projections: Vec<ParsedCastProjection>,
     null_coalesce_projections: Vec<ParsedNullCoalesceProjection>,
+    conditional_projections: Vec<ParsedConditionalProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
@@ -1619,7 +1629,40 @@ fn evaluate_projection_output(
     source: &CsvSourceData,
     selected_row_indexes: &[usize],
 ) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
-    let projection_expressions = parsed
+    let projection_expressions = projection_expressions(parsed, source)?;
+    let mut output_rows = Vec::new();
+    for row_index in selected_row_indexes.iter().take(parsed.limit) {
+        let row = source.rows.get(*row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
+        })?;
+        let projection = evaluate_projection(&projection_expressions, row);
+        if projection.has_errors() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "SQL local-source projection evaluation failed: {}",
+                projection
+                    .diagnostics
+                    .first()
+                    .map_or("unknown diagnostic", |diagnostic| diagnostic
+                        .message
+                        .as_str())
+            )));
+        }
+        output_rows.push(
+            projection
+                .projected_columns
+                .into_iter()
+                .map(|column| (column.name, column.value))
+                .collect(),
+        );
+    }
+    Ok(output_rows)
+}
+
+fn projection_expressions(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+) -> Result<Vec<Expression>, ShardLoomError> {
+    let raw_column_expressions = parsed
         .projection_columns(&source.header)
         .iter()
         .map(|column| {
@@ -1629,7 +1672,7 @@ fn evaluate_projection_output(
             ))
         })
         .collect::<Result<Vec<_>, ShardLoomError>>()?;
-    let projection_expressions = projection_expressions
+    Ok(raw_column_expressions
         .into_iter()
         .chain(
             parsed
@@ -1650,6 +1693,13 @@ fn evaluate_projection_output(
                 .null_coalesce_projections
                 .iter()
                 .map(null_coalesce_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
+        .chain(
+            parsed
+                .conditional_projections
+                .iter()
+                .map(conditional_projection_expression)
                 .collect::<Result<Vec<_>, ShardLoomError>>()?,
         )
         .chain(
@@ -1687,33 +1737,7 @@ fn evaluate_projection_output(
                 .map(timestamp_extract_projection_expression)
                 .collect::<Result<Vec<_>, ShardLoomError>>()?,
         )
-        .collect::<Vec<_>>();
-    let mut output_rows = Vec::new();
-    for row_index in selected_row_indexes.iter().take(parsed.limit) {
-        let row = source.rows.get(*row_index).ok_or_else(|| {
-            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
-        })?;
-        let projection = evaluate_projection(&projection_expressions, row);
-        if projection.has_errors() {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "SQL local-source projection evaluation failed: {}",
-                projection
-                    .diagnostics
-                    .first()
-                    .map_or("unknown diagnostic", |diagnostic| diagnostic
-                        .message
-                        .as_str())
-            )));
-        }
-        output_rows.push(
-            projection
-                .projected_columns
-                .into_iter()
-                .map(|column| (column.name, column.value))
-                .collect(),
-        );
-    }
-    Ok(output_rows)
+        .collect::<Vec<_>>())
 }
 
 fn cast_projection_expression(
@@ -1790,6 +1814,35 @@ fn null_coalesce_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(coalesce),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn conditional_projection_expression(
+    projection: &ParsedConditionalProjection,
+) -> Result<Expression, ShardLoomError> {
+    let case_when = Expression::new(
+        ExprId::new(format!("project.conditional.{}", projection.alias))?,
+        ExpressionKind::FunctionCall {
+            name: "case_when".to_string(),
+            args: vec![
+                projection.predicate.to_expression()?,
+                Expression::literal(
+                    ExprId::new(format!("project.conditional.then.{}", projection.alias))?,
+                    projection.then_value.clone(),
+                ),
+                Expression::literal(
+                    ExprId::new(format!("project.conditional.else.{}", projection.alias))?,
+                    projection.else_value.clone(),
+                ),
+            ],
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(case_when),
             alias: projection.alias.clone(),
         },
     ))
@@ -2101,11 +2154,33 @@ fn apply_temporal_literal_column_coercions(
         source,
         right_source.as_deref_mut(),
     )?;
+    apply_conditional_projection_date_coercions(parsed, source)?;
     apply_null_coalesce_projection_coercions(parsed, source)?;
     apply_date_arithmetic_projection_coercions(parsed, source)?;
     apply_date_extract_projection_coercions(parsed, source)?;
     apply_timestamp_literal_predicate_coercions(&parsed.predicate, parsed, source, right_source)?;
+    apply_conditional_projection_timestamp_coercions(parsed, source)?;
     apply_timestamp_extract_projection_coercions(parsed, source)
+}
+
+fn apply_conditional_projection_date_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.conditional_projections {
+        apply_date_literal_predicate_coercions(&projection.predicate, parsed, source, None)?;
+    }
+    Ok(())
+}
+
+fn apply_conditional_projection_timestamp_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.conditional_projections {
+        apply_timestamp_literal_predicate_coercions(&projection.predicate, parsed, source, None)?;
+    }
+    Ok(())
 }
 
 fn apply_null_coalesce_projection_coercions(
@@ -2887,7 +2962,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -2987,6 +3062,15 @@ fn validate_projection_source_columns(
                 "COALESCE projection source column {:?} is not present in the local source header",
                 projection.column
             )));
+        }
+    }
+    for projection in &parsed.conditional_projections {
+        for column in projection.predicate.columns() {
+            if !header.iter().any(|candidate| candidate == column) {
+                return Err(unsupported_sql_error(&format!(
+                    "conditional projection predicate column {column:?} is not present in the CSV header"
+                )));
+            }
         }
     }
     for projection in &parsed.date_arithmetic_projections {
@@ -3090,6 +3174,13 @@ fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(),
             ));
         }
     }
+    for conditional_projection in &parsed.conditional_projections {
+        if !output_names.insert(conditional_projection.alias.as_str()) {
+            return Err(unsupported_sql_error(
+                "computed projection smoke requires unique output column names",
+            ));
+        }
+    }
     for date_projection in &parsed.date_arithmetic_projections {
         if !output_names.insert(date_projection.alias.as_str()) {
             return Err(unsupported_sql_error(
@@ -3145,6 +3236,7 @@ fn bind_join_sql_local_source(
         || !parsed.literal_projections.is_empty()
         || !parsed.cast_projections.is_empty()
         || !parsed.null_coalesce_projections.is_empty()
+        || !parsed.conditional_projections.is_empty()
         || !parsed.numeric_arithmetic_projections.is_empty()
         || !parsed.date_arithmetic_projections.is_empty()
         || !parsed.string_transform_projections.is_empty()
@@ -3276,6 +3368,10 @@ impl ParsedSqlLocalSource {
         !self.null_coalesce_projections.is_empty()
     }
 
+    fn has_conditional_projection(&self) -> bool {
+        !self.conditional_projections.is_empty()
+    }
+
     fn has_numeric_arithmetic_projection(&self) -> bool {
         !self.numeric_arithmetic_projections.is_empty()
     }
@@ -3300,6 +3396,7 @@ impl ParsedSqlLocalSource {
         self.has_literal_projection()
             || self.has_cast_projection()
             || self.has_null_coalesce_projection()
+            || self.has_conditional_projection()
             || self.has_numeric_arithmetic_projection()
             || self.has_date_arithmetic_projection()
             || self.has_string_transform_projection()
@@ -3331,6 +3428,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_null_coalesce_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_null_coalesce_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_conditional_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_conditional_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
@@ -3388,6 +3489,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_null_coalesce_projection() {
             "computed-projection-limit"
+        } else if self.has_conditional_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_conditional_projection() {
+            "computed-projection-limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_numeric_arithmetic_projection() {
@@ -3443,6 +3548,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_null_coalesce_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_null_coalesce_projection() {
+            "computed_projection_limit"
+        } else if self.has_conditional_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_conditional_projection() {
             "computed_projection_limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
@@ -3512,6 +3621,11 @@ impl ParsedSqlLocalSource {
                 )
                 .chain(
                     self.null_coalesce_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
+                    self.conditional_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
                 )
@@ -3611,6 +3725,66 @@ impl ParsedSqlLocalSource {
             self.null_coalesce_projections
                 .iter()
                 .map(|projection| projection.fallback.dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn conditional_projection_source_columns(&self) -> String {
+        if self.conditional_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.conditional_projections
+                .iter()
+                .map(|projection| projection.predicate.columns().join("+"))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn conditional_projection_output_columns(&self) -> String {
+        if self.conditional_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.conditional_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn conditional_projection_predicate_families(&self) -> String {
+        if self.conditional_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.conditional_projections
+                .iter()
+                .map(|projection| projection.predicate.family())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn conditional_projection_then_dtypes(&self) -> String {
+        if self.conditional_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.conditional_projections
+                .iter()
+                .map(|projection| projection.then_value.dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn conditional_projection_else_dtypes(&self) -> String {
+        if self.conditional_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.conditional_projections
+                .iter()
+                .map(|projection| projection.else_value.dtype().as_str().to_string())
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -5614,6 +5788,30 @@ impl SqlLocalSourceReport {
                 self.parsed.null_coalesce_projection_fallback_dtypes(),
             ),
             (
+                "conditional_projection_runtime_execution".to_string(),
+                self.parsed.has_conditional_projection().to_string(),
+            ),
+            (
+                "conditional_projection_predicate_family".to_string(),
+                self.parsed.conditional_projection_predicate_families(),
+            ),
+            (
+                "conditional_projection_source_column".to_string(),
+                self.parsed.conditional_projection_source_columns(),
+            ),
+            (
+                "conditional_projection_output_column".to_string(),
+                self.parsed.conditional_projection_output_columns(),
+            ),
+            (
+                "conditional_projection_then_dtype".to_string(),
+                self.parsed.conditional_projection_then_dtypes(),
+            ),
+            (
+                "conditional_projection_else_dtype".to_string(),
+                self.parsed.conditional_projection_else_dtypes(),
+            ),
+            (
                 "numeric_arithmetic_projection_runtime_execution".to_string(),
                 self.parsed.has_numeric_arithmetic_projection().to_string(),
             ),
@@ -6833,6 +7031,7 @@ fn parsed_sql_local_source_from_parts(
         literal_projections: projection_list.literal_projections,
         cast_projections: projection_list.cast_projections,
         null_coalesce_projections: projection_list.null_coalesce_projections,
+        conditional_projections: projection_list.conditional_projections,
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
         date_arithmetic_projections: projection_list.date_arithmetic_projections,
         string_transform_projections: projection_list.string_transform_projections,
@@ -6876,6 +7075,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut literal_projections = Vec::new();
     let mut cast_projections = Vec::new();
     let mut null_coalesce_projections = Vec::new();
+    let mut conditional_projections = Vec::new();
     let mut numeric_arithmetic_projections = Vec::new();
     let mut date_arithmetic_projections = Vec::new();
     let mut string_transform_projections = Vec::new();
@@ -6899,6 +7099,8 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             cast_projections.push(cast_projection);
         } else if let Some(null_coalesce_projection) = parse_null_coalesce_projection(projection)? {
             null_coalesce_projections.push(null_coalesce_projection);
+        } else if let Some(conditional_projection) = parse_conditional_projection(projection)? {
+            conditional_projections.push(conditional_projection);
         } else if let Some(date_arithmetic_projection) =
             parse_date_arithmetic_projection(projection)?
         {
@@ -6923,6 +7125,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         literal_projections,
         cast_projections,
         null_coalesce_projections,
+        conditional_projections,
         numeric_arithmetic_projections,
         date_arithmetic_projections,
         string_transform_projections,
@@ -7094,6 +7297,89 @@ fn parse_null_coalesce_projection(
         column,
         source_cast_dtype,
         fallback,
+    }))
+}
+
+fn parse_conditional_projection(
+    raw: &str,
+) -> Result<Option<ParsedConditionalProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    if !expression_raw
+        .get(..4)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("case"))
+    {
+        return Ok(None);
+    }
+    if !keyword_boundary(expression_raw, 0, 4) {
+        return Ok(None);
+    }
+    if alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "CASE projections require an output alias",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let when_index = find_keyword_outside_quotes_and_parentheses(expression_raw, "when")?
+        .ok_or_else(|| {
+            unsupported_sql_error(
+                "CASE projections must use CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>",
+            )
+        })?;
+    if !expression_raw[..when_index]
+        .trim()
+        .eq_ignore_ascii_case("case")
+    {
+        return Err(unsupported_sql_error(
+            "CASE projections admit only one CASE WHEN expression",
+        ));
+    }
+    let then_index = find_keyword_outside_quotes_and_parentheses(expression_raw, "then")?
+        .ok_or_else(|| unsupported_sql_error("CASE projections require a THEN literal branch"))?;
+    let else_index = find_keyword_outside_quotes_and_parentheses(expression_raw, "else")?
+        .ok_or_else(|| unsupported_sql_error("CASE projections require an ELSE literal branch"))?;
+    let end_index = find_keyword_outside_quotes_and_parentheses(expression_raw, "end")?
+        .ok_or_else(|| unsupported_sql_error("CASE projections require an END marker before AS"))?;
+    if !(when_index < then_index && then_index < else_index && else_index < end_index) {
+        return Err(unsupported_sql_error(
+            "CASE projections must use CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>",
+        ));
+    }
+    if !expression_raw[end_index + "end".len()..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "CASE projections must be a single CASE WHEN expression before AS",
+        ));
+    }
+    let predicate_raw = expression_raw[when_index + "when".len()..then_index].trim();
+    let then_raw = expression_raw[then_index + "then".len()..else_index].trim();
+    let else_raw = expression_raw[else_index + "else".len()..end_index].trim();
+    if predicate_raw.is_empty() || then_raw.is_empty() || else_raw.is_empty() {
+        return Err(unsupported_sql_error(
+            "CASE projections require non-empty predicate, THEN literal, and ELSE literal",
+        ));
+    }
+    let then_value = parse_projection_literal_value(then_raw)?;
+    let else_value = parse_projection_literal_value(else_raw)?;
+    if matches!(then_value, ScalarValue::Null) || matches!(else_value, ScalarValue::Null) {
+        return Err(unsupported_sql_error(
+            "CASE projections require non-NULL THEN and ELSE literals in this scoped runtime slice",
+        ));
+    }
+    if then_value.dtype() != else_value.dtype() {
+        return Err(unsupported_sql_error(&format!(
+            "CASE projection THEN/ELSE literals must have matching dtypes; got {} and {}",
+            then_value.dtype().as_str(),
+            else_value.dtype().as_str()
+        )));
+    }
+    Ok(Some(ParsedConditionalProjection {
+        alias: alias.to_string(),
+        predicate: parse_predicate(predicate_raw)?,
+        then_value,
+        else_value,
     }))
 }
 
@@ -9276,6 +9562,57 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_conditional_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 'small' END AS size_band,CASE WHEN event_date >= DATE '2026-01-01' THEN DATE '2026-12-31' ELSE DATE '2025-12-31' END AS cutoff_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("conditional projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.conditional_projections.len(), 2);
+        assert_eq!(parsed.conditional_projections[0].alias, "size_band");
+        assert_eq!(
+            parsed.conditional_projections[0].predicate.family(),
+            "comparison"
+        );
+        assert_eq!(
+            parsed.conditional_projections[0].then_value,
+            ScalarValue::Utf8("large".to_string())
+        );
+        assert_eq!(
+            parsed.conditional_projections[0].else_value,
+            ScalarValue::Utf8("small".to_string())
+        );
+        assert_eq!(parsed.conditional_projections[1].alias, "cutoff_day");
+        assert!(matches!(
+            parsed.conditional_projections[1].then_value,
+            ScalarValue::Date32(_)
+        ));
+        assert_eq!(
+            parsed.conditional_projection_source_columns(),
+            "amount,event_date"
+        );
+        assert_eq!(
+            parsed.conditional_projection_output_columns(),
+            "size_band,cutoff_day"
+        );
+        assert_eq!(
+            parsed.conditional_projection_predicate_families(),
+            "comparison,comparison"
+        );
+        assert_eq!(parsed.conditional_projection_then_dtypes(), "utf8,date32");
+        assert_eq!(parsed.conditional_projection_else_dtypes(), "utf8,date32");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn parses_scoped_string_transform_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,LOWER(label) AS lowered,UPPER(label) AS raised,TRIM(label) AS trimmed FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
@@ -9473,6 +9810,55 @@ mod tests {
             error
                 .to_string()
                 .contains("COALESCE projections require a non-NULL fallback literal"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn conditional_projection_missing_source_column_is_blocked() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CASE WHEN missing_amount >= 10 THEN 'large' ELSE 'small' END AS size_band FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect("conditional projection statement parses before binding");
+        let header = vec!["id".to_string(), "amount".to_string()];
+
+        let error = bind_sql_local_source(&parsed, &header, None)
+            .expect_err("missing conditional predicate column is blocked");
+
+        assert!(
+            error.to_string().contains(
+                "conditional projection predicate column \"missing_amount\" is not present"
+            ),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn conditional_projection_null_branch_is_blocked() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,CASE WHEN amount >= 10 THEN NULL ELSE 'small' END AS size_band FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect_err("null CASE branch is blocked during parsing");
+
+        assert!(
+            error
+                .to_string()
+                .contains("CASE projections require non-NULL THEN and ELSE literals"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn conditional_projection_mixed_branch_dtype_is_blocked() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 0 END AS size_band FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect_err("mixed CASE branch dtypes are blocked during parsing");
+
+        assert!(
+            error
+                .to_string()
+                .contains("CASE projection THEN/ELSE literals must have matching dtypes"),
             "{error}"
         );
     }

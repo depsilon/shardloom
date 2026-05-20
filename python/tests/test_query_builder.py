@@ -2450,6 +2450,85 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_with_column_conditional_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 'small' END AS size_band,CASE WHEN event_date >= DATE '2026-01-01' THEN DATE '2026-12-31' ELSE DATE '2025-12-31' END AS cutoff_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source conditional projection",
+                    "human_text": "sql local source conditional projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"size_band\\":\\"large\\",\\"cutoff_day\\":\\"2026-12-31\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "conditional_projection_runtime_execution", "value": "true"},
+                        {"key": "conditional_projection_predicate_family", "value": "comparison,comparison"},
+                        {"key": "conditional_projection_source_column", "value": "amount,event_date"},
+                        {"key": "conditional_projection_output_column", "value": "size_band,cutoff_day"},
+                        {"key": "conditional_projection_then_dtype", "value": "utf8,date32"},
+                        {"key": "conditional_projection_else_dtype", "value": "utf8,date32"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("size_band", sl.case_when(sl.col("amount") >= 10, "large", "small"))
+            .with_column(
+                "cutoff_day",
+                sl.case_when(
+                    sl.col("event_date") >= date(2026, 1, 1),
+                    date(2026, 12, 31),
+                    date(2025, 12, 31),
+                ),
+            )
+            .filter(sl.col("id") >= 1)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.conditional_projection_runtime_execution)
+        self.assertEqual(
+            report.conditional_projection_predicate_families,
+            ("comparison", "comparison"),
+        )
+        self.assertEqual(
+            report.conditional_projection_source_columns,
+            ("amount", "event_date"),
+        )
+        self.assertEqual(
+            report.conditional_projection_output_columns,
+            ("size_band", "cutoff_day"),
+        )
+        self.assertEqual(report.conditional_projection_then_dtypes, ("utf8", "date32"))
+        self.assertEqual(report.conditional_projection_else_dtypes, ("utf8", "date32"))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_write_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

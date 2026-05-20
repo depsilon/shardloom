@@ -1258,6 +1258,87 @@ fn sql_local_source_smoke_executes_null_coalesce_projection_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-conditional-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount,event_date\n\
+         1,alpha,8,2025-12-31\n\
+         2,beta,15,2026-05-19\n\
+         3,gamma,,2026-06-01\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 'small' END AS size_band,CASE WHEN event_date >= DATE '2026-01-01' THEN DATE '2026-12-31' ELSE DATE '2025-12-31' END AS cutoff_day FROM '{}' WHERE id >= 1 LIMIT 3",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("conditional_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "conditional_projection_predicate_family",
+        "comparison,comparison"
+    )));
+    assert!(stdout.contains(&field(
+        "conditional_projection_source_column",
+        "amount,event_date"
+    )));
+    assert!(stdout.contains(&field(
+        "conditional_projection_output_column",
+        "size_band,cutoff_day"
+    )));
+    assert!(stdout.contains(&field("conditional_projection_then_dtype", "utf8,date32")));
+    assert!(stdout.contains(&field("conditional_projection_else_dtype", "utf8,date32")));
+    assert!(stdout.contains(&field("projected_columns", "id,size_band,cutoff_day")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"size_band\\\":\\\"small\\\",\\\"cutoff_day\\\":\\\"2025-12-31\\\"}\\n{\\\"id\\\":2,\\\"size_band\\\":\\\"large\\\",\\\"cutoff_day\\\":\\\"2026-12-31\\\"}\\n{\\\"id\\\":3,\\\"size_band\\\":\\\"small\\\",\\\"cutoff_day\\\":\\\"2026-12-31\\\"}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 0 END AS size_band FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(
+        blocked_output.contains("CASE projection THEN/ELSE literals must have matching dtypes")
+    );
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
     let source_path = unique_path("sql-local-source-no-filter", "csv");
     fs::write(

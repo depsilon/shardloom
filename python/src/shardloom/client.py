@@ -763,6 +763,60 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def conditional_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted conditional projection."""
+
+        return (
+            self.envelope.field_bool("conditional_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def conditional_projection_predicate_families(self) -> tuple[str, ...]:
+        """Return conditional projection predicate families emitted by the smoke."""
+
+        value = self.envelope.field("conditional_projection_predicate_family", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def conditional_projection_source_columns(self) -> tuple[str, ...]:
+        """Return conditional projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("conditional_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def conditional_projection_output_columns(self) -> tuple[str, ...]:
+        """Return conditional projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("conditional_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def conditional_projection_then_dtypes(self) -> tuple[str, ...]:
+        """Return conditional projection THEN branch dtypes emitted by the smoke."""
+
+        value = self.envelope.field("conditional_projection_then_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def conditional_projection_else_dtypes(self) -> tuple[str, ...]:
+        """Return conditional projection ELSE branch dtypes emitted by the smoke."""
+
+        value = self.envelope.field("conditional_projection_else_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def numeric_arithmetic_projection_operator(self) -> tuple[str, ...]:
         """Return numeric arithmetic projection operators emitted by the smoke."""
 

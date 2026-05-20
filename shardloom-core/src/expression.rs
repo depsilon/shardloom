@@ -847,6 +847,7 @@ fn eval_function_call(
         "date_add_days" => eval_date_add_days(name, args, row, 1),
         "date_sub_days" => eval_date_add_days(name, args, row, -1),
         "coalesce" => eval_coalesce(name, args, row),
+        "case_when" => eval_case_when(name, args, row),
         _ => Err(EvalFailure::unsupported(
             "function_call",
             format!("function {name:?} is not admitted by the current native semantics baseline"),
@@ -872,6 +873,36 @@ fn eval_coalesce(
         return Ok(value.carry_materialization(data_materialized));
     }
     Ok(fallback.carry_materialization(data_materialized))
+}
+
+fn eval_case_when(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() != 3 {
+        return Err(EvalFailure::invalid(
+            "conditional_projection",
+            format!("function {name:?} requires exactly three arguments"),
+        ));
+    }
+    let predicate = eval_expression(&args[0], row)?;
+    let predicate_materialized = predicate.data_materialized;
+    let selected = match predicate.value {
+        ScalarValue::Boolean(true) => eval_expression(&args[1], row)?,
+        ScalarValue::Boolean(false) | ScalarValue::Null => eval_expression(&args[2], row)?,
+        other => {
+            return Err(EvalFailure::unsupported(
+                "conditional_projection",
+                format!(
+                    "function {name:?} requires a boolean/null predicate, got {}",
+                    other.dtype().as_str()
+                ),
+            ));
+        }
+    };
+    let data_materialized = predicate_materialized || selected.data_materialized;
+    Ok(selected.carry_materialization(data_materialized))
 }
 
 fn eval_timestamp_extract(
@@ -1467,6 +1498,7 @@ fn function_operator_family(name: &str) -> &'static str {
         | "timestamp_minute" | "timestamp_second" => "timestamp_extract",
         "date_add_days" | "date_sub_days" => "date_arithmetic",
         "coalesce" => "null_coalesce",
+        "case_when" => "conditional_projection",
         _ => "function",
     }
 }
@@ -2845,6 +2877,63 @@ mod tests {
         assert_eq!(missing.output_dtype, Some(LogicalDType::Utf8));
         assert!(!missing.fallback_attempted);
         assert!(!missing.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_case_when_without_fallback() {
+        let expression = Expression::new(
+            expr_id("case_when"),
+            ExpressionKind::FunctionCall {
+                name: "case_when".to_string(),
+                args: vec![
+                    Expression::new(
+                        expr_id("predicate"),
+                        ExpressionKind::Compare {
+                            left: Box::new(Expression::column(expr_id("amount"), col("amount"))),
+                            op: ComparisonOp::GtEq,
+                            right: Box::new(Expression::literal(
+                                expr_id("threshold"),
+                                ScalarValue::Int64(10),
+                            )),
+                        },
+                    ),
+                    Expression::literal(expr_id("then"), ScalarValue::Utf8("large".to_string())),
+                    Expression::literal(expr_id("else"), ScalarValue::Utf8("small".to_string())),
+                ],
+            },
+        );
+        let true_report =
+            evaluate_expression(&expression, &row(&[("amount", ScalarValue::Int64(12))]));
+        assert_eq!(true_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(true_report.operator_family, "conditional_projection");
+        assert_eq!(
+            true_report.value,
+            Some(ScalarValue::Utf8("large".to_string()))
+        );
+        assert_eq!(true_report.output_dtype, Some(LogicalDType::Utf8));
+        assert!(!true_report.fallback_attempted);
+        assert!(!true_report.external_engine_invoked);
+
+        let false_report =
+            evaluate_expression(&expression, &row(&[("amount", ScalarValue::Int64(4))]));
+        assert_eq!(false_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(
+            false_report.value,
+            Some(ScalarValue::Utf8("small".to_string()))
+        );
+        assert_eq!(false_report.output_dtype, Some(LogicalDType::Utf8));
+        assert!(!false_report.fallback_attempted);
+        assert!(!false_report.external_engine_invoked);
+
+        let null_report = evaluate_expression(&expression, &row(&[("amount", ScalarValue::Null)]));
+        assert_eq!(null_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(
+            null_report.value,
+            Some(ScalarValue::Utf8("small".to_string()))
+        );
+        assert_eq!(null_report.output_dtype, Some(LogicalDType::Utf8));
+        assert!(!null_report.fallback_attempted);
+        assert!(!null_report.external_engine_invoked);
     }
 
     #[test]
