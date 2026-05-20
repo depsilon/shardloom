@@ -1743,6 +1743,23 @@ Important row IDs include `object_store_uri_parse`, `credential_policy`,
 `public_no_credential_read`, `authenticated_read`, `byte_range_read`,
 `full_file_read`, `local_cache`, `write_staging`, and `commit_protocol`.
 
+For the first explicit object-store read runtime proof, use the local-emulator
+smoke. It reads a local fixture file through an object-store-style profile and
+emits SourceState, byte-range/full-file read, Native I/O, and no-fallback
+evidence. Real S3/GCS/ADLS URIs, credentials, network probes, writes, commits,
+lakehouse runtime, and production object-store claims remain blocked.
+
+```python
+read = client.object_store_read_smoke(
+    "target/object-store-fixture.bin",
+    byte_range=(0, 16),
+)
+print(read.field("object_store_read_status"))
+print(read.field("source_state_id"))
+print(read.field_bool("network_probe_performed"))
+print(read.field_bool("fallback_attempted"))
+```
+
 The same scoreboard exposes table-format boundaries:
 
 ```python

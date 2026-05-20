@@ -834,10 +834,14 @@ or documentation updates alone are insufficient.
     fixtures, and website renderer support.
   - Ledger rule: ledger entry must include artifact refs and public claim status.
 
-- [ ] GAR-RUNTIME-IMPL-4N object-store read admission with local emulator/public fixture proof
+- [x] GAR-RUNTIME-IMPL-4N object-store read admission with local emulator/public fixture proof
   - Source: `GAR-COMPAT-1C`, `GAR-SCALE-1E`, object-store request planner,
     `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: object-store planning/report-only surfaces exist; runtime reads are blocked.
+    Completed first runtime proof: `object-store-read-smoke` admits an explicit `local-emulator`
+    profile over local fixture files only. Real S3/GCS/ADLS, credentials, network probes, public
+    provider reads, authenticated reads, writes, commits, table/lakehouse, distributed, and
+    production object-store claims remain blocked.
   - Next slice outcome: implement URI parse, credential/effect policy, optional listing, byte-range
     read, streaming/full-file read, and SourceState evidence in an approved emulator or public
     no-credential fixture profile.
@@ -1312,11 +1316,13 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission
   - Source: `GAR-RUNTIME-IMPL-4N`, `GAR-COMPAT-1C`, `GAR-SCALE-1E`,
     `docs/architecture/object-store-request-planner.md`.
-  - Current state: object-store planning/report-only surfaces exist; runtime reads, credentials,
-    network policy, and provider proofs are blocked.
-  - Next slice outcome: implement provider URI parse, effect/credential policy, optional listing,
-    byte-range/full-file read, local cache boundary, and SourceState evidence in an approved
-    emulator or public no-credential fixture profile.
+  - Current state: `GAR-RUNTIME-IMPL-4N` admits `object-store-read-smoke` for an explicit
+    `local-emulator` local fixture profile with SourceState and Native I/O evidence. Public
+    no-credential object-store reads, authenticated reads, credential policy, network policy,
+    listing, local cache, and real provider proofs remain blocked.
+  - Next slice outcome: extend beyond the local-emulator fixture into provider URI parse,
+    effect/credential policy, optional listing, byte-range/full-file read, local cache boundary,
+    and SourceState evidence for an approved public no-credential fixture profile.
   - Runtime enablement: provider/profile-scoped object-store read runtime with credential/network
     admission and no-default-effect policy.
   - User-visible surface: CLI/Python object-store diagnostics, capability/status pages, use cases.

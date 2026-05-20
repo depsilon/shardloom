@@ -130,6 +130,51 @@ The aggregate report is request-planning evidence only. It does not certify obje
 execution, distributed execution, object-store writes, table-format commit execution, provider
 probing, cloud credentials, or fallback behavior.
 
+## GAR-RUNTIME-IMPL-4N Local-Emulator Read Smoke
+
+`GAR-RUNTIME-IMPL-4N` admits one runtime read profile:
+
+```powershell
+shardloom object-store-read-smoke <local-object-path> --profile local-emulator [--range offset:length] --format json
+```
+
+This is not real S3/GCS/ADLS support. The profile treats a local file as an object-store emulator
+fixture so the runtime can prove URI/path admission, byte-range or full-file read behavior,
+SourceState evidence, Native I/O certificate posture, and no-fallback fields without resolving
+credentials or probing a network provider.
+
+Successful local-emulator rows emit:
+
+```text
+provider_profile=local-emulator
+object_store_read_status=succeeded
+byte_range_read_status=performed_local_emulator | not_requested
+full_file_read_status=performed_local_emulator | not_requested
+source_state_id
+source_state_digest
+source_fingerprint_kind
+source_content_digest
+credential_resolution_performed=false
+network_probe_performed=false
+provider_probe_performed=false
+native_io_certificate_status=fixture_smoke_only
+claim_gate_status=fixture_smoke_only
+object_store_io=true
+object_store_read_io=true
+object_store_write_io=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Remote provider URIs such as `s3://`, `gs://`, `abfs://`, and `abfss://` remain blocked by this
+command with deterministic `SL_OBJECT_STORE_UNSUPPORTED` diagnostics and with
+`credential_resolution_performed=false`, `network_probe_performed=false`, `object_store_io=false`,
+`fallback_attempted=false`, and `external_engine_invoked=false`.
+
+The local-emulator smoke does not authorize credential lookup, provider listing, public-object
+reads, authenticated reads, object-store writes, table/lakehouse commits, distributed execution,
+performance claims, production use, or external-engine fallback.
+
 ## GAR-COMPAT-1C Universal Compatibility Admission Ladder
 
 The universal compatibility scoreboard projects the same fail-closed posture through

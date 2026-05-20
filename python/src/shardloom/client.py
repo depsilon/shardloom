@@ -5904,6 +5904,22 @@ class ShardLoomClient:
 
         return self.run(["object-store-commit-plan", scenario], check=check)
 
+    def object_store_read_smoke(
+        self,
+        local_object_path: str | os.PathLike[str],
+        *,
+        profile: str = "local-emulator",
+        byte_range: tuple[int, int] | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the explicit local-emulator object-store read smoke."""
+
+        command = ["object-store-read-smoke", str(local_object_path), "--profile", profile]
+        if byte_range is not None:
+            offset, length = byte_range
+            command.extend(["--range", f"{offset}:{length}"])
+        return self.run(command, check=check)
+
     def correctness_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the correctness evidence planning surface."""
 

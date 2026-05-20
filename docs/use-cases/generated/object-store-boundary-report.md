@@ -62,6 +62,7 @@ A blocked or report-only object-store plan with no provider probe and no externa
 
 ## Related Use Cases
 
+- `object-store-local-emulator-read-smoke`
 - `table-lakehouse-boundary-report`
 - `output-result-sink-and-fanout-boundary`
 
