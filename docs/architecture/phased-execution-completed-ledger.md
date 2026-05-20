@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTF-8 length runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-string-length-4d` / #856.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - ShardLoom-native string expression semantics
+    - SQL/Python local-source predicate and computed projection smokes
+  - Scope:
+    - Admitted scoped local SQL predicates of the form
+      `LENGTH(<column>) <comparison> <integer literal>` over admitted local-source smoke rows.
+    - Admitted scoped local SQL projections of the form `LENGTH(<column>) AS <column>` after
+      explicit projection selection, with ShardLoom-native UTF-8 scalar length semantics.
+    - Added Python query-builder helpers through `sl.col("label").length()` and
+      `sl.length(sl.col("label"))` so admitted workflows can use the same scoped predicate and
+      computed projection surface.
+    - Added deterministic blockers for malformed `LENGTH(...)` syntax, non-integer predicate
+      literals, missing source columns, duplicate output names, unsupported join/aggregate/order
+      combinations, and unsupported computed projection shapes.
+    - Updated Python README, use-case index, generated website content, and phase-plan current
+      state with the scoped UTF-8 length surface and claim boundary.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder `filter(...)` and `with_column(...)`,
+      direct Python `client.sql_local_source_smoke(...)`, use-case docs, generated website
+      content, and Python README.
+  - Evidence:
+    - Predicate rows emit `predicate_operator_family=string_length`,
+      `string_length_runtime_execution`, `string_length_source_column`,
+      `string_length_rhs_dtype`, `fallback_attempted=false`, `external_engine_invoked=false`,
+      and `claim_gate_status=fixture_smoke_only`.
+    - Projection rows also emit `string_length_projection_runtime_execution`,
+      `string_length_projection_source_column`, and `string_length_projection_output_column`.
+  - Verification:
+    - Focused core expression, parser, CLI smoke, and Python query-builder tests during
+      implementation.
+    - Full verification is recorded on the PR before merge.
+  - Non-goals:
+    - No generalized string-expression trees, byte-length semantics, locale/collation claim, broad
+      SQL/DataFrame runtime, production claim, performance claim, or external fallback.
+  - Claim boundary:
+    - Scoped UTF-8 string length predicate/projection fixture smoke only.
+  - Fallback boundary:
+    - Parser admission, expression execution, and fixture evidence remain ShardLoom-native.
+      External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, arithmetic,
+      and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped NULLIF projection runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-nullif-projections-4d` / #855.

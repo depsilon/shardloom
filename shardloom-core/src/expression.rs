@@ -819,6 +819,7 @@ fn eval_function_call(
         "utf8_trim" | "trim" => {
             eval_string_transform(name, args, row, |value| value.trim().to_string())
         }
+        "utf8_length" | "length" => eval_string_length(name, args, row),
         "date_year" | "year" => eval_date_extract(name, args, row, date32_year),
         "date_month" | "month" => eval_date_extract(name, args, row, |days| {
             i32::try_from(date32_month(days)).expect("month fits i32")
@@ -1086,6 +1087,49 @@ fn eval_string_transform(
         .carry_materialization(data_materialized)),
         other => Err(EvalFailure::unsupported(
             "string_transform",
+            format!(
+                "function {name:?} supports UTF-8/null operands only, got {}",
+                other.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn eval_string_length(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() != 1 {
+        return Err(EvalFailure::invalid(
+            "string_length",
+            format!("function {name:?} requires exactly one UTF-8 argument"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let data_materialized = value.data_materialized;
+    match value.value {
+        ScalarValue::Null => Ok(EvalValue::null(
+            LogicalDType::Int64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        ScalarValue::Utf8(value) => {
+            let length = i64::try_from(value.chars().count()).map_err(|_| {
+                EvalFailure::unsupported(
+                    "string_length",
+                    format!("function {name:?} input length exceeds int64 range"),
+                )
+            })?;
+            Ok(EvalValue::new(
+                ScalarValue::Int64(length),
+                LogicalDType::Int64,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        other => Err(EvalFailure::unsupported(
+            "string_length",
             format!(
                 "function {name:?} supports UTF-8/null operands only, got {}",
                 other.dtype().as_str()
@@ -1525,6 +1569,7 @@ fn function_operator_family(name: &str) -> &'static str {
         "utf8_lower" | "lower" | "utf8_upper" | "upper" | "utf8_trim" | "trim" => {
             "string_transform"
         }
+        "utf8_length" | "length" => "string_length",
         "date_year" | "year" | "date_month" | "month" | "date_day" | "day" => "date_extract",
         "timestamp_year" | "timestamp_month" | "timestamp_day" | "timestamp_hour"
         | "timestamp_minute" | "timestamp_second" => "timestamp_extract",
@@ -2784,6 +2829,29 @@ mod tests {
         assert_eq!(report.operator_family, "string_predicate");
         assert_eq!(report.value, Some(ScalarValue::Boolean(true)));
         assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_utf8_length_without_fallback() {
+        let expression = Expression::new(
+            expr_id("length"),
+            ExpressionKind::FunctionCall {
+                name: "length".to_string(),
+                args: vec![Expression::column(expr_id("label"), col("label"))],
+            },
+        );
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("label", ScalarValue::Utf8("beta".to_string()))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "string_length");
+        assert_eq!(report.value, Some(ScalarValue::Int64(4)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
     }

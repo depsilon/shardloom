@@ -325,7 +325,11 @@ or documentation updates alone are insufficient.
     evidence and deterministic blockers for invalid day counts or unsupported non-Date32 shapes.
     Scoped UTF-8 `LOWER(column)`, `UPPER(column)`, and `TRIM(column)` transform predicates are
     runtime-admitted with `string_transform_*` evidence and deterministic blockers for non-UTF-8
-    or unsupported expression shapes; this is not locale/collation completeness. Scoped UTC
+    or unsupported expression shapes; this is not locale/collation completeness. Scoped
+    UTF-8 string length predicates of the form `LENGTH(column) <comparison> <integer literal>` are
+    runtime-admitted with `string_length_*` evidence, SQL NULL-filter semantics, and deterministic
+    blockers for non-integer right-hand literals, non-UTF-8 source columns, or unsupported
+    expression shapes. Scoped UTC
     timestamp-micros parsing/formatting, UTF-8/timestamp/date casts,
     `TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z'` literals, and
     `TIMESTAMP_YEAR` / `TIMESTAMP_MONTH` / `TIMESTAMP_DAY` / `TIMESTAMP_HOUR` /
@@ -344,6 +348,9 @@ or documentation updates alone are insufficient.
     deterministic division-by-zero/lossy-coercion/unsupported-shape blockers. Scoped UTF-8
     transform projections of the form `LOWER(column) AS column`, `UPPER(column) AS column`, and
     `TRIM(column) AS column` are runtime-admitted with `string_transform_projection_*` evidence,
+    ShardLoom-native null propagation, and deterministic duplicate-output-name/source-column/
+    unsupported-shape blockers. Scoped UTF-8 string length projections of the form
+    `LENGTH(column) AS column` are runtime-admitted with `string_length_projection_*` evidence,
     ShardLoom-native null propagation, and deterministic duplicate-output-name/source-column/
     unsupported-shape blockers. Scoped Date32 and UTC timestamp extract projections through
     `DATE_YEAR` / `DATE_MONTH` / `DATE_DAY` and `TIMESTAMP_YEAR` / `TIMESTAMP_MONTH` /
@@ -386,7 +393,7 @@ or documentation updates alone are insufficient.
     cast/date/timestamp, Date32 extracts, Date32 day arithmetic, scoped UTC timestamp extracts,
     scoped numeric arithmetic comparison operators, scoped numeric arithmetic `with_column(...)`,
     scoped cast `with_column(...)`, scoped Date32 day arithmetic `with_column(...)`, scoped UTF-8
-    string transform `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
+    string transform and length `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
     scoped null-cleanup `with_column(...)` via `.fill_null(...)` and `.null_if(...)`, scoped
     conditional `with_column(...)` via `sl.case_when(...)`, and logical predicates into the same
     local SQL

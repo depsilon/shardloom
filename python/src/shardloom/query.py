@@ -221,6 +221,11 @@ class ColumnExpression:
 
         return ColumnExpression(f"TRIM({self.sql})")
 
+    def length(self) -> "ColumnExpression":
+        """Return a scoped `LENGTH(column)` UTF-8 length expression."""
+
+        return ColumnExpression(f"LENGTH({self.sql})")
+
     def fill_null(self, value: object) -> "ColumnExpression":
         """Return a scoped `COALESCE(column, literal)` null-cleanup expression."""
 
@@ -1985,6 +1990,14 @@ def null_if(column_expression: object, value: object) -> ColumnExpression:
     return column_expression.null_if(value)
 
 
+def length(column_expression: object) -> ColumnExpression:
+    """Return a scoped `LENGTH(column)` UTF-8 length expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("length requires a shardloom column expression")
+    return column_expression.length()
+
+
 def column(name: object) -> ColumnExpression:
     """Alias for `col(...)`."""
 
@@ -2817,6 +2830,7 @@ def _sql_computed_projection_expression(expression: object) -> str:
         _sql_conditional_projection_expression,
         _sql_numeric_arithmetic_projection_expression,
         _sql_date_arithmetic_projection_expression,
+        _sql_string_length_projection_expression,
         _sql_string_transform_projection_expression,
         _sql_temporal_extract_projection_expression,
     )
@@ -2962,6 +2976,21 @@ def _sql_string_transform_projection_expression(expression: object) -> str:
     column = text[open_index + 1 : -1].strip()
     _normalize_expression_column(column)
     return f"{function}({column})"
+
+
+def _sql_string_length_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError("computed with_column currently admits LENGTH column expressions")
+    function = text[:open_index].strip().upper()
+    if function != "LENGTH":
+        raise ValueError("computed with_column currently admits LENGTH column expressions")
+    column = text[open_index + 1 : -1].strip()
+    normalized = _normalize_expression_column(column)
+    return f"LENGTH({normalized})"
 
 
 def _sql_temporal_extract_projection_expression(expression: object) -> str:
