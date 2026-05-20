@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F flat JSON local-source adapter runtime slice
+  - Branch/PR: `codex/runtime-local-json-source-admission` / #819.
+  - Primary files:
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/use-cases/use-case-index.yml`
+    - `website/*` generated public pages
+  - Scope: promote flat top-level local `.json` object/array inputs into the scoped SQL/Python
+    direct-transient local-source smoke path while leaving nested JSON, JSONPath, broad SQL/DataFrame,
+    object-store/table, and performance claims blocked.
+  - Runtime behavior:
+    - `sql-local-source-smoke` now admits local `.json` sources containing one flat object or an
+      array of flat object rows using the same ShardLoom-owned scalar JSON parser/materializer as
+      JSONL/NDJSON.
+    - Python `ctx.read_json("*.json")` query-builder chains can now lower scoped
+      projection/optional-filter/limit, scalar aggregate, one-column group-by aggregate, and
+      single-key top-N paths into `sql-local-source-smoke`.
+    - Nested object/array values continue to fail deterministically before fallback.
+  - Evidence:
+    - Local JSON rows emit source-format-aware `source_adapter_id=local_json_input_adapter`,
+      `source_state_id=local-json-fnv64-*`, `source_certificate_ref=sql-local-source.json.*`,
+      `execution_certificate_ref=sql-local-source.json.*`, `materialization_boundary=local_json_*`,
+      `pushdown_status=not_applicable_local_json_transient`, direct-transient route fields,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo test -p shardloom-cli sql_local_source_runtime`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python website/build_static_pages.py --benchmark-manifest website/assets/benchmarks/latest/manifest.json`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics website`
+    - `git diff --check`
+  - Claim boundary: flat local JSON fixture-smoke/runtime-admission only. This does not add nested
+    JSON/JSONPath, Parquet/Arrow/Avro/ORC runtime parity, Vortex-native execution, production
+    SQL/DataFrame support, object-store/lakehouse support, Foundry support, package publication,
+    performance/superiority claims, or Spark-displacement claims.
+  - Fallback boundary: JSON parsing, planning, and execution are ShardLoom-owned; no pandas,
+    Polars, DuckDB, DataFusion, Spark, Dask, or other external engine is invoked as fallback.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F0 UniversalIngress and vortex_ingest route taxonomy
   - Branch/PR: `codex/close-universal-ingress-route-taxonomy` / #818.
   - Primary files:

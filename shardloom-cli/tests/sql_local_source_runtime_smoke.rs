@@ -1250,6 +1250,89 @@ fn sql_local_source_smoke_executes_jsonl_projection_filter_limit_with_source_sta
 }
 
 #[test]
+fn sql_local_source_smoke_executes_json_projection_filter_limit_with_source_state_evidence() {
+    let source_path = unique_path("sql-local-source-json", "json");
+    fs::write(
+        &source_path,
+        "[\n\
+          {\"id\":1,\"label\":\"alpha\",\"amount\":8,\"event_date\":\"2026-05-18\"},\n\
+          {\"id\":2,\"label\":\"beta\",\"amount\":15,\"event_date\":\"2026-05-19\"},\n\
+          {\"id\":3,\"label\":\"gamma\",\"amount\":21,\"event_date\":\"2026-05-20\"}\n\
+        ]\n",
+    )
+    .expect("write source json");
+
+    let statement = format!(
+        "SELECT id,label,event_date FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "json")));
+    assert!(stdout.contains(&field("source_kind", "local_non_vortex_file")));
+    assert!(stdout.contains(&field("source_adapter_id", "local_json_input_adapter")));
+    assert!(stdout.contains(&field("source_adapter_status", "smoke_supported")));
+    assert!(stdout.contains(&field("ingress_route", "direct_transient")));
+    assert!(stdout.contains(&field("vortex_ingest_performed", "false")));
+    assert!(stdout.contains(&field("prepared_state_created", "false")));
+    assert!(stdout.contains(&field(
+        "selected_execution_mode",
+        "direct_compatibility_transient"
+    )));
+    assert!(stdout.contains(&field("timing_scope", "direct_one_shot")));
+    assert!(stdout.contains(&field(
+        "source_fingerprint_kind",
+        "local_file_content_digest"
+    )));
+    assert!(stdout.contains("\"source_state_id\",\"value\":\"local-json-fnv64-"));
+    assert!(stdout.contains("\"source_state_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("source_state_reuse_allowed", "false")));
+    assert!(stdout.contains(&field("source_state_reuse_hit", "false")));
+    assert!(stdout.contains(&field("source_columns", "id,label,amount,event_date")));
+    assert!(stdout.contains(&field(
+        "pushdown_status",
+        "not_applicable_local_json_transient"
+    )));
+    assert!(stdout.contains(&field(
+        "source_certificate_ref",
+        "sql-local-source.json.compatibility-source.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.json.projection-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "local_json_row_materialization_to_expression_semantics"
+    )));
+    assert!(stdout.contains(&field(
+        "claim_gate_reason",
+        "one_scoped_local_json_sql_projection_filter_limit_smoke"
+    )));
+    assert!(stdout.contains(&field("input_row_count", "3")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\",\\\"event_date\\\":\\\"2026-05-19\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\",\\\"event_date\\\":\\\"2026-05-20\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source json");
+}
+
+#[test]
 fn sql_local_source_smoke_jsonl_scalar_aggregate_uses_jsonl_evidence_labels() {
     let source_path = unique_path("sql-local-source-jsonl-aggregate", "jsonl");
     fs::write(
@@ -1793,7 +1876,7 @@ fn sql_local_source_smoke_blocks_nested_jsonl_values_without_fallback() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("JSONL source runtime admits scalar values only"));
+    assert!(stdout.contains("JSON source runtime admits scalar values only"));
     assert!(stdout.contains("no fallback execution was attempted"));
     assert!(stdout.contains("external_engine_invoked=false"));
 
@@ -1826,7 +1909,7 @@ fn sql_local_source_smoke_blocks_remote_sources_before_execution() {
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
     assert!(stdout.contains("\"status\":\"error\""));
-    assert!(stdout.contains("local CSV file paths only"));
+    assert!(stdout.contains("local CSV, JSONL/NDJSON, and flat JSON file paths only"));
     assert!(stdout.contains("no fallback execution was attempted"));
     assert!(stdout.contains("\"attempted\":false"));
     assert!(stdout.contains("\"allowed\":false"));

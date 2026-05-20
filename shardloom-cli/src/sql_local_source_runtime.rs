@@ -1,7 +1,7 @@
 //! Scoped local-source SQL runtime smoke.
 //!
-//! This module intentionally admits one small SQL shape over local CSV/JSONL:
-//! `SELECT <columns> FROM <local.csv|local.jsonl> [WHERE <scoped predicate>] [ORDER BY <column> ASC|DESC] LIMIT <n>`
+//! This module intentionally admits one small SQL shape over local CSV/JSONL/JSON:
+//! `SELECT <columns> FROM <local.csv|local.jsonl|local.json> [WHERE <scoped predicate>] [ORDER BY <column> ASC|DESC] LIMIT <n>`
 //! plus one explicit local inner equi-join shape.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
@@ -377,6 +377,7 @@ impl StringPredicateOp {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LocalSourceFormat {
     Csv,
+    Json,
     JsonLines,
 }
 
@@ -384,14 +385,15 @@ impl LocalSourceFormat {
     fn from_path(path: &Path) -> Result<Self, ShardLoomError> {
         let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
             return Err(unsupported_sql_error(
-                "GAR-RUNTIME-IMPL-4F admits local CSV and JSONL/NDJSON sources only in this slice",
+                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, and flat JSON sources only in this slice",
             ));
         };
         match extension.to_ascii_lowercase().as_str() {
             "csv" => Ok(Self::Csv),
+            "json" => Ok(Self::Json),
             "jsonl" | "ndjson" => Ok(Self::JsonLines),
             _ => Err(unsupported_sql_error(
-                "GAR-RUNTIME-IMPL-4F admits local CSV and JSONL/NDJSON sources only in this slice",
+                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, and flat JSON sources only in this slice",
             )),
         }
     }
@@ -399,6 +401,7 @@ impl LocalSourceFormat {
     const fn as_str(self) -> &'static str {
         match self {
             Self::Csv => "csv",
+            Self::Json => "json",
             Self::JsonLines => "jsonl",
         }
     }
@@ -406,6 +409,7 @@ impl LocalSourceFormat {
     const fn row_label(self) -> &'static str {
         match self {
             Self::Csv => "CSV",
+            Self::Json => "JSON",
             Self::JsonLines => "JSONL",
         }
     }
@@ -2534,6 +2538,67 @@ impl SqlLocalSourceReport {
                 self.source.source_format.as_str().to_string(),
             ),
             (
+                "source_kind".to_string(),
+                "local_non_vortex_file".to_string(),
+            ),
+            (
+                "source_adapter_id".to_string(),
+                self.source_adapter_id().to_string(),
+            ),
+            (
+                "source_adapter_status".to_string(),
+                "smoke_supported".to_string(),
+            ),
+            (
+                "source_adapter_blocker_id".to_string(),
+                "none_scoped_sql_local_source_smoke_only".to_string(),
+            ),
+            ("ingress_route".to_string(), "direct_transient".to_string()),
+            (
+                "ingress_route_label".to_string(),
+                "Direct one-shot route".to_string(),
+            ),
+            ("ingress_status".to_string(), "smoke_supported".to_string()),
+            (
+                "ingress_certification_level".to_string(),
+                "fixture_smoke".to_string(),
+            ),
+            ("vortex_ingest_performed".to_string(), "false".to_string()),
+            (
+                "vortex_ingest_status".to_string(),
+                "not_performed_direct_transient".to_string(),
+            ),
+            (
+                "vortex_ingest_blocker_id".to_string(),
+                "not_applicable_direct_transient".to_string(),
+            ),
+            ("prepared_state_id".to_string(), String::new()),
+            ("prepared_state_digest".to_string(), String::new()),
+            ("prepared_state_created".to_string(), "false".to_string()),
+            ("prepared_state_reused".to_string(), "false".to_string()),
+            ("prepared_state_reuse_hit".to_string(), "false".to_string()),
+            (
+                "selected_execution_mode".to_string(),
+                "direct_compatibility_transient".to_string(),
+            ),
+            (
+                "execution_route_label".to_string(),
+                "Direct one-shot route".to_string(),
+            ),
+            ("timing_scope".to_string(), "direct_one_shot".to_string()),
+            (
+                "certification_policy".to_string(),
+                "scoped_compatibility_source_execution".to_string(),
+            ),
+            (
+                "certification_status".to_string(),
+                "fixture_smoke_certified".to_string(),
+            ),
+            (
+                "certification_blocker_id".to_string(),
+                "not_claim_grade_fixture_smoke".to_string(),
+            ),
+            (
                 "source_path".to_string(),
                 self.parsed.source_path.display().to_string(),
             ),
@@ -2910,6 +2975,32 @@ impl SqlLocalSourceReport {
                 "output_format".to_string(),
                 self.request.output_format.sink_format().to_string(),
             ),
+            (
+                "output_route".to_string(),
+                if self.request.output_path.is_some() {
+                    "local_sink"
+                } else {
+                    "inline_result"
+                }
+                .to_string(),
+            ),
+            (
+                "output_plan_id".to_string(),
+                format!(
+                    "sql-local-source.{}.{}.output-plan.v1",
+                    self.source_format_label(),
+                    self.request.output_format.sink_format()
+                ),
+            ),
+            (
+                "output_plan_status".to_string(),
+                if self.request.output_path.is_some() {
+                    "smoke_supported"
+                } else {
+                    "not_applicable_inline_result"
+                }
+                .to_string(),
+            ),
             ("output_bytes".to_string(), self.output_bytes.to_string()),
             ("output_digest".to_string(), self.output_digest.clone()),
             (
@@ -3063,6 +3154,14 @@ impl SqlLocalSourceReport {
         self.source.source_format.as_str()
     }
 
+    fn source_adapter_id(&self) -> &'static str {
+        match self.source.source_format {
+            LocalSourceFormat::Csv => "local_csv_input_adapter",
+            LocalSourceFormat::Json => "local_json_input_adapter",
+            LocalSourceFormat::JsonLines => "local_jsonl_input_adapter",
+        }
+    }
+
     fn source_certificate_ref(&self) -> String {
         format!(
             "sql-local-source.{}.compatibility-source.v1",
@@ -3123,6 +3222,7 @@ fn read_local_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
     let parse_start = Instant::now();
     let (header, rows) = match source_format {
         LocalSourceFormat::Csv => parse_csv_source_content(&content)?,
+        LocalSourceFormat::Json => parse_json_source_content(&content)?,
         LocalSourceFormat::JsonLines => parse_jsonl_source_content(&content)?,
     };
     Ok(CsvSourceData {
@@ -3181,7 +3281,6 @@ fn parse_csv_source_content(
 fn parse_jsonl_source_content(
     content: &str,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
-    let mut header = Vec::new();
     let mut raw_rows = Vec::new();
     for (line_index, line) in content
         .lines()
@@ -3199,22 +3298,94 @@ fn parse_jsonl_source_content(
                 line_index + 1
             ))
         })?;
-        for (name, _value) in &fields {
+        raw_rows.push(fields);
+    }
+    materialize_flat_json_rows("JSONL", raw_rows)
+}
+
+fn parse_json_source_content(
+    content: &str,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let trimmed = content.trim_start_matches('\u{feff}').trim();
+    if trimmed.is_empty() {
+        return Err(unsupported_sql_error(
+            "JSON source must include one flat object or an array of flat object rows",
+        ));
+    }
+    let chars = trimmed.chars().collect::<Vec<_>>();
+    let mut index = skip_json_ws(&chars, 0);
+    let mut raw_rows = Vec::new();
+    match chars.get(index) {
+        Some('{') => {
+            let (fields, next_index) = parse_flat_json_object_at(&chars, index, "JSON")?;
+            index = skip_json_ws(&chars, next_index);
+            if index != chars.len() {
+                return Err(unsupported_sql_error(
+                    "JSON source must contain exactly one flat object or one array of flat objects",
+                ));
+            }
+            raw_rows.push(fields);
+        }
+        Some('[') => {
+            index += 1;
+            loop {
+                index = skip_json_ws(&chars, index);
+                if chars.get(index) == Some(&']') {
+                    index += 1;
+                    break;
+                }
+                let (fields, next_index) = parse_flat_json_object_at(&chars, index, "JSON")?;
+                raw_rows.push(fields);
+                index = skip_json_ws(&chars, next_index);
+                match chars.get(index) {
+                    Some(',') => index += 1,
+                    Some(']') => {
+                        index += 1;
+                        break;
+                    }
+                    _ => {
+                        return Err(unsupported_sql_error(
+                            "JSON array rows must be separated by ','",
+                        ));
+                    }
+                }
+            }
+            if skip_json_ws(&chars, index) != chars.len() {
+                return Err(unsupported_sql_error(
+                    "JSON source array must be the only top-level value",
+                ));
+            }
+        }
+        _ => {
+            return Err(unsupported_sql_error(
+                "JSON source must be a flat object or an array of flat object rows",
+            ));
+        }
+    }
+    materialize_flat_json_rows("JSON", raw_rows)
+}
+
+fn materialize_flat_json_rows(
+    source_label: &str,
+    raw_rows: Vec<Vec<(String, ScalarValue)>>,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let mut header = Vec::new();
+    for fields in &raw_rows {
+        for (name, _value) in fields {
             if !header.contains(name) {
                 validate_sql_identifier(name)?;
                 header.push(name.clone());
             }
         }
-        raw_rows.push(fields);
     }
     if raw_rows.is_empty() {
-        return Err(unsupported_sql_error(
-            "JSONL source must include at least one object row",
-        ));
+        return Err(unsupported_sql_error(&format!(
+            "{source_label} source must include at least one object row"
+        )));
     }
     if raw_rows.len() > MAX_INPUT_ROWS {
         return Err(unsupported_sql_error(&format!(
-            "scoped SQL local-source smoke supports at most {MAX_INPUT_ROWS} JSONL data rows"
+            "scoped SQL local-source smoke supports at most {MAX_INPUT_ROWS} {source_label} data rows"
         )));
     }
     let mut rows = Vec::with_capacity(raw_rows.len());
@@ -3233,32 +3404,45 @@ fn parse_jsonl_source_content(
 
 fn parse_flat_json_object(raw: &str) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
     let chars = raw.trim().chars().collect::<Vec<_>>();
-    let mut index = skip_json_ws(&chars, 0);
-    if chars.get(index) != Some(&'{') {
+    let (fields, index) = parse_flat_json_object_at(&chars, skip_json_ws(&chars, 0), "JSONL")?;
+    if skip_json_ws(&chars, index) != chars.len() {
         return Err(unsupported_sql_error(
-            "JSONL rows must be flat JSON objects",
+            "JSONL rows must contain exactly one JSON object per line",
         ));
+    }
+    Ok(fields)
+}
+
+fn parse_flat_json_object_at(
+    chars: &[char],
+    mut index: usize,
+    source_label: &str,
+) -> Result<(Vec<(String, ScalarValue)>, usize), ShardLoomError> {
+    if chars.get(index) != Some(&'{') {
+        return Err(unsupported_sql_error(&format!(
+            "{source_label} rows must be flat JSON objects"
+        )));
     }
     index += 1;
     let mut fields = Vec::new();
     loop {
-        index = skip_json_ws(&chars, index);
+        index = skip_json_ws(chars, index);
         if chars.get(index) == Some(&'}') {
             index += 1;
             break;
         }
-        let (key, next_index) = parse_json_string(&chars, index)?;
+        let (key, next_index) = parse_json_string(chars, index)?;
         validate_sql_identifier(&key)?;
-        index = skip_json_ws(&chars, next_index);
+        index = skip_json_ws(chars, next_index);
         if chars.get(index) != Some(&':') {
             return Err(unsupported_sql_error(
-                "JSONL object fields must use ':' between key and value",
+                "JSON object fields must use ':' between key and value",
             ));
         }
         index += 1;
-        let (value, next_index) = parse_json_value(&chars, index)?;
+        let (value, next_index) = parse_json_value(chars, index)?;
         fields.push((key, value));
-        index = skip_json_ws(&chars, next_index);
+        index = skip_json_ws(chars, next_index);
         match chars.get(index) {
             Some(',') => index += 1,
             Some('}') => {
@@ -3267,22 +3451,17 @@ fn parse_flat_json_object(raw: &str) -> Result<Vec<(String, ScalarValue)>, Shard
             }
             _ => {
                 return Err(unsupported_sql_error(
-                    "JSONL object fields must be separated by ','",
+                    "JSON object fields must be separated by ','",
                 ));
             }
         }
     }
     if fields.is_empty() {
-        return Err(unsupported_sql_error(
-            "JSONL object rows must include at least one field",
-        ));
+        return Err(unsupported_sql_error(&format!(
+            "{source_label} object rows must include at least one field"
+        )));
     }
-    if skip_json_ws(&chars, index) != chars.len() {
-        return Err(unsupported_sql_error(
-            "JSONL rows must contain exactly one JSON object per line",
-        ));
-    }
-    Ok(fields)
+    Ok((fields, index))
 }
 
 fn parse_json_value(
@@ -3296,7 +3475,7 @@ fn parse_json_value(
             Ok((ScalarValue::Utf8(value), next_index))
         }
         Some('{' | '[') => Err(unsupported_sql_error(
-            "JSONL source runtime admits scalar values only; nested objects and arrays remain blocked",
+            "JSON source runtime admits scalar values only; nested objects and arrays remain blocked",
         )),
         Some(_) => {
             let start = index;
@@ -3313,7 +3492,7 @@ fn parse_json_value(
                 .to_string();
             if token.is_empty() {
                 return Err(unsupported_sql_error(
-                    "JSONL scalar values must not be empty",
+                    "JSON scalar values must not be empty",
                 ));
             }
             let value = parse_json_bare_scalar(&token)?;
@@ -3337,12 +3516,12 @@ fn parse_json_bare_scalar(token: &str) -> Result<ScalarValue, ShardLoomError> {
             Ok(ScalarValue::Float64(parsed))
         } else {
             Err(unsupported_sql_error(
-                "JSONL numeric values must be finite int64 or float64 scalars",
+                "JSON numeric values must be finite int64 or float64 scalars",
             ))
         }
     } else {
         Err(unsupported_sql_error(
-            "JSONL bare values are limited to null, booleans, finite numbers, and quoted strings",
+            "JSON bare values are limited to null, booleans, finite numbers, and quoted strings",
         ))
     }
 }
@@ -3350,7 +3529,7 @@ fn parse_json_bare_scalar(token: &str) -> Result<ScalarValue, ShardLoomError> {
 fn parse_json_string(chars: &[char], mut index: usize) -> Result<(String, usize), ShardLoomError> {
     if chars.get(index) != Some(&'"') {
         return Err(unsupported_sql_error(
-            "JSONL object keys and string values must be quoted strings",
+            "JSON object keys and string values must be quoted strings",
         ));
     }
     index += 1;
@@ -3375,12 +3554,12 @@ fn parse_json_string(chars: &[char], mut index: usize) -> Result<(String, usize)
                     't' => value.push('\t'),
                     'u' => {
                         return Err(unsupported_sql_error(
-                            "JSONL unicode escape decoding is not admitted in this scoped runtime slice",
+                            "JSON unicode escape decoding is not admitted in this scoped runtime slice",
                         ));
                     }
                     _ => {
                         return Err(unsupported_sql_error(
-                            "JSONL string contains an unsupported escape sequence",
+                            "JSON string contains an unsupported escape sequence",
                         ));
                     }
                 }
@@ -3388,7 +3567,7 @@ fn parse_json_string(chars: &[char], mut index: usize) -> Result<(String, usize)
             value_char => value.push(value_char),
         }
     }
-    Err(unsupported_sql_error("JSONL string is not closed"))
+    Err(unsupported_sql_error("JSON string is not closed"))
 }
 
 fn skip_json_ws(chars: &[char], mut index: usize) -> usize {
@@ -3468,7 +3647,7 @@ fn reject_remote_source_path(path: &Path) -> Result<(), ShardLoomError> {
     let value = path.to_string_lossy();
     if value.contains("://") || value.starts_with("s3:") || value.starts_with("gs:") {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke supports local CSV file paths only; object-store and remote URI reads remain blocked",
+            "SQL local-source smoke supports local CSV, JSONL/NDJSON, and flat JSON file paths only; object-store and remote URI reads remain blocked",
         ));
     }
     Ok(())
@@ -3828,7 +4007,7 @@ fn parse_aliased_source(raw: &str, side: &str) -> Result<(PathBuf, String), Shar
     let tokens = split_whitespace_outside_quotes(raw)?;
     let [path_raw, as_keyword, alias] = tokens.as_slice() else {
         return Err(unsupported_sql_error(&format!(
-            "JOIN smoke requires {side} source syntax <local.csv|local.jsonl|local.ndjson> AS <alias>"
+            "JOIN smoke requires {side} source syntax <local.csv|local.json|local.jsonl|local.ndjson> AS <alias>"
         )));
     };
     if !as_keyword.eq_ignore_ascii_case("as") {
@@ -3862,7 +4041,7 @@ fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
     } else {
         if raw.split_whitespace().count() != 1 {
             return Err(unsupported_sql_error(
-                "FROM source must be a single local CSV/JSONL path or single-quoted path",
+                "FROM source must be a single local CSV/JSONL/JSON path or single-quoted path",
             ));
         }
         raw.to_string()
@@ -5455,8 +5634,43 @@ mod tests {
     }
 
     #[test]
+    fn json_parser_handles_flat_array_and_missing_fields() {
+        let (header, rows) =
+            parse_json_source_content("[{\"id\":1,\"label\":\"alpha\"},{\"id\":2,\"score\":2.5}]")
+                .expect("json array parses");
+
+        assert_eq!(header, vec!["id", "label", "score"]);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].get("id"), Some(&ScalarValue::Int64(1)));
+        assert_eq!(
+            rows[0].get("label"),
+            Some(&ScalarValue::Utf8("alpha".into()))
+        );
+        assert_eq!(rows[0].get("score"), Some(&ScalarValue::Null));
+        assert_eq!(rows[1].get("label"), Some(&ScalarValue::Null));
+        assert_eq!(rows[1].get("score"), Some(&ScalarValue::Float64(2.5)));
+    }
+
+    #[test]
+    fn json_parser_handles_single_flat_object() {
+        let (header, rows) =
+            parse_json_source_content("{\"id\":1,\"label\":\"alpha\"}").expect("json parses");
+
+        assert_eq!(header, vec!["id", "label"]);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].get("id"), Some(&ScalarValue::Int64(1)));
+    }
+
+    #[test]
     fn jsonl_parser_blocks_nested_values() {
         let error = parse_jsonl_source_content("{\"id\":1,\"payload\":{\"x\":1}}\n")
+            .expect_err("nested object is blocked");
+        assert!(error.to_string().contains("scalar values only"));
+    }
+
+    #[test]
+    fn json_parser_blocks_nested_values() {
+        let error = parse_json_source_content("[{\"id\":1,\"payload\":{\"x\":1}}]")
             .expect_err("nested object is blocked");
         assert!(error.to_string().contains("scalar values only"));
     }

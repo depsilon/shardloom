@@ -901,7 +901,7 @@ class LazyFrame:
         *,
         check: bool = False,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
-        """Collect rows for admitted local CSV/flat JSONL SQL smoke shapes."""
+        """Collect rows for admitted local CSV/flat JSONL/flat JSON SQL smoke shapes."""
 
         if statement := self._sql_local_source_statement():
             return self.client.sql_local_source_smoke(statement, check=check)
@@ -930,13 +930,13 @@ class LazyFrame:
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport:
-        """Write an admitted local CSV/flat JSONL SQL smoke result to a local sink."""
+        """Write an admitted local CSV/flat JSONL/flat JSON SQL smoke result to a local sink."""
 
         normalized_output_format = _normalize_local_output_format(output_format)
         statement = self._sql_local_source_statement()
         if statement is None:
             raise ValueError(
-                "LazyFrame.write currently requires a local CSV or flat JSONL/NDJSON source with "
+                "LazyFrame.write currently requires a local CSV, flat JSONL/NDJSON, or flat JSON source with "
                 "select(...), optional filter(...), and limit(...) operations, "
                 "aggregate(...), optional filter(...), and limit(...) operations, or "
                 "optional filter(...), group_by(...).agg(...), and limit(...) operations, or "
@@ -1600,7 +1600,7 @@ def read_json(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Declare a lazy JSON/NDJSON compatibility source."""
+    """Declare a lazy flat JSON, JSONL, or NDJSON compatibility source."""
 
     return _read_source(
         "json",
@@ -2348,7 +2348,7 @@ def _is_local_source_sql_ref(value: str) -> bool:
     lower = value.strip().lower()
     if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
         return False
-    return lower.endswith((".csv", ".jsonl", ".ndjson"))
+    return lower.endswith((".csv", ".json", ".jsonl", ".ndjson"))
 
 
 def _is_local_csv_source_ref(value: str) -> bool:
@@ -2356,16 +2356,16 @@ def _is_local_csv_source_ref(value: str) -> bool:
     return _is_local_source_sql_ref(value) and lower.endswith(".csv")
 
 
-def _is_local_jsonl_source_ref(value: str) -> bool:
+def _is_local_json_source_ref(value: str) -> bool:
     lower = value.strip().lower()
-    return _is_local_source_sql_ref(value) and lower.endswith((".jsonl", ".ndjson"))
+    return _is_local_source_sql_ref(value) and lower.endswith((".json", ".jsonl", ".ndjson"))
 
 
 def _is_query_builder_local_source(source: WorkflowSource) -> bool:
     if source.source_format == "csv":
         return _is_local_csv_source_ref(source.uri)
     if source.source_format == "json":
-        return _is_local_jsonl_source_ref(source.uri)
+        return _is_local_json_source_ref(source.uri)
     return False
 
 

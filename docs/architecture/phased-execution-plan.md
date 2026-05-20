@@ -359,15 +359,17 @@ or documentation updates alone are insufficient.
   - Source: `GAR-IOREUSE-1A`, universal compatibility scoreboard, local input adapter docs,
     `docs/architecture/vortex-public-api-inventory.md`,
     `docs/architecture/universal-ingress-route-taxonomy.md`.
-  - Current state: CSV is the strongest local smoke path; scoped flat JSONL/NDJSON local input is
-    now runtime-admitted through `sql-local-source-smoke` with SourceState-style evidence, content
-    fingerprints, schema digests, and deterministic blockers for nested JSON values. The Python
-    query-builder can lower local flat `.jsonl`/`.ndjson` projection/optional-filter/limit,
+  - Current state: CSV is the strongest local smoke path; scoped flat JSONL/NDJSON and flat
+    top-level `.json` object/array local input are now runtime-admitted through
+    `sql-local-source-smoke` with SourceState-style evidence, route fields, content fingerprints,
+    schema digests, source-format-aware adapter IDs, and deterministic blockers for nested JSON
+    values. The Python query-builder can lower local flat `.json`, `.jsonl`, and `.ndjson`
+    projection/optional-filter/limit,
     preview/select-star, scalar aggregate/optional-filter/limit, one-column group-by
     aggregate/optional-filter/limit, and single-key numeric top-N workflows into that runtime path.
-    Local-source evidence labels for CSV versus
-    JSONL/NDJSON source certificate refs, execution certificate refs, materialization boundaries,
-    pushdown status, and claim reasons are source-format-aware. General JSON, Parquet, Arrow IPC,
+    Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON source certificate refs,
+    execution certificate refs, materialization boundaries, pushdown status, adapter status, route
+    status, and claim reasons are source-format-aware. Nested/general JSON, Parquet, Arrow IPC,
     Avro, and ORC do not all have ordinary
     user-facing SourceState runtime parity.
   - Next slice outcome: promote one remaining local input format at a time into UniversalIngress/
@@ -904,13 +906,14 @@ docs/website parity, and a completed-ledger entry.
 
 - [ ] GAR-RUNTIME-IMPL-5D local input adapter runtime parity
   - Source: `GAR-RUNTIME-IMPL-4F`, `GAR-IOREUSE-1A`, universal compatibility scoreboard.
-  - Current state: local CSV and scoped flat JSONL/NDJSON local SQL smokes exist, the Python
-    query-builder now bridges local CSV and flat JSONL/NDJSON projection/optional-filter/limit,
+  - Current state: local CSV plus scoped flat JSONL/NDJSON and flat top-level `.json` local SQL
+    smokes exist, the Python query-builder now bridges local CSV and flat JSON/JSONL/NDJSON
+    projection/optional-filter/limit,
     preview/select-star, scalar-aggregate/optional-filter/limit, one-column group-by
     aggregate/optional-filter/limit, and single-key numeric top-N workflows, and local-source
-    evidence labels are source-format-aware for CSV versus JSONL/NDJSON rows. General
-    JSON, nested JSON, Parquet, Arrow IPC, Avro, ORC, Excel, database files, and unsupported formats
-    are not uniformly represented by runtime SourceState adapters.
+    evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON rows. Nested
+    JSON/JSONPath, Parquet, Arrow IPC, Avro, ORC, Excel, database files, and unsupported formats are
+    not uniformly represented by runtime SourceState adapters.
   - Next slice outcome: promote one local input format at a time into a SourceState adapter registry
     with deterministic blockers for unsupported formats.
   - Runtime enablement: local SourceState adapter runtime for admitted file formats and explicit
@@ -1334,8 +1337,8 @@ runnable, documented, tested, and claim-safe.
 - [ ] GAR-USER-SURFACE-1C DataFrame/query-builder parity for ordinary local workflows
   - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python
     capability matrix, `docs/getting-started/examples.md`.
-  - Current state: Python `read_csv(...)` and local flat JSONL/NDJSON `read_json(...)` query-builder
-    chains support scoped projection/optional-filter/limit, preview/select-star, explicit-projection
+  - Current state: Python `read_csv(...)` and local flat JSON/JSONL/NDJSON `read_json(...)`
+    query-builder chains support scoped projection/optional-filter/limit, preview/select-star, explicit-projection
     literal `with_column(...)`, `where(...)`, Python `sl.col(...).between(...)`, `head(...)`/
     `take(...)`, `count()`, scalar aggregate/optional-filter/limit, one-column grouped
     aggregate/optional-filter/limit, and single-key top-N collect/write workflows. Scoped local CSV
