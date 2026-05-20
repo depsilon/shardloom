@@ -1117,15 +1117,35 @@ fn eval_numeric_binary(
         (ScalarValue::Float64(left), ScalarValue::Float64(right)) => {
             eval_f64_binary(left, op, right)
         }
+        (ScalarValue::Int64(left), ScalarValue::Float64(right)) => {
+            eval_f64_binary(i64_to_exact_f64(left)?, op, right)
+        }
+        (ScalarValue::Float64(left), ScalarValue::Int64(right)) => {
+            eval_f64_binary(left, op, i64_to_exact_f64(right)?)
+        }
         (left, right) => Err(EvalFailure::unsupported(
             "numeric_binary",
             format!(
-                "{} supports same-family int64 or float64 operands for this slice, got {} and {}",
+                "{} supports int64, float64, or exact int64/float64 mixed operands for this slice, got {} and {}",
                 op.as_str(),
                 left.dtype().as_str(),
                 right.dtype().as_str()
             ),
         )),
+    }
+}
+
+fn i64_to_exact_f64(value: i64) -> EvalResult<f64> {
+    const F64_MAX_EXACT_INTEGER: i64 = 9_007_199_254_740_992;
+    if (-F64_MAX_EXACT_INTEGER..=F64_MAX_EXACT_INTEGER).contains(&value) {
+        #[allow(clippy::cast_precision_loss)]
+        let output = value as f64;
+        Ok(output)
+    } else {
+        Err(EvalFailure::unsupported(
+            "numeric_coercion",
+            "mixed int64/float64 numeric coercion requires the int64 operand to be exactly representable as float64",
+        ))
     }
 }
 
@@ -1218,6 +1238,12 @@ fn eval_compare(left: &EvalValue, op: ComparisonOp, right: &EvalValue) -> EvalRe
         }
         (ScalarValue::Float64(left), ScalarValue::Float64(right)) => {
             compare_f64(*left, *right, op)?
+        }
+        (ScalarValue::Int64(left), ScalarValue::Float64(right)) => {
+            compare_f64(i64_to_exact_f64(*left)?, *right, op)?
+        }
+        (ScalarValue::Float64(left), ScalarValue::Int64(right)) => {
+            compare_f64(*left, i64_to_exact_f64(*right)?, op)?
         }
         (ScalarValue::Utf8(left), ScalarValue::Utf8(right)) => {
             compare_ordering(left.cmp(right), op, "")?
@@ -2523,6 +2549,79 @@ mod tests {
         assert!(!report.external_engine_invoked);
         assert_eq!(report.claim_gate_status, "not_claim_grade");
         assert!(!report.fallback_execution_allowed());
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_mixed_numeric_binary_without_fallback() {
+        let expression = Expression::new(
+            expr_id("mixed-add"),
+            ExpressionKind::Binary {
+                left: Box::new(Expression::literal(expr_id("int"), ScalarValue::Int64(5))),
+                op: BinaryOp::Add,
+                right: Box::new(Expression::literal(
+                    expr_id("float"),
+                    ScalarValue::Float64(2.5),
+                )),
+            },
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.value, Some(ScalarValue::Float64(7.5)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Float64));
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_mixed_numeric_compare_without_fallback() {
+        let expression = Expression::new(
+            expr_id("mixed-compare"),
+            ExpressionKind::Compare {
+                left: Box::new(Expression::literal(expr_id("int"), ScalarValue::Int64(5))),
+                op: ComparisonOp::Lt,
+                right: Box::new(Expression::literal(
+                    expr_id("float"),
+                    ScalarValue::Float64(5.5),
+                )),
+            },
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.value, Some(ScalarValue::Boolean(true)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_blocks_lossy_mixed_numeric_coercion_without_fallback() {
+        let expression = Expression::new(
+            expr_id("lossy-mixed-add"),
+            ExpressionKind::Binary {
+                left: Box::new(Expression::literal(
+                    expr_id("large-int"),
+                    ScalarValue::Int64(9_007_199_254_740_993),
+                )),
+                op: BinaryOp::Add,
+                right: Box::new(Expression::literal(
+                    expr_id("float"),
+                    ScalarValue::Float64(1.0),
+                )),
+            },
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert!(report.has_errors());
+        let diagnostics = format!("{:?}", report.diagnostics);
+        assert!(
+            diagnostics.contains("exactly representable as float64"),
+            "{diagnostics}"
+        );
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
 
     #[test]

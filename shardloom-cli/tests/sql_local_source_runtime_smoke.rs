@@ -788,7 +788,7 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
     .expect("write source csv");
 
     let statement = format!(
-        "SELECT id,amount + 5 AS adjusted,ratio * 2.0 AS doubled FROM '{}' WHERE amount >= 10 LIMIT 10",
+        "SELECT id,amount + 2.5 AS adjusted,ratio * 2 AS doubled FROM '{}' WHERE amount >= 10 LIMIT 10",
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -825,14 +825,14 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
     )));
     assert!(stdout.contains(&field(
         "numeric_arithmetic_projection_rhs_dtype",
-        "int64,float64"
+        "float64,int64"
     )));
     assert!(stdout.contains(&field("projected_columns", "id,adjusted,doubled")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
     assert!(stdout.contains(
-        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"adjusted\\\":20,\\\"doubled\\\":1.0}\\n{\\\"id\\\":3,\\\"adjusted\\\":26,\\\"doubled\\\":1.5}\\n\""
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"adjusted\\\":17.5,\\\"doubled\\\":1.0}\\n{\\\"id\\\":3,\\\"adjusted\\\":23.5,\\\"doubled\\\":1.5}\\n\""
     ));
 
     let blocked_statement = format!(
@@ -2122,6 +2122,39 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_predicates_without_fallbac
         String::from_utf8_lossy(&divide_by_zero_output.stderr)
     );
     assert!(output.contains("numeric arithmetic division by zero is not admitted"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_mixed_numeric_arithmetic_predicate_without_fallback() {
+    let source_path = unique_path("sql-local-source-mixed-numeric-arithmetic", "csv");
+    fs::write(&source_path, "id,amount\n1,8\n2,15\n3,21\n4,\n").expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,amount FROM '{}' WHERE amount + 2.5 >= 17.5 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("numeric_arithmetic_operator", "add")));
+    assert!(stdout.contains(&field("numeric_arithmetic_rhs_dtype", "float64")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"amount\\\":15}\\n{\\\"id\\\":3,\\\"amount\\\":21}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
     fs::remove_file(source_path).expect("remove source csv");
 }

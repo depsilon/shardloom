@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D exact mixed numeric coercion runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-mixed-numeric-coercions-4d` / #848.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - ShardLoom-native expression semantics
+    - SQL/Python local-source numeric arithmetic runtime smokes
+  - Scope:
+    - Admitted exact mixed `int64`/`float64` coercion for ShardLoom-native numeric binary
+      expressions and comparisons.
+    - Removed the SQL local-source numeric arithmetic predicate parser restriction that required
+      arithmetic and comparison literals to share one numeric dtype family.
+    - Extended scoped local-source arithmetic predicate and projection smokes so exact mixed
+      `int64`/`float64` shapes execute through ShardLoom-native expression semantics.
+    - Added deterministic lossy-coercion blockers for `int64` values outside the exactly
+      representable `float64` integer range.
+    - Updated Python README, use-case index, generated website content, and phase-plan current
+      state with the exact mixed numeric coercion claim boundary.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder numeric filters and `with_column(...)`,
+      direct Python `client.sql_local_source_smoke(...)`, use-case docs, generated website content,
+      and Python README.
+  - Evidence:
+    - Rows continue to emit `numeric_arithmetic_runtime_execution=true`,
+      `numeric_arithmetic_projection_runtime_execution=true`, `numeric_arithmetic_operator`,
+      `numeric_arithmetic_rhs_dtype`, `numeric_arithmetic_projection_rhs_dtype`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo test -p shardloom-core mixed_numeric -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke numeric_arithmetic -- --nocapture`
+    - `cargo check -p shardloom-cli`
+    - `python -m unittest python.tests.test_query_builder`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts benchmarks/traditional_analytics website website-src`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `node website-src/scripts/sync-content.mjs`
+    - `node website-src/node_modules/astro/bin/astro.mjs sync`
+    - `node website-src/node_modules/@astrojs/check/bin/astro-check.js`
+    - `node website-src/node_modules/astro/bin/astro.mjs build`
+    - `node website-src/scripts/postbuild-static.mjs`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `git diff --check`
+  - Non-goals:
+    - No generalized typed coercion lattice, decimal coercion, generalized arithmetic expression
+      trees, broad SQL/DataFrame runtime, production claim, performance claim, or external fallback.
+  - Claim boundary:
+    - Scoped exact `int64`/`float64` mixed numeric coercion fixture smoke only. Lossy mixed numeric
+      coercion remains blocked.
+  - Fallback boundary:
+    - Coercion, arithmetic, comparison, parser admission, and fixture execution remain
+      ShardLoom-native. External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, arithmetic,
+      and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped numeric arithmetic projection runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-arithmetic-projections-4d` / #847.
