@@ -4667,6 +4667,13 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
     let on_raw = join_tail[on_index + "on".len()..].trim();
     let (source_path, left_alias) = parse_aliased_source(left_raw, "left")?;
     let (right_source_path, right_alias) = parse_aliased_source(right_raw, "right")?;
+    if LocalSourceFormat::from_path(&source_path)? != LocalSourceFormat::Csv
+        || LocalSourceFormat::from_path(&right_source_path)? != LocalSourceFormat::Csv
+    {
+        return Err(unsupported_sql_error(
+            "JOIN smoke is scoped to local CSV sources; JSON/JSONL/NDJSON/Parquet joins remain blocked",
+        ));
+    }
     if left_alias == right_alias {
         return Err(unsupported_sql_error(
             "JOIN smoke requires distinct left and right aliases",
@@ -4694,7 +4701,7 @@ fn parse_aliased_source(raw: &str, side: &str) -> Result<(PathBuf, String), Shar
     let tokens = split_whitespace_outside_quotes(raw)?;
     let [path_raw, as_keyword, alias] = tokens.as_slice() else {
         return Err(unsupported_sql_error(&format!(
-            "JOIN smoke requires {side} source syntax <local.csv|local.json|local.jsonl|local.ndjson> AS <alias>"
+            "JOIN smoke requires {side} source syntax <local.csv> AS <alias>"
         )));
     };
     if !as_keyword.eq_ignore_ascii_case("as") {

@@ -1008,7 +1008,7 @@ class LazyFrame:
         target_uri: str | os.PathLike[str],
         *,
         allow_overwrite: bool = False,
-        check: bool = False,
+        check: bool = True,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
         """Alias for `write(..., output_format="parquet")`.
 
@@ -1463,6 +1463,8 @@ class LazyFrame:
             else:
                 return None
         if limit is None:
+            return None
+        if group_by_list is not None and aggregate_list is None:
             return None
         if join_info is not None:
             if (
@@ -2303,7 +2305,10 @@ def _sql_literal(value: object) -> str:
             raise ValueError("SQL float literals must be finite")
         return str(value)
     if isinstance(value, datetime):
-        return f"DATE '{value.date().isoformat()}'"
+        raise ValueError(
+            "SQL predicate datetime literals are not admitted by the scoped date32 runtime; "
+            "use datetime.date values for DATE predicates"
+        )
     if isinstance(value, date):
         return f"DATE '{value.isoformat()}'"
     if isinstance(value, str):
@@ -2378,7 +2383,7 @@ def _is_local_source_sql_statement(statement: str) -> bool:
     return (
         _starts_with_sql_keyword(normalized, "select")
         and _contains_sql_keyword_outside_quotes(normalized, "from")
-        and any(_is_local_source_sql_ref(value) for value in _single_quoted_sql_strings(normalized))
+        and any(_is_local_source_sql_ref(value) for value in _sql_source_refs(normalized))
     )
 
 
@@ -2439,6 +2444,59 @@ def _single_quoted_sql_strings(statement: str) -> tuple[str, ...]:
             in_quote = True
         index += 1
     return tuple(values)
+
+
+def _sql_source_refs(statement: str) -> tuple[str, ...]:
+    refs: list[str] = []
+    lower = statement.lower()
+    in_quote = False
+    index = 0
+    while index < len(statement):
+        char = statement[index]
+        if char == "'":
+            if in_quote and index + 1 < len(statement) and statement[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if in_quote:
+            index += 1
+            continue
+        keyword_len = 0
+        for keyword in ("from", "join"):
+            if lower.startswith(keyword, index):
+                before = statement[index - 1] if index > 0 else ""
+                after_index = index + len(keyword)
+                after = statement[after_index] if after_index < len(statement) else ""
+                if not _is_identifier_char(before) and not _is_identifier_char(after):
+                    keyword_len = len(keyword)
+                    break
+        if keyword_len == 0:
+            index += 1
+            continue
+        ref_start = index + keyword_len
+        while ref_start < len(statement) and statement[ref_start].isspace():
+            ref_start += 1
+        if ref_start < len(statement) and statement[ref_start] == "'":
+            ref_end = ref_start + 1
+            current: list[str] = []
+            while ref_end < len(statement):
+                if statement[ref_end] == "'":
+                    if ref_end + 1 < len(statement) and statement[ref_end + 1] == "'":
+                        current.append("'")
+                        ref_end += 2
+                        continue
+                    refs.append("".join(current))
+                    index = ref_end + 1
+                    break
+                current.append(statement[ref_end])
+                ref_end += 1
+            else:
+                index = ref_end
+        else:
+            index = ref_start
+    return tuple(refs)
 
 
 def _starts_with_sql_keyword(statement: str, keyword: str) -> bool:

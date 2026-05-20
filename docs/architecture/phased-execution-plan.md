@@ -408,6 +408,61 @@ or documentation updates alone are insufficient.
     coverage, and SourceState schema fields.
   - Ledger rule: ledger entry must include the per-format support table.
 
+- [ ] GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and `vortex_ingest`
+      attribution
+  - Source: review of `compatibility_import_certified` bottlenecks, `traditional-analytics-run`,
+    `shardloom-cli/src/vortex_ingest.rs`, benchmark timing evidence,
+    `GAR-RUNTIME-IMPL-4F`, `GAR-RUNTIME-IMPL-4K`, and `GAR-RUNTIME-IMPL-4M`.
+  - Current state: `compatibility_import_certified` is preserved as the certified cold
+    ingest/stage route, but current compatibility timing can blend source read/parse, Vortex write,
+    reopen/scan, and scenario compute. The feature-gated `vortex_ingest` helper creates a scoped
+    local `VortexPreparedState`, but it is intentionally narrow, flat-scalar, local-only, and still
+    performs proof-oriented read/reopen work that is not yet tiered by certification depth.
+  - Next slice outcome: make compatibility import faster and clearer by adding exclusive stage
+    attribution, certification-depth fields, and prepare-once state evidence before deeper ingest
+    optimization.
+  - Runtime enablement: certified ingest/stage execution remains supported, while repeated
+    workflows can certify or prepare once and then run `prepared_vortex` from
+    `VortexPreparedState` without reinterpreting compatibility cold timing as query speed.
+  - User-visible surface: benchmark rows, CLI JSON evidence, Python typed reports, website
+    benchmark interpretation, compute-flow docs.
+  - Implementation scope: `traditional-analytics-run`, `vortex_ingest` evidence, benchmark harness
+    row schema, website benchmark rendering, Python report surfaces, contract tests.
+  - Evidence required: exclusive `source_stat_millis`, `source_read_millis`,
+    `source_parse_millis`, `source_to_columnar_millis`, `vortex_array_build_millis`,
+    `vortex_write_millis`, `vortex_digest_millis`, `vortex_reopen_verify_millis`,
+    `vortex_scan_millis`, `operator_compute_millis`, `result_sink_write_millis`,
+    `evidence_render_millis`, `total_runtime_millis`, `timing_scope`,
+    `preparation_included`, `query_timing_starts_after_preparation`, `certification_level`,
+    `source_state_id`, `source_state_digest`, `prepared_state_id`, `prepared_state_digest`,
+    `prepared_state_created`, `prepared_state_reused`, `prepared_state_reuse_hit`,
+    `invalidation_reason`, `source_fingerprint_kind`, `source_content_digest`, `schema_digest`,
+    `plan_digest`, `fallback_attempted=false`, `external_engine_invoked=false`, and
+    `claim_gate_status`.
+  - Acceptance: `compatibility_import_certified` rows disclose `timing_scope=
+    cold_certified_end_to_end`, `preparation_included=true`, and certification depth; legacy
+    cumulative fields are either replaced with exclusive fields or explicitly marked as cumulative;
+    `prepared_vortex` rows reference `VortexPreparedState` and do not perform `vortex_ingest` inside
+    warm-query timing; `ingest_minimal` cannot become claim-grade; `ingest_full_replay` requires
+    replay/output evidence; unsupported format/features emit deterministic blockers.
+  - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
+    `cargo test -p shardloom-contract-tests --test release_readiness_metadata`, focused
+    `vortex_ingest` tests, Python report tests, website readiness, benchmark artifact completeness,
+    `git diff --check`.
+  - Non-goals: do not remove `compatibility_import_certified`; do not make it the default speed
+    route; do not claim performance improvement without fresh evidence; do not add object-store,
+    table/lakehouse, Foundry production, broad SQL/DataFrame, or package-publication support.
+  - Claim boundary: route/timing/evidence optimization only; performance and superiority claims
+    remain blocked until fresh workload-scoped claim-grade evidence exists.
+  - Fallback boundary: no source parse, Vortex ingest, certification, replay, or prepared query may
+    use pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray, databases, warehouses, or managed
+    platforms as fallback execution.
+  - Dependencies/blockers: stable `vortex_ingest` lifecycle, SourceState/VortexPreparedState
+    digests, OutputPlan separation, certification-depth policy, and benchmark renderer support.
+  - Ledger rule: ledger entry must include the timing field contract, certification levels, reuse
+    fields, unsupported blockers, and any measured artifact refs; do not mark complete from docs
+    alone.
+
 - [ ] GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion
   - Source: OutputPlan, result-sink replay proof, cross-format fanout architecture,
     `docs/architecture/vortex-public-api-inventory.md`.

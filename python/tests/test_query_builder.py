@@ -5,7 +5,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -461,6 +461,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
         self.assertEqual(str(sl.col("closed_at").is_not_null()), "closed_at IS NOT NULL")
 
+        with self.assertRaisesRegex(ValueError, "datetime literals are not admitted"):
+            sl.col("event_dt") >= datetime(2026, 5, 19, 12, 30)
         with self.assertRaises(ValueError):
             sl.col("label").contains("%")
         with self.assertRaises(ValueError):
@@ -1222,6 +1224,53 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_group_by_without_aggregate_cannot_lower_to_projection_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "workflow-unsupported-plan",
+                    "collect",
+                    "read_csv(target/input.csv) -> group_by(region) -> limit(10)",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "workflow operation unsupported",
+                    "human_text": "workflow unsupported operation",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "operation", "value": "collect"},
+                        {"key": "workflow_summary", "value": "read_csv(target/input.csv) -> group_by(region) -> limit(10)"},
+                        {"key": "blocker_id", "value": "cg21.workflow.collect.runtime_not_admitted"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"}
+                    ],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = ctx.read_csv("target/input.csv")._append(
+            sl.WorkflowOperation("group_by", ("region",))
+        ).limit(10)
+
+        report = workflow.collect()
+
+        self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
+        self.assertEqual(report.operation, "collect")
+        self.assertFalse(report.runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+
     def test_local_csv_query_builder_order_by_topn_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -1720,6 +1769,51 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_write_parquet_checks_errors_by_default(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' LIMIT 2",
+                    "--output-format",
+                    "parquet",
+                    "--output",
+                    "target/out.parquet",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "error",
+                    "summary": "Parquet sink blocked",
+                    "human_text": "Parquet sink blocked",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "blocked"}
+                    ],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        with self.assertRaises(sl.ShardLoomCommandError):
+            (
+                ctx.read_csv("target/input.csv")
+                .select(["id", "label"])
+                .limit(2)
+                .write_parquet("target/out.parquet", allow_overwrite=True)
+            )
 
     def test_local_csv_query_builder_with_column_literal_write_csv_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
@@ -2969,6 +3063,54 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.runtime_execution)
 
+    def test_context_sql_quoted_local_file_literal_does_not_admit_broad_from(self) -> None:
+        statement = "SELECT 'target/input.csv' AS path FROM events"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "workflow-unsupported-plan",
+                    "sql",
+                    "sql(statement)",
+                    {statement!r},
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "workflow operation unsupported",
+                    "human_text": "workflow unsupported operation",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "operation", "value": "sql"}},
+                        {{"key": "workflow_summary", "value": "sql(statement)"}},
+                        {{"key": "target_ref", "value": {statement!r}}},
+                        {{"key": "blocker_id", "value": "cg21.workflow.sql.runtime_not_admitted"}},
+                        {{"key": "runtime_execution", "value": "false"}},
+                        {{"key": "data_read", "value": "false"}},
+                        {{"key": "write_io", "value": "false"}},
+                        {{"key": "fallback_attempted", "value": "false"}}
+                    ],
+                }}))
+                sys.exit(1)
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql(statement).collect()
+
+        self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
+        self.assertEqual(report.envelope.field("target_ref"), statement)
+        self.assertFalse(report.runtime_execution)
+        self.assertFalse(report.data_read)
+        self.assertFalse(report.fallback_attempted)
+
     def test_context_readers_reuse_context_client_for_plan_inspection(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -3306,7 +3448,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.agg("sum(amount)"),
             workflow.sort("amount", "id", descending=True),
             workflow.write_vortex("out.vortex"),
-            workflow.write_parquet("out.parquet"),
+            workflow.write_parquet("out.parquet", check=False),
             ctx.sql_parse("select * from events"),
             ctx.sql_bind("select * from events"),
             ctx.sql_plan("select * from events"),
