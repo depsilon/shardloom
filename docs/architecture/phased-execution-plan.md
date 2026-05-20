@@ -83,7 +83,8 @@ Status reading order:
 Reference index:
 - Status source: `README.md`, `docs/architecture/phased-execution-completed-ledger.md`,
   `docs/architecture/rfc-phase-traceability.md`, `docs/architecture/global-architecture-review.md`,
-  and `docs/architecture/compute-engine-flow-reference.md`.
+  `docs/architecture/compute-engine-flow-reference.md`, and
+  `docs/architecture/website-minimal-public-surface-reset.md`.
 - Compute-flow and benchmark references:
   `docs/architecture/compute-engine-flow-overhaul-review.md`,
   `docs/architecture/benchmark-persistent-runner-decision.md`,

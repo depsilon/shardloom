@@ -1,10 +1,20 @@
+
 /home /
 /index /
 /index.html /
 /telemetry /benchmarks
-/field-guide /field-guide/
-/use-cases /use-cases/
-/can-i-use-this /use-cases/
+/benchmark /benchmarks
+/benchmarks.html /benchmarks
 /flow /compute-engine-flow
 /compute-flow /compute-engine-flow
-/docs /readme
+/compute-engine-flow.html /compute-engine-flow
+/field-guide /
+/field-guide/* /
+/use-cases /
+/use-cases/* /
+/can-i-use-this /
+/status /
+/status.html /
+/docs https://github.com/depsilon/shardloom
+/readme https://github.com/depsilon/shardloom#readme
+/readme.html https://github.com/depsilon/shardloom#readme

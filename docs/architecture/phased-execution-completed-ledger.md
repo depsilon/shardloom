@@ -16,6 +16,73 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-RESET-1 minimal public website reset
+  - Branch/PR: `codex/website-minimal-atlas-reset` / #825.
+  - Primary files:
+    - `website/build_static_pages.py`
+    - `website/assets/site.css`
+    - `website/index.html`
+    - `website/benchmarks.html`
+    - `website/compute-engine-flow.html`
+    - `website/validate_static_assets.js`
+    - `scripts/check_website_readiness.py`
+    - `docs/architecture/website-minimal-public-surface-reset.md`
+    - `README.md`
+    - `website/README.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: retire the public website atlas/status/readme mirror/Pagefind surfaces and rebuild the
+    website as a small light-mode interpretation layer around three public jobs: explain
+    ShardLoom, publish benchmark evidence without leaderboard framing, and translate the
+    compute-flow route model into human-readable structure.
+  - Website behavior:
+    - `/` is now a concise overview with the ShardLoom logo, benchmark link, compute-flow link,
+      GitHub link, public claim boundary, and compact route summary.
+    - `/benchmarks` renders the committed full-local benchmark artifact, lane availability,
+      claim-gate distribution, prepared/native source-state coverage, local timing context, and
+      scoped evidence drawers. It does not discover local Python libraries at page-render time.
+    - `/compute-engine-flow` renders the front-door-vs-route model, `UniversalIngress`,
+      `SourceState`, `vortex_ingest`, `VortexPreparedState`, execution modes, timing fields, and
+      raw Mermaid source drawers.
+    - `/benchmarks/index.html` and `/compute-engine-flow/index.html` are generated so
+      extensionless routes work under plain static servers as well as Cloudflare routing.
+    - Legacy `/field-guide`, `/use-cases`, `/status`, `/readme`, and old `*.html` routes redirect
+      to the smaller public surface or GitHub instead of preserving stale generated pages.
+  - Removed public surfaces:
+    - Generated Field Guide HTML pages.
+    - Generated Use Case Atlas HTML pages.
+    - Generated public status board and README mirror.
+    - Pagefind static-search bundle.
+    - `assets/compute-flow.js` and `assets/use-cases.js`.
+  - Evidence:
+    - `docs/architecture/website-minimal-public-surface-reset.md` records the design thesis,
+      Modal-style technique transfer boundary, public site scope, visual direction, and claim
+      boundaries.
+    - `scripts/check_website_readiness.py` and `website/validate_static_assets.js` now validate
+      the minimal public surface, local compute-flow snapshot, benchmark manifest, retired-route
+      redirects, no runtime `raw.githubusercontent.com` fetches, no Pagefind runtime surface, and
+      no retired atlas content in runtime files.
+    - Root `README.md` and `website/README.md` describe the website as an interpretation layer;
+      detailed use cases, recipes, RFCs, phase history, and support matrices remain in repo docs.
+  - Visual QA:
+    - Playwright/Chrome desktop and mobile smoke for `/`, `/benchmarks`, and
+      `/compute-engine-flow` at 390px and 1440px verified 200 responses, no horizontal overflow,
+      complete logo images, and no console messages.
+    - Screenshots were captured under `target/website-minimal-reset/`.
+  - Verification:
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js`
+    - `python -m compileall -q scripts website`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo fmt --all`
+    - `git diff --check`
+  - Claim boundary: website reset only. This does not change ShardLoom runtime behavior, package
+    publication state, performance/superiority claims, Spark-displacement claims, broad SQL/
+    DataFrame support, object-store/lakehouse support, Foundry support, or production readiness.
+  - Fallback boundary: no ShardLoom execution behavior changes and no external-engine fallback
+    semantics changed. External engines remain benchmark baseline context only.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4I source-order residual limit for local Vortex
       filter/project
   - Branch/PR: `codex/vortex-filter-project-residual-limit` / #824.
