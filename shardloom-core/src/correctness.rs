@@ -687,6 +687,11 @@ fn add_local_primitive_foundation_fixtures(plan: &mut CorrectnessValidationPlan)
         EdgeCase::NoNulls,
         3,
     ));
+    plan.add_fixture(local_primitive_struct_rows_fixture(
+        "vortex-local-filter-project-limit-struct-five",
+        EdgeCase::NoNulls,
+        2,
+    ));
 }
 
 fn prepared_encoded_rows_fixture(
@@ -2519,14 +2524,14 @@ mod tests {
     fn foundation_plan_exposes_coverage_inventory() {
         let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-        assert_eq!(plan.fixture_count(), 38);
-        assert_eq!(plan.fixtures_with_source_ref_count(), 18);
+        assert_eq!(plan.fixture_count(), 39);
+        assert_eq!(plan.fixtures_with_source_ref_count(), 19);
         assert_eq!(plan.source_backed_edge_fixture_count(), 11);
-        assert_eq!(plan.golden_fixture_count(), 21);
-        assert_eq!(plan.reference_artifact_count(), 20);
-        assert_eq!(plan.decoded_reference_output_count(), 20);
+        assert_eq!(plan.golden_fixture_count(), 22);
+        assert_eq!(plan.reference_artifact_count(), 21);
+        assert_eq!(plan.decoded_reference_output_count(), 21);
         assert!(plan.decoded_reference_output_coverage_complete());
-        assert_eq!(plan.executable_expected_output_count(), 20);
+        assert_eq!(plan.executable_expected_output_count(), 21);
         assert_eq!(plan.not_yet_defined_fixture_count(), 0);
         assert_eq!(plan.deferred_fixture_family_count(), 9);
         assert_eq!(
@@ -2613,9 +2618,9 @@ mod tests {
             report.report_id,
             "cg5.correctness_differential_harness.aggregate"
         );
-        assert_eq!(report.fixture_count, 38);
-        assert_eq!(report.golden_fixture_count, 21);
-        assert_eq!(report.executable_expected_output_count, 20);
+        assert_eq!(report.fixture_count, 39);
+        assert_eq!(report.golden_fixture_count, 22);
+        assert_eq!(report.executable_expected_output_count, 21);
         assert_eq!(report.not_yet_defined_fixture_count, 0);
         assert_eq!(report.deferred_fixture_family_count, 9);
         assert_eq!(report.deferred_fixture_family_artifact_count, 9);
@@ -2626,10 +2631,10 @@ mod tests {
             vec!["declared_not_populated".to_string()]
         );
         assert!(report.deferred_fixture_family_artifacts_test_only);
-        assert_eq!(report.fixtures_with_source_ref_count, 18);
+        assert_eq!(report.fixtures_with_source_ref_count, 19);
         assert_eq!(report.source_backed_edge_fixture_count, 11);
-        assert_eq!(report.reference_artifact_count, 20);
-        assert_eq!(report.decoded_reference_output_count, 20);
+        assert_eq!(report.reference_artifact_count, 21);
+        assert_eq!(report.decoded_reference_output_count, 21);
         assert!(report.decoded_reference_output_coverage_complete);
         assert_eq!(report.generated_property_fixture_count, 4);
         assert_eq!(

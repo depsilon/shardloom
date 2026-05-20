@@ -51,7 +51,7 @@ const READER_CONJUNCTIVE_FILTER_EXECUTION_KIND: &str =
 const LOCAL_SCAN_PROVIDER_KIND: &str = "vortex_scan";
 const LOCAL_SCAN_PROVIDER_API_SURFACE: &str = "VortexFile::scan.into_array_iter";
 const LOCAL_SCAN_PROVIDER_CRATE: &str = "vortex";
-const LOCAL_SCAN_PROVIDER_VERSION: &str = "0.70";
+const LOCAL_SCAN_PROVIDER_VERSION: &str = "0.71";
 const LOCAL_SCAN_FEATURE_GATE: &str = "vortex-local-primitives";
 const LOCAL_SCAN_ADMISSION_POLICY: &str = "shardloom.vortex.local_scan_primitive.v1";
 const LOCAL_SCAN_CERTIFICATE_REQUIREMENT: &str =
@@ -3524,7 +3524,7 @@ mod tests {
         assert_eq!(split.split_ref, "vortex-local-scan-chunk-7");
         assert_eq!(split.provider_kind, "vortex_scan");
         assert_eq!(split.provider_boundary.provider_crate, "vortex");
-        assert_eq!(split.provider_boundary.provider_version, "0.70");
+        assert_eq!(split.provider_boundary.provider_version, "0.71");
         assert_eq!(
             split.provider_boundary.feature_gate,
             "vortex-local-primitives"

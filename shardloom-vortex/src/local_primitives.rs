@@ -107,6 +107,10 @@ pub struct VortexLocalPrimitiveExecutionReport {
     pub projection_pushdown_applied: bool,
     pub upstream_filter_expression_used: bool,
     pub upstream_projection_expression_used: bool,
+    pub source_order_limit_requested: Option<u64>,
+    pub source_order_limit_applied: bool,
+    pub source_order_limit_input_rows: Option<u64>,
+    pub source_order_limit_rows_output: Option<u64>,
     pub data_read: bool,
     pub data_decoded: bool,
     pub data_materialized: bool,
@@ -144,6 +148,10 @@ impl VortexLocalPrimitiveExecutionReport {
             projection_pushdown_applied: false,
             upstream_filter_expression_used: false,
             upstream_projection_expression_used: false,
+            source_order_limit_requested: None,
+            source_order_limit_applied: false,
+            source_order_limit_input_rows: None,
+            source_order_limit_rows_output: None,
             data_read: false,
             data_decoded: false,
             data_materialized: false,
@@ -247,6 +255,7 @@ impl VortexLocalPrimitiveExecutionReport {
             "projection pushdown applied: {}",
             self.projection_pushdown_applied
         );
+        self.write_source_order_limit_text(&mut out);
         let _ = writeln!(out, "data read: {}", self.data_read);
         let _ = writeln!(out, "data decoded: {}", self.data_decoded);
         let _ = writeln!(out, "data materialized: {}", self.data_materialized);
@@ -260,6 +269,32 @@ impl VortexLocalPrimitiveExecutionReport {
         );
         let _ = writeln!(out, "fallback execution disabled");
         out
+    }
+
+    fn write_source_order_limit_text(&self, out: &mut String) {
+        let _ = writeln!(
+            out,
+            "source-order limit requested: {}",
+            self.source_order_limit_requested
+                .map_or_else(|| "none".to_string(), |value| value.to_string())
+        );
+        let _ = writeln!(
+            out,
+            "source-order residual limit applied: {}",
+            self.source_order_limit_applied
+        );
+        let _ = writeln!(
+            out,
+            "source-order limit input rows: {}",
+            self.source_order_limit_input_rows
+                .map_or_else(|| "none".to_string(), |value| value.to_string())
+        );
+        let _ = writeln!(
+            out,
+            "source-order limit output rows: {}",
+            self.source_order_limit_rows_output
+                .map_or_else(|| "none".to_string(), |value| value.to_string())
+        );
     }
 }
 
@@ -314,7 +349,7 @@ pub fn local_primitive_execution_certificate(
     let mut input = ExecutionCertificateInput::new(certificate_id, execution_kind)?;
     input.execution_provider_kind = ExecutionProviderKind::VortexScan;
     input.provider_crate = Some("vortex".to_string());
-    input.provider_version = Some("0.70".to_string());
+    input.provider_version = Some("0.71".to_string());
     input.provider_api_surface = Some("VortexFile::scan.into_array_iter".to_string());
     input.shardloom_admission_policy = Some("shardloom.vortex.local_scan_primitive.v1".to_string());
     input.plan_ref = Some(format!("vortex-run:{}", report.primitive_kind.as_str()));
@@ -378,25 +413,41 @@ pub fn local_primitive_correctness_fixture_for_request(
             .and_then(local_encoded_count_correctness_fixture_for_target),
         VortexQueryPrimitiveKind::CountWhere => local_primitive_fixture_if(
             request,
-            local_struct_value_gte_three_predicate(request),
+            local_struct_value_gte_three_predicate(request)
+                && local_struct_no_source_order_limit(request),
             "vortex-local-count-where-struct-five",
         ),
         VortexQueryPrimitiveKind::ProjectColumns => local_primitive_fixture_if(
             request,
-            local_struct_metric_projection(request),
+            local_struct_metric_projection(request) && local_struct_no_source_order_limit(request),
             "vortex-local-project-struct-five",
         ),
         VortexQueryPrimitiveKind::FilterPredicate => local_primitive_fixture_if(
             request,
-            local_struct_value_gte_three_predicate(request),
+            local_struct_value_gte_three_predicate(request)
+                && local_struct_no_source_order_limit(request),
             "vortex-local-filter-struct-five",
         ),
-        VortexQueryPrimitiveKind::FilterAndProject => local_primitive_fixture_if(
-            request,
-            local_struct_value_gte_three_predicate(request)
-                && local_struct_metric_projection(request),
-            "vortex-local-filter-project-struct-five",
-        ),
+        VortexQueryPrimitiveKind::FilterAndProject => {
+            if local_struct_value_gte_three_predicate(request)
+                && local_struct_metric_projection(request)
+                && local_struct_source_order_limit(request, 2)
+            {
+                local_primitive_fixture_if(
+                    request,
+                    true,
+                    "vortex-local-filter-project-limit-struct-five",
+                )
+            } else {
+                local_primitive_fixture_if(
+                    request,
+                    local_struct_value_gte_three_predicate(request)
+                        && local_struct_metric_projection(request)
+                        && local_struct_no_source_order_limit(request),
+                    "vortex-local-filter-project-struct-five",
+                )
+            }
+        }
         VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => None,
     }
 }
@@ -460,6 +511,14 @@ fn local_struct_metric_projection(request: &VortexQueryPrimitiveRequest) -> bool
         ProjectionRequest::Columns(columns)
             if columns.len() == 1 && columns[0].as_str() == "metric"
     )
+}
+
+fn local_struct_source_order_limit(request: &VortexQueryPrimitiveRequest, limit: usize) -> bool {
+    request.source_order_limit == Some(limit)
+}
+
+fn local_struct_no_source_order_limit(request: &VortexQueryPrimitiveRequest) -> bool {
+    request.source_order_limit.is_none()
 }
 
 fn local_fixture_ref_matches(target_uri: &DatasetUri, source_ref: &str) -> bool {
@@ -692,17 +751,21 @@ fn local_primitive_source_pushdown_report(
     request: &VortexQueryPrimitiveRequest,
     report: &VortexLocalPrimitiveExecutionReport,
 ) -> NativeIoSourcePushdownReport {
+    let rejected_operations = if safe {
+        request
+            .source_order_limit
+            .map(|_| vec!["limit_pushdown".to_string()])
+            .unwrap_or_default()
+    } else {
+        vec![report.primitive_kind.as_str().to_string()]
+    };
     NativeIoSourcePushdownReport {
         accepted_operations: if safe {
             local_primitive_accepted_operations(report)
         } else {
             Vec::new()
         },
-        rejected_operations: if safe {
-            Vec::new()
-        } else {
-            vec![report.primitive_kind.as_str().to_string()]
-        },
+        rejected_operations,
         guarantee: if safe {
             local_primitive_pushdown_guarantee(report).to_string()
         } else {
@@ -714,7 +777,9 @@ fn local_primitive_source_pushdown_report(
             "native I/O certificate blocked before accepting local primitive pushdown".to_string()
         },
         residual_expression: if safe {
-            None
+            request
+                .source_order_limit
+                .map(|limit| format!("source_order_limit:{limit}"))
         } else {
             request.predicate.as_ref().map(PredicateExpr::summary)
         },
@@ -751,7 +816,11 @@ fn local_primitive_pushdown_guarantee(
         VortexQueryPrimitiveKind::FilterPredicate => "exact_filter_from_vortex_scan_pushdown",
         VortexQueryPrimitiveKind::ProjectColumns => "exact_projection_from_vortex_scan_pushdown",
         VortexQueryPrimitiveKind::FilterAndProject => {
-            "exact_filter_project_from_single_vortex_scan_pushdown"
+            if report.source_order_limit_applied {
+                "exact_filter_project_from_single_vortex_scan_pushdown_with_shardloom_source_order_residual_limit"
+            } else {
+                "exact_filter_project_from_single_vortex_scan_pushdown"
+            }
         }
         VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
             "unsupported"
@@ -776,7 +845,11 @@ fn local_primitive_pushdown_proof_basis(
             "local Vortex scan applied projection pushdown or exact single-column passthrough without materialization"
         }
         VortexQueryPrimitiveKind::FilterAndProject => {
-            "local Vortex scan applied filter and projection pushdown in one scan without row reads"
+            if report.source_order_limit_applied {
+                "local Vortex scan applied filter and projection pushdown in one scan, then ShardLoom applied a source-order residual limit without row reads"
+            } else {
+                "local Vortex scan applied filter and projection pushdown in one scan without row reads"
+            }
         }
         VortexQueryPrimitiveKind::SimpleAggregate | VortexQueryPrimitiveKind::Unsupported => {
             "unsupported local primitive"
@@ -916,8 +989,11 @@ fn local_primitive_output_ref(report: &VortexLocalPrimitiveExecutionReport) -> O
         VortexQueryPrimitiveKind::FilterAndProject => {
             local_primitive_row_count(report).map(|rows| {
                 format!(
-                    "rows_selected={rows};rows_projected={rows};projected_columns={}",
-                    report.projected_columns.join(",")
+                    "rows_selected={rows};rows_projected={rows};projected_columns={};source_order_limit={}",
+                    report.projected_columns.join(","),
+                    report
+                        .source_order_limit_requested
+                        .map_or_else(|| "none".to_string(), |limit| limit.to_string())
                 )
             })
         }
@@ -971,6 +1047,9 @@ fn local_primitive_side_effects(report: &VortexLocalPrimitiveExecutionReport) ->
     }
     if report.projection_pushdown_applied {
         effects.push("vortex_projection_pushdown".to_string());
+    }
+    if report.source_order_limit_applied {
+        effects.push("shardloom_source_order_residual_limit".to_string());
     }
     effects
 }
@@ -1129,6 +1208,7 @@ fn execute_vortex_local_primitive_enabled(
             let scan = read_local_vortex_scan(uri, &path, request.kind, policy, |dtype| {
                 let mut plan = projection_scan_plan(dtype, &request.projection, request.kind)?;
                 plan.filter = Some(predicate_to_vortex_expr(predicate, dtype, request.kind)?);
+                plan.source_order_limit = request.source_order_limit;
                 Ok(plan)
             })?;
             filter_and_project_report(request.kind, &scan)
@@ -1155,6 +1235,7 @@ fn execute_vortex_local_primitive_enabled(
 struct LocalVortexScan {
     source_row_count: u64,
     result_row_count: usize,
+    pre_limit_result_row_count: usize,
     arrays_read_count: usize,
     reader_splits: Vec<VortexReaderBackedSplitEvidence>,
     reader_generated_prepared_batch_report: VortexReaderGeneratedPreparedBatchReport,
@@ -1164,6 +1245,7 @@ struct LocalVortexScan {
     projected_columns: Vec<String>,
     filter_pushdown_applied: bool,
     projection_pushdown_applied: bool,
+    source_order_limit: Option<usize>,
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -1171,6 +1253,7 @@ struct LocalVortexScanPlan {
     filter: Option<vortex::array::expr::Expression>,
     projection: Option<vortex::array::expr::Expression>,
     projected_columns: Vec<String>,
+    source_order_limit: Option<usize>,
 }
 #[cfg(feature = "vortex-local-primitives")]
 impl LocalVortexScanPlan {
@@ -1179,6 +1262,7 @@ impl LocalVortexScanPlan {
             filter: None,
             projection: None,
             projected_columns: Vec::new(),
+            source_order_limit: None,
         }
     }
 
@@ -1187,6 +1271,7 @@ impl LocalVortexScanPlan {
             filter: Some(filter),
             projection: None,
             projected_columns: Vec::new(),
+            source_order_limit: None,
         }
     }
 }
@@ -1259,8 +1344,14 @@ fn read_local_vortex_scan(
         })?;
     let source_row_count = file.row_count();
     let plan = configure(file.dtype())?;
+    if plan.source_order_limit == Some(0) {
+        return Err(ShardLoomError::InvalidOperation(
+            "local Vortex source-order limit must be >= 1".to_string(),
+        ));
+    }
     let filter_pushdown_applied = plan.filter.is_some();
     let projection_pushdown_applied = plan.projection.is_some();
+    let source_order_limit = plan.source_order_limit;
     let mut scan = file.scan().map_err(vortex_error)?;
     if let Some(filter) = plan.filter {
         scan = scan.with_filter(filter);
@@ -1270,6 +1361,7 @@ fn read_local_vortex_scan(
     }
     scan = scan.with_concurrency(policy.scan_concurrency_per_worker());
     let mut result_row_count = 0usize;
+    let mut pre_limit_result_row_count = 0usize;
     let mut arrays_read_count = 0usize;
     let mut reader_splits = Vec::new();
     let mut encoded_kernel_inputs = Vec::new();
@@ -1277,6 +1369,15 @@ fn read_local_vortex_scan(
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
         let chunk = chunk.map_err(vortex_error)?;
         let rows = chunk.len();
+        pre_limit_result_row_count =
+            pre_limit_result_row_count
+                .checked_add(rows)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "local Vortex primitive pre-limit result row count overflowed usize"
+                            .to_string(),
+                    )
+                })?;
         let split = VortexReaderBackedSplitEvidence::local_scan_chunk(
             source_uri.clone(),
             arrays_read_count,
@@ -1292,13 +1393,19 @@ fn read_local_vortex_scan(
             &chunk,
         )?);
         reader_splits.push(split);
-        result_row_count = result_row_count.checked_add(rows).ok_or_else(|| {
+        let output_rows = source_order_limit.map_or(rows, |limit| {
+            limit.saturating_sub(result_row_count).min(rows)
+        });
+        result_row_count = result_row_count.checked_add(output_rows).ok_or_else(|| {
             ShardLoomError::InvalidOperation(
                 "local Vortex primitive result row count overflowed usize".to_string(),
             )
         })?;
         max_chunk_rows = max_chunk_rows.max(rows);
         arrays_read_count += 1;
+        if source_order_limit.is_some_and(|limit| result_row_count >= limit) {
+            break;
+        }
     }
     let source = UniversalInputSource::from_dataset_uri(source_uri.clone())?;
     let reader_generated_prepared_batch_report = if encoded_kernel_inputs.is_empty() {
@@ -1313,6 +1420,7 @@ fn read_local_vortex_scan(
     Ok(LocalVortexScan {
         source_row_count,
         result_row_count,
+        pre_limit_result_row_count,
         arrays_read_count,
         reader_splits,
         reader_generated_prepared_batch_report,
@@ -1322,6 +1430,7 @@ fn read_local_vortex_scan(
         projected_columns: plan.projected_columns,
         filter_pushdown_applied,
         projection_pushdown_applied,
+        source_order_limit,
     })
 }
 
@@ -1966,6 +2075,10 @@ fn count_all_report(
         projection_pushdown_applied: scan.projection_pushdown_applied,
         upstream_filter_expression_used: scan.filter_pushdown_applied,
         upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: None,
+        source_order_limit_applied: false,
+        source_order_limit_input_rows: None,
+        source_order_limit_rows_output: None,
         data_read: true,
         data_decoded: false,
         data_materialized: false,
@@ -2012,6 +2125,10 @@ fn predicate_report(
         projection_pushdown_applied: scan.projection_pushdown_applied,
         upstream_filter_expression_used: scan.filter_pushdown_applied,
         upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
         data_read: true,
         data_decoded: false,
         data_materialized: false,
@@ -2061,6 +2178,10 @@ fn projection_report(
         projection_pushdown_applied: scan.projection_pushdown_applied,
         upstream_filter_expression_used: scan.filter_pushdown_applied,
         upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
         data_read: true,
         data_decoded: false,
         data_materialized: false,
@@ -2110,6 +2231,10 @@ fn filter_and_project_report(
         projection_pushdown_applied: scan.projection_pushdown_applied,
         upstream_filter_expression_used: scan.filter_pushdown_applied,
         upstream_projection_expression_used: scan.projection_pushdown_applied,
+        source_order_limit_requested: scan.source_order_limit.map(usize_to_u64).transpose()?,
+        source_order_limit_applied: scan.source_order_limit.is_some(),
+        source_order_limit_input_rows: Some(usize_to_u64(scan.pre_limit_result_row_count)?),
+        source_order_limit_rows_output: Some(usize_to_u64(scan.result_row_count)?),
         data_read: true,
         data_decoded: false,
         data_materialized: false,
@@ -2148,6 +2273,7 @@ fn projection_scan_plan(
         filter: None,
         projection: projection_expr,
         projected_columns,
+        source_order_limit: None,
     })
 }
 
@@ -3283,6 +3409,82 @@ mod tests {
         assert!(!report.row_read);
         assert!(!report.arrow_converted);
         assert!(!report.fallback_execution_allowed);
+    }
+
+    #[test]
+    fn filter_and_project_applies_source_order_residual_limit_after_scan_pushdown() {
+        let uri = checked_in_struct_fixture_uri();
+        let request = VortexQueryPrimitiveRequest::filter_and_project(
+            uri,
+            PredicateExpr::Compare {
+                column: ColumnRef::new("value").expect("column"),
+                op: ComparisonOp::GtEq,
+                value: StatValue::Int64(3),
+            },
+            ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+        )
+        .with_source_order_limit(2);
+
+        let report = execute_vortex_local_primitive_with_policy(
+            &request,
+            VortexLocalPrimitiveExecutionPolicy::new(2).expect("policy"),
+        )
+        .expect("report");
+        let certificate =
+            local_primitive_native_io_certificate(&request, &report).expect("certificate");
+        let fixture = local_primitive_correctness_fixture_for_request(&request, &report)
+            .expect("limit fixture");
+        let execution_certificate =
+            local_primitive_execution_certificate(&fixture, &request, &report)
+                .expect("execution certificate");
+
+        assert_eq!(report.status, VortexLocalPrimitiveExecutionStatus::Executed);
+        assert_eq!(
+            report.mode,
+            VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+        );
+        assert_eq!(report.rows_scanned, 5);
+        assert_eq!(report.rows_selected, Some(2));
+        assert_eq!(report.rows_projected, Some(2));
+        assert_eq!(report.source_order_limit_requested, Some(2));
+        assert!(report.source_order_limit_applied);
+        assert_eq!(report.source_order_limit_input_rows, Some(3));
+        assert_eq!(report.source_order_limit_rows_output, Some(2));
+        assert!(report.filter_pushdown_applied);
+        assert!(report.projection_pushdown_applied);
+        assert!(report.upstream_filter_expression_used);
+        assert!(report.upstream_projection_expression_used);
+        assert!(!report.data_decoded);
+        assert!(!report.data_materialized);
+        assert!(!report.row_read);
+        assert!(!report.arrow_converted);
+        assert!(!report.fallback_execution_allowed);
+        assert!(certificate.is_certified());
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .accepted_operation_order(),
+            "filter,project"
+        );
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .rejected_operation_order(),
+            "limit_pushdown"
+        );
+        assert_eq!(
+            certificate
+                .source_pushdown_report
+                .residual_expression
+                .as_deref(),
+            Some("source_order_limit:2")
+        );
+        assert_eq!(
+            fixture.id.as_str(),
+            "vortex-local-filter-project-limit-struct-five"
+        );
+        assert!(execution_certificate.is_certified());
+        assert!(!execution_certificate.fallback_attempted);
     }
 
     #[test]

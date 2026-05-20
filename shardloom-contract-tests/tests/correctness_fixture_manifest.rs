@@ -443,8 +443,8 @@ fn reference_roles_remain_test_only_not_production_fallback() {
 fn foundation_plan_reports_reference_and_gap_counts() {
     let plan = CorrectnessValidationPlan::default_foundation_plan();
 
-    assert_eq!(plan.fixture_count(), 38);
-    assert_eq!(plan.fixtures_with_source_ref_count(), 18);
+    assert_eq!(plan.fixture_count(), 39);
+    assert_eq!(plan.fixtures_with_source_ref_count(), 19);
     assert_eq!(plan.source_backed_edge_fixture_count(), 11);
     assert_eq!(
         plan.source_backed_edge_fixture_id_order(),
@@ -462,9 +462,9 @@ fn foundation_plan_reports_reference_and_gap_counts() {
             "vortex-edge-filter-temporal-values",
         ]
     );
-    assert_eq!(plan.golden_fixture_count(), 21);
-    assert_eq!(plan.reference_artifact_count(), 20);
-    assert_eq!(plan.decoded_reference_output_count(), 20);
+    assert_eq!(plan.golden_fixture_count(), 22);
+    assert_eq!(plan.reference_artifact_count(), 21);
+    assert_eq!(plan.decoded_reference_output_count(), 21);
     assert_eq!(
         plan.decoded_reference_artifact_id_order(),
         vec![
@@ -474,6 +474,7 @@ fn foundation_plan_reports_reference_and_gap_counts() {
             "vortex-local-project-struct-five.decoded-reference.rows",
             "vortex-local-filter-struct-five.decoded-reference.rows",
             "vortex-local-filter-project-struct-five.decoded-reference.rows",
+            "vortex-local-filter-project-limit-struct-five.decoded-reference.rows",
             "vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows",
             "vortex-prepared-encoded-projection-dictionary.decoded-reference.rows",
             "vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows",
@@ -491,7 +492,7 @@ fn foundation_plan_reports_reference_and_gap_counts() {
         ]
     );
     assert!(plan.decoded_reference_output_coverage_complete());
-    assert_eq!(plan.executable_expected_output_count(), 20);
+    assert_eq!(plan.executable_expected_output_count(), 21);
     assert_eq!(plan.not_yet_defined_fixture_count(), 0);
     assert_eq!(plan.deferred_fixture_family_count(), 9);
     assert_eq!(

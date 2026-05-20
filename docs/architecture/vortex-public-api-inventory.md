@@ -16,7 +16,8 @@ phase note. They are not active queue state and do not override `phased-executio
 
 - Approved historical metadata/footer path: feature-gated local metadata/footer fixture open.
 - Approved local primitive scan paths: feature-gated local `.vortex` primitive paths for `CountAll`,
-  `CountWhere`, `FilterPredicate`, `ProjectColumns`, and `FilterAndProject` where recorded in
+  `CountWhere`, `FilterPredicate`, `ProjectColumns`, and `FilterAndProject`, plus the scoped
+  `FilterAndProject` source-order residual limit where recorded in
   `docs/architecture/phased-execution-plan.md`.
 - Prepared encoded execution surfaces: prepared encoded filter, projection, and filter-project
   evidence paths with source-bound prepared batch envelopes, reader split-ref validation, explicit
@@ -43,7 +44,7 @@ phase note. They are not active queue state and do not override `phased-executio
   Vortex query-engine integrations and external baselines.
 - Source/Split admission framing: `vortex-api-inventory` now exposes
   `shardloom.vortex_source_split_runtime_admission.v1` for the scoped
-  `local_vortex_file_scan_into_array_iter` fixture path. The proof records `vortex` version `0.70`,
+  `local_vortex_file_scan_into_array_iter` fixture path. The proof records `vortex` version `0.71`,
   `vortex-local-primitives`, `VortexFile::scan` / `ScanBuilder` API surfaces, source/split refs,
   field-mask and predicate-ordering blockers, execution/Native I/O refs, and
   `fallback_attempted=false`. This classifies the fixture path only; generalized Source/Split,

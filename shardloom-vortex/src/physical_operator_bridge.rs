@@ -184,7 +184,7 @@ impl VortexPhysicalOperatorBridgeReport {
 pub fn physical_operator_plan_for_vortex_query_primitive(
     request: &VortexQueryPrimitiveRequest,
 ) -> Result<PhysicalOperatorPlan> {
-    let operators = match request.kind {
+    let mut operators = match request.kind {
         VortexQueryPrimitiveKind::CountAll => vec![bridge_operator(
             "vortex.query_primitive.count_all.count_aggregate",
             PhysicalOperatorKind::CountAggregate,
@@ -224,6 +224,20 @@ pub fn physical_operator_plan_for_vortex_query_primitive(
             )?]
         }
     };
+    if request.source_order_limit.is_some()
+        && !matches!(
+            request.kind,
+            VortexQueryPrimitiveKind::CountAll
+                | VortexQueryPrimitiveKind::CountWhere
+                | VortexQueryPrimitiveKind::SimpleAggregate
+                | VortexQueryPrimitiveKind::Unsupported
+        )
+    {
+        operators.push(bridge_operator(
+            "vortex.query_primitive.source_order_limit.limit",
+            PhysicalOperatorKind::Limit,
+        )?);
+    }
     let mut plan = PhysicalOperatorPlan {
         schema_version: "shardloom.physical_operator_plan.v1",
         plan_id: format!(
@@ -424,6 +438,7 @@ mod tests {
             source_uri: Some(uri()),
             projection: shardloom_plan::ProjectionRequest::all(),
             predicate: Some(PredicateExpr::AlwaysTrue),
+            source_order_limit: None,
             diagnostics: Vec::new(),
         };
 
@@ -432,6 +447,24 @@ mod tests {
         assert_eq!(plan.operators.len(), 2);
         assert_eq!(plan.operators[0].kind, PhysicalOperatorKind::Filter);
         assert_eq!(plan.operators[1].kind, PhysicalOperatorKind::Project);
+        assert!(!plan.fallback_execution_allowed());
+    }
+
+    #[test]
+    fn filter_project_limit_bridge_adds_limit_operator() {
+        let request = VortexQueryPrimitiveRequest::filter_and_project(
+            uri(),
+            PredicateExpr::AlwaysTrue,
+            shardloom_plan::ProjectionRequest::all(),
+        )
+        .with_source_order_limit(2);
+
+        let plan = physical_operator_plan_for_vortex_query_primitive(&request).expect("plan");
+
+        assert_eq!(plan.operators.len(), 3);
+        assert_eq!(plan.operators[0].kind, PhysicalOperatorKind::Filter);
+        assert_eq!(plan.operators[1].kind, PhysicalOperatorKind::Project);
+        assert_eq!(plan.operators[2].kind, PhysicalOperatorKind::Limit);
         assert!(!plan.fallback_execution_allowed());
     }
 

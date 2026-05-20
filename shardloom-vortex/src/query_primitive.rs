@@ -117,6 +117,7 @@ pub struct VortexQueryPrimitiveRequest {
     pub source_uri: Option<DatasetUri>,
     pub projection: ProjectionRequest,
     pub predicate: Option<PredicateExpr>,
+    pub source_order_limit: Option<usize>,
     pub diagnostics: Vec<Diagnostic>,
 }
 impl VortexQueryPrimitiveRequest {
@@ -127,6 +128,7 @@ impl VortexQueryPrimitiveRequest {
             source_uri: Some(uri),
             projection: ProjectionRequest::all(),
             predicate: None,
+            source_order_limit: None,
             diagnostics: vec![],
         }
     }
@@ -137,6 +139,7 @@ impl VortexQueryPrimitiveRequest {
             source_uri: Some(uri),
             projection: ProjectionRequest::all(),
             predicate: Some(predicate),
+            source_order_limit: None,
             diagnostics: vec![],
         }
     }
@@ -147,6 +150,7 @@ impl VortexQueryPrimitiveRequest {
             source_uri: Some(uri),
             projection,
             predicate: None,
+            source_order_limit: None,
             diagnostics: vec![],
         }
     }
@@ -157,6 +161,7 @@ impl VortexQueryPrimitiveRequest {
             source_uri: Some(uri),
             projection: ProjectionRequest::all(),
             predicate: Some(predicate),
+            source_order_limit: None,
             diagnostics: vec![],
         }
     }
@@ -171,8 +176,14 @@ impl VortexQueryPrimitiveRequest {
             source_uri: Some(uri),
             projection,
             predicate: Some(predicate),
+            source_order_limit: None,
             diagnostics: vec![],
         }
+    }
+    #[must_use]
+    pub fn with_source_order_limit(mut self, limit: usize) -> Self {
+        self.source_order_limit = Some(limit);
+        self
     }
     #[must_use]
     pub fn unsupported(feature: impl Into<String>, reason: impl Into<String>) -> Self {
@@ -181,6 +192,7 @@ impl VortexQueryPrimitiveRequest {
             source_uri: None,
             projection: ProjectionRequest::all(),
             predicate: None,
+            source_order_limit: None,
             diagnostics: vec![],
         };
         request.add_diagnostic(Diagnostic::unsupported(
@@ -206,7 +218,7 @@ impl VortexQueryPrimitiveRequest {
     #[must_use]
     pub fn summary(&self) -> String {
         format!(
-            "kind={} uri={} projection={} predicate={} diagnostics={}",
+            "kind={} uri={} projection={} predicate={} source_order_limit={} diagnostics={}",
             self.kind.as_str(),
             self.source_uri
                 .as_ref()
@@ -215,6 +227,8 @@ impl VortexQueryPrimitiveRequest {
             self.predicate
                 .as_ref()
                 .map_or_else(|| "none".to_string(), PredicateExpr::summary),
+            self.source_order_limit
+                .map_or_else(|| "none".to_string(), |limit| limit.to_string()),
             self.diagnostics.len()
         )
     }

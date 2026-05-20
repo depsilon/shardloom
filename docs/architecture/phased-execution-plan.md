@@ -450,12 +450,20 @@ or documentation updates alone are insufficient.
   - Current state: source-backed scan and encoded predicate evidence are scoped; CLI local Vortex
     primitive `vortex-project`, `vortex-filter`, and `vortex-filter-project` rows now emit a
     shared `scan_pushdown_*` contract with filter/projection/materialization/no-fallback fields and
-    deterministic blockers. Limit/slice pushdown and broad prepared/native scenario coverage are
-    still incomplete.
+    deterministic blockers. `vortex-filter-project --limit` now executes an admitted local Vortex
+    filter/project scan with filter and projection pushed into upstream Vortex Scan, followed by an
+    explicit ShardLoom-native source-order residual limit. The residual limit reports
+    `scan_limit_pushed_down=false`, `scan_limit_pushdown_status=blocked_no_scan_limit_admission`,
+    `scan_residual_limit_applied=true`, residual executor `shardloom_native`,
+    `fallback_attempted=false`, and `external_engine_invoked=false`. Runtime provider evidence now
+    records the active optional Vortex `0.71` dependency. Broad Vortex Scan limit/slice pushdown,
+    encoded-native operator admission, and prepared/native scenario coverage are still incomplete.
   - Next slice outcome: lower filter, projection, and limit into Vortex Scan where admitted, and
-    emit deterministic blockers when a predicate/projection cannot be pushed down.
+    emit deterministic blockers or ShardLoom-native residual evidence when a predicate, projection,
+    or limit cannot be pushed down.
   - Runtime enablement: prepared/native Vortex Scan pushdown for admitted filters, projections, and
-    limits, with fail-closed blockers for unsupported shapes.
+    limits, with explicit ShardLoom-native residual execution or fail-closed blockers for
+    unsupported shapes.
   - User-visible surface: prepared/native benchmark rows, explain output, capability matrix.
   - Implementation scope: scan request builder, filter expression lowering, projection mask, limit/
     slice pushdown, evidence fields.
@@ -466,10 +474,14 @@ or documentation updates alone are insufficient.
       blockers.
     - `IsSorted` dtype fixes may inform sorted/min-max pruning and top-k blockers before any
       sorted-kernel runtime claim.
-  - Evidence required: filter/projection/limit pushdown status, filter/output columns read,
-    encoded predicate provider fields, data decoded/materialized, no-fallback fields.
+  - Evidence required: filter/projection/limit pushdown status, residual limit executor and
+    row-count fields where limit is not admitted into Vortex Scan, filter/output columns read,
+    encoded predicate provider fields, data decoded/materialized, Vortex provider version,
+    no-fallback fields.
   - Acceptance: supported scenarios avoid reading unused output columns; unsupported pushdown does
-    not silently fall back to full materialization.
+    not silently fall back to full materialization; limit-like operators either push down through an
+    admitted Vortex provider surface, execute as an explicitly reported ShardLoom-native residual,
+    or block deterministically.
   - Verification: selective-filter smoke, filter/projection/limit smoke, source-backed scan tests,
     benchmark contract tests.
   - Non-goals: no encoded-native claim from pushdown evidence alone.

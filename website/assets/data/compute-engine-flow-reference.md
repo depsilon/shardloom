@@ -2195,7 +2195,14 @@ surfaces now use the same contract shape for `vortex-project`, `vortex-filter`,
 and `vortex-filter-project`: admitted local scan rows disclose filter,
 projection, filter-only, materialization, decode, blocker, no-fallback, and
 external-engine fields, while non-admitted rows fail closed with deterministic
-blocker IDs. `group by
+blocker IDs. `vortex-filter-project --limit <rows>` is the first admitted
+source-order limit runtime slice on this CLI primitive surface: Vortex Scan
+still admits the filter and projection, ShardLoom applies the limit as a native
+residual stage, and the row reports `scan_limit_pushed_down=false`,
+`scan_limit_pushdown_status=blocked_no_scan_limit_admission`,
+`scan_residual_limit_applied=true`, `scan_residual_limit_executor=shardloom_native`,
+`fallback_attempted=false`, and `external_engine_invoked=false`. This is not a
+broad Vortex Scan limit/slice pushdown claim. `group by
 aggregation` now also has a prepared/native residual-native scan path using
 projection pushdown over `group_key`/`metric` and ShardLoom-native grouped
 state. `multi-key group by` extends that path to composite `group_key`/`category`

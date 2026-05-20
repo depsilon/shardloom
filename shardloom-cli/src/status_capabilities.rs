@@ -2157,7 +2157,7 @@ const NATIVE_VORTEX_ADMISSION_LANES: &[NativeVortexAdmissionLane] = &[NativeVort
     provider_kind: "vortex_scan",
     provider_api_surface: "VortexFile::scan,ScanBuilder::into_array_iter",
     provider_crate: "vortex",
-    provider_version: "0.70",
+    provider_version: "0.71",
     feature_gate: "vortex-encoded-read-spike",
     shardloom_admission_policy: "local_fixture_scan_count_only",
     compute_row_ref: "compute_row.local_vortex_count",
