@@ -670,6 +670,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("label").lower() == "alpha"), "LOWER(label) = 'alpha'")
         self.assertEqual(str(sl.col("label").upper() != "BETA"), "UPPER(label) != 'BETA'")
         self.assertEqual(str(sl.col("label").trim() == "gamma"), "TRIM(label) = 'gamma'")
+        self.assertEqual(str(sl.col("amount") + 5 >= 20), "amount + 5 >= 20")
+        self.assertEqual(str(sl.col("amount") - 3 < 10), "amount - 3 < 10")
+        self.assertEqual(str(sl.col("amount") * 2 == 40), "amount * 2 = 40")
+        self.assertEqual(str(sl.col("ratio") / 2.0 > 0.5), "ratio / 2.0 > 0.5")
         self.assertEqual(str(sl.col("closed_at").is_not_null()), "closed_at IS NOT NULL")
 
         with self.assertRaisesRegex(ValueError, "timezone-aware"):
@@ -692,6 +696,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.col("event_dt").date_add_days("1 day")
         with self.assertRaises(ValueError):
             sl.col("event_dt").date_add_days(366_001)
+        with self.assertRaises(ValueError):
+            sl.col("amount") + True
+        with self.assertRaises(TypeError):
+            sl.col("amount") * "2"
 
     def test_column_expression_builder_exposes_date_extract_report_fields(self) -> None:
         binary = self.fake_cli(

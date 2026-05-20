@@ -123,6 +123,29 @@ class ColumnExpression:
     def _compare(self, operator: str, value: object) -> PredicateExpression:
         return PredicateExpression(f"{self.sql} {operator} {_sql_literal(value)}")
 
+    def _numeric_binary(self, operator: str, value: object) -> "ColumnExpression":
+        return ColumnExpression(f"{self.sql} {operator} {_sql_numeric_literal(value)}")
+
+    def __add__(self, value: object) -> "ColumnExpression":
+        """Return a scoped numeric addition expression for predicates."""
+
+        return self._numeric_binary("+", value)
+
+    def __sub__(self, value: object) -> "ColumnExpression":
+        """Return a scoped numeric subtraction expression for predicates."""
+
+        return self._numeric_binary("-", value)
+
+    def __mul__(self, value: object) -> "ColumnExpression":
+        """Return a scoped numeric multiplication expression for predicates."""
+
+        return self._numeric_binary("*", value)
+
+    def __truediv__(self, value: object) -> "ColumnExpression":
+        """Return a scoped numeric division expression for predicates."""
+
+        return self._numeric_binary("/", value)
+
     def is_null(self) -> PredicateExpression:
         """Return a scoped `IS NULL` predicate."""
 
@@ -2724,6 +2747,18 @@ def _sql_literal(value: object) -> str:
     raise TypeError(
         "SQL predicate literals must be bool, int, float, str, date, datetime, or None"
     )
+
+
+def _sql_numeric_literal(value: object) -> str:
+    if isinstance(value, bool):
+        raise ValueError("numeric arithmetic literals must be int or finite float values")
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("numeric arithmetic float literals must be finite")
+        return str(value)
+    raise TypeError("numeric arithmetic literals must be int or finite float values")
 
 
 def _sql_in_literal(value: object) -> str:

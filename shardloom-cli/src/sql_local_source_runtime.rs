@@ -308,6 +308,13 @@ enum ParsedPredicate {
         op: ComparisonOp,
         value: ScalarValue,
     },
+    NumericArithmeticCompare {
+        column: String,
+        op: NumericArithmeticOp,
+        rhs: ScalarValue,
+        comparison: ComparisonOp,
+        value: ScalarValue,
+    },
     DateArithmeticCompare {
         column: String,
         op: DateArithmeticOp,
@@ -392,6 +399,14 @@ enum StringTransformOp {
     Lower,
     Upper,
     Trim,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NumericArithmeticOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -507,6 +522,26 @@ impl StringTransformOp {
             Self::Lower => "lower",
             Self::Upper => "upper",
             Self::Trim => "trim",
+        }
+    }
+}
+
+impl NumericArithmeticOp {
+    const fn binary_op(self) -> BinaryOp {
+        match self {
+            Self::Add => BinaryOp::Add,
+            Self::Subtract => BinaryOp::Subtract,
+            Self::Multiply => BinaryOp::Multiply,
+            Self::Divide => BinaryOp::Divide,
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Add => "add",
+            Self::Subtract => "subtract",
+            Self::Multiply => "multiply",
+            Self::Divide => "divide",
         }
     }
 }
@@ -1821,6 +1856,7 @@ fn apply_date_literal_predicate_coercions(
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
         | ParsedPredicate::CastCompare { .. }
+        | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
         | ParsedPredicate::TimestampExtractCompare { .. }
         | ParsedPredicate::StringTransformCompare { .. }
@@ -1873,6 +1909,7 @@ fn apply_timestamp_literal_predicate_coercions(
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
         | ParsedPredicate::CastCompare { .. }
+        | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
         | ParsedPredicate::DateExtractCompare { .. }
         | ParsedPredicate::StringTransformCompare { .. }
@@ -2872,6 +2909,7 @@ impl ParsedPredicate {
             Self::All => {}
             Self::Compare { column, .. }
             | Self::CastCompare { column, .. }
+            | Self::NumericArithmeticCompare { column, .. }
             | Self::DateArithmeticCompare { column, .. }
             | Self::DateExtractCompare { column, .. }
             | Self::TimestampExtractCompare { column, .. }
@@ -2901,6 +2939,13 @@ impl ParsedPredicate {
                 op,
                 value,
             } => cast_compare_expression(column, target_dtype, *op, value),
+            Self::NumericArithmeticCompare {
+                column,
+                op,
+                rhs,
+                comparison,
+                value,
+            } => numeric_arithmetic_compare_expression(column, *op, rhs, *comparison, value),
             Self::DateArithmeticCompare {
                 column,
                 op,
@@ -2971,6 +3016,7 @@ impl ParsedPredicate {
             Self::All => "none",
             Self::Compare { .. } => "comparison",
             Self::CastCompare { .. } => "cast",
+            Self::NumericArithmeticCompare { .. } => "numeric_arithmetic",
             Self::DateArithmeticCompare { .. } => "date_arithmetic",
             Self::DateExtractCompare { .. } => "date_extract",
             Self::TimestampExtractCompare { .. } => "timestamp_extract",
@@ -2992,6 +3038,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3023,6 +3070,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3043,6 +3091,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3074,6 +3123,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3105,9 +3155,129 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn uses_numeric_arithmetic(&self) -> bool {
+        match self {
+            Self::NumericArithmeticCompare { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_numeric_arithmetic() || right.uses_numeric_arithmetic()
+            }
+            Self::Not { inner } => inner.uses_numeric_arithmetic(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn numeric_arithmetic_operator(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_numeric_arithmetic_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_numeric_arithmetic_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::NumericArithmeticCompare { op, .. } => operators.push(op.as_str()),
+            Self::Logical { left, right, .. } => {
+                left.push_numeric_arithmetic_operators(operators);
+                right.push_numeric_arithmetic_operators(operators);
+            }
+            Self::Not { inner } => inner.push_numeric_arithmetic_operators(operators),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn numeric_arithmetic_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_numeric_arithmetic_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_numeric_arithmetic_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::NumericArithmeticCompare { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_numeric_arithmetic_source_columns(columns);
+                right.push_numeric_arithmetic_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_numeric_arithmetic_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn numeric_arithmetic_rhs_dtypes(&self) -> String {
+        let mut dtypes = Vec::new();
+        self.push_numeric_arithmetic_rhs_dtypes(&mut dtypes);
+        if dtypes.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            dtypes.join(",")
+        }
+    }
+
+    fn push_numeric_arithmetic_rhs_dtypes(&self, dtypes: &mut Vec<String>) {
+        match self {
+            Self::NumericArithmeticCompare { rhs, .. } => {
+                dtypes.push(rhs.dtype().as_str().to_string());
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_numeric_arithmetic_rhs_dtypes(dtypes);
+                right.push_numeric_arithmetic_rhs_dtypes(dtypes);
+            }
+            Self::Not { inner } => inner.push_numeric_arithmetic_rhs_dtypes(dtypes),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -3139,6 +3309,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3156,6 +3327,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_cast(),
             Self::All
             | Self::Compare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3183,6 +3355,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_cast_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3216,6 +3389,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_cast_target_dtypes(dtypes),
             Self::All
             | Self::Compare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3238,6 +3412,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3258,6 +3433,7 @@ impl ParsedPredicate {
             Self::All => 0,
             Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3277,6 +3453,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3297,6 +3474,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3320,6 +3498,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3340,6 +3519,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3371,6 +3551,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3402,6 +3583,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3432,6 +3614,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -3452,6 +3635,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -3483,6 +3667,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -3514,6 +3699,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -3534,6 +3720,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -3565,6 +3752,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -3596,6 +3784,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -3627,6 +3816,7 @@ impl ParsedPredicate {
             Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -3679,6 +3869,39 @@ fn cast_compare_expression(
             op,
             right: Box::new(Expression::literal(
                 ExprId::new("where.cast.literal")?,
+                value.clone(),
+            )),
+        },
+    ))
+}
+
+fn numeric_arithmetic_compare_expression(
+    column: &str,
+    op: NumericArithmeticOp,
+    rhs: &ScalarValue,
+    comparison: ComparisonOp,
+    value: &ScalarValue,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.numeric_arithmetic_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::new(
+                ExprId::new(format!("where.numeric_arithmetic.{column}"))?,
+                ExpressionKind::Binary {
+                    left: Box::new(Expression::column(
+                        ExprId::new(format!("where.{column}"))?,
+                        ColumnRef::new(column.to_string())?,
+                    )),
+                    op: op.binary_op(),
+                    right: Box::new(Expression::literal(
+                        ExprId::new("where.numeric_arithmetic.literal")?,
+                        rhs.clone(),
+                    )),
+                },
+            )),
+            op: comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.numeric_arithmetic.compare_literal")?,
                 value.clone(),
             )),
         },
@@ -4246,6 +4469,22 @@ impl SqlLocalSourceReport {
             (
                 "string_transform_source_column".to_string(),
                 self.parsed.predicate.string_transform_source_columns(),
+            ),
+            (
+                "numeric_arithmetic_runtime_execution".to_string(),
+                self.parsed.predicate.uses_numeric_arithmetic().to_string(),
+            ),
+            (
+                "numeric_arithmetic_operator".to_string(),
+                self.parsed.predicate.numeric_arithmetic_operator(),
+            ),
+            (
+                "numeric_arithmetic_source_column".to_string(),
+                self.parsed.predicate.numeric_arithmetic_source_columns(),
+            ),
+            (
+                "numeric_arithmetic_rhs_dtype".to_string(),
+                self.parsed.predicate.numeric_arithmetic_rhs_dtypes(),
             ),
             (
                 "logical_predicate_runtime_execution".to_string(),
@@ -5790,6 +6029,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_cast_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_numeric_arithmetic_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_string_transform_predicate(raw)? {
         return Ok(predicate);
     }
@@ -5881,7 +6123,7 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -6358,6 +6600,71 @@ fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
         "timestamp_micros" | "timestamp" => Ok(LogicalDType::TimestampMicros),
         _ => Err(unsupported_sql_error(
             "CAST target dtype must be one of int64, float64, utf8, boolean, date32, or timestamp_micros",
+        )),
+    }
+}
+
+fn parse_numeric_arithmetic_predicate(
+    raw: &str,
+) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    let Some(op_index) = tokens
+        .iter()
+        .position(|token| parse_numeric_arithmetic_op(token).is_some())
+    else {
+        return Ok(None);
+    };
+    if tokens.len() != 5 || op_index != 1 {
+        return Err(unsupported_sql_error(
+            "numeric arithmetic predicates admit <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal> only",
+        ));
+    }
+    let column = &tokens[0];
+    validate_sql_column_ref(column)?;
+    let op = parse_numeric_arithmetic_op(&tokens[1]).expect("arithmetic op was detected");
+    let rhs = parse_numeric_arithmetic_literal(&tokens[2])?;
+    if matches!(
+        (op, &rhs),
+        (
+            NumericArithmeticOp::Divide,
+            ScalarValue::Int64(0) | ScalarValue::Float64(0.0)
+        )
+    ) {
+        return Err(unsupported_sql_error(
+            "numeric arithmetic division by zero is not admitted",
+        ));
+    }
+    let comparison = parse_comparison_op(&tokens[3])?;
+    let value = parse_numeric_arithmetic_literal(&tokens[4])?;
+    if rhs.dtype() != value.dtype() {
+        return Err(unsupported_sql_error(
+            "numeric arithmetic predicates require the arithmetic literal and comparison literal to share one numeric dtype family",
+        ));
+    }
+    Ok(Some(ParsedPredicate::NumericArithmeticCompare {
+        column: column.clone(),
+        op,
+        rhs,
+        comparison,
+        value,
+    }))
+}
+
+fn parse_numeric_arithmetic_op(raw: &str) -> Option<NumericArithmeticOp> {
+    match raw.trim() {
+        "+" => Some(NumericArithmeticOp::Add),
+        "-" => Some(NumericArithmeticOp::Subtract),
+        "*" => Some(NumericArithmeticOp::Multiply),
+        "/" => Some(NumericArithmeticOp::Divide),
+        _ => None,
+    }
+}
+
+fn parse_numeric_arithmetic_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
+    match parse_sql_literal(raw)? {
+        value @ (ScalarValue::Int64(_) | ScalarValue::Float64(_)) => Ok(value),
+        _ => Err(unsupported_sql_error(
+            "numeric arithmetic predicates admit int64 or finite float64 literals only",
         )),
     }
 }

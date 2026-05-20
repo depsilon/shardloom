@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped numeric arithmetic predicate runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-numeric-arithmetic-predicates-4d` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - SQL/Python local runtime smokes
+    - Python query-builder local-source workflow surface
+  - Scope:
+    - Admitted scoped local SQL predicates of the form
+      `<column> (+|-|*|/) <numeric-literal> <comparison> <numeric-literal>` by lowering them into
+      ShardLoom-native core binary expression and comparison semantics.
+    - Supported same-family `int64` and finite `float64` literal families with SQL `WHERE` null
+      filtering semantics, preserving no-fallback execution.
+    - Added deterministic blockers for unsupported arithmetic shapes, mixed numeric literal
+      families, non-finite float literals, and division by literal zero.
+    - Added Python `sl.col(...)` scoped `+`, `-`, `*`, and `/` operators so local query-builder
+      filters can express the same admitted arithmetic predicate shape.
+    - Updated Python README, use-case index, and phase-plan current state with the new scoped
+      arithmetic surface and claim boundary.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder filters, direct Python
+      `client.sql_local_source_smoke(...)`, use-case docs, and Python README.
+  - Evidence:
+    - Rows emit `predicate_operator_family=numeric_arithmetic`,
+      `numeric_arithmetic_runtime_execution=true`, `numeric_arithmetic_operator`,
+      `numeric_arithmetic_source_column`, `numeric_arithmetic_rhs_dtype`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo check -p shardloom-cli`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_numeric_arithmetic_predicates_without_fallback -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests scripts benchmarks/traditional_analytics website website-src`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `node website-src/scripts/sync-content.mjs`
+    - `node website-src/node_modules/astro/bin/astro.mjs sync`
+    - `node website-src/node_modules/@astrojs/check/bin/astro-check.js`
+    - `node website-src/node_modules/astro/bin/astro.mjs build`
+    - `node website-src/scripts/postbuild-static.mjs`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `git diff --check`
+  - Non-goals:
+    - No generalized arithmetic expression trees, arithmetic projections, mixed numeric coercions,
+      decimal completeness, production SQL/DataFrame runtime, performance claim, or external
+      fallback.
+  - Claim boundary:
+    - Scoped local-source numeric arithmetic predicate fixture smoke only.
+  - Fallback boundary:
+    - Parser, lowering, and evaluation remain ShardLoom-native. External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, arithmetic,
+      and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E generated-source feature-gated structured output sinks
   - Date: 2026-05-20
   - Branch/PR: `runtime-generated-structured-outputs-4e` / pending.

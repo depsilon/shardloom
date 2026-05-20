@@ -383,6 +383,8 @@ Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
 `TIMESTAMP_YEAR(...)` / `TIMESTAMP_MONTH(...)` / `TIMESTAMP_DAY(...)` /
 `TIMESTAMP_HOUR(...)` / `TIMESTAMP_MINUTE(...)` / `TIMESTAMP_SECOND(...)`,
 Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
+scoped numeric arithmetic predicates such as `<column> + 5 >= 20` and
+`<column> * 2.0 > 1.0`,
 bounded `IN (...)` / `NOT IN (...)`, direct SQL `BETWEEN` / `NOT BETWEEN`, inclusive Python
 `between(...)` range predicates, string
 `LIKE` / `NOT LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
@@ -390,14 +392,17 @@ leaves. `where(...)` is a familiar alias for `filter(...)`. `IN` lists admit up 
 literal values from one scalar family, including `DATE 'YYYY-MM-DD'` lists and `NULL`
 literals with SQL three-valued `WHERE`-filter semantics. Typed reports expose
 `in_predicate_runtime_execution`, `in_list_value_count`, `in_list_null_value_count`, and
-`in_predicate_null_semantics`.
+`in_predicate_null_semantics`, plus `numeric_arithmetic_runtime_execution`,
+`numeric_arithmetic_operator`, `numeric_arithmetic_source_column`, and
+`numeric_arithmetic_rhs_dtype` when arithmetic predicates are used.
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
 `not_contains()`, `startswith()`, `not_startswith()`, `endswith()`, `not_endswith()`, `like(...)`,
 `not_like(...)`, `between(...)`, bounded `isin(...)` / `not_in(...)`, `cast(dtype)`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
-`timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons into the same
+`timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons, and the scoped
+numeric `+`, `-`, `*`, and `/` operators for left-side arithmetic predicates into the same
 ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed literal `with_column(...)` is also admitted after an explicit `select(...)` for local
 CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC projection/filter/limit workflows. The first slice accepts only
