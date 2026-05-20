@@ -524,19 +524,22 @@ or documentation updates alone are insufficient.
   - Source: OutputPlan, result-sink replay proof, cross-format fanout architecture,
     `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: scoped local SQL/Python output can write local JSONL and CSV sinks with
-    format-specific certificate fields, and one feature-gated flat scalar Parquet sink slice is
-    admitted through `sql-local-source-smoke` / Python `write_parquet(...)` when
-    `shardloom-cli --features universal-format-io` is used. Broader Parquet type/nesting output,
-    Arrow IPC, Vortex, replay proof, and multi-output fanout are not ordinary user-facing runtime
-    features.
-  - Next slice outcome: add the remaining local writer registry and fanout for admitted formats,
-    with per-output digest, replay status, and metadata fidelity/loss.
+    format-specific certificate fields, and feature-gated flat scalar Parquet, Arrow IPC, Avro,
+    and ORC sink slices are admitted through `sql-local-source-smoke` / Python
+    `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`, and `write_orc(...)` when
+    `shardloom-cli --features universal-format-io` is used. Broader type/nesting and metadata
+    fidelity for those compatibility exports, Vortex output, replay proof, and multi-output fanout
+    are not ordinary user-facing runtime features.
+  - Next slice outcome: add Vortex output, reusable OutputPlan registry/fanout orchestration, and
+    replay/fidelity reporting for admitted formats, with per-output digest, replay status, and
+    metadata fidelity/loss.
   - Runtime enablement: local output writers and fanout execution with OutputPlan evidence and
     replay proof where admitted.
   - User-visible surface: CLI/Python `.write` and `.fanout`, recipes, benchmark
     `io_reuse_and_fanout`, website status.
-  - Implementation scope: OutputPlan builder, writers, schema translation, output digests, replay
-    verifier, fanout orchestration.
+  - Implementation scope: OutputPlan builder, Vortex writer promotion, schema translation,
+    output digests, replay verifier, fanout orchestration, and broader writer registry
+    consolidation.
   - Vortex 0.71 opportunity mapping:
     - Pluggable Arrow export kernels may inform compatibility-output boundaries, but export remains
       translation/fanout and cannot execute unsupported compute.
@@ -553,8 +556,9 @@ or documentation updates alone are insufficient.
   - Non-goals: no object-store write, table commit, production sink claim, or performance claim.
   - Claim boundary: local output/fanout support per admitted format.
   - Fallback boundary: compatibility output is export, not external-engine execution.
-  - Dependencies/blockers: local writer dependencies, schema translation, replay verifier,
-    generated/local/Vortex source evidence, and fanout benchmark fields.
+  - Dependencies/blockers: Vortex sink admission, OutputPlan registry consolidation, schema
+    translation/fidelity reports, replay verifier, generated/local/Vortex source evidence, and
+    fanout benchmark fields.
   - Ledger rule: ledger entry must list format combinations and replay proof refs.
 
 - [ ] GAR-RUNTIME-IMPL-4I Vortex scan pushdown and encoded-predicate runtime completion

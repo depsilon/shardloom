@@ -38,6 +38,10 @@ const VORTEX_INGEST_SCHEMA_VERSION: &str = "shardloom.vortex_ingest_smoke.v1";
 const JSONL_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
 const CSV_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-csv-output.native-io.v1";
 const PARQUET_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-parquet-output.native-io.v1";
+const ARROW_IPC_OUTPUT_CERTIFICATE_ID: &str =
+    "sql-local-source.local-arrow-ipc-output.native-io.v1";
+const AVRO_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-avro-output.native-io.v1";
+const ORC_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-orc-output.native-io.v1";
 const MAX_INPUT_ROWS: usize = 50_000;
 const MAX_LIMIT_ROWS: usize = 10_000;
 const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
@@ -57,6 +61,9 @@ enum SqlLocalSourceOutputFormat {
     InlineJsonl,
     Csv,
     Parquet,
+    ArrowIpc,
+    Avro,
+    Orc,
 }
 
 impl SqlLocalSourceOutputFormat {
@@ -65,8 +72,11 @@ impl SqlLocalSourceOutputFormat {
             "inline-jsonl" | "jsonl" | "json-lines" | "ndjson" => Ok(Self::InlineJsonl),
             "csv" => Ok(Self::Csv),
             "parquet" => Ok(Self::Parquet),
+            "arrow" | "arrow-ipc" | "arrow_ipc" | "ipc" | "feather" => Ok(Self::ArrowIpc),
+            "avro" => Ok(Self::Avro),
+            "orc" => Ok(Self::Orc),
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported SQL local-source output format {other:?}; scoped local SQL supports local JSONL, CSV, or feature-gated Parquet only"
+                "unsupported SQL local-source output format {other:?}; scoped local SQL supports local JSONL, CSV, and feature-gated Parquet/Arrow IPC/Avro/ORC only"
             ))),
         }
     }
@@ -76,6 +86,9 @@ impl SqlLocalSourceOutputFormat {
             Self::InlineJsonl => "inline_jsonl",
             Self::Csv => "csv",
             Self::Parquet => "parquet",
+            Self::ArrowIpc => "arrow_ipc",
+            Self::Avro => "avro",
+            Self::Orc => "orc",
         }
     }
 
@@ -84,6 +97,9 @@ impl SqlLocalSourceOutputFormat {
             Self::InlineJsonl => "jsonl",
             Self::Csv => "csv",
             Self::Parquet => "parquet",
+            Self::ArrowIpc => "arrow_ipc",
+            Self::Avro => "avro",
+            Self::Orc => "orc",
         }
     }
 
@@ -92,6 +108,9 @@ impl SqlLocalSourceOutputFormat {
             Self::InlineJsonl => "certified_local_jsonl_sink",
             Self::Csv => "certified_local_csv_sink",
             Self::Parquet => "certified_local_parquet_sink",
+            Self::ArrowIpc => "certified_local_arrow_ipc_sink",
+            Self::Avro => "certified_local_avro_sink",
+            Self::Orc => "certified_local_orc_sink",
         }
     }
 
@@ -100,6 +119,9 @@ impl SqlLocalSourceOutputFormat {
             Self::InlineJsonl => JSONL_OUTPUT_CERTIFICATE_ID,
             Self::Csv => CSV_OUTPUT_CERTIFICATE_ID,
             Self::Parquet => PARQUET_OUTPUT_CERTIFICATE_ID,
+            Self::ArrowIpc => ARROW_IPC_OUTPUT_CERTIFICATE_ID,
+            Self::Avro => AVRO_OUTPUT_CERTIFICATE_ID,
+            Self::Orc => ORC_OUTPUT_CERTIFICATE_ID,
         }
     }
 
@@ -112,6 +134,9 @@ impl SqlLocalSourceOutputFormat {
             Self::InlineJsonl => Ok(rows_to_jsonl(rows).into_bytes()),
             Self::Csv => Ok(rows_to_csv(columns, rows).into_bytes()),
             Self::Parquet => encode_parquet_output_rows(columns, rows),
+            Self::ArrowIpc => encode_arrow_ipc_output_rows(columns, rows),
+            Self::Avro => encode_avro_output_rows(columns, rows),
+            Self::Orc => encode_orc_output_rows(columns, rows),
         }
     }
 }
@@ -789,11 +814,15 @@ fn validate_sql_local_source_output_request(
     if output_path.is_none()
         && matches!(
             output_format,
-            SqlLocalSourceOutputFormat::Csv | SqlLocalSourceOutputFormat::Parquet
+            SqlLocalSourceOutputFormat::Csv
+                | SqlLocalSourceOutputFormat::Parquet
+                | SqlLocalSourceOutputFormat::ArrowIpc
+                | SqlLocalSourceOutputFormat::Avro
+                | SqlLocalSourceOutputFormat::Orc
         )
     {
         return Err(ShardLoomError::InvalidOperation(
-            "SQL local-source CSV or Parquet output requires --output <local path>".to_string(),
+            "SQL local-source CSV, Parquet, Arrow IPC, Avro, or ORC output requires --output <local path>".to_string(),
         ));
     }
     Ok(())
@@ -6558,6 +6587,60 @@ fn encode_parquet_output_rows(
 ) -> Result<Vec<u8>, ShardLoomError> {
     Err(unsupported_sql_error(
         "local Parquet output runtime requires building shardloom-cli with --features universal-format-io; default builds expose Parquet as a deterministic blocked sink",
+    ))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn encode_arrow_ipc_output_rows(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>, ShardLoomError> {
+    shardloom_vortex::encode_flat_arrow_ipc_rows(columns, rows)
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn encode_arrow_ipc_output_rows(
+    _columns: &[String],
+    _rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>, ShardLoomError> {
+    Err(unsupported_sql_error(
+        "local Arrow IPC output runtime requires building shardloom-cli with --features universal-format-io; default builds expose Arrow IPC as a deterministic blocked sink",
+    ))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn encode_avro_output_rows(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>, ShardLoomError> {
+    shardloom_vortex::encode_flat_avro_rows(columns, rows)
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn encode_avro_output_rows(
+    _columns: &[String],
+    _rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>, ShardLoomError> {
+    Err(unsupported_sql_error(
+        "local Avro output runtime requires building shardloom-cli with --features universal-format-io; default builds expose Avro as a deterministic blocked sink",
+    ))
+}
+
+#[cfg(feature = "universal-format-io")]
+fn encode_orc_output_rows(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>, ShardLoomError> {
+    shardloom_vortex::encode_flat_orc_rows(columns, rows)
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn encode_orc_output_rows(
+    _columns: &[String],
+    _rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>, ShardLoomError> {
+    Err(unsupported_sql_error(
+        "local ORC output runtime requires building shardloom-cli with --features universal-format-io; default builds expose ORC as a deterministic blocked sink",
     ))
 }
 

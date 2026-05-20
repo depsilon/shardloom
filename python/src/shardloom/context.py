@@ -660,7 +660,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         "fixture_smoke_supported",
         required_evidence=(
             "sql_local_source_smoke",
-            "local_jsonl_or_csv_output",
+            "local_jsonl_csv_or_feature_gated_structured_output",
             "output_native_io_certificate",
         ),
         runtime_execution=True,
@@ -670,8 +670,9 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Scoped local CSV and flat JSONL/NDJSON projection/optional-filter/limit, "
             "scalar aggregate, one-column group-by aggregate, and single-key "
-            "top-N JSONL/CSV output smoke only; no broad DataFrame runtime, object-store/table "
-            "sink, external engine, fallback, or production claim."
+            "top-N JSONL/CSV and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC "
+            "output smoke only; no broad DataFrame runtime, object-store/table sink, "
+            "external engine, fallback, fanout, or production claim."
         ),
     ),
     _df_method(
@@ -849,12 +850,78 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "write_parquet",
         "write",
-        "unsupported_write_diagnostic",
-        diagnostic_operation="write-parquet",
-        blocker_id="cg21.workflow.write_parquet.compatibility_export_unsupported",
-        required_evidence=("sink_write_evidence", "fidelity_loss_report", "commit_evidence"),
-        write_io=False,
-        claim_boundary=_WRITE_BOUNDARY,
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "feature_gated_local_parquet_output",
+            "output_native_io_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Feature-gated flat scalar local Parquet output smoke for admitted local-source "
+            "query-builder workflows only; no broad Parquet type/nesting, metadata-fidelity, "
+            "object-store/table, external engine, fallback, fanout, or production claim."
+        ),
+    ),
+    _df_method(
+        "write_arrow_ipc",
+        "write",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "feature_gated_local_arrow_ipc_output",
+            "output_native_io_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Feature-gated flat scalar local Arrow IPC output smoke for admitted local-source "
+            "query-builder workflows only; no zero-copy, nested type, object-store/table, "
+            "external engine, fallback, fanout, or production claim."
+        ),
+    ),
+    _df_method(
+        "write_avro",
+        "write",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "feature_gated_local_avro_output",
+            "output_native_io_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Feature-gated flat scalar local Avro output smoke for admitted local-source "
+            "query-builder workflows only; no schema-evolution/logical-type completeness, "
+            "object-store/table, external engine, fallback, fanout, or production claim."
+        ),
+    ),
+    _df_method(
+        "write_orc",
+        "write",
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "feature_gated_local_orc_output",
+            "output_native_io_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        write_io=True,
+        materialization_required=True,
+        claim_boundary=(
+            "Feature-gated flat scalar local ORC output smoke for admitted local-source "
+            "query-builder workflows only; no stripe/statistics runtime, object-store/table, "
+            "external engine, fallback, fanout, or production claim."
+        ),
     ),
     _df_method(
         "quarantine",

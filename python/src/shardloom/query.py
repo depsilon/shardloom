@@ -744,6 +744,69 @@ class SqlWorkflow:
             check=check,
         )
 
+    def write_arrow_ipc(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="arrow-ipc")`.
+
+        Local SQL-source Arrow IPC output requires a CLI built with
+        `--features universal-format-io`; default binaries return a
+        deterministic Arrow IPC sink blocker.
+        """
+
+        return self.write(
+            target_uri,
+            output_format="arrow-ipc",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_avro(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="avro")`.
+
+        Local SQL-source Avro output requires a CLI built with
+        `--features universal-format-io`; default binaries return a
+        deterministic Avro sink blocker.
+        """
+
+        return self.write(
+            target_uri,
+            output_format="avro",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_orc(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="orc")`.
+
+        Local SQL-source ORC output requires a CLI built with
+        `--features universal-format-io`; default binaries return a
+        deterministic ORC sink blocker.
+        """
+
+        return self.write(
+            target_uri,
+            output_format="orc",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
     def _unsupported_operation(
         self,
         operation: str,
@@ -1067,6 +1130,72 @@ class LazyFrame:
         return self.write(
             target_uri,
             output_format="parquet",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_arrow_ipc(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="arrow-ipc")`.
+
+        The CLI must be built with `--features universal-format-io`; default
+        binaries return ShardLoom's deterministic Arrow IPC sink blocker.
+        """
+
+        if self._sql_local_source_statement() is None:
+            return self._unsupported_operation("write-arrow-ipc", str(target_uri), check=check)
+        return self.write(
+            target_uri,
+            output_format="arrow-ipc",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_avro(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="avro")`.
+
+        The CLI must be built with `--features universal-format-io`; default
+        binaries return ShardLoom's deterministic Avro sink blocker.
+        """
+
+        if self._sql_local_source_statement() is None:
+            return self._unsupported_operation("write-avro", str(target_uri), check=check)
+        return self.write(
+            target_uri,
+            output_format="avro",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_orc(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="orc")`.
+
+        The CLI must be built with `--features universal-format-io`; default
+        binaries return ShardLoom's deterministic ORC sink blocker.
+        """
+
+        if self._sql_local_source_statement() is None:
+            return self._unsupported_operation("write-orc", str(target_uri), check=check)
+        return self.write(
+            target_uri,
+            output_format="orc",
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -2744,8 +2873,15 @@ def _normalize_local_output_format(value: str) -> str:
         return "csv"
     if normalized == "parquet":
         return "parquet"
+    if normalized in {"arrow", "arrow-ipc", "arrow_ipc", "ipc", "feather"}:
+        return "arrow-ipc"
+    if normalized == "avro":
+        return "avro"
+    if normalized == "orc":
+        return "orc"
     raise ValueError(
-        "scoped local writes currently support local JSONL, CSV, or feature-gated Parquet only"
+        "scoped local writes currently support local JSONL, CSV, and feature-gated "
+        "Parquet/Arrow IPC/Avro/ORC only"
     )
 
 
