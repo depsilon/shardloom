@@ -47,10 +47,12 @@ from .query import (
     literal_table as generated_literal_table,
     range as generated_range,
     read_arrow_ipc,
+    read_avro,
     sql_literal_select as generated_sql_literal_select,
     sql_values as generated_sql_values,
     read_csv,
     read_json,
+    read_orc,
     read_parquet,
     read_vortex,
     sequence as generated_sequence,
@@ -319,6 +321,24 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     ),
     _df_method(
         "read_parquet",
+        "source",
+        "source_declaration_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "read_arrow_ipc",
+        "source",
+        "source_declaration_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "read_avro",
+        "source",
+        "source_declaration_supported",
+        claim_boundary=_LAZY_DECLARATION_BOUNDARY,
+    ),
+    _df_method(
+        "read_orc",
         "source",
         "source_declaration_supported",
         claim_boundary=_LAZY_DECLARATION_BOUNDARY,
@@ -5007,6 +5027,26 @@ class ShardLoomContext:
         """Declare a lazy Arrow IPC compatibility source using this context's client."""
 
         return read_arrow_ipc(uri, schema=schema, client=self.client, engine_mode=self.engine)
+
+    def read_avro(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
+        """Declare a lazy Avro compatibility source using this context's client."""
+
+        return read_avro(uri, schema=schema, client=self.client, engine_mode=self.engine)
+
+    def read_orc(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
+        """Declare a lazy ORC compatibility source using this context's client."""
+
+        return read_orc(uri, schema=schema, client=self.client, engine_mode=self.engine)
 
     def prepare_vortex(
         self,

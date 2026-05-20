@@ -20,7 +20,7 @@ from .client import (
 )
 from .models import ClaimSummary, Diagnostic, EvidenceSummary, OutputEnvelope
 
-SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc")
+SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc", "avro", "orc")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1003,7 +1003,7 @@ class LazyFrame:
         statement = self._sql_local_source_statement()
         if statement is None:
             raise ValueError(
-                "LazyFrame.write currently requires a local CSV, flat JSONL/NDJSON, flat JSON, feature-gated flat Parquet, or feature-gated flat Arrow IPC source with "
+                "LazyFrame.write currently requires a local CSV, flat JSONL/NDJSON, flat JSON, feature-gated flat Parquet, feature-gated flat Arrow IPC, feature-gated flat Avro, or feature-gated flat ORC source with "
                 "select(...), optional filter(...), and limit(...) operations, "
                 "aggregate(...), optional filter(...), and limit(...) operations, or "
                 "optional filter(...), group_by(...).agg(...), and limit(...) operations, or "
@@ -1736,6 +1736,58 @@ def read_arrow_ipc(
 
     return _read_source(
         "arrow-ipc",
+        uri,
+        schema=schema,
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
+
+
+def read_avro(
+    uri: str | os.PathLike[str],
+    *,
+    schema: Mapping[str, object] | None = None,
+    client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
+    **client_config: object,
+) -> LazyFrame:
+    """Declare a lazy Avro compatibility source.
+
+    Scoped local Avro projection/filter/limit workflows lower to
+    `sql-local-source-smoke`; binaries built without `universal-format-io`
+    return ShardLoom's deterministic Avro adapter blocker. This is a local
+    flat scalar file smoke, not broad Avro schema-evolution support.
+    """
+
+    return _read_source(
+        "avro",
+        uri,
+        schema=schema,
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
+
+
+def read_orc(
+    uri: str | os.PathLike[str],
+    *,
+    schema: Mapping[str, object] | None = None,
+    client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
+    **client_config: object,
+) -> LazyFrame:
+    """Declare a lazy ORC compatibility source.
+
+    Scoped local ORC projection/filter/limit workflows lower to
+    `sql-local-source-smoke`; binaries built without `universal-format-io`
+    return ShardLoom's deterministic ORC adapter blocker. This is a local flat
+    scalar file smoke, not broad ORC stripe/statistics runtime support.
+    """
+
+    return _read_source(
+        "orc",
         uri,
         schema=schema,
         client=client,
@@ -2480,7 +2532,18 @@ def _is_local_source_sql_ref(value: str) -> bool:
     if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
         return False
     return lower.endswith(
-        (".csv", ".json", ".jsonl", ".ndjson", ".parquet", ".arrow", ".ipc", ".feather")
+        (
+            ".csv",
+            ".json",
+            ".jsonl",
+            ".ndjson",
+            ".parquet",
+            ".arrow",
+            ".ipc",
+            ".feather",
+            ".avro",
+            ".orc",
+        )
     )
 
 
@@ -2504,6 +2567,16 @@ def _is_local_arrow_ipc_source_ref(value: str) -> bool:
     return _is_local_source_sql_ref(value) and lower.endswith((".arrow", ".ipc", ".feather"))
 
 
+def _is_local_avro_source_ref(value: str) -> bool:
+    lower = value.strip().lower()
+    return _is_local_source_sql_ref(value) and lower.endswith(".avro")
+
+
+def _is_local_orc_source_ref(value: str) -> bool:
+    lower = value.strip().lower()
+    return _is_local_source_sql_ref(value) and lower.endswith(".orc")
+
+
 def _is_query_builder_local_source(source: WorkflowSource) -> bool:
     if source.source_format == "csv":
         return _is_local_csv_source_ref(source.uri)
@@ -2513,6 +2586,10 @@ def _is_query_builder_local_source(source: WorkflowSource) -> bool:
         return _is_local_parquet_source_ref(source.uri)
     if source.source_format == "arrow-ipc":
         return _is_local_arrow_ipc_source_ref(source.uri)
+    if source.source_format == "avro":
+        return _is_local_avro_source_ref(source.uri)
+    if source.source_format == "orc":
+        return _is_local_orc_source_ref(source.uri)
     return False
 
 

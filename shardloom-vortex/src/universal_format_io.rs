@@ -9,6 +9,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
+    io::BufReader,
     path::Path,
 };
 
@@ -63,41 +64,7 @@ pub fn read_flat_parquet_source(path: &Path, max_rows: usize) -> Result<FlatLoca
             ))
         })?;
 
-    let schema = reader.schema();
-    let header = source_schema_header(path, "Parquet", schema.as_ref())?;
-    let mut rows = Vec::new();
-    for batch in &mut reader {
-        let batch = batch.map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to read local Parquet source batch from '{}': {error}",
-                path.display()
-            ))
-        })?;
-        if batch.num_columns() != header.len() {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "local Parquet source '{}' changed column count between schema and batch",
-                path.display()
-            )));
-        }
-        for row_index in 0..batch.num_rows() {
-            if rows.len() >= max_rows {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "local Parquet source '{}' exceeds the scoped SQL local-source row limit of {max_rows}",
-                    path.display()
-                )));
-            }
-            let mut row = BTreeMap::new();
-            for (column, array) in header.iter().zip(batch.columns()) {
-                row.insert(
-                    column.clone(),
-                    arrow_scalar_to_shardloom(array.as_ref(), row_index, column, path, "Parquet")?,
-                );
-            }
-            rows.push(row);
-        }
-    }
-
-    Ok(FlatLocalSourceTable { header, rows })
+    read_flat_record_batch_reader(&mut reader, path, "Parquet", max_rows)
 }
 
 /// Read a local Arrow IPC file into flat scalar rows for scoped runtime smokes.
@@ -121,26 +88,92 @@ pub fn read_flat_arrow_ipc_source(path: &Path, max_rows: usize) -> Result<FlatLo
         ))
     })?;
 
+    read_flat_record_batch_reader(&mut reader, path, "Arrow IPC", max_rows)
+}
+
+/// Read a local Avro file into flat scalar rows for scoped runtime smokes.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Avro reader cannot be constructed, a column has an unsupported nested,
+/// logical, decimal, dictionary, or union Arrow type, or the row count exceeds
+/// `max_rows`.
+pub fn read_flat_avro_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
+    let file = File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open local Avro source '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let mut reader = arrow_avro::reader::ReaderBuilder::new()
+        .with_batch_size(max_rows.clamp(1, 8192))
+        .build(BufReader::new(file))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local Avro source reader for '{}': {error}",
+                path.display()
+            ))
+        })?;
+
+    read_flat_record_batch_reader(&mut reader, path, "Avro", max_rows)
+}
+
+/// Read a local ORC file into flat scalar rows for scoped runtime smokes.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the ORC reader cannot be constructed, a column has an unsupported nested,
+/// decimal, dictionary, or union Arrow type, or the row count exceeds
+/// `max_rows`.
+pub fn read_flat_orc_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
+    let file = File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open local ORC source '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let mut reader = orc_rust::ArrowReaderBuilder::try_new(file)
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local ORC source reader for '{}': {error}",
+                path.display()
+            ))
+        })?
+        .with_batch_size(max_rows.clamp(1, 8192))
+        .build();
+
+    read_flat_record_batch_reader(&mut reader, path, "ORC", max_rows)
+}
+
+fn read_flat_record_batch_reader<R>(
+    reader: &mut R,
+    path: &Path,
+    source_label: &str,
+    max_rows: usize,
+) -> Result<FlatLocalSourceTable>
+where
+    R: RecordBatchReader,
+{
     let schema = reader.schema();
-    let header = source_schema_header(path, "Arrow IPC", schema.as_ref())?;
+    let header = source_schema_header(path, source_label, schema.as_ref())?;
     let mut rows = Vec::new();
-    for batch in &mut reader {
+    for batch in reader {
         let batch = batch.map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
-                "failed to read local Arrow IPC source batch from '{}': {error}",
+                "failed to read local {source_label} source batch from '{}': {error}",
                 path.display()
             ))
         })?;
         if batch.num_columns() != header.len() {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "local Arrow IPC source '{}' changed column count between schema and batch",
+                "local {source_label} source '{}' changed column count between schema and batch",
                 path.display()
             )));
         }
         for row_index in 0..batch.num_rows() {
             if rows.len() >= max_rows {
                 return Err(ShardLoomError::InvalidOperation(format!(
-                    "local Arrow IPC source '{}' exceeds the scoped SQL local-source row limit of {max_rows}",
+                    "local {source_label} source '{}' exceeds the scoped SQL local-source row limit of {max_rows}",
                     path.display()
                 )));
             }
@@ -153,7 +186,7 @@ pub fn read_flat_arrow_ipc_source(path: &Path, max_rows: usize) -> Result<FlatLo
                         row_index,
                         column,
                         path,
-                        "Arrow IPC",
+                        source_label,
                     )?,
                 );
             }

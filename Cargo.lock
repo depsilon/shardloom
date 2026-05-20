@@ -2300,8 +2300,10 @@ name = "shardloom-cli"
 version = "0.1.0"
 dependencies = [
  "arrow-array",
+ "arrow-avro",
  "arrow-ipc",
  "arrow-schema",
+ "orc-rust",
  "parquet",
  "shardloom-core",
  "shardloom-exec",
