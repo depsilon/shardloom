@@ -142,11 +142,22 @@ class ColumnExpression:
 
         return PredicateExpression(f"{self.sql} LIKE {_sql_string_literal(pattern)}")
 
+    def not_like(self, pattern: object) -> PredicateExpression:
+        """Return a scoped SQL NOT LIKE predicate."""
+
+        return PredicateExpression(f"{self.sql} NOT LIKE {_sql_string_literal(pattern)}")
+
     def contains(self, needle: object) -> PredicateExpression:
         """Return a scoped substring predicate lowered to `LIKE '%needle%'`."""
 
         value = _like_needle("contains needle", needle)
         return self.like(f"%{value}%")
+
+    def not_contains(self, needle: object) -> PredicateExpression:
+        """Return a scoped substring negation lowered to `NOT LIKE '%needle%'`."""
+
+        value = _like_needle("not_contains needle", needle)
+        return self.not_like(f"%{value}%")
 
     def startswith(self, prefix: object) -> PredicateExpression:
         """Return a scoped prefix predicate lowered to `LIKE 'prefix%'`."""
@@ -154,11 +165,23 @@ class ColumnExpression:
         value = _like_needle("startswith prefix", prefix)
         return self.like(f"{value}%")
 
+    def not_startswith(self, prefix: object) -> PredicateExpression:
+        """Return a scoped prefix negation lowered to `NOT LIKE 'prefix%'`."""
+
+        value = _like_needle("not_startswith prefix", prefix)
+        return self.not_like(f"{value}%")
+
     def endswith(self, suffix: object) -> PredicateExpression:
         """Return a scoped suffix predicate lowered to `LIKE '%suffix'`."""
 
         value = _like_needle("endswith suffix", suffix)
         return self.like(f"%{value}")
+
+    def not_endswith(self, suffix: object) -> PredicateExpression:
+        """Return a scoped suffix negation lowered to `NOT LIKE '%suffix'`."""
+
+        value = _like_needle("not_endswith suffix", suffix)
+        return self.not_like(f"%{value}")
 
     def lower(self) -> "ColumnExpression":
         """Return a scoped `LOWER(column)` UTF-8 transform expression."""
@@ -181,6 +204,13 @@ class ColumnExpression:
         normalized = _normalize_in_values(values)
         joined = ",".join(_sql_in_literal(value) for value in normalized)
         return PredicateExpression(f"{self.sql} IN ({joined})")
+
+    def not_in(self, *values: object) -> PredicateExpression:
+        """Return a scoped bounded `NOT IN (...)` predicate."""
+
+        normalized = _normalize_in_values(values)
+        joined = ",".join(_sql_in_literal(value) for value in normalized)
+        return PredicateExpression(f"{self.sql} NOT IN ({joined})")
 
     def between(self, lower: object, upper: object) -> PredicateExpression:
         """Return a scoped inclusive range predicate.

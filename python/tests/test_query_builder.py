@@ -606,6 +606,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "label IN ('alpha',NULL)",
         )
         self.assertEqual(
+            str(sl.col("label").not_in(["alpha", "gamma"])),
+            "label NOT IN ('alpha','gamma')",
+        )
+        self.assertEqual(
             str(sl.col("amount").between(10, 20)),
             "(amount >= 10 AND amount <= 20)",
         )
@@ -659,6 +663,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("f.amount") >= 10), "f.amount >= 10")
         self.assertEqual(str(sl.col("label").startswith("al")), "label LIKE 'al%'")
         self.assertEqual(str(sl.col("label").endswith("ta")), "label LIKE '%ta'")
+        self.assertEqual(str(sl.col("label").not_like("%tmp%")), "label NOT LIKE '%tmp%'")
+        self.assertEqual(str(sl.col("label").not_contains("tmp")), "label NOT LIKE '%tmp%'")
+        self.assertEqual(str(sl.col("label").not_startswith("tmp")), "label NOT LIKE 'tmp%'")
+        self.assertEqual(str(sl.col("label").not_endswith("tmp")), "label NOT LIKE '%tmp'")
         self.assertEqual(str(sl.col("label").lower() == "alpha"), "LOWER(label) = 'alpha'")
         self.assertEqual(str(sl.col("label").upper() != "BETA"), "UPPER(label) != 'BETA'")
         self.assertEqual(str(sl.col("label").trim() == "gamma"), "TRIM(label) = 'gamma'")
@@ -915,6 +923,67 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
         self.assertEqual(report.logical_predicate_operator, "and")
         self.assertEqual(report.logical_predicate_leaf_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_where_negated_predicates_invoke_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE (label NOT IN ('alpha','gamma') AND label NOT LIKE '%lt%') LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "predicate_operator_family", "value": "logical_predicate"},
+                        {"key": "logical_predicate_runtime_execution", "value": "true"},
+                        {"key": "logical_predicate_operator", "value": "and"},
+                        {"key": "logical_predicate_leaf_count", "value": "2"},
+                        {"key": "in_predicate_runtime_execution", "value": "true"},
+                        {"key": "in_list_value_count", "value": "2"},
+                        {"key": "string_predicate_runtime_execution", "value": "true"},
+                        {"key": "string_predicate_operator", "value": "contains"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .where(sl.col("label").not_in(["alpha", "gamma"]) & sl.col("label").not_contains("lt"))
+            .select("id", "label")
+            .limit(5)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.result_rows, ({"id": 2, "label": "beta"},))
+        self.assertEqual(report.logical_predicate_operator, "and")
+        self.assertEqual(report.logical_predicate_leaf_count, 2)
+        self.assertTrue(report.in_predicate_runtime_execution)
+        self.assertTrue(report.string_predicate_runtime_execution)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

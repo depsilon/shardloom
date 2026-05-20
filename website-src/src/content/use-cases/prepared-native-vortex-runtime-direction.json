@@ -1,13 +1,20 @@
 {
-  "audience": "user evaluating the current runtime-development lane",
+  "id": "prepared-native-vortex-runtime-direction",
+  "title": "Prepared/native Vortex runtime direction",
   "capability_family": "prepared_native_vortex",
-  "claim_boundary": "Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState and does not directly read non-Vortex sources. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.",
-  "common_mistakes": [
-    "calling_prepared_vortex_production_ready",
-    "treating_encoded_predicate_fields_as_encoded_native_claims",
-    "expecting_sql_runtime"
-  ],
+  "audience": "user evaluating the current runtime-development lane",
+  "status": "smoke_supported",
+  "execution_mode": "prepared_vortex/native_vortex",
   "engine_mode": "batch",
+  "inputs": [
+    "vortex_prepared_state",
+    "local_prepared_vortex_artifact",
+    "benchmark_fixture"
+  ],
+  "outputs": [
+    "prepared_native_timing_rows",
+    "source_backed_scan_evidence"
+  ],
   "evidence_fields": [
     "execution_mode",
     "prepared_state_id",
@@ -22,17 +29,13 @@
     "fallback_attempted=false",
     "external_engine_invoked=false"
   ],
-  "execution_mode": "prepared_vortex/native_vortex",
+  "claim_boundary": "Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState and does not directly read non-Vortex sources. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.",
+  "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario \"filter + projection + limit\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-prepared-vortex-smoke.json --regenerate",
   "expected_output_evidence": "Prepared Vortex rows separate from compatibility import rows, with source-backed scan and no-fallback fields where available.",
-  "id": "prepared-native-vortex-runtime-direction",
-  "inputs": [
-    "vortex_prepared_state",
-    "local_prepared_vortex_artifact",
-    "benchmark_fixture"
-  ],
-  "outputs": [
-    "prepared_native_timing_rows",
-    "source_backed_scan_evidence"
+  "common_mistakes": [
+    "calling_prepared_vortex_production_ready",
+    "treating_encoded_predicate_fields_as_encoded_native_claims",
+    "expecting_sql_runtime"
   ],
   "references": [
     "docs/architecture/compute-engine-flow-reference.md",
@@ -43,8 +46,5 @@
   "related_use_cases": [
     "compatibility-import-certified-local",
     "benchmark-interpretation-evidence-not-leaderboard"
-  ],
-  "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario \"filter + projection + limit\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-prepared-vortex-smoke.json --regenerate",
-  "status": "smoke_supported",
-  "title": "Prepared/native Vortex runtime direction"
+  ]
 }

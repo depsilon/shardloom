@@ -1,13 +1,19 @@
 {
-  "audience": "Foundry-adjacent user who wants to see the local transform shape",
+  "id": "foundry-local-proof-boundary",
+  "title": "Foundry-style local proof boundary",
   "capability_family": "foundry_dev_stack_local_proof",
-  "claim_boundary": "Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.",
-  "common_mistakes": [
-    "treating_local_style_as_real_foundry_runtime",
-    "expecting_foundry_package",
-    "writing_directly_to_s3"
-  ],
+  "audience": "Foundry-adjacent user who wants to see the local transform shape",
+  "status": "smoke_supported",
+  "execution_mode": "no_dataset_smoke",
   "engine_mode": "batch_status",
+  "inputs": [
+    "none",
+    "local_style_fixture"
+  ],
+  "outputs": [
+    "local_foundry_style_report",
+    "certificate_metrics_dataset_output"
+  ],
   "evidence_fields": [
     "no_dataset_smoke_performed",
     "transform_import_proven",
@@ -19,16 +25,13 @@
     "external_engine_invoked=false",
     "public_foundry_claim_allowed=false"
   ],
-  "execution_mode": "no_dataset_smoke",
+  "claim_boundary": "Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.",
+  "runnable_example": "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1",
   "expected_output_evidence": "A local proof report showing Foundry and external compute were not invoked.",
-  "id": "foundry-local-proof-boundary",
-  "inputs": [
-    "none",
-    "local_style_fixture"
-  ],
-  "outputs": [
-    "local_foundry_style_report",
-    "certificate_metrics_dataset_output"
+  "common_mistakes": [
+    "treating_local_style_as_real_foundry_runtime",
+    "expecting_foundry_package",
+    "writing_directly_to_s3"
   ],
   "references": [
     "docs/foundry/proof-of-use-certification.md",
@@ -39,8 +42,5 @@
   "related_use_cases": [
     "source-free-generated-output-boundary",
     "package-channel-readiness-boundary"
-  ],
-  "runnable_example": "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1",
-  "status": "smoke_supported",
-  "title": "Foundry-style local proof boundary"
+  ]
 }

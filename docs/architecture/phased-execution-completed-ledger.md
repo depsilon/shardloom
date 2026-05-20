@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D direct SQL/Python negated predicate runtime slice
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-negated-predicates-4d` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`
+    - `docs/architecture/compute-engine-flow-reference.md`
+  - Scope:
+    - Admitted direct SQL `<column> NOT IN (<literal>,...)` for local-source SQL smoke by lowering
+      to ShardLoom-native logical `NOT` over an admitted `IN`-list predicate.
+    - Admitted direct SQL `<column> NOT LIKE <pattern>` by lowering to ShardLoom-native logical
+      `NOT` over admitted prefix, suffix, exact, or contains `LIKE` leaves.
+    - Preserved bounded `IN`-list literal blockers, unsupported `LIKE`-pattern blockers, SQL
+      three-valued `NULL` semantics, no-fallback fields, and fixture-smoke claim status.
+    - Added Python `sl.col(...).not_in(...)`, `.not_like(...)`, `.not_contains(...)`,
+      `.not_startswith(...)`, and `.not_endswith(...)` helpers that lower to the same local SQL
+      smoke path.
+    - Updated Python README, compute-flow docs, use-case index, phase-plan current state, and
+      generated Astro/Starlight website content.
+    - Hardened `website-src/scripts/sync-content.mjs` so canonical compute-flow markdown and
+      use-case index JSON are refreshed from source docs before website generation.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder filters, direct Python
+      `client.sql_local_source_smoke(...)`, docs, and use-case/status website surfaces.
+  - Evidence:
+    - Rows emit logical predicate evidence plus `in_predicate_*` and `string_predicate_*` evidence
+      where applicable, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke not_in -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke -- --nocapture`
+    - `cargo test -p shardloom-cli not_in -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_where_negated_predicates_invoke_sql_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src python/tests`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `node website-src/scripts/sync-content.mjs`
+    - `node website-src/node_modules/@astrojs/check/bin/astro-check.js`
+    - `node website-src/node_modules/astro/bin/astro.mjs build`
+    - `node website-src/scripts/postbuild-static.mjs`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `git diff --check`
+  - Non-goals:
+    - No subquery-backed `IN` / `NOT IN`, regex, generalized `LIKE` wildcards, locale/collation
+      completeness, arbitrary predicate-tree completeness, broad SQL/DataFrame runtime,
+      production claim, performance claim, or external fallback.
+  - Claim boundary:
+    - Scoped local-source negated predicate fixture smoke only.
+  - Fallback boundary:
+    - Parser, lowering, and evaluation remain ShardLoom-native. External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, and
+      diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D direct SQL BETWEEN predicate runtime slice
   - Date: 2026-05-20
   - Branch/PR: `runtime-sql-between-4d` / pending.

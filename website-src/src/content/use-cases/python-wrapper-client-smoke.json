@@ -1,13 +1,18 @@
 {
-  "audience": "Python user who wants import-friendly status and capability checks",
+  "id": "python-wrapper-client-smoke",
+  "title": "Python wrapper and client smoke",
   "capability_family": "python_wrapper_client",
-  "claim_boundary": "Thin Python CLI client only; not a native binding, DataFrame API, SQL runtime, UDF runtime, package-publication proof, or fallback path.",
-  "common_mistakes": [
-    "expecting_import_side_effects",
-    "expecting_native_python_execution",
-    "treating_capability_view_as_runtime_support"
-  ],
+  "audience": "Python user who wants import-friendly status and capability checks",
+  "status": "ready_local",
+  "execution_mode": "no_dataset_smoke",
   "engine_mode": "batch_status",
+  "inputs": [
+    "none"
+  ],
+  "outputs": [
+    "python_capability_view",
+    "typed_output_envelope"
+  ],
   "evidence_fields": [
     "protocol_version",
     "resolved_cli_path",
@@ -16,15 +21,13 @@
     "support_status",
     "claim_gate_status"
   ],
-  "execution_mode": "no_dataset_smoke",
+  "claim_boundary": "Thin Python CLI client only; not a native binding, DataFrame API, SQL runtime, UDF runtime, package-publication proof, or fallback path.",
+  "runnable_example": "$env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import ShardLoomClient; print(ShardLoomClient.from_repo().status().status)\"",
   "expected_output_evidence": "Python can import the package and invoke explicit status/capability commands through the local CLI.",
-  "id": "python-wrapper-client-smoke",
-  "inputs": [
-    "none"
-  ],
-  "outputs": [
-    "python_capability_view",
-    "typed_output_envelope"
+  "common_mistakes": [
+    "expecting_import_side_effects",
+    "expecting_native_python_execution",
+    "treating_capability_view_as_runtime_support"
   ],
   "references": [
     "python/README.md",
@@ -36,8 +39,5 @@
     "first-10-minutes-local-smoke",
     "python-local-csv-query-builder-smoke",
     "sql-dataframe-capability-posture"
-  ],
-  "runnable_example": "$env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import ShardLoomClient; print(ShardLoomClient.from_repo().status().status)\"",
-  "status": "ready_local",
-  "title": "Python wrapper and client smoke"
+  ]
 }

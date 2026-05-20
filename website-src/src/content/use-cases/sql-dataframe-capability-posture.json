@@ -1,14 +1,19 @@
 {
-  "audience": "user asking whether SQL text or DataFrame-style APIs have production support",
-  "blocked_explanation": "SQL parse/bind/plan/execute and broad DataFrame runtime support require future admitted runtime slices with correctness, evidence, and no-fallback proof.",
+  "id": "sql-dataframe-capability-posture",
+  "title": "SQL and DataFrame capability posture",
   "capability_family": "sql_dataframe_report_only",
-  "claim_boundary": "SQL/DataFrame readiness is inspectable but runtime execution is not broadly supported or production-claimable.",
-  "common_mistakes": [
-    "submitting_sql_and_expecting_execution",
-    "assuming_dataframe_lazy_api_exists",
-    "mistaking_report_only_for_supported"
-  ],
+  "audience": "user asking whether SQL text or DataFrame-style APIs have production support",
+  "status": "report_only",
+  "execution_mode": "report_only",
   "engine_mode": "none",
+  "inputs": [
+    "sql_text",
+    "dataframe_api_request"
+  ],
+  "outputs": [
+    "capability_report",
+    "deterministic_unsupported_diagnostics"
+  ],
   "evidence_fields": [
     "support_status=report_only",
     "runtime_execution=false",
@@ -17,16 +22,14 @@
     "fallback_attempted=false",
     "external_engine_invoked=false"
   ],
-  "execution_mode": "report_only",
+  "claim_boundary": "SQL/DataFrame readiness is inspectable but runtime execution is not broadly supported or production-claimable.",
+  "runnable_example": "target\\debug\\shardloom capabilities sql --format json",
+  "blocked_explanation": "SQL parse/bind/plan/execute and broad DataFrame runtime support require future admitted runtime slices with correctness, evidence, and no-fallback proof.",
   "expected_output_evidence": "A capability posture report showing report_only or unsupported rows rather than runtime execution.",
-  "id": "sql-dataframe-capability-posture",
-  "inputs": [
-    "sql_text",
-    "dataframe_api_request"
-  ],
-  "outputs": [
-    "capability_report",
-    "deterministic_unsupported_diagnostics"
+  "common_mistakes": [
+    "submitting_sql_and_expecting_execution",
+    "assuming_dataframe_lazy_api_exists",
+    "mistaking_report_only_for_supported"
   ],
   "references": [
     "python/README.md",
@@ -37,8 +40,5 @@
   "related_use_cases": [
     "python-wrapper-client-smoke",
     "source-free-generated-output-boundary"
-  ],
-  "runnable_example": "target\\debug\\shardloom capabilities sql --format json",
-  "status": "report_only",
-  "title": "SQL and DataFrame capability posture"
+  ]
 }

@@ -383,9 +383,9 @@ Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
 `TIMESTAMP_YEAR(...)` / `TIMESTAMP_MONTH(...)` / `TIMESTAMP_DAY(...)` /
 `TIMESTAMP_HOUR(...)` / `TIMESTAMP_MINUTE(...)` / `TIMESTAMP_SECOND(...)`,
 Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
-bounded `IN (...)`, direct SQL `BETWEEN` / `NOT BETWEEN`, inclusive Python
+bounded `IN (...)` / `NOT IN (...)`, direct SQL `BETWEEN` / `NOT BETWEEN`, inclusive Python
 `between(...)` range predicates, string
-`LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
+`LIKE` / `NOT LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
 leaves. `where(...)` is a familiar alias for `filter(...)`. `IN` lists admit up to 32
 literal values from one scalar family, including `DATE 'YYYY-MM-DD'` lists and `NULL`
 literals with SQL three-valued `WHERE`-filter semantics. Typed reports expose
@@ -393,7 +393,8 @@ literals with SQL three-valued `WHERE`-filter semantics. Typed reports expose
 `in_predicate_null_semantics`.
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
-`startswith()`, `endswith()`, `like(...)`, `between(...)`, bounded `isin(...)`, `cast(dtype)`,
+`not_contains()`, `startswith()`, `not_startswith()`, `endswith()`, `not_endswith()`, `like(...)`,
+`not_like(...)`, `between(...)`, bounded `isin(...)` / `not_in(...)`, `cast(dtype)`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
 `timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons into the same
@@ -678,7 +679,7 @@ print(join.join_matched_row_count, join.join_rows_output)
 
 That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
 generality, grouped aliases, multi-key sorts, null ordering, collation parity,
-subquery-backed `IN`, `NOT IN`, arbitrary predicate-tree completeness beyond the admitted
+subquery-backed `IN` / `NOT IN`, arbitrary predicate-tree completeness beyond the admitted
 parenthesized leaves, Python/DataFrame joins beyond
 the scoped local CSV inner-equi query-builder bridge, non-literal input-backed `with_column`,
 outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and

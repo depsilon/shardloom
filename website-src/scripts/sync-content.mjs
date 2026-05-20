@@ -1,12 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse as parseYaml } from "yaml";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = path.resolve(root, "..");
 const dataRoot = path.join(root, "src", "data");
 const docsRoot = path.join(root, "src", "content", "docs");
 const useCaseRoot = path.join(root, "src", "content", "use-cases");
 const statusRoot = path.join(root, "src", "content", "status");
+const publicDataRoot = path.join(repoRoot, "website-public", "assets", "data");
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(path.join(dataRoot, file), "utf8"));
@@ -27,6 +30,23 @@ function write(file, content) {
 function cleanGenerated(directory) {
   if (fs.existsSync(directory)) fs.rmSync(directory, { recursive: true, force: true });
   fs.mkdirSync(directory, { recursive: true });
+}
+
+function syncSourceOfTruthData() {
+  const canonicalFlow = fs.readFileSync(
+    path.join(repoRoot, "docs", "architecture", "compute-engine-flow-reference.md"),
+    "utf8",
+  );
+  write(path.join(publicDataRoot, "compute-engine-flow-reference.md"), canonicalFlow);
+
+  const useCaseYaml = fs.readFileSync(
+    path.join(repoRoot, "docs", "use-cases", "use-case-index.yml"),
+    "utf8",
+  );
+  const useCaseIndex = parseYaml(useCaseYaml);
+  const useCaseJson = JSON.stringify(useCaseIndex, null, 2) + "\n";
+  write(path.join(dataRoot, "use-case-index.json"), useCaseJson);
+  write(path.join(publicDataRoot, "use-case-index.json"), useCaseJson);
 }
 
 function yamlStringList(values) {
@@ -155,6 +175,8 @@ ShardLoom docs live in the repository and this Starlight surface keeps the publi
 These pages are documentation and evidence interpretation surfaces. They do not claim production readiness, package publication, Spark displacement, or external-engine fallback.
 `;
 }
+
+syncSourceOfTruthData();
 
 const fieldGuide = readJson("field-guide.json");
 const useCaseIndex = readJson("use-case-index.json");

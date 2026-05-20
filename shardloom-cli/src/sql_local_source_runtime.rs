@@ -5796,6 +5796,10 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_in_list_predicate(raw)? {
         return Ok(predicate);
     }
+    parse_token_predicate(raw)
+}
+
+fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     let tokens = split_whitespace_outside_quotes(raw)?;
     match tokens.as_slice() {
         [column, is_keyword, null_keyword]
@@ -5861,8 +5865,23 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
                 })
             }
         }
+        [column, not_keyword, like_keyword, literal_raw]
+            if not_keyword.eq_ignore_ascii_case("not")
+                && like_keyword.eq_ignore_ascii_case("like") =>
+        {
+            validate_sql_column_ref(column)?;
+            let pattern = parse_sql_string_literal(literal_raw)?;
+            let (op, value) = parse_like_string_predicate(&pattern)?;
+            Ok(ParsedPredicate::Not {
+                inner: Box::new(ParsedPredicate::StringMatch {
+                    column: (*column).clone(),
+                    op,
+                    value,
+                }),
+            })
+        }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> IN (<literal>,...), <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -6410,12 +6429,22 @@ fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
     let Some(in_index) = find_keyword_outside_quotes(raw, "in") else {
         return Ok(None);
     };
-    let column = raw[..in_index].trim();
+    let column_raw = raw[..in_index].trim();
     let tail = raw[in_index + "in".len()..].trim();
+    let column_tokens = split_whitespace_outside_quotes(column_raw)?;
+    let (column, negated) = match column_tokens.as_slice() {
+        [column] => (column.as_str(), false),
+        [column, not_keyword] if not_keyword.eq_ignore_ascii_case("not") => (column.as_str(), true),
+        _ => {
+            return Err(unsupported_sql_error(
+                "IN predicates must use <column> [NOT] IN (<literal>,...) syntax",
+            ));
+        }
+    };
     validate_sql_column_ref(column)?;
     if !tail.starts_with('(') || !tail.ends_with(')') {
         return Err(unsupported_sql_error(
-            "IN predicates must use <column> IN (<literal>,...) syntax",
+            "IN predicates must use <column> [NOT] IN (<literal>,...) syntax",
         ));
     }
     let values_raw = tail[1..tail.len() - 1].trim();
@@ -6461,10 +6490,17 @@ fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
             "IN predicates do not admit mixed TIMESTAMP and non-TIMESTAMP literal lists in this scoped runtime slice",
         ));
     }
-    Ok(Some(ParsedPredicate::InList {
+    let predicate = ParsedPredicate::InList {
         column: column.to_string(),
         values,
-    }))
+    };
+    if negated {
+        Ok(Some(ParsedPredicate::Not {
+            inner: Box::new(predicate),
+        }))
+    } else {
+        Ok(Some(predicate))
+    }
 }
 
 fn parse_in_list_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
@@ -7354,6 +7390,34 @@ mod tests {
                 ]
         ));
         assert_eq!(parsed.predicate.family(), "in_predicate");
+        assert!(parsed.predicate.uses_in_list());
+        assert_eq!(parsed.predicate.in_list_value_count(), 2);
+        assert_eq!(parsed.predicate.columns(), vec!["label"]);
+    }
+
+    #[test]
+    fn parses_scoped_not_in_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE label NOT IN ('alpha','gamma') LIMIT 5",
+        )
+        .expect("NOT IN predicate statement parses");
+
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::Not { ref inner }
+                if matches!(
+                    inner.as_ref(),
+                    ParsedPredicate::InList {
+                        column,
+                        values,
+                    } if column == "label"
+                        && values == &vec![
+                            ScalarValue::Utf8("alpha".to_string()),
+                            ScalarValue::Utf8("gamma".to_string()),
+                        ]
+                )
+        ));
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
         assert!(parsed.predicate.uses_in_list());
         assert_eq!(parsed.predicate.in_list_value_count(), 2);
         assert_eq!(parsed.predicate.columns(), vec!["label"]);

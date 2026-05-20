@@ -1,13 +1,20 @@
 {
-  "audience": "user comparing local evidence rows without overclaiming performance",
+  "id": "benchmark-interpretation-evidence-not-leaderboard",
+  "title": "Benchmark evidence, not leaderboard",
   "capability_family": "benchmark_interpretation",
-  "claim_boundary": "Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof.",
-  "common_mistakes": [
-    "ranking_external_engines_as_public_claims",
-    "comparing_import_costs_to_pure_query_speed",
-    "hiding_external_baseline_only_status"
-  ],
+  "audience": "user comparing local evidence rows without overclaiming performance",
+  "status": "smoke_supported",
+  "execution_mode": "mixed_by_row",
   "engine_mode": "batch",
+  "inputs": [
+    "local_benchmark_fixture",
+    "optional_external_baselines"
+  ],
+  "outputs": [
+    "timing_rows",
+    "coverage_rows",
+    "claim_boundary_notes"
+  ],
   "evidence_fields": [
     "engine",
     "execution_mode",
@@ -21,17 +28,13 @@
     "fallback_attempted=false",
     "external_engine_invoked=false"
   ],
-  "execution_mode": "mixed_by_row",
+  "claim_boundary": "Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof.",
+  "runnable_example": "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1",
   "expected_output_evidence": "Timing rows and coverage rows that keep ShardLoom runtime lanes separate from optional external baselines.",
-  "id": "benchmark-interpretation-evidence-not-leaderboard",
-  "inputs": [
-    "local_benchmark_fixture",
-    "optional_external_baselines"
-  ],
-  "outputs": [
-    "timing_rows",
-    "coverage_rows",
-    "claim_boundary_notes"
+  "common_mistakes": [
+    "ranking_external_engines_as_public_claims",
+    "comparing_import_costs_to_pure_query_speed",
+    "hiding_external_baseline_only_status"
   ],
   "references": [
     "docs/benchmarks/local-taxonomy-benchmark.md",
@@ -42,8 +45,5 @@
   "related_use_cases": [
     "prepared-native-vortex-runtime-direction",
     "compatibility-import-certified-local"
-  ],
-  "runnable_example": "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1",
-  "status": "smoke_supported",
-  "title": "Benchmark evidence, not leaderboard"
+  ]
 }

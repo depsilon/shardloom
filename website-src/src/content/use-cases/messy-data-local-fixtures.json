@@ -1,26 +1,11 @@
 {
-  "audience": "user with dirty CSV, nested JSON, null-heavy, or CDC-like local fixture needs",
-  "capability_family": "messy_data_dirty_json_cdc",
-  "claim_boundary": "Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.",
-  "common_mistakes": [
-    "treating_fixture_cdc_as_table_commit",
-    "expecting_general_json_schema_inference",
-    "reading_smoke_as_data_quality_product"
-  ],
-  "engine_mode": "batch",
-  "evidence_fields": [
-    "scenario_family",
-    "dataset_profile",
-    "source_metadata_snapshot_status",
-    "source_state_reuse_hit",
-    "materialization_boundary",
-    "claim_gate_status",
-    "fallback_attempted=false",
-    "external_engine_invoked=false"
-  ],
-  "execution_mode": "compatibility_import_certified",
-  "expected_output_evidence": "Benchmark rows and fixture metadata for the selected messy-data scenario with no fallback.",
   "id": "messy-data-local-fixtures",
+  "title": "Messy data fixture coverage",
+  "capability_family": "messy_data_dirty_json_cdc",
+  "audience": "user with dirty CSV, nested JSON, null-heavy, or CDC-like local fixture needs",
+  "status": "smoke_supported",
+  "execution_mode": "compatibility_import_certified",
+  "engine_mode": "batch",
   "inputs": [
     "dirty_csv_fixture",
     "nested_json_fixture",
@@ -32,6 +17,24 @@
     "fixture_sidecars",
     "evidence_rows"
   ],
+  "evidence_fields": [
+    "scenario_family",
+    "dataset_profile",
+    "source_metadata_snapshot_status",
+    "source_state_reuse_hit",
+    "materialization_boundary",
+    "claim_gate_status",
+    "fallback_attempted=false",
+    "external_engine_invoked=false"
+  ],
+  "claim_boundary": "Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.",
+  "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv,jsonl --scenario \"malformed timestamp / dirty CSV\" --dataset-profile dirty_csv --rows 1000 --iterations 1 --output target\\shardloom-dirty-csv-smoke.json --regenerate",
+  "expected_output_evidence": "Benchmark rows and fixture metadata for the selected messy-data scenario with no fallback.",
+  "common_mistakes": [
+    "treating_fixture_cdc_as_table_commit",
+    "expecting_general_json_schema_inference",
+    "reading_smoke_as_data_quality_product"
+  ],
   "references": [
     "benchmarks/traditional_analytics/README.md",
     "docs/architecture/benchmark-suite-catalog.md",
@@ -41,8 +44,5 @@
   "related_use_cases": [
     "query-scenario-cookbook-smoke",
     "benchmark-interpretation-evidence-not-leaderboard"
-  ],
-  "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv,jsonl --scenario \"malformed timestamp / dirty CSV\" --dataset-profile dirty_csv --rows 1000 --iterations 1 --output target\\shardloom-dirty-csv-smoke.json --regenerate",
-  "status": "smoke_supported",
-  "title": "Messy data fixture coverage"
+  ]
 }

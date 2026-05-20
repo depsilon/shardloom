@@ -310,9 +310,9 @@ or documentation updates alone are insufficient.
     local SQL `DATE 'YYYY-MM-DD'` predicates are runtime-admitted for the local CSV smoke path,
     scoped local SQL `CAST(column AS dtype)` predicates for `int64`, `float64`, `utf8`, `boolean`,
     and `date32` are runtime-admitted for local row smoke paths, scoped bounded
-    `column IN (<literal>,...)` predicates are runtime-admitted with `in_predicate_*` evidence and
-    SQL three-valued `WHERE`-filter semantics for `NULL` list values plus blockers for empty,
-    mixed DATE/non-DATE, mixed TIMESTAMP/non-TIMESTAMP, oversized, and subquery-backed lists,
+    `column [NOT] IN (<literal>,...)` predicates are runtime-admitted with `in_predicate_*`
+    evidence and SQL three-valued `WHERE`-filter semantics for `NULL` list values plus blockers for
+    empty, mixed DATE/non-DATE, mixed TIMESTAMP/non-TIMESTAMP, oversized, and subquery-backed lists,
     direct SQL `column [NOT] BETWEEN <lower> AND <upper>` predicates are runtime-admitted by
     lowering to ShardLoom-native comparison/logical predicates for scalar, `DATE`, and `TIMESTAMP`
     literal bounds with deterministic blockers for malformed bounds, and scoped
@@ -333,9 +333,9 @@ or documentation updates alone are insufficient.
     `timestamp_*` evidence and deterministic blockers for non-UTC timezone shapes or unsupported
     expression shapes.
     Python now exposes `sl.col(...)`
-    predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`,
-    scoped UTF-8 lower/upper/trim transforms, bounded `IN`, cast/date/timestamp, Date32 extracts,
-    Date32 day arithmetic, scoped UTC timestamp extracts, and logical predicates into the
+    predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`
+    / `NOT LIKE`, scoped UTF-8 lower/upper/trim transforms, bounded `IN` / `NOT IN`,
+    cast/date/timestamp, Date32 extracts, Date32 day arithmetic, scoped UTC timestamp extracts, and logical predicates into the
     same local SQL smoke path, plus `where(...)` as a familiar filter alias. User workflows still lack broad typed
     coercions, timezone-database helpers, interval/date-time completeness, subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
@@ -1454,7 +1454,8 @@ runnable, documented, tested, and claim-safe.
     feature-gated local flat scalar `read_parquet(...)` / `read_arrow_ipc(...)` /
     `read_avro(...)` / `read_orc(...)`
     query-builder chains support scoped projection/optional-filter/limit, preview/select-star, explicit-projection
-    literal `with_column(...)`, `where(...)`, Python `sl.col(...).between(...)`, `head(...)`/
+    literal `with_column(...)`, `where(...)`, Python `sl.col(...).between(...)` and
+    `sl.col(...).not_in(...)`, `head(...)`/
     `take(...)`, `count()`, scalar aggregate/optional-filter/limit, one-column grouped
     aggregate/optional-filter/limit, and single-key top-N collect/write workflows. Scoped local CSV
     inner equi-join, local `write_jsonl(...)`/`write_csv(...)` sink aliases, and generated-output
