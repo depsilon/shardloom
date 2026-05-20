@@ -777,9 +777,11 @@ or documentation updates alone are insufficient.
 - [ ] GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse runtime
   - Source: `GAR-IOREUSE-1`, `GAR-PERF-2F`, in-process session runtime docs.
   - Current state: scoped batch/session evidence exists, and Python now exposes a caller-owned
-    `ShardLoomSession` for local `vortex_ingest` prepared-state reuse when source and prepared
-    artifact fingerprints still match. Broader CLI batch/session reuse, OutputPlan reuse,
-    schema/dictionary cache reuse, buffer pools, and non-prepare workflows are still planned.
+    `ShardLoomSession` for local `vortex_ingest` prepared-state reuse plus admitted local
+    query-builder collect/write/fanout result reuse when source, output, and prepared-artifact
+    fingerprints still match. Broader CLI batch/session reuse, cross-workflow OutputPlan reuse,
+    schema/dictionary cache reuse, buffer pools, object-store/table reuse, and non-local workflows
+    are still planned.
   - Next slice outcome: extend the scoped in-process `ShardLoomSession` from prepared-state reuse
     into admitted SourceState, VortexPreparedState, schema/dictionary state, and OutputPlan reuse
     where fingerprints remain valid.
@@ -791,8 +793,9 @@ or documentation updates alone are insufficient.
   - Evidence required: session id, cache hit/miss, reuse digest/reason, source/prepared/output
     state ids, invalidation reason, no-fallback fields.
   - Acceptance: repeated admitted workflows reuse state safely; stale source/schema/plan changes
-    invalidate cache; session state is explicitly scoped and closed; Python prepared-state reuse
-    remains fingerprint-gated and does not imply broad runtime/session support.
+    invalidate cache; session state is explicitly scoped and closed; Python prepared-state and
+    local query/output reuse remain fingerprint-gated and do not imply broad runtime/session
+    support.
   - Verification: session smoke, invalidation tests, source/prepared/output reuse tests, benchmark
     harness contract tests.
   - Non-goals: no daemon/service, distributed cache, hidden fast mode, or performance claim.
@@ -1517,9 +1520,10 @@ runnable, documented, tested, and claim-safe.
     `GAR-RUNTIME-IMPL-5I`.
   - Current state: users can `import shardloom as sl`, create `ctx = sl.context()`, run smoke/
     capability commands, execute scoped CLI-backed workflows, and create caller-owned
-    `ctx.session()` / `sl.session(...)` objects for local `vortex_ingest` prepared-state reuse.
-    The Python layer is not yet a broad long-lived runtime session with reusable SourceState,
-    PreparedState, OutputPlan, schema/dictionary, and buffer-pool caches across all workflows.
+    `ctx.session()` / `sl.session(...)` objects for local `vortex_ingest` prepared-state reuse and
+    admitted local query-builder collect/write/fanout reuse. The Python layer is not yet a broad
+    long-lived runtime session with reusable SourceState, PreparedState, OutputPlan,
+    schema/dictionary, and buffer-pool caches across all workflows.
   - Next slice outcome: implement a user-owned `ShardLoomSession`/context lifecycle that feels as
     simple as `SparkSession.builder...getOrCreate()` without creating a daemon, global hidden cache,
     or remote service.

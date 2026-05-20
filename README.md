@@ -57,9 +57,9 @@ Current runtime support is intentionally scoped and evidence-gated:
 - feature-gated local `vortex_ingest` smoke that prepares admitted flat scalar local sources into a
   local `.vortex` artifact and emits `VortexPreparedState` evidence with explicit
   `ingest_minimal` / `ingest_certified` certification-depth semantics;
-- caller-owned Python `ShardLoomSession` prepared-state reuse for scoped local `vortex_ingest`
-  workflows, guarded by source and prepared-artifact fingerprints with explicit close/evidence
-  fields;
+- caller-owned Python `ShardLoomSession` prepared-state and local query/output reuse for scoped
+  local `vortex_ingest` and query-builder workflows, guarded by source/output/prepared-artifact
+  fingerprints with explicit close/evidence fields;
 - report-only or blocked status for broader SQL/DataFrame, object-store, lakehouse/table,
   distributed, live/hybrid production, Foundry production, and package-publication claims.
 
@@ -102,11 +102,17 @@ with ctx.session() as session:
         "target/vortex-ingest-source.vortex",
     )
     print(second.reuse_hit, second.reuse_reason)
+    query = ctx.read_csv("target/vortex-ingest-source.csv").select("id").limit(2)
+    first_output = session.write(query, "target/session-out.jsonl", allow_overwrite=True)
+    second_output = session.write(query, "target/session-out.jsonl")
+    print(first_output.reuse_hit, second_output.output_plan_reuse_hit)
     print(session.evidence())
 ```
 
 The session is in-process and caller-owned. It is not a daemon, hidden global cache, distributed
-runtime, object-store/table cache, SQL/DataFrame production surface, or performance claim.
+runtime, object-store/table cache, SQL/DataFrame production surface, or performance claim. Query
+output reuse is admitted only when the statement, local source fingerprints, and local output
+artifact fingerprints still match.
 
 Exact smoke commands, feature flags, expected outputs, and claim boundaries live in the linked
 getting-started docs.

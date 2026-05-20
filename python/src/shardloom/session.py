@@ -9,7 +9,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .client import ShardLoomClient, VortexIngestSmokeReport
+from .client import (
+    FanoutOutputs,
+    ShardLoomClient,
+    SqlLocalSourceSmokeReport,
+    VortexIngestSmokeReport,
+)
+from .query import (
+    LazyFrame,
+    UnsupportedWorkflowOperationReport,
+    _normalize_fanout_outputs,
+    _normalize_local_output_format,
+    _sql_source_refs,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,10 +160,102 @@ class SessionPreparedState:
 
 
 @dataclass(frozen=True, slots=True)
+class SessionSqlResult:
+    """SQL/query-builder result handle returned by a `ShardLoomSession`."""
+
+    session_id: str
+    report: SqlLocalSourceSmokeReport
+    operation: str
+    reuse_hit: bool
+    reuse_reason: str
+    source_fingerprints: tuple[LocalFileFingerprint, ...]
+    output_fingerprints: tuple[LocalFileFingerprint, ...] = ()
+
+    @property
+    def session_state_scope(self) -> str:
+        """Return the scope for this session-owned state."""
+
+        return "in_process_python_local"
+
+    @property
+    def source_state_reuse_hit(self) -> bool:
+        """Whether this session reused the source state for this result."""
+
+        return self.reuse_hit
+
+    @property
+    def output_plan_reuse_hit(self) -> bool:
+        """Whether this session reused output/result evidence for this result."""
+
+        return self.reuse_hit and self.operation in {"write", "fanout"}
+
+    @property
+    def result_replay_reuse_hit(self) -> bool:
+        """Whether this session reused a previously replay-verified result."""
+
+        return self.output_plan_reuse_hit
+
+    @property
+    def output_plan_digest(self) -> str | None:
+        """Return the output-plan digest when the CLI emitted one."""
+
+        return self.report.envelope.field("output_plan_digest")
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether fallback execution was attempted."""
+
+        return self.report.fallback_attempted
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether an external engine was invoked."""
+
+        return self.report.external_engine_invoked
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the underlying claim-gate status."""
+
+        return self.report.envelope.field("claim_gate_status")
+
+    def evidence(self) -> dict[str, Any]:
+        """Return a compact session result reuse evidence dictionary."""
+
+        return {
+            "session_id": self.session_id,
+            "session_state_scope": self.session_state_scope,
+            "operation": self.operation,
+            "source_state_reuse_hit": self.source_state_reuse_hit,
+            "output_plan_reuse_hit": self.output_plan_reuse_hit,
+            "result_replay_reuse_hit": self.result_replay_reuse_hit,
+            "reuse_reason": self.reuse_reason,
+            "source_fingerprint_digests": tuple(
+                fingerprint.reuse_digest for fingerprint in self.source_fingerprints
+            ),
+            "output_fingerprint_digests": tuple(
+                fingerprint.reuse_digest for fingerprint in self.output_fingerprints
+            ),
+            "output_plan_digest": self.output_plan_digest,
+            "fallback_attempted": self.fallback_attempted,
+            "external_engine_invoked": self.external_engine_invoked,
+            "claim_gate_status": self.claim_gate_status,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class _PreparedCacheEntry:
     report: VortexIngestSmokeReport
     source_fingerprint: LocalFileFingerprint
     target_fingerprint: LocalFileFingerprint
+
+
+@dataclass(frozen=True, slots=True)
+class _SqlCacheEntry:
+    report: SqlLocalSourceSmokeReport
+    operation: str
+    source_fingerprints: tuple[LocalFileFingerprint, ...]
+    output_fingerprints: tuple[LocalFileFingerprint, ...]
 
 
 class ShardLoomSession:
@@ -181,12 +285,14 @@ class ShardLoomSession:
             tuple[str, str, str],
             _PreparedCacheEntry,
         ] = {}
+        self._sql_cache: dict[tuple[object, ...], _SqlCacheEntry] = {}
         self._closed = False
         self._cache_hits = 0
         self._cache_misses = 0
         self._source_state_reuse_count = 0
         self._prepared_artifact_reuse_count = 0
         self._output_plan_reuse_count = 0
+        self._result_replay_reuse_count = 0
 
     @property
     def closed(self) -> bool:
@@ -223,6 +329,12 @@ class ShardLoomSession:
         """Return the OutputPlan reuse count."""
 
         return self._output_plan_reuse_count
+
+    @property
+    def result_replay_reuse_count(self) -> int:
+        """Return the result replay reuse count."""
+
+        return self._result_replay_reuse_count
 
     def prepare_vortex(
         self,
@@ -294,11 +406,107 @@ class ShardLoomSession:
             target_fingerprint=target_fingerprint,
         )
 
+    def collect(
+        self,
+        frame: LazyFrame,
+        *,
+        reuse: bool = True,
+        check: bool = False,
+    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
+        """Collect rows for an admitted local query-builder workflow with session reuse."""
+
+        self._ensure_open()
+        statement = frame._sql_local_source_statement()
+        if statement is None:
+            return frame.collect(check=check)
+        return self._sql_result(
+            operation="collect",
+            statement=statement,
+            execute=lambda: frame.collect(check=check),
+            output_paths=(),
+            reuse=reuse,
+        )
+
+    def write(
+        self,
+        frame: LazyFrame,
+        target_uri: str | os.PathLike[str],
+        *,
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        reuse: bool = True,
+        check: bool = True,
+    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
+        """Write an admitted local query-builder result with session output reuse."""
+
+        self._ensure_open()
+        statement = frame._sql_local_source_statement()
+        if statement is None:
+            return frame.write(
+                target_uri,
+                output_format=output_format,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            )
+        normalized_output_format = _normalize_local_output_format(output_format)
+        return self._sql_result(
+            operation="write",
+            statement=statement,
+            execute=lambda: frame.write(
+                target_uri,
+                output_format=normalized_output_format,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            ),
+            output_paths=(target_uri,),
+            reuse=reuse,
+            output_key=(normalized_output_format, _normalized_path(target_uri)),
+        )
+
+    def fanout(
+        self,
+        frame: LazyFrame,
+        outputs: FanoutOutputs,
+        *,
+        allow_overwrite: bool = False,
+        reuse: bool = True,
+        check: bool = True,
+    ) -> SessionSqlResult | UnsupportedWorkflowOperationReport:
+        """Write an admitted local query-builder result to fanout sinks with session reuse."""
+
+        self._ensure_open()
+        statement = frame._sql_local_source_statement()
+        normalized_outputs = _normalize_fanout_outputs(outputs)
+        if statement is None:
+            return frame.fanout(
+                normalized_outputs,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            )
+        output_paths = tuple(path for _, path in normalized_outputs)
+        output_key = tuple(
+            (fmt, _normalized_path(path))
+            for fmt, path in normalized_outputs
+        )
+        return self._sql_result(
+            operation="fanout",
+            statement=statement,
+            execute=lambda: frame.fanout(
+                normalized_outputs,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            ),
+            output_paths=output_paths,
+            reuse=reuse,
+            output_key=output_key,
+        )
+
     def close(self) -> dict[str, Any]:
         """Close the session and clear in-process reuse state."""
 
         if not self._closed:
             self._prepared_cache.clear()
+            self._sql_cache.clear()
             self._closed = True
         return self.evidence()
 
@@ -316,6 +524,7 @@ class ShardLoomSession:
             "source_state_reuse_count": self._source_state_reuse_count,
             "prepared_artifact_reuse_count": self._prepared_artifact_reuse_count,
             "output_plan_reuse_count": self._output_plan_reuse_count,
+            "result_replay_reuse_count": self._result_replay_reuse_count,
             "session_closed": self._closed,
             "fallback_attempted": False,
             "external_engine_invoked": False,
@@ -336,6 +545,72 @@ class ShardLoomSession:
     def _ensure_open(self) -> None:
         if self._closed:
             raise RuntimeError("ShardLoomSession is closed")
+
+    def _sql_result(
+        self,
+        *,
+        operation: str,
+        statement: str,
+        execute: Any,
+        output_paths: tuple[str | os.PathLike[str], ...],
+        reuse: bool,
+        output_key: object = (),
+    ) -> SessionSqlResult:
+        source_fingerprints = _source_fingerprints(statement)
+        output_fingerprints = tuple(_fingerprint_file(path) for path in output_paths)
+        key = (
+            operation,
+            statement,
+            output_key,
+        )
+        entry = self._sql_cache.get(key)
+        if reuse and entry is not None:
+            reuse_reason = _sql_reuse_reason(
+                entry,
+                source_fingerprints=source_fingerprints,
+                output_fingerprints=output_fingerprints,
+            )
+            if reuse_reason == "source_and_output_fingerprints_match":
+                self._cache_hits += 1
+                self._source_state_reuse_count += 1
+                if operation in {"write", "fanout"}:
+                    self._output_plan_reuse_count += 1
+                    self._result_replay_reuse_count += 1
+                return SessionSqlResult(
+                    session_id=self.session_id,
+                    report=entry.report,
+                    operation=operation,
+                    reuse_hit=True,
+                    reuse_reason=reuse_reason,
+                    source_fingerprints=source_fingerprints,
+                    output_fingerprints=output_fingerprints,
+                )
+        else:
+            reuse_reason = "reuse_disabled" if not reuse else "no_cached_result"
+
+        self._cache_misses += 1
+        report = execute()
+        source_fingerprints = _source_fingerprints(statement)
+        output_fingerprints = tuple(_fingerprint_file(path) for path in output_paths)
+        if report.envelope.status == "success" and _cacheable_sql_state(
+            source_fingerprints,
+            output_fingerprints,
+        ):
+            self._sql_cache[key] = _SqlCacheEntry(
+                report=report,
+                operation=operation,
+                source_fingerprints=source_fingerprints,
+                output_fingerprints=output_fingerprints,
+            )
+        return SessionSqlResult(
+            session_id=self.session_id,
+            report=report,
+            operation=operation,
+            reuse_hit=False,
+            reuse_reason=reuse_reason,
+            source_fingerprints=source_fingerprints,
+            output_fingerprints=output_fingerprints,
+        )
 
 
 def _fingerprint_file(path: str | os.PathLike[str]) -> LocalFileFingerprint:
@@ -383,6 +658,45 @@ def _reuse_reason(
     if entry.target_fingerprint != target_fingerprint:
         return "prepared_artifact_fingerprint_changed"
     return "source_and_prepared_artifact_fingerprints_match"
+
+
+def _source_fingerprints(statement: str) -> tuple[LocalFileFingerprint, ...]:
+    refs = _sql_source_refs(statement)
+    return tuple(_fingerprint_file(ref) for ref in refs)
+
+
+def _cacheable_sql_state(
+    source_fingerprints: tuple[LocalFileFingerprint, ...],
+    output_fingerprints: tuple[LocalFileFingerprint, ...],
+) -> bool:
+    if not source_fingerprints:
+        return False
+    if any(not fingerprint.exists for fingerprint in source_fingerprints):
+        return False
+    if any(not fingerprint.exists for fingerprint in output_fingerprints):
+        return False
+    return True
+
+
+def _sql_reuse_reason(
+    entry: _SqlCacheEntry,
+    *,
+    source_fingerprints: tuple[LocalFileFingerprint, ...],
+    output_fingerprints: tuple[LocalFileFingerprint, ...],
+) -> str:
+    if len(entry.source_fingerprints) != len(source_fingerprints):
+        return "source_fingerprint_count_changed"
+    if len(entry.output_fingerprints) != len(output_fingerprints):
+        return "output_fingerprint_count_changed"
+    if any(not fingerprint.exists for fingerprint in source_fingerprints):
+        return "source_fingerprint_missing"
+    if any(not fingerprint.exists for fingerprint in output_fingerprints):
+        return "output_artifact_missing"
+    if entry.source_fingerprints != source_fingerprints:
+        return "source_fingerprint_changed"
+    if entry.output_fingerprints != output_fingerprints:
+        return "output_artifact_fingerprint_changed"
+    return "source_and_output_fingerprints_match"
 
 
 def _require_non_empty(label: str, value: str) -> str:

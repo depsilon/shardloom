@@ -136,7 +136,12 @@ from .query import (
     SqlWorkflow,
     round,
 )
-from .session import LocalFileFingerprint, SessionPreparedState, ShardLoomSession
+from .session import (
+    LocalFileFingerprint,
+    SessionPreparedState,
+    SessionSqlResult,
+    ShardLoomSession,
+)
 
 __all__ = [
     "__version__",
@@ -216,6 +221,7 @@ __all__ = [
     "ShardLoomContext",
     "ShardLoomSession",
     "SessionPreparedState",
+    "SessionSqlResult",
     "LocalFileFingerprint",
     "context",
     "session",

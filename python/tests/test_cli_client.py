@@ -40,6 +40,7 @@ from shardloom import (
     ShardLoomProtocolError,
     SqlLocalSourceSmokeReport,
     SessionPreparedState,
+    SessionSqlResult,
     OutputEnvelope,
     PreparedVortexArtifacts,
     PredicateDtypeCoverageRow,
@@ -1064,6 +1065,84 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(evidence["external_engine_invoked"])
         self.assertFalse(evidence["session_closed"])
         self.assertTrue(sess.close()["session_closed"])
+
+    def test_context_session_reuses_local_query_output_when_fingerprints_match(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source_path = root / "source.csv"
+            output_path = root / "out.jsonl"
+            count_path = root / "sql-count.txt"
+            source_path.write_text("id,label\n1,alpha\n2,beta\n", encoding="utf-8")
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    from pathlib import Path
+                    count_path = Path({str(count_path)!r})
+                    count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
+                    count += 1
+                    count_path.write_text(str(count), encoding="utf-8")
+                    assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                    assert "--output" in sys.argv, sys.argv
+                    output_path = Path(sys.argv[sys.argv.index("--output") + 1])
+                    output_path.write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": "sql-local-source-smoke",
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "output_format", "value": "jsonl"}},
+                            {{"key": "output_path", "value": str(output_path)}},
+                            {{"key": "output_plan_digest", "value": f"sha256:output-plan-{{count}}"}},
+                            {{"key": "result_replay_verified", "value": "true"}},
+                            {{"key": "output_replay_status", "value": "verified_local_file_digest"}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+            frame = ctx.read_csv(source_path).select("id").limit(2)
+            sess = ctx.session(session_id="sql-session")
+
+            first = sess.write(frame, output_path, allow_overwrite=True)
+            second = sess.write(frame, output_path)
+
+            self.assertIsInstance(first, SessionSqlResult)
+            self.assertFalse(first.reuse_hit)
+            self.assertEqual(first.reuse_reason, "no_cached_result")
+            self.assertTrue(second.reuse_hit)
+            self.assertEqual(second.output_plan_digest, "sha256:output-plan-1")
+            self.assertTrue(second.output_plan_reuse_hit)
+            self.assertTrue(second.result_replay_reuse_hit)
+            self.assertFalse(second.fallback_attempted)
+            self.assertFalse(second.external_engine_invoked)
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
+
+            output_path.write_text('{"id":99,"count":99}\n', encoding="utf-8")
+            third = sess.write(frame, output_path, allow_overwrite=True)
+            self.assertFalse(third.reuse_hit)
+            self.assertEqual(third.reuse_reason, "output_artifact_fingerprint_changed")
+            self.assertEqual(third.output_plan_digest, "sha256:output-plan-2")
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
+
+            evidence = sess.evidence()
+            self.assertEqual(evidence["cache_hit_count"], 1)
+            self.assertEqual(evidence["cache_miss_count"], 2)
+            self.assertEqual(evidence["source_state_reuse_count"], 1)
+            self.assertEqual(evidence["output_plan_reuse_count"], 1)
+            self.assertEqual(evidence["result_replay_reuse_count"], 1)
+            self.assertFalse(evidence["fallback_attempted"])
+            self.assertFalse(evidence["external_engine_invoked"])
 
     def test_capabilities_scope_uses_explicit_scope(self) -> None:
         binary = self.fake_cli(
