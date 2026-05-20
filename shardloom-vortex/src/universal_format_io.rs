@@ -1,9 +1,10 @@
-//! Feature-gated local compatibility-format readers for runtime promotion.
+//! Feature-gated local compatibility-format I/O for runtime promotion.
 //!
 //! These helpers are compatibility input adapters, not fallback execution
 //! engines. They decode admitted local file formats into `ShardLoom` scalar rows
-//! so caller-owned runtime paths can emit explicit materialization evidence and
-//! fail closed for unsupported Arrow types.
+//! and encode admitted local sink formats from `ShardLoom` scalar rows so
+//! caller-owned runtime paths can emit explicit materialization/write evidence
+//! and fail closed for unsupported Arrow types.
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -12,11 +13,17 @@ use std::{
 };
 
 use arrow_array::{
-    Array, BooleanArray, Date32Array, Float32Array, Float64Array, Int8Array, Int16Array,
-    Int32Array, Int64Array, LargeStringArray, RecordBatchReader, StringArray, StringViewArray,
-    TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+    Array, ArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array, Int8Array, Int16Array,
+    Int32Array, Int64Array, LargeStringArray, RecordBatch, RecordBatchReader, StringArray,
+    StringViewArray, TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+    builder::{
+        BooleanBuilder, Date32Builder, Float64Builder, Int64Builder, StringBuilder,
+        TimestampMicrosecondBuilder, UInt64Builder,
+    },
 };
+use arrow_schema::{DataType, Field, Schema, TimeUnit};
 use shardloom_core::{Result, ScalarValue, ShardLoomError};
+use std::sync::Arc;
 
 /// Materialized scalar rows produced by a scoped local compatibility adapter.
 #[derive(Debug, Clone, PartialEq)]
@@ -117,6 +124,285 @@ pub fn read_flat_parquet_source(path: &Path, max_rows: usize) -> Result<FlatLoca
     }
 
     Ok(FlatLocalSourceTable { header, rows })
+}
+
+/// Encode flat scalar rows into local Parquet bytes for scoped runtime smokes.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when column names are invalid,
+/// row shapes do not match the declared columns, a column contains mixed scalar
+/// families, or a value cannot be represented by the scoped Parquet sink.
+pub fn encode_flat_parquet_rows(
+    columns: &[String],
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<Vec<u8>> {
+    validate_flat_columns(columns, "local Parquet output")?;
+    let fields_and_arrays = columns
+        .iter()
+        .enumerate()
+        .map(|(column_index, column)| parquet_column_array(column, column_index, rows))
+        .collect::<Result<Vec<_>>>()?;
+    let fields = fields_and_arrays
+        .iter()
+        .map(|(field, _array)| field.clone())
+        .collect::<Vec<_>>();
+    let arrays = fields_and_arrays
+        .into_iter()
+        .map(|(_field, array)| array)
+        .collect::<Vec<_>>();
+    let schema = Arc::new(Schema::new(fields));
+    let batch = RecordBatch::try_new(Arc::clone(&schema), arrays).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to build local Parquet output record batch: {error}"
+        ))
+    })?;
+
+    let mut writer =
+        parquet::arrow::ArrowWriter::try_new(Vec::new(), schema, None).map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local Parquet output writer: {error}"
+            ))
+        })?;
+    writer.write(&batch).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to write local Parquet output batch: {error}"
+        ))
+    })?;
+    writer.into_inner().map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to close local Parquet output writer: {error}"
+        ))
+    })
+}
+
+fn validate_flat_columns(columns: &[String], context: &str) -> Result<()> {
+    if columns.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "{context} must contain at least one column"
+        )));
+    }
+    let mut seen_columns = BTreeSet::new();
+    for column in columns {
+        if column.trim().is_empty() {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} contains an empty column name"
+            )));
+        }
+        if !seen_columns.insert(column) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "{context} contains duplicate column '{column}'"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn parquet_column_array(
+    column: &str,
+    column_index: usize,
+    rows: &[Vec<(String, ScalarValue)>],
+) -> Result<(Field, ArrayRef)> {
+    let values = rows
+        .iter()
+        .map(|row| {
+            let Some((name, value)) = row.get(column_index) else {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local Parquet output row is missing column '{column}' at index {column_index}"
+                )));
+            };
+            if name != column {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local Parquet output row column mismatch at index {column_index}: expected '{column}', found '{name}'"
+                )));
+            }
+            Ok(value)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let kind = values
+        .iter()
+        .filter(|value| !matches!(value, ScalarValue::Null))
+        .map(|value| scalar_family(value))
+        .try_fold(None, |current, candidate| match current {
+            None => Ok(Some(candidate)),
+            Some(existing) if existing == candidate => Ok(Some(existing)),
+            Some(existing) => Err(ShardLoomError::InvalidOperation(format!(
+                "local Parquet output column '{column}' mixes scalar families {existing} and {candidate}; scoped Parquet output requires one non-null scalar family per column"
+            ))),
+        })?
+        .unwrap_or("utf8");
+    let nullable = values
+        .iter()
+        .any(|value| matches!(value, ScalarValue::Null));
+    match kind {
+        "boolean" => Ok(parquet_bool_column(column, &values, nullable)?),
+        "int64" => Ok(parquet_int64_column(column, &values, nullable)?),
+        "uint64" => Ok(parquet_uint64_column(column, &values, nullable)?),
+        "float64" => Ok(parquet_float64_column(column, &values, nullable)?),
+        "utf8" => Ok(parquet_utf8_column(column, &values, nullable)?),
+        "date32" => Ok(parquet_date32_column(column, &values, nullable)?),
+        "timestamp_micros" => Ok(parquet_timestamp_micros_column(column, &values, nullable)?),
+        other => Err(ShardLoomError::InvalidOperation(format!(
+            "local Parquet output column '{column}' has unsupported scalar family {other}"
+        ))),
+    }
+}
+
+fn parquet_bool_column(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+) -> Result<(Field, ArrayRef)> {
+    let mut builder = BooleanBuilder::with_capacity(values.len());
+    for value in values {
+        match value {
+            ScalarValue::Boolean(value) => builder.append_value(*value),
+            ScalarValue::Null => builder.append_null(),
+            other => return Err(unexpected_sink_value(column, "boolean", other)),
+        }
+    }
+    Ok((
+        Field::new(column, DataType::Boolean, nullable),
+        Arc::new(builder.finish()),
+    ))
+}
+
+fn parquet_int64_column(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+) -> Result<(Field, ArrayRef)> {
+    let mut builder = Int64Builder::with_capacity(values.len());
+    for value in values {
+        match value {
+            ScalarValue::Int64(value) => builder.append_value(*value),
+            ScalarValue::Null => builder.append_null(),
+            other => return Err(unexpected_sink_value(column, "int64", other)),
+        }
+    }
+    Ok((
+        Field::new(column, DataType::Int64, nullable),
+        Arc::new(builder.finish()),
+    ))
+}
+
+fn parquet_uint64_column(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+) -> Result<(Field, ArrayRef)> {
+    let mut builder = UInt64Builder::with_capacity(values.len());
+    for value in values {
+        match value {
+            ScalarValue::UInt64(value) => builder.append_value(*value),
+            ScalarValue::Null => builder.append_null(),
+            other => return Err(unexpected_sink_value(column, "uint64", other)),
+        }
+    }
+    Ok((
+        Field::new(column, DataType::UInt64, nullable),
+        Arc::new(builder.finish()),
+    ))
+}
+
+fn parquet_float64_column(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+) -> Result<(Field, ArrayRef)> {
+    let mut builder = Float64Builder::with_capacity(values.len());
+    for value in values {
+        match value {
+            ScalarValue::Float64(value) => builder.append_value(*value),
+            ScalarValue::Null => builder.append_null(),
+            other => return Err(unexpected_sink_value(column, "float64", other)),
+        }
+    }
+    Ok((
+        Field::new(column, DataType::Float64, nullable),
+        Arc::new(builder.finish()),
+    ))
+}
+
+fn parquet_utf8_column(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+) -> Result<(Field, ArrayRef)> {
+    let mut builder = StringBuilder::with_capacity(values.len(), values.len() * 8);
+    for value in values {
+        match value {
+            ScalarValue::Utf8(value) => builder.append_value(value),
+            ScalarValue::Null => builder.append_null(),
+            other => return Err(unexpected_sink_value(column, "utf8", other)),
+        }
+    }
+    Ok((
+        Field::new(column, DataType::Utf8, nullable),
+        Arc::new(builder.finish()),
+    ))
+}
+
+fn parquet_date32_column(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+) -> Result<(Field, ArrayRef)> {
+    let mut builder = Date32Builder::with_capacity(values.len());
+    for value in values {
+        match value {
+            ScalarValue::Date32(value) => builder.append_value(*value),
+            ScalarValue::Null => builder.append_null(),
+            other => return Err(unexpected_sink_value(column, "date32", other)),
+        }
+    }
+    Ok((
+        Field::new(column, DataType::Date32, nullable),
+        Arc::new(builder.finish()),
+    ))
+}
+
+fn parquet_timestamp_micros_column(
+    column: &str,
+    values: &[&ScalarValue],
+    nullable: bool,
+) -> Result<(Field, ArrayRef)> {
+    let mut builder = TimestampMicrosecondBuilder::with_capacity(values.len());
+    for value in values {
+        match value {
+            ScalarValue::TimestampMicros(value) => builder.append_value(*value),
+            ScalarValue::Null => builder.append_null(),
+            other => return Err(unexpected_sink_value(column, "timestamp_micros", other)),
+        }
+    }
+    Ok((
+        Field::new(
+            column,
+            DataType::Timestamp(TimeUnit::Microsecond, None),
+            nullable,
+        ),
+        Arc::new(builder.finish()),
+    ))
+}
+
+fn scalar_family(value: &ScalarValue) -> &'static str {
+    match value {
+        ScalarValue::Boolean(_) => "boolean",
+        ScalarValue::Int64(_) => "int64",
+        ScalarValue::UInt64(_) => "uint64",
+        ScalarValue::Float64(_) => "float64",
+        ScalarValue::Utf8(_) => "utf8",
+        ScalarValue::Date32(_) => "date32",
+        ScalarValue::TimestampMicros(_) => "timestamp_micros",
+        ScalarValue::Null => "null",
+        ScalarValue::Binary(_) => "binary",
+    }
+}
+
+fn unexpected_sink_value(column: &str, expected: &str, value: &ScalarValue) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "local Parquet output column '{column}' expected {expected} but found {}",
+        scalar_family(value)
+    ))
 }
 
 #[allow(clippy::cast_precision_loss)]

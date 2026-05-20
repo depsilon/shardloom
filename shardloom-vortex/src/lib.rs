@@ -524,7 +524,9 @@ pub use traditional_analytics::{
     run_traditional_analytics_vortex_benchmark, run_traditional_direct_transient_csv_smoke,
 };
 #[cfg(feature = "universal-format-io")]
-pub use universal_format_io::{FlatLocalSourceTable, read_flat_parquet_source};
+pub use universal_format_io::{
+    FlatLocalSourceTable, encode_flat_parquet_rows, read_flat_parquet_source,
+};
 
 // Runtime bridge, scheduler, bounded execution, and narrow local engine/provider exports.
 pub use write_intent::{

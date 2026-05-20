@@ -460,6 +460,114 @@ fn sql_local_source_smoke_writes_local_csv_output_with_certificate_fields() {
     fs::remove_file(output_path).expect("remove output csv");
 }
 
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_writes_local_parquet_output_with_certificate_fields() {
+    let source_path = unique_path("sql-local-source-parquet-output", "csv");
+    let output_path = unique_path("sql-local-source-parquet-output", "parquet");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label,amount FROM '{}' WHERE amount >= 10 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--output",
+            output_path.to_str().expect("utf8 output path"),
+            "--output-format",
+            "parquet",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let table =
+        shardloom_vortex::read_flat_parquet_source(&output_path, 10).expect("read parquet output");
+    assert_eq!(table.header, vec!["id", "label", "amount"]);
+    assert_eq!(table.rows.len(), 2);
+    assert_eq!(
+        table.rows[0].get("label"),
+        Some(&shardloom_core::ScalarValue::Utf8("beta".to_string()))
+    );
+    assert_eq!(
+        table.rows[1].get("label"),
+        Some(&shardloom_core::ScalarValue::Utf8("gamma".to_string()))
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("result_format", "inline_jsonl")));
+    assert!(stdout.contains(&field("output_format", "parquet")));
+    assert!(stdout.contains(&field("output_io_performed", "true")));
+    assert!(stdout.contains(&field("write_io", "true")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_parquet_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "output_certificate_ref",
+        "sql-local-source.local-parquet-output.native-io.v1"
+    )));
+    assert!(stdout.contains("\"output_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("object_store_io", "false")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(output_path).expect("remove output parquet");
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+#[test]
+fn sql_local_source_smoke_blocks_parquet_output_without_universal_format_feature() {
+    let source_path = unique_path("sql-local-source-parquet-output-blocked", "csv");
+    let output_path = unique_path("sql-local-source-parquet-output-blocked", "parquet");
+    fs::write(&source_path, "id,label\n1,alpha\n").expect("write source csv");
+
+    let statement = format!("SELECT id,label FROM '{}' LIMIT 1", source_path.display());
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &statement,
+            "--output",
+            output_path.to_str().expect("utf8 output path"),
+            "--output-format",
+            "parquet",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("requires building shardloom-cli with --features universal-format-io"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(!output_path.exists());
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
 #[test]
 fn sql_local_source_smoke_writes_literal_projection_csv_header() {
     let source_path = unique_path("sql-local-source-literal-csv-output", "csv");
@@ -589,7 +697,9 @@ fn sql_local_source_smoke_blocks_csv_output_without_local_output_path() {
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"status\":\"error\""));
-    assert!(stdout.contains("SQL local-source CSV output requires --output <local.csv>"));
+    assert!(
+        stdout.contains("SQL local-source CSV or Parquet output requires --output <local path>")
+    );
     assert!(stdout.contains("\"attempted\":false"));
 
     fs::remove_file(source_path).expect("remove source csv");

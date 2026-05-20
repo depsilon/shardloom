@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4G feature-gated flat Parquet local-output sink runtime slice
+  - Branch/PR: `codex/runtime-local-parquet-output-sink` / #821.
+  - Primary files:
+    - `shardloom-vortex/src/universal_format_io.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/use-cases/use-case-index.yml`
+  - Scope: promote one scoped GAR-RUNTIME-IMPL-4G local output writer slice by admitting
+    feature-gated flat scalar Parquet output for `sql-local-source-smoke` and Python local-source
+    query-builder workflows while keeping broader Parquet feature parity, Arrow/Avro/ORC/Vortex
+    output, replay proof, fanout, object-store/table sinks, and performance claims blocked.
+  - Runtime behavior:
+    - `shardloom-vortex` now exposes a `universal-format-io` helper that encodes ShardLoom flat
+      scalar rows into local Parquet bytes for booleans, signed/unsigned integers, floats, UTF-8
+      strings, `date32`, and `timestamp_micros`.
+    - `shardloom-cli --features universal-format-io` admits `--output-format parquet` for scoped
+      local-source SQL rows and writes local `.parquet` output through ShardLoom-owned output
+      plumbing.
+    - Default CLI builds still fail closed with an explicit Parquet sink blocker instead of
+      claiming Parquet output runtime support.
+    - Python local-source query-builder chains expose `write_parquet(...)` as an alias for
+      `write(..., output_format="parquet")`; the CLI feature gate decides whether the path
+      executes or returns the deterministic blocker.
+  - Evidence:
+    - Admitted Parquet output rows emit `output_format=parquet`, `output_io_performed=true`,
+      `write_io=true`, `output_native_io_certificate_status=certified_local_parquet_sink`,
+      `output_certificate_ref=sql-local-source.local-parquet-output.native-io.v1`,
+      `object_store_io=false`, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_parquet_output_without_universal_format_feature`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_local_parquet_output_with_certificate_fields`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python website/build_static_pages.py --benchmark-manifest website/assets/benchmarks/latest/manifest.json`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics website`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy -p shardloom-cli --features universal-format-io --all-targets -- -D warnings`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo check --workspace --all-features`
+    - `git diff --check`
+  - Claim boundary: feature-gated flat scalar local Parquet output fixture-smoke/runtime-admission
+    only. This does not add broad Parquet type/nesting output support, Arrow/Avro/ORC/Vortex
+    output, result-sink replay proof, multi-output fanout, production SQL/DataFrame support,
+    object-store/lakehouse support, Foundry support, package publication, performance/superiority
+    claims, or Spark-displacement claims.
+  - Fallback boundary: Parquet output encoding is an explicit compatibility sink adapter; no pandas,
+    Polars, DuckDB, DataFusion, Spark, Dask, or other external engine is invoked as fallback.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F feature-gated flat Parquet local-source adapter runtime slice
   - Branch/PR: `codex/runtime-local-parquet-source-admission` / #820.
   - Primary files:

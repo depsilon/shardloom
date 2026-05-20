@@ -367,7 +367,11 @@ numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric sort
 keys. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL/CSV file
 by default, and local-source workflows can use `write(..., output_format="csv")`
-or `write_csv(...)` for the scoped local CSV sink. Written local sinks emit
+or `write_csv(...)` for the scoped local CSV sink. They can also use
+`write_parquet(...)` or `write(..., output_format="parquet")` for the scoped
+feature-gated flat scalar Parquet sink when the CLI is built with
+`--features universal-format-io`; default binaries return ShardLoom's
+deterministic Parquet sink blocker. Written local sinks emit
 format-specific output Native I/O certificate fields:
 
 ```powershell

@@ -411,10 +411,13 @@ or documentation updates alone are insufficient.
   - Source: OutputPlan, result-sink replay proof, cross-format fanout architecture,
     `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: scoped local SQL/Python output can write local JSONL and CSV sinks with
-    format-specific certificate fields; Parquet, Arrow IPC, Vortex, replay proof, and
-    multi-output fanout are not ordinary user-facing runtime features.
-  - Next slice outcome: add local writer registry and fanout for admitted formats, with per-output
-    digest, replay status, and metadata fidelity/loss.
+    format-specific certificate fields, and one feature-gated flat scalar Parquet sink slice is
+    admitted through `sql-local-source-smoke` / Python `write_parquet(...)` when
+    `shardloom-cli --features universal-format-io` is used. Broader Parquet type/nesting output,
+    Arrow IPC, Vortex, replay proof, and multi-output fanout are not ordinary user-facing runtime
+    features.
+  - Next slice outcome: add the remaining local writer registry and fanout for admitted formats,
+    with per-output digest, replay status, and metadata fidelity/loss.
   - Runtime enablement: local output writers and fanout execution with OutputPlan evidence and
     replay proof where admitted.
   - User-visible surface: CLI/Python `.write` and `.fanout`, recipes, benchmark
