@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4I CLI local primitive `scan_pushdown_*`
+      contract slice
+  - Branch/PR: `codex/vortex-scan-pushdown-runtime` / #823.
+  - Primary files:
+    - `shardloom-cli/src/vortex_primitive_execution.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+  - Scope: expose the shared scan-pushdown evidence contract on the user-visible CLI primitive
+    output fields for the admitted local Vortex primitive scan path. This records the current
+    filter/projection pushdown posture without changing the underlying Vortex scan runtime or
+    closing the broader `GAR-RUNTIME-IMPL-4I` limit/slice and encoded-predicate completion item.
+  - Runtime behavior:
+    - `vortex-project` reports projection pushdown for admitted local Vortex primitive execution.
+    - `vortex-filter` reports single-column predicate/filter pushdown for admitted local Vortex
+      primitive execution.
+    - `vortex-filter-project` reports single-column predicate/filter pushdown plus projection
+      pushdown from one local Vortex scan path.
+    - Local primitive requests that do not execute a local scan, or that do not admit the Vortex
+      scan path, now emit deterministic pushdown blocker IDs instead of leaving the pushdown
+      posture implicit.
+  - Evidence:
+    - Admitted rows emit `scan_pushdown_schema_version`,
+      `scan_pushdown_status=scan_pushdown_supported`, `scan_filter_required`,
+      `scan_projection_required`, `scan_limit_required`, `scan_filter_pushed_down`,
+      `scan_projection_pushed_down`, `scan_limit_pushed_down`,
+      `scan_filter_pushdown_status`, `scan_projection_pushdown_status`,
+      `scan_limit_pushdown_status`, `scan_filter_columns_read`,
+      `scan_output_columns_read`, `scan_filter_only_columns_read`,
+      `scan_data_materialized`, `scan_data_decoded`, `scan_pushdown_blocker_id`,
+      `scan_pushdown_claim_gate_status=fixture_smoke_only`,
+      `scan_pushdown_fallback_attempted=false`, and
+      `scan_pushdown_external_engine_invoked=false`.
+    - Pushed-down shapes: projection-only local primitive scans, single-column filter primitive
+      scans, and single-column filter plus projection primitive scans.
+    - Blocked/not admitted shapes: non-local-execution CLI rows, local primitive scans that do not
+      call the Vortex scan path, and limit/slice pushdown on the current CLI primitive surfaces.
+  - Verification:
+    - `cargo test -p shardloom-cli --features vortex-local-primitives local_execution_certifies_checked_in_struct_fixture`
+    - `cargo test -p shardloom-cli --features vortex-local-primitives --test typed_envelope_contract_snapshots scan_pushdown`
+    - `cargo test -p shardloom-cli --features vortex-local-primitives --test typed_envelope_contract_snapshots`
+    - `cargo test -p shardloom-cli --test typed_envelope_contract_snapshots`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives filter_and_project_uses_single_vortex_scan_pushdown_path`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives generalized_filter_executes_copied_local_vortex_filter_scan_pushdown`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives generalized_projection_executes_copied_local_vortex_project_scan_pushdown`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python website/build_static_pages.py --benchmark-manifest website/assets/benchmarks/latest/manifest.json`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics website`
+    - `cargo clippy -p shardloom-cli --features vortex-local-primitives --all-targets -- -D warnings`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo fmt --all -- --check`
+    - `git diff --check`
+  - Claim boundary: scoped local Vortex primitive scan-pushdown fixture-smoke evidence only. This
+    does not add broad SQL/DataFrame pushdown, object-store/table/lakehouse support, Foundry
+    support, encoded-native claims, production support, package publication, performance/
+    superiority claims, or Spark-displacement claims.
+  - Fallback boundary: pushed-down and blocked shapes remain ShardLoom/Vortex local primitive
+    runtime evidence. No pandas, Polars, DuckDB, DataFusion, Spark, Dask, databases, warehouses, or
+    managed platforms are invoked as fallback engines.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4H feature-gated local `vortex_ingest` prepare-once lifecycle
       runtime slice
   - Branch/PR: `codex/runtime-vortex-ingest-lifecycle` / #822.

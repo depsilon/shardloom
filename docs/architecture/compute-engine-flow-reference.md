@@ -2190,7 +2190,12 @@ filter, projection, and limit/slice dimensions are reported separately with
 `scan_pushdown_external_engine_invoked=false`. Limit/slice pushdown remains
 blocked for current limit-like scenarios because those rows require
 order-sensitive or grouped residual state; this is explicit pushdown evidence,
-not an encoded-native or performance claim. `group by
+not an encoded-native or performance claim. The CLI local Vortex primitive
+surfaces now use the same contract shape for `vortex-project`, `vortex-filter`,
+and `vortex-filter-project`: admitted local scan rows disclose filter,
+projection, filter-only, materialization, decode, blocker, no-fallback, and
+external-engine fields, while non-admitted rows fail closed with deterministic
+blocker IDs. `group by
 aggregation` now also has a prepared/native residual-native scan path using
 projection pushdown over `group_key`/`metric` and ShardLoom-native grouped
 state. `multi-key group by` extends that path to composite `group_key`/`category`

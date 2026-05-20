@@ -5643,6 +5643,131 @@ mod tests {
         )
     }
 
+    #[cfg(feature = "vortex-local-primitives")]
+    fn assert_project_scan_pushdown_route_fields(
+        request: &VortexQueryPrimitiveRequest,
+        evidence: &VortexLocalPrimitiveCliExecutionEvidence,
+    ) {
+        let result = VortexQueryPrimitiveResult::needs_encoded_read(
+            request.clone(),
+            "local primitive scan pushdown supplies runtime evidence",
+        );
+        let route_fields = vortex_project_fields(&result, "metric".to_string(), Some(evidence));
+        assert_eq!(
+            output_field(&route_fields, "scan_pushdown_schema_version"),
+            "shardloom.vortex_primitive.scan_pushdown_contract.v1"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_pushdown_status"),
+            "scan_pushdown_supported"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_filter_pushed_down"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_projection_pushed_down"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_output_columns_read"),
+            "metric"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_pushdown_blocker_id"),
+            "none"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_pushdown_fallback_attempted"),
+            "false"
+        );
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn assert_filter_project_scan_pushdown_route_fields(
+        request: &VortexQueryPrimitiveRequest,
+        evidence: &VortexLocalPrimitiveCliExecutionEvidence,
+    ) {
+        let result = VortexQueryPrimitiveResult::needs_encoded_read(
+            request.clone(),
+            "local primitive scan pushdown supplies runtime evidence",
+        );
+        let route_fields = vortex_filter_project_fields(
+            &result,
+            "gte:value:3".to_string(),
+            "metric".to_string(),
+            Some(evidence),
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_pushdown_status"),
+            "scan_pushdown_supported"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_filter_pushed_down"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_projection_pushed_down"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_filter_columns_read"),
+            "value"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_output_columns_read"),
+            "metric"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_filter_only_columns_read"),
+            "value"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_data_materialized"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_pushdown_external_engine_invoked"),
+            "false"
+        );
+    }
+
+    #[cfg(feature = "vortex-local-primitives")]
+    fn assert_filter_scan_pushdown_route_fields(
+        request: &VortexQueryPrimitiveRequest,
+        evidence: &VortexLocalPrimitiveCliExecutionEvidence,
+    ) {
+        let result = VortexQueryPrimitiveResult::needs_encoded_read(
+            request.clone(),
+            "local primitive scan pushdown supplies runtime evidence",
+        );
+        let route_fields = vortex_filter_fields(&result, "gte:value:3".to_string(), Some(evidence));
+        assert_eq!(
+            output_field(&route_fields, "scan_pushdown_status"),
+            "scan_pushdown_supported"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_filter_pushed_down"),
+            "true"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_projection_pushed_down"),
+            "false"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_filter_columns_read"),
+            "value"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_output_columns_read"),
+            "none"
+        );
+        assert_eq!(
+            output_field(&route_fields, "scan_pushdown_claim_gate_status"),
+            "fixture_smoke_only"
+        );
+    }
+
     fn vortex_count_where_filter_summary(stats: SegmentStats) -> VortexMetadataSummaryReport {
         let mut segment =
             shardloom_vortex::VortexSegmentMetadataSummary::unknown().with_row_count(5);
@@ -5989,6 +6114,8 @@ mod tests {
             output_field(&fields, "local_primitive_execution_certificate_fixture_id"),
             "vortex-local-project-struct-five"
         );
+
+        assert_project_scan_pushdown_route_fields(&request, &evidence);
     }
 
     #[cfg(feature = "vortex-local-primitives")]
@@ -6115,6 +6242,8 @@ mod tests {
             output_field(&fields, "local_primitive_execution_certificate_fixture_id"),
             "vortex-local-filter-project-struct-five"
         );
+
+        assert_filter_project_scan_pushdown_route_fields(&request, &evidence);
     }
 
     #[cfg(feature = "vortex-local-primitives")]
@@ -6230,6 +6359,8 @@ mod tests {
             output_field(&fields, "local_primitive_execution_certificate_fixture_id"),
             "vortex-local-filter-struct-five"
         );
+
+        assert_filter_scan_pushdown_route_fields(&request, &evidence);
     }
 
     #[cfg(feature = "vortex-local-primitives")]
