@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F feature-gated flat Parquet local-source adapter runtime slice
+  - Branch/PR: `codex/runtime-local-parquet-source-admission` / #820.
+  - Primary files:
+    - `shardloom-vortex/src/universal_format_io.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/Cargo.toml`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/universal-input-contract.md`
+    - `docs/use-cases/use-case-index.yml`
+  - Scope: promote one additional GAR-RUNTIME-IMPL-4F local input adapter slice by admitting
+    feature-gated local flat scalar `.parquet` files into the same scoped SQL/Python
+    direct-transient local-source smoke path while keeping nested/general Parquet feature parity,
+    object-store/table paths, and performance claims blocked.
+  - Runtime behavior:
+    - `shardloom-vortex` now exposes a `universal-format-io` helper that reads local Parquet batches
+      into ShardLoom scalar rows for booleans, signed/unsigned integers, floats, UTF-8 strings,
+      `date32`, and `timestamp_micros`.
+    - `shardloom-cli --features universal-format-io` admits local `.parquet` paths in
+      `sql-local-source-smoke` for the existing projection/optional-filter/limit, aggregate,
+      group-by, and top-N shape family.
+    - Default CLI builds still fail closed with an explicit Parquet adapter blocker instead of
+      claiming Parquet runtime support.
+    - Python `ctx.read_parquet("*.parquet")` query-builder chains lower the scoped local-source
+      shapes to `sql-local-source-smoke`; the CLI feature gate decides whether the path executes or
+      returns the deterministic blocker.
+  - Evidence:
+    - Admitted Parquet rows emit `source_format=parquet`,
+      `source_adapter_id=local_parquet_input_adapter`,
+      `source_certificate_ref=sql-local-source.parquet.compatibility-source.v1`,
+      `materialization_boundary=local_parquet_row_materialization_to_expression_semantics`,
+      direct-transient route fields, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo check -p shardloom-cli --features universal-format-io`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_parquet_without_universal_format_feature`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_parquet_projection_filter_limit_with_source_state_evidence`
+    - `cargo clippy -p shardloom-cli --features universal-format-io --all-targets -- -D warnings`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python website/build_static_pages.py --benchmark-manifest website/assets/benchmarks/latest/manifest.json`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics website`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo check --workspace --all-features`
+    - `git diff --check`
+  - Claim boundary: feature-gated flat scalar local Parquet fixture-smoke/runtime-admission only.
+    This does not add broad Parquet type/nesting support, Parquet output sinks, Vortex-native
+    execution, production SQL/DataFrame support, object-store/lakehouse support, Foundry support,
+    package publication, performance/superiority claims, or Spark-displacement claims.
+  - Fallback boundary: Parquet parsing is an explicit compatibility input adapter; no pandas,
+    Polars, DuckDB, DataFusion, Spark, Dask, or other external engine is invoked as fallback.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F flat JSON local-source adapter runtime slice
   - Branch/PR: `codex/runtime-local-json-source-admission` / #819.
   - Primary files:
@@ -1775,7 +1838,7 @@ phase plan first.
   - Blockers preserved:
     - Decimal, timestamp, interval, nested expression, function, and broad ANSI type coercions remain
       unsupported.
-    - SQL/DataFrame production runtime, Parquet/Vortex SQL sources, object-store/lakehouse sources,
+    - SQL/DataFrame production runtime, broader Parquet/Vortex SQL sources, object-store/lakehouse sources,
       generalized function support, external engine execution, and fallback execution remain
       blocked.
   - Verification:
@@ -3323,7 +3386,7 @@ phase plan first.
     - This admits only one scoped local CSV Python query-builder smoke for
       `read_csv().select().filter().limit().collect()/write()` over the same SQL local-source
       subset. It does not add pandas/Polars execution, broad DataFrame parity, broad SQL support,
-      joins, aggregates, windows, Parquet/Vortex SQL sources, object-store/table/lakehouse support,
+      joins, aggregates, windows, broader Parquet/Vortex SQL sources, object-store/table/lakehouse support,
       Foundry support, package publication, performance claims, production claims, or
       Spark-replacement claims.
   - Fallback boundary:

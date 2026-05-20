@@ -1,7 +1,8 @@
 //! Scoped local-source SQL runtime smoke.
 //!
-//! This module intentionally admits one small SQL shape over local CSV/JSONL/JSON:
-//! `SELECT <columns> FROM <local.csv|local.jsonl|local.json> [WHERE <scoped predicate>] [ORDER BY <column> ASC|DESC] LIMIT <n>`
+//! This module intentionally admits one small SQL shape over local
+//! CSV/JSONL/JSON and feature-gated local Parquet:
+//! `SELECT <columns> FROM <local.csv|local.jsonl|local.json|local.parquet> [WHERE <scoped predicate>] [ORDER BY <column> ASC|DESC] LIMIT <n>`
 //! plus one explicit local inner equi-join shape.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
@@ -379,21 +380,23 @@ enum LocalSourceFormat {
     Csv,
     Json,
     JsonLines,
+    Parquet,
 }
 
 impl LocalSourceFormat {
     fn from_path(path: &Path) -> Result<Self, ShardLoomError> {
         let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
             return Err(unsupported_sql_error(
-                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, and flat JSON sources only in this slice",
+                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet sources only in this slice",
             ));
         };
         match extension.to_ascii_lowercase().as_str() {
             "csv" => Ok(Self::Csv),
             "json" => Ok(Self::Json),
             "jsonl" | "ndjson" => Ok(Self::JsonLines),
+            "parquet" => Ok(Self::Parquet),
             _ => Err(unsupported_sql_error(
-                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, and flat JSON sources only in this slice",
+                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet sources only in this slice",
             )),
         }
     }
@@ -403,6 +406,7 @@ impl LocalSourceFormat {
             Self::Csv => "csv",
             Self::Json => "json",
             Self::JsonLines => "jsonl",
+            Self::Parquet => "parquet",
         }
     }
 
@@ -411,6 +415,7 @@ impl LocalSourceFormat {
             Self::Csv => "CSV",
             Self::Json => "JSON",
             Self::JsonLines => "JSONL",
+            Self::Parquet => "Parquet",
         }
     }
 }
@@ -3159,6 +3164,7 @@ impl SqlLocalSourceReport {
             LocalSourceFormat::Csv => "local_csv_input_adapter",
             LocalSourceFormat::Json => "local_json_input_adapter",
             LocalSourceFormat::JsonLines => "local_jsonl_input_adapter",
+            LocalSourceFormat::Parquet => "local_parquet_input_adapter",
         }
     }
 
@@ -3204,7 +3210,7 @@ fn read_local_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
     reject_remote_source_path(path)?;
     let source_format = LocalSourceFormat::from_path(path)?;
     let read_start = Instant::now();
-    let content = fs::read_to_string(path).map_err(|error| {
+    let bytes = fs::read(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to read local {} source {}: {error}",
             source_format.row_label(),
@@ -3212,18 +3218,28 @@ fn read_local_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
         ))
     })?;
     let read_millis = read_start.elapsed().as_millis();
-    let source_bytes = u64::try_from(content.len()).map_err(|_| {
+    let source_bytes = u64::try_from(bytes.len()).map_err(|_| {
         ShardLoomError::InvalidOperation(format!(
             "{} source length does not fit in u64",
             source_format.row_label()
         ))
     })?;
-    let source_digest = fnv64_digest(&content);
+    let source_digest = fnv64_digest_bytes(&bytes);
     let parse_start = Instant::now();
     let (header, rows) = match source_format {
-        LocalSourceFormat::Csv => parse_csv_source_content(&content)?,
-        LocalSourceFormat::Json => parse_json_source_content(&content)?,
-        LocalSourceFormat::JsonLines => parse_jsonl_source_content(&content)?,
+        LocalSourceFormat::Csv => {
+            let content = decode_local_text_source(path, source_format, bytes)?;
+            parse_csv_source_content(&content)?
+        }
+        LocalSourceFormat::Json => {
+            let content = decode_local_text_source(path, source_format, bytes)?;
+            parse_json_source_content(&content)?
+        }
+        LocalSourceFormat::JsonLines => {
+            let content = decode_local_text_source(path, source_format, bytes)?;
+            parse_jsonl_source_content(&content)?
+        }
+        LocalSourceFormat::Parquet => read_parquet_source_content(path)?,
     };
     Ok(CsvSourceData {
         source_format,
@@ -3234,6 +3250,40 @@ fn read_local_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
         read_millis,
         parse_millis: parse_start.elapsed().as_millis(),
     })
+}
+
+fn decode_local_text_source(
+    path: &Path,
+    source_format: LocalSourceFormat,
+    bytes: Vec<u8>,
+) -> Result<String, ShardLoomError> {
+    String::from_utf8(bytes).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "local {} source {} is not valid UTF-8: {error}",
+            source_format.row_label(),
+            path.display()
+        ))
+    })
+}
+
+#[cfg(feature = "universal-format-io")]
+fn read_parquet_source_content(
+    path: &Path,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    let table = shardloom_vortex::read_flat_parquet_source(path, MAX_INPUT_ROWS)?;
+    for column in &table.header {
+        validate_sql_identifier(column)?;
+    }
+    Ok((table.header, table.rows))
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn read_parquet_source_content(
+    _path: &Path,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    Err(unsupported_sql_error(
+        "local Parquet source runtime requires building shardloom-cli with --features universal-format-io; default builds expose Parquet as a deterministic blocked adapter",
+    ))
 }
 
 fn parse_csv_source_content(
@@ -3647,7 +3697,7 @@ fn reject_remote_source_path(path: &Path) -> Result<(), ShardLoomError> {
     let value = path.to_string_lossy();
     if value.contains("://") || value.starts_with("s3:") || value.starts_with("gs:") {
         return Err(unsupported_sql_error(
-            "SQL local-source smoke supports local CSV, JSONL/NDJSON, and flat JSON file paths only; object-store and remote URI reads remain blocked",
+            "SQL local-source smoke supports local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet file paths only; object-store and remote URI reads remain blocked",
         ));
     }
     Ok(())
@@ -4041,7 +4091,7 @@ fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
     } else {
         if raw.split_whitespace().count() != 1 {
             return Err(unsupported_sql_error(
-                "FROM source must be a single local CSV/JSONL/JSON path or single-quoted path",
+                "FROM source must be a single local CSV/JSONL/JSON/Parquet path or single-quoted path",
             ));
         }
         raw.to_string()
@@ -5044,8 +5094,12 @@ fn csv_escape(value: &str) -> String {
 }
 
 fn fnv64_digest(value: &str) -> String {
+    fnv64_digest_bytes(value.as_bytes())
+}
+
+fn fnv64_digest_bytes(value: &[u8]) -> String {
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for byte in value.as_bytes() {
+    for byte in value {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }

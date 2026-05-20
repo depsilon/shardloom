@@ -2299,6 +2299,9 @@ dependencies = [
 name = "shardloom-cli"
 version = "0.1.0"
 dependencies = [
+ "arrow-array",
+ "arrow-schema",
+ "parquet",
  "shardloom-core",
  "shardloom-exec",
  "shardloom-plan",

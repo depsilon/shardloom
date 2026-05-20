@@ -26,7 +26,7 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,amount`n1
 
 ## Blocker
 
-Parquet/Vortex SQL sources, Python/DataFrame joins beyond the scoped local CSV inner equi-join bridge, outer/semi/anti/cross joins, multi-key and expression joins, timestamp/timezone completeness, NULL/subquery-backed IN, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
+Vortex SQL sources, broader Parquet type/nesting coverage, Python/DataFrame joins beyond the scoped local CSV inner equi-join bridge, outer/semi/anti/cross joins, multi-key and expression joins, timestamp/timezone completeness, NULL/subquery-backed IN, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 
