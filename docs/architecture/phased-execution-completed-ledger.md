@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4H feature-gated local `vortex_ingest` prepare-once lifecycle
       runtime slice
-  - Branch/PR: `codex/runtime-vortex-ingest-lifecycle` / pending.
+  - Branch/PR: `codex/runtime-vortex-ingest-lifecycle` / #822.
   - Primary files:
     - `shardloom-vortex/src/vortex_ingest.rs`
     - `shardloom-vortex/src/lib.rs`
