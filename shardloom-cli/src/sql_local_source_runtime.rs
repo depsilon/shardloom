@@ -176,6 +176,7 @@ struct ParsedSqlLocalSource {
     conditional_projections: Vec<ParsedConditionalProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     numeric_abs_projections: Vec<ParsedNumericAbsProjection>,
+    numeric_rounding_projections: Vec<ParsedNumericRoundingProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
@@ -247,6 +248,13 @@ struct ParsedNumericArithmeticProjection {
 struct ParsedNumericAbsProjection {
     alias: String,
     column: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedNumericRoundingProjection {
+    alias: String,
+    column: String,
+    op: NumericRoundingOp,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -388,6 +396,7 @@ struct ParsedProjectionList {
     conditional_projections: Vec<ParsedConditionalProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     numeric_abs_projections: Vec<ParsedNumericAbsProjection>,
+    numeric_rounding_projections: Vec<ParsedNumericRoundingProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
@@ -419,6 +428,12 @@ enum ParsedPredicate {
     },
     NumericAbsCompare {
         column: String,
+        comparison: ComparisonOp,
+        value: ScalarValue,
+    },
+    NumericRoundingCompare {
+        column: String,
+        op: NumericRoundingOp,
         comparison: ComparisonOp,
         value: ScalarValue,
     },
@@ -519,6 +534,13 @@ enum NumericArithmeticOp {
     Subtract,
     Multiply,
     Divide,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NumericRoundingOp {
+    Floor,
+    Ceil,
+    Round,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -654,6 +676,24 @@ impl NumericArithmeticOp {
             Self::Subtract => "subtract",
             Self::Multiply => "multiply",
             Self::Divide => "divide",
+        }
+    }
+}
+
+impl NumericRoundingOp {
+    const fn function_name(self) -> &'static str {
+        match self {
+            Self::Floor => "floor",
+            Self::Ceil => "ceil",
+            Self::Round => "round",
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Floor => "floor",
+            Self::Ceil => "ceil",
+            Self::Round => "round",
         }
     }
 }
@@ -1699,7 +1739,16 @@ fn projection_expressions(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
 ) -> Result<Vec<Expression>, ShardLoomError> {
-    let raw_column_expressions = parsed
+    let mut expressions = raw_projection_expressions(parsed, source)?;
+    expressions.extend(computed_projection_expressions(parsed)?);
+    Ok(expressions)
+}
+
+fn raw_projection_expressions(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+) -> Result<Vec<Expression>, ShardLoomError> {
+    parsed
         .projection_columns(&source.header)
         .iter()
         .map(|column| {
@@ -1708,16 +1757,18 @@ fn projection_expressions(
                 ColumnRef::new(column.clone())?,
             ))
         })
-        .collect::<Result<Vec<_>, ShardLoomError>>()?;
-    Ok(raw_column_expressions
+        .collect::<Result<Vec<_>, ShardLoomError>>()
+}
+
+fn computed_projection_expressions(
+    parsed: &ParsedSqlLocalSource,
+) -> Result<Vec<Expression>, ShardLoomError> {
+    Ok(parsed
+        .literal_projections
+        .iter()
+        .map(literal_projection_expression)
+        .collect::<Result<Vec<_>, ShardLoomError>>()?
         .into_iter()
-        .chain(
-            parsed
-                .literal_projections
-                .iter()
-                .map(literal_projection_expression)
-                .collect::<Result<Vec<_>, ShardLoomError>>()?,
-        )
         .chain(
             parsed
                 .cast_projections
@@ -1758,6 +1809,13 @@ fn projection_expressions(
                 .numeric_abs_projections
                 .iter()
                 .map(numeric_abs_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
+        .chain(
+            parsed
+                .numeric_rounding_projections
+                .iter()
+                .map(numeric_rounding_projection_expression)
                 .collect::<Result<Vec<_>, ShardLoomError>>()?,
         )
         .chain(
@@ -1980,6 +2038,28 @@ fn numeric_abs_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(abs),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn numeric_rounding_projection_expression(
+    projection: &ParsedNumericRoundingProjection,
+) -> Result<Expression, ShardLoomError> {
+    let rounded = Expression::new(
+        ExprId::new(format!("project.numeric_rounding.{}", projection.alias))?,
+        ExpressionKind::FunctionCall {
+            name: projection.op.function_name().to_string(),
+            args: vec![Expression::column(
+                ExprId::new(format!("project.{}", projection.column))?,
+                ColumnRef::new(projection.column.clone())?,
+            )],
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(rounded),
             alias: projection.alias.clone(),
         },
     ))
@@ -2494,6 +2574,7 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::NumericAbsCompare { .. }
+        | ParsedPredicate::NumericRoundingCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
         | ParsedPredicate::StringLengthCompare { .. }
         | ParsedPredicate::TimestampExtractCompare { .. }
@@ -2549,6 +2630,7 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::NumericAbsCompare { .. }
+        | ParsedPredicate::NumericRoundingCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
         | ParsedPredicate::DateExtractCompare { .. }
         | ParsedPredicate::StringLengthCompare { .. }
@@ -3215,6 +3297,15 @@ fn validate_projection_source_columns(
     for column in parsed.projection_columns(header) {
         require_header_column(header, &column, "projection column", "CSV header")?;
     }
+    validate_numeric_projection_source_columns(parsed, header)?;
+    validate_value_projection_source_columns(parsed, header)?;
+    validate_text_time_projection_source_columns(parsed, header)
+}
+
+fn validate_numeric_projection_source_columns(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
     for projection in &parsed.numeric_arithmetic_projections {
         require_header_column(
             header,
@@ -3231,6 +3322,21 @@ fn validate_projection_source_columns(
             "CSV header",
         )?;
     }
+    for projection in &parsed.numeric_rounding_projections {
+        require_header_column(
+            header,
+            &projection.column,
+            "numeric rounding projection source column",
+            "CSV header",
+        )?;
+    }
+    Ok(())
+}
+
+fn validate_value_projection_source_columns(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
     for projection in &parsed.cast_projections {
         require_header_column(
             header,
@@ -3265,6 +3371,13 @@ fn validate_projection_source_columns(
             )?;
         }
     }
+    Ok(())
+}
+
+fn validate_text_time_projection_source_columns(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
     for projection in &parsed.date_arithmetic_projections {
         require_header_column(
             header,
@@ -3343,97 +3456,85 @@ fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(),
     }
     let mut output_names = BTreeSet::new();
     for column in &parsed.projections {
-        if !output_names.insert(column.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
+        require_unique_projection_output_name(&mut output_names, column)?;
     }
-    for literal_projection in &parsed.literal_projections {
-        if !output_names.insert(literal_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
+    validate_literal_numeric_output_names(parsed, &mut output_names)?;
+    validate_value_output_names(parsed, &mut output_names)?;
+    validate_text_time_output_names(parsed, &mut output_names)?;
+    Ok(())
+}
+
+fn validate_literal_numeric_output_names<'a>(
+    parsed: &'a ParsedSqlLocalSource,
+    output_names: &mut BTreeSet<&'a str>,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.literal_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
     }
-    for arithmetic_projection in &parsed.numeric_arithmetic_projections {
-        if !output_names.insert(arithmetic_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
+    for projection in &parsed.numeric_arithmetic_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
     }
-    for abs_projection in &parsed.numeric_abs_projections {
-        if !output_names.insert(abs_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
+    for projection in &parsed.numeric_abs_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
     }
-    for cast_projection in &parsed.cast_projections {
-        if !output_names.insert(cast_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
-    }
-    for coalesce_projection in &parsed.null_coalesce_projections {
-        if !output_names.insert(coalesce_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
-    }
-    for nullif_projection in &parsed.nullif_projections {
-        if !output_names.insert(nullif_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
-    }
-    for conditional_projection in &parsed.conditional_projections {
-        if !output_names.insert(conditional_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
-    }
-    for date_projection in &parsed.date_arithmetic_projections {
-        if !output_names.insert(date_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
-    }
-    for length_projection in &parsed.string_length_projections {
-        if !output_names.insert(length_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
-    }
-    for transform_projection in &parsed.string_transform_projections {
-        if !output_names.insert(transform_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
-    }
-    for date_projection in &parsed.date_extract_projections {
-        if !output_names.insert(date_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
-    }
-    for timestamp_projection in &parsed.timestamp_extract_projections {
-        if !output_names.insert(timestamp_projection.alias.as_str()) {
-            return Err(unsupported_sql_error(
-                "computed projection smoke requires unique output column names",
-            ));
-        }
+    for projection in &parsed.numeric_rounding_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
     }
     Ok(())
+}
+
+fn validate_value_output_names<'a>(
+    parsed: &'a ParsedSqlLocalSource,
+    output_names: &mut BTreeSet<&'a str>,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.cast_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.null_coalesce_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.nullif_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.conditional_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    Ok(())
+}
+
+fn validate_text_time_output_names<'a>(
+    parsed: &'a ParsedSqlLocalSource,
+    output_names: &mut BTreeSet<&'a str>,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.date_arithmetic_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.string_length_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.string_transform_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.date_extract_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.timestamp_extract_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    Ok(())
+}
+
+fn require_unique_projection_output_name<'a>(
+    output_names: &mut BTreeSet<&'a str>,
+    name: &'a str,
+) -> Result<(), ShardLoomError> {
+    if output_names.insert(name) {
+        Ok(())
+    } else {
+        Err(unsupported_sql_error(
+            "computed projection smoke requires unique output column names",
+        ))
+    }
 }
 
 fn bind_join_sql_local_source(
@@ -3463,6 +3564,7 @@ fn bind_join_sql_local_source(
         || !parsed.conditional_projections.is_empty()
         || !parsed.numeric_arithmetic_projections.is_empty()
         || !parsed.numeric_abs_projections.is_empty()
+        || !parsed.numeric_rounding_projections.is_empty()
         || !parsed.date_arithmetic_projections.is_empty()
         || !parsed.string_length_projections.is_empty()
         || !parsed.string_transform_projections.is_empty()
@@ -3610,6 +3712,10 @@ impl ParsedSqlLocalSource {
         !self.numeric_abs_projections.is_empty()
     }
 
+    fn has_numeric_rounding_projection(&self) -> bool {
+        !self.numeric_rounding_projections.is_empty()
+    }
+
     fn has_date_arithmetic_projection(&self) -> bool {
         !self.date_arithmetic_projections.is_empty()
     }
@@ -3638,6 +3744,7 @@ impl ParsedSqlLocalSource {
             || self.has_conditional_projection()
             || self.has_numeric_arithmetic_projection()
             || self.has_numeric_abs_projection()
+            || self.has_numeric_rounding_projection()
             || self.has_date_arithmetic_projection()
             || self.has_string_length_projection()
             || self.has_string_transform_projection()
@@ -3685,6 +3792,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_numeric_abs_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_numeric_abs_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_numeric_rounding_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_numeric_rounding_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
@@ -3758,6 +3869,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_numeric_abs_projection() {
             "computed-projection-limit"
+        } else if self.has_numeric_rounding_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_numeric_rounding_projection() {
+            "computed-projection-limit"
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_date_arithmetic_projection() {
@@ -3829,6 +3944,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_numeric_abs_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_numeric_abs_projection() {
+            "computed_projection_limit"
+        } else if self.has_numeric_rounding_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_numeric_rounding_projection() {
             "computed_projection_limit"
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
@@ -3918,6 +4037,11 @@ impl ParsedSqlLocalSource {
                 )
                 .chain(
                     self.numeric_abs_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
+                    self.numeric_rounding_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
                 )
@@ -4190,6 +4314,42 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn numeric_rounding_projection_operators(&self) -> String {
+        if self.numeric_rounding_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.numeric_rounding_projections
+                .iter()
+                .map(|projection| projection.op.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn numeric_rounding_projection_source_columns(&self) -> String {
+        if self.numeric_rounding_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.numeric_rounding_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn numeric_rounding_projection_output_columns(&self) -> String {
+        if self.numeric_rounding_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.numeric_rounding_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
     fn date_arithmetic_projection_operators(&self) -> String {
         if self.date_arithmetic_projections.is_empty() {
             "not_applicable".to_string()
@@ -4446,6 +4606,7 @@ impl ParsedPredicate {
             | Self::CastCompare { column, .. }
             | Self::NumericArithmeticCompare { column, .. }
             | Self::NumericAbsCompare { column, .. }
+            | Self::NumericRoundingCompare { column, .. }
             | Self::DateArithmeticCompare { column, .. }
             | Self::DateExtractCompare { column, .. }
             | Self::StringLengthCompare { column, .. }
@@ -4488,6 +4649,12 @@ impl ParsedPredicate {
                 comparison,
                 value,
             } => numeric_abs_compare_expression(column, *comparison, value),
+            Self::NumericRoundingCompare {
+                column,
+                op,
+                comparison,
+                value,
+            } => numeric_rounding_compare_expression(column, *op, *comparison, value),
             Self::DateArithmeticCompare {
                 column,
                 op,
@@ -4565,6 +4732,7 @@ impl ParsedPredicate {
             Self::CastCompare { .. } => "cast",
             Self::NumericArithmeticCompare { .. } => "numeric_arithmetic",
             Self::NumericAbsCompare { .. } => "numeric_abs",
+            Self::NumericRoundingCompare { .. } => "numeric_rounding",
             Self::DateArithmeticCompare { .. } => "date_arithmetic",
             Self::DateExtractCompare { .. } => "date_extract",
             Self::StringLengthCompare { .. } => "string_length",
@@ -4589,6 +4757,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4623,6 +4792,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4646,6 +4816,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4680,6 +4851,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4714,6 +4886,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4737,6 +4910,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -4771,6 +4945,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -4807,6 +4982,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -4829,6 +5005,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4863,6 +5040,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4897,6 +5075,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4933,6 +5112,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4956,6 +5136,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -4990,6 +5171,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5026,6 +5208,138 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn uses_numeric_rounding(&self) -> bool {
+        match self {
+            Self::NumericRoundingCompare { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_numeric_rounding() || right.uses_numeric_rounding()
+            }
+            Self::Not { inner } => inner.uses_numeric_rounding(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn numeric_rounding_operator(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_numeric_rounding_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_numeric_rounding_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::NumericRoundingCompare { op, .. } => operators.push(op.as_str()),
+            Self::Logical { left, right, .. } => {
+                left.push_numeric_rounding_operators(operators);
+                right.push_numeric_rounding_operators(operators);
+            }
+            Self::Not { inner } => inner.push_numeric_rounding_operators(operators),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn numeric_rounding_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_numeric_rounding_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_numeric_rounding_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::NumericRoundingCompare { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_numeric_rounding_source_columns(columns);
+                right.push_numeric_rounding_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_numeric_rounding_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn numeric_rounding_rhs_dtypes(&self) -> String {
+        let mut dtypes = Vec::new();
+        self.push_numeric_rounding_rhs_dtypes(&mut dtypes);
+        if dtypes.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            dtypes.join(",")
+        }
+    }
+
+    fn push_numeric_rounding_rhs_dtypes(&self, dtypes: &mut Vec<String>) {
+        match self {
+            Self::NumericRoundingCompare { value, .. } => {
+                dtypes.push(value.dtype().as_str().to_string());
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_numeric_rounding_rhs_dtypes(dtypes);
+                right.push_numeric_rounding_rhs_dtypes(dtypes);
+            }
+            Self::Not { inner } => inner.push_numeric_rounding_rhs_dtypes(dtypes),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5064,6 +5378,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5084,6 +5399,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5114,6 +5430,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5150,6 +5467,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5175,6 +5493,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5198,6 +5517,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5220,6 +5540,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5243,6 +5564,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5269,6 +5591,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5292,6 +5615,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -5326,6 +5650,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -5360,6 +5685,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -5393,6 +5719,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5416,6 +5743,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5450,6 +5778,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5484,6 +5813,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5507,6 +5837,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5541,6 +5872,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5575,6 +5907,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5609,6 +5942,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5722,6 +6056,34 @@ fn numeric_abs_compare_expression(
             op: comparison,
             right: Box::new(Expression::literal(
                 ExprId::new("where.numeric_abs.literal")?,
+                value.clone(),
+            )),
+        },
+    ))
+}
+
+fn numeric_rounding_compare_expression(
+    column: &str,
+    op: NumericRoundingOp,
+    comparison: ComparisonOp,
+    value: &ScalarValue,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.numeric_rounding_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::new(
+                ExprId::new(format!("where.numeric_rounding.{column}"))?,
+                ExpressionKind::FunctionCall {
+                    name: op.function_name().to_string(),
+                    args: vec![Expression::column(
+                        ExprId::new(format!("where.{column}"))?,
+                        ColumnRef::new(column.to_string())?,
+                    )],
+                },
+            )),
+            op: comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.numeric_rounding.literal")?,
                 value.clone(),
             )),
         },
@@ -6358,6 +6720,22 @@ impl SqlLocalSourceReport {
                 self.parsed.predicate.numeric_abs_rhs_dtypes(),
             ),
             (
+                "numeric_rounding_runtime_execution".to_string(),
+                self.parsed.predicate.uses_numeric_rounding().to_string(),
+            ),
+            (
+                "numeric_rounding_operator".to_string(),
+                self.parsed.predicate.numeric_rounding_operator(),
+            ),
+            (
+                "numeric_rounding_source_column".to_string(),
+                self.parsed.predicate.numeric_rounding_source_columns(),
+            ),
+            (
+                "numeric_rounding_rhs_dtype".to_string(),
+                self.parsed.predicate.numeric_rounding_rhs_dtypes(),
+            ),
+            (
                 "logical_predicate_runtime_execution".to_string(),
                 self.parsed.predicate.uses_logical_predicate().to_string(),
             ),
@@ -6570,6 +6948,22 @@ impl SqlLocalSourceReport {
             (
                 "numeric_abs_projection_output_column".to_string(),
                 self.parsed.numeric_abs_projection_output_columns(),
+            ),
+            (
+                "numeric_rounding_projection_runtime_execution".to_string(),
+                self.parsed.has_numeric_rounding_projection().to_string(),
+            ),
+            (
+                "numeric_rounding_projection_operator".to_string(),
+                self.parsed.numeric_rounding_projection_operators(),
+            ),
+            (
+                "numeric_rounding_projection_source_column".to_string(),
+                self.parsed.numeric_rounding_projection_source_columns(),
+            ),
+            (
+                "numeric_rounding_projection_output_column".to_string(),
+                self.parsed.numeric_rounding_projection_output_columns(),
             ),
             (
                 "date_arithmetic_projection_runtime_execution".to_string(),
@@ -7787,6 +8181,7 @@ fn parsed_sql_local_source_from_parts(
         conditional_projections: projection_list.conditional_projections,
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
         numeric_abs_projections: projection_list.numeric_abs_projections,
+        numeric_rounding_projections: projection_list.numeric_rounding_projections,
         date_arithmetic_projections: projection_list.date_arithmetic_projections,
         string_length_projections: projection_list.string_length_projections,
         string_transform_projections: projection_list.string_transform_projections,
@@ -7834,6 +8229,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut conditional_projections = Vec::new();
     let mut numeric_arithmetic_projections = Vec::new();
     let mut numeric_abs_projections = Vec::new();
+    let mut numeric_rounding_projections = Vec::new();
     let mut date_arithmetic_projections = Vec::new();
     let mut string_length_projections = Vec::new();
     let mut string_transform_projections = Vec::new();
@@ -7855,6 +8251,8 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             numeric_arithmetic_projections.push(arithmetic_projection);
         } else if let Some(abs_projection) = parse_numeric_abs_projection(projection)? {
             numeric_abs_projections.push(abs_projection);
+        } else if let Some(rounding_projection) = parse_numeric_rounding_projection(projection)? {
+            numeric_rounding_projections.push(rounding_projection);
         } else if let Some(cast_projection) = parse_cast_projection(projection)? {
             cast_projections.push(cast_projection);
         } else if let Some(null_coalesce_projection) = parse_null_coalesce_projection(projection)? {
@@ -7893,6 +8291,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         conditional_projections,
         numeric_arithmetic_projections,
         numeric_abs_projections,
+        numeric_rounding_projections,
         date_arithmetic_projections,
         string_length_projections,
         string_transform_projections,
@@ -8006,6 +8405,42 @@ fn parse_numeric_abs_projection(
     Ok(Some(ParsedNumericAbsProjection {
         alias: alias.to_string(),
         column: column.to_string(),
+    }))
+}
+
+fn parse_numeric_rounding_projection(
+    raw: &str,
+) -> Result<Option<ParsedNumericRoundingProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes(raw, "as") else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let Some((op, open_index)) = parse_numeric_rounding_function_prefix(expression_raw) else {
+        return Ok(None);
+    };
+    let alias = raw[as_index + "as".len()..].trim();
+    let Some(close_index) = expression_raw.rfind(')') else {
+        return Err(unsupported_sql_error(
+            "numeric rounding projections must be written as FLOOR/CEIL/ROUND(<column>) AS <column>",
+        ));
+    };
+    if close_index + 1 != expression_raw.len() {
+        return Err(unsupported_sql_error(
+            "numeric rounding projections must be written as FLOOR/CEIL/ROUND(<column>) AS <column>",
+        ));
+    }
+    let column = expression_raw[open_index + 1..close_index].trim();
+    if column.is_empty() || alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "numeric rounding projections must be written as FLOOR/CEIL/ROUND(<column>) AS <column>",
+        ));
+    }
+    validate_sql_column_ref(column)?;
+    validate_sql_identifier(alias)?;
+    Ok(Some(ParsedNumericRoundingProjection {
+        alias: alias.to_string(),
+        column: column.to_string(),
+        op,
     }))
 }
 
@@ -8755,6 +9190,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_numeric_abs_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_numeric_rounding_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_string_length_predicate(raw)? {
         return Ok(predicate);
     }
@@ -8849,7 +9287,7 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, ABS(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -9381,6 +9819,26 @@ fn parse_numeric_arithmetic_op(raw: &str) -> Option<NumericArithmeticOp> {
     }
 }
 
+fn parse_numeric_rounding_function_prefix(raw: &str) -> Option<(NumericRoundingOp, usize)> {
+    let trimmed = raw.trim();
+    for (name, op) in [
+        ("floor", NumericRoundingOp::Floor),
+        ("ceil", NumericRoundingOp::Ceil),
+        ("ceiling", NumericRoundingOp::Ceil),
+        ("round", NumericRoundingOp::Round),
+    ] {
+        let len = name.len();
+        if trimmed
+            .get(..len)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && trimmed.as_bytes().get(len) == Some(&b'(')
+        {
+            return Some((op, len));
+        }
+    }
+    None
+}
+
 fn parse_numeric_arithmetic_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
     match parse_sql_literal(raw)? {
         value @ (ScalarValue::Int64(_) | ScalarValue::Float64(_)) => Ok(value),
@@ -9418,6 +9876,36 @@ fn parse_numeric_abs_predicate(raw: &str) -> Result<Option<ParsedPredicate>, Sha
     };
     Ok(Some(ParsedPredicate::NumericAbsCompare {
         column: inner.to_string(),
+        comparison: parse_comparison_op(op_raw)?,
+        value: parse_numeric_arithmetic_literal(literal_raw)?,
+    }))
+}
+
+fn parse_numeric_rounding_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    let Some((op, open_index)) = parse_numeric_rounding_function_prefix(trimmed) else {
+        return Ok(None);
+    };
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error("numeric rounding predicates must use FLOOR/CEIL/ROUND(<column>)")
+    })?;
+    let inner = trimmed[open_index + 1..close_index].trim();
+    let tail = trimmed[close_index + 1..].trim();
+    if inner.is_empty() || tail.is_empty() {
+        return Err(unsupported_sql_error(
+            "numeric rounding predicates require a source column, comparison operator, and numeric literal",
+        ));
+    }
+    validate_sql_column_ref(inner)?;
+    let tokens = split_whitespace_outside_quotes(tail)?;
+    let [op_raw, literal_raw] = tokens.as_slice() else {
+        return Err(unsupported_sql_error(
+            "numeric rounding predicates admit FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal> only",
+        ));
+    };
+    Ok(Some(ParsedPredicate::NumericRoundingCompare {
+        column: inner.to_string(),
+        op,
         comparison: parse_comparison_op(op_raw)?,
         value: parse_numeric_arithmetic_literal(literal_raw)?,
     }))
@@ -10430,6 +10918,42 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_numeric_rounding_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,FLOOR(amount) AS bucket,CEIL(ratio) AS upper FROM 'target/input.csv' WHERE ROUND(amount) >= 4 LIMIT 5",
+        )
+        .expect("numeric rounding projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.numeric_rounding_projections.len(), 2);
+        assert_eq!(parsed.numeric_rounding_projections[0].alias, "bucket");
+        assert_eq!(parsed.numeric_rounding_projections[0].column, "amount");
+        assert_eq!(
+            parsed.numeric_rounding_projections[0].op,
+            NumericRoundingOp::Floor
+        );
+        assert_eq!(parsed.numeric_rounding_projections[1].alias, "upper");
+        assert_eq!(parsed.numeric_rounding_projections[1].column, "ratio");
+        assert_eq!(
+            parsed.numeric_rounding_projections[1].op,
+            NumericRoundingOp::Ceil
+        );
+        assert_eq!(parsed.numeric_rounding_projection_operators(), "floor,ceil");
+        assert_eq!(
+            parsed.numeric_rounding_projection_output_columns(),
+            "bucket,upper"
+        );
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn parses_scoped_cast_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
@@ -11144,6 +11668,30 @@ mod tests {
         assert!(parsed.predicate.uses_numeric_abs());
         assert_eq!(parsed.predicate.numeric_abs_source_columns(), "amount");
         assert_eq!(parsed.predicate.numeric_abs_rhs_dtypes(), "int64");
+    }
+
+    #[test]
+    fn parses_scoped_numeric_rounding_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,amount FROM 'target/input.csv' WHERE FLOOR(amount) >= 4 LIMIT 5",
+        )
+        .expect("numeric rounding predicate statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "amount"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::NumericRoundingCompare {
+                ref column,
+                op: NumericRoundingOp::Floor,
+                comparison: ComparisonOp::GtEq,
+                value: ScalarValue::Int64(4)
+            } if column == "amount"
+        ));
+        assert_eq!(parsed.predicate.family(), "numeric_rounding");
+        assert!(parsed.predicate.uses_numeric_rounding());
+        assert_eq!(parsed.predicate.numeric_rounding_operator(), "floor");
+        assert_eq!(parsed.predicate.numeric_rounding_source_columns(), "amount");
+        assert_eq!(parsed.predicate.numeric_rounding_rhs_dtypes(), "int64");
     }
 
     #[test]

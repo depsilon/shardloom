@@ -157,6 +157,21 @@ class ColumnExpression:
 
         return ColumnExpression(f"ABS({self.sql})")
 
+    def floor(self) -> "ColumnExpression":
+        """Return a scoped `FLOOR(column)` numeric rounding expression."""
+
+        return ColumnExpression(f"FLOOR({self.sql})")
+
+    def ceil(self) -> "ColumnExpression":
+        """Return a scoped `CEIL(column)` numeric rounding expression."""
+
+        return ColumnExpression(f"CEIL({self.sql})")
+
+    def round(self) -> "ColumnExpression":
+        """Return a scoped `ROUND(column)` numeric rounding expression."""
+
+        return ColumnExpression(f"ROUND({self.sql})")
+
     def is_null(self) -> PredicateExpression:
         """Return a scoped `IS NULL` predicate."""
 
@@ -2017,6 +2032,30 @@ def abs(column_expression: object) -> ColumnExpression:
     return column_expression.abs()
 
 
+def floor(column_expression: object) -> ColumnExpression:
+    """Return a scoped `FLOOR(column)` numeric rounding expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("floor requires a shardloom column expression")
+    return column_expression.floor()
+
+
+def ceil(column_expression: object) -> ColumnExpression:
+    """Return a scoped `CEIL(column)` numeric rounding expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("ceil requires a shardloom column expression")
+    return column_expression.ceil()
+
+
+def round(column_expression: object) -> ColumnExpression:  # type: ignore[override]
+    """Return a scoped `ROUND(column)` numeric rounding expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("round requires a shardloom column expression")
+    return column_expression.round()
+
+
 def column(name: object) -> ColumnExpression:
     """Alias for `col(...)`."""
 
@@ -2856,6 +2895,25 @@ def _sql_numeric_abs_projection_expression(expression: object) -> str:
     return f"ABS({normalized})"
 
 
+def _sql_numeric_rounding_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits numeric rounding column expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"FLOOR", "CEIL", "ROUND"}:
+        raise ValueError(
+            "computed with_column currently admits numeric rounding column expressions"
+        )
+    column = text[open_index + 1 : -1].strip()
+    normalized = _normalize_expression_column(column)
+    return f"{function}({normalized})"
+
+
 def _sql_computed_projection_expression(expression: object) -> str:
     parsers = (
         _sql_cast_projection_expression,
@@ -2864,6 +2922,7 @@ def _sql_computed_projection_expression(expression: object) -> str:
         _sql_conditional_projection_expression,
         _sql_numeric_arithmetic_projection_expression,
         _sql_numeric_abs_projection_expression,
+        _sql_numeric_rounding_projection_expression,
         _sql_date_arithmetic_projection_expression,
         _sql_string_length_projection_expression,
         _sql_string_transform_projection_expression,

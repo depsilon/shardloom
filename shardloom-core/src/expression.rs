@@ -821,6 +821,9 @@ fn eval_function_call(
         }
         "utf8_length" | "length" => eval_string_length(name, args, row),
         "numeric_abs" | "abs" => eval_numeric_abs(name, args, row),
+        "numeric_floor" | "floor" => eval_numeric_rounding(name, args, row, f64::floor),
+        "numeric_ceil" | "ceil" | "ceiling" => eval_numeric_rounding(name, args, row, f64::ceil),
+        "numeric_round" | "round" => eval_numeric_rounding(name, args, row, f64::round),
         "date_year" | "year" => eval_date_extract(name, args, row, date32_year),
         "date_month" | "month" => eval_date_extract(name, args, row, |days| {
             i32::try_from(date32_month(days)).expect("month fits i32")
@@ -1174,6 +1177,45 @@ fn eval_numeric_abs(
         .carry_materialization(data_materialized)),
         other => Err(EvalFailure::unsupported(
             "numeric_abs",
+            format!(
+                "function {name:?} supports finite int64/float64/null operands only, got {}",
+                other.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn eval_numeric_rounding(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    op: impl FnOnce(f64) -> f64,
+) -> EvalResult<EvalValue> {
+    if args.len() != 1 {
+        return Err(EvalFailure::invalid(
+            "numeric_rounding",
+            format!("function {name:?} requires exactly one numeric argument"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let data_materialized = value.data_materialized;
+    match value.value {
+        ScalarValue::Null => Ok(EvalValue::null(value.dtype, NullBehavior::NullPropagating)
+            .carry_materialization(data_materialized)),
+        ScalarValue::Int64(value) => Ok(EvalValue::new(
+            ScalarValue::Int64(value),
+            LogicalDType::Int64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        ScalarValue::Float64(value) if value.is_finite() => Ok(EvalValue::new(
+            ScalarValue::Float64(op(value)),
+            LogicalDType::Float64,
+            NullBehavior::NullPropagating,
+        )
+        .carry_materialization(data_materialized)),
+        other => Err(EvalFailure::unsupported(
+            "numeric_rounding",
             format!(
                 "function {name:?} supports finite int64/float64/null operands only, got {}",
                 other.dtype().as_str()
@@ -1615,6 +1657,8 @@ fn function_operator_family(name: &str) -> &'static str {
         }
         "utf8_length" | "length" => "string_length",
         "numeric_abs" | "abs" => "numeric_abs",
+        "numeric_floor" | "floor" | "numeric_ceil" | "ceil" | "ceiling" | "numeric_round"
+        | "round" => "numeric_rounding",
         "date_year" | "year" | "date_month" | "month" | "date_day" | "day" => "date_extract",
         "timestamp_year" | "timestamp_month" | "timestamp_day" | "timestamp_hour"
         | "timestamp_minute" | "timestamp_second" => "timestamp_extract",
@@ -2937,6 +2981,67 @@ mod tests {
 
         assert_eq!(report.status, ExpressionEvaluationStatus::InvalidInput);
         assert_eq!(report.operator_family, "numeric_abs");
+        assert!(report.has_errors());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_numeric_rounding_without_fallback() {
+        let cases = [
+            (
+                "floor",
+                ScalarValue::Float64(-2.75),
+                ScalarValue::Float64(-3.0),
+            ),
+            (
+                "ceil",
+                ScalarValue::Float64(-2.75),
+                ScalarValue::Float64(-2.0),
+            ),
+            (
+                "round",
+                ScalarValue::Float64(2.5),
+                ScalarValue::Float64(3.0),
+            ),
+            ("floor", ScalarValue::Int64(7), ScalarValue::Int64(7)),
+        ];
+
+        for (name, input, expected) in cases {
+            let expression = Expression::new(
+                expr_id(name),
+                ExpressionKind::FunctionCall {
+                    name: name.to_string(),
+                    args: vec![Expression::column(expr_id("amount"), col("amount"))],
+                },
+            );
+            let report = evaluate_expression(&expression, &row(&[("amount", input)]));
+
+            assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+            assert_eq!(report.operator_family, "numeric_rounding");
+            assert_eq!(report.value, Some(expected));
+            assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+            assert!(!report.fallback_attempted);
+            assert!(!report.external_engine_invoked);
+        }
+    }
+
+    #[test]
+    fn expression_semantics_blocks_numeric_rounding_non_finite_without_fallback() {
+        let expression = Expression::new(
+            expr_id("round-nan"),
+            ExpressionKind::FunctionCall {
+                name: "round".to_string(),
+                args: vec![Expression::column(expr_id("amount"), col("amount"))],
+            },
+        );
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("amount", ScalarValue::Float64(f64::NAN))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert_eq!(report.operator_family, "numeric_rounding");
         assert!(report.has_errors());
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);

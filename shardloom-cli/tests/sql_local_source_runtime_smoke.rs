@@ -931,6 +931,89 @@ fn sql_local_source_smoke_executes_numeric_abs_projection_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_numeric_rounding_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-numeric-rounding-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,amount,ratio\n1,3.2,1.2\n2,3.8,1.8\n3,-2.3,-1.2\n4,,2.0\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,FLOOR(amount) AS lower,CEIL(ratio) AS upper FROM '{}' WHERE ROUND(amount) >= 4 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("predicate_operator_family", "numeric_rounding")));
+    assert!(stdout.contains(&field("numeric_rounding_runtime_execution", "true")));
+    assert!(stdout.contains(&field("numeric_rounding_operator", "round")));
+    assert!(stdout.contains(&field("numeric_rounding_source_column", "amount")));
+    assert!(stdout.contains(&field("numeric_rounding_rhs_dtype", "int64")));
+    assert!(stdout.contains(&field(
+        "numeric_rounding_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field("numeric_rounding_projection_operator", "floor,ceil")));
+    assert!(stdout.contains(&field(
+        "numeric_rounding_projection_source_column",
+        "amount,ratio"
+    )));
+    assert!(stdout.contains(&field(
+        "numeric_rounding_projection_output_column",
+        "lower,upper"
+    )));
+    assert!(stdout.contains(&field("projected_columns", "id,lower,upper")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"lower\\\":3.0,\\\"upper\\\":2.0}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,FLOOR(missing) AS lower FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(
+        blocked_output
+            .contains("numeric rounding projection source column \\\"missing\\\" is not present")
+    );
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-cast-projection", "csv");
     fs::write(
@@ -3413,6 +3496,44 @@ fn sql_local_source_smoke_executes_numeric_abs_predicate_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_numeric_rounding_predicate_without_fallback() {
+    let source_path = unique_path("sql-local-source-numeric-rounding", "csv");
+    fs::write(&source_path, "id,amount\n1,3.2\n2,3.8\n3,-2.3\n4,\n").expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,amount FROM '{}' WHERE CEIL(amount) >= 4 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "numeric_rounding")));
+    assert!(stdout.contains(&field("numeric_rounding_runtime_execution", "true")));
+    assert!(stdout.contains(&field("numeric_rounding_operator", "ceil")));
+    assert!(stdout.contains(&field("numeric_rounding_source_column", "amount")));
+    assert!(stdout.contains(&field("numeric_rounding_rhs_dtype", "int64")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"amount\\\":3.2}\\n{\\\"id\\\":2,\\\"amount\\\":3.8}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_date_arithmetic_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-date-arithmetic", "csv");
     fs::write(
@@ -4338,6 +4459,51 @@ fn sql_local_source_smoke_blocks_unsupported_numeric_abs_shapes_without_fallback
         (
             format!(
                 "SELECT id FROM '{}' WHERE ABS(amount, id) >= 4 LIMIT 10",
+                source_path.display()
+            ),
+            "SQL identifiers may contain only ASCII letters, numbers, and underscores",
+        ),
+    ];
+
+    for (statement, expected_reason) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .output()
+            .expect("sql-local-source-smoke command runs");
+        assert!(
+            !output.status.success(),
+            "statement={statement} stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(
+            stdout.contains(expected_reason),
+            "statement={statement} expected={expected_reason} stdout={stdout}"
+        );
+        assert!(stdout.contains("no fallback execution was attempted"));
+        assert!(stdout.contains("external_engine_invoked=false"));
+    }
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_unsupported_numeric_rounding_shapes_without_fallback() {
+    let source_path = unique_path("sql-local-source-numeric-rounding-blocked", "csv");
+    fs::write(&source_path, "id,amount\n1,3.2\n2,3.8\n").expect("write source csv");
+
+    let cases = [
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE ROUND(amount) >= 'large' LIMIT 10",
+                source_path.display()
+            ),
+            "numeric arithmetic expressions admit int64 or finite float64 literals only",
+        ),
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE ROUND(amount, 2) >= 4 LIMIT 10",
                 source_path.display()
             ),
             "SQL identifiers may contain only ASCII letters, numbers, and underscores",
