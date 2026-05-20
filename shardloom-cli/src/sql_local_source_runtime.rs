@@ -22,7 +22,8 @@ use std::{
 use shardloom_core::{
     BinaryOp, ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow,
     ExpressionKind, LogicalDType, OutputFormat, ScalarValue, ShardLoomError, UnaryOp,
-    evaluate_filter, evaluate_projection, format_iso_date32, parse_iso_date32,
+    evaluate_filter, evaluate_projection, format_iso_date32, format_iso_timestamp_micros,
+    parse_iso_date32, parse_iso_timestamp_micros,
 };
 
 use crate::{
@@ -270,6 +271,12 @@ enum ParsedPredicate {
         comparison: ComparisonOp,
         value: ScalarValue,
     },
+    TimestampExtractCompare {
+        column: String,
+        op: TimestampExtractOp,
+        comparison: ComparisonOp,
+        value: ScalarValue,
+    },
     IsNull {
         column: String,
     },
@@ -350,6 +357,16 @@ enum DateExtractOp {
     Day,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TimestampExtractOp {
+    Year,
+    Month,
+    Day,
+    Hour,
+    Minute,
+    Second,
+}
+
 impl DateArithmeticOp {
     const fn function_name(self) -> &'static str {
         match self {
@@ -380,6 +397,30 @@ impl DateExtractOp {
             Self::Year => "date_year",
             Self::Month => "date_month",
             Self::Day => "date_day",
+        }
+    }
+}
+
+impl TimestampExtractOp {
+    const fn function_name(self) -> &'static str {
+        match self {
+            Self::Year => "timestamp_year",
+            Self::Month => "timestamp_month",
+            Self::Day => "timestamp_day",
+            Self::Hour => "timestamp_hour",
+            Self::Minute => "timestamp_minute",
+            Self::Second => "timestamp_second",
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Year => "timestamp_year",
+            Self::Month => "timestamp_month",
+            Self::Day => "timestamp_day",
+            Self::Hour => "timestamp_hour",
+            Self::Minute => "timestamp_minute",
+            Self::Second => "timestamp_second",
         }
     }
 }
@@ -1256,7 +1297,7 @@ fn run_sql_local_source_smoke(
         &source.header,
         right_source.as_ref().map(|source| source.header.as_slice()),
     )?;
-    apply_date_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
+    apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
 
     let compute_start = Instant::now();
     let (selected_row_count, joined_row_count, output_rows) =
@@ -1602,12 +1643,18 @@ fn evaluate_join_candidate(
     Ok(true)
 }
 
-fn apply_date_literal_column_coercions(
+fn apply_temporal_literal_column_coercions(
     parsed: &ParsedSqlLocalSource,
     source: &mut CsvSourceData,
-    right_source: Option<&mut CsvSourceData>,
+    mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
-    apply_date_literal_predicate_coercions(&parsed.predicate, parsed, source, right_source)
+    apply_date_literal_predicate_coercions(
+        &parsed.predicate,
+        parsed,
+        source,
+        right_source.as_deref_mut(),
+    )?;
+    apply_timestamp_literal_predicate_coercions(&parsed.predicate, parsed, source, right_source)
 }
 
 fn apply_date_literal_predicate_coercions(
@@ -1653,6 +1700,59 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::Compare { .. }
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
+        | ParsedPredicate::TimestampExtractCompare { .. }
+        | ParsedPredicate::StringTransformCompare { .. }
+        | ParsedPredicate::IsNull { .. }
+        | ParsedPredicate::IsNotNull { .. }
+        | ParsedPredicate::InList { .. }
+        | ParsedPredicate::StringMatch { .. } => Ok(()),
+    }
+}
+
+fn apply_timestamp_literal_predicate_coercions(
+    predicate: &ParsedPredicate,
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
+    match predicate {
+        ParsedPredicate::Compare {
+            column,
+            value: ScalarValue::TimestampMicros(_),
+            ..
+        }
+        | ParsedPredicate::TimestampExtractCompare { column, .. } => {
+            coerce_timestamp_literal_column(column, parsed, source, right_source)
+        }
+        ParsedPredicate::CastCompare {
+            column,
+            target_dtype: LogicalDType::TimestampMicros,
+            ..
+        } => coerce_timestamp_literal_column(column, parsed, source, right_source),
+        ParsedPredicate::InList { column, values }
+            if values
+                .iter()
+                .any(|value| matches!(value, ScalarValue::TimestampMicros(_))) =>
+        {
+            coerce_timestamp_literal_column(column, parsed, source, right_source)
+        }
+        ParsedPredicate::Logical { left, right, .. } => {
+            apply_timestamp_literal_predicate_coercions(
+                left,
+                parsed,
+                source,
+                right_source.as_deref_mut(),
+            )?;
+            apply_timestamp_literal_predicate_coercions(right, parsed, source, right_source)
+        }
+        ParsedPredicate::Not { inner } => {
+            apply_timestamp_literal_predicate_coercions(inner, parsed, source, right_source)
+        }
+        ParsedPredicate::All
+        | ParsedPredicate::Compare { .. }
+        | ParsedPredicate::CastCompare { .. }
+        | ParsedPredicate::DateArithmeticCompare { .. }
+        | ParsedPredicate::DateExtractCompare { .. }
         | ParsedPredicate::StringTransformCompare { .. }
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
@@ -1717,6 +1817,72 @@ fn coerce_source_column_to_date32(
             other => {
                 return Err(unsupported_sql_error(&format!(
                     "DATE literal predicate column {column:?} requires ISO date strings or nulls, got {}",
+                    other.dtype().as_str()
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn coerce_timestamp_literal_column(
+    column: &str,
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
+    if let Some(join) = parsed.join.as_ref() {
+        let left_alias = parsed.source_alias.as_ref().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "join timestamp coercion requires a left alias".to_string(),
+            )
+        })?;
+        let qualified = parse_qualified_column_ref(column)?;
+        if qualified.alias == *left_alias {
+            coerce_source_column_to_timestamp_micros(source, &qualified.column)
+        } else if qualified.alias == join.right_alias {
+            let Some(right_source) = right_source else {
+                return Err(ShardLoomError::InvalidOperation(
+                    "join timestamp coercion requires a right source".to_string(),
+                ));
+            };
+            coerce_source_column_to_timestamp_micros(right_source, &qualified.column)
+        } else {
+            Err(unsupported_sql_error(
+                "TIMESTAMP literal predicates on JOIN sources require an admitted source alias",
+            ))
+        }
+    } else {
+        coerce_source_column_to_timestamp_micros(source, column)
+    }
+}
+
+fn coerce_source_column_to_timestamp_micros(
+    source: &mut CsvSourceData,
+    column: &str,
+) -> Result<(), ShardLoomError> {
+    if !source.header.iter().any(|candidate| candidate == column) {
+        return Err(unsupported_sql_error(&format!(
+            "TIMESTAMP literal predicate column {column:?} is not present in the local source"
+        )));
+    }
+    for row in &mut source.rows {
+        let Some(value) = row.get_mut(column) else {
+            continue;
+        };
+        match value {
+            ScalarValue::Null | ScalarValue::TimestampMicros(_) => {}
+            ScalarValue::Utf8(raw) => {
+                let parsed = parse_iso_timestamp_micros(raw).map_err(|_| {
+                    unsupported_sql_error(&format!(
+                        "TIMESTAMP literal predicate column {column:?} requires UTC ISO YYYY-MM-DDTHH:MM:SS(.ffffff)Z strings or nulls"
+                    ))
+                })?;
+                *value = ScalarValue::TimestampMicros(parsed);
+            }
+            other => {
+                return Err(unsupported_sql_error(&format!(
+                    "TIMESTAMP literal predicate column {column:?} requires UTC ISO timestamp strings or nulls, got {}",
                     other.dtype().as_str()
                 )));
             }
@@ -2512,6 +2678,7 @@ impl ParsedPredicate {
             | Self::CastCompare { column, .. }
             | Self::DateArithmeticCompare { column, .. }
             | Self::DateExtractCompare { column, .. }
+            | Self::TimestampExtractCompare { column, .. }
             | Self::IsNull { column }
             | Self::IsNotNull { column }
             | Self::InList { column, .. }
@@ -2531,43 +2698,13 @@ impl ParsedPredicate {
                 "internal error: all-rows predicate should not be lowered to an expression"
                     .to_string(),
             )),
-            Self::Compare { column, op, value } => Ok(Expression::new(
-                ExprId::new("where.compare")?,
-                ExpressionKind::Compare {
-                    left: Box::new(Expression::column(
-                        ExprId::new(format!("where.{column}"))?,
-                        ColumnRef::new(column.clone())?,
-                    )),
-                    op: *op,
-                    right: Box::new(Expression::literal(
-                        ExprId::new("where.literal")?,
-                        value.clone(),
-                    )),
-                },
-            )),
+            Self::Compare { column, op, value } => compare_expression(column, *op, value),
             Self::CastCompare {
                 column,
                 target_dtype,
                 op,
                 value,
-            } => Ok(Expression::new(
-                ExprId::new("where.cast_compare")?,
-                ExpressionKind::Compare {
-                    left: Box::new(Expression::cast(
-                        ExprId::new(format!("where.cast.{column}"))?,
-                        Expression::column(
-                            ExprId::new(format!("where.{column}"))?,
-                            ColumnRef::new(column.clone())?,
-                        ),
-                        target_dtype.clone(),
-                    )),
-                    op: *op,
-                    right: Box::new(Expression::literal(
-                        ExprId::new("where.cast.literal")?,
-                        value.clone(),
-                    )),
-                },
-            )),
+            } => cast_compare_expression(column, target_dtype, *op, value),
             Self::DateArithmeticCompare {
                 column,
                 op,
@@ -2581,6 +2718,12 @@ impl ParsedPredicate {
                 comparison,
                 value,
             } => date_extract_compare_expression(column, *op, *comparison, value),
+            Self::TimestampExtractCompare {
+                column,
+                op,
+                comparison,
+                value,
+            } => timestamp_extract_compare_expression(column, *op, *comparison, value),
             Self::StringTransformCompare {
                 column,
                 op,
@@ -2634,6 +2777,7 @@ impl ParsedPredicate {
             Self::CastCompare { .. } => "cast",
             Self::DateArithmeticCompare { .. } => "date_arithmetic",
             Self::DateExtractCompare { .. } => "date_extract",
+            Self::TimestampExtractCompare { .. } => "timestamp_extract",
             Self::StringTransformCompare { .. } => "string_transform",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::InList { .. } => "in_predicate",
@@ -2654,6 +2798,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -2684,6 +2829,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -2703,6 +2849,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2733,6 +2880,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2763,6 +2911,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2796,6 +2945,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -2812,6 +2962,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -2838,6 +2989,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -2870,6 +3022,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -2891,6 +3044,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -2910,6 +3064,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -2928,6 +3083,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -2947,6 +3103,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -2966,6 +3123,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2996,6 +3154,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -3026,6 +3185,119 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn uses_timestamp_literal(&self) -> bool {
+        match self {
+            Self::Compare {
+                value: ScalarValue::TimestampMicros(_),
+                ..
+            }
+            | Self::CastCompare {
+                value: ScalarValue::TimestampMicros(_),
+                ..
+            } => true,
+            Self::InList { values, .. } => values
+                .iter()
+                .any(|value| matches!(value, ScalarValue::TimestampMicros(_))),
+            Self::Logical { left, right, .. } => {
+                left.uses_timestamp_literal() || right.uses_timestamp_literal()
+            }
+            Self::Not { inner } => inner.uses_timestamp_literal(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn uses_timestamp_extract(&self) -> bool {
+        match self {
+            Self::TimestampExtractCompare { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_timestamp_extract() || right.uses_timestamp_extract()
+            }
+            Self::Not { inner } => inner.uses_timestamp_extract(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn timestamp_extract_operator(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_timestamp_extract_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_timestamp_extract_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::TimestampExtractCompare { op, .. } => operators.push(op.as_str()),
+            Self::Logical { left, right, .. } => {
+                left.push_timestamp_extract_operators(operators);
+                right.push_timestamp_extract_operators(operators);
+            }
+            Self::Not { inner } => inner.push_timestamp_extract_operators(operators),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn timestamp_extract_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_timestamp_extract_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_timestamp_extract_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::TimestampExtractCompare { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_timestamp_extract_source_columns(columns);
+                right.push_timestamp_extract_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_timestamp_extract_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -3044,6 +3316,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -3074,6 +3347,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -3104,6 +3378,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -3134,6 +3409,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -3141,6 +3417,53 @@ impl ParsedPredicate {
             | Self::StringMatch { .. } => {}
         }
     }
+}
+
+fn compare_expression(
+    column: &str,
+    op: ComparisonOp,
+    value: &ScalarValue,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::column(
+                ExprId::new(format!("where.{column}"))?,
+                ColumnRef::new(column.to_string())?,
+            )),
+            op,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.literal")?,
+                value.clone(),
+            )),
+        },
+    ))
+}
+
+fn cast_compare_expression(
+    column: &str,
+    target_dtype: &LogicalDType,
+    op: ComparisonOp,
+    value: &ScalarValue,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.cast_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::cast(
+                ExprId::new(format!("where.cast.{column}"))?,
+                Expression::column(
+                    ExprId::new(format!("where.{column}"))?,
+                    ColumnRef::new(column.to_string())?,
+                ),
+                target_dtype.clone(),
+            )),
+            op,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.cast.literal")?,
+                value.clone(),
+            )),
+        },
+    ))
 }
 
 fn string_match_expression(
@@ -3251,6 +3574,34 @@ fn date_extract_compare_expression(
             op: comparison,
             right: Box::new(Expression::literal(
                 ExprId::new("where.date_extract.literal")?,
+                value.clone(),
+            )),
+        },
+    ))
+}
+
+fn timestamp_extract_compare_expression(
+    column: &str,
+    op: TimestampExtractOp,
+    comparison: ComparisonOp,
+    value: &ScalarValue,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.timestamp_extract_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::new(
+                ExprId::new(format!("where.timestamp_extract.{column}"))?,
+                ExpressionKind::FunctionCall {
+                    name: op.function_name().to_string(),
+                    args: vec![Expression::column(
+                        ExprId::new(format!("where.{column}"))?,
+                        ColumnRef::new(column.to_string())?,
+                    )],
+                },
+            )),
+            op: comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.timestamp_extract.literal")?,
                 value.clone(),
             )),
         },
@@ -3702,6 +4053,10 @@ impl SqlLocalSourceReport {
                 self.parsed.predicate.uses_date_literal().to_string(),
             ),
             (
+                "timestamp_literal_runtime_execution".to_string(),
+                self.parsed.predicate.uses_timestamp_literal().to_string(),
+            ),
+            (
                 "date_extract_runtime_execution".to_string(),
                 self.parsed.predicate.uses_date_extract().to_string(),
             ),
@@ -3712,6 +4067,18 @@ impl SqlLocalSourceReport {
             (
                 "date_extract_source_column".to_string(),
                 self.parsed.predicate.date_extract_source_columns(),
+            ),
+            (
+                "timestamp_extract_runtime_execution".to_string(),
+                self.parsed.predicate.uses_timestamp_extract().to_string(),
+            ),
+            (
+                "timestamp_extract_operator".to_string(),
+                self.parsed.predicate.timestamp_extract_operator(),
+            ),
+            (
+                "timestamp_extract_source_column".to_string(),
+                self.parsed.predicate.timestamp_extract_source_columns(),
             ),
             (
                 "date_arithmetic_runtime_execution".to_string(),
@@ -4929,6 +5296,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_date_extract_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_timestamp_extract_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_date_arithmetic_predicate(raw)? {
         return Ok(predicate);
     }
@@ -4974,6 +5344,18 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
                 value,
             })
         }
+        [column, op_raw, timestamp_keyword, literal_raw]
+            if timestamp_keyword.eq_ignore_ascii_case("timestamp") =>
+        {
+            validate_sql_column_ref(column)?;
+            let op = parse_comparison_op(op_raw)?;
+            let value = parse_sql_timestamp_literal(literal_raw)?;
+            Ok(ParsedPredicate::Compare {
+                column: (*column).clone(),
+                op,
+                value,
+            })
+        }
         [column, op_raw, literal_raw] => {
             validate_sql_column_ref(column)?;
             if op_raw.eq_ignore_ascii_case("like") {
@@ -4995,7 +5377,7 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             }
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> IN (<literal>,...), <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> IN (<literal>,...), <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -5105,6 +5487,14 @@ fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomE
             parse_comparison_op(op_raw)?,
             parse_sql_date_literal(literal_raw)?,
         ),
+        [op_raw, timestamp_keyword, literal_raw]
+            if timestamp_keyword.eq_ignore_ascii_case("timestamp") =>
+        {
+            (
+                parse_comparison_op(op_raw)?,
+                parse_sql_timestamp_literal(literal_raw)?,
+            )
+        }
         [op_raw, literal_raw] => (
             parse_comparison_op(op_raw)?,
             parse_sql_literal(literal_raw)?,
@@ -5225,6 +5615,93 @@ fn parse_date_extract_predicate(raw: &str) -> Result<Option<ParsedPredicate>, Sh
     }))
 }
 
+fn parse_timestamp_extract_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    let Some((function_name, op)) = [
+        ("timestamp_year", TimestampExtractOp::Year),
+        ("timestamp_month", TimestampExtractOp::Month),
+        ("timestamp_day", TimestampExtractOp::Day),
+        ("timestamp_hour", TimestampExtractOp::Hour),
+        ("timestamp_minute", TimestampExtractOp::Minute),
+        ("timestamp_second", TimestampExtractOp::Second),
+    ]
+    .into_iter()
+    .find(|(name, _)| {
+        trimmed
+            .get(..name.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && trimmed.as_bytes().get(name.len()) == Some(&b'(')
+    }) else {
+        return Ok(None);
+    };
+
+    let open_index = function_name.len();
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "timestamp extract predicates must use TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>)",
+        )
+    })?;
+    let inner = trimmed[open_index + 1..close_index].trim();
+    let tail = trimmed[close_index + 1..].trim();
+    if inner.is_empty() || tail.is_empty() {
+        return Err(unsupported_sql_error(
+            "timestamp extract predicates require a source column, comparison operator, and integer literal",
+        ));
+    }
+    let column = parse_timestamp_extract_column_arg(inner)?;
+    let tokens = split_whitespace_outside_quotes(tail)?;
+    let [op_raw, literal_raw] = tokens.as_slice() else {
+        return Err(unsupported_sql_error(
+            "timestamp extract predicates admit TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>",
+        ));
+    };
+    Ok(Some(ParsedPredicate::TimestampExtractCompare {
+        column,
+        op,
+        comparison: parse_comparison_op(op_raw)?,
+        value: parse_date_extract_literal(literal_raw)?,
+    }))
+}
+
+fn parse_timestamp_extract_column_arg(raw: &str) -> Result<String, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
+    {
+        validate_sql_column_ref(trimmed)?;
+        return Ok(trimmed.to_string());
+    }
+    let close_index = matching_closing_parenthesis(trimmed, 4)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "timestamp extract CAST arguments must use CAST(<column> AS timestamp_micros)",
+        )
+    })?;
+    if !trimmed[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "timestamp extract CAST arguments must be a single CAST(<column> AS timestamp_micros) expression",
+        ));
+    }
+    let inner = trimmed[5..close_index].trim();
+    let as_index = find_keyword_outside_quotes(inner, "as").ok_or_else(|| {
+        unsupported_sql_error(
+            "timestamp extract CAST arguments must use CAST(<column> AS timestamp_micros)",
+        )
+    })?;
+    let column = inner[..as_index].trim();
+    let target_raw = inner[as_index + 2..].trim();
+    validate_sql_column_ref(column)?;
+    if !matches!(
+        parse_cast_target_dtype(target_raw)?,
+        LogicalDType::TimestampMicros
+    ) {
+        return Err(unsupported_sql_error(
+            "timestamp extract CAST arguments support timestamp_micros target dtype only",
+        ));
+    }
+    Ok(column.to_string())
+}
+
 fn parse_date_extract_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
     match parse_sql_literal(raw.trim())? {
         ScalarValue::Int64(value) => Ok(ScalarValue::Int64(value)),
@@ -5297,8 +5774,9 @@ fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
         "utf8" | "string" | "text" => Ok(LogicalDType::Utf8),
         "boolean" | "bool" => Ok(LogicalDType::Boolean),
         "date32" | "date" => Ok(LogicalDType::Date32),
+        "timestamp_micros" | "timestamp" => Ok(LogicalDType::TimestampMicros),
         _ => Err(unsupported_sql_error(
-            "CAST target dtype must be one of int64, float64, utf8, boolean, or date32",
+            "CAST target dtype must be one of int64, float64, utf8, boolean, date32, or timestamp_micros",
         )),
     }
 }
@@ -5355,6 +5833,17 @@ fn parse_sql_date_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
         .map_err(|_| unsupported_sql_error("DATE literals must use DATE 'YYYY-MM-DD'"))
 }
 
+fn parse_sql_timestamp_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
+    let value = parse_sql_string_literal(raw)?;
+    parse_iso_timestamp_micros(&value)
+        .map(ScalarValue::TimestampMicros)
+        .map_err(|_| {
+            unsupported_sql_error(
+                "TIMESTAMP literals must use TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z'",
+            )
+        })
+}
+
 fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
     let Some(in_index) = find_keyword_outside_quotes(raw, "in") else {
         return Ok(None);
@@ -5399,12 +5888,23 @@ fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
     let has_date = values
         .iter()
         .any(|value| matches!(value, ScalarValue::Date32(_)));
+    let has_timestamp = values
+        .iter()
+        .any(|value| matches!(value, ScalarValue::TimestampMicros(_)));
     let has_non_date = values
         .iter()
         .any(|value| !matches!(value, ScalarValue::Date32(_)));
+    let has_non_timestamp = values
+        .iter()
+        .any(|value| !matches!(value, ScalarValue::TimestampMicros(_)));
     if has_date && has_non_date {
         return Err(unsupported_sql_error(
             "IN predicates do not admit mixed DATE and non-DATE literal lists in this scoped runtime slice",
+        ));
+    }
+    if has_timestamp && has_non_timestamp {
+        return Err(unsupported_sql_error(
+            "IN predicates do not admit mixed TIMESTAMP and non-TIMESTAMP literal lists in this scoped runtime slice",
         ));
     }
     Ok(Some(ParsedPredicate::InList {
@@ -5426,6 +5926,13 @@ fn parse_in_list_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
         && keyword_boundary(trimmed, 0, 4)
     {
         return parse_sql_date_literal(trimmed[4..].trim());
+    }
+    if trimmed
+        .get(..9)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("timestamp"))
+        && keyword_boundary(trimmed, 0, 9)
+    {
+        return parse_sql_timestamp_literal(trimmed[9..].trim());
     }
     parse_sql_literal(trimmed)
 }
@@ -5502,8 +6009,16 @@ fn parse_projection_literal_value(raw: &str) -> Result<ScalarValue, ShardLoomErr
     if trimmed
         .get(..4)
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("date"))
+        && keyword_boundary(trimmed, 0, 4)
     {
         return parse_sql_date_literal(trimmed[4..].trim());
+    }
+    if trimmed
+        .get(..9)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("timestamp"))
+        && keyword_boundary(trimmed, 0, 9)
+    {
+        return parse_sql_timestamp_literal(trimmed[9..].trim());
     }
     parse_sql_literal(trimmed)
 }
@@ -5923,20 +6438,21 @@ fn encode_parquet_output_rows(
 fn scalar_to_csv_value(value: &ScalarValue) -> String {
     match value {
         ScalarValue::Boolean(value) => value.to_string(),
-        ScalarValue::Int64(value) | ScalarValue::TimestampMicros(value) => value.to_string(),
+        ScalarValue::Int64(value) => value.to_string(),
         ScalarValue::UInt64(value) => value.to_string(),
         ScalarValue::Float64(value) if value.is_finite() => value.to_string(),
         ScalarValue::Null | ScalarValue::Float64(_) => String::new(),
         ScalarValue::Utf8(value) => value.clone(),
         ScalarValue::Binary(value) => format!("binary[len={}]", value.len()),
         ScalarValue::Date32(value) => format_iso_date32(*value),
+        ScalarValue::TimestampMicros(value) => format_iso_timestamp_micros(*value),
     }
 }
 
 fn scalar_to_json(value: &ScalarValue) -> String {
     match value {
         ScalarValue::Boolean(value) => value.to_string(),
-        ScalarValue::Int64(value) | ScalarValue::TimestampMicros(value) => value.to_string(),
+        ScalarValue::Int64(value) => value.to_string(),
         ScalarValue::UInt64(value) => value.to_string(),
         ScalarValue::Float64(value) if value.is_finite() => {
             let text = value.to_string();
@@ -5950,6 +6466,9 @@ fn scalar_to_json(value: &ScalarValue) -> String {
         ScalarValue::Utf8(value) => format!("\"{}\"", json_escape(value)),
         ScalarValue::Binary(value) => format!("\"binary[len={}]\"", value.len()),
         ScalarValue::Date32(value) => format!("\"{}\"", format_iso_date32(*value)),
+        ScalarValue::TimestampMicros(value) => {
+            format!("\"{}\"", format_iso_timestamp_micros(*value))
+        }
     }
 }
 

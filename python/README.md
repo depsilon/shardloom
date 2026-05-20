@@ -366,8 +366,12 @@ deterministic unsupported surfaces. The same shape is admitted for
 `read_parquet(...)` over local flat scalar `.parquet` files when the CLI is built
 with `--features universal-format-io`; default binaries return an explicit
 Parquet adapter blocker. Filters admit scoped comparison,
-cast, date-literal, Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
-`DATE_DAY(...)`, Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
+cast, date-literal, scoped UTC `TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z'` literals,
+Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
+`DATE_DAY(...)`, UTC timestamp extract predicates with
+`TIMESTAMP_YEAR(...)` / `TIMESTAMP_MONTH(...)` / `TIMESTAMP_DAY(...)` /
+`TIMESTAMP_HOUR(...)` / `TIMESTAMP_MINUTE(...)` / `TIMESTAMP_SECOND(...)`,
+Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
 bounded `IN (...)`, inclusive `between(...)` range predicates, string
 `LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
 leaves. `where(...)` is a familiar alias for `filter(...)`. `IN` lists admit up to 32 non-null
@@ -377,8 +381,9 @@ The Python query builder also exposes a scoped `sl.col(...)` predicate helper fo
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
 `startswith()`, `endswith()`, `like(...)`, `between(...)`, bounded `isin(...)`, `cast(dtype)`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
-`date_sub_days(days)` comparisons into the same ShardLoom SQL smoke
-path; unsupported shapes still block in ShardLoom before fallback.
+`date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
+`timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons into the same
+ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed literal `with_column(...)` is also admitted after an explicit `select(...)` for local
 CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet projection/filter/limit workflows. The first slice accepts only
 deterministic `lit(...)` values or direct bool/int/float literals, emits literal-projection
