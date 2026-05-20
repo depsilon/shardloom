@@ -2450,6 +2450,78 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_with_column_nullif_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,NULLIF(label, 'missing') AS label_clean,NULLIF(amount, 0) AS amount_clean,NULLIF(CAST(event_date AS date32), DATE '2026-01-01') AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source nullif projection",
+                    "human_text": "sql local source nullif projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label_clean\\":null,\\"amount_clean\\":null,\\"event_day\\":null}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "nullif_projection_runtime_execution", "value": "true"},
+                        {"key": "nullif_projection_source_column", "value": "label,amount,event_date"},
+                        {"key": "nullif_projection_output_column", "value": "label_clean,amount_clean,event_day"},
+                        {"key": "nullif_projection_sentinel_dtype", "value": "utf8,int64,date32"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("label_clean", sl.col("label").null_if("missing"))
+            .with_column("amount_clean", sl.null_if(sl.col("amount"), 0))
+            .with_column(
+                "event_day",
+                sl.col("event_date").cast("date32").null_if(date(2026, 1, 1)),
+            )
+            .filter(sl.col("id") >= 1)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.nullif_projection_runtime_execution)
+        self.assertEqual(
+            report.nullif_projection_source_columns,
+            ("label", "amount", "event_date"),
+        )
+        self.assertEqual(
+            report.nullif_projection_output_columns,
+            ("label_clean", "amount_clean", "event_day"),
+        )
+        self.assertEqual(
+            report.nullif_projection_sentinel_dtypes,
+            ("utf8", "int64", "date32"),
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_with_column_conditional_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

@@ -1258,6 +1258,90 @@ fn sql_local_source_smoke_executes_null_coalesce_projection_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_nullif_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-nullif-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount,event_date\n\
+         1,alpha,8,2026-05-19\n\
+         2,missing,0,2026-01-01\n\
+         3,beta,15,2027-01-02\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,NULLIF(label, 'missing') AS label_clean,NULLIF(amount, 0) AS amount_clean,NULLIF(CAST(event_date AS date32), DATE '2026-01-01') AS event_day FROM '{}' WHERE id >= 1 LIMIT 3",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("nullif_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "nullif_projection_source_column",
+        "label,amount,event_date"
+    )));
+    assert!(stdout.contains(&field(
+        "nullif_projection_output_column",
+        "label_clean,amount_clean,event_day"
+    )));
+    assert!(stdout.contains(&field(
+        "nullif_projection_sentinel_dtype",
+        "utf8,int64,date32"
+    )));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,label_clean,amount_clean,event_day"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label_clean\\\":\\\"alpha\\\",\\\"amount_clean\\\":8,\\\"event_day\\\":\\\"2026-05-19\\\"}\\n{\\\"id\\\":2,\\\"label_clean\\\":null,\\\"amount_clean\\\":null,\\\"event_day\\\":null}\\n{\\\"id\\\":3,\\\"label_clean\\\":\\\"beta\\\",\\\"amount_clean\\\":15,\\\"event_day\\\":\\\"2027-01-02\\\"}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,NULLIF(label, 0) AS label_clean FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(
+        blocked_output
+            .contains("scoped nullif requires matching non-null source and sentinel dtypes"),
+        "{blocked_output}"
+    );
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-conditional-projection", "csv");
     fs::write(

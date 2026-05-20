@@ -367,7 +367,13 @@ or documentation updates alone are insufficient.
     projection/filter/limit rows with `null_coalesce_projection_*` evidence, ShardLoom-native
     null-aware fallback semantics, source-column coercion for admitted Date32/UTC timestamp
     literals, deterministic source-column/output-name/null-fallback/type-mismatch blockers, and no
-    external fallback. Scoped single-branch conditional projections of the form
+    external fallback. Scoped null-sentinel cleanup projections of the form
+    `NULLIF(column, literal) AS column`, including scoped `CAST(column AS date32)` or
+    `CAST(column AS timestamp_micros)` source arguments, are runtime-admitted over local-source
+    projection/filter/limit rows with `nullif_projection_*` evidence, ShardLoom-native SQL
+    `NULLIF` equality semantics, source-column coercion for admitted Date32/UTC timestamp
+    sentinels, deterministic source-column/output-name/null-sentinel/type-mismatch blockers, and
+    no external fallback. Scoped single-branch conditional projections of the form
     `CASE WHEN <admitted predicate> THEN <literal> ELSE <literal> END AS column` are
     runtime-admitted over local-source projection/filter/limit rows with
     `conditional_projection_*` evidence, ShardLoom-native SQL `CASE WHEN` true/false/null
@@ -381,8 +387,9 @@ or documentation updates alone are insufficient.
     scoped numeric arithmetic comparison operators, scoped numeric arithmetic `with_column(...)`,
     scoped cast `with_column(...)`, scoped Date32 day arithmetic `with_column(...)`, scoped UTF-8
     string transform `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
-    scoped null-cleanup `with_column(...)` via `.fill_null(...)`, scoped conditional
-    `with_column(...)` via `sl.case_when(...)`, and logical predicates into the same local SQL
+    scoped null-cleanup `with_column(...)` via `.fill_null(...)` and `.null_if(...)`, scoped
+    conditional `with_column(...)` via `sl.case_when(...)`, and logical predicates into the same
+    local SQL
     smoke path, plus `where(...)`
     as a familiar filter alias. User workflows still lack broad typed
     coercions, generalized arithmetic expression trees and generalized projections,
