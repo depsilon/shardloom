@@ -447,8 +447,11 @@ or documentation updates alone are insufficient.
 - [ ] GAR-RUNTIME-IMPL-4I Vortex scan pushdown and encoded-predicate runtime completion
   - Source: `GAR-PERF-2C`, Vortex Scan API docs, encoded predicate provider evidence,
     `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: source-backed scan and encoded predicate evidence are scoped; pushdown is not
-    complete across admitted prepared/native scenarios.
+  - Current state: source-backed scan and encoded predicate evidence are scoped; CLI local Vortex
+    primitive `vortex-project`, `vortex-filter`, and `vortex-filter-project` rows now emit a
+    shared `scan_pushdown_*` contract with filter/projection/materialization/no-fallback fields and
+    deterministic blockers. Limit/slice pushdown and broad prepared/native scenario coverage are
+    still incomplete.
   - Next slice outcome: lower filter, projection, and limit into Vortex Scan where admitted, and
     emit deterministic blockers when a predicate/projection cannot be pushed down.
   - Runtime enablement: prepared/native Vortex Scan pushdown for admitted filters, projections, and

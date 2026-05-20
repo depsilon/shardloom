@@ -54,6 +54,9 @@ use shardloom_vortex::{
 
 use crate::cli_output::{emit, emit_error};
 
+const VORTEX_PRIMITIVE_SCAN_PUSHDOWN_SCHEMA_VERSION: &str =
+    "shardloom.vortex_primitive.scan_pushdown_contract.v1";
+
 fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
     fields.push((key.to_string(), value.to_string()));
 }
@@ -999,6 +1002,7 @@ pub(crate) fn vortex_project_fields(
             }
         },
     );
+    let output_columns = split_column_arg(&columns_arg);
     let mut fields = vec![
         (
             "fallback_execution_allowed".to_string(),
@@ -1035,6 +1039,13 @@ pub(crate) fn vortex_project_fields(
         ("columns".to_string(), columns_arg),
     ];
     append_vortex_project_local_execution_fields(&mut fields, local_execution);
+    append_vortex_primitive_scan_pushdown_fields(
+        &mut fields,
+        "vortex_project",
+        &[],
+        &output_columns,
+        local_execution,
+    );
     fields
 }
 
@@ -1351,6 +1362,8 @@ pub(crate) fn vortex_filter_project_fields(
             }
         },
     );
+    let filter_columns = predicate_columns_from_arg(&predicate_arg);
+    let output_columns = split_column_arg(&columns_arg);
     let mut fields = vec![
         (
             "fallback_execution_allowed".to_string(),
@@ -1394,6 +1407,13 @@ pub(crate) fn vortex_filter_project_fields(
         ("columns".to_string(), columns_arg),
     ];
     append_vortex_filter_project_local_execution_fields(&mut fields, local_execution);
+    append_vortex_primitive_scan_pushdown_fields(
+        &mut fields,
+        "vortex_filter_project",
+        &filter_columns,
+        &output_columns,
+        local_execution,
+    );
     fields
 }
 
@@ -1783,6 +1803,7 @@ pub(crate) fn vortex_filter_fields(
             }
         },
     );
+    let filter_columns = predicate_columns_from_arg(&predicate_arg);
     let mut fields = vec![
         (
             "fallback_execution_allowed".to_string(),
@@ -1817,6 +1838,13 @@ pub(crate) fn vortex_filter_fields(
         ("predicate".to_string(), predicate_arg),
     ];
     append_vortex_filter_local_execution_fields(&mut fields, local_execution);
+    append_vortex_primitive_scan_pushdown_fields(
+        &mut fields,
+        "vortex_filter",
+        &filter_columns,
+        &[],
+        local_execution,
+    );
     fields
 }
 
@@ -2070,6 +2098,286 @@ fn append_vortex_filter_local_execution_claim_fields(
         "filter_local_execution_cg13_closeout_allowed",
         false,
     );
+}
+
+fn append_vortex_primitive_scan_pushdown_fields(
+    fields: &mut Vec<(String, String)>,
+    primitive: &str,
+    filter_columns: &[String],
+    output_columns: &[String],
+    local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
+) {
+    let filter_required = !filter_columns.is_empty();
+    let projection_required = !output_columns.is_empty();
+    let limit_required = false;
+    let scan_admitted = local_execution.is_some_and(|local| {
+        local.report.mode == shardloom_vortex::VortexLocalPrimitiveExecutionMode::VortexScanPushdown
+            && local.report.upstream_scan_called
+    });
+    let filter_pushed_down = local_execution.is_some_and(|local| {
+        scan_admitted && filter_required && local.report.filter_pushdown_applied
+    });
+    let projection_pushed_down = local_execution.is_some_and(|local| {
+        scan_admitted && projection_required && local.report.projection_pushdown_applied
+    });
+    let limit_pushed_down = false;
+    let filter = ScanPushdownDimensionEvidence::new(
+        scan_admitted,
+        filter_required,
+        filter_pushed_down,
+        "filter",
+    );
+    let projection = ScanPushdownDimensionEvidence::new(
+        scan_admitted,
+        projection_required,
+        projection_pushed_down,
+        "projection",
+    );
+    let limit = ScanPushdownDimensionEvidence::new(
+        scan_admitted,
+        limit_required,
+        limit_pushed_down,
+        "limit",
+    );
+    let filter_only_columns = filter_columns
+        .iter()
+        .filter(|column| !output_columns.iter().any(|output| output == *column))
+        .cloned()
+        .collect::<Vec<_>>();
+    let admission = scan_pushdown_admission(local_execution.is_some(), scan_admitted);
+    let mut runtime = ScanPushdownRuntimeEvidence {
+        admission,
+        any_pushdown: filter.pushed_down || projection.pushed_down || limit.pushed_down,
+        has_blocker: false,
+    };
+    let blocker_id = scan_pushdown_blocker_id(&runtime, filter, projection, limit);
+    runtime.has_blocker = blocker_id != "none";
+    let pushdown_status = scan_pushdown_status(&runtime);
+
+    push_field(
+        fields,
+        "scan_pushdown_schema_version",
+        VORTEX_PRIMITIVE_SCAN_PUSHDOWN_SCHEMA_VERSION,
+    );
+    push_field(
+        fields,
+        "scan_pushdown_report_id",
+        &format!("gar-runtime-impl-4i.scan_pushdown.{primitive}"),
+    );
+    push_field(fields, "scan_pushdown_status", pushdown_status);
+    push_scan_pushdown_dimension_fields(fields, filter, projection, limit);
+    push_scan_pushdown_column_fields(fields, filter_columns, output_columns, &filter_only_columns);
+    push_scan_pushdown_guardrail_fields(fields, local_execution, &blocker_id);
+}
+
+#[derive(Clone, Copy)]
+struct ScanPushdownDimensionEvidence {
+    required: bool,
+    pushed_down: bool,
+    status: &'static str,
+}
+
+impl ScanPushdownDimensionEvidence {
+    fn new(scan_admitted: bool, required: bool, pushed_down: bool, dimension: &str) -> Self {
+        Self {
+            required,
+            pushed_down,
+            status: scan_pushdown_dimension_status(scan_admitted, required, pushed_down, dimension),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum ScanPushdownAdmission {
+    NotExecuted,
+    UnsupportedNoScan,
+    Admitted,
+}
+
+struct ScanPushdownRuntimeEvidence {
+    admission: ScanPushdownAdmission,
+    any_pushdown: bool,
+    has_blocker: bool,
+}
+
+fn push_scan_pushdown_dimension_fields(
+    fields: &mut Vec<(String, String)>,
+    filter: ScanPushdownDimensionEvidence,
+    projection: ScanPushdownDimensionEvidence,
+    limit: ScanPushdownDimensionEvidence,
+) {
+    push_bool_field(fields, "scan_filter_required", filter.required);
+    push_bool_field(fields, "scan_projection_required", projection.required);
+    push_bool_field(fields, "scan_limit_required", limit.required);
+    push_bool_field(fields, "scan_filter_pushed_down", filter.pushed_down);
+    push_bool_field(
+        fields,
+        "scan_projection_pushed_down",
+        projection.pushed_down,
+    );
+    push_bool_field(fields, "scan_limit_pushed_down", limit.pushed_down);
+    push_field(fields, "scan_filter_pushdown_status", filter.status);
+    push_field(fields, "scan_projection_pushdown_status", projection.status);
+    push_field(fields, "scan_limit_pushdown_status", limit.status);
+}
+
+fn push_scan_pushdown_column_fields(
+    fields: &mut Vec<(String, String)>,
+    filter_columns: &[String],
+    output_columns: &[String],
+    filter_only_columns: &[String],
+) {
+    push_field(
+        fields,
+        "scan_filter_columns_read",
+        &comma_join_columns_or_none(filter_columns),
+    );
+    push_field(
+        fields,
+        "scan_output_columns_read",
+        &comma_join_columns_or_none(output_columns),
+    );
+    push_field(
+        fields,
+        "scan_filter_only_columns_read",
+        &comma_join_columns_or_none(filter_only_columns),
+    );
+}
+
+fn push_scan_pushdown_guardrail_fields(
+    fields: &mut Vec<(String, String)>,
+    local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
+    blocker_id: &str,
+) {
+    push_bool_field(
+        fields,
+        "scan_data_materialized",
+        local_execution.is_some_and(|local| local.report.data_materialized),
+    );
+    push_bool_field(
+        fields,
+        "scan_data_decoded",
+        local_execution.is_some_and(|local| local.report.data_decoded),
+    );
+    push_field(fields, "scan_pushdown_blocker_id", blocker_id);
+    push_field(
+        fields,
+        "scan_pushdown_claim_gate_status",
+        "fixture_smoke_only",
+    );
+    push_field(
+        fields,
+        "scan_pushdown_claim_boundary",
+        "scoped local Vortex primitive scan pushdown evidence only; no encoded-native, SQL/DataFrame, object-store/lakehouse, production, performance, or Spark-replacement claim",
+    );
+    push_bool_field(fields, "scan_pushdown_fallback_attempted", false);
+    push_bool_field(fields, "scan_pushdown_external_engine_invoked", false);
+}
+
+fn scan_pushdown_status(runtime: &ScanPushdownRuntimeEvidence) -> &'static str {
+    match runtime.admission {
+        ScanPushdownAdmission::NotExecuted => "not_executed",
+        ScanPushdownAdmission::UnsupportedNoScan => "scan_pushdown_unsupported",
+        ScanPushdownAdmission::Admitted if !runtime.has_blocker && runtime.any_pushdown => {
+            "scan_pushdown_supported"
+        }
+        ScanPushdownAdmission::Admitted if !runtime.has_blocker => "scan_pushdown_not_needed",
+        ScanPushdownAdmission::Admitted if runtime.any_pushdown => {
+            "scan_pushdown_partially_supported"
+        }
+        ScanPushdownAdmission::Admitted => "scan_pushdown_blocked",
+    }
+}
+
+fn scan_pushdown_blocker_id(
+    runtime: &ScanPushdownRuntimeEvidence,
+    filter: ScanPushdownDimensionEvidence,
+    projection: ScanPushdownDimensionEvidence,
+    limit: ScanPushdownDimensionEvidence,
+) -> String {
+    let mut blocker_ids = Vec::new();
+    match runtime.admission {
+        ScanPushdownAdmission::NotExecuted => {
+            blocker_ids.push("gar-runtime-impl-4i.local_primitive_scan_not_executed");
+        }
+        ScanPushdownAdmission::UnsupportedNoScan => {
+            blocker_ids.push("gar-runtime-impl-4i.vortex_scan_not_admitted");
+        }
+        ScanPushdownAdmission::Admitted => {}
+    }
+    if runtime.admission == ScanPushdownAdmission::Admitted
+        && filter.required
+        && !filter.pushed_down
+    {
+        blocker_ids.push("gar-runtime-impl-4i.filter_pushdown_not_lowered");
+    }
+    if runtime.admission == ScanPushdownAdmission::Admitted
+        && projection.required
+        && !projection.pushed_down
+    {
+        blocker_ids.push("gar-runtime-impl-4i.projection_pushdown_not_lowered");
+    }
+    if runtime.admission == ScanPushdownAdmission::Admitted && limit.required && !limit.pushed_down
+    {
+        blocker_ids.push("gar-runtime-impl-4i.limit_pushdown_not_admitted");
+    }
+
+    if blocker_ids.is_empty() {
+        "none".to_string()
+    } else {
+        blocker_ids.join(";")
+    }
+}
+
+fn scan_pushdown_admission(
+    local_execution_present: bool,
+    scan_admitted: bool,
+) -> ScanPushdownAdmission {
+    match (local_execution_present, scan_admitted) {
+        (false, _) => ScanPushdownAdmission::NotExecuted,
+        (true, false) => ScanPushdownAdmission::UnsupportedNoScan,
+        (true, true) => ScanPushdownAdmission::Admitted,
+    }
+}
+
+fn scan_pushdown_dimension_status(
+    scan_admitted: bool,
+    required: bool,
+    pushed_down: bool,
+    dimension: &str,
+) -> &'static str {
+    match (scan_admitted, required, pushed_down) {
+        (false, _, _) => "unsupported_no_vortex_scan",
+        (true, false, _) => "not_needed",
+        (true, true, true) => "pushed_down",
+        (true, true, false) if dimension == "filter" => "blocked_filter_not_lowered",
+        (true, true, false) if dimension == "limit" => "blocked_limit_not_lowered",
+        (true, true, false) => "blocked_projection_not_lowered",
+    }
+}
+
+fn predicate_columns_from_arg(predicate_arg: &str) -> Vec<String> {
+    match predicate_arg.split(':').collect::<Vec<_>>().as_slice() {
+        ["is_null" | "is_not_null", column] | [_, column, _] => vec![(*column).to_string()],
+        _ => Vec::new(),
+    }
+}
+
+fn split_column_arg(columns_arg: &str) -> Vec<String> {
+    columns_arg
+        .split(',')
+        .map(str::trim)
+        .filter(|column| !column.is_empty())
+        .map(ToString::to_string)
+        .collect()
+}
+
+fn comma_join_columns_or_none(columns: &[String]) -> String {
+    if columns.is_empty() {
+        "none".to_string()
+    } else {
+        columns.join(",")
+    }
 }
 
 fn append_vortex_count_where_predicate_evidence_fields(

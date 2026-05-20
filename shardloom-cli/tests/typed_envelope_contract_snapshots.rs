@@ -228,6 +228,25 @@ fn certified_runtime_execution_fixture_routes_inline_certificates() {
         "project_local_execution_correctness_certified",
         "true"
     )));
+    assert!(output.contains(&field(
+        "scan_pushdown_schema_version",
+        "shardloom.vortex_primitive.scan_pushdown_contract.v1"
+    )));
+    assert!(output.contains(&field("scan_pushdown_status", "scan_pushdown_supported")));
+    assert!(output.contains(&field("scan_filter_required", "false")));
+    assert!(output.contains(&field("scan_projection_required", "true")));
+    assert!(output.contains(&field("scan_limit_required", "false")));
+    assert!(output.contains(&field("scan_filter_pushed_down", "false")));
+    assert!(output.contains(&field("scan_projection_pushed_down", "true")));
+    assert!(output.contains(&field("scan_limit_pushed_down", "false")));
+    assert!(output.contains(&field("scan_output_columns_read", "metric")));
+    assert!(output.contains(&field("scan_pushdown_blocker_id", "none")));
+    assert!(output.contains(&field(
+        "scan_pushdown_claim_gate_status",
+        "fixture_smoke_only"
+    )));
+    assert!(output.contains(&field("scan_pushdown_fallback_attempted", "false")));
+    assert!(output.contains(&field("scan_pushdown_external_engine_invoked", "false")));
     assert!(output.contains(&field("data_read", "true")));
     assert!(output.contains(&field("data_decoded", "false")));
     assert!(output.contains(&field("data_materialized", "false")));
@@ -264,6 +283,84 @@ fn certified_runtime_execution_fixture_routes_inline_certificates() {
         "local_primitive_execution_certificate_fallback_execution_allowed",
         "false"
     )));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn certified_filter_project_runtime_fixture_routes_scan_pushdown_fields() {
+    let fixture = local_primitive_struct_fixture();
+    let output = run_command(
+        &[
+            "vortex-filter-project",
+            fixture.as_str(),
+            "gte:value:3",
+            "metric",
+            "--execute-local-primitive",
+            "1",
+            "2",
+            "--format",
+            "json",
+        ],
+        true,
+    );
+
+    assert_common_typed_slots(&output, "vortex-filter-project", "success");
+    assert!(output.contains(&field("command_family", "vortex_primitive_execution")));
+    assert!(output.contains(&field("mode", "vortex_filter_project")));
+    assert!(output.contains(&field(
+        "filter_project_local_execution_mode",
+        "vortex_scan_pushdown"
+    )));
+    assert!(output.contains(&field(
+        "filter_project_local_execution_selection_vector_guarantee",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "filter_project_local_execution_projection_pushdown_guarantee",
+        "true"
+    )));
+    assert!(output.contains(&field("scan_pushdown_status", "scan_pushdown_supported")));
+    assert!(output.contains(&field("scan_filter_required", "true")));
+    assert!(output.contains(&field("scan_projection_required", "true")));
+    assert!(output.contains(&field("scan_filter_pushed_down", "true")));
+    assert!(output.contains(&field("scan_projection_pushed_down", "true")));
+    assert!(output.contains(&field("scan_filter_columns_read", "value")));
+    assert!(output.contains(&field("scan_output_columns_read", "metric")));
+    assert!(output.contains(&field("scan_filter_only_columns_read", "value")));
+    assert!(output.contains(&field("scan_data_materialized", "false")));
+    assert!(output.contains(&field("scan_data_decoded", "false")));
+    assert!(output.contains(&field("scan_pushdown_blocker_id", "none")));
+    assert!(output.contains(&field("scan_pushdown_fallback_attempted", "false")));
+    assert!(output.contains(&field("scan_pushdown_external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
+fn non_executed_vortex_primitive_fixture_routes_scan_pushdown_blocker() {
+    let fixture = local_primitive_struct_fixture();
+    let output = run_command(
+        &[
+            "vortex-project",
+            fixture.as_str(),
+            "metric",
+            "--format",
+            "json",
+        ],
+        true,
+    );
+
+    assert_common_typed_slots(&output, "vortex-project", "success");
+    assert!(output.contains(&field("scan_pushdown_status", "not_executed")));
+    assert!(output.contains(&field(
+        "scan_projection_pushdown_status",
+        "unsupported_no_vortex_scan"
+    )));
+    assert!(output.contains(&field(
+        "scan_pushdown_blocker_id",
+        "gar-runtime-impl-4i.local_primitive_scan_not_executed"
+    )));
+    assert!(output.contains(&field("scan_pushdown_fallback_attempted", "false")));
+    assert!(output.contains(&field("scan_pushdown_external_engine_invoked", "false")));
 }
 
 #[test]
