@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild
+  - Branch/PR: `codex/website-benchmark-dashboard-rebuild` / #830.
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `website/assets/site.css`
+    - `website/build_static_pages.py`
+    - `website/benchmarks.html`
+    - `website/benchmarks/index.html`
+    - `website/validate_static_assets.js`
+  - Scope: rebuild `/benchmarks` from a dense artifact page into a route-level benchmark evidence
+    dashboard while preserving the committed static-artifact publishing model. The page now leads
+    with "Benchmark Evidence, Not a Leaderboard", artifact posture, route timing cards,
+    completeness/manifest metadata, lane availability, scenario coverage, claim-gate distribution,
+    and collapsed raw timing/evidence drawers.
+  - Rendered artifact:
+    - Manifest path: `website/assets/benchmarks/latest/manifest.json`.
+    - Benchmark profile: rendered from the committed manifest as `full_local`.
+    - Completeness status: rendered from the committed manifest as `complete`.
+    - Missing lane policy: expected, available, and missing lanes are visible; missing lanes are
+      not silently omitted.
+  - Route interpretation:
+    - `Certified cold ingest/stage route` groups ShardLoom compatibility import rows and explains
+      that they include source read, parse, Vortex ingest, write/reopen, scan, operator, sink, and
+      evidence timing.
+    - `Prepared warm query route` groups prepared Vortex rows and states that they start after
+      `VortexPreparedState` exists.
+    - `Native Vortex route`, `Direct transient route`, and `External baseline context` are
+      separate dashboard cards.
+    - External lanes remain labeled baseline context only and never satisfy ShardLoom evidence
+      gates.
+  - User-visible surface:
+    - `/benchmarks` and `/benchmarks/index.html`.
+    - Raw local timing is still available, but it is collapsed by default under "Raw timing
+      tables".
+    - Source-backed scan, encoded predicate, and detailed ShardLoom evidence tables remain
+      available in collapsed drawers.
+  - Visual QA:
+    - Desktop screenshot: `target/website-benchmark-dashboard-rebuild/benchmarks-desktop.png`.
+    - Tablet screenshot: `target/website-benchmark-dashboard-rebuild/benchmarks-tablet.png`.
+    - Mobile screenshot: `target/website-benchmark-dashboard-rebuild/benchmarks-mobile.png`.
+    - CDP metrics showed `scrollWidth <= innerWidth` at 1440px, 820px, and 390px viewports.
+    - CDP smoke showed five route dashboard cards, one raw timing drawer, and zero open drawers by
+      default.
+  - Verification:
+    - `python website\build_static_pages.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - bundled Node runtime: `website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q scripts website`
+    - `git diff --check`
+  - Claim boundary: dashboard interpretation only. This does not recompute benchmarks, publish a
+    package, add runtime behavior, make a performance/superiority claim, replace Spark, or imply
+    production SQL/DataFrame, object-store/lakehouse, Foundry, or distributed support.
+  - Fallback boundary: the dashboard keeps external engines as baseline context only and preserves
+    the no-fallback framing for ShardLoom evidence.
+
 - [x] Session label: GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild
   - Branch/PR: `codex/website-atlas-status-rebuild` / #829.
   - Primary files:

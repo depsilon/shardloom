@@ -235,8 +235,9 @@ explicitly reprioritized.
 Current non-runtime sequence:
 
 1. Non-runtime closeout is complete through GAR-0043-B, GAR-VORTEX-071D, and the completed
-   `GAR-WEB-REDESIGN-2A/2B`, `GAR-WEB-REDESIGN-2C`, and `GAR-WEB-REDESIGN-2D` website slices.
-2. Complete the open `GAR-WEB-REDESIGN-2E` through `GAR-WEB-REDESIGN-2G` implementation slices
+   `GAR-WEB-REDESIGN-2A/2B`, `GAR-WEB-REDESIGN-2C`, `GAR-WEB-REDESIGN-2D`, and
+   `GAR-WEB-REDESIGN-2E` website slices.
+2. Complete the open `GAR-WEB-REDESIGN-2F` through `GAR-WEB-REDESIGN-2G` implementation slices
    below before returning to the runtime implementation queue unless the user explicitly
    reprioritizes runtime work.
 3. Continue moving completed website/runtime sessions to the ledger immediately after PR/session
@@ -265,39 +266,9 @@ claim-boundary language honest.
 Completed slices: `GAR-WEB-REDESIGN-2A reference synthesis and visual direction`,
 `GAR-WEB-REDESIGN-2B information architecture and content model`,
 `GAR-WEB-REDESIGN-2C homepage product-console rebuild`, and
-`GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild` are captured in the completed ledger.
+`GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild`, and
+`GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild` are captured in the completed ledger.
 Remaining items below are the active implementation queue.
-
-- [ ] GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild
-  - Source: static benchmark manifest/artifacts, benchmark publishing runbook, benchmark evidence
-    docs, and redesign benchmark page blueprint.
-  - Current state: `/benchmarks` renders the committed artifact and is claim-safe, but it can still
-    read as a dense artifact interpretation page rather than a polished route-level evidence
-    dashboard.
-  - Next slice outcome: rebuild `/benchmarks` around route timing cards, artifact completeness,
-    lane availability, claim-gate distribution, scenario coverage, collapsed raw tables, and clear
-    certified-cold versus prepared-warm timing interpretation.
-  - User-visible surface: `/benchmarks`, `/benchmarks/index.html`, benchmark links from home/status.
-  - Implementation scope: benchmark artifact ingestion/rendering in `website/build_static_pages.py`,
-    CSS/dashboard components, static validation, readiness checks.
-  - Evidence required: benchmark profile, expected/available/missing lanes, lane versions/reasons,
-    claim boundary, performance-claim flag, route timing fields, external-baseline-only labels,
-    source/prepared/output reuse fields when present.
-  - Acceptance: raw tables are collapsed by default; external baselines are visible but marked
-    context only; compatibility cold timing is never presented as pure query speed; prepared warm
-    rows disclose whether preparation is included.
-  - Verification: website build with benchmark manifest, artifact completeness/readiness checks,
-    static asset validation, browser smoke for benchmark tabs/drawers, `cargo test -p
-    shardloom-contract-tests --test traditional_benchmark_harness`, `git diff --check`.
-  - Non-goals: no benchmark recomputation unless separately requested, no performance/superiority
-    claim, no GPU/object-store comparison mixing, no hidden lane omission.
-  - Claim boundary: local benchmark evidence only; no leaderboard or replacement claim.
-  - Fallback boundary: external engines remain baseline rows only and never satisfy ShardLoom
-    evidence gates.
-  - Dependencies/blockers: committed benchmark manifest/results, route timing field availability,
-    artifact completeness data, claim-gate distribution fields, and drawer/tab renderer support.
-  - Ledger rule: ledger entry must include the manifest path rendered, completeness status, and
-    screenshot/validation evidence.
 
 - [ ] GAR-WEB-REDESIGN-2F performance, accessibility, and claim-safety gate
   - Source: Core Web Vitals thresholds, WCAG 2.2 AA target, website readiness checks, static asset

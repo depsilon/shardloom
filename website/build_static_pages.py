@@ -947,6 +947,114 @@ def source_state_coverage_rows(results: dict[str, Any]) -> list[list[Any]]:
     return rows
 
 
+def as_float(value: Any) -> float | None:
+    try:
+        if value in (None, "", "n/a"):
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def median(values: list[float]) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    mid = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[mid]
+    return (ordered[mid - 1] + ordered[mid]) / 2
+
+
+def millis(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.2f} ms"
+
+
+def classify_benchmark_route(row: dict[str, Any]) -> str:
+    engine = str(row.get("engine", ""))
+    mode = str(row.get("selected_execution_mode") or row.get("requested_execution_mode") or "")
+    if row.get("external_baseline_only") is True or engine in {
+        "pandas",
+        "polars",
+        "polars-eager",
+        "polars-lazy",
+        "duckdb",
+        "datafusion",
+        "dask",
+        "spark-default",
+        "spark-local-tuned",
+    }:
+        return "External baseline context"
+    if mode == "compatibility_import_certified" or engine == "shardloom":
+        return "Certified cold ingest/stage route"
+    if mode == "prepared_vortex" or engine == "shardloom-prepared-vortex":
+        return "Prepared warm query route"
+    if mode == "native_vortex" or engine in {"shardloom-vortex", "native-vortex"}:
+        return "Native Vortex route"
+    if mode == "direct_compatibility_transient":
+        return "Direct transient route"
+    return "Other reported route"
+
+
+def route_dashboard_cards(results: dict[str, Any]) -> str:
+    descriptions = {
+        "Certified cold ingest/stage route": "Includes source read, parse, Vortex ingest, write/reopen, scan, operator, sink, and evidence timing.",
+        "Prepared warm query route": "Starts after VortexPreparedState exists; do not read it as source read or ingest timing.",
+        "Native Vortex route": "Starts from already-Vortex input and keeps compatibility import outside the timing scope.",
+        "Direct transient route": "One-shot compatibility route without persistent Vortex preparation.",
+        "External baseline context": "Comparison context only; external engines never satisfy ShardLoom evidence gates.",
+        "Other reported route": "Rows that do not fit the primary public route groups.",
+    }
+    grouped: dict[str, list[dict[str, Any]]] = {key: [] for key in descriptions}
+    for row in results.get("published_benchmark_rows", []):
+        grouped.setdefault(classify_benchmark_route(row), []).append(row)
+    cards = []
+    for title in [
+        "Certified cold ingest/stage route",
+        "Prepared warm query route",
+        "Native Vortex route",
+        "Direct transient route",
+        "External baseline context",
+    ]:
+        rows = grouped.get(title, [])
+        totals = [value for value in (as_float(row.get("total_runtime_millis")) for row in rows) if value is not None]
+        scan = [value for value in (as_float(row.get("vortex_scan_millis")) for row in rows) if value is not None]
+        compute = [value for value in (as_float(row.get("operator_compute_millis")) for row in rows) if value is not None]
+        gates = sorted({str(row.get("claim_gate_status", "unknown")) for row in rows if row.get("claim_gate_status")})
+        cards.append(
+            f"""<article class="route-dashboard-card">
+              <span class="badge">{esc("baseline" if title.startswith("External") else "ShardLoom route")}</span>
+              <h3>{esc(title)}</h3>
+              <p>{esc(descriptions[title])}</p>
+              <dl class="mini-meta">
+                <div><dt>Rows</dt><dd>{len(rows)}</dd></div>
+                <div><dt>Median total</dt><dd>{esc(millis(median(totals)))}</dd></div>
+                <div><dt>Median scan</dt><dd>{esc(millis(median(scan)))}</dd></div>
+                <div><dt>Median operator</dt><dd>{esc(millis(median(compute)))}</dd></div>
+                <div><dt>Claim gates</dt><dd>{esc(", ".join(gates) if gates else "not reported")}</dd></div>
+              </dl>
+            </article>"""
+        )
+    return "".join(cards)
+
+
+def scenario_coverage_cards(results: dict[str, Any]) -> str:
+    rows = results.get("published_benchmark_rows", [])
+    scenarios = {row.get("scenario_name") or row.get("scenario_id") for row in rows if row.get("scenario_name") or row.get("scenario_id")}
+    formats = {row.get("storage_format") for row in rows if row.get("storage_format")}
+    engines = {row.get("engine") for row in rows if row.get("engine")}
+    blocked = sum(1 for row in rows if str(row.get("status", "")).lower() in {"blocked", "unsupported"})
+    return "".join(
+        [
+            metric("Published rows", len(rows), "committed artifact"),
+            metric("Scenarios", len(scenarios), "distinct scenario names"),
+            metric("Formats", len(formats), "storage formats"),
+            metric("Engines", len(engines), "ShardLoom + baseline lanes"),
+            metric("Blocked/unsupported rows", blocked, "visible, not hidden"),
+        ]
+    )
+
+
 def home_page(manifest: dict[str, Any], results: dict[str, Any]) -> str:
     available_count = len(manifest.get("available_lanes", []))
     expected_count = len(manifest.get("expected_lanes", []))
@@ -1507,6 +1615,8 @@ def benchmarks_page(manifest: dict[str, Any], results: dict[str, Any]) -> str:
     )
     claim_distribution = table(["Claim gate", "Rows", "Share"], claim_gate_rows(results))
     lane_table = table(["Expected lane", "Status", "Version / reason"], lane_rows(manifest))
+    route_cards = route_dashboard_cards(results)
+    scenario_cards = scenario_coverage_cards(results)
     source_state_table = table(
         [
             "Scenario",
@@ -1553,8 +1663,8 @@ def benchmarks_page(manifest: dict[str, Any], results: dict[str, Any]) -> str:
     body = f"""
     <section class="page-hero">
       <p class="eyebrow">Benchmark evidence</p>
-      <h1>Evidence, not a leaderboard.</h1>
-      <p class="lede">These artifacts explain what ShardLoom measured locally: workflow coverage, prepared/native direction, no-fallback evidence, and claim boundaries. They do not claim public speed, superiority, production readiness, or Apache Spark substitution.</p>
+      <h1>Benchmark Evidence, Not a Leaderboard</h1>
+      <p class="lede">These artifacts explain what ShardLoom measured locally: route timing, workflow coverage, prepared/native direction, no-fallback evidence, and claim boundaries. They do not claim public speed, superiority, production support, or Apache Spark substitution.</p>
     </section>
 
     <section class="strip">
@@ -1564,27 +1674,71 @@ def benchmarks_page(manifest: dict[str, Any], results: dict[str, Any]) -> str:
       {metric("Performance claim", "not allowed", "claim gate closed")}
     </section>
 
+    <section>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Route timing dashboard</p>
+          <h2>Read ShardLoom routes before reading raw timing rows.</h2>
+        </div>
+        <a class="button" href="/field-guide/benchmark-evidence">Benchmark field guide</a>
+      </div>
+      <div class="route-dashboard">{route_cards}</div>
+    </section>
+
     <section class="section-grid">
       <div>
-        <h2>How to read this page</h2>
-        <p>Compare ShardLoom routes with each other first: certified cold route, prepared warm route, native Vortex route, and source-backed scan evidence. External engines provide local baseline context only.</p>
+        <p class="eyebrow">Interpretation rule</p>
+        <h2>Cold and warm rows mean different things.</h2>
+        <p>Certified cold rows include ingest/stage/certification work. Prepared warm rows start after VortexPreparedState exists. External engines provide local baseline context only and never satisfy ShardLoom evidence gates.</p>
       </div>
       <div class="card-grid">
-        {card("Certified cold route", "Compatibility import rows include ingress, parse, Vortex ingest, write/reopen, scan, result sink, and evidence work.", "Do compare")}
-        {card("Prepared warm route", "Prepared/native rows are the runtime-development direction after Vortex preparation exists.", "Do compare")}
-        {card("External engines", "Pandas, Polars, DuckDB, DataFusion, Dask, and Spark rows are baseline context, not ShardLoom evidence gates.", "Do not rank")}
+        {card("Certified cold ingest/stage", "Compatibility import rows include ingress, parse, Vortex ingest, write/reopen, scan, result sink, and evidence work.", "Cold route")}
+        {card("Prepared warm query", "Prepared/native rows are the runtime-development direction after Vortex preparation exists.", "Warm route")}
+        {card("External baselines", "Pandas, Polars, DuckDB, DataFusion, Dask, and Spark rows are baseline context, not ShardLoom evidence gates.", "Baseline only")}
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <p class="eyebrow">Completeness</p>
+        <h2>The website renders a committed artifact.</h2>
+        <p>It does not discover installed Python libraries during page render. Expected, available, and missing lanes remain visible in the manifest.</p>
+      </div>
+      <div class="artifact-panel">
+        <dl class="mini-meta">
+          <div><dt>Artifact status</dt><dd>{esc(manifest.get("artifact_status", "unknown"))}</dd></div>
+          <div><dt>Generated</dt><dd>{esc(manifest.get("generated_at_utc", "unknown"))}</dd></div>
+          <div><dt>Claim boundary</dt><dd>{esc(manifest.get("claim_boundary", "unknown"))}</dd></div>
+          <div><dt>Performance claim allowed</dt><dd>{esc(manifest.get("performance_claim_allowed"))}</dd></div>
+          <div><dt>Benchmark SHA</dt><dd>{esc(manifest.get("benchmark_git_sha", "unknown"))}</dd></div>
+        </dl>
       </div>
     </section>
 
     <section>
-      <h2>Artifact lane availability</h2>
-      <p class="narrow">The website renders a committed artifact. It does not discover installed Python libraries during page render.</p>
+      <div class="section-heading">
+        <div>
+          <h2>Artifact lane availability</h2>
+          <p>Missing lanes are shown with reasons rather than silently omitted.</p>
+        </div>
+      </div>
       {lane_table}
     </section>
 
-    <section>
-      <h2>Claim-gate distribution</h2>
-      {claim_distribution}
+    <section class="section-grid">
+      <div>
+        <h2>Scenario coverage</h2>
+        <p>Coverage counts help explain the scope of this local artifact before anyone opens raw tables.</p>
+      </div>
+      <div class="strip mini-strip">{scenario_cards}</div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Claim-gate distribution</h2>
+        <p>Rows remain split by claim gate so local smoke, blocked, unsupported, claim-grade, and external baseline context are not conflated.</p>
+      </div>
+      <div>{claim_distribution}</div>
     </section>
 
     <section>
@@ -1594,13 +1748,13 @@ def benchmarks_page(manifest: dict[str, Any], results: dict[str, Any]) -> str:
     </section>
 
     <section>
-      <h2>Local timing context</h2>
-      <p class="narrow">This table is timing context for engineering interpretation. It is not a public ranking.</p>
-      {raw_timing_table}
+      <h2>Raw timing tables</h2>
+      <p class="narrow">Raw local timing is available for engineering interpretation, but it stays collapsed by default and remains non-claim evidence.</p>
+      {details("Open raw local timing context", raw_timing_table)}
     </section>
 
     <section>
-      <h2>ShardLoom timing rows</h2>
+      <h2>ShardLoom detailed evidence rows</h2>
       {details("Open scoped ShardLoom timing rows", shardloom_rows)}
       {details("Open source-backed scan evidence", source_rows)}
       {details("Open encoded predicate evidence", encoded_rows)}

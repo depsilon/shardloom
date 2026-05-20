@@ -151,12 +151,15 @@ assert(index.includes("Open GitHub"), "home page must link to GitHub");
 
 const benchmarks = read("benchmarks.html");
 for (const required of [
-  "Evidence, not a leaderboard.",
+  "Benchmark Evidence, Not a Leaderboard",
+  "Route timing dashboard",
+  "Certified cold ingest/stage route",
+  "Prepared warm query route",
   "Artifact lane availability",
   "Claim-gate distribution",
   "Prepared/native source-state coverage",
   "source_state_coverage_all_requested_scenarios_classified",
-  "Local timing context",
+  "Raw timing tables",
   "Performance claim",
 ]) {
   assert(benchmarks.includes(required), `benchmarks page missing ${required}`);

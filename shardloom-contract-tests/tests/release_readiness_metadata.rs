@@ -3099,11 +3099,14 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
     for required in [
-        "Evidence, not a leaderboard.",
+        "Benchmark Evidence, Not a Leaderboard",
+        "Route timing dashboard",
+        "Certified cold ingest/stage route",
+        "Prepared warm query route",
         "Artifact lane availability",
         "Prepared/native source-state coverage",
         "source_state_coverage_all_requested_scenarios_classified",
-        "Local timing context",
+        "Raw timing tables",
     ] {
         assert!(
             benchmarks.contains(required),

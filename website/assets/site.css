@@ -588,6 +588,44 @@ p {
   box-shadow: 0 12px 30px rgba(17, 24, 39, 0.05);
 }
 
+.route-dashboard {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.route-dashboard-card,
+.artifact-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 16px;
+  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.04);
+}
+
+.route-dashboard-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.route-dashboard-card p {
+  color: var(--muted);
+}
+
+.mini-strip {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.mini-strip .metric {
+  min-height: 108px;
+  padding: 14px;
+}
+
+.mini-strip .metric strong {
+  font-size: 1.35rem;
+}
+
 .atlas-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -1075,6 +1113,8 @@ tr:last-child td {
   .compact-route,
   .route-card-grid,
   .check-list,
+  .route-dashboard,
+  .mini-strip,
   .use-case-grid,
   .status-matrix {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1134,6 +1174,8 @@ tr:last-child td {
   .evidence-grid,
   .benchmark-preview,
   .check-list,
+  .route-dashboard,
+  .mini-strip,
   .filter-bar,
   .term-row,
   .dossier-grid,
