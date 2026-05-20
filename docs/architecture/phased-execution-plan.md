@@ -564,12 +564,15 @@ or documentation updates alone are insufficient.
     Vortex array build/write/digest/reopen-verify/scan, operator timing scope, and total runtime
     fields in the traditional benchmark row contract. The feature-gated `vortex_ingest` helper
     creates a scoped local `VortexPreparedState` and now computes artifact digests from in-memory
-    bytes instead of rereading the file solely for digest evidence. It remains intentionally narrow,
-    flat-scalar, local-only, and still performs proof-oriented reopen work that is not yet fully
-    tiered by certification depth.
-  - Next slice outcome: finish the optimization path by enforcing certification-depth policy,
-    splitting deeper source-to-columnar ingest work where feasible, promoting prepare-once reuse
-    across repeated certified workflows, and keeping benchmark/website interpretation aligned.
+    bytes instead of rereading the file solely for digest evidence. It also enforces
+    certification-depth policy for the prepare-once route: `ingest_minimal` records local artifact
+    bytes/digest and writer row-count evidence without reopen verification, `ingest_certified`
+    remains the default reopen/scan row-count proof, and `ingest_full_replay` fails closed until a
+    downstream output/result replay workflow supplies the required evidence. It remains
+    intentionally narrow, flat-scalar, local-only, and not a claim-grade or broad writer path.
+  - Next slice outcome: finish the optimization path by splitting deeper source-to-columnar ingest
+    work where feasible, promoting prepare-once reuse across repeated certified workflows, and
+    keeping benchmark/website interpretation aligned.
   - Runtime enablement: certified ingest/stage execution remains supported, while repeated
     workflows can certify or prepare once and then run `prepared_vortex` from
     `VortexPreparedState` without reinterpreting compatibility cold timing as query speed.

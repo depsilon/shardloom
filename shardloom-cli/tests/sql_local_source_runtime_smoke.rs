@@ -128,12 +128,17 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
     assert!(stdout.contains(&field("prepared_state_reuse_hit", "false")));
     assert!(stdout.contains(&field("timing_scope", "vortex_ingest_prepare_once")));
     assert!(stdout.contains(&field("certification_level", "ingest_certified")));
+    assert!(stdout.contains(&field("certification_status", "fixture_smoke_certified")));
     assert!(stdout.contains(&field("preparation_included_in_timing", "true")));
     assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
     assert!(stdout.contains("\"key\":\"vortex_digest_millis\""));
     assert!(stdout.contains(&field("input_row_count", "2")));
     assert!(stdout.contains(&field("writer_row_count", "2")));
     assert!(stdout.contains(&field("reopen_row_count", "2")));
+    assert!(stdout.contains(&field(
+        "reopen_verification_status",
+        "reopen_row_count_verified"
+    )));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
     assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
@@ -144,6 +149,116 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
 
     fs::remove_file(source_path).expect("remove source csv");
     fs::remove_file(target_path).expect("remove target vortex");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn vortex_ingest_smoke_minimal_certification_skips_reopen_scan() {
+    let source_path = unique_path("vortex-ingest-minimal-source", "csv");
+    let target_path = unique_path("vortex-ingest-minimal-target", "vortex");
+    fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n").expect("write source csv");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--allow-overwrite",
+            "--certification-level",
+            "ingest_minimal",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-ingest-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("certification_level", "ingest_minimal")));
+    assert!(stdout.contains(&field(
+        "certification_status",
+        "minimal_ingest_evidence_reported"
+    )));
+    assert!(stdout.contains(&field("writer_row_count", "2")));
+    assert!(stdout.contains(&field("reopen_row_count", "0")));
+    assert!(stdout.contains(&field(
+        "reopen_verification_status",
+        "not_performed_ingest_minimal"
+    )));
+    assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
+    assert!(stdout.contains(&field(
+        "native_io_certificate_status",
+        "minimal_local_vortex_ingest_digest_only"
+    )));
+    assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(target_path.exists());
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(target_path).expect("remove target vortex");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn vortex_ingest_smoke_full_replay_requires_output_replay_evidence() {
+    let source_path = unique_path("vortex-ingest-full-replay-source", "csv");
+    let target_path = unique_path("vortex-ingest-full-replay-target", "vortex");
+    fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n").expect("write source csv");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--certification-level",
+            "ingest_full_replay",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-ingest-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(
+        stdout.contains("ingest_full_replay requires downstream result replay/output evidence")
+    );
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(
+        !target_path.exists(),
+        "full replay blocker must not write {}",
+        target_path.display()
+    );
+
+    fs::remove_file(source_path).expect("remove source csv");
 }
 
 #[cfg(feature = "universal-format-io")]

@@ -138,8 +138,11 @@ fields.
 The first scoped prepare-once Vortex lifecycle is available through a feature-gated CLI/Python
 surface. Build the CLI with `--features vortex-write`, then call `ctx.prepare_vortex(...)` or
 `ShardLoomClient.vortex_ingest_smoke(...)` to admit a local flat non-null int/uint/float/UTF-8/date32/timestamp CSV/JSON/JSONL source,
-write a local `.vortex` artifact, reopen/scan it for row-count proof, and emit
-`VortexPreparedState` refs/digests:
+write a local `.vortex` artifact, and emit `VortexPreparedState` refs/digests. The default
+`certification_level="ingest_certified"` reopens/scans the artifact for row-count proof. The
+`ingest_minimal` level records artifact bytes/digest and writer evidence without reopening, and
+`ingest_full_replay` is blocked for this prepare-only helper because it requires downstream output
+replay evidence:
 
 ```powershell
 @"

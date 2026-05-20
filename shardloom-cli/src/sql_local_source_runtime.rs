@@ -848,6 +848,7 @@ struct VortexIngestRequest {
     source_path: PathBuf,
     target_path: PathBuf,
     allow_overwrite: bool,
+    certification_level: shardloom_vortex::VortexIngestCertificationLevel,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -966,20 +967,45 @@ pub(crate) fn handle_vortex_ingest_smoke(
 ) -> ExitCode {
     let Some(source_path_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--format text|json]"
+            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--format text|json]"
         );
         return ExitCode::from(2);
     };
     let Some(target_path_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--format text|json]"
+            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--format text|json]"
         );
         return ExitCode::from(2);
     };
     let mut allow_overwrite = false;
-    for arg in args {
+    let mut certification_level = shardloom_vortex::VortexIngestCertificationLevel::IngestCertified;
+    while let Some(arg) = args.next() {
         match arg.as_str() {
             "--allow-overwrite" => allow_overwrite = true,
+            "--certification-level" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        VORTEX_INGEST_COMMAND,
+                        format,
+                        "vortex_ingest smoke failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--certification-level requires ingest_minimal, ingest_certified, or ingest_full_replay".to_string(),
+                        ),
+                    );
+                };
+                certification_level =
+                    match shardloom_vortex::VortexIngestCertificationLevel::parse(&value) {
+                        Ok(level) => level,
+                        Err(error) => {
+                            return emit_error(
+                                VORTEX_INGEST_COMMAND,
+                                format,
+                                "vortex_ingest smoke failed",
+                                &error,
+                            );
+                        }
+                    };
+            }
             extra => {
                 return emit_error(
                     VORTEX_INGEST_COMMAND,
@@ -1007,6 +1033,7 @@ pub(crate) fn handle_vortex_ingest_smoke(
         source_path,
         target_path,
         allow_overwrite,
+        certification_level,
     };
 
     if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
@@ -1118,7 +1145,8 @@ fn run_vortex_ingest_smoke(
         source.header.clone(),
         rows,
     )
-    .allow_overwrite(request.allow_overwrite);
+    .allow_overwrite(request.allow_overwrite)
+    .certification_level(request.certification_level);
     let vortex_report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(vortex_request)?;
     let prepare_once_total_millis = prepare_start.elapsed().as_millis();
 
@@ -1160,6 +1188,48 @@ fn output_column_names(parsed: &ParsedSqlLocalSource, source: &CsvSourceData) ->
 #[allow(clippy::too_many_lines)]
 impl VortexIngestReport {
     fn fields(&self) -> Vec<(String, String)> {
+        let certified_reopen = self.request.certification_level
+            == shardloom_vortex::VortexIngestCertificationLevel::IngestCertified;
+        let certification_status = if certified_reopen {
+            "fixture_smoke_certified"
+        } else {
+            "minimal_ingest_evidence_reported"
+        };
+        let certification_blocker_id = if certified_reopen {
+            "not_claim_grade_fixture_smoke"
+        } else {
+            "not_claim_grade_ingest_minimal_no_reopen_or_replay"
+        };
+        let native_io_certificate_status = if certified_reopen {
+            "certified_local_vortex_ingest_smoke"
+        } else {
+            "minimal_local_vortex_ingest_digest_only"
+        };
+        let source_backed_scan_evidence_status = if certified_reopen {
+            "scoped_reopen_row_count_scan"
+        } else {
+            "not_performed_ingest_minimal"
+        };
+        let source_backed_scan_provider_kind = if certified_reopen {
+            "vortex_scan"
+        } else {
+            "not_invoked"
+        };
+        let source_backed_scan_provider_surface = if certified_reopen {
+            "VortexFile::scan"
+        } else {
+            "not_invoked"
+        };
+        let claim_gate_status = if certified_reopen {
+            "fixture_smoke_only"
+        } else {
+            "not_claim_grade"
+        };
+        let claim_gate_reason = if certified_reopen {
+            "one_scoped_local_vortex_ingest_prepare_once_smoke"
+        } else {
+            "ingest_minimal_records_artifact_digest_without_reopen_or_result_replay"
+        };
         vec![
             (
                 "schema_version".to_string(),
@@ -1205,7 +1275,7 @@ impl VortexIngestReport {
             ("ingress_status".to_string(), "smoke_supported".to_string()),
             (
                 "ingress_certification_level".to_string(),
-                "fixture_smoke".to_string(),
+                self.vortex_report.certification_level.clone(),
             ),
             ("vortex_ingest_performed".to_string(), "true".to_string()),
             (
@@ -1233,15 +1303,18 @@ impl VortexIngestReport {
             ),
             (
                 "certification_policy".to_string(),
-                "scoped_vortex_ingest_lifecycle_smoke".to_string(),
+                format!(
+                    "scoped_vortex_ingest_lifecycle_{}",
+                    self.vortex_report.certification_level
+                ),
             ),
             (
                 "certification_status".to_string(),
-                "fixture_smoke_certified".to_string(),
+                certification_status.to_string(),
             ),
             (
                 "certification_blocker_id".to_string(),
-                "not_claim_grade_fixture_smoke".to_string(),
+                certification_blocker_id.to_string(),
             ),
             (
                 "source_path".to_string(),
@@ -1420,20 +1493,24 @@ impl VortexIngestReport {
                 self.vortex_report.reopen_row_count.to_string(),
             ),
             (
+                "reopen_verification_status".to_string(),
+                self.vortex_report.reopen_verification_status.clone(),
+            ),
+            (
                 "vortex_artifact_bytes".to_string(),
                 self.vortex_report.bytes_written.to_string(),
             ),
             (
                 "source_backed_scan_evidence_status".to_string(),
-                "scoped_reopen_row_count_scan".to_string(),
+                source_backed_scan_evidence_status.to_string(),
             ),
             (
                 "source_backed_scan_provider_kind".to_string(),
-                "vortex_scan".to_string(),
+                source_backed_scan_provider_kind.to_string(),
             ),
             (
                 "source_backed_scan_provider_surface".to_string(),
-                "VortexFile::scan".to_string(),
+                source_backed_scan_provider_surface.to_string(),
             ),
             (
                 "source_backed_scan_rows_scanned".to_string(),
@@ -1454,7 +1531,7 @@ impl VortexIngestReport {
             ),
             (
                 "native_io_certificate_status".to_string(),
-                "certified_local_vortex_ingest_smoke".to_string(),
+                native_io_certificate_status.to_string(),
             ),
             (
                 "output_native_io_certificate_status".to_string(),
@@ -1477,11 +1554,11 @@ impl VortexIngestReport {
             ("external_engine_invoked".to_string(), "false".to_string()),
             (
                 "claim_gate_status".to_string(),
-                "fixture_smoke_only".to_string(),
+                claim_gate_status.to_string(),
             ),
             (
                 "claim_gate_reason".to_string(),
-                "one_scoped_local_vortex_ingest_prepare_once_smoke".to_string(),
+                claim_gate_reason.to_string(),
             ),
             ("performance_claim_allowed".to_string(), "false".to_string()),
             ("production_claim_allowed".to_string(), "false".to_string()),
@@ -1498,12 +1575,14 @@ impl VortexIngestReport {
 
     fn to_text(&self) -> String {
         format!(
-            "ShardLoom vortex_ingest smoke\nsource: {}\ntarget: {}\nsource format: {}\nrows prepared: {}\ncolumns: {}\nVortex write/reopen/scan: true\nprepared state: {}\nfallback execution: disabled",
+            "ShardLoom vortex_ingest smoke\nsource: {}\ntarget: {}\nsource format: {}\nrows prepared: {}\ncolumns: {}\ncertification level: {}\nreopen verification: {}\nprepared state: {}\nfallback execution: disabled",
             self.request.source_path.display(),
             self.request.target_path.display(),
             self.source.source_format.as_str(),
             self.vortex_report.row_count,
             self.source.header.join(","),
+            self.vortex_report.certification_level,
+            self.vortex_report.reopen_verification_status,
             self.prepared_state_id
         )
     }
@@ -1540,6 +1619,14 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
         ("vortex_ingest_performed".to_string(), "false".to_string()),
         (
             "vortex_ingest_status".to_string(),
+            "blocked_feature_gate".to_string(),
+        ),
+        (
+            "certification_level".to_string(),
+            request.certification_level.as_str().to_string(),
+        ),
+        (
+            "certification_status".to_string(),
             "blocked_feature_gate".to_string(),
         ),
         (
