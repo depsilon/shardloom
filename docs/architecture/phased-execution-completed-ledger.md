@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E generated-source feature-gated structured output sinks
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-generated-structured-outputs-4e` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime`
+    - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`
+    - Use Case Atlas source-free generated-output boundary
+    - Python generated-source context/query-builder APIs
+  - Scope:
+    - Extended source-free generated-output runtime beyond JSONL/CSV to feature-gated flat scalar
+      Parquet, Arrow IPC, Avro, and ORC local sinks for user rows, literal tables, calendar rows,
+      engine-native range/sequence, SQL `VALUES`, SQL literal `SELECT`, and SQL
+      `generate_series`/`range` smokes.
+    - Reused the existing `universal-format-io` flat scalar encoder registry; default builds now
+      parse the structured output formats but fail closed with deterministic blockers that instruct
+      users to build `shardloom-cli` with `--features universal-format-io`.
+    - Added Python `GeneratedRowsSource`, `GeneratedRangeSource`, and `GeneratedSqlSource`
+      `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`, and `write_orc(...)`
+      helpers that lower to the generated-source CLI smokes.
+    - Made generated-source materialization boundaries and Native I/O certificate statuses
+      format-specific for JSONL, CSV, Parquet, Arrow IPC, Avro, and ORC.
+    - Updated generated-output status/capability rows, Python README, use-case index, and phase-plan
+      current state to distinguish default JSONL/CSV support from feature-gated structured sinks.
+  - User-visible surface:
+    - CLI `generated-source-user-rows-smoke`, `generated-source-range-smoke`,
+      `generated-source-sequence-smoke`, and `generated-source-sql-smoke`; Python
+      `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`, `ctx.range`, `ctx.sequence`,
+      `ctx.sql_values`, `ctx.sql_literal_select`, and source-free `ctx.sql(...).write(...)`.
+  - Evidence:
+    - Rows emit `output_format`, format-specific `materialization_boundary`,
+      `output_native_io_certificate_status`, generated-source digests, output digests,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+    - Default-build structured sink attempts emit an error envelope with fallback attempted/allowed
+      set to false and no sink artifact written.
+  - Verification:
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke -- --nocapture`
+    - `cargo test -p shardloom-cli --features universal-format-io --test generated_source_runtime_smoke generated_source_smokes_write_feature_gated_structured_outputs -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_generated_source_structured_output_helpers_invoke_generated_source_smokes python.tests.test_query_builder.LazyWorkflowBuilderTests.test_generated_source_write_csv_helpers_invoke_generated_source_smokes`
+    - Broader checks are recorded with the PR before merge.
+  - Non-goals:
+    - No Vortex generated-output sink, object-store write, Foundry production claim, broad
+      SQL/DataFrame runtime, package publication, performance claim, nested/complex structured
+      type fidelity claim, or external fallback engine.
+  - Claim boundary:
+    - Local deterministic generated-output fixture smoke only; structured sinks are flat scalar and
+      feature-gated.
+  - Fallback boundary:
+    - Generated rows and output serialization remain ShardLoom-native. External engines are not
+      invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4E` open until Vortex generated-output admission, broader
+      generated-expression coverage, and claim-grade replay/fidelity evidence are complete.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D direct SQL/Python negated predicate runtime slice
   - Date: 2026-05-20
   - Branch/PR: `runtime-negated-predicates-4d` / pending.

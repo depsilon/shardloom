@@ -1141,28 +1141,34 @@ The contract separates three cases:
 - `user_generated_source`: scoped local user rows, literal tables, calendar/date dimensions, and
   generated-row projection/literal `with_column` are supported for JSONL/CSV fixture-smoke writes
   through `ctx.from_rows(...).write(...)`, `ctx.from_rows(...).with_column(...).select(...).write(...)`,
-  `ctx.literal_table(...).write(...)`, and `ctx.calendar(...).write(...)`; broader
-  generated-source APIs remain report-only.
+  `ctx.literal_table(...).write(...)`, and `ctx.calendar(...).write(...)`; feature-gated flat scalar
+  Parquet/Arrow IPC/Avro/ORC local sinks are available through `write_parquet(...)`,
+  `write_arrow_ipc(...)`, `write_avro(...)`, and `write_orc(...)` when the CLI is built with
+  `--features universal-format-io`; broader generated-source APIs remain report-only.
 - `engine_native_generated_source`: scoped local `range`, `sequence`, and SQL
   `generate_series`/`range` JSONL/CSV fixture smokes are supported through
   `ctx.range(...).write(...)`, `ctx.sequence(...).write(...)`, and
-  `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`; engine-native `values`
-  and deterministic synthetic profiles remain report-only.
+  `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`; the same feature-gated flat
+  scalar structured sinks are available through the generated-source write helpers. Engine-native
+  `values` and deterministic synthetic profiles remain report-only.
 
-Source-free SQL `VALUES` and literal `SELECT` are runtime-supported only as local JSONL/CSV fixture
-smokes. Broad SQL execution and broad DataFrame expression execution are not runtime-supported yet.
+Source-free SQL `VALUES` and literal `SELECT` are runtime-supported as local JSONL/CSV fixture
+smokes, plus feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC local sinks. Broad SQL execution
+and broad DataFrame expression execution are not runtime-supported yet.
 Current
 source-free API admission rows classify:
 
 - `python_ctx_from_rows`, `python_ctx_literal_table`, `python_ctx_calendar`,
   `python_ctx_range`, `python_ctx_sequence`, and `python_generated_source_write`
-  as `fixture_smoke_supported` only for scoped local JSONL/CSV generated-output
-  smokes with generated-source and output evidence. `GeneratedRowsSource.select(...)` and
+  as `fixture_smoke_supported` only for scoped local JSONL/CSV and feature-gated flat scalar
+  Parquet/Arrow IPC/Avro/ORC generated-output smokes with generated-source and output evidence.
+  `GeneratedRowsSource.select(...)` and
   `GeneratedRowsSource.with_column(...)` are scoped Python conveniences over the user-row,
   literal-table, and calendar rows before that same write path.
 - SQL literal `SELECT`, SQL `VALUES`, and SQL `generate_series`/`range`
-  as `fixture_smoke_supported` only for scoped local JSONL/CSV source-free generated-output smokes with
-  generated-source and output evidence.
+  as `fixture_smoke_supported` only for scoped local JSONL/CSV and feature-gated flat scalar
+  Parquet/Arrow IPC/Avro/ORC source-free generated-output smokes with generated-source and output
+  evidence.
 - SQL source-free projection, broad DataFrame source-free projection, and expression-backed
   generated `with_column` forms as `report_only` with deterministic blocker IDs.
 
@@ -1183,9 +1189,11 @@ Generated-output runtime must report
 `fallback_attempted=false`, `external_engine_invoked=false`, and
 `claim_gate_status`. The current user-row, transformed user-row, literal-table, calendar, range,
 sequence, SQL `VALUES`, SQL literal `SELECT`, and SQL `generate_series`/`range` paths report
-`claim_gate_status=fixture_smoke_only` in their scoped local JSONL/CSV lanes. S3/object-store writes
-remain report-only/gated, and Foundry generated-output smoke must go through Foundry output APIs
-rather than direct S3 paths.
+`claim_gate_status=fixture_smoke_only` in their scoped local JSONL/CSV lanes and feature-gated flat
+scalar Parquet/Arrow IPC/Avro/ORC lanes. Default binaries return deterministic blockers for those
+structured sinks until built with `--features universal-format-io`. S3/object-store writes remain
+report-only/gated, and Foundry generated-output smoke must go through Foundry output APIs rather
+than direct S3 paths.
 
 The Python context also exposes deterministic unsupported report helpers for the
 remaining source-free forms. These helpers do not execute a DataFrame plan, generate rows, write
