@@ -29,8 +29,6 @@ const forbiddenRuntimeText = [
   "raw.githubusercontent.com",
   "pagefind",
   "pagefind-modal",
-  "Field Guide",
-  "Use Case Atlas",
 ];
 
 function assert(condition, message) {
@@ -109,7 +107,23 @@ for (const file of htmlFiles) {
 }
 
 const index = read("index.html");
-assert(index.includes("Evidence-first compute over Vortex data."), "home page hero must stay concise");
+assert(
+  index.includes("Evidence-gated compute over Vortex-prepared data."),
+  "home page hero must use evidence-gated route language",
+);
+for (const required of [
+  "UniversalIngress",
+  "vortex_ingest",
+  "VortexPreparedState",
+  "fallback_attempted",
+  "external_engine_invoked",
+  "claim_gate_status",
+  "Start local proof",
+  "Read Field Guide",
+  "View benchmark evidence",
+]) {
+  assert(index.includes(required), `home page product console missing ${required}`);
+}
 assert(index.includes("Open GitHub"), "home page must link to GitHub");
 
 const benchmarks = read("benchmarks.html");

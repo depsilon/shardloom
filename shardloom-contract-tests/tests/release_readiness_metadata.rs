@@ -3009,7 +3009,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let generator = read_repo_file("website/build_static_pages.py");
     for required in [
-        "Build the minimal ShardLoom public website",
+        "Build the ShardLoom public website",
+        "light-mode evidence-console surface",
         "Repo docs remain in the repository",
         "WEBSITE / \"benchmarks\" / \"index.html\"",
         "WEBSITE / \"compute-engine-flow\" / \"index.html\"",
@@ -3025,14 +3026,20 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let benchmarks = read_repo_file("website/benchmarks.html");
     let flow = read_repo_file("website/compute-engine-flow.html");
     for required in [
-        "Evidence-first compute over Vortex data.",
-        "Read benchmark evidence",
-        "Understand compute flow",
+        "Evidence-gated compute over Vortex-prepared data.",
+        "Start local proof",
+        "Read Field Guide",
+        "View benchmark evidence",
+        "UniversalIngress",
+        "vortex_ingest",
+        "fallback_attempted",
+        "external_engine_invoked",
+        "claim_gate_status",
         "Open GitHub",
     ] {
         assert!(
             index.contains(required),
-            "missing minimal home field {required}"
+            "missing redesigned home field {required}"
         );
     }
     for required in [
@@ -3080,7 +3087,7 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     for required in [
         "shardloom.website_readiness.minimal.v1",
         "REMOVED_WEBSITE_SURFACES",
-        "runtime file still references retired atlas content",
+        "removed public website surface still exists",
         "runtime file still references Pagefind",
     ] {
         assert!(

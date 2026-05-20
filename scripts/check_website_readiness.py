@@ -248,8 +248,6 @@ def main() -> int:
             blockers.append(f"runtime file references forbidden host {host}: {relative}")
         if "pagefind" in text.lower():
             blockers.append(f"runtime file still references Pagefind: {relative}")
-        if "Use Case Atlas" in text or "Field Guide" in text:
-            blockers.append(f"runtime file still references retired atlas content: {relative}")
 
     report: dict[str, Any] = {
         "schema_version": "shardloom.website_readiness.minimal.v1",
