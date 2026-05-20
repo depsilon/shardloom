@@ -3311,12 +3311,10 @@ def _is_source_free_sql_generator_statement(statement: str) -> bool:
     if not _starts_with_sql_keyword(statement, "select"):
         return False
     select_body = statement[len("select") :].strip()
-    if not select_body.startswith("*"):
+    from_position = _find_sql_keyword_outside_quotes(select_body, "from")
+    if from_position is None:
         return False
-    after_star = select_body[1:].strip()
-    if not _starts_with_sql_keyword(after_star, "from"):
-        return False
-    source_ref = after_star[len("from") :].strip().lower()
+    source_ref = select_body[from_position + len("from") :].strip().lower()
     return (
         source_ref.startswith("generate_series(")
         or source_ref.startswith("generate_series (")
@@ -3491,6 +3489,10 @@ def _starts_with_sql_keyword(statement: str, keyword: str) -> bool:
 
 
 def _contains_sql_keyword_outside_quotes(statement: str, keyword: str) -> bool:
+    return _find_sql_keyword_outside_quotes(statement, keyword) is not None
+
+
+def _find_sql_keyword_outside_quotes(statement: str, keyword: str) -> int | None:
     lower = statement.lower()
     needle = keyword.lower()
     in_quote = False
@@ -3509,9 +3511,9 @@ def _contains_sql_keyword_outside_quotes(statement: str, keyword: str) -> bool:
             after_index = index + len(needle)
             after = statement[after_index] if after_index < len(statement) else ""
             if not _is_identifier_char(before) and not _is_identifier_char(after):
-                return True
+                return index
         index += 1
-    return False
+    return None
 
 
 def _is_identifier_char(char: str) -> bool:

@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E scoped SQL range-generator projection runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-generated-sql-range-projection-4e` / #869.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime`
+    - Source-free SQL `generate_series(...)` / `range(...)` generated-output smokes
+    - Python query-builder source-free SQL routing.
+  - Scope:
+    - Extended `generated-source-sql-smoke` from `SELECT * FROM generate_series/range(...)` to
+      scoped projected `SELECT` lists over the generated `value` column.
+    - Admitted source-column projections, int64 literal projections, and checked `value +/-/* int64`
+      projections when computed expressions use explicit `AS` aliases.
+    - Added deterministic no-fallback blockers for unsupported functions, aggregates, subqueries,
+      unaliased computed expressions, duplicate output names, unknown columns, and unsupported
+      expression shapes.
+    - Added Python source-free SQL detection and typed report accessors for projection evidence.
+    - Updated capability/status metadata, Use Case Atlas content, compute-flow docs, generated
+      website data, and runtime plan text to show the newly admitted scoped projection runtime.
+  - Evidence:
+    - `generated_sql_runtime_execution=true`,
+      `sql_source_free_projection_runtime_execution=true`,
+      `sql_source_free_projection_source_column=value`, projected column names, projected
+      expression labels, output row counts, `generated_source_certificate_status`, local output
+      certificate fields, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust generated-source SQL smoke tests for projected range writes and unsupported
+      projection blockers.
+    - Focused Python query-builder/client tests for source-free SQL routing and typed projection
+      evidence accessors.
+    - Use Case Atlas index/coverage checks, website sync/build/check/postbuild/readiness/static
+      validation, release-readiness metadata, traditional benchmark harness, cargo fmt, clippy,
+      full workspace tests, Python compileall, and `git diff --check`.
+  - Claim boundary:
+    - Scoped local source-free SQL range-generator projection fixture smoke only. This is not broad
+      SQL/DataFrame runtime, arbitrary source-free projection support, production generated-output
+      support, object-store/Foundry output, performance evidence, or claim-grade compute.
+  - Fallback boundary:
+    - Projections execute through ShardLoom-native generated-source runtime logic. External engines
+      remain baseline/oracle-only and are not invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL null-predicate runtime hardening
   - Date: 2026-05-20
   - Branch/PR: `runtime-null-predicate-hardening-4d` / #868.

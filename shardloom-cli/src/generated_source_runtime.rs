@@ -411,6 +411,19 @@ struct GeneratedSqlRangeMetadata {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedSqlProjectionMetadata {
+    source_column: String,
+    columns: Vec<String>,
+    expressions: Vec<String>,
+}
+
+type ProjectedSqlRangeRows = (
+    Vec<GeneratedColumn>,
+    Vec<GeneratedRow>,
+    Option<GeneratedSqlProjectionMetadata>,
+);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct GeneratedSqlSmokeRequest {
     output_path: PathBuf,
     output_format: GeneratedOutputFormat,
@@ -419,6 +432,7 @@ struct GeneratedSqlSmokeRequest {
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
     range: Option<GeneratedSqlRangeMetadata>,
+    projection: Option<GeneratedSqlProjectionMetadata>,
     allow_overwrite: bool,
 }
 
@@ -431,6 +445,7 @@ struct GeneratedSqlSmokeReport {
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
     range: Option<GeneratedSqlRangeMetadata>,
+    projection: Option<GeneratedSqlProjectionMetadata>,
     output_bytes: u64,
     output_digest: String,
     schema_digest: String,
@@ -1309,6 +1324,7 @@ impl GeneratedSqlSmokeRequest {
             schema: parsed.schema,
             rows: parsed.rows,
             range: parsed.range,
+            projection: parsed.projection,
             allow_overwrite,
         })
     }
@@ -1482,6 +1498,26 @@ impl GeneratedSqlSmokeReport {
                 ),
             ]);
         }
+        if let Some(projection) = &self.projection {
+            fields.extend([
+                (
+                    "sql_source_free_projection_runtime_execution".to_string(),
+                    "true".to_string(),
+                ),
+                (
+                    "sql_source_free_projection_source_column".to_string(),
+                    projection.source_column.clone(),
+                ),
+                (
+                    "sql_source_free_projection_columns".to_string(),
+                    projection.columns.join(","),
+                ),
+                (
+                    "sql_source_free_projection_expressions".to_string(),
+                    projection.expressions.join(","),
+                ),
+            ]);
+        }
         fields
     }
 
@@ -1598,6 +1634,7 @@ fn run_generated_sql_smoke(
         schema: request.schema.clone(),
         rows: request.rows.clone(),
         range: request.range.clone(),
+        projection: request.projection.clone(),
         output_bytes: write_report.output_bytes,
         output_digest: write_report.output_digest,
         schema_digest: fnv64_digest(&schema_text),
@@ -1925,6 +1962,7 @@ struct ParsedSourceFreeSql {
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
     range: Option<GeneratedSqlRangeMetadata>,
+    projection: Option<GeneratedSqlProjectionMetadata>,
 }
 
 fn parse_source_free_sql(raw: &str) -> Result<ParsedSourceFreeSql, ShardLoomError> {
@@ -1992,6 +2030,7 @@ fn parse_sql_literal_select(statement: &str) -> Result<ParsedSourceFreeSql, Shar
         schema,
         rows: vec![GeneratedRow { values }],
         range: None,
+        projection: None,
     })
 }
 
@@ -2064,6 +2103,7 @@ fn parse_sql_values(statement: &str) -> Result<ParsedSourceFreeSql, ShardLoomErr
         schema,
         rows,
         range: None,
+        projection: None,
     })
 }
 
@@ -2071,23 +2111,43 @@ fn parse_sql_generate_series_range(
     statement: &str,
 ) -> Result<Option<ParsedSourceFreeSql>, ShardLoomError> {
     let select_body = statement["SELECT".len()..].trim();
-    let Some(after_star) = select_body.strip_prefix('*') else {
+    let Some((select_list, source_ref)) = split_sql_select_from_clause(select_body)? else {
         return Ok(None);
     };
-    let after_star = after_star.trim();
-    if !keyword_prefix(after_star, "FROM") {
-        return Ok(None);
-    }
-    let source_ref = after_star["FROM".len()..].trim();
     let Some(range) = parse_sql_range_function_ref(source_ref)? else {
         return Ok(None);
     };
-    let schema = vec![GeneratedColumn {
-        name: range.column_name.clone(),
-        value_type: GeneratedValueType::Int64,
-    }];
-    let rows = if range.end_inclusive {
-        generated_inclusive_series_rows(range.start, range.end, range.step)?
+    let base_rows = generated_sql_range_rows(&range)?;
+    let (schema, rows, projection) = project_sql_range_rows(select_list, &range, &base_rows)?;
+    Ok(Some(ParsedSourceFreeSql {
+        statement: statement.to_string(),
+        source_kind: SqlGeneratedSourceKind::GenerateSeriesRange,
+        schema,
+        rows,
+        range: Some(range),
+        projection,
+    }))
+}
+
+fn split_sql_select_from_clause(raw: &str) -> Result<Option<(&str, &str)>, ShardLoomError> {
+    let Some(position) = find_keyword_outside_quotes_and_parens(raw, "FROM") else {
+        return Ok(None);
+    };
+    let select_list = raw[..position].trim();
+    let source_ref = raw[position + "FROM".len()..].trim();
+    if select_list.is_empty() || source_ref.is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL source-free range projection requires both a SELECT list and a generator source",
+        ));
+    }
+    Ok(Some((select_list, source_ref)))
+}
+
+fn generated_sql_range_rows(
+    range: &GeneratedSqlRangeMetadata,
+) -> Result<Vec<GeneratedRow>, ShardLoomError> {
+    if range.end_inclusive {
+        generated_inclusive_series_rows(range.start, range.end, range.step)
     } else {
         let row_count = range_row_count(range.start, range.end, range.step)?;
         if row_count > MAX_SQL_GENERATED_ROWS {
@@ -2095,15 +2155,181 @@ fn parse_sql_generate_series_range(
                 "generated-source SQL row count {row_count} exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}"
             )));
         }
-        generated_range_rows(range.start, range.end, range.step)?
-    };
-    Ok(Some(ParsedSourceFreeSql {
-        statement: statement.to_string(),
-        source_kind: SqlGeneratedSourceKind::GenerateSeriesRange,
-        schema,
+        generated_range_rows(range.start, range.end, range.step)
+    }
+}
+
+fn project_sql_range_rows(
+    select_list: &str,
+    range: &GeneratedSqlRangeMetadata,
+    base_rows: &[GeneratedRow],
+) -> Result<ProjectedSqlRangeRows, ShardLoomError> {
+    if select_list == "*" {
+        return Ok((
+            vec![GeneratedColumn {
+                name: range.column_name.clone(),
+                value_type: GeneratedValueType::Int64,
+            }],
+            base_rows.to_vec(),
+            None,
+        ));
+    }
+
+    let items = split_sql_csv(select_list)?;
+    let mut projection = Vec::with_capacity(items.len());
+    let mut schema = Vec::with_capacity(items.len());
+    let mut expression_labels = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        let (raw_expression, mut alias, explicit_alias) =
+            split_select_alias_with_explicit(item, index + 1)?;
+        let expression = parse_sql_range_projection_expression(raw_expression, &range.column_name)?;
+        if !explicit_alias {
+            if expression == SqlRangeProjectionExpression::Column {
+                alias.clone_from(&range.column_name);
+            } else {
+                return Err(unsupported_sql_error(
+                    "SQL source-free range computed projections require an explicit AS alias",
+                ));
+            }
+        }
+        if schema
+            .iter()
+            .any(|column: &GeneratedColumn| column.name == alias)
+        {
+            return Err(unsupported_sql_error(
+                "SQL source-free range projection aliases must be unique",
+            ));
+        }
+        expression_labels.push(expression.evidence_label(&range.column_name));
+        projection.push(expression);
+        schema.push(GeneratedColumn {
+            name: alias,
+            value_type: GeneratedValueType::Int64,
+        });
+    }
+
+    let mut rows = Vec::with_capacity(base_rows.len());
+    for row in base_rows {
+        let source_value = row
+            .values
+            .first()
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "SQL source-free range projection internal row is missing its source value"
+                        .to_string(),
+                )
+            })?
+            .parse::<i64>()
+            .map_err(|_| {
+                ShardLoomError::InvalidOperation(
+                    "SQL source-free range projection internal row has a non-int64 value"
+                        .to_string(),
+                )
+            })?;
+        let values = projection
+            .iter()
+            .map(|expression| {
+                expression
+                    .evaluate(source_value)
+                    .map(|value| value.to_string())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        rows.push(GeneratedRow { values });
+    }
+
+    Ok((
+        schema.clone(),
         rows,
-        range: Some(range),
-    }))
+        Some(GeneratedSqlProjectionMetadata {
+            source_column: range.column_name.clone(),
+            columns: schema.into_iter().map(|column| column.name).collect(),
+            expressions: expression_labels,
+        }),
+    ))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SqlRangeProjectionExpression {
+    Column,
+    Literal(i64),
+    Add(i64),
+    Subtract(i64),
+    Multiply(i64),
+}
+
+impl SqlRangeProjectionExpression {
+    fn evaluate(self, source_value: i64) -> Result<i64, ShardLoomError> {
+        match self {
+            Self::Column => Ok(source_value),
+            Self::Literal(value) => Ok(value),
+            Self::Add(rhs) => source_value.checked_add(rhs).ok_or_else(|| {
+                unsupported_sql_error("SQL source-free range projection addition overflowed int64")
+            }),
+            Self::Subtract(rhs) => source_value.checked_sub(rhs).ok_or_else(|| {
+                unsupported_sql_error(
+                    "SQL source-free range projection subtraction overflowed int64",
+                )
+            }),
+            Self::Multiply(rhs) => source_value.checked_mul(rhs).ok_or_else(|| {
+                unsupported_sql_error(
+                    "SQL source-free range projection multiplication overflowed int64",
+                )
+            }),
+        }
+    }
+
+    fn evidence_label(self, source_column: &str) -> String {
+        match self {
+            Self::Column => source_column.to_string(),
+            Self::Literal(value) => format!("literal_int64({value})"),
+            Self::Add(rhs) => format!("{source_column}+{rhs}"),
+            Self::Subtract(rhs) => format!("{source_column}-{rhs}"),
+            Self::Multiply(rhs) => format!("{source_column}*{rhs}"),
+        }
+    }
+}
+
+fn parse_sql_range_projection_expression(
+    raw: &str,
+    source_column: &str,
+) -> Result<SqlRangeProjectionExpression, ShardLoomError> {
+    let expression = raw.trim();
+    if expression.is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL source-free range projection expression must not be empty",
+        ));
+    }
+    if contains_outside_quotes(expression, '(')
+        || contains_outside_quotes(expression, ')')
+        || expression.contains('\'')
+    {
+        return Err(unsupported_sql_error(
+            "SQL source-free range projection admits only the range column, int64 literals, and range-column +/-/* int64 expressions",
+        ));
+    }
+    if let Some(rest) = strip_sql_identifier_prefix(expression, source_column) {
+        let rest = rest.trim();
+        if rest.is_empty() {
+            return Ok(SqlRangeProjectionExpression::Column);
+        }
+        let (operator, rhs_raw) = rest.split_at(1);
+        let rhs = parse_sql_range_i64("projection literal", rhs_raw.trim())?;
+        return match operator {
+            "+" => Ok(SqlRangeProjectionExpression::Add(rhs)),
+            "-" => Ok(SqlRangeProjectionExpression::Subtract(rhs)),
+            "*" => Ok(SqlRangeProjectionExpression::Multiply(rhs)),
+            _ => Err(unsupported_sql_error(
+                "SQL source-free range projection admits only +, -, and * int64 arithmetic over the range column",
+            )),
+        };
+    }
+    parse_sql_range_i64("projection literal", expression)
+        .map(SqlRangeProjectionExpression::Literal)
+        .map_err(|_| {
+            unsupported_sql_error(
+                "SQL source-free range projection admits only the range column, int64 literals, and range-column +/-/* int64 expressions",
+            )
+        })
 }
 
 fn parse_sql_range_function_ref(
@@ -2410,6 +2636,14 @@ fn parse_values_tuples(raw: &str) -> Result<Vec<Vec<String>>, ShardLoomError> {
 }
 
 fn split_select_alias(item: &str, column_index: usize) -> Result<(&str, String), ShardLoomError> {
+    let (expression, alias, _explicit) = split_select_alias_with_explicit(item, column_index)?;
+    Ok((expression, alias))
+}
+
+fn split_select_alias_with_explicit(
+    item: &str,
+    column_index: usize,
+) -> Result<(&str, String, bool), ShardLoomError> {
     let mut as_position = None;
     let bytes = item.as_bytes();
     let mut in_quote = false;
@@ -2452,9 +2686,9 @@ fn split_select_alias(item: &str, column_index: usize) -> Result<(&str, String),
             ));
         }
         validate_sql_identifier(alias)?;
-        Ok((literal, alias.to_string()))
+        Ok((literal, alias.to_string(), true))
     } else {
-        Ok((item.trim(), format!("column_{column_index}")))
+        Ok((item.trim(), format!("column_{column_index}"), false))
     }
 }
 
@@ -2555,9 +2789,14 @@ fn validate_sql_identifier(value: &str) -> Result<(), ShardLoomError> {
 }
 
 fn contains_keyword_outside_quotes(raw: &str, keyword: &str) -> bool {
+    find_keyword_outside_quotes_and_parens(raw, keyword).is_some()
+}
+
+fn find_keyword_outside_quotes_and_parens(raw: &str, keyword: &str) -> Option<usize> {
     let keyword_bytes = keyword.as_bytes();
     let bytes = raw.as_bytes();
     let mut in_quote = false;
+    let mut paren_depth = 0_i32;
     let mut index = 0;
     while index < bytes.len() {
         match bytes[index] {
@@ -2568,7 +2807,10 @@ fn contains_keyword_outside_quotes(raw: &str, keyword: &str) -> bool {
                 }
                 in_quote = !in_quote;
             }
+            b'(' if !in_quote => paren_depth += 1,
+            b')' if !in_quote && paren_depth > 0 => paren_depth -= 1,
             _ if !in_quote
+                && paren_depth == 0
                 && index + keyword_bytes.len() <= bytes.len()
                 && bytes[index..index + keyword_bytes.len()]
                     .eq_ignore_ascii_case(keyword_bytes) =>
@@ -2578,14 +2820,14 @@ fn contains_keyword_outside_quotes(raw: &str, keyword: &str) -> bool {
                 let after_ok =
                     after_index >= bytes.len() || !bytes[after_index].is_ascii_alphanumeric();
                 if before_ok && after_ok {
-                    return true;
+                    return Some(index);
                 }
             }
             _ => {}
         }
         index += 1;
     }
-    false
+    None
 }
 
 fn contains_outside_quotes(raw: &str, needle: char) -> bool {

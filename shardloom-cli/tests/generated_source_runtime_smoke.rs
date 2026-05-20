@@ -1025,6 +1025,72 @@ fn sql_smoke_writes_generate_series_and_range_jsonl() {
 }
 
 #[test]
+fn sql_smoke_writes_generate_series_projection_jsonl() {
+    let output_path = unique_output_path("generated-sql-range-projection");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "SELECT value AS id, value + 10 AS shifted, value * 2 AS doubled FROM range(2, 5)",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(
+        written,
+        "{\"id\":2,\"shifted\":12,\"doubled\":4}\n{\"id\":3,\"shifted\":13,\"doubled\":6}\n{\"id\":4,\"shifted\":14,\"doubled\":8}\n"
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("sql_statement_kind", "sql_generate_series_range")));
+    assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
+    assert!(stdout.contains(&field("generated_source_range_start", "2")));
+    assert!(stdout.contains(&field("generated_source_range_end", "5")));
+    assert!(stdout.contains(&field("generated_source_range_step", "1")));
+    assert!(stdout.contains(&field("generated_source_range_column", "value")));
+    assert!(stdout.contains(&field(
+        "sql_source_free_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field("sql_source_free_projection_source_column", "value")));
+    assert!(stdout.contains(&field(
+        "sql_source_free_projection_columns",
+        "id,shifted,doubled"
+    )));
+    assert!(stdout.contains(&field(
+        "sql_source_free_projection_expressions",
+        "value,value+10,value*2"
+    )));
+    assert!(stdout.contains(&field("generated_source_row_count", "3")));
+    assert!(stdout.contains(&field("generated_source_certificate_status", "present")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_file_sink"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
 fn sql_smoke_blocks_unadmitted_generate_series_forms() {
     for (name, statement, expected_error) in [
         (
@@ -1039,8 +1105,13 @@ fn sql_smoke_blocks_unadmitted_generate_series_forms() {
         ),
         (
             "generated-sql-generate-series-project",
-            "SELECT value FROM generate_series(1, 5)",
-            "does not admit FROM clauses",
+            "SELECT value + 1 FROM generate_series(1, 5)",
+            "computed projections require an explicit AS alias",
+        ),
+        (
+            "generated-sql-generate-series-aggregate",
+            "SELECT SUM(value) AS total FROM generate_series(1, 5)",
+            "range projection admits only the range column",
         ),
     ] {
         let output_path = unique_output_path(name);

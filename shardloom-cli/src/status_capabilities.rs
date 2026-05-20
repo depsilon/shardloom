@@ -1191,9 +1191,9 @@ const GENERATED_OUTPUT_COMPATIBILITY_ROWS: &[GeneratedOutputCompatibilityRow] = 
         output_native_io_certificate_status: "required_for_runtime_output",
         generated_source_certificate_status: "required_for_runtime",
         blocker_id: "none_scoped_local_sql_generate_series_range_jsonl_csv_structured_smoke_only",
-        required_evidence: "sql_parser,sql_binder,sql_table_function_contract,range_generator_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
+        required_evidence: "sql_parser,sql_binder,sql_table_function_contract,range_generator_semantics,scoped_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
         claim_gate_status: "fixture_smoke_only",
-        claim_boundary: "SQL generate_series/range is admitted only for SELECT * FROM generate_series/range(...) scoped local JSONL/CSV and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC generated-output fixture smokes; no broad SQL runtime claim.",
+        claim_boundary: "SQL generate_series/range is admitted only for SELECT * plus scoped value-column/int64-arithmetic projections from generate_series/range(...) local JSONL/CSV and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC generated-output fixture smokes; no broad SQL runtime claim.",
     },
     GeneratedOutputCompatibilityRow {
         id: "dataframe_source_free_projection",
