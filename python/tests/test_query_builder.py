@@ -2682,40 +2682,49 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
-    def test_read_json_plain_json_remains_deterministic_unsupported(self) -> None:
-        workflow_summary = "read_json(target/input.json) -> select(id) -> filter(id >= 1) -> limit(1)"
+    def test_read_json_plain_json_projection_filter_limit_invokes_sql_smoke(self) -> None:
+        statement = "SELECT id FROM 'target/input.json' WHERE id >= 1 LIMIT 1"
         binary = self.fake_cli(
             textwrap.dedent(
                 f"""
                 import json, sys
 
                 assert sys.argv[1:] == [
-                    "workflow-unsupported-plan",
-                    "collect",
-                    {workflow_summary!r},
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
                     "--format",
                     "json",
                 ], sys.argv
                 print(json.dumps({{
                     "schema_version": "shardloom.output.v2",
-                    "command": "workflow-unsupported-plan",
-                    "status": "unsupported",
-                    "summary": "workflow operation unsupported",
-                    "human_text": "workflow unsupported operation",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "SQL local-source smoke returned 1 bounded row(s)",
+                    "human_text": "SQL local-source smoke",
                     "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
                     "diagnostics": [],
                     "fields": [
-                        {{"key": "operation", "value": "collect"}},
-                        {{"key": "workflow_summary", "value": {workflow_summary!r}}},
-                        {{"key": "blocker_id", "value": "gar-runtime-impl-4f.json.runtime_not_admitted"}},
-                        {{"key": "runtime_execution", "value": "false"}},
-                        {{"key": "data_read", "value": "false"}},
+                        {{"key": "result_jsonl", "value": "{{\\"id\\":1}}\\n"}},
+                        {{"key": "output_row_count", "value": "1"}},
+                        {{"key": "selected_row_count", "value": "1"}},
+                        {{"key": "source_format", "value": "json"}},
+                        {{"key": "source_io_performed", "value": "true"}},
+                        {{"key": "source_adapter_id", "value": "local_json_input_adapter"}},
+                        {{"key": "source_adapter_status", "value": "smoke_supported"}},
+                        {{"key": "ingress_route", "value": "direct_transient"}},
+                        {{"key": "vortex_ingest_performed", "value": "false"}},
+                        {{"key": "prepared_state_created", "value": "false"}},
+                        {{"key": "selected_execution_mode", "value": "direct_compatibility_transient"}},
+                        {{"key": "timing_scope", "value": "direct_one_shot"}},
+                        {{"key": "runtime_execution", "value": "true"}},
                         {{"key": "write_io", "value": "false"}},
                         {{"key": "fallback_attempted", "value": "false"}},
-                        {{"key": "external_engine_invoked", "value": "false"}}
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
                     ],
                 }}))
-                sys.exit(1)
                 """
             )
         )
@@ -2729,11 +2738,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .collect()
         )
 
-        self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
-        self.assertEqual(report.operation, "collect")
-        self.assertFalse(report.runtime_execution)
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.output_row_count, 1)
+        self.assertEqual(report.selected_row_count, 1)
+        self.assertEqual(report.envelope.field("source_format"), "json")
+        self.assertEqual(report.envelope.field("source_adapter_id"), "local_json_input_adapter")
+        self.assertEqual(report.envelope.field("ingress_route"), "direct_transient")
+        self.assertEqual(report.envelope.field("vortex_ingest_performed"), "false")
+        self.assertEqual(report.envelope.field("prepared_state_created"), "false")
+        self.assertEqual(report.envelope.field("timing_scope"), "direct_one_shot")
         self.assertFalse(report.fallback_attempted)
-        self.assertFalse(report.envelope.field_bool("external_engine_invoked", False))
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
     def test_context_sql_source_free_collect_remains_deterministic_unsupported(self) -> None:
         binary = self.fake_cli(

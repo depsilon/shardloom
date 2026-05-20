@@ -326,16 +326,16 @@ and transformations only. `plan()`, `explain()`, `estimate()`, `certify()`, and
 not read input files, infer schemas, materialize rows, probe object stores,
 write output, or invoke fallback engines.
 
-One scoped local CSV plus flat JSONL/NDJSON query-builder workflow family is
+One scoped local CSV plus flat JSON/JSONL/NDJSON query-builder workflow family is
 executable through the same typed CLI bridge. A workflow shaped as
 `read_csv(...).select(...).limit(...)`, with an optional `filter(...)`, lowers
 to ShardLoom's `sql-local-source-smoke` path, runs ShardLoom-owned
 projection/optional-filter/limit semantics, and returns a typed evidence
 report. `preview(limit=n)`, `head(limit=n)`, and `take(n)` use the same bounded
 local path with `SELECT *`. The same projection/optional-filter/limit
-shape is admitted for `read_json(...)` only when the source path is local
-`.jsonl` or `.ndjson`; plain `.json`, nested JSON expansion, and JSONPath
-remain deterministic unsupported surfaces. Filters admit scoped comparison,
+shape is admitted for `read_json(...)` when the source path is a local flat
+`.json`, `.jsonl`, or `.ndjson` file; nested JSON expansion and JSONPath remain
+deterministic unsupported surfaces. Filters admit scoped comparison,
 cast, date-literal, Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
 `DATE_DAY(...)`, Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
 bounded `IN (...)`, inclusive `between(...)` range predicates, string
@@ -350,11 +350,11 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `date_sub_days(days)` comparisons into the same ShardLoom SQL smoke
 path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed literal `with_column(...)` is also admitted after an explicit `select(...)` for local
-CSV and flat JSONL/NDJSON projection/filter/limit workflows. The first slice accepts only
+CSV and flat JSON/JSONL/NDJSON projection/filter/limit workflows. The first slice accepts only
 deterministic `lit(...)` values or direct bool/int/float literals, emits literal-projection
 evidence, and blocks non-literal expressions before fallback.
 CSV and local flat
-JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
+JSON/JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
 `MIN`, and `MAX`. The convenience `count()` method lowers to the same
 `COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. One-column grouped aggregates shaped as
@@ -524,7 +524,7 @@ print(sql_written.output_path)
 print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 ```
 
-This is a fixture-smoke local CSV plus flat JSONL/NDJSON bridge for the scoped
+This is a fixture-smoke local CSV plus flat JSON/JSONL/NDJSON bridge for the scoped
 projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
 preview/head/take select-star, input-backed literal `with_column`, and single-key numeric top-N shapes.
 It does not make the Python client a
@@ -694,7 +694,7 @@ print(join.claim_boundary)
 ```
 
 This matrix is mostly report-only, with the scoped local CSV `collect` and
-`write` rows and the flat JSONL/NDJSON projection/optional-filter/limit bridge marked as
+`write` rows and the flat JSON/JSONL/NDJSON projection/optional-filter/limit bridge marked as
 fixture-smoke-supported only for the admitted projection/optional-filter/limit,
 preview/select-star, scalar aggregate, and one-column grouped aggregate shapes described above.
 It does not import DataFrame
@@ -1254,7 +1254,7 @@ engines.
 
 The current live ETL surface is intentionally narrow and explicit.
 Compatibility-file mode runs `traditional-analytics-run`, which imports CSV,
-JSONL/NDJSON, Parquet, Arrow IPC, Avro, or ORC inputs into temporary local
+JSON/JSONL/NDJSON, Parquet, Arrow IPC, Avro, or ORC inputs into temporary local
 Vortex files before running the temporary benchmark operator. Native Vortex mode
 runs `traditional-analytics-vortex-run` from existing `.vortex` inputs. The
 low-level `traditional_analytics_vortex_run` helper can also pass an explicit
@@ -1374,7 +1374,7 @@ python python\examples\local_vortex_primitives_smoke.py --repo-root .
 ```
 
 The compatibility-source planning smoke shows the adjacent report-only boundary
-for CSV, JSONL/NDJSON, Parquet, and Arrow IPC inputs before any execution claim.
+for CSV, JSON/JSONL/NDJSON, Parquet, and Arrow IPC inputs before any execution claim.
 It plans representative local paths without checking that the files exist,
 reading data, writing data, or materializing rows:
 

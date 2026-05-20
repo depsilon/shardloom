@@ -1,22 +1,22 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Python local CSV/JSONL query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, and top-N smoke
+# Python local CSV/JSON/JSONL query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, and top-N smoke
 
 ## Quick Answer
 
-- **Audience:** Python user who wants a tiny DataFrame-like local CSV or flat JSONL workflow with evidence
+- **Audience:** Python user who wants a tiny DataFrame-like local CSV, flat JSON, or flat JSONL workflow with evidence
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped Python read_csv/select/optional-filter/limit and read_json/select/optional-filter/limit over local flat .jsonl/.ndjson sources with comparison, inclusive between(...), cast, date-literal, Date32 extract/day arithmetic, bounded IN, null, string, logical, and balanced parenthesized predicates when filters are present; where(...) as a filter alias; preview/head/take select-star over admitted local files; explicit-projection literal with_column(...); CSV and flat JSONL/NDJSON optional-filter count(), scalar aggregate/limit, optional-filter/one-column group_by/aggregate/limit, select/optional-filter/single-key numeric sort/limit, and one local CSV inner equi-join bridge; local JSONL writes and scoped local CSV writes through write_csv(...). No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, timestamp/timezone completeness, NULL/subquery-backed IN, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, production SQL support, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped Python read_csv/select/optional-filter/limit and read_json/select/optional-filter/limit over local flat .json/.jsonl/.ndjson sources with comparison, inclusive between(...), cast, date-literal, Date32 extract/day arithmetic, bounded IN, null, string, logical, and balanced parenthesized predicates when filters are present; where(...) as a filter alias; preview/head/take select-star over admitted local files; explicit-projection literal with_column(...); CSV and flat JSON/JSONL/NDJSON optional-filter count(), scalar aggregate/limit, optional-filter/one-column group_by/aggregate/limit, select/optional-filter/single-key numeric sort/limit, and one local CSV inner equi-join bridge; local JSONL writes and scoped local CSV writes through write_csv(...). No nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, timestamp/timezone completeness, NULL/subquery-backed IN, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-Python local CSV/JSONL query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, and top-N smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+Python local CSV/JSON/JSONL query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, and top-N smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped Python read_csv/select/optional-filter/limit and read_json/select/optional-filter/limit over local flat .jsonl/.ndjson sources with comparison, inclusive between(...), cast, date-literal, Date32 extract/day arithmetic, bounded IN, null, string, logical, and balanced parenthesized predicates when filters are present; where(...) as a filter alias; preview/head/take select-star over admitted local files; explicit-projection literal with_column(...); CSV and flat JSONL/NDJSON optional-filter count(), scalar aggregate/limit, optional-filter/one-column group_by/aggregate/limit, select/optional-filter/single-key numeric sort/limit, and one local CSV inner equi-join bridge; local JSONL writes and scoped local CSV writes through write_csv(...). No plain .json, nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, timestamp/timezone completeness, NULL/subquery-backed IN, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, production SQL support, object-store/table source, external fallback, or performance claim.
+Scoped Python read_csv/select/optional-filter/limit and read_json/select/optional-filter/limit over local flat .json/.jsonl/.ndjson sources with comparison, inclusive between(...), cast, date-literal, Date32 extract/day arithmetic, bounded IN, null, string, logical, and balanced parenthesized predicates when filters are present; where(...) as a filter alias; preview/head/take select-star over admitted local files; explicit-projection literal with_column(...); CSV and flat JSON/JSONL/NDJSON optional-filter count(), scalar aggregate/limit, optional-filter/one-column group_by/aggregate/limit, select/optional-filter/single-key numeric sort/limit, and one local CSV inner equi-join bridge; local JSONL writes and scoped local CSV writes through write_csv(...). No nested JSON, JSONPath, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized grouped aggregate or ordering runtime, named grouped aggregate aliases, timestamp/timezone completeness, NULL/subquery-backed IN, Parquet/Arrow/Avro/ORC/Vortex output sink, multi-output fanout, production SQL support, object-store/table source, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,11 +26,11 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha
 
 ## Blocker
 
-The Python query-builder runtime admits local CSV and flat JSONL/NDJSON select/optional-filter/limit with admitted predicate leaves, inclusive between(...) lowered to comparison/logical predicates, Date32 extract/day arithmetic helpers, bounded IN lists, balanced grouping parentheses, where(...) as a filter alias, preview/head/take select-star, literal with_column(...), count(), scalar aggregate/optional-filter/limit, one-column group_by/optional-filter/aggregate/limit, single-key numeric sort/optional-filter/limit, and one local CSV inner equi-join collect/write bridge through the SQL local-source smoke. Plain .json, nested JSON, JSONPath, non-literal with_column, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness beyond admitted leaves, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
+The Python query-builder runtime admits local CSV, flat top-level JSON object/array, and flat JSONL/NDJSON select/optional-filter/limit with admitted predicate leaves, inclusive between(...) lowered to comparison/logical predicates, Date32 extract/day arithmetic helpers, bounded IN lists, balanced grouping parentheses, where(...) as a filter alias, preview/head/take select-star, literal with_column(...), count(), scalar aggregate/optional-filter/limit, one-column group_by/optional-filter/aggregate/limit, single-key numeric sort/optional-filter/limit, and one local CSV inner equi-join collect/write bridge through the SQL local-source smoke. Nested JSON, JSONPath, non-literal with_column, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness beyond admitted leaves, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
 
 ## Internal Flow
 
-`local_csv, local_jsonl, local_ndjson -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, local_jsonl_output, local_csv_output, literal_projection_result, row_count_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv, local_json, local_jsonl, local_ndjson -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, local_jsonl_output, local_csv_output, literal_projection_result, row_count_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -83,13 +83,13 @@ The Python query-builder runtime admits local CSV and flat JSONL/NDJSON select/o
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV or flat JSONL source evidence, source_format/source_state fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, date_extract_runtime_execution/operator/source_column and date_arithmetic_runtime_execution/operator/days/source_column when requested, literal_projection_runtime_execution/count/columns when requested, in_predicate_runtime_execution and in_list_value_count when requested, local JSONL or CSV output evidence when written, count/scalar/grouped/top-N/join fields when requested, group_by columns/count for grouped workflows, sort key/direction/top-N limit for sorted workflows, join key/type/row-count fields for scoped joins, output Native I/O certificate status, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV or flat JSON/JSONL source evidence, source_format/source_adapter/source_state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, date extract/arithmetic fields when requested, literal-projection fields when requested, bounded IN evidence when requested, local JSONL or CSV output evidence when written, count/scalar/grouped/top-N/join fields, output Native I/O certificate status, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
 - `expecting_dataframe_parity`
 - `expecting_pandas_or_polars_execution`
-- `expecting_plain_json_or_nested_json_runtime`
+- `expecting_nested_json_or_jsonpath_runtime`
 - `treating_fixture_smoke_as_production_support`
 - `expecting_general_sort_or_null_ordering_support`
 - `expecting_subquery_or_null_in_semantics`
