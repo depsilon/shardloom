@@ -210,6 +210,8 @@ for (const required of [
   "prepared_vortex",
   "VortexPreparedState",
   "UniversalIngress",
+  "Rendered architecture diagrams",
+  "data-rendered-diagram",
   "Raw Mermaid source",
 ]) {
   assert(flow.includes(required), `compute-flow page missing ${required}`);

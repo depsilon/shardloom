@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-REDESIGN-2H architecture diagram rendering and README simplification
+  - Branch/PR: `codex/website-light-command-center-redesign` / pending.
+  - Primary files:
+    - `README.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `website/build_static_pages.py`
+    - `website/assets/site.css`
+    - `website/compute-engine-flow.html`
+    - `website/architecture.html`
+    - `website/README.md`
+    - `website/validate_static_assets.js`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: follow up on the completed website redesign by making the architecture and compute-flow
+    public pages lead with static rendered diagrams translated from the canonical Mermaid source,
+    while keeping raw Mermaid source collapsed for audit/source fidelity.
+  - README simplification:
+    - Replaced the long root README status snapshot with a concise entry-point structure: what
+      ShardLoom is, what is usable today, how to try it, where the architecture/benchmark docs live,
+      current project status, development checks, and claim boundaries.
+    - Kept repository-relative links to first-user docs, benchmark docs, Python docs, compute-flow
+      docs, use cases, phase plan, release/package posture, and license.
+  - Website behavior:
+    - `website/build_static_pages.py` now parses canonical Mermaid node labels and edge paths from
+      `docs/architecture/compute-engine-flow-reference.md` and emits static HTML diagram cards for
+      `/architecture` and `/compute-engine-flow`.
+    - The public page renders eight diagrams, including the primary route, access/users, runtime
+      contract, execution-mode lanes, engine fabric, I/O/downstream use, evidence/claims, and claim
+      gate flow.
+    - Raw Mermaid drawers remain collapsed by default.
+  - Validation:
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - bundled Node runtime: `website\validate_static_assets.js`
+    - `python -m compileall -q scripts website`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `git diff --check`
+    - Browser smoke via local static server and Playwright/Edge at desktop and mobile widths:
+      `/`, `/benchmarks`, and `/compute-engine-flow` had no horizontal overflow; compute-flow had
+      eight rendered diagrams and zero open raw-source drawers by default.
+  - Claim boundary: public website and README clarity only. This does not add runtime behavior,
+    benchmark recomputation, package publication, performance/superiority claims, Spark replacement
+    claims, production SQL/DataFrame support, object-store/lakehouse runtime, Foundry production
+    support, or managed/distributed support.
+  - Fallback boundary: no external compute fallback, runtime content fetch, external search SaaS,
+    or client-side Mermaid runtime is introduced.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTF-8 string transform predicate runtime
   - Branch/PR: `codex/expression-runtime-next-slice` / #833.
   - Primary files:

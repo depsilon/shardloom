@@ -633,7 +633,8 @@ def load_json(path: Path) -> dict[str, Any]:
 
 def write(path: Path, value: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(value.rstrip() + "\n", encoding="utf-8")
+    cleaned = "\n".join(line.rstrip() for line in value.rstrip().splitlines())
+    path.write_text(cleaned + "\n", encoding="utf-8")
 
 
 def load_use_case_index() -> dict[str, Any]:
@@ -849,8 +850,8 @@ def mermaid_blocks(markdown: str) -> list[tuple[str, str]]:
     index = 0
     while index < len(lines):
         line = lines[index]
-        if line.startswith("## "):
-            current_heading = strip_md(line.lstrip("# "))
+        if re.match(r"^#{2,4}\s+", line):
+            current_heading = strip_md(re.sub(r"^#{2,4}\s+", "", line))
         if line.strip() == "```mermaid":
             block_lines: list[str] = []
             index += 1
@@ -860,6 +861,106 @@ def mermaid_blocks(markdown: str) -> list[tuple[str, str]]:
             blocks.append((current_heading, "\n".join(block_lines).strip()))
         index += 1
     return blocks
+
+
+def mermaid_label_parts(label: str) -> tuple[str, str]:
+    clean = html.unescape(label)
+    clean = clean.replace("<br/>", "\n").replace("<br />", "\n").replace("<br>", "\n")
+    parts = [strip_md(part.strip()) for part in clean.splitlines() if part.strip()]
+    if not parts:
+        return "Architecture step", ""
+    return parts[0], " ".join(parts[1:])
+
+
+def mermaid_node_labels(block: str) -> tuple[dict[str, tuple[str, str]], list[str]]:
+    labels: dict[str, tuple[str, str]] = {}
+    order: list[str] = []
+    node_patterns = [
+        re.compile(r'(?:subgraph\s+)?([A-Za-z][\w-]*)\["([^"]+)"\]'),
+        re.compile(r'([A-Za-z][\w-]*)\{"([^"]+)"\}'),
+    ]
+    for line in block.splitlines():
+        for node_pattern in node_patterns:
+            for match in node_pattern.finditer(line):
+                node_id, label = match.groups()
+                if node_id not in labels:
+                    order.append(node_id)
+                labels[node_id] = mermaid_label_parts(label)
+    return labels, order
+
+
+def mermaid_edge_paths(block: str, labels: dict[str, tuple[str, str]]) -> list[list[str]]:
+    paths: list[list[str]] = []
+    for line in block.splitlines():
+        if "-->" not in line:
+            continue
+        normalized = re.sub(r"-->\|[^|]*\|", "-->", line.strip())
+        pieces = [piece.strip() for piece in normalized.split("-->")]
+        path: list[str] = []
+        for piece in pieces:
+            node_id = re.match(r"([A-Za-z][\w-]*)", piece)
+            if node_id and node_id.group(1) in labels:
+                path.append(node_id.group(1))
+        if len(path) >= 2:
+            paths.append(path)
+    return paths
+
+
+def mermaid_primary_path(block: str, labels: dict[str, tuple[str, str]], order: list[str]) -> list[str]:
+    paths = mermaid_edge_paths(block, labels)
+    if not paths:
+        return order[:8]
+    longest = max(paths, key=len)
+    if len(longest) <= 2 and len(order) > 2:
+        return order[:9]
+    return longest[:9]
+
+
+def rendered_mermaid_diagrams(markdown: str) -> str:
+    diagrams: list[str] = []
+    for number, (heading, block) in enumerate(mermaid_blocks(markdown)[:8], start=1):
+        labels, order = mermaid_node_labels(block)
+        if not labels:
+            continue
+        primary_path = mermaid_primary_path(block, labels, order)
+        if not primary_path:
+            continue
+        node_cards: list[str] = []
+        for index, node_id in enumerate(primary_path):
+            title, detail = labels[node_id]
+            node_cards.append(
+                f"""<div class="diagram-node" role="listitem">
+                  <span>{esc(node_id)}</span>
+                  <strong>{esc(title)}</strong>
+                  {f"<p>{esc(detail)}</p>" if detail else ""}
+                </div>"""
+            )
+            if index < len(primary_path) - 1:
+                node_cards.append('<span class="diagram-arrow" aria-hidden="true">-&gt;</span>')
+        branch_ids = [node_id for node_id in order if node_id not in set(primary_path)][:8]
+        branch_html = ""
+        if branch_ids:
+            branch_cards = "".join(
+                f"""<span>
+                  <strong>{esc(labels[node_id][0])}</strong>
+                  {f"<em>{esc(labels[node_id][1])}</em>" if labels[node_id][1] else ""}
+                </span>"""
+                for node_id in branch_ids
+            )
+            branch_html = f"""<div class="diagram-branches" aria-label="Additional nodes in this diagram">
+              {branch_cards}
+            </div>"""
+        diagrams.append(
+            f"""<article class="flow-diagram" data-rendered-diagram>
+              <div class="diagram-kicker">Rendered diagram {number:02d}</div>
+              <h3>{esc(heading)}</h3>
+              <div class="diagram-track" role="list" aria-label="{esc(heading)} route diagram">
+                {''.join(node_cards)}
+              </div>
+              {branch_html}
+            </article>"""
+        )
+    return "".join(diagrams)
 
 
 def route_steps() -> str:
@@ -1784,6 +1885,7 @@ def compute_flow_page(markdown: str, canonical_path: str = "compute-engine-flow"
     never_block = code_block_after(markdown, "## What Should Never Happen")
     never_items = [strip_md(line) for line in never_block.splitlines() if line.strip()][:8]
     never_list = "".join(f"<li>{esc(item)}</li>" for item in never_items)
+    rendered_diagrams = rendered_mermaid_diagrams(markdown)
     diagram_drawers = "".join(
         details(f"Raw Mermaid source: {heading}", f"<pre><code>{esc(block)}</code></pre>")
         for heading, block in mermaid_blocks(markdown)[:8]
@@ -1796,6 +1898,16 @@ def compute_flow_page(markdown: str, canonical_path: str = "compute-engine-flow"
     </section>
 
     <section class="route">{route_steps()}</section>
+
+    <section class="diagram-gallery">
+      <div class="section-heading">
+        <div>
+          <h2>Rendered architecture diagrams</h2>
+          <p>These diagrams are translated from the canonical Mermaid source at build time so the public page shows the route shape first and keeps source text as an audit trail.</p>
+        </div>
+      </div>
+      {rendered_diagrams}
+    </section>
 
     <section class="section-grid">
       <div>

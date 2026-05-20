@@ -533,6 +533,109 @@ p {
   font-weight: 800;
 }
 
+.diagram-gallery {
+  display: grid;
+  gap: 14px;
+}
+
+.flow-diagram {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(6, 169, 214, 0.045), transparent 200px),
+    #fff;
+  padding: clamp(16px, 2.6vw, 24px);
+  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.04);
+}
+
+.diagram-kicker {
+  margin-bottom: 8px;
+  color: var(--teal);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diagram-track {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+  margin-top: 14px;
+}
+
+.diagram-node {
+  flex: 1 1 170px;
+  min-width: min(190px, 100%);
+  border: 1px solid rgba(6, 169, 214, 0.24);
+  border-radius: var(--radius);
+  background: #fbfdfe;
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+
+.diagram-node span {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: var(--quiet);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.diagram-node strong {
+  display: block;
+  color: var(--navy);
+  font-size: 0.96rem;
+  line-height: 1.25;
+}
+
+.diagram-node p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.42;
+}
+
+.diagram-arrow {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  color: var(--cyan);
+  font-weight: 900;
+}
+
+.diagram-branches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.diagram-branches span {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: #fff;
+  padding: 8px 10px;
+}
+
+.diagram-branches strong {
+  color: var(--navy);
+  font-size: 0.82rem;
+}
+
+.diagram-branches em {
+  color: var(--quiet);
+  font-size: 0.76rem;
+  font-style: normal;
+}
+
 .code-panel {
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1203,6 +1306,16 @@ tr:last-child td {
 
   .pipeline span::after {
     content: "";
+  }
+
+  .diagram-track {
+    display: grid;
+  }
+
+  .diagram-arrow {
+    justify-content: start;
+    min-height: 12px;
+    transform: rotate(90deg);
   }
 
   .metric {

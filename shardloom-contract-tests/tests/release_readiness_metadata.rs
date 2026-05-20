@@ -3123,6 +3123,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "prepared_vortex",
         "VortexPreparedState",
         "UniversalIngress",
+        "Rendered architecture diagrams",
+        "data-rendered-diagram",
         "What must never happen",
         "Raw Mermaid source",
     ] {
