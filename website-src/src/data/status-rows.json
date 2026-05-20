@@ -15,6 +15,7 @@
     "evidence": [
       "source_adapter_status",
       "fallback_attempted=false",
+      "external_engine_invoked=false",
       "claim_gate_status"
     ],
     "works": "Scoped local CSV smokes cover Python query-builder paths, SQL local-source smokes, certified import/stage runs, and feature-gated Vortex ingest.",
@@ -40,7 +41,9 @@
     "evidence": [
       "source_format",
       "source_state_id",
-      "fallback_attempted=false"
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
+      "claim_gate_status"
     ],
     "works": "Flat local JSONL/NDJSON fixture smokes are admitted through scoped local-source and ingest paths.",
     "blocked": "Nested JSON, JSONPath, broad schema evolution, and production JSON processing remain outside the claim.",
@@ -64,6 +67,8 @@
     "evidence": [
       "source_format",
       "source_adapter_status",
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
       "claim_gate_status"
     ],
     "works": "Flat local JSON source smokes are visible through Python/local-source evidence paths.",
@@ -89,7 +94,10 @@
     "evidence": [
       "source_format",
       "feature_gate_status",
-      "output_native_io_certificate_status"
+      "output_native_io_certificate_status",
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
+      "claim_gate_status"
     ],
     "works": "Scoped Parquet fixture paths are documented where feature gates and flat scalar constraints are satisfied.",
     "blocked": "Default builds may block Parquet writes; nested/complex types and production Parquet parity require later runtime slices.",
@@ -113,6 +121,8 @@
       "source_format",
       "source_adapter_id",
       "source_state_digest",
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
       "claim_gate_status"
     ],
     "works": "Feature-gated local flat scalar Arrow IPC file sources can run through sql-local-source-smoke and Python read_arrow_ipc(...) with SourceState-style evidence when built with --features universal-format-io.",
@@ -137,6 +147,8 @@
     "evidence": [
       "source_format",
       "scenario_family",
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
       "claim_gate_status"
     ],
     "works": "Feature-gated local flat scalar Avro file sources can run through sql-local-source-smoke and Python read_avro(...) with SourceState-style evidence when built with --features universal-format-io.",
@@ -161,6 +173,8 @@
     "evidence": [
       "source_format",
       "scenario_family",
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
       "claim_gate_status"
     ],
     "works": "Feature-gated local flat scalar ORC file sources can run through sql-local-source-smoke and Python read_orc(...) with SourceState-style evidence when built with --features universal-format-io.",
@@ -186,7 +200,9 @@
     "evidence": [
       "prepared_state_id",
       "execution_mode=native_vortex",
-      "fallback_attempted=false"
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
+      "claim_gate_status"
     ],
     "works": "Prepared/native Vortex benchmark and source-backed scan lanes are visible with no-fallback fields.",
     "blocked": "Broad encoded-native operator coverage and production Vortex writer support remain gated.",
@@ -212,7 +228,10 @@
     "evidence": [
       "input_dataset_count=0",
       "generated_source_created",
-      "output_native_io_certificate_status"
+      "output_native_io_certificate_status",
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
+      "claim_gate_status"
     ],
     "works": "Python helpers can generate local reference rows, ranges, calendars, VALUES, and literal SELECT outputs.",
     "blocked": "This is not a broad SQL generator, Foundry production output, or object-store sink claim.",
@@ -237,6 +256,8 @@
     "evidence": [
       "protocol_version",
       "resolved_cli_path",
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
       "claim_gate_status"
     ],
     "works": "The Python wrapper exposes status/capability checks, scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC workflows, and local compatibility sink fanout through the local CLI.",
@@ -337,7 +358,10 @@
     "evidence": [
       "foundry_runtime_invoked",
       "foundry_spark_invoked=false",
-      "public_foundry_claim_allowed=false"
+      "public_foundry_claim_allowed=false",
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
+      "claim_gate_status"
     ],
     "works": "Local/dev-stack proof docs and no-dataset/generated-output boundaries are documented.",
     "blocked": "No Foundry production runtime, package publication, or Spark-backed ShardLoom execution claim.",
@@ -361,7 +385,10 @@
     "evidence": [
       "benchmark_profile",
       "expected_lanes",
-      "performance_claim_allowed=false"
+      "performance_claim_allowed=false",
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
+      "claim_gate_status"
     ],
     "works": "Committed static benchmark artifacts expose lanes, missing reasons, coverage, and claim boundaries.",
     "blocked": "Benchmark evidence is not a leaderboard, public speed claim, or Spark-replacement claim.",

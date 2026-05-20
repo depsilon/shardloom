@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4M runtime promotion evidence gate
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-promotion-evidence-gate-4m` / #865.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4M benchmark refresh and runtime claim gate after each promoted workflow`
+    - `GAR-BENCH-PUB-1` benchmark publishing artifact model
+    - Use Case Atlas and website status matrix claim-safety requirements
+  - Scope:
+    - Added `scripts/check_runtime_promotion_evidence.py` as a deterministic validator for public
+      runtime/smoke support promotion metadata.
+    - Wired the validator into `scripts/check_website_readiness.py` so website readiness fails when
+      supported use cases, supported status rows, or promoted benchmark artifacts omit required
+      evidence.
+    - Required publicly supported Use Case Atlas and status rows to expose
+      `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status`.
+    - Required session-reuse public docs that mention `session_id` to also expose scoped session
+      state and reuse fields.
+    - Required the promoted website benchmark manifest to remain complete, lane-explicit,
+      no-performance-claim, and free of missing required lanes.
+    - Required promoted benchmark rows to retain no-fallback/external-engine/claim-gate fields and
+      route-specific cold compatibility versus warm prepared timing fields.
+  - Evidence:
+    - Use-case and status-row evidence tokens, benchmark manifest profile/environment/lane fields,
+      missing-required-lane posture, compatibility cold-route timing fields, prepared warm-route
+      timing fields, and no-fallback/no-external-engine/claim-gate fields.
+  - Verification:
+    - `python scripts/check_runtime_promotion_evidence.py`.
+    - `python scripts/check_website_readiness.py` now includes the runtime-promotion evidence gate.
+    - Use-case index/coverage checks.
+    - Release readiness metadata and traditional benchmark harness contract tests.
+    - Python compileall, Astro sync/check/build/postbuild, static asset validation, cargo fmt, and
+      `git diff --check`.
+  - Claim boundary:
+    - This is an evidence gate for public runtime promotion metadata. It does not publish a
+      performance, superiority, Spark-replacement, production, object-store/lakehouse, Foundry,
+      package-publication, or broad SQL/DataFrame claim.
+  - Fallback boundary:
+    - External lanes remain baseline-only. The validator requires ShardLoom-supported public rows
+      to keep `fallback_attempted=false` and `external_engine_invoked=false` visible.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4L Python session local query/output reuse
   - Date: 2026-05-20
   - Branch/PR: `runtime-python-session-output-reuse-4l` / #864.

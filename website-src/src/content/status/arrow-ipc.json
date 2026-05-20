@@ -13,6 +13,8 @@
     "source_format",
     "source_adapter_id",
     "source_state_digest",
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
     "claim_gate_status"
   ],
   "works": "Feature-gated local flat scalar Arrow IPC file sources can run through sql-local-source-smoke and Python read_arrow_ipc(...) with SourceState-style evidence when built with --features universal-format-io.",

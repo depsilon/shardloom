@@ -42,6 +42,7 @@
     "upstream_vortex_write_called",
     "upstream_vortex_scan_called",
     "session_id",
+    "session_state_scope",
     "output_plan_reuse_hit",
     "result_replay_reuse_hit",
     "reuse_reason",

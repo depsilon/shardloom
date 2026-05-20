@@ -805,7 +805,7 @@ or documentation updates alone are insufficient.
     OutputPlan ids, explicit session lifecycle, and cache cleanup policy.
   - Ledger rule: ledger entry must list cache artifacts, invalidation rules, and disabled paths.
 
-- [ ] GAR-RUNTIME-IMPL-4M benchmark refresh and runtime claim gate after each promoted workflow
+- [x] GAR-RUNTIME-IMPL-4M benchmark refresh and runtime claim gate after each promoted workflow
   - Source: `GAR-BENCH-PUB-1`, benchmark publishing runbook, release claim gates.
   - Current state: benchmark publishing is structured, but each newly promoted runtime path needs a
     fresh artifact, scenario coverage, and public claim boundary update.

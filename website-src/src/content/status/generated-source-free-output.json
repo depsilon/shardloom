@@ -15,7 +15,10 @@
   "evidence": [
     "input_dataset_count=0",
     "generated_source_created",
-    "output_native_io_certificate_status"
+    "output_native_io_certificate_status",
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
+    "claim_gate_status"
   ],
   "works": "Python helpers can generate local reference rows, ranges, calendars, VALUES, and literal SELECT outputs.",
   "blocked": "This is not a broad SQL generator, Foundry production output, or object-store sink claim.",

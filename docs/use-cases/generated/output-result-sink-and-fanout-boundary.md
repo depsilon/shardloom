@@ -34,6 +34,7 @@ python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iteratio
 - `result_replay_verified`
 - `output_native_io_certificate_status`
 - `output_format`
+- `session_state_scope`
 - `output_plan_reuse_hit`
 - `claim_gate_status`
 - `fallback_attempted=false`

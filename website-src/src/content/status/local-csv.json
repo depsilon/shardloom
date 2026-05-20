@@ -14,6 +14,7 @@
   "evidence": [
     "source_adapter_status",
     "fallback_attempted=false",
+    "external_engine_invoked=false",
     "claim_gate_status"
   ],
   "works": "Scoped local CSV smokes cover Python query-builder paths, SQL local-source smokes, certified import/stage runs, and feature-gated Vortex ingest.",

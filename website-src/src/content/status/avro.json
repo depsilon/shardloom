@@ -12,6 +12,8 @@
   "evidence": [
     "source_format",
     "scenario_family",
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
     "claim_gate_status"
   ],
   "works": "Feature-gated local flat scalar Avro file sources can run through sql-local-source-smoke and Python read_avro(...) with SourceState-style evidence when built with --features universal-format-io.",
