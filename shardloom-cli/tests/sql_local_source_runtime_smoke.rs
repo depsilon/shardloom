@@ -3575,6 +3575,144 @@ fn sql_local_source_smoke_executes_is_not_null_predicates_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_boolean_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-boolean-predicate", "csv");
+    fs::write(
+        &source_path,
+        "id,active,label\n1,true,alpha\n2,false,beta\n3,,missing\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE active LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "boolean_predicate")));
+    assert!(stdout.contains(&field("filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("boolean_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("boolean_predicate_operator", "is_true")));
+    assert!(stdout.contains(&field("boolean_predicate_source_column", "active")));
+    assert!(stdout.contains(&field(
+        "boolean_predicate_null_semantics",
+        "sql_where_true_only_null_filters_out"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "1")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE active IS FALSE LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("predicate_operator_family", "boolean_predicate")));
+    assert!(stdout.contains(&field("boolean_predicate_operator", "is_false")));
+    assert!(stdout.contains(&field("boolean_predicate_source_column", "active")));
+    assert!(stdout.contains(&field("selected_row_count", "1")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE NOT active LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("logical_predicate_operator", "not")));
+    assert!(stdout.contains(&field("boolean_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("boolean_predicate_operator", "is_true")));
+    assert!(stdout.contains(&field("boolean_predicate_source_column", "active")));
+    assert!(stdout.contains(&field("selected_row_count", "1")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_is_not_boolean_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-boolean-predicate-blocked", "csv");
+    fs::write(
+        &source_path,
+        "id,active,label\n1,true,alpha\n2,false,beta\n3,,missing\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE active IS NOT TRUE LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("IS NOT TRUE/FALSE three-valued matching remains blocked"));
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_between_predicates_without_fallback() {
     let source_path = unique_path("sql-local-source-between-predicate", "csv");
     fs::write(

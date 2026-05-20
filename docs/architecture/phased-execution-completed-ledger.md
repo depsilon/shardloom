@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python boolean predicate runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-boolean-predicate-4d` / #870.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - SQL local-source runtime smoke evidence
+    - Python query-builder predicate helpers.
+  - Scope:
+    - Added scoped local-source SQL truthiness predicates for `WHERE <column>`,
+      `WHERE <column> IS TRUE`, `WHERE <column> IS FALSE`, and logical `NOT <column>`.
+    - Emitted `boolean_predicate_runtime_execution`, `boolean_predicate_operator`,
+      `boolean_predicate_source_column`, and
+      `boolean_predicate_null_semantics=sql_where_true_only_null_filters_out` fields in the
+      SQL local-source evidence envelope.
+    - Kept SQL three-valued `IS NOT TRUE/FALSE` matching blocked with deterministic diagnostics
+      until that shape is deliberately admitted.
+    - Added Python `sl.col(...).is_true()` and `.is_false()` helpers plus typed report accessors
+      for Boolean predicate evidence.
+    - Updated the active runtime plan, compute-flow docs, and Use Case Atlas metadata.
+  - Evidence:
+    - `predicate_operator_family=boolean_predicate`, `filter_runtime_execution=true`,
+      `boolean_predicate_runtime_execution=true`, `boolean_predicate_operator=is_true|is_false`,
+      `boolean_predicate_source_column`, `boolean_predicate_null_semantics`, selected row counts,
+      inline JSONL results, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust CLI tests for `WHERE active`, `WHERE active IS FALSE`, `WHERE NOT active`, and
+      blocked `WHERE active IS NOT TRUE`.
+    - Focused Python query-builder tests for Boolean predicate lowering and typed evidence
+      accessors.
+    - Use Case Atlas checks, website sync/build/check/postbuild/readiness/static validation,
+      release-readiness metadata, traditional benchmark harness, Python compileall, cargo fmt,
+      clippy, full workspace tests, and `git diff --check`.
+  - Claim boundary:
+    - Scoped local SQL/Python query-builder Boolean predicate fixture smoke only. This is not broad
+      SQL/DataFrame parity, generalized predicate-tree completeness, production SQL support,
+      performance evidence, or claim-grade compute.
+  - Fallback boundary:
+    - Boolean predicates are evaluated by ShardLoom expression semantics over admitted local rows.
+      External engines remain baseline/oracle-only and are not invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E scoped SQL range-generator projection runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-generated-sql-range-projection-4e` / #869.

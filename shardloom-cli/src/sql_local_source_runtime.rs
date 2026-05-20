@@ -503,6 +503,10 @@ enum ParsedPredicate {
         comparison: ComparisonOp,
         value: ScalarValue,
     },
+    BooleanPredicate {
+        column: String,
+        expected: bool,
+    },
     IsNull {
         column: String,
     },
@@ -2716,6 +2720,7 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::StringLengthCompare { .. }
         | ParsedPredicate::TimestampExtractCompare { .. }
         | ParsedPredicate::StringTransformCompare { .. }
+        | ParsedPredicate::BooleanPredicate { .. }
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
@@ -2772,6 +2777,7 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::DateExtractCompare { .. }
         | ParsedPredicate::StringLengthCompare { .. }
         | ParsedPredicate::StringTransformCompare { .. }
+        | ParsedPredicate::BooleanPredicate { .. }
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
@@ -4910,6 +4916,7 @@ impl ParsedPredicate {
             | Self::DateExtractCompare { column, .. }
             | Self::StringLengthCompare { column, .. }
             | Self::TimestampExtractCompare { column, .. }
+            | Self::BooleanPredicate { column, .. }
             | Self::IsNull { column }
             | Self::IsNotNull { column }
             | Self::InList { column, .. }
@@ -4978,32 +4985,17 @@ impl ParsedPredicate {
                 comparison,
                 value,
             } => timestamp_extract_compare_expression(column, *op, *comparison, value),
+            Self::BooleanPredicate { column, expected } => {
+                boolean_predicate_expression(column, *expected)
+            }
             Self::StringTransformCompare {
                 column,
                 op,
                 comparison,
                 value,
             } => string_transform_compare_expression(column, *op, *comparison, value),
-            Self::IsNull { column } => Ok(Expression::new(
-                ExprId::new("where.is_null")?,
-                ExpressionKind::Unary {
-                    op: UnaryOp::IsNull,
-                    expr: Box::new(Expression::column(
-                        ExprId::new(format!("where.{column}"))?,
-                        ColumnRef::new(column.clone())?,
-                    )),
-                },
-            )),
-            Self::IsNotNull { column } => Ok(Expression::new(
-                ExprId::new("where.is_not_null")?,
-                ExpressionKind::Unary {
-                    op: UnaryOp::IsNotNull,
-                    expr: Box::new(Expression::column(
-                        ExprId::new(format!("where.{column}"))?,
-                        ColumnRef::new(column.clone())?,
-                    )),
-                },
-            )),
+            Self::IsNull { column } => null_predicate_expression(column, true),
+            Self::IsNotNull { column } => null_predicate_expression(column, false),
             Self::InList { column, values } => in_list_expression(column, values),
             Self::StringMatch { column, op, value } => string_match_expression(column, *op, value),
             Self::Logical { op, left, right } => Ok(Expression::new(
@@ -5036,6 +5028,7 @@ impl ParsedPredicate {
             Self::DateExtractCompare { .. } => "date_extract",
             Self::StringLengthCompare { .. } => "string_length",
             Self::TimestampExtractCompare { .. } => "timestamp_extract",
+            Self::BooleanPredicate { .. } => "boolean_predicate",
             Self::StringTransformCompare { .. } => "string_transform",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::InList { .. } => "in_predicate",
@@ -5062,6 +5055,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::InList { .. }
             | Self::StringMatch { .. } => false,
         }
@@ -5097,6 +5091,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::InList { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -5131,6 +5126,107 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn uses_boolean_predicate(&self) -> bool {
+        match self {
+            Self::BooleanPredicate { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_boolean_predicate() || right.uses_boolean_predicate()
+            }
+            Self::Not { inner } => inner.uses_boolean_predicate(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn boolean_predicate_operator(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_boolean_predicate_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_boolean_predicate_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::BooleanPredicate { expected: true, .. } => operators.push("is_true"),
+            Self::BooleanPredicate {
+                expected: false, ..
+            } => operators.push("is_false"),
+            Self::Logical { left, right, .. } => {
+                left.push_boolean_predicate_operators(operators);
+                right.push_boolean_predicate_operators(operators);
+            }
+            Self::Not { inner } => inner.push_boolean_predicate_operators(operators),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn boolean_predicate_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_boolean_predicate_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_boolean_predicate_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::BooleanPredicate { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_boolean_predicate_source_columns(columns);
+                right.push_boolean_predicate_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_boolean_predicate_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::StringMatch { .. } => {}
         }
@@ -5154,6 +5250,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. } => false,
@@ -5189,6 +5286,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. } => {}
@@ -5212,6 +5310,7 @@ impl ParsedPredicate {
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5247,6 +5346,7 @@ impl ParsedPredicate {
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5282,6 +5382,7 @@ impl ParsedPredicate {
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5306,6 +5407,7 @@ impl ParsedPredicate {
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5341,6 +5443,7 @@ impl ParsedPredicate {
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5378,6 +5481,7 @@ impl ParsedPredicate {
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5402,6 +5506,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5437,6 +5542,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5472,6 +5578,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5509,6 +5616,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5533,6 +5641,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5568,6 +5677,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5605,6 +5715,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5629,6 +5740,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5664,6 +5776,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5699,6 +5812,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5736,6 +5850,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5775,6 +5890,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => false,
@@ -5796,6 +5912,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5827,6 +5944,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5864,6 +5982,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5890,6 +6009,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5914,6 +6034,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -5937,6 +6058,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => false,
@@ -5961,6 +6083,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => 0,
@@ -5988,6 +6111,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => 0,
@@ -6011,6 +6135,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::TimestampExtractCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -6046,6 +6171,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::TimestampExtractCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -6081,6 +6207,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::TimestampExtractCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -6116,6 +6243,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => false,
@@ -6139,6 +6267,7 @@ impl ParsedPredicate {
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -6174,6 +6303,7 @@ impl ParsedPredicate {
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -6209,6 +6339,7 @@ impl ParsedPredicate {
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -6233,6 +6364,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -6268,6 +6400,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -6303,6 +6436,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -6338,6 +6472,7 @@ impl ParsedPredicate {
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -6554,6 +6689,48 @@ fn string_length_compare_expression(
             right: Box::new(Expression::literal(
                 ExprId::new("where.string_length.literal")?,
                 value.clone(),
+            )),
+        },
+    ))
+}
+
+fn boolean_predicate_expression(
+    column: &str,
+    expected: bool,
+) -> Result<Expression, ShardLoomError> {
+    let column_expression = Expression::column(
+        ExprId::new(format!("where.boolean.{column}"))?,
+        ColumnRef::new(column.to_string())?,
+    );
+    if expected {
+        Ok(column_expression)
+    } else {
+        Ok(Expression::new(
+            ExprId::new("where.boolean.is_false")?,
+            ExpressionKind::Unary {
+                op: UnaryOp::Not,
+                expr: Box::new(column_expression),
+            },
+        ))
+    }
+}
+
+fn null_predicate_expression(column: &str, is_null: bool) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new(if is_null {
+            "where.is_null"
+        } else {
+            "where.is_not_null"
+        })?,
+        ExpressionKind::Unary {
+            op: if is_null {
+                UnaryOp::IsNull
+            } else {
+                UnaryOp::IsNotNull
+            },
+            expr: Box::new(Expression::column(
+                ExprId::new(format!("where.{column}"))?,
+                ColumnRef::new(column.to_string())?,
             )),
         },
     ))
@@ -7066,6 +7243,27 @@ impl SqlLocalSourceReport {
                 "null_predicate_null_semantics".to_string(),
                 if self.parsed.predicate.uses_null_predicate() {
                     "sql_is_null_is_not_null"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "boolean_predicate_runtime_execution".to_string(),
+                self.parsed.predicate.uses_boolean_predicate().to_string(),
+            ),
+            (
+                "boolean_predicate_operator".to_string(),
+                self.parsed.predicate.boolean_predicate_operator(),
+            ),
+            (
+                "boolean_predicate_source_column".to_string(),
+                self.parsed.predicate.boolean_predicate_source_columns(),
+            ),
+            (
+                "boolean_predicate_null_semantics".to_string(),
+                if self.parsed.predicate.uses_boolean_predicate() {
+                    "sql_where_true_only_null_filters_out"
                 } else {
                     "not_applicable"
                 }
@@ -9974,6 +10172,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
 
 fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     let tokens = split_whitespace_outside_quotes(raw)?;
+    if let Some(predicate) = parse_boolean_predicate_tokens(tokens.as_slice())? {
+        return Ok(predicate);
+    }
     match tokens.as_slice() {
         [column, is_keyword, null_keyword]
             if is_keyword.eq_ignore_ascii_case("is")
@@ -10054,8 +10255,44 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column>, <column> IS TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
+    }
+}
+
+fn parse_boolean_predicate_tokens(
+    tokens: &[String],
+) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    match tokens {
+        [column] => {
+            validate_sql_column_ref(column)?;
+            Ok(Some(ParsedPredicate::BooleanPredicate {
+                column: (*column).clone(),
+                expected: true,
+            }))
+        }
+        [column, is_keyword, truth_keyword]
+            if is_keyword.eq_ignore_ascii_case("is")
+                && (truth_keyword.eq_ignore_ascii_case("true")
+                    || truth_keyword.eq_ignore_ascii_case("false")) =>
+        {
+            validate_sql_column_ref(column)?;
+            Ok(Some(ParsedPredicate::BooleanPredicate {
+                column: (*column).clone(),
+                expected: truth_keyword.eq_ignore_ascii_case("true"),
+            }))
+        }
+        [_, is_keyword, not_keyword, truth_keyword]
+            if is_keyword.eq_ignore_ascii_case("is")
+                && not_keyword.eq_ignore_ascii_case("not")
+                && (truth_keyword.eq_ignore_ascii_case("true")
+                    || truth_keyword.eq_ignore_ascii_case("false")) =>
+        {
+            Err(unsupported_sql_error(
+                "boolean predicates admit <column>, <column> IS TRUE, and <column> IS FALSE only; IS NOT TRUE/FALSE three-valued matching remains blocked",
+            ))
+        }
+        _ => Ok(None),
     }
 }
 

@@ -602,6 +602,67 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "sql_is_null_is_not_null",
         )
 
+    def test_column_expression_builder_lowers_boolean_predicates(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id FROM 'target/input.csv' WHERE active IS TRUE LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "predicate_operator_family", "value": "boolean_predicate"},
+                        {"key": "boolean_predicate_runtime_execution", "value": "true"},
+                        {"key": "boolean_predicate_operator", "value": "is_true"},
+                        {"key": "boolean_predicate_source_column", "value": "active"},
+                        {"key": "boolean_predicate_null_semantics", "value": "sql_where_true_only_null_filters_out"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .filter(sl.col("active").is_true())
+            .select("id")
+            .limit(5)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "boolean_predicate")
+        self.assertTrue(report.boolean_predicate_runtime_execution)
+        self.assertEqual(report.boolean_predicate_operator, ("is_true",))
+        self.assertEqual(report.boolean_predicate_source_columns, ("active",))
+        self.assertEqual(
+            report.boolean_predicate_null_semantics,
+            "sql_where_true_only_null_filters_out",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_column_expression_builder_formats_admitted_predicate_families(self) -> None:
         self.assertEqual(
             str(sl.col("event_dt").cast("date32") >= date(2026, 5, 19)),
@@ -685,6 +746,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("amount") * 2 == 40), "amount * 2 = 40")
         self.assertEqual(str(sl.col("ratio") / 2.0 > 0.5), "ratio / 2.0 > 0.5")
         self.assertEqual(str(sl.col("closed_at").is_not_null()), "closed_at IS NOT NULL")
+        self.assertEqual(str(sl.col("active").is_true()), "active IS TRUE")
+        self.assertEqual(str(sl.col("active").is_false()), "active IS FALSE")
 
         with self.assertRaisesRegex(ValueError, "timezone-aware"):
             sl.col("event_dt") >= datetime(2026, 5, 19, 12, 30)

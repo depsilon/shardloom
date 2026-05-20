@@ -424,6 +424,11 @@ or documentation updates alone are insufficient.
     Scoped SQL `IS NULL` and `IS NOT NULL` predicates are runtime-admitted over local CSV and
     JSONL/flat JSON sources with ShardLoom-native null semantics, `null_predicate_*` evidence,
     Python report accessors, deterministic source-column blockers, and no external fallback.
+    Scoped SQL boolean truth predicates through `WHERE <column>`, `WHERE <column> IS TRUE`,
+    `WHERE <column> IS FALSE`, and logical `NOT <column>` are runtime-admitted over local-source
+    rows with SQL `WHERE` true-only/null-filters-out semantics, `boolean_predicate_*` evidence,
+    Python `sl.col(...).is_true()` / `.is_false()` helpers, and deterministic blockers for
+    `IS NOT TRUE/FALSE` three-valued matching until that shape is deliberately admitted.
   - Closeout posture: this parent item is intentionally still open even though many scoped
     `GAR-RUNTIME-IMPL-4D` slices have been completed and moved into the completed ledger. The
     remaining work is no longer "basic expression support"; it is the explicit parity gap around
