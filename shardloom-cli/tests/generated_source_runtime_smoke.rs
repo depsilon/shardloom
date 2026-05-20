@@ -82,6 +82,9 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     assert!(stdout.contains(&field("output_io_performed", "true")));
     assert!(stdout.contains(&field("write_io", "true")));
     assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field("vortex_output_runtime_execution", "false")));
+    assert!(stdout.contains(&field("upstream_vortex_write_called", "false")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));
     assert!(stdout.contains(&field(
         "output_native_io_certificate_status",
         "certified_local_file_sink"
@@ -108,6 +111,107 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     assert!(stdout.contains("\"correctness_digest\",\"value\":\"fnv64:"));
 
     fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
+#[cfg(not(feature = "vortex-write"))]
+fn generated_source_vortex_output_blocks_without_vortex_write_feature() {
+    let output_path =
+        unique_output_path_with_extension("generated-user-rows-vortex-blocked", "vortex");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-user-rows-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "id:int64,label:utf8",
+            "id=1,label=alpha",
+            "--output-format",
+            "vortex",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-user-rows-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!output_path.exists());
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-user-rows-smoke\""));
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("local Vortex generated-source output runtime requires"));
+    assert!(stdout.contains("--features vortex-write"));
+    assert!(stdout.contains("deterministic blocked sink"));
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(stdout.contains("\"attempted\":false"));
+    assert!(stdout.contains("\"allowed\":false"));
+    assert!(stdout.contains(&field("command_family", "workflow_planning")));
+}
+
+#[test]
+#[cfg(feature = "vortex-write")]
+fn generated_source_vortex_output_writes_local_artifact_and_emits_vortex_evidence() {
+    let output_path = unique_output_path_with_extension("generated-user-rows-vortex", "vortex");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-user-rows-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "id:int64,label:utf8,score:float64",
+            "id=1,label=alpha,score=1.5;id=2,label=beta,score=2.25",
+            "--output-format",
+            "vortex",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-user-rows-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_path.exists());
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-user-rows-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("output_format", "vortex")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_vortex_sink"
+    )));
+    assert!(stdout.contains(&field("vortex_output_runtime_execution", "true")));
+    assert!(stdout.contains(&field("vortex_output_reopen_verified", "true")));
+    assert!(stdout.contains(&field("vortex_output_row_count", "2")));
+    assert!(stdout.contains(&field("vortex_output_column_count", "3")));
+    assert!(stdout.contains(&field(
+        "vortex_output_timing_scope",
+        "vortex_ingest_prepare_once"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_output_certification_level",
+        "ingest_certified"
+    )));
+    assert!(stdout.contains(&field("upstream_vortex_write_called", "true")));
+    assert!(stdout.contains(&field("upstream_vortex_scan_called", "true")));
+    assert!(stdout.contains("\"vortex_artifact_digest\",\"value\":\"fnv64:"));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    fs::remove_file(output_path).expect("remove vortex output");
 }
 
 #[test]

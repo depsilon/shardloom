@@ -44,12 +44,13 @@ Current runtime support is intentionally scoped and evidence-gated:
 
 - local first-10-minutes smoke and release dry-run workflows;
 - Python and CLI front doors for selected local CSV, JSONL/NDJSON, flat JSON, generated-source, and
-  feature-gated Parquet smokes;
+  feature-gated Parquet/Arrow IPC/Avro/ORC and Vortex smokes;
 - scoped SQL local-source execution for projection, filter, limit, scalar aggregates, one-column
   group-by, single-key top-N, selected casts/date/string/IN predicates, and one explicit local CSV
   equi-join shape;
 - source-free generated local outputs through user rows, ranges, sequences, calendars, SQL `VALUES`,
-  literal `SELECT`, and `generate_series`/`range` smokes;
+  literal `SELECT`, and `generate_series`/`range` smokes, including feature-gated local Vortex
+  output;
 - local Vortex/prepared-native benchmark evidence for selected traditional analytics scenarios;
 - feature-gated local `vortex_ingest` smoke that prepares admitted flat scalar local sources into a
   local `.vortex` artifact and emits `VortexPreparedState` evidence;

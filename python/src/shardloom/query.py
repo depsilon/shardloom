@@ -531,6 +531,26 @@ class _GeneratedStructuredOutputMixin:
             check=check,
         )
 
+    def write_vortex(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="vortex")`.
+
+        The CLI must be built with `--features vortex-write`; default binaries
+        return ShardLoom's deterministic Vortex sink blocker.
+        """
+
+        return self.write(  # type: ignore[attr-defined]
+            target_uri,
+            output_format="vortex",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
@@ -979,6 +999,27 @@ class SqlWorkflow:
         return self.write(
             target_uri,
             output_format="orc",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_vortex(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport | SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
+        """Alias for `write(..., output_format="vortex")`.
+
+        Source-free SQL can route through the generated-source Vortex sink when
+        the CLI is built with `--features vortex-write`. Local-source SQL keeps
+        its own deterministic sink support/blocker behavior.
+        """
+
+        return self.write(
+            target_uri,
+            output_format="vortex",
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -3503,9 +3544,11 @@ def _normalize_local_output_format(value: str) -> str:
         return "avro"
     if normalized == "orc":
         return "orc"
+    if normalized in {"vortex", "vtx"}:
+        return "vortex"
     raise ValueError(
         "scoped local writes currently support local JSONL, CSV, and feature-gated "
-        "Parquet/Arrow IPC/Avro/ORC only"
+        "Parquet/Arrow IPC/Avro/ORC/Vortex only"
     )
 
 

@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E scoped generated-source Vortex output sink
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-generated-vortex-output-4e` / #859.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime`
+    - Vortex native output contract
+    - Source-free generated-output use-case boundary
+  - Scope:
+    - Admitted `--output-format vortex` for `generated-source-user-rows-smoke`,
+      `generated-source-range-smoke`, `generated-source-sequence-smoke`, and
+      `generated-source-sql-smoke`.
+    - Added Python generated-source `write_vortex(...)` helpers for user rows, literal tables,
+      calendars, range/sequence sources, and source-free SQL wrappers.
+    - Feature-gated the runtime path behind `--features vortex-write`, where flat scalar generated
+      rows call ShardLoom's existing local `vortex_ingest` writer boundary and reopen/scan proof.
+    - Kept default builds deterministic and claim-safe: Vortex generated-output requests fail with
+      an explicit blocked-sink diagnostic and `fallback_attempted=false`.
+  - Evidence:
+    - Vortex generated-output success rows emit `output_format=vortex`,
+      `output_native_io_certificate_status=certified_local_vortex_sink`,
+      `vortex_output_runtime_execution=true`, `vortex_output_reopen_verified=true`,
+      `vortex_artifact_digest`, row/column counts, Vortex writer/reopen timing fields,
+      `upstream_vortex_write_called=true`, `upstream_vortex_scan_called=true`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Non-Vortex generated-output rows now emit explicit Vortex output posture fields with
+      runtime/write/scan flags set to `false`.
+  - Vortex-first provider check:
+    - Subject area: generated-source local Vortex output.
+    - Upstream Vortex concept checked: Vortex file writer/open/scan APIs already wrapped in
+      `shardloom-vortex::write_flat_scalar_vortex_prepared_state`.
+    - Decision: `use_vortex_native_provider` through the existing ShardLoom wrapper, not a new
+      writer abstraction.
+    - Residual handling: unsupported generated value families, non-local paths, and default-build
+      Vortex writes block deterministically; no external residual executor is invoked.
+    - Materialization/decode boundary: generated rows are flat scalar local rows; this is a scoped
+      fixture-smoke sink, not broad encoded query output or object-store/table commit support.
+  - Verification:
+    - `cargo test -p shardloom-cli generated_source_vortex -- --nocapture`
+    - `cargo test -p shardloom-cli --features vortex-write generated_source_vortex -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_generated_source_write_vortex_invokes_vortex_sink_and_exposes_evidence`
+  - Claim boundary:
+    - Scoped local flat scalar generated-source Vortex output only. This does not claim a broad
+      Vortex writer, local-source Vortex output, object-store/table sink, production SQL/DataFrame
+      support, performance, or package publication.
+  - Fallback boundary:
+    - No Spark, DataFusion, DuckDB, Polars, pandas, or Vortex query-engine integration is used.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped numeric rounding runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-numeric-rounding-4d` / #858.
