@@ -5,9 +5,10 @@
 //! ShardLoom-native integer generators, writes local sinks, and emits
 //! generated-source/output evidence. Default builds admit JSONL/CSV sinks; flat
 //! scalar Parquet, Arrow IPC, Avro, and ORC sinks are gated behind
-//! `universal-format-io`. It does not read source datasets, parse broad SQL,
-//! execute broad `DataFrame` expressions, touch object stores, invoke Foundry,
-//! or call fallback engines.
+//! `universal-format-io`, and local Vortex output is gated behind
+//! `vortex-write`. It does not read source datasets, parse broad SQL, execute
+//! broad `DataFrame` expressions, touch object stores, invoke Foundry, or call
+//! fallback engines.
 
 use std::{
     collections::BTreeMap,
@@ -18,7 +19,7 @@ use std::{
     time::Instant,
 };
 
-#[cfg(feature = "universal-format-io")]
+#[cfg(any(feature = "universal-format-io", feature = "vortex-write"))]
 use shardloom_core::ScalarValue;
 use shardloom_core::{CommandStatus, OutputFormat, ShardLoomError};
 
@@ -111,6 +112,7 @@ enum GeneratedOutputFormat {
     ArrowIpc,
     Avro,
     Orc,
+    Vortex,
 }
 
 impl GeneratedOutputFormat {
@@ -122,8 +124,9 @@ impl GeneratedOutputFormat {
             "arrow" | "arrow-ipc" | "arrow_ipc" | "ipc" | "feather" => Ok(Self::ArrowIpc),
             "avro" => Ok(Self::Avro),
             "orc" => Ok(Self::Orc),
+            "vortex" | "vtx" => Ok(Self::Vortex),
             other => Err(ShardLoomError::InvalidOperation(format!(
-                "unsupported generated-source output format {other:?}; scoped generated-source smokes support local JSONL/CSV and feature-gated Parquet/Arrow IPC/Avro/ORC only"
+                "unsupported generated-source output format {other:?}; scoped generated-source smokes support local JSONL/CSV plus feature-gated Parquet/Arrow IPC/Avro/ORC/Vortex only"
             ))),
         }
     }
@@ -136,6 +139,7 @@ impl GeneratedOutputFormat {
             Self::ArrowIpc => "arrow_ipc",
             Self::Avro => "avro",
             Self::Orc => "orc",
+            Self::Vortex => "vortex",
         }
     }
 
@@ -147,6 +151,7 @@ impl GeneratedOutputFormat {
             Self::ArrowIpc => "arrow_ipc",
             Self::Avro => "avro",
             Self::Orc => "orc",
+            Self::Vortex => "vortex",
         }
     }
 
@@ -157,6 +162,7 @@ impl GeneratedOutputFormat {
             Self::ArrowIpc => "certified_local_arrow_ipc_sink",
             Self::Avro => "certified_local_avro_sink",
             Self::Orc => "certified_local_orc_sink",
+            Self::Vortex => "certified_local_vortex_sink",
         }
     }
 
@@ -172,8 +178,20 @@ impl GeneratedOutputFormat {
             Self::ArrowIpc => encode_arrow_ipc_output_rows(schema, rows),
             Self::Avro => encode_avro_output_rows(schema, rows),
             Self::Orc => encode_orc_output_rows(schema, rows),
+            Self::Vortex => Err(ShardLoomError::InvalidOperation(
+                "local Vortex generated-source output uses the Vortex writer path, not byte rendering"
+                    .to_string(),
+            )),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedOutputWriteReport {
+    output_bytes: u64,
+    output_digest: String,
+    write_millis: u128,
+    vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -240,6 +258,7 @@ struct GeneratedUserRowsSmokeReport {
     schema_digest: String,
     plan_digest: String,
     write_millis: u128,
+    vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -270,6 +289,7 @@ struct GeneratedRangeSmokeReport {
     schema_digest: String,
     plan_digest: String,
     write_millis: u128,
+    vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -416,6 +436,7 @@ struct GeneratedSqlSmokeReport {
     schema_digest: String,
     plan_digest: String,
     write_millis: u128,
+    vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -425,7 +446,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar] [--output-format jsonl|csv] [--allow-overwrite]"
+            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar] [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -584,7 +605,7 @@ fn handle_generated_source_range_like_smoke(
     let noun = source_kind.summary_noun();
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {command} <local-output-path> <start> <end> [--step int] [--column name] [--output-format jsonl|csv] [--allow-overwrite]"
+            "usage: shardloom {command} <local-output-path> <start> <end> [--step int] [--column name] [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -779,7 +800,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {SQL_COMMAND} <local-output-path> <sql-statement> [--output-format jsonl|csv] [--allow-overwrite]"
+            "usage: shardloom {SQL_COMMAND} <local-output-path> <sql-statement> [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -908,7 +929,7 @@ impl GeneratedUserRowsSmokeRequest {
 impl GeneratedUserRowsSmokeReport {
     #[allow(clippy::too_many_lines)]
     fn fields(&self) -> Vec<(String, String)> {
-        vec![
+        let mut fields = vec![
             (
                 "schema_version".to_string(),
                 USER_ROWS_SCHEMA_VERSION.to_string(),
@@ -1029,7 +1050,9 @@ impl GeneratedUserRowsSmokeReport {
                 "output_write_millis".to_string(),
                 self.write_millis.to_string(),
             ),
-        ]
+        ];
+        fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
+        fields
     }
 
     fn to_text(&self) -> String {
@@ -1092,7 +1115,7 @@ impl GeneratedRangeSmokeRequest {
 impl GeneratedRangeSmokeReport {
     #[allow(clippy::too_many_lines)]
     fn fields(&self) -> Vec<(String, String)> {
-        vec![
+        let mut fields = vec![
             (
                 "schema_version".to_string(),
                 self.source_kind.schema_version().to_string(),
@@ -1235,7 +1258,9 @@ impl GeneratedRangeSmokeReport {
                 "output_write_millis".to_string(),
                 self.write_millis.to_string(),
             ),
-        ]
+        ];
+        fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
+        fields
     }
 
     fn to_text(&self) -> String {
@@ -1428,6 +1453,7 @@ impl GeneratedSqlSmokeReport {
                 self.write_millis.to_string(),
             ),
         ];
+        fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
         if let Some(range) = &self.range {
             fields.extend([
                 (
@@ -1475,93 +1501,54 @@ impl GeneratedSqlSmokeReport {
 fn run_generated_user_rows_smoke(
     request: &GeneratedUserRowsSmokeRequest,
 ) -> Result<GeneratedUserRowsSmokeReport, ShardLoomError> {
-    if request.output_path.exists() && !request.allow_overwrite {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "output path already exists: {}; pass --allow-overwrite to replace it",
-            request.output_path.display()
-        )));
-    }
-    if let Some(parent) = request.output_path.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent).map_err(|error| {
-                ShardLoomError::Message(format!(
-                    "failed to create local output directory {}: {error}",
-                    parent.display()
-                ))
-            })?;
-        }
-    }
-
-    let start = Instant::now();
-    let content = request
-        .output_format
-        .render_rows(&request.schema, &request.rows)?;
-    fs::write(&request.output_path, &content).map_err(|error| {
-        ShardLoomError::Message(format!(
-            "failed to write local generated-source output {}: {error}",
-            request.output_path.display()
-        ))
-    })?;
-    let write_millis = start.elapsed().as_millis();
+    let write_report = write_generated_output(
+        &request.output_path,
+        request.output_format,
+        &request.schema,
+        &request.rows,
+        request.allow_overwrite,
+        "generated-source output",
+    )?;
 
     let schema_text = canonical_schema(&request.schema);
     let canonical_rows = canonical_rows(&request.schema, &request.rows);
-    let output_digest = fnv64_digest_bytes(&content);
     Ok(GeneratedUserRowsSmokeReport {
         output_path: request.output_path.clone(),
         output_format: request.output_format,
         source_kind: request.source_kind,
         schema: request.schema.clone(),
         rows: request.rows.clone(),
-        output_bytes: u64::try_from(content.len()).unwrap_or(u64::MAX),
-        output_digest: output_digest.clone(),
+        output_bytes: write_report.output_bytes,
+        output_digest: write_report.output_digest,
         schema_digest: fnv64_digest(&schema_text),
         plan_digest: fnv64_digest(&format!(
             "generated_source_kind={};output_format={};schema={schema_text};rows={canonical_rows}",
             request.source_kind.as_str(),
             request.output_format.as_str()
         )),
-        write_millis,
+        write_millis: write_report.write_millis,
+        vortex_report: write_report.vortex_report,
     })
 }
 
 fn run_generated_range_smoke(
     request: &GeneratedRangeSmokeRequest,
 ) -> Result<GeneratedRangeSmokeReport, ShardLoomError> {
-    if request.output_path.exists() && !request.allow_overwrite {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "output path already exists: {}; pass --allow-overwrite to replace it",
-            request.output_path.display()
-        )));
-    }
-    if let Some(parent) = request.output_path.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent).map_err(|error| {
-                ShardLoomError::Message(format!(
-                    "failed to create local output directory {}: {error}",
-                    parent.display()
-                ))
-            })?;
-        }
-    }
-
     let schema = vec![GeneratedColumn {
         name: request.column_name.clone(),
         value_type: GeneratedValueType::Int64,
     }];
     let rows = generated_range_rows(request.start, request.end, request.step)?;
-    let start = Instant::now();
-    let content = request.output_format.render_rows(&schema, &rows)?;
-    fs::write(&request.output_path, &content).map_err(|error| {
-        ShardLoomError::Message(format!(
-            "failed to write local generated-source output {}: {error}",
-            request.output_path.display()
-        ))
-    })?;
-    let write_millis = start.elapsed().as_millis();
+    let write_report = write_generated_output(
+        &request.output_path,
+        request.output_format,
+        &schema,
+        &rows,
+        request.allow_overwrite,
+        "generated-source output",
+    )?;
 
     let schema_text = canonical_schema(&schema);
-    let output_digest = fnv64_digest_bytes(&content);
     Ok(GeneratedRangeSmokeReport {
         output_path: request.output_path.clone(),
         output_format: request.output_format,
@@ -1572,8 +1559,8 @@ fn run_generated_range_smoke(
         column_name: request.column_name.clone(),
         schema,
         rows,
-        output_bytes: u64::try_from(content.len()).unwrap_or(u64::MAX),
-        output_digest: output_digest.clone(),
+        output_bytes: write_report.output_bytes,
+        output_digest: write_report.output_digest,
         schema_digest: fnv64_digest(&schema_text),
         plan_digest: fnv64_digest(&format!(
             "generated_source_kind={};output_format={};start={};end={};step={};column={}",
@@ -1584,45 +1571,25 @@ fn run_generated_range_smoke(
             request.step,
             request.column_name
         )),
-        write_millis,
+        write_millis: write_report.write_millis,
+        vortex_report: write_report.vortex_report,
     })
 }
 
 fn run_generated_sql_smoke(
     request: &GeneratedSqlSmokeRequest,
 ) -> Result<GeneratedSqlSmokeReport, ShardLoomError> {
-    if request.output_path.exists() && !request.allow_overwrite {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "output path already exists: {}; pass --allow-overwrite to replace it",
-            request.output_path.display()
-        )));
-    }
-    if let Some(parent) = request.output_path.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent).map_err(|error| {
-                ShardLoomError::Message(format!(
-                    "failed to create local output directory {}: {error}",
-                    parent.display()
-                ))
-            })?;
-        }
-    }
-
-    let start = Instant::now();
-    let content = request
-        .output_format
-        .render_rows(&request.schema, &request.rows)?;
-    fs::write(&request.output_path, &content).map_err(|error| {
-        ShardLoomError::Message(format!(
-            "failed to write local generated-source SQL output {}: {error}",
-            request.output_path.display()
-        ))
-    })?;
-    let write_millis = start.elapsed().as_millis();
+    let write_report = write_generated_output(
+        &request.output_path,
+        request.output_format,
+        &request.schema,
+        &request.rows,
+        request.allow_overwrite,
+        "generated-source SQL output",
+    )?;
 
     let schema_text = canonical_schema(&request.schema);
     let canonical_rows = canonical_rows(&request.schema, &request.rows);
-    let output_digest = fnv64_digest_bytes(&content);
     Ok(GeneratedSqlSmokeReport {
         output_path: request.output_path.clone(),
         output_format: request.output_format,
@@ -1631,8 +1598,8 @@ fn run_generated_sql_smoke(
         schema: request.schema.clone(),
         rows: request.rows.clone(),
         range: request.range.clone(),
-        output_bytes: u64::try_from(content.len()).unwrap_or(u64::MAX),
-        output_digest: output_digest.clone(),
+        output_bytes: write_report.output_bytes,
+        output_digest: write_report.output_digest,
         schema_digest: fnv64_digest(&schema_text),
         plan_digest: fnv64_digest(&format!(
             "generated_source_kind={};output_format={};statement={};schema={schema_text};rows={canonical_rows}",
@@ -1640,8 +1607,254 @@ fn run_generated_sql_smoke(
             request.output_format.as_str(),
             request.statement
         )),
-        write_millis,
+        write_millis: write_report.write_millis,
+        vortex_report: write_report.vortex_report,
     })
+}
+
+fn write_generated_output(
+    output_path: &Path,
+    output_format: GeneratedOutputFormat,
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+    allow_overwrite: bool,
+    output_label: &str,
+) -> Result<GeneratedOutputWriteReport, ShardLoomError> {
+    match output_format {
+        GeneratedOutputFormat::Vortex => {
+            write_generated_vortex_output(output_path, schema, rows, allow_overwrite)
+        }
+        _ => write_generated_file_output(
+            output_path,
+            output_format,
+            schema,
+            rows,
+            allow_overwrite,
+            output_label,
+        ),
+    }
+}
+
+fn write_generated_file_output(
+    output_path: &Path,
+    output_format: GeneratedOutputFormat,
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+    allow_overwrite: bool,
+    output_label: &str,
+) -> Result<GeneratedOutputWriteReport, ShardLoomError> {
+    if output_path.exists() && !allow_overwrite {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "output path already exists: {}; pass --allow-overwrite to replace it",
+            output_path.display()
+        )));
+    }
+    if let Some(parent) = output_path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent).map_err(|error| {
+            ShardLoomError::Message(format!(
+                "failed to create local output directory {}: {error}",
+                parent.display()
+            ))
+        })?;
+    }
+
+    let start = Instant::now();
+    let content = output_format.render_rows(schema, rows)?;
+    fs::write(output_path, &content).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to write local {output_label} {}: {error}",
+            output_path.display()
+        ))
+    })?;
+    Ok(GeneratedOutputWriteReport {
+        output_bytes: u64::try_from(content.len()).unwrap_or(u64::MAX),
+        output_digest: fnv64_digest_bytes(&content),
+        write_millis: start.elapsed().as_millis(),
+        vortex_report: None,
+    })
+}
+
+#[cfg(not(feature = "vortex-write"))]
+fn write_generated_vortex_output(
+    _output_path: &Path,
+    _schema: &[GeneratedColumn],
+    _rows: &[GeneratedRow],
+    _allow_overwrite: bool,
+) -> Result<GeneratedOutputWriteReport, ShardLoomError> {
+    Err(ShardLoomError::InvalidOperation(
+        "local Vortex generated-source output runtime requires building shardloom-cli with --features vortex-write; default builds expose Vortex generated-source output as a deterministic blocked sink; no fallback execution was attempted"
+            .to_string(),
+    ))
+}
+
+#[cfg(feature = "vortex-write")]
+fn write_generated_vortex_output(
+    output_path: &Path,
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+    allow_overwrite: bool,
+) -> Result<GeneratedOutputWriteReport, ShardLoomError> {
+    validate_generated_vortex_target(output_path)?;
+    let start = Instant::now();
+    let request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
+        output_path.to_path_buf(),
+        generated_column_names(schema),
+        generated_rows_to_scalar_rows(schema, rows)?,
+    )
+    .allow_overwrite(allow_overwrite);
+    let report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(request)?;
+    let write_millis = start.elapsed().as_millis();
+    Ok(GeneratedOutputWriteReport {
+        output_bytes: report.bytes_written,
+        output_digest: report.artifact_digest.clone(),
+        write_millis,
+        vortex_report: Some(report),
+    })
+}
+
+#[cfg(feature = "vortex-write")]
+fn validate_generated_vortex_target(output_path: &Path) -> Result<(), ShardLoomError> {
+    let extension = output_path
+        .extension()
+        .and_then(std::ffi::OsStr::to_str)
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if extension != "vortex" {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local Vortex generated-source output target '{}' must use a .vortex extension; no fallback execution was attempted",
+            output_path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn generated_vortex_output_fields(
+    report: Option<&shardloom_vortex::VortexPreparedStateWriteReport>,
+) -> Vec<(String, String)> {
+    report.map_or_else(default_vortex_output_fields, vortex_output_success_fields)
+}
+
+fn default_vortex_output_fields() -> Vec<(String, String)> {
+    vec![
+        (
+            "vortex_output_runtime_execution".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "vortex_output_reopen_verified".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "vortex_output_timing_scope".to_string(),
+            "not_applicable".to_string(),
+        ),
+        (
+            "vortex_output_certification_level".to_string(),
+            "not_applicable".to_string(),
+        ),
+        (
+            "vortex_artifact_digest".to_string(),
+            "not_applicable".to_string(),
+        ),
+        ("vortex_artifact_bytes".to_string(), "0".to_string()),
+        (
+            "upstream_vortex_write_called".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "upstream_vortex_scan_called".to_string(),
+            "false".to_string(),
+        ),
+    ]
+}
+
+fn vortex_output_success_fields(
+    report: &shardloom_vortex::VortexPreparedStateWriteReport,
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "vortex_output_runtime_execution".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "vortex_output_reopen_verified".to_string(),
+            (report.reopen_row_count == report.row_count).to_string(),
+        ),
+        (
+            "vortex_output_row_count".to_string(),
+            report.row_count.to_string(),
+        ),
+        (
+            "vortex_output_column_count".to_string(),
+            report.column_count.to_string(),
+        ),
+        (
+            "vortex_output_column_families".to_string(),
+            report.column_family_summary(),
+        ),
+        (
+            "vortex_artifact_digest".to_string(),
+            report.artifact_digest.clone(),
+        ),
+        (
+            "vortex_artifact_bytes".to_string(),
+            report.bytes_written.to_string(),
+        ),
+        (
+            "vortex_writer_row_count".to_string(),
+            report.writer_row_count.to_string(),
+        ),
+        (
+            "vortex_reopen_row_count".to_string(),
+            report.reopen_row_count.to_string(),
+        ),
+        (
+            "vortex_write_millis".to_string(),
+            micros_to_millis(report.write_micros).to_string(),
+        ),
+        (
+            "vortex_digest_millis".to_string(),
+            micros_to_millis(report.digest_micros).to_string(),
+        ),
+        (
+            "vortex_reopen_verify_millis".to_string(),
+            micros_to_millis(report.reopen_scan_micros).to_string(),
+        ),
+        (
+            "vortex_output_timing_scope".to_string(),
+            report.timing_scope.clone(),
+        ),
+        (
+            "vortex_output_certification_level".to_string(),
+            report.certification_level.clone(),
+        ),
+        (
+            "vortex_output_layout_summary".to_string(),
+            report.layout_summary(),
+        ),
+        (
+            "vortex_output_encoding_summary".to_string(),
+            report.encoding_summary(),
+        ),
+        (
+            "vortex_output_statistics_summary".to_string(),
+            report.statistics_summary(),
+        ),
+        (
+            "upstream_vortex_write_called".to_string(),
+            report.upstream_vortex_write_called.to_string(),
+        ),
+        (
+            "upstream_vortex_scan_called".to_string(),
+            report.upstream_vortex_scan_called.to_string(),
+        ),
+    ]
+}
+
+fn micros_to_millis(value: u128) -> u128 {
+    value / 1_000
 }
 
 fn parse_i64_arg(name: &str, value: &str) -> Result<i64, ShardLoomError> {
@@ -2628,12 +2841,12 @@ fn render_csv(schema: &[GeneratedColumn], rows: &[GeneratedRow]) -> Result<Strin
     Ok(output)
 }
 
-#[cfg(feature = "universal-format-io")]
+#[cfg(any(feature = "universal-format-io", feature = "vortex-write"))]
 fn generated_column_names(schema: &[GeneratedColumn]) -> Vec<String> {
     schema.iter().map(|column| column.name.clone()).collect()
 }
 
-#[cfg(feature = "universal-format-io")]
+#[cfg(any(feature = "universal-format-io", feature = "vortex-write"))]
 fn generated_rows_to_scalar_rows(
     schema: &[GeneratedColumn],
     rows: &[GeneratedRow],
@@ -2657,7 +2870,7 @@ fn generated_rows_to_scalar_rows(
     Ok(scalar_rows)
 }
 
-#[cfg(feature = "universal-format-io")]
+#[cfg(any(feature = "universal-format-io", feature = "vortex-write"))]
 fn generated_value_to_scalar(
     value: &str,
     value_type: GeneratedValueType,

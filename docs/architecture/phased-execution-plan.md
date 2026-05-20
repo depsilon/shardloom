@@ -462,23 +462,28 @@ or documentation updates alone are insufficient.
     ORC local sinks through `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`,
     `write_orc(...)`, and `--output-format` when `shardloom-cli` is built with
     `--features universal-format-io`; default builds return deterministic structured-sink blockers.
+    The same generated-source commands and Python helpers now admit local `.vortex` output through
+    `--output-format vortex` and `write_vortex(...)` when built with `--features vortex-write`,
+    emitting Vortex artifact digest, reopen proof, upstream Vortex writer/scan flags, and
+    `certified_local_vortex_sink`; default builds return a deterministic Vortex sink blocker.
     Python range/sequence builders also support `limit(...)`, `head(...)`, and `take(...)` by
     adjusting generator bounds before invoking the same engine-native range/sequence smoke.
     Remaining gaps are broader SQL source-free projection, arbitrary SQL table functions, broad
-    DataFrame expression-backed projection/`with_column`, Vortex output, object-store/Foundry
-    generated-output paths, broader structured-format fidelity, and claim-grade output coverage.
-  - Next slice outcome: implement Vortex generated-output admission, broader generator/expression
-    coverage, and claim-grade replay/fidelity evidence where admitted.
+    DataFrame expression-backed projection/`with_column`, object-store/Foundry generated-output
+    paths, broader structured-format fidelity, and claim-grade output coverage.
+  - Next slice outcome: implement broader generator/expression coverage and claim-grade
+    replay/fidelity evidence where admitted.
   - Runtime enablement: end-user generated-source execution that writes local output and emits a
     GeneratedSourceCertificate.
   - User-visible surface: Python `ctx.range`, `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`,
-    `ctx.sql(...).write(...)`, SQL `VALUES`, SQL `generate_series`/`range`, generated-output
-    recipes.
+    generated-source `write_vortex(...)`, `ctx.sql(...).write(...)`, SQL `VALUES`, SQL
+    `generate_series`/`range`, generated-output recipes.
   - Implementation scope: generator nodes, schema inference, deterministic seed/row-count handling,
     output writer bridge, report/certificate fields.
   - Evidence required: `input_dataset_count=0`, `source_io_performed=false`,
     `generated_source_created=true`, generated source kind/schema/row/plan digest, seed,
-    determinism flag, output certificate, no-fallback fields.
+    determinism flag, output certificate, Vortex output artifact/reopen fields where admitted,
+    no-fallback fields.
   - Acceptance: no-input smoke remains separate; each admitted generator writes local output and
     exposes a GeneratedSourceCertificate.
   - Verification: CLI/Python/SQL generator tests, output smoke, use-case coverage, release
@@ -489,7 +494,8 @@ or documentation updates alone are insufficient.
   - Fallback boundary: no generated rows or expressions may be produced by an external engine.
   - Dependencies/blockers: generated-source schema contract, local output writer registry,
     expression semantics, and Python/SQL surface admission.
-  - Ledger rule: ledger entry must list generator kind, output format, and unsupported generators.
+  - Ledger rule: ledger entry must list generator kind, output format, Vortex output feature gate,
+    and unsupported generators.
 
 - [ ] GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format
   - Source: `GAR-IOREUSE-1A`, universal compatibility scoreboard, local input adapter docs,
