@@ -1091,55 +1091,42 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         );
     }
 
-    let status_page = read_repo_file("website/status.html");
+    let website_readme = read_repo_file("website/README.md");
     for required in [
-        "Answer common capability questions in under two minutes.",
-        "runtime supported",
-        "smoke supported",
-        "report only",
-        "blocked",
-        "planned",
-        "not planned",
-        "Public package channels",
-        "Enterprise evidence export pack",
-        "Foundry dev-stack starter",
-        "Workflow recipe library",
-        "Hidden fallback engine execution",
-        "Spark-displacement claim",
-        "Production SQL/DataFrame, object-store, lakehouse, or Foundry claim",
-        "docs/architecture/universal-compatibility-coverage-scoreboard.json",
-        "docs/release/package-channel-readiness-matrix.json",
-        "docs/release/enterprise-evidence-export-pack.json",
-        "docs/foundry/dev-stack-starter-kit.json",
-        "docs/use-cases/recipes/recipe-index.json",
-        "fallback_attempted=false",
-        "external_engine_invoked=false",
-        "public_package_release_claim_allowed=false",
+        "intentionally small",
+        "`/`: concise overview",
+        "`/benchmarks`: committed benchmark artifact interpretation",
+        "`/compute-engine-flow`: human-readable route translation",
+        "Detailed docs, use cases, recipes, field-guide content, RFCs, and phase history remain in the",
     ] {
         assert!(
-            status_page.contains(required),
-            "missing website status scorecard field {required}"
+            website_readme.contains(required),
+            "missing minimal website README field {required}"
+        );
+    }
+
+    let redirects = read_repo_file("website/_redirects");
+    for required in ["/status /", "/docs https://github.com/depsilon/shardloom"] {
+        assert!(
+            redirects.contains(required),
+            "missing minimal website redirect {required}"
         );
     }
 
     let website_readiness = read_repo_file("scripts/check_website_readiness.py");
     for required in [
-        "Answer common capability questions in under two minutes.",
-        "Public package channels",
-        "Enterprise evidence export pack",
-        "Foundry dev-stack starter",
-        "Workflow recipe library",
-        "docs/architecture/universal-compatibility-coverage-scoreboard.json",
-        "docs/release/package-channel-readiness-matrix.json",
-        "docs/release/enterprise-evidence-export-pack.json",
-        "docs/foundry/dev-stack-starter-kit.json",
-        "docs/use-cases/recipes/recipe-index.json",
-        "fallback_attempted=false",
-        "external_engine_invoked=false",
+        "shardloom.website_readiness.minimal.v1",
+        "EXPECTED_REDIRECTS",
+        "/status",
+        "/docs",
+        "benchmark manifest must keep performance_claim_allowed=false",
+        "website compute-flow snapshot does not match canonical architecture doc",
+        "canonical URL mismatch",
+        "runtime file references forbidden host",
     ] {
         assert!(
             website_readiness.contains(required),
-            "missing website readiness status-scorecard check {required}"
+            "missing minimal website readiness check {required}"
         );
     }
 }
@@ -2899,55 +2886,24 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         );
     }
 
-    let generator = read_repo_file("website/build_static_pages.py");
+    let website_plan = read_repo_file("docs/architecture/website-minimal-public-surface-reset.md");
     for required in [
-        "write_use_case_pages",
-        "use_case_markdown",
-        "use_case_page",
-        "use_cases_index_page",
-        "DOC_USE_CASES",
-        "USE_CASE_PAGES",
+        "ShardLoom's public website should be a simple interpretation layer",
+        "The repo remains the source of truth for phase plans, RFCs, use cases, recipes, and support",
+        "generated Use Case Atlas pages",
+        "The underlying repository docs remain intact",
     ] {
         assert!(
-            generator.contains(required),
-            "missing website use-case generator field {required}"
+            website_plan.contains(required),
+            "missing minimal website use-case boundary field {required}"
         );
     }
 
-    let website_index = read_repo_file("website/use-cases/index.html");
-    for required in [
-        "Can I use this?",
-        "data-use-case-filter=\"status\"",
-        "data-use-case-filter=\"input\"",
-        "data-use-case-filter=\"output\"",
-        "data-use-case-filter=\"execution\"",
-        "data-use-case-filter=\"evidence\"",
-        "data-use-case-filter=\"platform\"",
-        "data-use-case-grid",
-        "ready_local",
-        "smoke_supported",
-        "report_only",
-        "blocked",
-        "planned",
-        "unsupported",
-    ] {
+    let redirects = read_repo_file("website/_redirects");
+    for required in ["/use-cases /", "/use-cases/* /"] {
         assert!(
-            website_index.contains(required),
-            "missing website use-case matrix field {required}"
-        );
-    }
-
-    let website_page = read_repo_file("website/use-cases/first-10-minutes-local-smoke.html");
-    for required in [
-        "First 10 minutes local smoke",
-        "Reference Files",
-        "Claim gate",
-        "fallback_attempted=false",
-        "external_engine_invoked=false",
-    ] {
-        assert!(
-            website_page.contains(required),
-            "missing generated website use-case field {required}"
+            redirects.contains(required),
+            "missing retired website use-case redirect {required}"
         );
     }
 
@@ -3026,6 +2982,112 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     assert!(
         !plan.contains("- [ ] GAR-0010-B DataFrame/notebook and package surface readiness report")
     );
+
+    let minimal_reset = read_repo_file("docs/architecture/website-minimal-public-surface-reset.md");
+    for required in [
+        "public website should be a simple interpretation layer",
+        "What does the current benchmark evidence show?",
+        "How does work move through the compute engine?",
+        "Remove from the public site:",
+        "generated Field Guide pages",
+        "generated Use Case Atlas pages",
+        "generated status board",
+        "generated README mirror",
+        "Pagefind search bundle",
+        "Light mode first",
+        "Avoid cyberpunk dashboard sprawl",
+    ] {
+        assert!(
+            minimal_reset.contains(required),
+            "missing minimal website reset field {required}"
+        );
+    }
+
+    let generator = read_repo_file("website/build_static_pages.py");
+    for required in [
+        "Build the minimal ShardLoom public website",
+        "Repo docs remain in the repository",
+        "WEBSITE / \"benchmarks\" / \"index.html\"",
+        "WEBSITE / \"compute-engine-flow\" / \"index.html\"",
+        "source_state_coverage_all_requested_scenarios_classified",
+    ] {
+        assert!(
+            generator.contains(required),
+            "missing minimal website generator field {required}"
+        );
+    }
+
+    let index = read_repo_file("website/index.html");
+    let benchmarks = read_repo_file("website/benchmarks.html");
+    let flow = read_repo_file("website/compute-engine-flow.html");
+    for required in [
+        "Evidence-first compute over Vortex data.",
+        "Read benchmark evidence",
+        "Understand compute flow",
+        "Open GitHub",
+    ] {
+        assert!(
+            index.contains(required),
+            "missing minimal home field {required}"
+        );
+    }
+    for required in [
+        "Evidence, not a leaderboard.",
+        "Artifact lane availability",
+        "Prepared/native source-state coverage",
+        "source_state_coverage_all_requested_scenarios_classified",
+        "Local timing context",
+    ] {
+        assert!(
+            benchmarks.contains(required),
+            "missing minimal benchmark field {required}"
+        );
+    }
+    for required in [
+        "SQL and Python are front doors",
+        "prepared_vortex",
+        "VortexPreparedState",
+        "UniversalIngress",
+        "What must never happen",
+        "Raw Mermaid source",
+    ] {
+        assert!(
+            flow.contains(required),
+            "missing minimal flow field {required}"
+        );
+    }
+
+    let redirects = read_repo_file("website/_redirects");
+    for required in [
+        "/field-guide /",
+        "/field-guide/* /",
+        "/use-cases /",
+        "/use-cases/* /",
+        "/status /",
+        "/readme https://github.com/depsilon/shardloom#readme",
+    ] {
+        assert!(
+            redirects.contains(required),
+            "missing retired-atlas redirect {required}"
+        );
+    }
+
+    let readiness = read_repo_file("scripts/check_website_readiness.py");
+    for required in [
+        "shardloom.website_readiness.minimal.v1",
+        "REMOVED_WEBSITE_SURFACES",
+        "runtime file still references retired atlas content",
+        "runtime file still references Pagefind",
+    ] {
+        assert!(
+            readiness.contains(required),
+            "missing minimal website readiness field {required}"
+        );
+    }
+
+    if std::env::var_os("SHARDLOOM_RUN_RETIRED_WEBSITE_ATLAS_CONTRACT").is_none() {
+        return;
+    }
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
