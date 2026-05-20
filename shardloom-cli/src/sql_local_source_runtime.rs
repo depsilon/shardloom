@@ -285,6 +285,12 @@ enum ParsedPredicate {
         op: StringPredicateOp,
         value: String,
     },
+    StringTransformCompare {
+        column: String,
+        op: StringTransformOp,
+        comparison: ComparisonOp,
+        value: ScalarValue,
+    },
     Logical {
         op: LogicalPredicateOp,
         left: Box<ParsedPredicate>,
@@ -322,6 +328,13 @@ enum StringPredicateOp {
     StartsWith,
     Contains,
     EndsWith,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StringTransformOp {
+    Lower,
+    Upper,
+    Trim,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -385,6 +398,24 @@ impl StringPredicateOp {
             Self::StartsWith => "starts_with",
             Self::Contains => "contains",
             Self::EndsWith => "ends_with",
+        }
+    }
+}
+
+impl StringTransformOp {
+    const fn function_name(self) -> &'static str {
+        match self {
+            Self::Lower => "utf8_lower",
+            Self::Upper => "utf8_upper",
+            Self::Trim => "utf8_trim",
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Lower => "lower",
+            Self::Upper => "upper",
+            Self::Trim => "trim",
         }
     }
 }
@@ -1622,6 +1653,7 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::Compare { .. }
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
+        | ParsedPredicate::StringTransformCompare { .. }
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
         | ParsedPredicate::InList { .. }
@@ -2483,7 +2515,8 @@ impl ParsedPredicate {
             | Self::IsNull { column }
             | Self::IsNotNull { column }
             | Self::InList { column, .. }
-            | Self::StringMatch { column, .. } => columns.push(column),
+            | Self::StringMatch { column, .. }
+            | Self::StringTransformCompare { column, .. } => columns.push(column),
             Self::Logical { left, right, .. } => {
                 left.push_columns(columns);
                 right.push_columns(columns);
@@ -2548,6 +2581,12 @@ impl ParsedPredicate {
                 comparison,
                 value,
             } => date_extract_compare_expression(column, *op, *comparison, value),
+            Self::StringTransformCompare {
+                column,
+                op,
+                comparison,
+                value,
+            } => string_transform_compare_expression(column, *op, *comparison, value),
             Self::IsNull { column } => Ok(Expression::new(
                 ExprId::new("where.is_null")?,
                 ExpressionKind::Unary {
@@ -2595,6 +2634,7 @@ impl ParsedPredicate {
             Self::CastCompare { .. } => "cast",
             Self::DateArithmeticCompare { .. } => "date_arithmetic",
             Self::DateExtractCompare { .. } => "date_extract",
+            Self::StringTransformCompare { .. } => "string_transform",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
             Self::InList { .. } => "in_predicate",
             Self::StringMatch { .. } => "string_predicate",
@@ -2614,6 +2654,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. } => false,
@@ -2643,9 +2684,89 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. } => {}
+        }
+    }
+
+    fn uses_string_transform(&self) -> bool {
+        match self {
+            Self::StringTransformCompare { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_string_transform() || right.uses_string_transform()
+            }
+            Self::Not { inner } => inner.uses_string_transform(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn string_transform_operator(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_string_transform_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_string_transform_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::StringTransformCompare { op, .. } => operators.push(op.as_str()),
+            Self::Logical { left, right, .. } => {
+                left.push_string_transform_operators(operators);
+                right.push_string_transform_operators(operators);
+            }
+            Self::Not { inner } => inner.push_string_transform_operators(operators),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn string_transform_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_string_transform_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_string_transform_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::StringTransformCompare { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_string_transform_source_columns(columns);
+                right.push_string_transform_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_string_transform_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
         }
     }
 
@@ -2675,6 +2796,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => false,
@@ -2690,6 +2812,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2715,6 +2838,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2746,6 +2870,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2766,6 +2891,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2784,6 +2910,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2801,6 +2928,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => false,
@@ -2819,6 +2947,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::StringMatch { .. } => 0,
@@ -2836,6 +2965,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2865,6 +2995,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2894,6 +3025,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2912,6 +3044,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2941,6 +3074,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2970,6 +3104,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -2999,6 +3134,7 @@ impl ParsedPredicate {
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -3026,6 +3162,34 @@ fn string_match_expression(
                     ScalarValue::Utf8(value.to_string()),
                 ),
             ],
+        },
+    ))
+}
+
+fn string_transform_compare_expression(
+    column: &str,
+    op: StringTransformOp,
+    comparison: ComparisonOp,
+    value: &ScalarValue,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.string_transform_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::new(
+                ExprId::new(format!("where.string_transform.{column}"))?,
+                ExpressionKind::FunctionCall {
+                    name: op.function_name().to_string(),
+                    args: vec![Expression::column(
+                        ExprId::new(format!("where.{column}"))?,
+                        ColumnRef::new(column.to_string())?,
+                    )],
+                },
+            )),
+            op: comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.string_transform.literal")?,
+                value.clone(),
+            )),
         },
     ))
 }
@@ -3500,6 +3664,18 @@ impl SqlLocalSourceReport {
             (
                 "string_predicate_operator".to_string(),
                 self.parsed.predicate.string_operator(),
+            ),
+            (
+                "string_transform_runtime_execution".to_string(),
+                self.parsed.predicate.uses_string_transform().to_string(),
+            ),
+            (
+                "string_transform_operator".to_string(),
+                self.parsed.predicate.string_transform_operator(),
+            ),
+            (
+                "string_transform_source_column".to_string(),
+                self.parsed.predicate.string_transform_source_columns(),
             ),
             (
                 "logical_predicate_runtime_execution".to_string(),
@@ -4759,6 +4935,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_cast_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_string_transform_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_in_list_predicate(raw)? {
         return Ok(predicate);
     }
@@ -4816,7 +4995,7 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             }
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, <column> IN (<literal>,...), <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> IN (<literal>,...), <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -5122,6 +5301,51 @@ fn parse_cast_target_dtype(raw: &str) -> Result<LogicalDType, ShardLoomError> {
             "CAST target dtype must be one of int64, float64, utf8, boolean, or date32",
         )),
     }
+}
+
+fn parse_string_transform_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    let Some((function_name, op)) = [
+        ("lower", StringTransformOp::Lower),
+        ("upper", StringTransformOp::Upper),
+        ("trim", StringTransformOp::Trim),
+    ]
+    .into_iter()
+    .find(|(name, _)| {
+        trimmed
+            .get(..name.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && trimmed.as_bytes().get(name.len()) == Some(&b'(')
+    }) else {
+        return Ok(None);
+    };
+    let open_index = function_name.len();
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "string transform predicates must use LOWER(<column>), UPPER(<column>), or TRIM(<column>)",
+        )
+    })?;
+    let inner = trimmed[open_index + 1..close_index].trim();
+    let tail = trimmed[close_index + 1..].trim();
+    if inner.is_empty() || tail.is_empty() {
+        return Err(unsupported_sql_error(
+            "string transform predicates require a source column, comparison operator, and string literal",
+        ));
+    }
+    validate_sql_column_ref(inner)?;
+    let tokens = split_whitespace_outside_quotes(tail)?;
+    let [op_raw, literal_raw] = tokens.as_slice() else {
+        return Err(unsupported_sql_error(
+            "string transform predicates admit LOWER/UPPER/TRIM(<column>) <op> <string-literal> only",
+        ));
+    };
+    let literal = parse_sql_string_literal(literal_raw)?;
+    Ok(Some(ParsedPredicate::StringTransformCompare {
+        column: inner.to_string(),
+        op,
+        comparison: parse_comparison_op(op_raw)?,
+        value: ScalarValue::Utf8(literal),
+    }))
 }
 
 fn parse_sql_date_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {

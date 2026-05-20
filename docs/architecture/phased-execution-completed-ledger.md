@@ -16,6 +16,59 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTF-8 string transform predicate runtime
+  - Branch/PR: `codex/expression-runtime-next-slice` / #833.
+  - Primary files:
+    - `shardloom-core/src/expression.rs`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `shardloom-contract-tests/tests/expression_operator_semantics.rs`
+    - `python/src/shardloom/query.py`
+    - `python/src/shardloom/client.py`
+    - `python/tests/test_query_builder.py`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/use-cases/use-case-index.yml`
+    - generated `docs/use-cases/generated/*` and `website/use-cases/**` artifacts.
+  - Scope: promote scoped UTF-8 `LOWER(column)`, `UPPER(column)`, and `TRIM(column)` transform
+    predicates through the ShardLoom-owned local SQL/Python smoke path.
+  - Runtime behavior:
+    - `shardloom-core` evaluates `utf8_lower`/`lower`, `utf8_upper`/`upper`, and
+      `utf8_trim`/`trim` as null-propagating UTF-8 functions with deterministic blockers for
+      non-UTF-8 operands.
+    - `sql-local-source-smoke` admits `LOWER`/`UPPER`/`TRIM(<column>) <op> <string-literal>`
+      predicates and lowers them into native expression semantics.
+    - Python query-builder columns expose `.lower()`, `.upper()`, and `.trim()` helpers.
+  - Evidence:
+    - SQL smoke envelopes emit `predicate_operator_family=string_transform`,
+      `string_transform_runtime_execution`, `string_transform_operator`, and
+      `string_transform_source_column`.
+    - Python typed reports expose `string_transform_runtime_execution`,
+      `string_transform_operator`, and `string_transform_source_columns`.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo test -p shardloom-contract-tests --test expression_operator_semantics`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke string_transform -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m pytest python\tests\test_query_builder.py -k "string_transform or admitted_predicate_families"`
+    - `python website\build_static_pages.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - bundled Node runtime: `website\validate_static_assets.js`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics website`
+    - `git diff --check`
+  - Claim boundary: this is scoped local SQL/Python fixture-smoke runtime support for UTF-8
+    case/trim predicates. It is not locale/collation completeness, broad SQL/DataFrame support,
+    production SQL, Vortex encoded-native execution, object-store/table support, performance
+    evidence, or a superiority claim.
+  - Fallback boundary: no external engine execution or fallback is introduced; rows keep
+    `fallback_attempted=false`, `external_engine_invoked=false`, and
+    `claim_gate_status=fixture_smoke_only`.
+
 - [x] Session label: GAR-WEB-REDESIGN-2G framework migration decision and implementation gate
   - Branch/PR: `codex/website-framework-decision` / #832.
   - Primary files:

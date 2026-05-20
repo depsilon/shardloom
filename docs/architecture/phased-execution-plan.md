@@ -316,9 +316,12 @@ or documentation updates alone are insufficient.
     non-integer comparison shapes. Scoped Date32 day arithmetic through `DATE_ADD_DAYS(column, days)`
     / `DATE_SUB_DAYS(column, days)` predicates is runtime-admitted with `date_arithmetic_*`
     evidence and deterministic blockers for invalid day counts or unsupported non-Date32 shapes.
+    Scoped UTF-8 `LOWER(column)`, `UPPER(column)`, and `TRIM(column)` transform predicates are
+    runtime-admitted with `string_transform_*` evidence and deterministic blockers for non-UTF-8
+    or unsupported expression shapes; this is not locale/collation completeness.
     Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`,
-    bounded `IN`, cast/date, Date32 extracts, Date32 day arithmetic, and logical predicates into the
+    scoped UTF-8 lower/upper/trim transforms, bounded `IN`, cast/date, Date32 extracts, Date32 day arithmetic, and logical predicates into the
     same local SQL smoke path, plus `where(...)` as a familiar filter alias. User workflows still lack broad typed
     coercions, timestamp/timezone helpers, interval/date-time completeness, NULL/subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
