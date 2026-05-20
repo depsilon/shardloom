@@ -761,6 +761,53 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def date_arithmetic_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted Date32 day arithmetic projection."""
+
+        return (
+            self.envelope.field_bool(
+                "date_arithmetic_projection_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def date_arithmetic_projection_operator(self) -> tuple[str, ...]:
+        """Return Date32 day arithmetic projection operators emitted by the smoke."""
+
+        value = self.envelope.field("date_arithmetic_projection_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def date_arithmetic_projection_days(self) -> tuple[str, ...]:
+        """Return Date32 day arithmetic projection day counts emitted by the smoke."""
+
+        value = self.envelope.field("date_arithmetic_projection_days", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def date_arithmetic_projection_source_columns(self) -> tuple[str, ...]:
+        """Return Date32 day arithmetic projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("date_arithmetic_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def date_arithmetic_projection_output_columns(self) -> tuple[str, ...]:
+        """Return Date32 day arithmetic projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("date_arithmetic_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def string_transform_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted UTF-8 transform projection."""
 

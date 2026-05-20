@@ -1143,19 +1143,24 @@ class LazyFrame:
                     expression_sql = _sql_numeric_arithmetic_projection_expression(expression)
                 except (TypeError, ValueError):
                     try:
-                        expression_sql = _sql_string_transform_projection_expression(expression)
+                        expression_sql = _sql_date_arithmetic_projection_expression(expression)
                     except (TypeError, ValueError):
                         try:
-                            expression_sql = _sql_temporal_extract_projection_expression(
-                                expression
-                            )
+                            expression_sql = _sql_string_transform_projection_expression(expression)
                         except (TypeError, ValueError):
-                            expression_text = _require_non_empty("column expression", expression)
-                            return self._unsupported_operation(
-                                "with-column",
-                                f"{column_name}={expression_text}",
-                                check=check,
-                            )
+                            try:
+                                expression_sql = _sql_temporal_extract_projection_expression(
+                                    expression
+                                )
+                            except (TypeError, ValueError):
+                                expression_text = _require_non_empty(
+                                    "column expression", expression
+                                )
+                                return self._unsupported_operation(
+                                    "with-column",
+                                    f"{column_name}={expression_text}",
+                                    check=check,
+                                )
         if self._can_append_projection_column(column_name):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         return self._unsupported_operation(
@@ -2809,6 +2814,30 @@ def _sql_cast_projection_expression(expression: object) -> str:
     return f"CAST({column} AS {dtype})"
 
 
+def _sql_date_arithmetic_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits DATE_ADD_DAYS/DATE_SUB_DAYS expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"DATE_ADD_DAYS", "DATE_SUB_DAYS"}:
+        raise ValueError(
+            "computed with_column currently admits DATE_ADD_DAYS/DATE_SUB_DAYS expressions"
+        )
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 2:
+        raise ValueError(
+            "date arithmetic with_column expressions require exactly two arguments"
+        )
+    column = _normalize_temporal_extract_column(args[0], "date32")
+    days = _normalize_date_arithmetic_days(args[1])
+    return f"{function}({column}, {days})"
+
+
 def _sql_string_transform_projection_expression(expression: object) -> str:
     if not isinstance(expression, ColumnExpression):
         raise TypeError("computed with_column requires a shardloom ColumnExpression")
@@ -2858,6 +2887,28 @@ def _sql_temporal_extract_projection_expression(expression: object) -> str:
     else:
         normalized = _normalize_temporal_extract_column(column, "timestamp_micros")
     return f"{function}({normalized})"
+
+
+def _split_projection_function_args(expression: str) -> tuple[str, ...]:
+    args: list[str] = []
+    start = 0
+    depth = 0
+    for index, char in enumerate(expression):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth < 0:
+                raise ValueError("computed with_column expression has unbalanced parentheses")
+        elif char == "," and depth == 0:
+            args.append(expression[start:index].strip())
+            start = index + 1
+    if depth != 0:
+        raise ValueError("computed with_column expression has unbalanced parentheses")
+    args.append(expression[start:].strip())
+    if any(not arg for arg in args):
+        raise ValueError("computed with_column expression has an empty argument")
+    return tuple(args)
 
 
 def _normalize_temporal_extract_column(expression: str, dtype: str) -> str:

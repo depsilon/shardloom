@@ -172,6 +172,7 @@ struct ParsedSqlLocalSource {
     literal_projections: Vec<ParsedLiteralProjection>,
     cast_projections: Vec<ParsedCastProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
+    date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
@@ -211,6 +212,14 @@ struct ParsedNumericArithmeticProjection {
     column: String,
     op: NumericArithmeticOp,
     rhs: ScalarValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedDateArithmeticProjection {
+    alias: String,
+    column: String,
+    op: DateArithmeticOp,
+    day_count: i32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -334,6 +343,7 @@ struct ParsedProjectionList {
     literal_projections: Vec<ParsedLiteralProjection>,
     cast_projections: Vec<ParsedCastProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
+    date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
@@ -1633,6 +1643,13 @@ fn evaluate_projection_output(
         )
         .chain(
             parsed
+                .date_arithmetic_projections
+                .iter()
+                .map(date_arithmetic_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
+        .chain(
+            parsed
                 .string_transform_projections
                 .iter()
                 .map(string_transform_projection_expression)
@@ -1696,6 +1713,34 @@ fn cast_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(cast),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn date_arithmetic_projection_expression(
+    projection: &ParsedDateArithmeticProjection,
+) -> Result<Expression, ShardLoomError> {
+    let arithmetic = Expression::new(
+        ExprId::new(format!("project.date_arithmetic.{}", projection.alias))?,
+        ExpressionKind::FunctionCall {
+            name: projection.op.function_name().to_string(),
+            args: vec![
+                Expression::column(
+                    ExprId::new(format!("project.{}", projection.column))?,
+                    ColumnRef::new(projection.column.clone())?,
+                ),
+                Expression::literal(
+                    ExprId::new(format!("project.date_arithmetic.days.{}", projection.alias))?,
+                    ScalarValue::Int64(i64::from(projection.day_count)),
+                ),
+            ],
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(arithmetic),
             alias: projection.alias.clone(),
         },
     ))
@@ -2007,9 +2052,20 @@ fn apply_temporal_literal_column_coercions(
         source,
         right_source.as_deref_mut(),
     )?;
+    apply_date_arithmetic_projection_coercions(parsed, source)?;
     apply_date_extract_projection_coercions(parsed, source)?;
     apply_timestamp_literal_predicate_coercions(&parsed.predicate, parsed, source, right_source)?;
     apply_timestamp_extract_projection_coercions(parsed, source)
+}
+
+fn apply_date_arithmetic_projection_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.date_arithmetic_projections {
+        coerce_source_column_to_date32(source, &projection.column)?;
+    }
+    Ok(())
 }
 
 fn apply_date_extract_projection_coercions(
@@ -2728,7 +2784,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -2819,6 +2875,17 @@ fn validate_projection_source_columns(
             )));
         }
     }
+    for projection in &parsed.date_arithmetic_projections {
+        if !header
+            .iter()
+            .any(|candidate| candidate == &projection.column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "date arithmetic projection source column {:?} is not present in the local source header",
+                projection.column
+            )));
+        }
+    }
     for projection in &parsed.string_transform_projections {
         if !header
             .iter()
@@ -2902,6 +2969,13 @@ fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(),
             ));
         }
     }
+    for date_projection in &parsed.date_arithmetic_projections {
+        if !output_names.insert(date_projection.alias.as_str()) {
+            return Err(unsupported_sql_error(
+                "computed projection smoke requires unique output column names",
+            ));
+        }
+    }
     for transform_projection in &parsed.string_transform_projections {
         if !output_names.insert(transform_projection.alias.as_str()) {
             return Err(unsupported_sql_error(
@@ -2950,6 +3024,7 @@ fn bind_join_sql_local_source(
         || !parsed.literal_projections.is_empty()
         || !parsed.cast_projections.is_empty()
         || !parsed.numeric_arithmetic_projections.is_empty()
+        || !parsed.date_arithmetic_projections.is_empty()
         || !parsed.string_transform_projections.is_empty()
         || !parsed.date_extract_projections.is_empty()
         || !parsed.timestamp_extract_projections.is_empty()
@@ -3079,6 +3154,10 @@ impl ParsedSqlLocalSource {
         !self.numeric_arithmetic_projections.is_empty()
     }
 
+    fn has_date_arithmetic_projection(&self) -> bool {
+        !self.date_arithmetic_projections.is_empty()
+    }
+
     fn has_string_transform_projection(&self) -> bool {
         !self.string_transform_projections.is_empty()
     }
@@ -3095,6 +3174,7 @@ impl ParsedSqlLocalSource {
         self.has_literal_projection()
             || self.has_cast_projection()
             || self.has_numeric_arithmetic_projection()
+            || self.has_date_arithmetic_projection()
             || self.has_string_transform_projection()
             || self.has_date_extract_projection()
             || self.has_timestamp_extract_projection()
@@ -3124,6 +3204,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_numeric_arithmetic_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_date_arithmetic_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_date_arithmetic_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_string_transform_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
@@ -3173,6 +3257,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_numeric_arithmetic_projection() {
             "computed-projection-limit"
+        } else if self.has_date_arithmetic_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_date_arithmetic_projection() {
+            "computed-projection-limit"
         } else if self.has_string_transform_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_string_transform_projection() {
@@ -3220,6 +3308,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_numeric_arithmetic_projection() {
+            "computed_projection_limit"
+        } else if self.has_date_arithmetic_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_date_arithmetic_projection() {
             "computed_projection_limit"
         } else if self.has_string_transform_projection() && self.has_filter() {
             "computed_projection_filter_limit"
@@ -3281,6 +3373,11 @@ impl ParsedSqlLocalSource {
                 )
                 .chain(
                     self.numeric_arithmetic_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
+                    self.date_arithmetic_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
                 )
@@ -3382,6 +3479,54 @@ impl ParsedSqlLocalSource {
             self.numeric_arithmetic_projections
                 .iter()
                 .map(|projection| projection.rhs.dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn date_arithmetic_projection_operators(&self) -> String {
+        if self.date_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.date_arithmetic_projections
+                .iter()
+                .map(|projection| projection.op.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn date_arithmetic_projection_source_columns(&self) -> String {
+        if self.date_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.date_arithmetic_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn date_arithmetic_projection_days(&self) -> String {
+        if self.date_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.date_arithmetic_projections
+                .iter()
+                .map(|projection| projection.day_count.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn date_arithmetic_projection_output_columns(&self) -> String {
+        if self.date_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.date_arithmetic_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -5293,6 +5438,26 @@ impl SqlLocalSourceReport {
                 self.parsed.numeric_arithmetic_projection_rhs_dtypes(),
             ),
             (
+                "date_arithmetic_projection_runtime_execution".to_string(),
+                self.parsed.has_date_arithmetic_projection().to_string(),
+            ),
+            (
+                "date_arithmetic_projection_operator".to_string(),
+                self.parsed.date_arithmetic_projection_operators(),
+            ),
+            (
+                "date_arithmetic_projection_days".to_string(),
+                self.parsed.date_arithmetic_projection_days(),
+            ),
+            (
+                "date_arithmetic_projection_source_column".to_string(),
+                self.parsed.date_arithmetic_projection_source_columns(),
+            ),
+            (
+                "date_arithmetic_projection_output_column".to_string(),
+                self.parsed.date_arithmetic_projection_output_columns(),
+            ),
+            (
                 "string_transform_projection_runtime_execution".to_string(),
                 self.parsed.has_string_transform_projection().to_string(),
             ),
@@ -6472,6 +6637,7 @@ fn parsed_sql_local_source_from_parts(
         literal_projections: projection_list.literal_projections,
         cast_projections: projection_list.cast_projections,
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
+        date_arithmetic_projections: projection_list.date_arithmetic_projections,
         string_transform_projections: projection_list.string_transform_projections,
         date_extract_projections: projection_list.date_extract_projections,
         timestamp_extract_projections: projection_list.timestamp_extract_projections,
@@ -6513,6 +6679,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut literal_projections = Vec::new();
     let mut cast_projections = Vec::new();
     let mut numeric_arithmetic_projections = Vec::new();
+    let mut date_arithmetic_projections = Vec::new();
     let mut string_transform_projections = Vec::new();
     let mut date_extract_projections = Vec::new();
     let mut timestamp_extract_projections = Vec::new();
@@ -6532,6 +6699,10 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             numeric_arithmetic_projections.push(arithmetic_projection);
         } else if let Some(cast_projection) = parse_cast_projection(projection)? {
             cast_projections.push(cast_projection);
+        } else if let Some(date_arithmetic_projection) =
+            parse_date_arithmetic_projection(projection)?
+        {
+            date_arithmetic_projections.push(date_arithmetic_projection);
         } else if let Some(transform_projection) = parse_string_transform_projection(projection)? {
             string_transform_projections.push(transform_projection);
         } else if let Some(date_projection) = parse_date_extract_projection(projection)? {
@@ -6552,6 +6723,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         literal_projections,
         cast_projections,
         numeric_arithmetic_projections,
+        date_arithmetic_projections,
         string_transform_projections,
         date_extract_projections,
         timestamp_extract_projections,
@@ -6667,6 +6839,59 @@ fn parse_cast_projection(raw: &str) -> Result<Option<ParsedCastProjection>, Shar
         alias: alias.to_string(),
         column: column.to_string(),
         target_dtype: parse_cast_target_dtype(target_raw)?,
+    }))
+}
+
+fn parse_date_arithmetic_projection(
+    raw: &str,
+) -> Result<Option<ParsedDateArithmeticProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    let Some((function_name, op)) = [
+        ("date_add_days", DateArithmeticOp::AddDays),
+        ("date_sub_days", DateArithmeticOp::SubDays),
+    ]
+    .into_iter()
+    .find(|(name, _)| {
+        expression_raw
+            .get(..name.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && expression_raw.as_bytes().get(name.len()) == Some(&b'(')
+    }) else {
+        return Ok(None);
+    };
+    if alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "date arithmetic projections require an output alias",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let open_index = function_name.len();
+    let close_index = matching_closing_parenthesis(expression_raw, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "date arithmetic projections must use DATE_ADD_DAYS(<column>, <days>) AS <column> or DATE_SUB_DAYS(<column>, <days>) AS <column>",
+        )
+    })?;
+    if !expression_raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "date arithmetic projections must be a single DATE_ADD_DAYS/DATE_SUB_DAYS expression before AS",
+        ));
+    }
+    let inner = expression_raw[open_index + 1..close_index].trim();
+    let args = split_sql_csv(inner)?;
+    let [column_raw, day_count_raw] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "date arithmetic projections require exactly two arguments: <column>, <days>",
+        ));
+    };
+    Ok(Some(ParsedDateArithmeticProjection {
+        alias: alias.to_string(),
+        column: parse_date_arithmetic_column_arg(column_raw)?,
+        op,
+        day_count: parse_date_arithmetic_days(day_count_raw)?,
     }))
 }
 
@@ -8016,6 +8241,7 @@ fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
     let mut current = String::new();
     let mut chars = raw.chars().peekable();
     let mut in_quote = false;
+    let mut depth = 0_u32;
     while let Some(ch) = chars.next() {
         match ch {
             '\'' if in_quote && chars.peek() == Some(&'\'') => {
@@ -8026,7 +8252,17 @@ fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
                 in_quote = !in_quote;
                 current.push(ch);
             }
-            ',' if !in_quote => {
+            '(' if !in_quote => {
+                depth += 1;
+                current.push(ch);
+            }
+            ')' if !in_quote => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("SQL expression parentheses are not balanced")
+                })?;
+                current.push(ch);
+            }
+            ',' if !in_quote && depth == 0 => {
                 values.push(current.trim().to_string());
                 current = String::new();
             }
@@ -8035,6 +8271,11 @@ fn split_sql_csv(raw: &str) -> Result<Vec<String>, ShardLoomError> {
     }
     if in_quote {
         return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    if depth != 0 {
+        return Err(unsupported_sql_error(
+            "SQL expression parentheses are not balanced",
+        ));
     }
     if !current.trim().is_empty() {
         values.push(current.trim().to_string());
@@ -8652,6 +8893,52 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_date_arithmetic_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,DATE_ADD_DAYS(CAST(event_date AS date32), 7) AS next_week,DATE_SUB_DAYS(event_date, 1) AS prior_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("date arithmetic projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.date_arithmetic_projections.len(), 2);
+        assert_eq!(parsed.date_arithmetic_projections[0].alias, "next_week");
+        assert_eq!(parsed.date_arithmetic_projections[0].column, "event_date");
+        assert_eq!(
+            parsed.date_arithmetic_projections[0].op,
+            DateArithmeticOp::AddDays
+        );
+        assert_eq!(parsed.date_arithmetic_projections[0].day_count, 7);
+        assert_eq!(parsed.date_arithmetic_projections[1].alias, "prior_day");
+        assert_eq!(parsed.date_arithmetic_projections[1].column, "event_date");
+        assert_eq!(
+            parsed.date_arithmetic_projections[1].op,
+            DateArithmeticOp::SubDays
+        );
+        assert_eq!(parsed.date_arithmetic_projections[1].day_count, 1);
+        assert_eq!(
+            parsed.date_arithmetic_projection_operators(),
+            "date_add_days,date_sub_days"
+        );
+        assert_eq!(
+            parsed.date_arithmetic_projection_source_columns(),
+            "event_date,event_date"
+        );
+        assert_eq!(parsed.date_arithmetic_projection_days(), "7,1");
+        assert_eq!(
+            parsed.date_arithmetic_projection_output_columns(),
+            "next_week,prior_day"
+        );
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn parses_scoped_string_transform_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,LOWER(label) AS lowered,UPPER(label) AS raised,TRIM(label) AS trimmed FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
@@ -8796,6 +9083,25 @@ mod tests {
             error
                 .to_string()
                 .contains("cast projection source column \"missing_amount\" is not present"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn date_arithmetic_projection_missing_source_column_is_blocked() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,DATE_ADD_DAYS(missing_date, 7) AS next_week FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect("date arithmetic projection statement parses before binding");
+        let header = vec!["id".to_string(), "event_date".to_string()];
+
+        let error = bind_sql_local_source(&parsed, &header, None)
+            .expect_err("missing date arithmetic projection source column is blocked");
+
+        assert!(
+            error.to_string().contains(
+                "date arithmetic projection source column \"missing_date\" is not present"
+            ),
             "{error}"
         );
     }
