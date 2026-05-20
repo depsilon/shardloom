@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild
+  - Branch/PR: `codex/website-atlas-status-rebuild` / #829.
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `scripts/check_website_readiness.py`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `website/assets/site.css`
+    - `website/assets/site.js`
+    - `website/build_static_pages.py`
+    - `website/field-guide.html`
+    - `website/use-cases.html`
+    - `website/status.html`
+    - `website/validate_static_assets.js`
+  - Scope: rebuild the public website atlas surfaces that were previously redirected away during
+    the minimal reset. The static generator now emits `/start`, `/field-guide`,
+    `/field-guide/<slug>`, `/use-cases`, `/use-cases/<id>`, `/status`, and `/architecture` while
+    preserving `/compute-engine-flow` and existing benchmark routes.
+  - Content sources:
+    - Field Guide: in-generator compact term registry for route/evidence vocabulary, including
+      UniversalIngress, vortex_ingest, VortexPreparedState, prepared/native Vortex, certificates,
+      benchmark interpretation, output planning, scale posture, platform boundaries, and
+      deterministic blockers.
+    - Use cases: `docs/use-cases/use-case-index.yml`, parsed through the same dependency-free
+      parser used by `scripts/check_use_case_index.py`.
+    - Status: explicit public status rows for local CSV, JSONL/NDJSON, JSON, Parquet, Arrow IPC,
+      Avro, ORC, Vortex input, generated/source-free output, Python, SQL/DataFrame,
+      S3/GCS/ADLS, Iceberg/Delta/Hudi, Foundry, benchmarks, and package/release.
+  - User-visible surfaces:
+    - `/field-guide` with dense category contents, reading paths, static filters, and 32 dossier
+      pages.
+    - `/use-cases` with 19 generated use-case cards and 19 detail pages.
+    - `/status` with 16 filterable support/status cards where blocked and report-only rows remain
+      visible.
+    - `/start` as a local proof entry point linked from the homepage.
+    - `/architecture` as the friendly compute-flow route-map alias while keeping
+      `/compute-engine-flow`.
+  - Filter fields: search, status, category, input, output, route, and platform. Filters run from
+    committed static HTML/JS only; no external search service, Pagefind bundle, backend, or runtime
+    content fetch is introduced.
+  - Visual QA:
+    - Desktop screenshots: `target/website-atlas-status-rebuild/field-guide-desktop.png`,
+      `target/website-atlas-status-rebuild/use-cases-desktop.png`,
+      `target/website-atlas-status-rebuild/status-desktop.png`.
+    - Mobile screenshots: `target/website-atlas-status-rebuild/field-guide-mobile.png`,
+      `target/website-atlas-status-rebuild/use-cases-mobile.png`,
+      `target/website-atlas-status-rebuild/status-mobile.png`.
+    - CDP layout metrics showed `scrollWidth <= innerWidth` for all three routes at desktop and
+      mobile viewports.
+    - Filter interaction smoke: selecting `status=blocked` on `/use-cases` reduced cards to
+      `2 of 19 shown`.
+  - Verification:
+    - `python website\build_static_pages.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - bundled Node runtime: `website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q scripts website`
+    - `git diff --check`
+  - Claim boundary: public atlas/status pages are interpretation and navigation surfaces only. They
+    do not add runtime support, package publication, benchmark recomputation, performance or
+    superiority claims, Spark replacement claims, production SQL/DataFrame support,
+    object-store/lakehouse/Foundry production support, or broad Vortex writer claims.
+  - Fallback boundary: generated pages keep `fallback_attempted=false` and
+    `external_engine_invoked=false` visible where relevant, and they continue to frame external
+    engines as baselines only, never fallback execution.
+
 - [x] Session label: GAR-WEB-REDESIGN-2C homepage product-console rebuild
   - Branch/PR: `codex/website-homepage-console-redesign` / #828.
   - Primary files:

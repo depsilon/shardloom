@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShardLoom Use Cases</title>
+  <meta name="description" content="Filterable ShardLoom use-case browser with evidence fields, routes, blockers, and claim boundaries.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://shardloom.io/use-cases">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+  <meta property="og:title" content="ShardLoom Use Cases">
+  <meta property="og:description" content="Filterable ShardLoom use-case browser with evidence fields, routes, blockers, and claim boundaries.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="ShardLoom home">
+      <img src="/assets/logo/shardloom-favicon.png" alt="" width="40" height="40" aria-hidden="true">
+      <span>ShardLoom</span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="/">Home</a>
+          <a href="/start">Start</a>
+          <a href="/field-guide">Field Guide</a>
+          <a class="active" aria-current="page" href="/use-cases">Use Cases</a>
+          <a href="/benchmarks">Benchmarks</a>
+          <a href="/architecture">Architecture</a>
+          <a href="/status">Status</a>
+          <a href="https://github.com/depsilon/shardloom">GitHub</a>
+    </nav>
+  </header>
+  <main>
+
+    <section class="page-hero">
+      <p class="eyebrow">Use Cases</p>
+      <h1>Can ShardLoom do my thing?</h1>
+      <p class="lede">Browse supported, smoke-supported, report-only, blocked, and unsupported workflows without reading the full phase plan.</p>
+    </section>
+
+    <section data-filter-scope>
+      <div class="filter-bar" aria-label="Filter content"><label>Search<span><input data-filter="search" type="search" placeholder="Search routes, evidence, blockers..." autocomplete="off"></span></label><label>Status<span><select data-filter="status"><option value="">All</option><option value="blocked">blocked</option><option value="report-only">report_only</option><option value="runtime-supported">runtime_supported</option><option value="smoke-supported">smoke_supported</option></select></span></label><label>Input<span><select data-filter="input"><option value="">All</option><option value="adls-uri">adls_uri</option><option value="benchmark-fixture">benchmark_fixture</option><option value="calendar-dimension">calendar_dimension</option><option value="catalog-metadata">catalog_metadata</option><option value="cdc-delta-overlay-fixture">cdc_delta_overlay_fixture</option><option value="ctx-sql-source-free">ctx_sql_source_free</option><option value="dataframe-api-request">dataframe_api_request</option><option value="delta-table">delta_table</option><option value="dirty-csv-fixture">dirty_csv_fixture</option><option value="gcs-uri">gcs_uri</option><option value="generated-rows">generated_rows</option><option value="generated-rows-literal-with-column">generated_rows_literal_with_column</option><option value="generated-rows-projection">generated_rows_projection</option><option value="hudi-table">hudi_table</option><option value="iceberg-table">iceberg_table</option><option value="literal-table-rows">literal_table_rows</option><option value="local-benchmark-fixture">local_benchmark_fixture</option><option value="local-certified-workload">local_certified_workload</option><option value="local-csv">local_csv</option><option value="local-csv-flat-non-null-scalars">local_csv_flat_non_null_scalars</option><option value="local-json">local_json</option><option value="local-json-flat-non-null-scalars">local_json_flat_non_null_scalars</option><option value="local-jsonl">local_jsonl</option><option value="local-jsonl-flat-non-null-scalars">local_jsonl_flat_non_null_scalars</option><option value="local-jsonl-when-scenario-admits-it">local_jsonl_when_scenario_admits_it</option><option value="local-ndjson">local_ndjson</option><option value="local-parquet">local_parquet</option><option value="local-parquet-feature-gated">local_parquet_feature_gated</option><option value="local-parquet-when-features-enabled">local_parquet_when_features_enabled</option><option value="local-prepared-vortex-artifact">local_prepared_vortex_artifact</option><option value="local-style-fixture">local_style_fixture</option><option value="nested-json-fixture">nested_json_fixture</option><option value="none">none</option><option value="null-heavy-fixture">null_heavy_fixture</option><option value="optional-external-baselines">optional_external_baselines</option><option value="prepared-vortex-artifact">prepared_vortex_artifact</option><option value="range">range</option><option value="s3-uri">s3_uri</option><option value="sequence">sequence</option><option value="source-checkout">source_checkout</option><option value="sql-generate-series-range">sql_generate_series_range</option><option value="sql-literal-select">sql_literal_select</option><option value="sql-text">sql_text</option><option value="sql-values">sql_values</option><option value="vortex-prepared-state">vortex_prepared_state</option></select></span></label><label>Output<span><select data-filter="output"><option value="">All</option><option value="capabilities-report">capabilities_report</option><option value="capability-report">capability_report</option><option value="certificate-metrics-dataset-output">certificate_metrics_dataset_output</option><option value="claim-boundary-notes">claim_boundary_notes</option><option value="claim-gate-status">claim_gate_status</option><option value="claim-summary">claim_summary</option><option value="correctness-digest">correctness_digest</option><option value="coverage-rows">coverage_rows</option><option value="deterministic-blocker">deterministic_blocker</option><option value="deterministic-unsupported-diagnostics">deterministic_unsupported_diagnostics</option><option value="evidence-rows">evidence_rows</option><option value="evidence-summary">evidence_summary</option><option value="execution-certificate">execution_certificate</option><option value="feature-gated-local-parquet-output">feature_gated_local_parquet_output</option><option value="first-result-row">first_result_row</option><option value="fixture-sidecars">fixture_sidecars</option><option value="generated-source-certificate">generated_source_certificate</option><option value="grouped-aggregate-result">grouped_aggregate_result</option><option value="inline-jsonl-result">inline_jsonl_result</option><option value="install-channel-matrix">install_channel_matrix</option><option value="join-result">join_result</option><option value="literal-projection-result">literal_projection_result</option><option value="local-benchmark-artifact">local_benchmark_artifact</option><option value="local-csv-output">local_csv_output</option><option value="local-csv-output-artifact">local_csv_output_artifact</option><option value="local-foundry-style-report">local_foundry_style_report</option><option value="local-jsonl-output">local_jsonl_output</option><option value="local-jsonl-output-artifact">local_jsonl_output_artifact</option><option value="local-result-sink-artifact">local_result_sink_artifact</option><option value="local-result-sink-evidence">local_result_sink_evidence</option><option value="local-vortex-artifact">local_vortex_artifact</option><option value="local-wheel-dry-run-report">local_wheel_dry_run_report</option><option value="native-io-certificate">native_io_certificate</option><option value="object-store-plan">object_store_plan</option><option value="optional-feature-gated-local-parquet-output">optional_feature_gated_local_parquet_output</option><option value="optional-local-csv-output">optional_local_csv_output</option><option value="optional-local-jsonl-output">optional_local_jsonl_output</option><option value="output-certificate">output_certificate</option><option value="output-native-io-certificate">output_native_io_certificate</option><option value="planned-multi-format-fanout">planned_multi_format_fanout</option><option value="prepared-native-timing-rows">prepared_native_timing_rows</option><option value="python-capability-view">python_capability_view</option><option value="result-replay-evidence">result_replay_evidence</option><option value="result-rows">result_rows</option><option value="result-sink-artifact">result_sink_artifact</option><option value="row-count-result">row_count_result</option><option value="scalar-aggregate-result">scalar_aggregate_result</option><option value="scenario-timing-rows">scenario_timing_rows</option><option value="smoke-report">smoke_report</option><option value="source-backed-scan-evidence">source_backed_scan_evidence</option><option value="sql-local-source-evidence">sql_local_source_evidence</option><option value="status-report">status_report</option><option value="table-compatibility-matrix">table_compatibility_matrix</option><option value="timing-rows">timing_rows</option><option value="topn-result">topn_result</option><option value="typed-output-envelope">typed_output_envelope</option><option value="typed-python-report">typed_python_report</option><option value="vortex-prepared-state">vortex_prepared_state</option><option value="vortex-prepared-state-evidence">vortex_prepared_state_evidence</option></select></span></label><label>Route<span><select data-filter="route"><option value="">All</option><option value="compatibility-import-certified">compatibility_import_certified</option><option value="direct-compatibility-transient">direct_compatibility_transient</option><option value="local-release-dry-run">local_release_dry_run</option><option value="mixed-by-row">mixed_by_row</option><option value="no-dataset-smoke">no_dataset_smoke</option><option value="prepared-vortex-native-vortex">prepared_vortex/native_vortex</option><option value="report-only">report_only</option><option value="report-only-blocked">report_only_blocked</option><option value="source-free-generated-output">source_free_generated_output</option><option value="vortex-ingest-to-prepared-vortex">vortex_ingest_to_prepared_vortex</option></select></span></label><p class="filter-count" data-filter-count></p></div>
+      <div class="use-case-grid"><article class="use-case-card" data-filter-card
+                data-status="runtime-supported"
+                data-input="none"
+                data-output="status-report capabilities-report smoke-report"
+                data-route="no-dataset-smoke">
+              <div class="card-top"><span class="status-chip status-runtime-supported">runtime_supported</span><span>onboarding / first 10 minutes</span></div>
+              <h3><a href="/use-cases/first-10-minutes-local-smoke">First 10 minutes local smoke</a></h3>
+              <p>Local source-checkout smoke only; no dataset execution, package-publication, production, SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>no_dataset_smoke</dd></div>
+                <div><dt>Evidence</dt><dd>fallback_attempted=false, external_engine_invoked=false, protocol_version</dd></div>
+              </dl>
+              <p class="blocked-note">python examples\local-python-smoke\run.py --repo-root .</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="local-csv local-parquet"
+                data-output="local-vortex-artifact local-result-sink-evidence"
+                data-route="compatibility-import-certified">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>local file ETL</span></div>
+              <h3><a href="/use-cases/local-file-etl-cleanup-smoke">Local file ETL smoke</a></h3>
+              <p>Scoped local technical-preview workflow only; not production ETL, broad SQL/DataFrame, object-store, lakehouse, Foundry, performance, or Spark-replacement proof.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>compatibility_import_certified</dd></div>
+                <div><dt>Evidence</dt><dd>execution_mode, claim_gate_status, native_io_certificate_status</dd></div>
+              </dl>
+              <p class="blocked-note">python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="local-csv local-parquet local-jsonl-when-scenario-admits-it"
+                data-output="vortex-prepared-state result-sink-artifact execution-certificate native-io-certificate"
+                data-route="compatibility-import-certified">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>compatibility import certified</span></div>
+              <h3><a href="/use-cases/compatibility-import-certified-local">Compatibility import certified local workload</a></h3>
+              <p>Certified cold-route evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>compatibility_import_certified</dd></div>
+                <div><dt>Evidence</dt><dd>source_adapter_status, ingress_route, vortex_ingest_status</dd></div>
+              </dl>
+              <p class="blocked-note">python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv,parquet --scenario &quot;selective filter&quot; --dataset-profile tiny_smoke --rows 256 --iterations 3 --sha...</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="vortex-prepared-state local-prepared-vortex-artifact benchmark-fixture"
+                data-output="prepared-native-timing-rows source-backed-scan-evidence"
+                data-route="prepared-vortex-native-vortex">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>prepared/native Vortex</span></div>
+              <h3><a href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a></h3>
+              <p>Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState and does not directly read non-Vortex sources. No broad encoded-native, performance, superiority, SQL/DataFra...</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>prepared_vortex/native_vortex</dd></div>
+                <div><dt>Evidence</dt><dd>execution_mode, prepared_state_id, prepared_state_digest</dd></div>
+              </dl>
+              <p class="blocked-note">python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario &quot;filter + projection + limit&quot; --datase...</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="local-csv-flat-non-null-scalars local-json-flat-non-null-scalars local-jsonl-flat-non-null-scalars local-parquet-when-features-enabled"
+                data-output="local-vortex-artifact vortex-prepared-state-evidence"
+                data-route="vortex-ingest-to-prepared-vortex">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>prepared/native Vortex</span></div>
+              <h3><a href="/use-cases/vortex-ingest-prepare-once-local">Vortex ingest prepare-once local smoke</a></h3>
+              <p>Feature-gated local prepare-once fixture smoke over flat non-null int/uint/float/UTF-8/date32/timestamp rows only; default builds block deterministically. No broad Vortex writer, object-store/table sink, produ...</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>vortex_ingest_to_prepared_vortex</dd></div>
+                <div><dt>Evidence</dt><dd>source_adapter_id, source_state_id, source_state_digest</dd></div>
+              </dl>
+              <p class="blocked-note">New-Item -ItemType Directory -Force target | Out-Null; &quot;id,label,amountn1,alpha,8n2,beta,15`n&quot; | Set-Content -Encoding utf8 target\vortex-ingest-source.csv; cargo run -q -p shardl...</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="runtime-supported"
+                data-input="none"
+                data-output="python-capability-view typed-output-envelope"
+                data-route="no-dataset-smoke">
+              <div class="card-top"><span class="status-chip status-runtime-supported">runtime_supported</span><span>Python wrapper/client</span></div>
+              <h3><a href="/use-cases/python-wrapper-client-smoke">Python wrapper and client smoke</a></h3>
+              <p>Thin Python CLI client only; not a native binding, DataFrame API, SQL runtime, UDF runtime, package-publication proof, or fallback path.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>no_dataset_smoke</dd></div>
+                <div><dt>Evidence</dt><dd>protocol_version, resolved_cli_path, fallback_attempted=false</dd></div>
+              </dl>
+              <p class="blocked-note">$env:PYTHONPATH = &quot;python\src&quot;; python -c &quot;from shardloom import ShardLoomClient; print(ShardLoomClient.from_repo().status().status)&quot;</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="report-only"
+                data-input="sql-text dataframe-api-request"
+                data-output="capability-report deterministic-unsupported-diagnostics"
+                data-route="report-only">
+              <div class="card-top"><span class="status-chip status-report-only">report_only</span><span>SQL/DataFrame scoped smokes and report-only surfaces</span></div>
+              <h3><a href="/use-cases/sql-dataframe-capability-posture">SQL and DataFrame capability posture</a></h3>
+              <p>SQL/DataFrame readiness is inspectable but runtime execution is not broadly supported or production-claimable.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>report_only</dd></div>
+                <div><dt>Evidence</dt><dd>support_status=report_only, runtime_execution=false, planner_readiness_non_executing</dd></div>
+              </dl>
+              <p class="blocked-note">SQL parse/bind/plan/execute and broad DataFrame runtime support require future admitted runtime slices with correctness, evidence, and no-fallback proof.</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="local-csv"
+                data-output="inline-jsonl-result result-rows first-result-row optional-local-jsonl-output optional-local-csv-output optional-feature-gated-local-parquet-output scalar-aggregate-result grouped-aggregate-result topn-result join-result sql-local-source-evidence evidence-summary claim-summary"
+                data-route="direct-compatibility-transient">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>SQL/DataFrame scoped smokes and report-only surfaces</span></div>
+              <h3><a href="/use-cases/sql-local-source-csv-smoke">SQL local CSV projection/optional-filter/IN/limit, aggregate, group-by, top-N, and join smoke</a></h3>
+              <p>Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, DATE literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, and balanced parenthesized leaves; scal...</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>direct_compatibility_transient</dd></div>
+                <div><dt>Evidence</dt><dd>schema_version=shardloom.sql_local_source_smoke.v1, sql_parser_executed=true, sql_binder_executed=true</dd></div>
+              </dl>
+              <p class="blocked-note">Vortex SQL sources, broader Parquet type/nesting coverage, Python/DataFrame joins beyond the scoped local CSV inner equi-join bridge, outer/semi/anti/cross joins, multi-key and ex...</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="local-csv local-json local-jsonl local-ndjson local-parquet-feature-gated"
+                data-output="inline-jsonl-result result-rows first-result-row local-jsonl-output local-csv-output feature-gated-local-parquet-output literal-projection-result row-count-result scalar-aggregate-result grouped-aggregate-result topn-result join-result typed-python-report evidence-summary claim-summary sql-local-source-evidence"
+                data-route="direct-compatibility-transient">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>Python wrapper/client</span></div>
+              <h3><a href="/use-cases/python-local-csv-query-builder-smoke">Python local CSV/JSON/JSONL/Parquet query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, and top-N smoke</a></h3>
+              <p>Scoped Python read_csv/read_json/read_parquet local-source smokes cover projection, optional-filter, limit, preview/head/take, literal with_column(...), count, scalar aggregate, one-column group_by aggregate,...</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>direct_compatibility_transient</dd></div>
+                <div><dt>Evidence</dt><dd>schema_version=shardloom.sql_local_source_smoke.v1, sql_parser_executed=true, sql_binder_executed=true</dd></div>
+              </dl>
+              <p class="blocked-note">The Python query-builder runtime admits local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet through the SQL local-source smoke for the documented projection/f...</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="none generated-rows generated-rows-projection generated-rows-literal-with-column literal-table-rows calendar-dimension range sequence sql-values sql-literal-select sql-generate-series-range ctx-sql-source-free"
+                data-output="local-jsonl-output-artifact local-csv-output-artifact generated-source-certificate output-native-io-certificate"
+                data-route="source-free-generated-output">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>source-free generated output</span></div>
+              <h3><a href="/use-cases/source-free-generated-output-boundary">Source-free generated output boundary</a></h3>
+              <p>Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range/sequence limit/head/take bound adjustment, SQL VALUES, SQL literal SELECT, and SQL generate_se...</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>source_free_generated_output</dd></div>
+                <div><dt>Evidence</dt><dd>input_dataset_count=0, source_io_performed=false, generated_source_created=true</dd></div>
+              </dl>
+              <p class="blocked-note">The source-free API admission matrix and Python context unsupported helpers keep SQL source-free projection beyond the admitted literal SELECT/VALUES/generate_series/range smoke s...</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="dirty-csv-fixture nested-json-fixture cdc-delta-overlay-fixture null-heavy-fixture"
+                data-output="local-benchmark-artifact fixture-sidecars evidence-rows"
+                data-route="compatibility-import-certified">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>messy data / dirty CSV / nested JSON / CDC</span></div>
+              <h3><a href="/use-cases/messy-data-local-fixtures">Messy data fixture coverage</a></h3>
+              <p>Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>compatibility_import_certified</dd></div>
+                <div><dt>Evidence</dt><dd>scenario_family, dataset_profile, source_metadata_snapshot_status</dd></div>
+              </dl>
+              <p class="blocked-note">python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv,jsonl --scenario &quot;malformed timestamp / dirty CSV&quot; --dataset-profile dirty_csv --rows 1000 --itera...</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="local-benchmark-fixture"
+                data-output="scenario-timing-rows correctness-digest evidence-rows"
+                data-route="compatibility-import-certified">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>query scenario cookbook</span></div>
+              <h3><a href="/use-cases/query-scenario-cookbook-smoke">Query scenario cookbook smoke</a></h3>
+              <p>Cookbook scenarios are scoped local evidence; they do not imply broad SQL, DataFrame, optimizer parity, performance, or production analytics support.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>compatibility_import_certified</dd></div>
+                <div><dt>Evidence</dt><dd>scenario, correctness_digest, execution_mode</dd></div>
+              </dl>
+              <p class="blocked-note">python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv --scenario &quot;group by aggregation&quot; --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output...</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="local-benchmark-fixture prepared-vortex-artifact"
+                data-output="local-result-sink-artifact output-certificate planned-multi-format-fanout"
+                data-route="compatibility-import-certified">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>output and fanout</span></div>
+              <h3><a href="/use-cases/output-result-sink-and-fanout-boundary">Output and fanout boundary</a></h3>
+              <p>Result-sink smoke is local and scoped; cross-format fanout, S3/object-store write, table commits, and production sink support remain planned or blocked.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>compatibility_import_certified</dd></div>
+                <div><dt>Evidence</dt><dd>result_sink_write_millis, result_replay_verified, output_native_io_certificate_status</dd></div>
+              </dl>
+              <p class="blocked-note">python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="blocked"
+                data-input="s3-uri gcs-uri adls-uri"
+                data-output="object-store-plan deterministic-blocker"
+                data-route="report-only-blocked">
+              <div class="card-top"><span class="status-chip status-blocked">blocked</span><span>object-store/S3/GCS/ADLS boundaries</span></div>
+              <h3><a href="/use-cases/object-store-boundary-report">Object-store and cloud storage boundary</a></h3>
+              <p>Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>report_only_blocked</dd></div>
+                <div><dt>Evidence</dt><dd>credential_policy_status, network_probe_allowed=false, byte_range_read_allowed</dd></div>
+              </dl>
+              <p class="blocked-note">Runtime object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed.</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="blocked"
+                data-input="iceberg-table delta-table hudi-table catalog-metadata"
+                data-output="table-compatibility-matrix deterministic-blocker"
+                data-route="report-only-blocked">
+              <div class="card-top"><span class="status-chip status-blocked">blocked</span><span>table/lakehouse boundaries</span></div>
+              <h3><a href="/use-cases/table-lakehouse-boundary-report">Table and lakehouse boundary</a></h3>
+              <p>No production lakehouse/table-format runtime, commit, merge/update/delete, catalog, object-store, or Foundry claim.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>report_only_blocked</dd></div>
+                <div><dt>Evidence</dt><dd>table_scan_status, metadata_read_status, delete_tombstone_status</dd></div>
+              </dl>
+              <p class="blocked-note">Table-format runtime needs metadata, snapshot, delete/tombstone, write, commit, rollback, object-store, and certificate evidence before support can be claimed.</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="none local-style-fixture"
+                data-output="local-foundry-style-report certificate-metrics-dataset-output"
+                data-route="no-dataset-smoke">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>Foundry dev-stack and local proof</span></div>
+              <h3><a href="/use-cases/foundry-local-proof-boundary">Foundry-style local proof boundary</a></h3>
+              <p>Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>no_dataset_smoke</dd></div>
+                <div><dt>Evidence</dt><dd>no_dataset_smoke_performed, transform_import_proven, cli_binary_resolved</dd></div>
+              </dl>
+              <p class="blocked-note">python scripts\foundry_proof_of_use.py --rows 64 --iterations 1</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="runtime-supported"
+                data-input="local-certified-workload"
+                data-output="execution-certificate native-io-certificate claim-gate-status result-replay-evidence"
+                data-route="compatibility-import-certified">
+              <div class="card-top"><span class="status-chip status-runtime-supported">runtime_supported</span><span>evidence/audit/claim gates</span></div>
+              <h3><a href="/use-cases/evidence-audit-claim-gates">Evidence, audit, and claim gates</a></h3>
+              <p>Audit fields explain scoped local evidence only; missing evidence blocks claims and never permits hidden fallback.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>compatibility_import_certified</dd></div>
+                <div><dt>Evidence</dt><dd>execution_mode, engine_mode, native_io_certificate_status</dd></div>
+              </dl>
+              <p class="blocked-note">python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="smoke-supported"
+                data-input="local-benchmark-fixture optional-external-baselines"
+                data-output="timing-rows coverage-rows claim-boundary-notes"
+                data-route="mixed-by-row">
+              <div class="card-top"><span class="status-chip status-smoke-supported">smoke_supported</span><span>benchmark interpretation</span></div>
+              <h3><a href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a></h3>
+              <p>Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>mixed_by_row</dd></div>
+                <div><dt>Evidence</dt><dd>engine, execution_mode, source_read_millis</dd></div>
+              </dl>
+              <p class="blocked-note">python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1</p>
+            </article><article class="use-case-card" data-filter-card
+                data-status="report-only"
+                data-input="source-checkout"
+                data-output="local-wheel-dry-run-report install-channel-matrix"
+                data-route="local-release-dry-run">
+              <div class="card-top"><span class="status-chip status-report-only">report_only</span><span>package/release/install channels</span></div>
+              <h3><a href="/use-cases/package-channel-readiness-boundary">Package, release, and install channel boundary</a></h3>
+              <p>Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, or package-publication claim.</p>
+              <dl class="mini-meta">
+                <div><dt>Route</dt><dd>local_release_dry_run</dd></div>
+                <div><dt>Evidence</dt><dd>package_install_mode, clean_env_install_status, cli_binary_resolved</dd></div>
+              </dl>
+              <p class="blocked-note">Public channels need trusted publishing, provenance, clean install proof, security gates, release approval, and publication-specific evidence.</p>
+            </article></div>
+    </section>
+
+  </main>
+  <footer class="site-footer">
+    <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+    <p>Pre-release technical preview. Vortex-first. No fallback. Benchmark evidence is not a public speed or production claim.</p>
+  </footer>
+</body>
+</html>

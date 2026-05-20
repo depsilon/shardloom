@@ -1,0 +1,1113 @@
+{
+  "capability_families": [
+    {
+      "id": "onboarding_first_10_minutes",
+      "title": "onboarding / first 10 minutes"
+    },
+    {
+      "id": "local_file_etl",
+      "title": "local file ETL"
+    },
+    {
+      "id": "compatibility_import_certified",
+      "title": "compatibility import certified"
+    },
+    {
+      "id": "prepared_native_vortex",
+      "title": "prepared/native Vortex"
+    },
+    {
+      "id": "python_wrapper_client",
+      "title": "Python wrapper/client"
+    },
+    {
+      "id": "sql_dataframe_report_only",
+      "title": "SQL/DataFrame scoped smokes and report-only surfaces"
+    },
+    {
+      "id": "source_free_generated_output",
+      "title": "source-free generated output"
+    },
+    {
+      "id": "messy_data_dirty_json_cdc",
+      "title": "messy data / dirty CSV / nested JSON / CDC"
+    },
+    {
+      "id": "query_scenario_cookbook",
+      "title": "query scenario cookbook"
+    },
+    {
+      "id": "output_and_fanout",
+      "title": "output and fanout"
+    },
+    {
+      "id": "object_store_boundaries",
+      "title": "object-store/S3/GCS/ADLS boundaries"
+    },
+    {
+      "id": "table_lakehouse_boundaries",
+      "title": "table/lakehouse boundaries"
+    },
+    {
+      "id": "foundry_dev_stack_local_proof",
+      "title": "Foundry dev-stack and local proof"
+    },
+    {
+      "id": "evidence_audit_claim_gates",
+      "title": "evidence/audit/claim gates"
+    },
+    {
+      "id": "benchmark_interpretation",
+      "title": "benchmark interpretation"
+    },
+    {
+      "id": "package_release_install_channels",
+      "title": "package/release/install channels"
+    }
+  ],
+  "schema_version": 1,
+  "statuses": [
+    "ready_local",
+    "smoke_supported",
+    "report_only",
+    "planned",
+    "blocked",
+    "unsupported"
+  ],
+  "use_cases": [
+    {
+      "audience": "new local user or reviewer",
+      "capability_family": "onboarding_first_10_minutes",
+      "claim_boundary": "Local source-checkout smoke only; no dataset execution, package-publication, production, SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim.",
+      "common_mistakes": [
+        "expecting_dataset_output",
+        "treating_no_dataset_smoke_as_generated_output",
+        "assuming_package_publication"
+      ],
+      "engine_mode": "batch_status",
+      "evidence_fields": [
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "protocol_version",
+        "resolved_cli_path"
+      ],
+      "execution_mode": "no_dataset_smoke",
+      "expected_output_evidence": "Status, smoke, and capabilities JSON with fallback_attempted=false and external_engine_invoked=false.",
+      "id": "first-10-minutes-local-smoke",
+      "inputs": [
+        "none"
+      ],
+      "outputs": [
+        "status_report",
+        "capabilities_report",
+        "smoke_report"
+      ],
+      "references": [
+        "README.md",
+        "docs/getting-started/first-10-minutes.md",
+        "docs/getting-started/examples.md",
+        "examples/local-python-smoke/README.md",
+        "python/README.md"
+      ],
+      "related_use_cases": [
+        "python-wrapper-client-smoke",
+        "evidence-audit-claim-gates"
+      ],
+      "runnable_example": "python examples\\local-python-smoke\\run.py --repo-root .",
+      "status": "ready_local",
+      "title": "First 10 minutes local smoke"
+    },
+    {
+      "audience": "user with local CSV or Parquet data",
+      "capability_family": "local_file_etl",
+      "claim_boundary": "Scoped local technical-preview workflow only; not production ETL, broad SQL/DataFrame, object-store, lakehouse, Foundry, performance, or Spark-replacement proof.",
+      "common_mistakes": [
+        "reading_compatibility_import_as_pure_query_speed",
+        "expecting_s3_io",
+        "treating_smoke_as_production_etl"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "execution_mode",
+        "claim_gate_status",
+        "native_io_certificate_status",
+        "materialization_boundary",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "compatibility_import_certified",
+      "expected_output_evidence": "A target/shardloom-local-vortex-benchmark-smoke.json artifact with timing, coverage, result-sink, and no-fallback fields.",
+      "id": "local-file-etl-cleanup-smoke",
+      "inputs": [
+        "local_csv",
+        "local_parquet"
+      ],
+      "outputs": [
+        "local_vortex_artifact",
+        "local_result_sink_evidence"
+      ],
+      "references": [
+        "docs/getting-started/examples.md",
+        "docs/getting-started/certified-local-workload.md",
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/benchmarks/local-taxonomy-benchmark.md",
+        "examples/local-vortex-benchmark/README.md"
+      ],
+      "related_use_cases": [
+        "compatibility-import-certified-local",
+        "messy-data-local-fixtures",
+        "output-result-sink-and-fanout-boundary"
+      ],
+      "runnable_example": "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1",
+      "status": "smoke_supported",
+      "title": "Local file ETL smoke"
+    },
+    {
+      "audience": "user who needs local compatibility input imported into a Vortex-backed evidence path",
+      "capability_family": "compatibility_import_certified",
+      "claim_boundary": "Certified cold-route evidence; not pure query speed, no performance or superiority claim, no production SQL/DataFrame/object-store/lakehouse/Foundry claim.",
+      "common_mistakes": [
+        "comparing_import_certification_to_external_engine_query_time",
+        "hiding_import_costs",
+        "omitting_result_sink_evidence"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "source_adapter_status",
+        "ingress_route",
+        "vortex_ingest_status",
+        "source_read_millis",
+        "compatibility_parse_millis",
+        "compatibility_to_vortex_import_millis",
+        "vortex_write_millis",
+        "vortex_reopen_millis",
+        "vortex_scan_millis",
+        "operator_compute_millis",
+        "result_sink_write_millis",
+        "evidence_render_millis",
+        "total_runtime_millis",
+        "timing_scope=cold_certified_end_to_end",
+        "claim_gate_status",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "compatibility_import_certified",
+      "expected_output_evidence": "Benchmark JSON with compatibility import timing separated from Vortex scan/operator/result-sink evidence.",
+      "id": "compatibility-import-certified-local",
+      "inputs": [
+        "local_csv",
+        "local_parquet",
+        "local_jsonl_when_scenario_admits_it"
+      ],
+      "outputs": [
+        "vortex_prepared_state",
+        "result_sink_artifact",
+        "execution_certificate",
+        "native_io_certificate"
+      ],
+      "references": [
+        "docs/getting-started/certified-local-workload.md",
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/benchmarks/local-taxonomy-benchmark.md",
+        "docs/benchmarks/baseline-comparison-boundary.md",
+        "benchmarks/traditional_analytics/README.md"
+      ],
+      "related_use_cases": [
+        "prepared-native-vortex-runtime-direction",
+        "benchmark-interpretation-evidence-not-leaderboard"
+      ],
+      "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv,parquet --scenario \"selective filter\" --dataset-profile tiny_smoke --rows 256 --iterations 3 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\\shardloom-local-taxonomy-smoke.json --regenerate",
+      "status": "smoke_supported",
+      "title": "Compatibility import certified local workload"
+    },
+    {
+      "audience": "user evaluating the current runtime-development lane",
+      "capability_family": "prepared_native_vortex",
+      "claim_boundary": "Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState and does not directly read non-Vortex sources. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.",
+      "common_mistakes": [
+        "calling_prepared_vortex_production_ready",
+        "treating_encoded_predicate_fields_as_encoded_native_claims",
+        "expecting_sql_runtime"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "execution_mode",
+        "prepared_state_id",
+        "prepared_state_digest",
+        "timing_scope=warm_prepared_query",
+        "source_backed_scan_used",
+        "source_state_reuse_hit",
+        "encoded_predicate_provider_status",
+        "data_decoded",
+        "data_materialized",
+        "claim_gate_status",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "prepared_vortex/native_vortex",
+      "expected_output_evidence": "Prepared Vortex rows separate from compatibility import rows, with source-backed scan and no-fallback fields where available.",
+      "id": "prepared-native-vortex-runtime-direction",
+      "inputs": [
+        "vortex_prepared_state",
+        "local_prepared_vortex_artifact",
+        "benchmark_fixture"
+      ],
+      "outputs": [
+        "prepared_native_timing_rows",
+        "source_backed_scan_evidence"
+      ],
+      "references": [
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/benchmarks/local-taxonomy-benchmark.md",
+        "benchmarks/traditional_analytics/README.md",
+        "docs/architecture/benchmark-suite-catalog.md"
+      ],
+      "related_use_cases": [
+        "compatibility-import-certified-local",
+        "benchmark-interpretation-evidence-not-leaderboard"
+      ],
+      "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario \"filter + projection + limit\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-prepared-vortex-smoke.json --regenerate",
+      "status": "smoke_supported",
+      "title": "Prepared/native Vortex runtime direction"
+    },
+    {
+      "audience": "user who wants to create a local VortexPreparedState from an admitted local source",
+      "capability_family": "prepared_native_vortex",
+      "claim_boundary": "Feature-gated local prepare-once fixture smoke over flat non-null int/uint/float/UTF-8/date32/timestamp rows only; default builds block deterministically. No broad Vortex writer, object-store/table sink, production SQL/DataFrame, performance, superiority, Foundry, package-publication, or Spark-replacement claim.",
+      "common_mistakes": [
+        "assuming_prepared_vortex_reads_csv_directly",
+        "treating_vortex_ingest_as_query_runtime",
+        "expecting_default_build_to_write_vortex",
+        "treating_smoke_as_performance_claim"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "source_adapter_id",
+        "source_state_id",
+        "source_state_digest",
+        "ingress_route=vortex_ingest",
+        "vortex_ingest_status",
+        "prepared_state_id",
+        "prepared_state_digest",
+        "vortex_artifact_digest",
+        "writer_row_count",
+        "reopen_row_count",
+        "timing_scope=ingest_only",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_gate_status"
+      ],
+      "execution_mode": "vortex_ingest_to_prepared_vortex",
+      "expected_output_evidence": "A local .vortex artifact plus VortexPreparedState id/digest, writer/reopen row-count proof, source-state fields, and no-fallback/no-external-engine evidence.",
+      "id": "vortex-ingest-prepare-once-local",
+      "inputs": [
+        "local_csv_flat_non_null_scalars",
+        "local_json_flat_non_null_scalars",
+        "local_jsonl_flat_non_null_scalars",
+        "local_parquet_when_features_enabled"
+      ],
+      "outputs": [
+        "local_vortex_artifact",
+        "vortex_prepared_state_evidence"
+      ],
+      "references": [
+        "README.md",
+        "python/README.md",
+        "docs/getting-started/examples.md",
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/architecture/universal-ingress-route-taxonomy.md"
+      ],
+      "related_use_cases": [
+        "prepared-native-vortex-runtime-direction",
+        "compatibility-import-certified-local",
+        "output-result-sink-and-fanout-boundary"
+      ],
+      "runnable_example": "New-Item -ItemType Directory -Force target | Out-Null; \"id,label,amount`n1,alpha,8`n2,beta,15`n\" | Set-Content -Encoding utf8 target\\vortex-ingest-source.csv; cargo run -q -p shardloom-cli --features vortex-write -- vortex-ingest-smoke target\\vortex-ingest-source.csv target\\vortex-ingest-source.vortex --allow-overwrite --format json; $env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.input_row_count, r.fallback_attempted, r.external_engine_invoked)\"",
+      "status": "smoke_supported",
+      "title": "Vortex ingest prepare-once local smoke"
+    },
+    {
+      "audience": "Python user who wants import-friendly status and capability checks",
+      "capability_family": "python_wrapper_client",
+      "claim_boundary": "Thin Python CLI client only; not a native binding, DataFrame API, SQL runtime, UDF runtime, package-publication proof, or fallback path.",
+      "common_mistakes": [
+        "expecting_import_side_effects",
+        "expecting_native_python_execution",
+        "treating_capability_view_as_runtime_support"
+      ],
+      "engine_mode": "batch_status",
+      "evidence_fields": [
+        "protocol_version",
+        "resolved_cli_path",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "support_status",
+        "claim_gate_status"
+      ],
+      "execution_mode": "no_dataset_smoke",
+      "expected_output_evidence": "Python can import the package and invoke explicit status/capability commands through the local CLI.",
+      "id": "python-wrapper-client-smoke",
+      "inputs": [
+        "none"
+      ],
+      "outputs": [
+        "python_capability_view",
+        "typed_output_envelope"
+      ],
+      "references": [
+        "python/README.md",
+        "docs/getting-started/first-10-minutes.md",
+        "examples/local-python-smoke/README.md",
+        "README.md"
+      ],
+      "related_use_cases": [
+        "first-10-minutes-local-smoke",
+        "python-local-csv-query-builder-smoke",
+        "sql-dataframe-capability-posture"
+      ],
+      "runnable_example": "$env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import ShardLoomClient; print(ShardLoomClient.from_repo().status().status)\"",
+      "status": "ready_local",
+      "title": "Python wrapper and client smoke"
+    },
+    {
+      "audience": "user asking whether SQL text or DataFrame-style APIs have production support",
+      "blocked_explanation": "SQL parse/bind/plan/execute and broad DataFrame runtime support require future admitted runtime slices with correctness, evidence, and no-fallback proof.",
+      "capability_family": "sql_dataframe_report_only",
+      "claim_boundary": "SQL/DataFrame readiness is inspectable but runtime execution is not broadly supported or production-claimable.",
+      "common_mistakes": [
+        "submitting_sql_and_expecting_execution",
+        "assuming_dataframe_lazy_api_exists",
+        "mistaking_report_only_for_supported"
+      ],
+      "engine_mode": "none",
+      "evidence_fields": [
+        "support_status=report_only",
+        "runtime_execution=false",
+        "planner_readiness_non_executing",
+        "claim_gate_status=not_claim_grade",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "report_only",
+      "expected_output_evidence": "A capability posture report showing report_only or unsupported rows rather than runtime execution.",
+      "id": "sql-dataframe-capability-posture",
+      "inputs": [
+        "sql_text",
+        "dataframe_api_request"
+      ],
+      "outputs": [
+        "capability_report",
+        "deterministic_unsupported_diagnostics"
+      ],
+      "references": [
+        "python/README.md",
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/architecture/canonical-terminology.md",
+        "README.md"
+      ],
+      "related_use_cases": [
+        "python-wrapper-client-smoke",
+        "source-free-generated-output-boundary"
+      ],
+      "runnable_example": "target\\debug\\shardloom capabilities sql --format json",
+      "status": "report_only",
+      "title": "SQL and DataFrame capability posture"
+    },
+    {
+      "audience": "user who wants to try one tiny SQL query over a local CSV from CLI or ctx.sql without fallback",
+      "blocked_explanation": "Vortex SQL sources, broader Parquet type/nesting coverage, Python/DataFrame joins beyond the scoped local CSV inner equi-join bridge, outer/semi/anti/cross joins, multi-key and expression joins, timestamp/timezone completeness, NULL/subquery-backed IN, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks/fanout, and production SQL/DataFrame support require later runtime slices.",
+      "capability_family": "sql_dataframe_report_only",
+      "claim_boundary": "Scoped local CSV SELECT projection/optional-filter/limit with comparison, cast, DATE literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, and balanced parenthesized leaves; scalar aggregate, one-column group-by aggregate, single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; optional local JSONL/CSV sinks; feature-gated flat scalar local Parquet sink; and one Python local CSV inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. No broad SQL/DataFrame runtime, production SQL, broad Parquet/Arrow/Avro/ORC/Vortex output, fanout, object-store/table source, generalized joins/groups/orderings, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness, external fallback, or performance claim.",
+      "common_mistakes": [
+        "treating_smoke_as_sql_compatibility",
+        "expecting_parquet_or_s3_sql_sources",
+        "expecting_broad_python_dataframe_join_support",
+        "expecting_general_join_or_grouped_aggregate_support",
+        "expecting_general_order_by_or_null_ordering_support",
+        "expecting_subquery_or_null_in_semantics"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "schema_version=shardloom.sql_local_source_smoke.v1",
+        "sql_parser_executed=true",
+        "sql_binder_executed=true",
+        "sql_planner_executed=true",
+        "source_io_performed=true",
+        "source_format=csv",
+        "filter_runtime_execution",
+        "predicate_operator_family",
+        "date_extract_runtime_execution",
+        "date_extract_operator",
+        "date_extract_source_column",
+        "date_arithmetic_runtime_execution",
+        "date_arithmetic_operator",
+        "date_arithmetic_days",
+        "date_arithmetic_source_column",
+        "in_predicate_runtime_execution",
+        "in_list_value_count",
+        "aggregate_runtime_execution",
+        "aggregate_operator_family",
+        "group_by_runtime_execution",
+        "group_by_columns",
+        "group_by_group_count",
+        "order_by_runtime_execution",
+        "top_n_runtime_execution",
+        "sort_keys",
+        "sort_direction",
+        "sort_null_ordering",
+        "top_n_limit",
+        "join_runtime_execution",
+        "join_type",
+        "join_left_key",
+        "join_right_key",
+        "join_matched_row_count",
+        "join_left_rows_scanned",
+        "join_right_rows_scanned",
+        "join_rows_output",
+        "join_memory_estimate_bytes",
+        "output_format",
+        "output_io_performed",
+        "output_native_io_certificate_status",
+        "output_certificate_ref",
+        "materialization_boundary",
+        "evidence_summary",
+        "claim_summary",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_gate_status=fixture_smoke_only"
+      ],
+      "execution_mode": "direct_compatibility_transient",
+      "expected_output_evidence": "A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL/CSV or feature-gated flat scalar Parquet output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, date_extract_runtime_execution/operator/source_column and date_arithmetic_runtime_execution/operator/days/source_column when requested, in_predicate_runtime_execution and in_list_value_count when requested, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.",
+      "id": "sql-local-source-csv-smoke",
+      "inputs": [
+        "local_csv"
+      ],
+      "outputs": [
+        "inline_jsonl_result",
+        "result_rows",
+        "first_result_row",
+        "optional_local_jsonl_output",
+        "optional_local_csv_output",
+        "optional_feature_gated_local_parquet_output",
+        "scalar_aggregate_result",
+        "grouped_aggregate_result",
+        "topn_result",
+        "join_result",
+        "sql_local_source_evidence",
+        "evidence_summary",
+        "claim_summary"
+      ],
+      "references": [
+        "README.md",
+        "docs/getting-started/examples.md",
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/architecture/phased-execution-plan.md"
+      ],
+      "related_use_cases": [
+        "python-local-csv-query-builder-smoke",
+        "sql-dataframe-capability-posture",
+        "source-free-generated-output-boundary",
+        "local-file-etl-cleanup-smoke"
+      ],
+      "runnable_example": "New-Item -ItemType Directory -Force target | Out-Null; \"id,customer_id,amount`n1,10,8`n2,20,15`n3,30,21`n4,99,13`n\" | Set-Content -Encoding utf8 target\\sql-local-source-join-fact.csv; \"customer_id,segment`n10,seed`n20,enterprise`n30,startup`n\" | Set-Content -Encoding utf8 target\\sql-local-source-join-dim.csv; cargo run -q -p shardloom-cli -- sql-local-source-smoke \"SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10\" --format json; $env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.read_csv('target/sql-local-source-join-fact.csv').join(ctx.read_csv('target/sql-local-source-join-dim.csv'), on='customer_id').select('f.id','d.segment').filter('f.amount >= 10').limit(10).collect(); print(r.output_row_count, r.join_runtime_execution, r.fallback_attempted, r.external_engine_invoked)\"",
+      "status": "smoke_supported",
+      "title": "SQL local CSV projection/optional-filter/IN/limit, aggregate, group-by, top-N, and join smoke"
+    },
+    {
+      "audience": "Python user who wants a tiny DataFrame-like local CSV, flat JSON, flat JSONL, or feature-gated flat scalar Parquet workflow with evidence",
+      "blocked_explanation": "The Python query-builder runtime admits local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet through the SQL local-source smoke for the documented projection/filter/limit, preview/head/take, literal-column, aggregate, group-by, top-N, and scoped CSV join shapes. Default binaries block Parquet until built with --features universal-format-io. Nested JSON, JSONPath, broader Parquet type/nesting coverage, non-literal with_column, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.",
+      "capability_family": "python_wrapper_client",
+      "claim_boundary": "Scoped Python read_csv/read_json/read_parquet local-source smokes cover projection, optional-filter, limit, preview/head/take, literal with_column(...), count, scalar aggregate, one-column group_by aggregate, single-key top-N, and one local CSV inner equi-join bridge over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar Parquet writes are admitted. No nested JSON, JSONPath, broader Parquet type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized joins/groups/orderings, timestamp/timezone completeness, NULL/subquery-backed IN, Arrow/Avro/ORC/Vortex output sink, fanout, production SQL, object-store/table source, external fallback, or performance claim.",
+      "common_mistakes": [
+        "expecting_dataframe_parity",
+        "expecting_pandas_or_polars_execution",
+        "expecting_nested_json_or_jsonpath_runtime",
+        "expecting_parquet_default_build_support",
+        "treating_fixture_smoke_as_production_support",
+        "expecting_general_sort_or_null_ordering_support",
+        "expecting_subquery_or_null_in_semantics"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "schema_version=shardloom.sql_local_source_smoke.v1",
+        "sql_parser_executed=true",
+        "sql_binder_executed=true",
+        "sql_planner_executed=true",
+        "source_format",
+        "source_io_performed=true",
+        "source_state_id",
+        "source_state_digest",
+        "filter_runtime_execution",
+        "predicate_operator_family",
+        "date_extract_runtime_execution",
+        "date_extract_operator",
+        "date_extract_source_column",
+        "date_arithmetic_runtime_execution",
+        "date_arithmetic_operator",
+        "date_arithmetic_days",
+        "date_arithmetic_source_column",
+        "literal_projection_runtime_execution",
+        "literal_projection_columns",
+        "literal_projection_count",
+        "in_predicate_runtime_execution",
+        "in_list_value_count",
+        "aggregate_runtime_execution",
+        "aggregate_operator_family",
+        "group_by_runtime_execution",
+        "group_by_columns",
+        "group_by_group_count",
+        "order_by_runtime_execution",
+        "top_n_runtime_execution",
+        "sort_keys",
+        "sort_direction",
+        "sort_null_ordering",
+        "top_n_limit",
+        "join_runtime_execution",
+        "join_type",
+        "join_left_key",
+        "join_right_key",
+        "output_format",
+        "output_io_performed=true",
+        "output_native_io_certificate_status",
+        "output_certificate_ref",
+        "evidence_summary",
+        "claim_summary",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_gate_status=fixture_smoke_only"
+      ],
+      "execution_mode": "direct_compatibility_transient",
+      "expected_output_evidence": "A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV, flat JSON/JSONL, or feature-gated flat scalar Parquet source evidence, source_format/source_adapter/source_state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, date extract/arithmetic fields when requested, literal-projection fields when requested, bounded IN evidence when requested, local JSONL/CSV or feature-gated flat scalar Parquet output evidence when written, count/scalar/grouped/top-N/join fields, output Native I/O certificate status, compact evidence_summary/claim_summary helpers, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.",
+      "id": "python-local-csv-query-builder-smoke",
+      "inputs": [
+        "local_csv",
+        "local_json",
+        "local_jsonl",
+        "local_ndjson",
+        "local_parquet_feature_gated"
+      ],
+      "outputs": [
+        "inline_jsonl_result",
+        "result_rows",
+        "first_result_row",
+        "local_jsonl_output",
+        "local_csv_output",
+        "feature_gated_local_parquet_output",
+        "literal_projection_result",
+        "row_count_result",
+        "scalar_aggregate_result",
+        "grouped_aggregate_result",
+        "topn_result",
+        "join_result",
+        "typed_python_report",
+        "evidence_summary",
+        "claim_summary",
+        "sql_local_source_evidence"
+      ],
+      "references": [
+        "python/README.md",
+        "docs/getting-started/examples.md",
+        "docs/architecture/compute-engine-flow-reference.md",
+        "README.md"
+      ],
+      "related_use_cases": [
+        "python-wrapper-client-smoke",
+        "sql-local-source-csv-smoke",
+        "sql-dataframe-capability-posture",
+        "output-result-sink-and-fanout-boundary"
+      ],
+      "runnable_example": "New-Item -ItemType Directory -Force target | Out-Null; \"id,label,amount`n1,alpha,8`n2,beta,15`n3,beta,21`n4,gamma,`n\" | Set-Content -Encoding utf8 target\\sql-local-source-smoke.csv; $env:PYTHONPATH = \"python\\src\"; python -c \"import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); preview=ctx.read_csv('target/sql-local-source-smoke.csv').preview(limit=2); head=ctx.read_csv('target/sql-local-source-smoke.csv').head(limit=2); take=ctx.read_csv('target/sql-local-source-smoke.csv').take(2); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').where(sl.col('amount').between(10, 30)).limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); c=workflow.write_csv('target/sql-local-source-result.csv', allow_overwrite=True); w=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').with_column('batch_id', 1).filter(sl.col('amount') >= 10).limit(10).collect(); n=ctx.read_csv('target/sql-local-source-smoke.csv').filter(sl.col('amount') >= 10).count(); a=ctx.read_csv('target/sql-local-source-smoke.csv').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); g=ctx.read_csv('target/sql-local-source-smoke.csv').group_by('label').agg('count(*)','sum(amount)').limit(10).collect(); t=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').sort('amount', descending=True).limit(2).collect(); print(preview.output_row_count, head.output_row_count, take.output_row_count, r.output_path, r.output_native_io_certificate_status, c.output_path, c.output_format, c.output_native_io_certificate_status, w.envelope.field('literal_projection_columns'), n.aggregate_functions, a.aggregate_operator_family, g.aggregate_operator_family, g.group_by_columns, t.sort_keys, t.top_n_limit, r.fallback_attempted, r.external_engine_invoked)\"",
+      "status": "smoke_supported",
+      "title": "Python local CSV/JSON/JSONL/Parquet query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, and top-N smoke"
+    },
+    {
+      "audience": "user who wants range, sequence, values, calendar, or literal-table output without input data",
+      "blocked_explanation": "The source-free API admission matrix and Python context unsupported helpers keep SQL source-free projection beyond the admitted literal SELECT/VALUES/generate_series/range smoke subset, broad DataFrame source-free projection, expression-backed generated with_column, engine-native values/synthetic profiles, object-store writes, and Foundry generated-output runtime blocked/report-only until separate evidence lands.",
+      "capability_family": "source_free_generated_output",
+      "claim_boundary": "Scoped local user-row, generated-row projection/literal with_column, literal-table, calendar/date-dimension, range/sequence limit/head/take bound adjustment, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV fixture smokes through explicit helpers or ctx.sql(...).write(...) only; no broad SQL/DataFrame runtime, expression-backed DataFrame generation, arbitrary SQL function runtime, S3/object-store write, Foundry production, performance, production, or package-publication claim.",
+      "common_mistakes": [
+        "confusing_no_dataset_smoke_with_generated_output",
+        "claiming_source_native_io_without_source_read",
+        "writing_to_s3"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "input_dataset_count=0",
+        "source_io_performed=false",
+        "generated_source_created=true",
+        "generated_source_kind",
+        "generated_source_schema_digest",
+        "generated_source_row_count",
+        "output_io_performed",
+        "generated_source_certificate_status",
+        "output_native_io_certificate_status",
+        "generated_source_api_admission_schema_version",
+        "support_status",
+        "blocker_id",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_gate_status"
+      ],
+      "execution_mode": "source_free_generated_output",
+      "expected_output_evidence": "A local JSONL/CSV output plus fields including generated_source_kind=user_rows, literal_table, calendar, range, sequence, sql_values, sql_literal_select, or sql_generate_series_range; generated_source_row_count for base and transformed generated rows; generated_source_range_* and generated_source_sql_generator_function for SQL generator rows; generated_source_certificate_status=present; output_native_io_certificate_status=certified_local_file_sink; fallback_attempted=false; and external_engine_invoked=false.",
+      "id": "source-free-generated-output-boundary",
+      "inputs": [
+        "none",
+        "generated_rows",
+        "generated_rows_projection",
+        "generated_rows_literal_with_column",
+        "literal_table_rows",
+        "calendar_dimension",
+        "range",
+        "sequence",
+        "sql_values",
+        "sql_literal_select",
+        "sql_generate_series_range",
+        "ctx_sql_source_free"
+      ],
+      "outputs": [
+        "local_jsonl_output_artifact",
+        "local_csv_output_artifact",
+        "generated_source_certificate",
+        "output_native_io_certificate"
+      ],
+      "references": [
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/foundry/proof-of-use-certification.md",
+        "python/README.md",
+        "docs/architecture/phased-execution-plan.md"
+      ],
+      "related_use_cases": [
+        "first-10-minutes-local-smoke",
+        "foundry-local-proof-boundary",
+        "output-result-sink-and-fanout-boundary"
+      ],
+      "runnable_example": "$env:PYTHONPATH = \"python\\src\"; python -c \"from shardloom import context; ctx=context(repo_root='.'); a=ctx.from_rows([{'id': 1, 'label': 'alpha'}]).write('target/generated-reference.jsonl', allow_overwrite=True); t=ctx.from_rows([{'id': 1, 'label': 'alpha'}, {'id': 2, 'label': 'beta'}]).with_column('batch_id', 1).select('id', 'batch_id').write('target/generated-reference-transformed.jsonl', allow_overwrite=True); b=ctx.literal_table([{'code':'A','weight':1.5}]).write('target/generated-literal.jsonl', allow_overwrite=True); c=ctx.calendar('2026-05-18','2026-05-20', column='dt').write('target/generated-calendar.jsonl', allow_overwrite=True); d=ctx.range(0, 50, column='id').limit(5).write('target/generated-range.jsonl', allow_overwrite=True); s=ctx.sequence(0, 50, column='id').take(5).write('target/generated-sequence.jsonl', allow_overwrite=True); e=ctx.sql_values(\"VALUES (1, 'alpha'), (2, 'beta')\").write('target/generated-sql-values.jsonl', allow_overwrite=True); f=ctx.sql_literal_select(\"SELECT 1 AS id, 'alpha' AS label\").write('target/generated-sql-select.jsonl', allow_overwrite=True); g=ctx.sql(\"SELECT 2 AS id, 'beta' AS label\").write('target/generated-sql-from-context.jsonl', allow_overwrite=True); h=ctx.sql(\"SELECT * FROM generate_series(0, 4)\").write('target/generated-sql-series.jsonl', allow_overwrite=True); print(a.claim_gate_status, t.generated_source_row_count, b.generated_source_kind, c.generated_source_row_count, d.generated_source_kind, d.generated_source_row_count, s.generated_source_kind, s.generated_source_row_count, e.generated_source_kind, f.generated_source_kind, g.generated_source_kind, h.generated_source_kind, h.generated_source_range_end_inclusive)\"",
+      "status": "smoke_supported",
+      "title": "Source-free generated output boundary"
+    },
+    {
+      "audience": "user with dirty CSV, nested JSON, null-heavy, or CDC-like local fixture needs",
+      "capability_family": "messy_data_dirty_json_cdc",
+      "claim_boundary": "Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.",
+      "common_mistakes": [
+        "treating_fixture_cdc_as_table_commit",
+        "expecting_general_json_schema_inference",
+        "reading_smoke_as_data_quality_product"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "scenario_family",
+        "dataset_profile",
+        "source_metadata_snapshot_status",
+        "source_state_reuse_hit",
+        "materialization_boundary",
+        "claim_gate_status",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "compatibility_import_certified",
+      "expected_output_evidence": "Benchmark rows and fixture metadata for the selected messy-data scenario with no fallback.",
+      "id": "messy-data-local-fixtures",
+      "inputs": [
+        "dirty_csv_fixture",
+        "nested_json_fixture",
+        "cdc_delta_overlay_fixture",
+        "null_heavy_fixture"
+      ],
+      "outputs": [
+        "local_benchmark_artifact",
+        "fixture_sidecars",
+        "evidence_rows"
+      ],
+      "references": [
+        "benchmarks/traditional_analytics/README.md",
+        "docs/architecture/benchmark-suite-catalog.md",
+        "docs/benchmarks/local-taxonomy-benchmark.md",
+        "docs/getting-started/examples.md"
+      ],
+      "related_use_cases": [
+        "query-scenario-cookbook-smoke",
+        "benchmark-interpretation-evidence-not-leaderboard"
+      ],
+      "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv,jsonl --scenario \"malformed timestamp / dirty CSV\" --dataset-profile dirty_csv --rows 1000 --iterations 1 --output target\\shardloom-dirty-csv-smoke.json --regenerate",
+      "status": "smoke_supported",
+      "title": "Messy data fixture coverage"
+    },
+    {
+      "audience": "user mapping a familiar analytics operation to a ShardLoom smoke scenario",
+      "capability_family": "query_scenario_cookbook",
+      "claim_boundary": "Cookbook scenarios are scoped local evidence; they do not imply broad SQL, DataFrame, optimizer parity, performance, or production analytics support.",
+      "common_mistakes": [
+        "assuming_all_sql_group_by_shapes_are_supported",
+        "ignoring_dataset_profile",
+        "using_external_baselines_as_fallback"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "scenario",
+        "correctness_digest",
+        "execution_mode",
+        "operator_compute_millis",
+        "data_decoded",
+        "data_materialized",
+        "claim_gate_status",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "compatibility_import_certified",
+      "expected_output_evidence": "A benchmark artifact for one named scenario with no-fallback evidence and correctness/timing rows.",
+      "id": "query-scenario-cookbook-smoke",
+      "inputs": [
+        "local_benchmark_fixture"
+      ],
+      "outputs": [
+        "scenario_timing_rows",
+        "correctness_digest",
+        "evidence_rows"
+      ],
+      "references": [
+        "benchmarks/traditional_analytics/README.md",
+        "docs/architecture/benchmark-suite-catalog.md",
+        "docs/benchmarks/local-taxonomy-benchmark.md",
+        "docs/benchmarks/baseline-comparison-boundary.md"
+      ],
+      "related_use_cases": [
+        "local-file-etl-cleanup-smoke",
+        "prepared-native-vortex-runtime-direction"
+      ],
+      "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom --formats csv --scenario \"group by aggregation\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-group-by-smoke.json --regenerate",
+      "status": "smoke_supported",
+      "title": "Query scenario cookbook smoke"
+    },
+    {
+      "audience": "user asking what ShardLoom can write today and what fanout means",
+      "capability_family": "output_and_fanout",
+      "claim_boundary": "Result-sink smoke is local and scoped; cross-format fanout, S3/object-store write, table commits, and production sink support remain planned or blocked.",
+      "common_mistakes": [
+        "coupling_input_format_to_output_format",
+        "treating_local_sink_as_s3_write",
+        "assuming_lakehouse_commit"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "result_sink_write_millis",
+        "result_replay_verified",
+        "output_native_io_certificate_status",
+        "output_format",
+        "output_plan_reuse_hit",
+        "claim_gate_status",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "compatibility_import_certified",
+      "expected_output_evidence": "A local result-sink proof artifact and future fanout fields only when admitted by GAR-IOREUSE slices.",
+      "id": "output-result-sink-and-fanout-boundary",
+      "inputs": [
+        "local_benchmark_fixture",
+        "prepared_vortex_artifact"
+      ],
+      "outputs": [
+        "local_result_sink_artifact",
+        "output_certificate",
+        "planned_multi_format_fanout"
+      ],
+      "references": [
+        "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/benchmarks/local-taxonomy-benchmark.md",
+        "examples/local-vortex-benchmark/README.md"
+      ],
+      "related_use_cases": [
+        "compatibility-import-certified-local",
+        "source-free-generated-output-boundary",
+        "object-store-boundary-report"
+      ],
+      "runnable_example": "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1",
+      "status": "smoke_supported",
+      "title": "Output and fanout boundary"
+    },
+    {
+      "audience": "user asking whether S3, GCS, or ADLS runtime I/O works",
+      "blocked_explanation": "Runtime object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed.",
+      "capability_family": "object_store_boundaries",
+      "claim_boundary": "Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.",
+      "common_mistakes": [
+        "expecting_public_s3_read",
+        "assuming_signed_url_support",
+        "treating_planner_as_runtime_io"
+      ],
+      "engine_mode": "none",
+      "evidence_fields": [
+        "credential_policy_status",
+        "network_probe_allowed=false",
+        "byte_range_read_allowed",
+        "object_store_io=false",
+        "write_io=false",
+        "native_io_certificate_status=blocked",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "report_only_blocked",
+      "expected_output_evidence": "A blocked or report-only object-store plan with no provider probe and no external engine invocation.",
+      "id": "object-store-boundary-report",
+      "inputs": [
+        "s3_uri",
+        "gcs_uri",
+        "adls_uri"
+      ],
+      "outputs": [
+        "object_store_plan",
+        "deterministic_blocker"
+      ],
+      "references": [
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/architecture/universal-input-contract.md",
+        "docs/architecture/object-store-request-planner.md",
+        "docs/architecture/universal-compatibility-coverage-scoreboard.md"
+      ],
+      "related_use_cases": [
+        "table-lakehouse-boundary-report",
+        "output-result-sink-and-fanout-boundary"
+      ],
+      "runnable_example": "target\\debug\\shardloom object-store-request-plan --format json",
+      "status": "blocked",
+      "title": "Object-store and cloud storage boundary"
+    },
+    {
+      "audience": "user asking whether Iceberg, Delta, Hudi, or catalog commits are supported",
+      "blocked_explanation": "Table-format runtime needs metadata, snapshot, delete/tombstone, write, commit, rollback, object-store, and certificate evidence before support can be claimed.",
+      "capability_family": "table_lakehouse_boundaries",
+      "claim_boundary": "No production lakehouse/table-format runtime, commit, merge/update/delete, catalog, object-store, or Foundry claim.",
+      "common_mistakes": [
+        "mistaking_metadata_smoke_for_table_runtime",
+        "assuming_commit_semantics",
+        "treating_local_files_as_lakehouse_support"
+      ],
+      "engine_mode": "none",
+      "evidence_fields": [
+        "table_scan_status",
+        "metadata_read_status",
+        "delete_tombstone_status",
+        "commit_protocol_status",
+        "rollback_status",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "claim_gate_status=not_claim_grade"
+      ],
+      "execution_mode": "report_only_blocked",
+      "expected_output_evidence": "A report-only table compatibility plan or deterministic unsupported output.",
+      "id": "table-lakehouse-boundary-report",
+      "inputs": [
+        "iceberg_table",
+        "delta_table",
+        "hudi_table",
+        "catalog_metadata"
+      ],
+      "outputs": [
+        "table_compatibility_matrix",
+        "deterministic_blocker"
+      ],
+      "references": [
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/architecture/universal-compatibility-coverage-scoreboard.md",
+        "docs/architecture/universal-input-contract.md",
+        "README.md"
+      ],
+      "related_use_cases": [
+        "object-store-boundary-report",
+        "output-result-sink-and-fanout-boundary"
+      ],
+      "runnable_example": "target\\debug\\shardloom table-compat-plan aggregate --format json",
+      "status": "blocked",
+      "title": "Table and lakehouse boundary"
+    },
+    {
+      "audience": "Foundry-adjacent user who wants to see the local transform shape",
+      "capability_family": "foundry_dev_stack_local_proof",
+      "claim_boundary": "Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.",
+      "common_mistakes": [
+        "treating_local_style_as_real_foundry_runtime",
+        "expecting_foundry_package",
+        "writing_directly_to_s3"
+      ],
+      "engine_mode": "batch_status",
+      "evidence_fields": [
+        "no_dataset_smoke_performed",
+        "transform_import_proven",
+        "cli_binary_resolved",
+        "foundry_runtime_invoked=false",
+        "foundry_compute_invoked=false",
+        "foundry_spark_invoked=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "public_foundry_claim_allowed=false"
+      ],
+      "execution_mode": "no_dataset_smoke",
+      "expected_output_evidence": "A local proof report showing Foundry and external compute were not invoked.",
+      "id": "foundry-local-proof-boundary",
+      "inputs": [
+        "none",
+        "local_style_fixture"
+      ],
+      "outputs": [
+        "local_foundry_style_report",
+        "certificate_metrics_dataset_output"
+      ],
+      "references": [
+        "docs/foundry/proof-of-use-certification.md",
+        "docs/foundry/integration-pack-readiness.md",
+        "examples/foundry-lightweight-transform/README.md",
+        "docs/architecture/compute-engine-flow-reference.md"
+      ],
+      "related_use_cases": [
+        "source-free-generated-output-boundary",
+        "package-channel-readiness-boundary"
+      ],
+      "runnable_example": "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1",
+      "status": "smoke_supported",
+      "title": "Foundry-style local proof boundary"
+    },
+    {
+      "audience": "reviewer who needs to know what proof a run produced",
+      "capability_family": "evidence_audit_claim_gates",
+      "claim_boundary": "Audit fields explain scoped local evidence only; missing evidence blocks claims and never permits hidden fallback.",
+      "common_mistakes": [
+        "omitting_claim_gate_status",
+        "assuming_missing_evidence_means_supported",
+        "ignoring_materialization_boundary"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "execution_mode",
+        "engine_mode",
+        "native_io_certificate_status",
+        "materialization_boundary",
+        "result_replay_verified",
+        "claim_gate_status",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "compatibility_import_certified",
+      "expected_output_evidence": "A local benchmark smoke artifact with certificate, result-sink, materialization, claim gate, and no-fallback fields.",
+      "id": "evidence-audit-claim-gates",
+      "inputs": [
+        "local_certified_workload"
+      ],
+      "outputs": [
+        "execution_certificate",
+        "native_io_certificate",
+        "claim_gate_status",
+        "result_replay_evidence"
+      ],
+      "references": [
+        "docs/getting-started/certified-local-workload.md",
+        "docs/architecture/compute-engine-flow-reference.md",
+        "docs/benchmarks/local-taxonomy-benchmark.md",
+        "docs/architecture/operational-evidence-policy-hardening.md"
+      ],
+      "related_use_cases": [
+        "compatibility-import-certified-local",
+        "benchmark-interpretation-evidence-not-leaderboard"
+      ],
+      "runnable_example": "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1",
+      "status": "ready_local",
+      "title": "Evidence, audit, and claim gates"
+    },
+    {
+      "audience": "user comparing local evidence rows without overclaiming performance",
+      "capability_family": "benchmark_interpretation",
+      "claim_boundary": "Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof.",
+      "common_mistakes": [
+        "ranking_external_engines_as_public_claims",
+        "comparing_import_costs_to_pure_query_speed",
+        "hiding_external_baseline_only_status"
+      ],
+      "engine_mode": "batch",
+      "evidence_fields": [
+        "engine",
+        "execution_mode",
+        "source_read_millis",
+        "compatibility_parse_millis",
+        "vortex_prepare_millis",
+        "vortex_scan_millis",
+        "operator_compute_millis",
+        "result_sink_write_millis",
+        "claim_gate_status",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "mixed_by_row",
+      "expected_output_evidence": "Timing rows and coverage rows that keep ShardLoom runtime lanes separate from optional external baselines.",
+      "id": "benchmark-interpretation-evidence-not-leaderboard",
+      "inputs": [
+        "local_benchmark_fixture",
+        "optional_external_baselines"
+      ],
+      "outputs": [
+        "timing_rows",
+        "coverage_rows",
+        "claim_boundary_notes"
+      ],
+      "references": [
+        "docs/benchmarks/local-taxonomy-benchmark.md",
+        "docs/benchmarks/baseline-comparison-boundary.md",
+        "benchmarks/traditional_analytics/README.md",
+        "docs/architecture/benchmark-suite-catalog.md"
+      ],
+      "related_use_cases": [
+        "prepared-native-vortex-runtime-direction",
+        "compatibility-import-certified-local"
+      ],
+      "runnable_example": "python examples\\local-vortex-benchmark\\run.py --repo-root . --rows 64 --iterations 1",
+      "status": "smoke_supported",
+      "title": "Benchmark evidence, not leaderboard"
+    },
+    {
+      "audience": "user asking how to install ShardLoom today",
+      "blocked_explanation": "Public channels need trusted publishing, provenance, clean install proof, security gates, release approval, and publication-specific evidence.",
+      "capability_family": "package_release_install_channels",
+      "claim_boundary": "Local dry-run proof and channel readiness only; no PyPI, Homebrew, conda-forge, GHCR, crates.io, production, or package-publication claim.",
+      "common_mistakes": [
+        "running_pip_install_shardloom_from_public_registry",
+        "assuming_release_dry_run_published_anything",
+        "installing_external_baselines_as_runtime_dependencies"
+      ],
+      "engine_mode": "batch_status",
+      "evidence_fields": [
+        "package_install_mode",
+        "clean_env_install_status",
+        "cli_binary_resolved",
+        "smoke_status",
+        "sbom_status",
+        "provenance_status",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "execution_mode": "local_release_dry_run",
+      "expected_output_evidence": "target/release-dry-run-proof/transcript.json records local source artifacts and no-publication status.",
+      "id": "package-channel-readiness-boundary",
+      "inputs": [
+        "source_checkout"
+      ],
+      "outputs": [
+        "local_wheel_dry_run_report",
+        "install_channel_matrix"
+      ],
+      "references": [
+        "docs/getting-started/first-10-minutes.md",
+        "docs/getting-started/install.md",
+        "docs/release/hard-release-readiness-gate.md",
+        "docs/architecture/adoption-commercial-readiness-friction-reduction.md",
+        "README.md"
+      ],
+      "related_use_cases": [
+        "first-10-minutes-local-smoke",
+        "foundry-local-proof-boundary"
+      ],
+      "runnable_example": "python scripts\\release_dry_run_proof.py --rows 64 --iterations 1",
+      "status": "report_only",
+      "title": "Package, release, and install channel boundary"
+    }
+  ]
+}

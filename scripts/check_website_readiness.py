@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # SPDX-License-Identifier: Apache-2.0
-"""Validate the minimal ShardLoom public website."""
+"""Validate the ShardLoom public website."""
 
 from __future__ import annotations
 
@@ -16,10 +16,20 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_PAGES = [
     "index.html",
+    "start.html",
+    "start/index.html",
+    "field-guide.html",
+    "field-guide/index.html",
+    "use-cases.html",
+    "use-cases/index.html",
     "benchmarks.html",
     "benchmarks/index.html",
+    "architecture.html",
+    "architecture/index.html",
     "compute-engine-flow.html",
     "compute-engine-flow/index.html",
+    "status.html",
+    "status/index.html",
     "404.html",
 ]
 EXPECTED_ASSETS = [
@@ -29,17 +39,14 @@ EXPECTED_ASSETS = [
     "assets/site.css",
     "assets/data/compute-engine-flow-reference.md",
     "assets/data/benchmark-evidence.json",
+    "assets/data/use-case-index.json",
     "assets/benchmarks/latest/manifest.json",
     "assets/benchmarks/latest/benchmark-results.json",
 ]
 EXPECTED_REDIRECTS = [
-    "/field-guide",
-    "/field-guide/*",
-    "/use-cases",
-    "/use-cases/*",
-    "/status",
     "/readme",
     "/docs",
+    "/can-i-use-this",
 ]
 CLAIM_PHRASES = [
     r"\bShardLoom is faster\b",
@@ -58,8 +65,6 @@ PACKAGE_CLAIM_PHRASES = [
     r"\bpublished crate\b",
 ]
 REMOVED_WEBSITE_SURFACES = [
-    "field-guide",
-    "use-cases",
     "pagefind",
 ]
 RUNTIME_SUFFIXES = (".html", ".js", ".css", ".xml", ".txt")
@@ -107,9 +112,9 @@ def rel(path: Path, root: Path) -> str:
 
 def site_path_from_url(value: str) -> str | None:
     if value.startswith("https://shardloom.io/"):
-        return value.removeprefix("https://shardloom.io/").strip("/")
+        return urlsplit(value).path.strip("/")
     if value.startswith("/"):
-        return value.strip("/")
+        return urlsplit(value).path.strip("/")
     return None
 
 
@@ -177,10 +182,11 @@ def validate_html_page(path: Path, root: Path, website: Path, blockers: list[str
         local = site_path_from_url(link)
         if not local or local == "":
             continue
-        if local in {"benchmarks", "compute-engine-flow"}:
-            expected_paths = [website / local / "index.html", website / f"{local}.html"]
-        else:
-            expected_paths = [website / local]
+        expected_paths = [
+            website / local,
+            website / local / "index.html",
+            website / f"{local}.html",
+        ]
         if not any(expected.exists() for expected in expected_paths) and f"/{local}" not in redirects:
             blockers.append(f"{relative} links to unresolved local path: {link}")
     check_claim_phrases(html, relative, blockers)
@@ -199,6 +205,11 @@ def main() -> int:
             blockers.append(f"missing expected page: {page}")
         else:
             validate_html_page(path, repo_root, website, blockers)
+
+    for page in website.rglob("*.html"):
+        if page.name == "validate_static_assets.js":
+            continue
+        validate_html_page(page, repo_root, website, blockers)
 
     for asset in EXPECTED_ASSETS:
         if not (website / asset).exists():
@@ -250,7 +261,7 @@ def main() -> int:
             blockers.append(f"runtime file still references Pagefind: {relative}")
 
     report: dict[str, Any] = {
-        "schema_version": "shardloom.website_readiness.minimal.v1",
+        "schema_version": "shardloom.website_readiness.v2",
         "checked_pages": EXPECTED_PAGES,
         "checked_assets": EXPECTED_ASSETS,
         "blockers": blockers,

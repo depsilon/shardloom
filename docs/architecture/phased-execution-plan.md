@@ -235,8 +235,8 @@ explicitly reprioritized.
 Current non-runtime sequence:
 
 1. Non-runtime closeout is complete through GAR-0043-B, GAR-VORTEX-071D, and the completed
-   `GAR-WEB-REDESIGN-2A/2B` planning slice plus `GAR-WEB-REDESIGN-2C` homepage slice.
-2. Complete the open `GAR-WEB-REDESIGN-2D` through `GAR-WEB-REDESIGN-2G` implementation slices
+   `GAR-WEB-REDESIGN-2A/2B`, `GAR-WEB-REDESIGN-2C`, and `GAR-WEB-REDESIGN-2D` website slices.
+2. Complete the open `GAR-WEB-REDESIGN-2E` through `GAR-WEB-REDESIGN-2G` implementation slices
    below before returning to the runtime implementation queue unless the user explicitly
    reprioritizes runtime work.
 3. Continue moving completed website/runtime sessions to the ledger immediately after PR/session
@@ -263,41 +263,10 @@ OutputPlan -> SinkArtifact -> Evidence -> ClaimGate`, while keeping benchmark, s
 claim-boundary language honest.
 
 Completed slices: `GAR-WEB-REDESIGN-2A reference synthesis and visual direction`,
-`GAR-WEB-REDESIGN-2B information architecture and content model`, and
-`GAR-WEB-REDESIGN-2C homepage product-console rebuild` are captured in the completed ledger.
+`GAR-WEB-REDESIGN-2B information architecture and content model`,
+`GAR-WEB-REDESIGN-2C homepage product-console rebuild`, and
+`GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild` are captured in the completed ledger.
 Remaining items below are the active implementation queue.
-
-- [ ] GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild
-  - Source: Use Case Atlas docs, universal compatibility scoreboard, compute-flow reference,
-    redesign content model, and retired website atlas history in the completed ledger.
-  - Current state: generated Field Guide, Use Case, and Status pages were removed from the public
-    website during the minimal reset; repo docs still contain the richer content.
-  - Next slice outcome: rebuild `/field-guide`, `/field-guide/<slug>`, `/use-cases`,
-    `/use-cases/<id>`, and `/status` from structured content with compact technical-index density,
-    filters, status chips, reference files, related routes, and blocked/report-only visibility.
-  - User-visible surface: Field Guide, Use Cases, Status matrix, navigation, sitemap, redirects.
-  - Implementation scope: website content registries or generator data, optional docs/use-case
-    index reuse, `website/build_static_pages.py`, `website/assets/site.css`,
-    `website/validate_static_assets.js`, `scripts/check_website_readiness.py`.
-  - Evidence required: status vocabulary, route labels, evidence fields, claim boundaries,
-    reference files, related use cases, blocker explanations for planned/blocked rows.
-  - Acceptance: every public status/use-case card has status, route, runnable example or blocker,
-    evidence fields, claim boundary, and references; blocked/report-only cards remain visible;
-    dossier pages follow the approved template; filters work without backend services.
-  - Verification: website build, static asset validation, website readiness, use-case index/coverage
-    checks if reused, browser smoke for `/field-guide`, `/use-cases`, and `/status`, `git diff
-    --check`.
-  - Non-goals: no runtime support expansion, package publication, object-store/lakehouse/Foundry
-    production claim, broad SQL/DataFrame runtime claim, or external search SaaS.
-  - Claim boundary: status pages are capability interpretation only; `runtime_supported`,
-    `smoke_supported`, `fixture_smoke_only`, `report_only`, `blocked`, `unsupported`, and
-    `not_planned` must remain visually and textually distinct.
-  - Fallback boundary: no page may describe pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray,
-    databases, warehouses, or managed platforms as fallback execution.
-  - Dependencies/blockers: structured content registry, exact reference-file paths, route/status
-    vocabulary, claim-boundary copy, and static filter implementation.
-  - Ledger rule: ledger entry must list generated routes, content sources, filter fields, and
-    validation commands.
 
 - [ ] GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild
   - Source: static benchmark manifest/artifacts, benchmark publishing runbook, benchmark evidence

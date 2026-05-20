@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShardLoom Start</title>
+  <meta name="description" content="First ShardLoom local proof command and evidence boundary.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://shardloom.io/start">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+  <meta property="og:title" content="ShardLoom Start">
+  <meta property="og:description" content="First ShardLoom local proof command and evidence boundary.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/start">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="ShardLoom home">
+      <img src="/assets/logo/shardloom-favicon.png" alt="" width="40" height="40" aria-hidden="true">
+      <span>ShardLoom</span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="/">Home</a>
+          <a class="active" aria-current="page" href="/start">Start</a>
+          <a href="/field-guide">Field Guide</a>
+          <a href="/use-cases">Use Cases</a>
+          <a href="/benchmarks">Benchmarks</a>
+          <a href="/architecture">Architecture</a>
+          <a href="/status">Status</a>
+          <a href="https://github.com/depsilon/shardloom">GitHub</a>
+    </nav>
+  </header>
+  <main>
+
+    <section class="page-hero">
+      <p class="eyebrow">Start</p>
+      <h1>Run the local proof first.</h1>
+      <p class="lede">The first ShardLoom experience should be a small source-checkout smoke that reports status and evidence without pretending to be production runtime, package publication, or a speed claim.</p>
+      <div class="actions">
+        <a class="button primary" href="/use-cases/first-10-minutes-local-smoke">Open the full recipe</a>
+        <a class="button" href="/field-guide/no-fallback">Understand no fallback</a>
+        <a class="button" href="/status">Check support status</a>
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <p class="eyebrow">Quick command</p>
+        <h2>First 10 minutes local smoke</h2>
+        <p>Local source-checkout smoke only; no dataset execution, package-publication, production, SQL/DataFrame, object-store, Foundry, performance, or Spark-replacement claim.</p>
+      </div>
+      <div class="code-panel">
+        <div class="panel-label">PowerShell</div>
+        <pre><code>python examples\local-python-smoke\run.py --repo-root .</code></pre>
+        <div class="code-evidence">
+          <span><strong>fallback_attempted</strong>false</span>
+          <span><strong>external_engine_invoked</strong>false</span>
+          <span><strong>surface</strong>local checkout</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>What you get</h2>
+        <p>Status, smoke, and capabilities JSON with fallback_attempted=false and external_engine_invoked=false.</p>
+      </div>
+      <div>
+        <h3>Evidence fields</h3>
+        <ul class="pill-list"><li>fallback_attempted=false</li><li>external_engine_invoked=false</li><li>protocol_version</li><li>resolved_cli_path</li></ul>
+      </div>
+    </section>
+
+  </main>
+  <footer class="site-footer">
+    <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+    <p>Pre-release technical preview. Vortex-first. No fallback. Benchmark evidence is not a public speed or production claim.</p>
+  </footer>
+</body>
+</html>
