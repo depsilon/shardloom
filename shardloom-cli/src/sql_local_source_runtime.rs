@@ -6880,11 +6880,6 @@ fn parse_numeric_arithmetic_predicate(
     }
     let comparison = parse_comparison_op(&tokens[3])?;
     let value = parse_numeric_arithmetic_literal(&tokens[4])?;
-    if rhs.dtype() != value.dtype() {
-        return Err(unsupported_sql_error(
-            "numeric arithmetic predicates require the arithmetic literal and comparison literal to share one numeric dtype family",
-        ));
-    }
     Ok(Some(ParsedPredicate::NumericArithmeticCompare {
         column: column.clone(),
         op,

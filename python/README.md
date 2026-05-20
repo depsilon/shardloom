@@ -410,8 +410,10 @@ projection/filter/limit workflows. The current slice accepts deterministic `lit(
 direct bool/int/float literals, and scoped numeric arithmetic expressions shaped as
 `sl.col("amount") + 5`, `-`, `*`, or `/` with an int/finite-float literal. Literal projections emit
 `literal_projection_*` evidence; numeric arithmetic projections emit
-`numeric_arithmetic_projection_*` evidence. Unsupported computed-column expressions still block
-before fallback.
+`numeric_arithmetic_projection_*` evidence. Mixed `int64`/`float64` arithmetic promotes to
+`float64` only when the `int64` operand is exactly representable as `float64`; lossy mixed
+coercions block deterministically before fallback. Unsupported computed-column expressions still
+block before fallback.
 CSV, local flat
 JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,

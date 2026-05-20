@@ -333,13 +333,15 @@ or documentation updates alone are insufficient.
     `timestamp_*` evidence and deterministic blockers for non-UTC timezone shapes or unsupported
     expression shapes. Scoped numeric arithmetic comparison predicates of the form
     `<column> (+|-|*|/) <numeric literal> <comparison> <numeric literal>` are runtime-admitted for
-    same-family `int64` and finite `float64` literal families with `numeric_arithmetic_*` evidence,
-    ShardLoom-native null propagation, and deterministic blockers for division by zero, mixed
-    literal families, or unsupported expression shapes. Scoped local-source numeric arithmetic
+    same-family `int64`, same-family finite `float64`, and exact `int64`/`float64` mixed numeric
+    coercion families with `numeric_arithmetic_*` evidence, ShardLoom-native null propagation, and
+    deterministic blockers for division by zero, lossy mixed coercion, or unsupported expression
+    shapes. Scoped local-source numeric arithmetic
     projections of the form `<column> (+|-|*|/) <numeric literal> AS <column>` are also
     runtime-admitted for explicit projection/filter/limit rows with
-    `numeric_arithmetic_projection_*` evidence, ShardLoom-native null propagation, deterministic
-    duplicate-output-name blockers, and deterministic division-by-zero/unsupported-shape blockers.
+    `numeric_arithmetic_projection_*` evidence, ShardLoom-native null propagation, exact
+    `int64`/`float64` mixed numeric coercion, deterministic duplicate-output-name blockers, and
+    deterministic division-by-zero/lossy-coercion/unsupported-shape blockers.
     Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`
     / `NOT LIKE`, scoped UTF-8 lower/upper/trim transforms, bounded `IN` / `NOT IN`,
@@ -347,7 +349,7 @@ or documentation updates alone are insufficient.
     scoped numeric arithmetic comparison operators, scoped numeric arithmetic `with_column(...)`,
     and logical predicates into the same local SQL smoke path, plus `where(...)` as a familiar
     filter alias. User workflows still lack broad typed
-    coercions, generalized arithmetic expression trees and generalized projections, mixed numeric coercions,
+    coercions, generalized arithmetic expression trees and generalized projections,
     timezone-database helpers, interval/date-time completeness, subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
     family coverage.
