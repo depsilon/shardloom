@@ -20,8 +20,8 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
         report.status,
         CorrectnessDifferentialHarnessStatus::NeedsEvidence
     );
-    assert_eq!(report.fixture_count, 38);
-    assert_eq!(report.fixtures_with_source_ref_count, 18);
+    assert_eq!(report.fixture_count, 39);
+    assert_eq!(report.fixtures_with_source_ref_count, 19);
     assert_eq!(report.source_backed_edge_fixture_count, 11);
     assert_eq!(
         report.source_backed_edge_fixture_id_order,
@@ -39,10 +39,10 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
             "vortex-edge-filter-temporal-values".to_string(),
         ]
     );
-    assert_eq!(report.golden_fixture_count, 21);
-    assert_eq!(report.executable_expected_output_count, 20);
-    assert_eq!(report.reference_artifact_count, 20);
-    assert_eq!(report.decoded_reference_output_count, 20);
+    assert_eq!(report.golden_fixture_count, 22);
+    assert_eq!(report.executable_expected_output_count, 21);
+    assert_eq!(report.reference_artifact_count, 21);
+    assert_eq!(report.decoded_reference_output_count, 21);
     assert_eq!(
         report.decoded_reference_artifact_id_order,
         vec![
@@ -52,6 +52,7 @@ fn correctness_harness_aggregates_current_cg5_evidence_without_execution() {
             "vortex-local-project-struct-five.decoded-reference.rows".to_string(),
             "vortex-local-filter-struct-five.decoded-reference.rows".to_string(),
             "vortex-local-filter-project-struct-five.decoded-reference.rows".to_string(),
+            "vortex-local-filter-project-limit-struct-five.decoded-reference.rows".to_string(),
             "vortex-prepared-encoded-filter-dictionary-run.decoded-reference.rows".to_string(),
             "vortex-prepared-encoded-projection-dictionary.decoded-reference.rows".to_string(),
             "vortex-prepared-encoded-filter-project-selection-vector.decoded-reference.rows"

@@ -291,7 +291,7 @@ impl VortexCapabilityUtilizationReport {
         Self {
             schema_version: "shardloom.vortex_capability_utilization_report.v1",
             report_id: "priority_2_6.vortex_runtime_utilization.current",
-            vortex_crate_version: "0.70.x",
+            vortex_crate_version: "0.71.x",
             file_format_version_assumption: "recorded_in_vortex_public_api_inventory",
             rows: Self::current_rows(),
             arrays_used: Use::PartialRuntimeEvidence,

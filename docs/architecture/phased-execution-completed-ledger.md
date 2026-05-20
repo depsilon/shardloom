@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4I source-order residual limit for local Vortex
+      filter/project
+  - Branch/PR: `codex/vortex-filter-project-residual-limit` / #824.
+  - Primary files:
+    - `shardloom-cli/src/vortex_primitive_execution.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/tests/typed_envelope_contract_snapshots.rs`
+    - `shardloom-vortex/src/local_primitives.rs`
+    - `shardloom-vortex/src/physical_operator_bridge.rs`
+    - `shardloom-vortex/src/query_primitive.rs`
+    - `shardloom-core/src/correctness.rs`
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+  - Scope: add a real runtime slice to the local Vortex primitive path by admitting
+    `vortex-filter-project --limit <rows>` as filter/projection Vortex Scan pushdown plus a
+    ShardLoom-native source-order residual limit. This closes a concrete filter/project/limit
+    fixture-smoke behavior while keeping broader Vortex Scan limit/slice pushdown, broad
+    prepared/native scenario coverage, and encoded-native claims open under `GAR-RUNTIME-IMPL-4I`.
+  - Runtime behavior:
+    - `vortex-filter-project <dataset_uri> <predicate> <columns> --limit <rows>
+      --execute-local-primitive <memory_gb> <max_parallelism>` now requests a source-order limit
+      for the admitted local Vortex primitive path.
+    - The scan still pushes the single-column predicate and projection into upstream Vortex Scan.
+    - The limit is not claimed as Vortex Scan pushdown; ShardLoom applies it as native residual
+      source-order execution after the scan path, without Arrow conversion, decoded row
+      materialization, or external-engine fallback.
+    - `--limit 0` / `--source-order-limit 0` is rejected deterministically.
+    - Runtime provider evidence reports the active optional Vortex `0.71` dependency instead of the
+      stale `0.70` value.
+  - Vortex-first provider check:
+    - Subject: local Vortex `filter + project + source-order limit` primitive.
+    - Upstream Vortex concept checked: Vortex Scan filter/projection surfaces are admitted in the
+      existing feature-gated local primitive boundary; no source-order limit pushdown provider is
+      admitted for this CLI primitive slice.
+    - Decision: use upstream Vortex Scan for filter/projection; use ShardLoom-native residual
+      source-order limiting; block any Vortex limit-pushdown claim.
+    - Residual handling: `source_order_limit:<rows>` is recorded as ShardLoom-native residual work.
+  - Evidence:
+    - CLI fields include `source_order_limit`, `scan_limit_requested_rows`,
+      `scan_residual_limit_required`, `scan_residual_limit_applied`,
+      `scan_residual_limit_status`, `scan_residual_limit_executor`,
+      `scan_residual_limit_input_rows`, and `scan_residual_limit_rows_output`.
+    - Limit rows report `scan_limit_required=true`, `scan_limit_pushed_down=false`,
+      `scan_limit_pushdown_status=blocked_no_scan_limit_admission`, and
+      `scan_pushdown_blocker_id=gar-runtime-impl-4i.limit_pushdown_not_admitted`.
+    - Local execution reports expose source-order limit request/applied/input/output fields.
+    - Fixture-backed correctness uses `vortex-local-filter-project-limit-struct-five`.
+    - No-fallback fields remain `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+  - Verification:
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives filter_and_project_applies_source_order_residual_limit_after_scan_pushdown --lib`
+    - `cargo test -p shardloom-vortex --features vortex-local-primitives filter_project_limit_bridge_adds_limit_operator --lib`
+    - `cargo test -p shardloom-cli --features vortex-local-primitives certified_filter_project_limit_fixture_routes_residual_limit_fields --test typed_envelope_contract_snapshots`
+    - `cargo test -p shardloom-cli --features vortex-local-primitives vortex_run_local_primitive_fixture_matching_covers_struct_count_project_paths`
+    - Broader readiness validation is recorded in the PR.
+  - Claim boundary: scoped local Vortex primitive filter/project/source-order-limit fixture-smoke
+    evidence only. This does not add broad SQL/DataFrame limit support, object-store/table/
+    lakehouse support, Foundry support, encoded-native claims, production support, package
+    publication, performance/superiority claims, or Spark-displacement claims.
+  - Fallback boundary: filter/projection run through the admitted Vortex provider boundary and the
+    residual limit is ShardLoom-native. No pandas, Polars, DuckDB, DataFusion, Spark, Dask,
+    databases, warehouses, or managed platforms are invoked as fallback engines.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4I CLI local primitive `scan_pushdown_*`
       contract slice
   - Branch/PR: `codex/vortex-scan-pushdown-runtime` / #823.

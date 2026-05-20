@@ -5483,7 +5483,7 @@ mod tests {
             ),
             (
                 VortexQueryPrimitiveRequest::filter_and_project(
-                    uri,
+                    uri.clone(),
                     PredicateExpr::Compare {
                         column: ColumnRef::new("value").expect("column"),
                         op: ComparisonOp::GtEq,
@@ -5492,6 +5492,19 @@ mod tests {
                     ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
                 ),
                 "vortex-local-filter-project-struct-five",
+            ),
+            (
+                VortexQueryPrimitiveRequest::filter_and_project(
+                    uri,
+                    PredicateExpr::Compare {
+                        column: ColumnRef::new("value").expect("column"),
+                        op: ComparisonOp::GtEq,
+                        value: StatValue::Int64(3),
+                    },
+                    ProjectionRequest::columns(vec![ColumnRef::new("metric").expect("column")]),
+                )
+                .with_source_order_limit(2),
+                "vortex-local-filter-project-limit-struct-five",
             ),
         ];
 
@@ -6799,6 +6812,30 @@ mod tests {
     }
 
     #[test]
+    fn vortex_filter_project_rejects_zero_source_order_limit() {
+        let fixture_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("workspace crate parent")
+            .join("shardloom-vortex")
+            .join("tests")
+            .join("fixtures")
+            .join("local_primitive_struct_five.vortex");
+
+        let code = run(vec![
+            "vortex-filter-project".to_string(),
+            fixture_path.to_string_lossy().to_string(),
+            "gte:value:3".to_string(),
+            "metric".to_string(),
+            "--limit".to_string(),
+            "0".to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+        ]);
+
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn vortex_filter_local_primitive_bridges_when_feature_enabled() {
         if !vortex_encoded_read_spike_feature_enabled() {
             return;
@@ -7047,7 +7084,7 @@ mod tests {
         assert!(output_field(&fields, "baseline_engine_order").contains("dask"));
         assert_eq!(
             output_field(&fields, "fixtures_with_source_ref_count"),
-            "18"
+            "19"
         );
         assert_eq!(
             output_field(&fields, "source_backed_edge_fixture_count"),

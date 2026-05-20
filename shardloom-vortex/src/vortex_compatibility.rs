@@ -9,7 +9,7 @@ use shardloom_core::Diagnostic;
 
 const MATRIX_SCHEMA_VERSION: &str = "shardloom.vortex_compatibility_matrix.v1";
 const MATRIX_REPORT_ID: &str = "cg19.cg20.vortex_compatibility_matrix";
-const VORTEX_CRATE_VERSION: &str = "0.70";
+const VORTEX_CRATE_VERSION: &str = "0.71";
 const VORTEX_FILE_FORMAT_ASSUMPTION: &str = "stable_from_0.36.0_onward_api_evolving";
 const RUST_TOOLCHAIN_COMPATIBILITY: &str = "rust_1.91.1";
 const LOCAL_PRIMITIVES_FEATURE_GATE: &str = "vortex-local-primitives";
@@ -349,7 +349,7 @@ mod tests {
         let report = plan_vortex_compatibility_matrix();
 
         assert_eq!(report.schema_version, MATRIX_SCHEMA_VERSION);
-        assert_eq!(report.vortex_crate_version, "0.70");
+        assert_eq!(report.vortex_crate_version, "0.71");
         assert_eq!(
             report.vortex_file_format_assumption,
             "stable_from_0.36.0_onward_api_evolving"

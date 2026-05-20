@@ -342,6 +342,11 @@ pub(crate) struct VortexLocalPrimitiveCliExecutionEvidence {
     pub(crate) native_io_certificate: NativeIoCertificate,
     pub(crate) execution_certificate: Option<ExecutionCertificate>,
 }
+
+struct VortexFilterProjectCliOptions {
+    local_execution_request: Option<VortexLocalPrimitiveCliExecutionRequest>,
+    source_order_limit: Option<usize>,
+}
 impl VortexLocalPrimitiveCliExecutionEvidence {
     pub(crate) fn has_errors(&self) -> bool {
         self.report.has_errors() || !self.native_io_certificate.is_certified()
@@ -1044,6 +1049,7 @@ pub(crate) fn vortex_project_fields(
         "vortex_project",
         &[],
         &output_columns,
+        None,
         local_execution,
     );
     fields
@@ -1405,6 +1411,13 @@ pub(crate) fn vortex_filter_project_fields(
         ),
         ("predicate".to_string(), predicate_arg),
         ("columns".to_string(), columns_arg),
+        (
+            "source_order_limit".to_string(),
+            result
+                .request
+                .source_order_limit
+                .map_or_else(|| "none".to_string(), |limit| limit.to_string()),
+        ),
     ];
     append_vortex_filter_project_local_execution_fields(&mut fields, local_execution);
     append_vortex_primitive_scan_pushdown_fields(
@@ -1412,6 +1425,7 @@ pub(crate) fn vortex_filter_project_fields(
         "vortex_filter_project",
         &filter_columns,
         &output_columns,
+        result.request.source_order_limit,
         local_execution,
     );
     fields
@@ -1471,6 +1485,26 @@ fn append_vortex_filter_project_local_execution_absent_fields(fields: &mut Vec<(
         "filter_project_local_execution_projected_columns",
         "",
     );
+    push_field(
+        fields,
+        "filter_project_local_execution_source_order_limit_requested",
+        "none",
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_source_order_limit_applied",
+        false,
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_source_order_limit_input_rows",
+        "unknown",
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_source_order_limit_rows_output",
+        "unknown",
+    );
     append_vortex_filter_project_local_execution_absent_effect_fields(fields);
     append_vortex_filter_project_local_execution_claim_fields(fields, None);
     append_vortex_local_primitive_native_io_certificate_fields(fields, None);
@@ -1525,6 +1559,7 @@ fn append_vortex_filter_project_local_execution_present_fields(
         "filter_project_local_execution_projected_columns",
         &local.report.projected_columns.join(","),
     );
+    append_vortex_filter_project_local_execution_limit_fields(fields, local);
     append_vortex_filter_project_local_execution_scan_fields(fields, local);
     append_vortex_filter_project_local_execution_effect_fields(fields, local);
     append_vortex_filter_project_local_execution_claim_fields(fields, Some(local));
@@ -1535,6 +1570,41 @@ fn append_vortex_filter_project_local_execution_present_fields(
     append_vortex_local_primitive_execution_certificate_fields(
         fields,
         local.execution_certificate.as_ref(),
+    );
+}
+
+fn append_vortex_filter_project_local_execution_limit_fields(
+    fields: &mut Vec<(String, String)>,
+    local: &VortexLocalPrimitiveCliExecutionEvidence,
+) {
+    push_field(
+        fields,
+        "filter_project_local_execution_source_order_limit_requested",
+        &local
+            .report
+            .source_order_limit_requested
+            .map_or_else(|| "none".to_string(), |value| value.to_string()),
+    );
+    push_bool_field(
+        fields,
+        "filter_project_local_execution_source_order_limit_applied",
+        local.report.source_order_limit_applied,
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_source_order_limit_input_rows",
+        &local
+            .report
+            .source_order_limit_input_rows
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        fields,
+        "filter_project_local_execution_source_order_limit_rows_output",
+        &local
+            .report
+            .source_order_limit_rows_output
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
     );
 }
 
@@ -1843,6 +1913,7 @@ pub(crate) fn vortex_filter_fields(
         "vortex_filter",
         &filter_columns,
         &[],
+        None,
         local_execution,
     );
     fields
@@ -2105,11 +2176,12 @@ fn append_vortex_primitive_scan_pushdown_fields(
     primitive: &str,
     filter_columns: &[String],
     output_columns: &[String],
+    source_order_limit: Option<usize>,
     local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
 ) {
     let filter_required = !filter_columns.is_empty();
     let projection_required = !output_columns.is_empty();
-    let limit_required = false;
+    let limit_required = source_order_limit.is_some();
     let scan_admitted = local_execution.is_some_and(|local| {
         local.report.mode == shardloom_vortex::VortexLocalPrimitiveExecutionMode::VortexScanPushdown
             && local.report.upstream_scan_called
@@ -2167,6 +2239,12 @@ fn append_vortex_primitive_scan_pushdown_fields(
     push_field(fields, "scan_pushdown_status", pushdown_status);
     push_scan_pushdown_dimension_fields(fields, filter, projection, limit);
     push_scan_pushdown_column_fields(fields, filter_columns, output_columns, &filter_only_columns);
+    push_scan_pushdown_residual_limit_fields(
+        fields,
+        source_order_limit,
+        limit_pushed_down,
+        local_execution,
+    );
     push_scan_pushdown_guardrail_fields(fields, local_execution, &blocker_id);
 }
 
@@ -2241,6 +2319,58 @@ fn push_scan_pushdown_column_fields(
         fields,
         "scan_filter_only_columns_read",
         &comma_join_columns_or_none(filter_only_columns),
+    );
+}
+
+fn push_scan_pushdown_residual_limit_fields(
+    fields: &mut Vec<(String, String)>,
+    source_order_limit: Option<usize>,
+    limit_pushed_down: bool,
+    local_execution: Option<&VortexLocalPrimitiveCliExecutionEvidence>,
+) {
+    let residual_required = source_order_limit.is_some() && !limit_pushed_down;
+    let residual_applied = local_execution
+        .is_some_and(|local| local.report.source_order_limit_applied && residual_required);
+    push_field(
+        fields,
+        "scan_limit_requested_rows",
+        &source_order_limit.map_or_else(|| "none".to_string(), |limit| limit.to_string()),
+    );
+    push_bool_field(fields, "scan_residual_limit_required", residual_required);
+    push_bool_field(fields, "scan_residual_limit_applied", residual_applied);
+    push_field(
+        fields,
+        "scan_residual_limit_status",
+        match (residual_required, residual_applied) {
+            (false, _) => "not_needed",
+            (true, true) => "applied_by_shardloom_native_residual",
+            (true, false) => "blocked_or_not_executed",
+        },
+    );
+    push_field(
+        fields,
+        "scan_residual_limit_executor",
+        if residual_applied {
+            "shardloom_native"
+        } else if residual_required {
+            "unsupported_blocked_or_not_executed"
+        } else {
+            "none"
+        },
+    );
+    push_field(
+        fields,
+        "scan_residual_limit_input_rows",
+        &local_execution
+            .and_then(|local| local.report.source_order_limit_input_rows)
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+    );
+    push_field(
+        fields,
+        "scan_residual_limit_rows_output",
+        &local_execution
+            .and_then(|local| local.report.source_order_limit_rows_output)
+            .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
     );
 }
 
@@ -2351,7 +2481,7 @@ fn scan_pushdown_dimension_status(
         (true, false, _) => "not_needed",
         (true, true, true) => "pushed_down",
         (true, true, false) if dimension == "filter" => "blocked_filter_not_lowered",
-        (true, true, false) if dimension == "limit" => "blocked_limit_not_lowered",
+        (true, true, false) if dimension == "limit" => "blocked_no_scan_limit_admission",
         (true, true, false) => "blocked_projection_not_lowered",
     }
 }
@@ -2995,25 +3125,41 @@ pub(crate) fn local_primitive_correctness_fixture_for_request(
             .and_then(local_encoded_count_correctness_fixture_for_target),
         shardloom_vortex::VortexQueryPrimitiveKind::CountWhere => local_primitive_fixture_if(
             request,
-            local_struct_value_gte_three_predicate(request),
+            local_struct_value_gte_three_predicate(request)
+                && local_struct_no_source_order_limit(request),
             "vortex-local-count-where-struct-five",
         ),
         shardloom_vortex::VortexQueryPrimitiveKind::ProjectColumns => local_primitive_fixture_if(
             request,
-            local_struct_metric_projection(request),
+            local_struct_metric_projection(request) && local_struct_no_source_order_limit(request),
             "vortex-local-project-struct-five",
         ),
         shardloom_vortex::VortexQueryPrimitiveKind::FilterPredicate => local_primitive_fixture_if(
             request,
-            local_struct_value_gte_three_predicate(request),
+            local_struct_value_gte_three_predicate(request)
+                && local_struct_no_source_order_limit(request),
             "vortex-local-filter-struct-five",
         ),
-        shardloom_vortex::VortexQueryPrimitiveKind::FilterAndProject => local_primitive_fixture_if(
-            request,
-            local_struct_value_gte_three_predicate(request)
-                && local_struct_metric_projection(request),
-            "vortex-local-filter-project-struct-five",
-        ),
+        shardloom_vortex::VortexQueryPrimitiveKind::FilterAndProject => {
+            if local_struct_value_gte_three_predicate(request)
+                && local_struct_metric_projection(request)
+                && local_struct_source_order_limit(request, 2)
+            {
+                local_primitive_fixture_if(
+                    request,
+                    true,
+                    "vortex-local-filter-project-limit-struct-five",
+                )
+            } else {
+                local_primitive_fixture_if(
+                    request,
+                    local_struct_value_gte_three_predicate(request)
+                        && local_struct_metric_projection(request)
+                        && local_struct_no_source_order_limit(request),
+                    "vortex-local-filter-project-struct-five",
+                )
+            }
+        }
         shardloom_vortex::VortexQueryPrimitiveKind::SimpleAggregate
         | shardloom_vortex::VortexQueryPrimitiveKind::Unsupported => None,
     }
@@ -3047,6 +3193,14 @@ fn local_struct_metric_projection(request: &VortexQueryPrimitiveRequest) -> bool
         ProjectionRequest::Columns(columns)
             if columns.len() == 1 && columns[0].as_str() == "metric"
     )
+}
+
+fn local_struct_source_order_limit(request: &VortexQueryPrimitiveRequest, limit: usize) -> bool {
+    request.source_order_limit == Some(limit)
+}
+
+fn local_struct_no_source_order_limit(request: &VortexQueryPrimitiveRequest) -> bool {
+    request.source_order_limit.is_none()
 }
 
 fn local_fixture_ref_matches(target_uri: &DatasetUri, source_ref: &str) -> bool {
@@ -4953,6 +5107,7 @@ struct VortexFilterProjectArgs {
     columns_arg: String,
     predicate: PredicateExpr,
     projection: ProjectionRequest,
+    source_order_limit: Option<usize>,
     local_execution_request: Option<VortexLocalPrimitiveCliExecutionRequest>,
 }
 
@@ -4985,10 +5140,14 @@ pub(crate) fn handle_vortex_filter_project(
         columns_arg,
         predicate,
         projection,
+        source_order_limit,
         local_execution_request,
     } = parsed;
-    let request =
+    let mut request =
         VortexQueryPrimitiveRequest::filter_and_project(uri.clone(), predicate, projection);
+    if let Some(limit) = source_order_limit {
+        request = request.with_source_order_limit(limit);
+    }
     let summary = open_vortex_metadata_only(VortexMetadataOpenRequest::metadata_only(uri))
         .ok()
         .and_then(|report| report.metadata_summary)
@@ -5785,19 +5944,19 @@ fn parse_vortex_filter_project_args(
 ) -> std::result::Result<VortexFilterProjectArgs, ExitCode> {
     let Some(uri_arg) = args.next() else {
         eprintln!(
-            "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+            "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--limit <rows>] [--execute-local-primitive <memory_gb> <max_parallelism>]"
         );
         return Err(ExitCode::from(2));
     };
     let Some(predicate_arg) = args.next() else {
         eprintln!(
-            "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+            "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--limit <rows>] [--execute-local-primitive <memory_gb> <max_parallelism>]"
         );
         return Err(ExitCode::from(2));
     };
     let Some(columns_arg) = args.next() else {
         eprintln!(
-            "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--execute-local-primitive <memory_gb> <max_parallelism>]"
+            "usage: shardloom vortex-filter-project <dataset_uri> <predicate> <columns> [--limit <rows>] [--execute-local-primitive <memory_gb> <max_parallelism>]"
         );
         return Err(ExitCode::from(2));
     };
@@ -5825,22 +5984,102 @@ fn parse_vortex_filter_project_args(
             &error,
         )
     })?;
-    let local_execution_request = parse_vortex_local_primitive_cli_execution_args(&mut args)
-        .map_err(|error| {
-            emit_error(
-                "vortex-filter-project",
-                format,
-                "vortex filter project failed",
-                &error,
-            )
-        })?;
+    let options = parse_vortex_filter_project_options(&mut args).map_err(|error| {
+        emit_error(
+            "vortex-filter-project",
+            format,
+            "vortex filter project failed",
+            &error,
+        )
+    })?;
     Ok(VortexFilterProjectArgs {
         uri,
         predicate_arg,
         columns_arg,
         predicate,
         projection,
+        source_order_limit: options.source_order_limit,
+        local_execution_request: options.local_execution_request,
+    })
+}
+
+fn parse_vortex_filter_project_options(
+    args: &mut impl Iterator<Item = String>,
+) -> shardloom_core::Result<VortexFilterProjectCliOptions> {
+    let mut local_execution_request = None;
+    let mut source_order_limit = None;
+    while let Some(option) = args.next() {
+        match option.as_str() {
+            "--execute-local-primitive" => {
+                if local_execution_request.is_some() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "--execute-local-primitive was provided more than once".to_string(),
+                    ));
+                }
+                let Some(memory_gb_text) = args.next() else {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "missing memory_gb after --execute-local-primitive".to_string(),
+                    ));
+                };
+                let Some(max_parallelism_text) = args.next() else {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "missing max_parallelism after --execute-local-primitive".to_string(),
+                    ));
+                };
+                let memory_gb = memory_gb_text.parse::<u64>().map_err(|_| {
+                    ShardLoomError::InvalidOperation(
+                        "memory_gb must be an unsigned integer".to_string(),
+                    )
+                })?;
+                if memory_gb == 0 {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "memory_gb must be >= 1".to_string(),
+                    ));
+                }
+                let max_parallelism = max_parallelism_text.parse::<usize>().map_err(|_| {
+                    ShardLoomError::InvalidOperation(
+                        "max_parallelism must be an unsigned integer".to_string(),
+                    )
+                })?;
+                VortexLocalPrimitiveExecutionPolicy::new(max_parallelism)?;
+                local_execution_request = Some(VortexLocalPrimitiveCliExecutionRequest {
+                    memory_gb,
+                    max_parallelism,
+                });
+            }
+            "--limit" | "--source-order-limit" => {
+                if source_order_limit.is_some() {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "source-order limit was provided more than once".to_string(),
+                    ));
+                }
+                let Some(limit_text) = args.next() else {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "missing row limit after {option}"
+                    )));
+                };
+                let limit = limit_text.parse::<usize>().map_err(|_| {
+                    ShardLoomError::InvalidOperation(
+                        "source-order limit must be an unsigned integer".to_string(),
+                    )
+                })?;
+                if limit == 0 {
+                    return Err(ShardLoomError::InvalidOperation(
+                        "source-order limit must be >= 1".to_string(),
+                    ));
+                }
+                source_order_limit = Some(limit);
+            }
+            other => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "unknown option: {other}"
+                )));
+            }
+        }
+    }
+    Ok(VortexFilterProjectCliOptions {
         local_execution_request,
+        source_order_limit,
     })
 }
 

@@ -336,6 +336,85 @@ fn certified_filter_project_runtime_fixture_routes_scan_pushdown_fields() {
 
 #[cfg(feature = "vortex-local-primitives")]
 #[test]
+fn certified_filter_project_limit_fixture_routes_residual_limit_fields() {
+    let fixture = local_primitive_struct_fixture();
+    let output = run_command(
+        &[
+            "vortex-filter-project",
+            fixture.as_str(),
+            "gte:value:3",
+            "metric",
+            "--limit",
+            "2",
+            "--execute-local-primitive",
+            "1",
+            "2",
+            "--format",
+            "json",
+        ],
+        true,
+    );
+
+    assert_common_typed_slots(&output, "vortex-filter-project", "success");
+    assert!(output.contains(&field("command_family", "vortex_primitive_execution")));
+    assert!(output.contains(&field("mode", "vortex_filter_project")));
+    assert!(output.contains(&field("source_order_limit", "2")));
+    assert!(output.contains(&field(
+        "scan_pushdown_status",
+        "scan_pushdown_partially_supported"
+    )));
+    assert!(output.contains(&field("scan_filter_pushed_down", "true")));
+    assert!(output.contains(&field("scan_projection_pushed_down", "true")));
+    assert!(output.contains(&field("scan_limit_required", "true")));
+    assert!(output.contains(&field("scan_limit_pushed_down", "false")));
+    assert!(output.contains(&field(
+        "scan_limit_pushdown_status",
+        "blocked_no_scan_limit_admission"
+    )));
+    assert!(output.contains(&field("scan_limit_requested_rows", "2")));
+    assert!(output.contains(&field("scan_residual_limit_required", "true")));
+    assert!(output.contains(&field("scan_residual_limit_applied", "true")));
+    assert!(output.contains(&field(
+        "scan_residual_limit_status",
+        "applied_by_shardloom_native_residual"
+    )));
+    assert!(output.contains(&field("scan_residual_limit_executor", "shardloom_native")));
+    assert!(output.contains(&field("scan_residual_limit_input_rows", "3")));
+    assert!(output.contains(&field("scan_residual_limit_rows_output", "2")));
+    assert!(output.contains(&field(
+        "scan_pushdown_blocker_id",
+        "gar-runtime-impl-4i.limit_pushdown_not_admitted"
+    )));
+    assert!(output.contains(&field(
+        "filter_project_local_execution_source_order_limit_requested",
+        "2"
+    )));
+    assert!(output.contains(&field(
+        "filter_project_local_execution_source_order_limit_applied",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "filter_project_local_execution_source_order_limit_input_rows",
+        "3"
+    )));
+    assert!(output.contains(&field(
+        "filter_project_local_execution_source_order_limit_rows_output",
+        "2"
+    )));
+    assert!(output.contains(&field(
+        "local_primitive_execution_certificate_fixture_id",
+        "vortex-local-filter-project-limit-struct-five"
+    )));
+    assert!(output.contains(&field(
+        "local_primitive_execution_certificate_status",
+        "certified"
+    )));
+    assert!(output.contains(&field("scan_pushdown_fallback_attempted", "false")));
+    assert!(output.contains(&field("scan_pushdown_external_engine_invoked", "false")));
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+#[test]
 fn non_executed_vortex_primitive_fixture_routes_scan_pushdown_blocker() {
     let fixture = local_primitive_struct_fixture();
     let output = run_command(

@@ -844,7 +844,7 @@ pub fn local_encoded_count_execution_certificate(
     let mut input = ExecutionCertificateInput::new(certificate_id, "vortex.local_encoded_count")?;
     input.execution_provider_kind = ExecutionProviderKind::VortexScan;
     input.provider_crate = Some("vortex".to_string());
-    input.provider_version = Some("0.70".to_string());
+    input.provider_version = Some("0.71".to_string());
     input.provider_api_surface = Some("VortexFile::scan.into_array_iter".to_string());
     input.shardloom_admission_policy = Some("shardloom.vortex.local_scan_primitive.v1".to_string());
     input.plan_ref = Some("vortex-count:local-encoded-count".to_string());
