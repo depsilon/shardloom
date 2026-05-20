@@ -472,6 +472,36 @@ class GeneratedSourceWriteReport:
 
         return self.envelope.field_bool("generated_source_range_end_inclusive")
 
+    @property
+    def sql_source_free_projection_runtime_execution(self) -> bool:
+        """Whether scoped SQL source-free projection executed in the smoke command."""
+
+        return (
+            self.envelope.field_bool(
+                "sql_source_free_projection_runtime_execution",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def sql_source_free_projection_source_column(self) -> str | None:
+        """Return the generated SQL projection source column when present."""
+
+        return self.envelope.field("sql_source_free_projection_source_column")
+
+    @property
+    def sql_source_free_projection_columns(self) -> tuple[str, ...]:
+        """Return generated SQL projection output columns when present."""
+
+        return _csv_values(self.envelope.field("sql_source_free_projection_columns"))
+
+    @property
+    def sql_source_free_projection_expressions(self) -> tuple[str, ...]:
+        """Return generated SQL projection expressions when present."""
+
+        return _csv_values(self.envelope.field("sql_source_free_projection_expressions"))
+
 
 @dataclass(frozen=True, slots=True)
 class SqlLocalSourceSmokeReport:

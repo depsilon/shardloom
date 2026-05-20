@@ -465,7 +465,8 @@ or documentation updates alone are insufficient.
   - Source: `GAR-GEN-1`, `GAR-COMPAT-1B`, Use Case Atlas generated-source rows.
   - Current state: scoped local JSONL/CSV generated-output smokes now exist for `from_rows`,
     `literal_table`, `calendar`, `range`, `sequence`, SQL `VALUES`, SQL literal `SELECT`, scoped
-    SQL `SELECT * FROM generate_series/range(...)`, and Python generated-row projection/literal
+    SQL `SELECT * FROM generate_series/range(...)`, scoped SQL value-column/int64 arithmetic
+    projections from `generate_series/range(...)`, and Python generated-row projection/literal
     `with_column` before local writes with generated-source/output/no-fallback evidence. Those
     generated-source surfaces also expose feature-gated flat scalar Parquet, Arrow IPC, Avro, and
     ORC local sinks through `write_parquet(...)`, `write_arrow_ipc(...)`, `write_avro(...)`,
@@ -477,9 +478,10 @@ or documentation updates alone are insufficient.
     `certified_local_vortex_sink`; default builds return a deterministic Vortex sink blocker.
     Python range/sequence builders also support `limit(...)`, `head(...)`, and `take(...)` by
     adjusting generator bounds before invoking the same engine-native range/sequence smoke.
-    Remaining gaps are broader SQL source-free projection, arbitrary SQL table functions, broad
-    DataFrame expression-backed projection/`with_column`, object-store/Foundry generated-output
-    paths, broader structured-format fidelity, and claim-grade output coverage.
+    Remaining gaps are broader SQL source-free projection beyond the admitted range-generator
+    projection subset, arbitrary SQL table functions, broad DataFrame expression-backed
+    projection/`with_column`, object-store/Foundry generated-output paths, broader
+    structured-format fidelity, and claim-grade output coverage.
   - Next slice outcome: implement broader generator/expression coverage and claim-grade
     replay/fidelity evidence where admitted.
   - Runtime enablement: end-user generated-source execution that writes local output and emits a
@@ -814,70 +816,6 @@ or documentation updates alone are insufficient.
     OutputPlan ids, explicit session lifecycle, and cache cleanup policy.
   - Ledger rule: ledger entry must list cache artifacts, invalidation rules, and disabled paths.
 
-- [x] GAR-RUNTIME-IMPL-4M benchmark refresh and runtime claim gate after each promoted workflow
-  - Source: `GAR-BENCH-PUB-1`, benchmark publishing runbook, release claim gates.
-  - Current state: benchmark publishing is structured, but each newly promoted runtime path needs a
-    fresh artifact, scenario coverage, and public claim boundary update.
-  - Next slice outcome: require every runtime-promotion PR to update or attach a focused benchmark/
-    correctness/evidence artifact and refresh website/docs only when the artifact is claim-safe.
-  - Runtime enablement: runtime-promotion validator that blocks stale or missing evidence before a
-    path is represented as supported.
-  - User-visible surface: website benchmarks, docs/benchmarks, release readiness, status matrix.
-  - Implementation scope: artifact freshness checker, runtime claim matrix, benchmark page
-    ingestion, release validators, artifact-derived comparative website publishing, and local
-    benchmark artifact promotion into committed static website data.
-  - Evidence required: benchmark profile/environment, scenario coverage, lane status, certificate
-    refs, correctness refs, no-fallback fields, claim gate.
-  - Acceptance: no promoted path is presented publicly without current evidence; stale or incomplete
-    artifacts block claim-grade status; website comparative tables derive from the promoted artifact
-    manifest rather than an external dashboard scrape; full-local profiles split `polars-eager` and
-    `polars-lazy` and expose missing DuckDB/DataFusion/Dask/Spark lanes with reasons; compatibility
-    rows are labeled as certified cold route; prepared rows are labeled as prepared warm route from
-    `VortexPreparedState`; prepare-once timing and warm-query timing stay separate.
-  - Verification: benchmark artifact completeness checker, website readiness, release readiness,
-    traditional benchmark harness tests.
-  - Non-goals: no performance/superiority/Spark-replacement claim.
-  - Claim boundary: evidence gate only; claims remain workload-scoped.
-  - Fallback boundary: external baseline lanes cannot satisfy ShardLoom-native evidence.
-  - Dependencies/blockers: benchmark manifest schema, runtime envelope validators, scenario
-    fixtures, and website renderer support.
-  - Ledger rule: ledger entry must include artifact refs and public claim status.
-
-- [x] GAR-RUNTIME-IMPL-4N object-store read admission with local emulator/public fixture proof
-  - Source: `GAR-COMPAT-1C`, `GAR-SCALE-1E`, object-store request planner,
-    `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: object-store planning/report-only surfaces exist; runtime reads are blocked.
-    Completed first runtime proof: `object-store-read-smoke` admits an explicit `local-emulator`
-    profile over local fixture files only. Real S3/GCS/ADLS, credentials, network probes, public
-    provider reads, authenticated reads, writes, commits, table/lakehouse, distributed, and
-    production object-store claims remain blocked.
-  - Next slice outcome: implement URI parse, credential/effect policy, optional listing, byte-range
-    read, streaming/full-file read, and SourceState evidence in an approved emulator or public
-    no-credential fixture profile.
-  - Runtime enablement: provider/profile-scoped object-store read admission with policy gates and
-    SourceState evidence.
-  - User-visible surface: CLI/Python object-store diagnostics, capability/status pages, use cases.
-  - Implementation scope: provider abstraction, effect gate, credential policy, request planner,
-    byte-range adapter, local cache boundary, tests.
-  - Vortex 0.71 opportunity mapping:
-    - `VortexReadAt::read_at` validation and async I/O hooks may inform byte-range/object-store
-      read evidence after policy admission.
-    - 0.71 I/O hooks do not admit object-store runtime by themselves; provider policy, credentials,
-      fixtures, and Native I/O certificates remain required.
-  - Evidence required: provider/profile, credential/network status, object version/ETag, byte
-    ranges, SourceState id, Native I/O certificate, no-fallback fields.
-  - Acceptance: public and authenticated read gates are separate; no network probe or credential
-    resolution runs by default; unsupported providers fail closed.
-  - Verification: policy tests, mocked/emulator read smoke, SourceState snapshot tests, release
-    readiness, website status checks.
-  - Non-goals: no object-store write, table commit, production object-store claim, or managed
-    platform claim.
-  - Claim boundary: provider/profile-specific technical-preview read proof only.
-  - Fallback boundary: storage provider access does not authorize external query execution.
-  - Dependencies/blockers: security/effect policy, provider test harness, dependency/license
-    review, and emulator or public no-credential fixture availability.
-  - Ledger rule: ledger entry must record provider, credential posture, and proof refs.
-
 - [ ] GAR-RUNTIME-IMPL-4O object-store write and table/lakehouse commit ladder
   - Source: table/lakehouse commit semantics gate, object-store scale ladder.
   - Current state: object-store writes, table metadata/snapshot scans, append, merge/delete, commit,
@@ -1038,7 +976,8 @@ docs/website parity, and a completed-ledger entry.
   - Current state: no-dataset smoke remains separate. Scoped local JSONL/CSV generated-output runtime
     now covers `ctx.from_rows`, generated-row `.select(...)`/literal `.with_column(...)`,
     `ctx.literal_table`, `ctx.calendar`, `ctx.range`, `ctx.sequence`, SQL `VALUES`, and SQL literal
-    `SELECT`, plus scoped SQL `SELECT * FROM generate_series/range(...)`. Broad DataFrame
+    `SELECT`, plus scoped SQL `SELECT *` and value-column/int64 arithmetic projections from
+    `generate_series/range(...)`. Broad DataFrame
     expression-backed source-free output, broader source-free projection, broader output formats
     beyond JSONL/CSV, object-store sinks, and Foundry generated-output runtime remain incomplete or
     blocked.

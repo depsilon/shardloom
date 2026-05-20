@@ -3906,8 +3906,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
-    def test_context_sql_generate_series_write_invokes_generated_source_sql_smoke(self) -> None:
-        statement = "SELECT * FROM generate_series(2, 8, 2)"
+    def test_context_sql_generate_series_projection_write_invokes_generated_source_sql_smoke(
+        self,
+    ) -> None:
+        statement = "SELECT value AS id, value + 10 AS shifted FROM generate_series(2, 8, 2)"
         binary = self.fake_cli(
             textwrap.dedent(
                 f"""
@@ -3941,6 +3943,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {{"key": "generated_source_range_column", "value": "value"}},
                         {{"key": "generated_source_sql_generator_function", "value": "generate_series"}},
                         {{"key": "generated_source_range_end_inclusive", "value": "true"}},
+                        {{"key": "sql_source_free_projection_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_projection_source_column", "value": "value"}},
+                        {{"key": "sql_source_free_projection_columns", "value": "id,shifted"}},
+                        {{"key": "sql_source_free_projection_expressions", "value": "value,value+10"}},
                         {{"key": "generated_source_created", "value": "true"}},
                         {{"key": "generated_source_certificate_status", "value": "present"}},
                         {{"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"}},
@@ -3967,6 +3973,13 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.generated_source_range_column, "value")
         self.assertEqual(report.generated_source_sql_generator_function, "generate_series")
         self.assertTrue(report.generated_source_range_end_inclusive)
+        self.assertTrue(report.sql_source_free_projection_runtime_execution)
+        self.assertEqual(report.sql_source_free_projection_source_column, "value")
+        self.assertEqual(report.sql_source_free_projection_columns, ("id", "shifted"))
+        self.assertEqual(
+            report.sql_source_free_projection_expressions,
+            ("value", "value+10"),
+        )
         self.assertEqual(report.output_path, "target/sql-generate-series.jsonl")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)

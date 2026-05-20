@@ -296,7 +296,8 @@ _WRITE_BOUNDARY = (
 )
 _GENERATED_OUTPUT_BOUNDARY = (
     "Scoped local generated-output smokes only; user rows, engine-native range/sequence, and "
-    "source-free SQL VALUES/literal SELECT/generate_series/range write local JSONL/CSV with "
+    "source-free SQL VALUES/literal SELECT/generate_series/range, including scoped value-column "
+    "range projections, write local JSONL/CSV with "
     "generated-source and output evidence, but no broad DataFrame runtime, broad SQL runtime, "
     "object-store/lakehouse, Foundry, performance, or production claim."
 )
