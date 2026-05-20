@@ -421,6 +421,13 @@ or documentation updates alone are insufficient.
     timezone-database helpers, interval/date-time completeness, subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
     family coverage.
+  - Closeout posture: this parent item is intentionally still open even though many scoped
+    `GAR-RUNTIME-IMPL-4D` slices have been completed and moved into the completed ledger. The
+    remaining work is no longer "basic expression support"; it is the explicit parity gap around
+    generalized expression trees, broader coercion/function coverage, interval/timezone semantics,
+    subquery-backed `IN`, arbitrary predicate-tree completeness, and final SQL/Python ergonomics.
+    A future closeout PR must either implement those gaps or split each non-goal into separate
+    follow-on runtime items before marking `GAR-RUNTIME-IMPL-4D` complete.
   - Next slice outcome: add one implementation PR per expression family: null/is-not-null hardening
     where gaps remain, remaining admitted string predicates, richer IN semantics only where
     evidence-backed, timestamp/timezone helpers, interval/date-time completeness where admitted,

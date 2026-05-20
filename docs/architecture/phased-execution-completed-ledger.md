@@ -1034,7 +1034,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped numeric arithmetic predicate runtime
   - Date: 2026-05-20
-  - Branch/PR: `runtime-numeric-arithmetic-predicates-4d` / pending.
+  - Branch/PR: `runtime-numeric-arithmetic-predicates-4d` / #846.
   - Source:
     - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
     - SQL/Python local runtime smokes
@@ -1095,7 +1095,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4E generated-source feature-gated structured output sinks
   - Date: 2026-05-20
-  - Branch/PR: `runtime-generated-structured-outputs-4e` / pending.
+  - Branch/PR: `runtime-generated-structured-outputs-4e` / #845.
   - Source:
     - `GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime`
     - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`
@@ -1149,7 +1149,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4D direct SQL/Python negated predicate runtime slice
   - Date: 2026-05-20
-  - Branch/PR: `runtime-negated-predicates-4d` / pending.
+  - Branch/PR: `runtime-negated-predicates-4d` / #844.
   - Source:
     - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
     - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`
@@ -1210,7 +1210,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4D direct SQL BETWEEN predicate runtime slice
   - Date: 2026-05-20
-  - Branch/PR: `runtime-sql-between-4d` / pending.
+  - Branch/PR: `runtime-sql-between-4d` / #843.
   - Source:
     - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
     - SQL/Python local runtime smokes
@@ -1267,7 +1267,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4G scoped local SQL/Python output fanout runtime slice
   - Date: 2026-05-20
-  - Branch/PR: `runtime-output-fanout-4g` / pending.
+  - Branch/PR: `runtime-output-fanout-4g` / #842.
   - Source:
     - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`
     - `GAR-RUNTIME-IMPL-5E SQL/Python route parity and simplified user surface`
@@ -1337,7 +1337,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4G feature-gated Arrow IPC/Avro/ORC local-output sink slice
   - Date: 2026-05-20
-  - Branch/PR: `runtime-local-output-formats-4g` / pending.
+  - Branch/PR: `runtime-local-output-formats-4g` / #841.
   - Source:
     - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`
     - `docs/skills/translation-layer.md`
@@ -1411,7 +1411,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4F1 compatibility import attribution foundation
   - Date: 2026-05-20
-  - Branch/PR: `runtime-compat-import-attribution-4f1` / pending.
+  - Branch/PR: `runtime-compat-import-attribution-4f1` / #840.
   - Source:
     - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest attribution`
     - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
@@ -1495,7 +1495,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4F feature-gated local Avro/ORC source smoke
   - Date: 2026-05-20
-  - Branch/PR: `runtime-avro-orc-source-4f` / pending.
+  - Branch/PR: `runtime-avro-orc-source-4f` / #839.
   - Source:
     - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
     - `GAR-RUNTIME-IMPL-5D local input adapter runtime parity`
@@ -1569,7 +1569,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4F feature-gated local Arrow IPC source smoke
   - Date: 2026-05-20
-  - Branch/PR: `runtime-arrow-ipc-source-4f` / pending.
+  - Branch/PR: `runtime-arrow-ipc-source-4f` / #838.
   - Source:
     - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
     - `GAR-RUNTIME-IMPL-5D local input adapter runtime parity`
@@ -1640,7 +1640,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped null-aware IN predicate runtime
   - Date: 2026-05-20
-  - Branch/PR: `runtime-null-aware-in-4d` / pending.
+  - Branch/PR: `runtime-null-aware-in-4d` / #837.
   - Source:
     - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
     - RFC 0021 expression-engine/kernel registry guidance
@@ -1695,7 +1695,7 @@ phase plan first.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTC timestamp-micros expression runtime
   - Date: 2026-05-20
-  - Branch/PR: `runtime-timestamp-expression-4d` / pending.
+  - Branch/PR: `runtime-timestamp-expression-4d` / #836.
   - Source:
     - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
     - RFC 0021 expression-engine/kernel registry guidance
@@ -1810,7 +1810,7 @@ phase plan first.
       before implementation, and update this ledger only after validation.
 
 - [x] Session label: GAR-WEB-REDESIGN-2H architecture diagram rendering and README simplification
-  - Branch/PR: `codex/website-light-command-center-redesign` / pending.
+  - Branch/PR: `codex/website-light-command-center-redesign` / #834.
   - Primary files:
     - `README.md`
     - `docs/architecture/phased-execution-plan.md`
