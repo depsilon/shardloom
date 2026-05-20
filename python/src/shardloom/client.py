@@ -763,6 +763,42 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def nullif_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted NULLIF projection."""
+
+        return (
+            self.envelope.field_bool("nullif_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def nullif_projection_source_columns(self) -> tuple[str, ...]:
+        """Return NULLIF projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("nullif_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def nullif_projection_output_columns(self) -> tuple[str, ...]:
+        """Return NULLIF projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("nullif_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def nullif_projection_sentinel_dtypes(self) -> tuple[str, ...]:
+        """Return NULLIF projection sentinel dtypes emitted by the smoke."""
+
+        value = self.envelope.field("nullif_projection_sentinel_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def conditional_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted conditional projection."""
 

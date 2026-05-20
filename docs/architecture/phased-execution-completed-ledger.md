@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped NULLIF projection runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-nullif-projections-4d` / #855.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - ShardLoom-native null-aware expression semantics
+    - SQL/Python local-source computed projection smokes
+  - Scope:
+    - Admitted scoped local SQL projections of the form `NULLIF(<column>, <literal>) AS <column>`,
+      including scoped `CAST(<column> AS date32)` and `CAST(<column> AS timestamp_micros)` source
+      arguments.
+    - Lowered admitted null-sentinel cleanup projections to ShardLoom-native `nullif`
+      function-call and alias expression nodes with SQL equality/null semantics and no external
+      engine invocation.
+    - Added deterministic blockers for NULL sentinel literals, malformed NULLIF syntax, missing
+      source columns, mismatched non-null source/sentinel dtypes, duplicate output names, and
+      unsupported computed projection shapes.
+    - Extended Python input-backed `with_column(...)` so admitted local query-builder workflows can
+      use `sl.col("label").null_if("missing")`, numeric sentinels, date/timestamp casts, and the
+      top-level `sl.null_if(sl.col(...), value)` helper after an explicit `select(...)`.
+    - Updated Python README, use-case index, generated website content, and phase-plan current
+      state with the scoped NULLIF projection surface and claim boundary.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder `with_column(...)`, direct Python
+      `client.sql_local_source_smoke(...)`, use-case docs, generated website content, and Python
+      README.
+  - Evidence:
+    - Rows emit `sql_statement_kind=local_source_computed_projection_*`,
+      `nullif_projection_runtime_execution`, `nullif_projection_source_column`,
+      `nullif_projection_output_column`, `nullif_projection_sentinel_dtype`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused core expression, parser, CLI smoke, and Python query-builder tests during
+      implementation.
+    - Full verification is recorded on the PR before merge.
+  - Non-goals:
+    - No generalized NULLIF expression trees, non-literal sentinels, sentinel dtype coercion beyond
+      admitted Date32/UTC timestamp source casts, broad SQL/DataFrame runtime, production claim,
+      performance claim, or external fallback.
+  - Claim boundary:
+    - Scoped NULLIF computed projection fixture smoke only.
+  - Fallback boundary:
+    - Parser admission, optional temporal source coercion, expression execution, and fixture
+      evidence remain ShardLoom-native. External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, arithmetic,
+      and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped conditional projection runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-conditional-projections-4d` / #854.

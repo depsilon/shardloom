@@ -172,6 +172,7 @@ struct ParsedSqlLocalSource {
     literal_projections: Vec<ParsedLiteralProjection>,
     cast_projections: Vec<ParsedCastProjection>,
     null_coalesce_projections: Vec<ParsedNullCoalesceProjection>,
+    nullif_projections: Vec<ParsedNullIfProjection>,
     conditional_projections: Vec<ParsedConditionalProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
@@ -214,6 +215,14 @@ struct ParsedNullCoalesceProjection {
     column: String,
     source_cast_dtype: Option<LogicalDType>,
     fallback: ScalarValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedNullIfProjection {
+    alias: String,
+    column: String,
+    source_cast_dtype: Option<LogicalDType>,
+    sentinel: ScalarValue,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -361,6 +370,7 @@ struct ParsedProjectionList {
     literal_projections: Vec<ParsedLiteralProjection>,
     cast_projections: Vec<ParsedCastProjection>,
     null_coalesce_projections: Vec<ParsedNullCoalesceProjection>,
+    nullif_projections: Vec<ParsedNullIfProjection>,
     conditional_projections: Vec<ParsedConditionalProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
@@ -1520,6 +1530,7 @@ fn run_sql_local_source_smoke(
     )?;
     apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
     validate_null_coalesce_projection_values(&parsed, &source)?;
+    validate_nullif_projection_values(&parsed, &source)?;
 
     let compute_start = Instant::now();
     let (selected_row_count, joined_row_count, output_rows) =
@@ -1697,6 +1708,13 @@ fn projection_expressions(
         )
         .chain(
             parsed
+                .nullif_projections
+                .iter()
+                .map(nullif_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
+        .chain(
+            parsed
                 .conditional_projections
                 .iter()
                 .map(conditional_projection_expression)
@@ -1814,6 +1832,34 @@ fn null_coalesce_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(coalesce),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn nullif_projection_expression(
+    projection: &ParsedNullIfProjection,
+) -> Result<Expression, ShardLoomError> {
+    let nullif = Expression::new(
+        ExprId::new(format!("project.nullif.{}", projection.alias))?,
+        ExpressionKind::FunctionCall {
+            name: "nullif".to_string(),
+            args: vec![
+                Expression::column(
+                    ExprId::new(format!("project.{}", projection.column))?,
+                    ColumnRef::new(projection.column.clone())?,
+                ),
+                Expression::literal(
+                    ExprId::new(format!("project.nullif.literal.{}", projection.alias))?,
+                    projection.sentinel.clone(),
+                ),
+            ],
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(nullif),
             alias: projection.alias.clone(),
         },
     ))
@@ -2156,6 +2202,7 @@ fn apply_temporal_literal_column_coercions(
     )?;
     apply_conditional_projection_date_coercions(parsed, source)?;
     apply_null_coalesce_projection_coercions(parsed, source)?;
+    apply_nullif_projection_coercions(parsed, source)?;
     apply_date_arithmetic_projection_coercions(parsed, source)?;
     apply_date_extract_projection_coercions(parsed, source)?;
     apply_timestamp_literal_predicate_coercions(&parsed.predicate, parsed, source, right_source)?;
@@ -2230,6 +2277,59 @@ fn validate_null_coalesce_projection_values(
                 projection.column,
                 value.dtype().as_str(),
                 fallback_dtype.as_str()
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn apply_nullif_projection_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.nullif_projections {
+        let source_dtype = projection
+            .source_cast_dtype
+            .clone()
+            .unwrap_or_else(|| projection.sentinel.dtype());
+        match source_dtype {
+            LogicalDType::Date32 => coerce_source_column_to_date32(source, &projection.column)?,
+            LogicalDType::TimestampMicros => {
+                coerce_source_column_to_timestamp_micros(source, &projection.column)?;
+            }
+            LogicalDType::Boolean
+            | LogicalDType::Int64
+            | LogicalDType::UInt64
+            | LogicalDType::Float64
+            | LogicalDType::Utf8
+            | LogicalDType::Binary
+            | LogicalDType::Struct
+            | LogicalDType::List
+            | LogicalDType::Unknown
+            | LogicalDType::Extension(_) => {}
+        }
+    }
+    Ok(())
+}
+
+fn validate_nullif_projection_values(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.nullif_projections {
+        let sentinel_dtype = projection.sentinel.dtype();
+        for row in &source.rows {
+            let Some(value) = row.get(&projection.column) else {
+                continue;
+            };
+            if value.is_null() || value.dtype() == sentinel_dtype {
+                continue;
+            }
+            return Err(unsupported_sql_error(&format!(
+                "NULLIF projection source column {:?} contains {} values but sentinel literal has {} dtype; scoped nullif requires matching non-null source and sentinel dtypes",
+                projection.column,
+                value.dtype().as_str(),
+                sentinel_dtype.as_str()
             )));
         }
     }
@@ -3025,99 +3125,98 @@ fn validate_projection_source_columns(
     header: &[String],
 ) -> Result<(), ShardLoomError> {
     for column in parsed.projection_columns(header) {
-        if !header.iter().any(|candidate| candidate == &column) {
-            return Err(unsupported_sql_error(&format!(
-                "projection column {column:?} is not present in the CSV header"
-            )));
-        }
+        require_header_column(header, &column, "projection column", "CSV header")?;
     }
     for projection in &parsed.numeric_arithmetic_projections {
-        if !header
-            .iter()
-            .any(|candidate| candidate == &projection.column)
-        {
-            return Err(unsupported_sql_error(&format!(
-                "numeric arithmetic projection source column {:?} is not present in the CSV header",
-                projection.column
-            )));
-        }
+        require_header_column(
+            header,
+            &projection.column,
+            "numeric arithmetic projection source column",
+            "CSV header",
+        )?;
     }
     for projection in &parsed.cast_projections {
-        if !header
-            .iter()
-            .any(|candidate| candidate == &projection.column)
-        {
-            return Err(unsupported_sql_error(&format!(
-                "cast projection source column {:?} is not present in the local source header",
-                projection.column
-            )));
-        }
+        require_header_column(
+            header,
+            &projection.column,
+            "cast projection source column",
+            "local source header",
+        )?;
     }
     for projection in &parsed.null_coalesce_projections {
-        if !header
-            .iter()
-            .any(|candidate| candidate == &projection.column)
-        {
-            return Err(unsupported_sql_error(&format!(
-                "COALESCE projection source column {:?} is not present in the local source header",
-                projection.column
-            )));
-        }
+        require_header_column(
+            header,
+            &projection.column,
+            "COALESCE projection source column",
+            "local source header",
+        )?;
+    }
+    for projection in &parsed.nullif_projections {
+        require_header_column(
+            header,
+            &projection.column,
+            "NULLIF projection source column",
+            "local source header",
+        )?;
     }
     for projection in &parsed.conditional_projections {
         for column in projection.predicate.columns() {
-            if !header.iter().any(|candidate| candidate == column) {
-                return Err(unsupported_sql_error(&format!(
-                    "conditional projection predicate column {column:?} is not present in the CSV header"
-                )));
-            }
+            require_header_column(
+                header,
+                column,
+                "conditional projection predicate column",
+                "CSV header",
+            )?;
         }
     }
     for projection in &parsed.date_arithmetic_projections {
-        if !header
-            .iter()
-            .any(|candidate| candidate == &projection.column)
-        {
-            return Err(unsupported_sql_error(&format!(
-                "date arithmetic projection source column {:?} is not present in the local source header",
-                projection.column
-            )));
-        }
+        require_header_column(
+            header,
+            &projection.column,
+            "date arithmetic projection source column",
+            "local source header",
+        )?;
     }
     for projection in &parsed.string_transform_projections {
-        if !header
-            .iter()
-            .any(|candidate| candidate == &projection.column)
-        {
-            return Err(unsupported_sql_error(&format!(
-                "string transform projection source column {:?} is not present in the CSV header",
-                projection.column
-            )));
-        }
+        require_header_column(
+            header,
+            &projection.column,
+            "string transform projection source column",
+            "CSV header",
+        )?;
     }
     for projection in &parsed.date_extract_projections {
-        if !header
-            .iter()
-            .any(|candidate| candidate == &projection.column)
-        {
-            return Err(unsupported_sql_error(&format!(
-                "date extract projection source column {:?} is not present in the local source header",
-                projection.column
-            )));
-        }
+        require_header_column(
+            header,
+            &projection.column,
+            "date extract projection source column",
+            "local source header",
+        )?;
     }
     for projection in &parsed.timestamp_extract_projections {
-        if !header
-            .iter()
-            .any(|candidate| candidate == &projection.column)
-        {
-            return Err(unsupported_sql_error(&format!(
-                "timestamp extract projection source column {:?} is not present in the local source header",
-                projection.column
-            )));
-        }
+        require_header_column(
+            header,
+            &projection.column,
+            "timestamp extract projection source column",
+            "local source header",
+        )?;
     }
     Ok(())
+}
+
+fn require_header_column(
+    header: &[String],
+    column: &str,
+    context: &str,
+    location: &str,
+) -> Result<(), ShardLoomError> {
+    if header.iter().any(|candidate| candidate == column) {
+        Ok(())
+    } else {
+        Err(unsupported_sql_error(&format!(
+            "{context} {column:?} is not present in the {location}"
+        )))
+    }
 }
 
 fn validate_predicate_source_columns(
@@ -3169,6 +3268,13 @@ fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(),
     }
     for coalesce_projection in &parsed.null_coalesce_projections {
         if !output_names.insert(coalesce_projection.alias.as_str()) {
+            return Err(unsupported_sql_error(
+                "computed projection smoke requires unique output column names",
+            ));
+        }
+    }
+    for nullif_projection in &parsed.nullif_projections {
+        if !output_names.insert(nullif_projection.alias.as_str()) {
             return Err(unsupported_sql_error(
                 "computed projection smoke requires unique output column names",
             ));
@@ -3368,6 +3474,10 @@ impl ParsedSqlLocalSource {
         !self.null_coalesce_projections.is_empty()
     }
 
+    fn has_nullif_projection(&self) -> bool {
+        !self.nullif_projections.is_empty()
+    }
+
     fn has_conditional_projection(&self) -> bool {
         !self.conditional_projections.is_empty()
     }
@@ -3396,6 +3506,7 @@ impl ParsedSqlLocalSource {
         self.has_literal_projection()
             || self.has_cast_projection()
             || self.has_null_coalesce_projection()
+            || self.has_nullif_projection()
             || self.has_conditional_projection()
             || self.has_numeric_arithmetic_projection()
             || self.has_date_arithmetic_projection()
@@ -3428,6 +3539,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_null_coalesce_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_null_coalesce_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_nullif_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_nullif_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_conditional_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
@@ -3489,6 +3604,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_null_coalesce_projection() {
             "computed-projection-limit"
+        } else if self.has_nullif_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_nullif_projection() {
+            "computed-projection-limit"
         } else if self.has_conditional_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_conditional_projection() {
@@ -3548,6 +3667,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_null_coalesce_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_null_coalesce_projection() {
+            "computed_projection_limit"
+        } else if self.has_nullif_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_nullif_projection() {
             "computed_projection_limit"
         } else if self.has_conditional_projection() && self.has_filter() {
             "computed_projection_filter_limit"
@@ -3621,6 +3744,11 @@ impl ParsedSqlLocalSource {
                 )
                 .chain(
                     self.null_coalesce_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
+                    self.nullif_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
                 )
@@ -3725,6 +3853,42 @@ impl ParsedSqlLocalSource {
             self.null_coalesce_projections
                 .iter()
                 .map(|projection| projection.fallback.dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn nullif_projection_source_columns(&self) -> String {
+        if self.nullif_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.nullif_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn nullif_projection_output_columns(&self) -> String {
+        if self.nullif_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.nullif_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn nullif_projection_sentinel_dtypes(&self) -> String {
+        if self.nullif_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.nullif_projections
+                .iter()
+                .map(|projection| projection.sentinel.dtype().as_str().to_string())
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -5788,6 +5952,22 @@ impl SqlLocalSourceReport {
                 self.parsed.null_coalesce_projection_fallback_dtypes(),
             ),
             (
+                "nullif_projection_runtime_execution".to_string(),
+                self.parsed.has_nullif_projection().to_string(),
+            ),
+            (
+                "nullif_projection_source_column".to_string(),
+                self.parsed.nullif_projection_source_columns(),
+            ),
+            (
+                "nullif_projection_output_column".to_string(),
+                self.parsed.nullif_projection_output_columns(),
+            ),
+            (
+                "nullif_projection_sentinel_dtype".to_string(),
+                self.parsed.nullif_projection_sentinel_dtypes(),
+            ),
+            (
                 "conditional_projection_runtime_execution".to_string(),
                 self.parsed.has_conditional_projection().to_string(),
             ),
@@ -7031,6 +7211,7 @@ fn parsed_sql_local_source_from_parts(
         literal_projections: projection_list.literal_projections,
         cast_projections: projection_list.cast_projections,
         null_coalesce_projections: projection_list.null_coalesce_projections,
+        nullif_projections: projection_list.nullif_projections,
         conditional_projections: projection_list.conditional_projections,
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
         date_arithmetic_projections: projection_list.date_arithmetic_projections,
@@ -7075,6 +7256,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut literal_projections = Vec::new();
     let mut cast_projections = Vec::new();
     let mut null_coalesce_projections = Vec::new();
+    let mut nullif_projections = Vec::new();
     let mut conditional_projections = Vec::new();
     let mut numeric_arithmetic_projections = Vec::new();
     let mut date_arithmetic_projections = Vec::new();
@@ -7099,6 +7281,8 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             cast_projections.push(cast_projection);
         } else if let Some(null_coalesce_projection) = parse_null_coalesce_projection(projection)? {
             null_coalesce_projections.push(null_coalesce_projection);
+        } else if let Some(nullif_projection) = parse_nullif_projection(projection)? {
+            nullif_projections.push(nullif_projection);
         } else if let Some(conditional_projection) = parse_conditional_projection(projection)? {
             conditional_projections.push(conditional_projection);
         } else if let Some(date_arithmetic_projection) =
@@ -7125,6 +7309,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         literal_projections,
         cast_projections,
         null_coalesce_projections,
+        nullif_projections,
         conditional_projections,
         numeric_arithmetic_projections,
         date_arithmetic_projections,
@@ -7297,6 +7482,58 @@ fn parse_null_coalesce_projection(
         column,
         source_cast_dtype,
         fallback,
+    }))
+}
+
+fn parse_nullif_projection(raw: &str) -> Result<Option<ParsedNullIfProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    if !expression_raw
+        .get(..7)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("nullif("))
+    {
+        return Ok(None);
+    }
+    if alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "NULLIF projections require an output alias",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let open_index = "nullif".len();
+    let close_index =
+        matching_closing_parenthesis(expression_raw, open_index)?.ok_or_else(|| {
+            unsupported_sql_error(
+                "NULLIF projections must use NULLIF(<column>, <literal>) AS <column>",
+            )
+        })?;
+    if !expression_raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "NULLIF projections must be a single NULLIF(<column>, <literal>) expression before AS",
+        ));
+    }
+    let inner = expression_raw[open_index + 1..close_index].trim();
+    let args = split_sql_csv(inner)?;
+    let [column_raw, sentinel_raw] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "NULLIF projections require exactly two arguments: <column>, <literal>",
+        ));
+    };
+    let (column, source_cast_dtype) = parse_null_coalesce_column_arg(column_raw)?;
+    let sentinel = parse_projection_literal_value(sentinel_raw)?;
+    if matches!(sentinel, ScalarValue::Null) {
+        return Err(unsupported_sql_error(
+            "NULLIF projections require a non-NULL sentinel literal in this scoped runtime slice",
+        ));
+    }
+    Ok(Some(ParsedNullIfProjection {
+        alias: alias.to_string(),
+        column,
+        source_cast_dtype,
+        sentinel,
     }))
 }
 
@@ -9562,6 +9799,50 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_nullif_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,NULLIF(label, 'missing') AS label_clean,NULLIF(CAST(event_date AS date32), DATE '2026-01-01') AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("nullif projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.nullif_projections.len(), 2);
+        assert_eq!(parsed.nullif_projections[0].alias, "label_clean");
+        assert_eq!(parsed.nullif_projections[0].column, "label");
+        assert_eq!(
+            parsed.nullif_projections[0].sentinel,
+            ScalarValue::Utf8("missing".to_string())
+        );
+        assert_eq!(parsed.nullif_projections[1].alias, "event_day");
+        assert_eq!(parsed.nullif_projections[1].column, "event_date");
+        assert_eq!(
+            parsed.nullif_projections[1].source_cast_dtype,
+            Some(LogicalDType::Date32)
+        );
+        assert!(matches!(
+            parsed.nullif_projections[1].sentinel,
+            ScalarValue::Date32(_)
+        ));
+        assert_eq!(
+            parsed.nullif_projection_source_columns(),
+            "label,event_date"
+        );
+        assert_eq!(
+            parsed.nullif_projection_output_columns(),
+            "label_clean,event_day"
+        );
+        assert_eq!(parsed.nullif_projection_sentinel_dtypes(), "utf8,date32");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn parses_scoped_conditional_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 'small' END AS size_band,CASE WHEN event_date >= DATE '2026-01-01' THEN DATE '2026-12-31' ELSE DATE '2025-12-31' END AS cutoff_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
@@ -9810,6 +10091,40 @@ mod tests {
             error
                 .to_string()
                 .contains("COALESCE projections require a non-NULL fallback literal"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn nullif_projection_missing_source_column_is_blocked() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,NULLIF(missing_label, 'unknown') AS label_clean FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect("nullif projection statement parses before binding");
+        let header = vec!["id".to_string(), "label".to_string()];
+
+        let error = bind_sql_local_source(&parsed, &header, None)
+            .expect_err("missing nullif source column is blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("NULLIF projection source column \"missing_label\" is not present"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn nullif_projection_null_sentinel_is_blocked() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,NULLIF(label, NULL) AS label_clean FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect_err("null sentinel is blocked during parsing");
+
+        assert!(
+            error
+                .to_string()
+                .contains("NULLIF projections require a non-NULL sentinel literal"),
             "{error}"
         );
     }

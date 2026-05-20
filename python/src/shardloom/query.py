@@ -226,6 +226,11 @@ class ColumnExpression:
 
         return ColumnExpression(f"COALESCE({self.sql}, {_sql_literal(value)})")
 
+    def null_if(self, value: object) -> "ColumnExpression":
+        """Return a scoped `NULLIF(column, literal)` null-cleanup expression."""
+
+        return ColumnExpression(f"NULLIF({self.sql}, {_sql_literal(value)})")
+
     def isin(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `IN (...)` predicate."""
 
@@ -1972,6 +1977,14 @@ def case_when(predicate: object, then_value: object, else_value: object) -> Colu
     )
 
 
+def null_if(column_expression: object, value: object) -> ColumnExpression:
+    """Return a scoped `NULLIF(column, literal)` computed-column expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("null_if requires a shardloom column expression")
+    return column_expression.null_if(value)
+
+
 def column(name: object) -> ColumnExpression:
     """Alias for `col(...)`."""
 
@@ -2800,6 +2813,7 @@ def _sql_computed_projection_expression(expression: object) -> str:
     parsers = (
         _sql_cast_projection_expression,
         _sql_null_coalesce_projection_expression,
+        _sql_nullif_projection_expression,
         _sql_conditional_projection_expression,
         _sql_numeric_arithmetic_projection_expression,
         _sql_date_arithmetic_projection_expression,
@@ -2852,6 +2866,26 @@ def _sql_null_coalesce_projection_expression(expression: object) -> str:
     if fallback.upper() == "NULL":
         raise ValueError("COALESCE with_column expressions require a non-NULL fallback")
     return f"COALESCE({column}, {fallback})"
+
+
+def _sql_nullif_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError("computed with_column currently admits NULLIF column expressions")
+    function = text[:open_index].strip().upper()
+    if function != "NULLIF":
+        raise ValueError("computed with_column currently admits NULLIF column expressions")
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 2:
+        raise ValueError("NULLIF with_column expressions require exactly two arguments")
+    column = _normalize_nullable_projection_column(args[0])
+    sentinel = args[1].strip()
+    if sentinel.upper() == "NULL":
+        raise ValueError("NULLIF with_column expressions require a non-NULL sentinel")
+    return f"NULLIF({column}, {sentinel})"
 
 
 def _sql_conditional_projection_expression(expression: object) -> str:
