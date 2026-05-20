@@ -52,7 +52,7 @@ Current runtime support is intentionally scoped and evidence-gated:
   literal `SELECT`, and `generate_series`/`range` smokes, including feature-gated local Vortex
   output;
 - scoped local-source output/fanout to JSONL/CSV, feature-gated Parquet/Arrow IPC/Avro/ORC, and
-  feature-gated local Vortex sinks;
+  feature-gated local Vortex sinks with local replay/fidelity evidence;
 - local Vortex/prepared-native benchmark evidence for selected traditional analytics scenarios;
 - feature-gated local `vortex_ingest` smoke that prepares admitted flat scalar local sources into a
   local `.vortex` artifact and emits `VortexPreparedState` evidence;

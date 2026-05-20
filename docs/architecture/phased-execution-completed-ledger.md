@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4G local OutputPlan replay and fidelity evidence
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-outputplan-replay-4g` / #861.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`
+    - OutputPlan and result-sink replay contract
+    - Use Case Atlas output/fanout boundary
+  - Scope:
+    - Added scoped local replay verification for every admitted `sql-local-source-smoke` written
+      sink by reading byte outputs back and matching their expected artifact digest.
+    - Mapped local `.vortex` outputs into the same replay contract through existing Vortex reopen
+      row-count proof from `shardloom-vortex::write_flat_scalar_vortex_prepared_state`.
+    - Added `output_plan_digest`, `result_replay_verified`, `output_replay_status`,
+      `output_replay_millis`, `output_fidelity_report_status`, `output_fidelity_loss`, and fanout
+      replay/fidelity status fields to CLI JSON evidence and Python typed reports.
+    - Updated Python capability rows, use-case metadata, README, compute-flow docs, and generated
+      website data/pages to show local replay/fidelity evidence without broad writer or
+      claim-grade support.
+  - Evidence:
+    - Local byte sinks emit `result_replay_verified=true` only after file digest replay matches.
+    - Local Vortex sinks emit replay status through Vortex reopen row-count proof.
+    - Fanout rows emit per-output replay/fidelity status lists while retaining
+      `fanout_result_reuse_hit=true`.
+    - Every row keeps `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Vortex-first provider check:
+    - No new Vortex writer abstraction was introduced; Vortex replay evidence reuses the existing
+      scoped upstream writer/reopen report.
+    - Vortex output remains local, feature-gated, flat-scalar, and not a table/object-store sink.
+  - Verification:
+    - Focused default and feature-gated local-source output/fanout smoke tests.
+    - Python query-builder and capability-matrix tests.
+    - Website/use-case generation and readiness checks.
+    - Full verification is recorded on the PR before merge.
+  - Claim boundary:
+    - This admits local artifact replay/fidelity reporting for scoped sinks only; it is not broad
+      output-fidelity support, persistent OutputPlan reuse, object-store/table commit, production
+      sink support, or a performance claim.
+  - Fallback boundary:
+    - Replay reads the written local artifact or Vortex reopen proof only; no external engine,
+      object store, catalog, or fallback runtime is invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4G scoped local-source Vortex output and fanout sink
   - Date: 2026-05-20
   - Branch/PR: `runtime-local-source-vortex-output-4g` / #860.

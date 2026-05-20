@@ -470,7 +470,9 @@ default binaries return a deterministic Vortex sink blocker. The scoped
 compatibility sinks such as JSONL and CSV, feature-gated flat scalar
 Parquet/Arrow IPC/Avro/ORC when the CLI is built with `--features universal-format-io`,
 and feature-gated local Vortex when built with `--features vortex-write`. Written local sinks emit
-format-specific output Native I/O certificate fields:
+format-specific output Native I/O certificate fields plus scoped local replay/fidelity fields such
+as `result_replay_verified`, `output_replay_status`, `output_fidelity_report_status`, and
+`output_fidelity_loss`:
 
 ```powershell
 New-Item -ItemType Directory -Force target | Out-Null
@@ -782,11 +784,12 @@ SQL/DataFrame execution or Polars/DataFusion optimizer parity.
 
 Reusable I/O state and broad cross-format fanout are planned as `GAR-IOREUSE-1`. The current Python
 runtime exposes scoped local-source `.fanout(...)` smokes over admitted local compatibility sinks and
-feature-gated local Vortex output/fanout. Future Python capability/write views may expose broader
+feature-gated local Vortex output/fanout with local artifact replay/fidelity reporting. Future
+Python capability/write views may expose broader
 `SourceState`, `VortexPreparedState`, `OutputPlan`, cache invalidation, reuse levels,
-generated-source fanout, and claim-grade replay/fidelity evidence, but input and output formats
-remain decoupled and reuse evidence will not imply performance, production, object-store/lakehouse,
-Foundry, or SQL/DataFrame support.
+generated-source fanout, persistent OutputPlan reuse, and claim-grade replay/fidelity evidence, but
+input and output formats remain decoupled and reuse evidence will not imply performance, production,
+object-store/lakehouse, Foundry, or SQL/DataFrame support.
 
 Unsupported workflow affordances are explicit report surfaces too. These calls
 are meant to make familiar pandas/Arrow/DataFrame/notebook methods discoverable

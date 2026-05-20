@@ -1270,6 +1270,36 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field("output_native_io_certificate_status")
 
     @property
+    def result_replay_verified(self) -> bool:
+        """Whether admitted local output artifacts were replay/digest verified."""
+
+        return self.envelope.field_bool("result_replay_verified", False) is True
+
+    @property
+    def output_replay_status(self) -> str | None:
+        """Return the local output replay status."""
+
+        return self.envelope.field("output_replay_status")
+
+    @property
+    def output_replay_millis(self) -> int | None:
+        """Return local output replay verification time in milliseconds."""
+
+        return self.envelope.field_int("output_replay_millis")
+
+    @property
+    def output_fidelity_report_status(self) -> str | None:
+        """Return the scoped local output fidelity-report status."""
+
+        return self.envelope.field("output_fidelity_report_status")
+
+    @property
+    def output_fidelity_loss(self) -> tuple[str, ...]:
+        """Return `format:loss` entries for local output fidelity limits."""
+
+        return _csv_values(self.envelope.field("output_fidelity_loss"))
+
+    @property
     def vortex_output_runtime_execution(self) -> bool:
         """Whether this local-source write used the scoped local Vortex sink."""
 
@@ -1345,6 +1375,24 @@ class SqlLocalSourceSmokeReport:
         return _csv_values(
             self.envelope.field("fanout_output_native_io_certificate_statuses")
         )
+
+    @property
+    def fanout_output_replay_statuses(self) -> tuple[str, ...]:
+        """Return `format:status` entries for fanout replay verification."""
+
+        return _csv_values(self.envelope.field("fanout_output_replay_statuses"))
+
+    @property
+    def fanout_output_fidelity_statuses(self) -> tuple[str, ...]:
+        """Return `format:status` entries for fanout fidelity reports."""
+
+        return _csv_values(self.envelope.field("fanout_output_fidelity_statuses"))
+
+    @property
+    def fanout_output_fidelity_loss(self) -> tuple[str, ...]:
+        """Return `format:loss` entries for fanout fidelity limits."""
+
+        return _csv_values(self.envelope.field("fanout_output_fidelity_loss"))
 
     @property
     def fanout_result_reuse_hit(self) -> bool:

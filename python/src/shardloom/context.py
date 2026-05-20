@@ -662,6 +662,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "local_jsonl_csv_or_feature_gated_structured_output",
             "output_native_io_certificate",
+            "result_replay_verified",
+            "output_fidelity_report_status",
         ),
         runtime_execution=True,
         data_read=True,
@@ -683,6 +685,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "local_jsonl_output",
             "output_native_io_certificate",
+            "result_replay_verified",
+            "output_fidelity_report_status",
         ),
         runtime_execution=True,
         data_read=True,
@@ -702,6 +706,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "local_csv_output",
             "output_native_io_certificate",
+            "result_replay_verified",
+            "output_fidelity_report_status",
         ),
         runtime_execution=True,
         data_read=True,
@@ -721,6 +727,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "local_output_fanout",
             "output_native_io_certificate",
+            "result_replay_verified",
+            "output_fidelity_report_status",
             "no_fallback_evidence",
         ),
         runtime_execution=True,
@@ -730,8 +738,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Scoped local-source SQL query-builder fanout smoke for admitted local JSONL/CSV "
             "and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC/Vortex output targets "
-            "only; no replay/fidelity proof, object-store/table sink, external engine, fallback, "
-            "or production claim."
+            "only; scoped replay/fidelity evidence is local-artifact proof, not broad writer "
+            "fidelity, object-store/table sink, external engine, fallback, or production claim."
         ),
     ),
     _df_method(
@@ -866,6 +874,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "feature_gated_local_vortex_output",
             "output_native_io_certificate",
+            "result_replay_verified",
+            "output_fidelity_report_status",
             "upstream_vortex_write_called",
         ),
         runtime_execution=True,
@@ -874,8 +884,9 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "Feature-gated flat scalar local Vortex output smoke for admitted local-source "
-            "query-builder workflows only; no broad Vortex writer, object-store/table commit, "
-            "external engine, fallback, fanout claim beyond scoped local smoke, or production claim."
+            "query-builder workflows only; local reopen/replay evidence is scoped and not a broad "
+            "Vortex writer, object-store/table commit, external engine, fallback, fanout claim "
+            "beyond scoped local smoke, or production claim."
         ),
     ),
     _df_method(
@@ -886,6 +897,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "feature_gated_local_parquet_output",
             "output_native_io_certificate",
+            "result_replay_verified",
+            "output_fidelity_report_status",
         ),
         runtime_execution=True,
         data_read=True,
@@ -905,6 +918,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "feature_gated_local_arrow_ipc_output",
             "output_native_io_certificate",
+            "result_replay_verified",
+            "output_fidelity_report_status",
         ),
         runtime_execution=True,
         data_read=True,
@@ -924,6 +939,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "feature_gated_local_avro_output",
             "output_native_io_certificate",
+            "result_replay_verified",
+            "output_fidelity_report_status",
         ),
         runtime_execution=True,
         data_read=True,
@@ -943,6 +960,8 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
             "sql_local_source_smoke",
             "feature_gated_local_orc_output",
             "output_native_io_certificate",
+            "result_replay_verified",
+            "output_fidelity_report_status",
         ),
         runtime_execution=True,
         data_read=True,

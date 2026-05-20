@@ -89,7 +89,17 @@ struct SqlWrittenOutput {
     digest: String,
     bytes: u64,
     write_millis: u128,
+    replay: SqlOutputReplayEvidence,
     vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SqlOutputReplayEvidence {
+    verified: bool,
+    status: &'static str,
+    replay_millis: u128,
+    fidelity_status: &'static str,
+    fidelity_loss: &'static str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -3252,12 +3262,15 @@ fn write_sql_output(
                     rendered.path.display()
                 ))
             })?;
+            let write_millis = write_start.elapsed().as_millis();
+            let replay = replay_sql_byte_output(rendered.format, &rendered.path, &digest)?;
             Ok(SqlWrittenOutput {
                 format: rendered.format,
                 path: rendered.path,
                 digest,
                 bytes,
-                write_millis: write_start.elapsed().as_millis(),
+                write_millis,
+                replay,
                 vortex_report: None,
             })
         }
@@ -3286,14 +3299,93 @@ fn write_sql_vortex_output(
     .allow_overwrite(allow_overwrite);
     let report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(request)?;
     let write_millis = report.write_micros / 1_000;
+    let replay = replay_sql_vortex_output(format, &report);
     Ok(SqlWrittenOutput {
         format,
         path,
         digest: report.artifact_digest.clone(),
         bytes: report.bytes_written,
         write_millis,
+        replay,
         vortex_report: Some(report),
     })
+}
+
+fn replay_sql_byte_output(
+    format: SqlLocalSourceOutputFormat,
+    path: &Path,
+    expected_digest: &str,
+) -> Result<SqlOutputReplayEvidence, ShardLoomError> {
+    let replay_start = Instant::now();
+    let bytes = fs::read(path).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to replay local SQL output {}: {error}",
+            path.display()
+        ))
+    })?;
+    let replay_digest = fnv64_digest_bytes(&bytes);
+    if replay_digest != expected_digest {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local SQL output replay digest mismatch for {}: expected {expected_digest}, got {replay_digest}",
+            path.display()
+        )));
+    }
+    Ok(SqlOutputReplayEvidence {
+        verified: true,
+        status: "verified_local_file_digest",
+        replay_millis: replay_start.elapsed().as_millis(),
+        fidelity_status: output_fidelity_status(format),
+        fidelity_loss: output_fidelity_loss(format),
+    })
+}
+
+fn replay_sql_vortex_output(
+    format: SqlLocalSourceOutputFormat,
+    report: &shardloom_vortex::VortexPreparedStateWriteReport,
+) -> SqlOutputReplayEvidence {
+    SqlOutputReplayEvidence {
+        verified: report.upstream_vortex_scan_called,
+        status: if report.upstream_vortex_scan_called {
+            "verified_vortex_reopen_row_count"
+        } else {
+            "blocked_missing_vortex_reopen_proof"
+        },
+        replay_millis: report.reopen_scan_micros / 1_000,
+        fidelity_status: output_fidelity_status(format),
+        fidelity_loss: output_fidelity_loss(format),
+    }
+}
+
+fn output_fidelity_status(format: SqlLocalSourceOutputFormat) -> &'static str {
+    match format {
+        SqlLocalSourceOutputFormat::InlineJsonl => "logical_rows_replay_verified",
+        SqlLocalSourceOutputFormat::Csv => {
+            "logical_rows_replay_verified_type_metadata_not_preserved"
+        }
+        SqlLocalSourceOutputFormat::Parquet
+        | SqlLocalSourceOutputFormat::ArrowIpc
+        | SqlLocalSourceOutputFormat::Avro
+        | SqlLocalSourceOutputFormat::Orc => "flat_scalar_schema_replay_verified",
+        SqlLocalSourceOutputFormat::Vortex => "vortex_flat_scalar_reopen_verified",
+    }
+}
+
+fn output_fidelity_loss(format: SqlLocalSourceOutputFormat) -> &'static str {
+    match format {
+        SqlLocalSourceOutputFormat::InlineJsonl => {
+            "jsonl_text_roundtrip_not_full_type_metadata_fidelity"
+        }
+        SqlLocalSourceOutputFormat::Csv => "csv_text_roundtrip_loses_static_type_metadata",
+        SqlLocalSourceOutputFormat::Parquet
+        | SqlLocalSourceOutputFormat::ArrowIpc
+        | SqlLocalSourceOutputFormat::Avro
+        | SqlLocalSourceOutputFormat::Orc => {
+            "flat_scalar_only_no_nested_or_full_metadata_fidelity_claim"
+        }
+        SqlLocalSourceOutputFormat::Vortex => {
+            "flat_scalar_only_no_broad_vortex_writer_fidelity_claim"
+        }
+    }
 }
 
 fn bind_sql_local_source(
@@ -7190,6 +7282,7 @@ impl SqlLocalSourceReport {
                 self.output_route_label().to_string(),
             ),
             ("output_plan_id".to_string(), self.output_plan_id()),
+            ("output_plan_digest".to_string(), self.output_plan_digest()),
             (
                 "output_plan_status".to_string(),
                 if self.output_io_performed() {
@@ -7212,7 +7305,26 @@ impl SqlLocalSourceReport {
                 "fanout_result_reuse_hit".to_string(),
                 self.output_fanout_performed().to_string(),
             ),
-            ("result_replay_verified".to_string(), "false".to_string()),
+            (
+                "result_replay_verified".to_string(),
+                self.result_replay_verified().to_string(),
+            ),
+            (
+                "output_replay_status".to_string(),
+                self.output_replay_status(),
+            ),
+            (
+                "output_replay_millis".to_string(),
+                self.output_replay_millis().to_string(),
+            ),
+            (
+                "output_fidelity_report_status".to_string(),
+                self.output_fidelity_report_status(),
+            ),
+            (
+                "output_fidelity_loss".to_string(),
+                self.output_fidelity_loss(),
+            ),
             ("output_bytes".to_string(), self.output_bytes.to_string()),
             ("output_digest".to_string(), self.output_digest.clone()),
             (
@@ -7250,6 +7362,18 @@ impl SqlLocalSourceReport {
             (
                 "fanout_output_write_millis".to_string(),
                 self.fanout_output_write_millis().to_string(),
+            ),
+            (
+                "fanout_output_replay_statuses".to_string(),
+                self.fanout_output_replay_statuses(),
+            ),
+            (
+                "fanout_output_fidelity_statuses".to_string(),
+                self.fanout_output_fidelity_statuses(),
+            ),
+            (
+                "fanout_output_fidelity_loss".to_string(),
+                self.fanout_output_fidelity_loss(),
             ),
             (
                 "vortex_output_runtime_execution".to_string(),
@@ -7525,6 +7649,57 @@ impl SqlLocalSourceReport {
         !self.written_outputs.is_empty()
     }
 
+    fn result_replay_verified(&self) -> bool {
+        self.output_io_performed()
+            && self
+                .written_outputs
+                .iter()
+                .all(|output| output.replay.verified)
+    }
+
+    fn output_replay_status(&self) -> String {
+        if !self.output_io_performed() {
+            return "not_applicable_inline_result".to_string();
+        }
+        if self.result_replay_verified() {
+            "verified_local_sink_artifacts".to_string()
+        } else {
+            "blocked_unverified_local_sink_artifact".to_string()
+        }
+    }
+
+    fn output_replay_millis(&self) -> u128 {
+        self.written_outputs
+            .iter()
+            .map(|output| output.replay.replay_millis)
+            .sum()
+    }
+
+    fn output_fidelity_report_status(&self) -> String {
+        if !self.output_io_performed() {
+            return "not_applicable_inline_result".to_string();
+        }
+        if self
+            .written_outputs
+            .iter()
+            .all(|output| output.replay.verified)
+        {
+            "scoped_local_output_fidelity_reported".to_string()
+        } else {
+            "blocked_unverified_output_replay".to_string()
+        }
+    }
+
+    fn output_fidelity_loss(&self) -> String {
+        csv_or_not_applicable(self.written_outputs.iter().map(|output| {
+            format!(
+                "{}:{}",
+                output.format.sink_format(),
+                output.replay.fidelity_loss
+            )
+        }))
+    }
+
     fn output_fanout_performed(&self) -> bool {
         !self.request.fanout_outputs.is_empty()
     }
@@ -7598,6 +7773,33 @@ impl SqlLocalSourceReport {
         self.fanout_written_outputs()
             .map(|output| output.write_millis)
             .sum()
+    }
+
+    fn fanout_output_replay_statuses(&self) -> String {
+        csv_or_not_applicable(
+            self.fanout_written_outputs()
+                .map(|output| format!("{}:{}", output.format.sink_format(), output.replay.status)),
+        )
+    }
+
+    fn fanout_output_fidelity_statuses(&self) -> String {
+        csv_or_not_applicable(self.fanout_written_outputs().map(|output| {
+            format!(
+                "{}:{}",
+                output.format.sink_format(),
+                output.replay.fidelity_status
+            )
+        }))
+    }
+
+    fn fanout_output_fidelity_loss(&self) -> String {
+        csv_or_not_applicable(self.fanout_written_outputs().map(|output| {
+            format!(
+                "{}:{}",
+                output.format.sink_format(),
+                output.replay.fidelity_loss
+            )
+        }))
     }
 
     fn vortex_written_outputs(&self) -> impl Iterator<Item = &SqlWrittenOutput> {
@@ -7740,6 +7942,31 @@ impl SqlLocalSourceReport {
                 self.request.output_format.sink_format()
             )
         }
+    }
+
+    fn output_plan_digest(&self) -> String {
+        let mut fragments = Vec::new();
+        if let Some(path) = &self.request.output_path {
+            fragments.push(format!(
+                "primary:{}={}",
+                self.request.output_format.sink_format(),
+                path.display()
+            ));
+        }
+        fragments.extend(self.request.fanout_outputs.iter().map(|target| {
+            format!(
+                "fanout:{}={}",
+                target.format.sink_format(),
+                target.path.display()
+            )
+        }));
+        fnv64_digest(&format!(
+            "{}|{}|{}|{}",
+            self.output_plan_id(),
+            self.source_schema_digest,
+            self.plan_digest,
+            fragments.join(";")
+        ))
     }
 
     fn output_certificate_status(&self) -> String {

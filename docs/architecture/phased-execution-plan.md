@@ -628,12 +628,12 @@ or documentation updates alone are insufficient.
     return deterministic Vortex sink blockers. Scoped local-source SQL/Python fanout can write one
     computed result to multiple local JSONL/CSV sinks, plus feature-gated flat scalar
     Parquet/Arrow IPC/Avro/ORC/Vortex sinks, with per-output bytes, digest, certificate evidence,
-    and Vortex output evidence where applicable. Broader type/nesting and metadata fidelity for
-    those compatibility exports, replay proof, OutputPlan registry reuse, and claim-grade fanout
-    are not complete.
-  - Next slice outcome: add reusable OutputPlan registry consolidation and replay/fidelity
-    reporting for admitted formats, with per-output digest, replay status, and metadata
-    fidelity/loss.
+    Vortex output evidence where applicable, an `output_plan_digest`, local artifact replay
+    verification, replay timing/status fields, and scoped output fidelity/loss reporting for
+    admitted local sinks. Broader type/nesting and metadata fidelity for those compatibility
+    exports, persistent OutputPlan registry reuse, and claim-grade fanout are not complete.
+  - Next slice outcome: add persistent reusable OutputPlan registry consolidation, replay policy
+    levels, and claim-grade fanout admission for formats whose metadata/fidelity proof is complete.
   - Runtime enablement: local output writers and fanout execution with OutputPlan evidence and
     replay proof where admitted.
   - User-visible surface: CLI/Python `.write` and `.fanout`, recipes, benchmark

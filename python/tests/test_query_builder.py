@@ -2894,6 +2894,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "output_io_performed", "value": "true"},
                         {"key": "output_native_io_certificate_status", "value": "certified_local_csv_sink"},
                         {"key": "output_certificate_ref", "value": "sql-local-source.csv.local-csv-output.native-io.v1"},
+                        {"key": "result_replay_verified", "value": "true"},
+                        {"key": "output_replay_status", "value": "verified_local_sink_artifacts"},
+                        {"key": "output_replay_millis", "value": "1"},
+                        {"key": "output_fidelity_report_status", "value": "scoped_local_output_fidelity_reported"},
+                        {"key": "output_fidelity_loss", "value": "csv:csv_text_roundtrip_loses_static_type_metadata"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"}
@@ -2921,6 +2926,17 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             report.envelope.field("output_certificate_ref"),
             "sql-local-source.csv.local-csv-output.native-io.v1",
+        )
+        self.assertTrue(report.result_replay_verified)
+        self.assertEqual(report.output_replay_status, "verified_local_sink_artifacts")
+        self.assertEqual(report.output_replay_millis, 1)
+        self.assertEqual(
+            report.output_fidelity_report_status,
+            "scoped_local_output_fidelity_reported",
+        )
+        self.assertEqual(
+            report.output_fidelity_loss,
+            ("csv:csv_text_roundtrip_loses_static_type_metadata",),
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -2965,7 +2981,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "fanout_output_paths", "value": "target/out.jsonl,target/out.csv"},
                         {"key": "fanout_output_digests", "value": "jsonl:abc,csv:def"},
                         {"key": "fanout_output_native_io_certificate_statuses", "value": "jsonl:certified_local_jsonl_sink,csv:certified_local_csv_sink"},
+                        {"key": "fanout_output_replay_statuses", "value": "jsonl:verified_local_file_digest,csv:verified_local_file_digest"},
+                        {"key": "fanout_output_fidelity_statuses", "value": "jsonl:logical_rows_replay_verified,csv:logical_rows_replay_verified_type_metadata_not_preserved"},
+                        {"key": "fanout_output_fidelity_loss", "value": "jsonl:jsonl_text_roundtrip_not_full_type_metadata_fidelity,csv:csv_text_roundtrip_loses_static_type_metadata"},
                         {"key": "output_native_io_certificate_status", "value": "certified_local_fanout_sinks"},
+                        {"key": "result_replay_verified", "value": "true"},
+                        {"key": "output_replay_status", "value": "verified_local_sink_artifacts"},
                         {"key": "fanout_result_reuse_hit", "value": "true"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
@@ -2997,6 +3018,26 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ("target/out.jsonl", "target/out.csv"),
         )
         self.assertEqual(report.fanout_output_digests, ("jsonl:abc", "csv:def"))
+        self.assertTrue(report.result_replay_verified)
+        self.assertEqual(report.output_replay_status, "verified_local_sink_artifacts")
+        self.assertEqual(
+            report.fanout_output_replay_statuses,
+            ("jsonl:verified_local_file_digest", "csv:verified_local_file_digest"),
+        )
+        self.assertEqual(
+            report.fanout_output_fidelity_statuses,
+            (
+                "jsonl:logical_rows_replay_verified",
+                "csv:logical_rows_replay_verified_type_metadata_not_preserved",
+            ),
+        )
+        self.assertEqual(
+            report.fanout_output_fidelity_loss,
+            (
+                "jsonl:jsonl_text_roundtrip_not_full_type_metadata_fidelity",
+                "csv:csv_text_roundtrip_loses_static_type_metadata",
+            ),
+        )
         self.assertTrue(report.fanout_result_reuse_hit)
         self.assertEqual(
             report.output_native_io_certificate_status,
@@ -3171,6 +3212,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "vortex_output_reopen_verified", "value": "true"},
                         {"key": "vortex_artifact_digest", "value": "fnv64:1234"},
                         {"key": "vortex_output_row_count", "value": "2"},
+                        {"key": "result_replay_verified", "value": "true"},
+                        {"key": "output_replay_status", "value": "verified_local_sink_artifacts"},
+                        {"key": "output_fidelity_report_status", "value": "scoped_local_output_fidelity_reported"},
+                        {"key": "output_fidelity_loss", "value": "vortex:flat_scalar_only_no_broad_vortex_writer_fidelity_claim"},
                         {"key": "upstream_vortex_write_called", "value": "true"},
                         {"key": "upstream_vortex_scan_called", "value": "true"},
                         {"key": "fallback_attempted", "value": "false"},
@@ -3201,6 +3246,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.vortex_output_reopen_verified)
         self.assertEqual(report.vortex_artifact_digest, "fnv64:1234")
         self.assertEqual(report.vortex_output_row_count, 2)
+        self.assertTrue(report.result_replay_verified)
+        self.assertEqual(report.output_replay_status, "verified_local_sink_artifacts")
+        self.assertEqual(
+            report.output_fidelity_loss,
+            ("vortex:flat_scalar_only_no_broad_vortex_writer_fidelity_claim",),
+        )
         self.assertTrue(report.upstream_vortex_write_called)
         self.assertTrue(report.upstream_vortex_scan_called)
         self.assertFalse(report.fallback_attempted)
