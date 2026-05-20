@@ -16,6 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4H feature-gated local `vortex_ingest` prepare-once lifecycle
+      runtime slice
+  - Branch/PR: `codex/runtime-vortex-ingest-lifecycle` / #822.
+  - Primary files:
+    - `shardloom-vortex/src/vortex_ingest.rs`
+    - `shardloom-vortex/src/lib.rs`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/src/main.rs`
+    - `shardloom-cli/src/command_family.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `python/src/shardloom/client.py`
+    - `python/src/shardloom/context.py`
+    - `python/src/shardloom/__init__.py`
+    - `python/tests/test_cli_client.py`
+    - `README.md`
+    - `python/README.md`
+    - `docs/getting-started/examples.md`
+    - `docs/architecture/compute-engine-flow-reference.md`
+    - `docs/use-cases/use-case-index.yml`
+  - Scope: promote the first user-facing `vortex_ingest` lifecycle runtime path. This slice admits
+    scoped local flat non-null int/uint/float/UTF-8/date32/timestamp sources, writes a local
+    `.vortex` artifact through upstream Vortex when the CLI is built with `--features vortex-write`,
+    reopens/scans the artifact for row-count proof, and exposes the resulting `VortexPreparedState`
+    refs/digests through CLI and Python helpers.
+  - Runtime behavior:
+    - `shardloom-vortex` exposes `write_flat_scalar_vortex_prepared_state(...)` behind the existing
+      `vortex-write` feature gate.
+    - `shardloom-cli vortex-ingest-smoke <local-source> <target.vortex>` creates the local
+      prepared artifact when the feature is enabled and returns a deterministic feature-gate
+      blocker in default builds.
+    - Python now exposes `ShardLoomClient.vortex_ingest_smoke(...)` and
+      `ShardLoomContext.prepare_vortex(...)` for the same route.
+    - The command remains a prepare-once lifecycle smoke; it does not run a warm prepared query,
+      claim broad Vortex writer support, or couple input format to output format.
+  - Evidence:
+    - Admitted rows emit `source_adapter_id`, `source_state_id`, `source_state_digest`,
+      `ingress_route=vortex_ingest`, `vortex_ingest_status=prepared_state_created`,
+      `prepared_state_id`, `prepared_state_digest`, `vortex_artifact_digest`,
+      `writer_row_count`, `reopen_row_count`, `timing_scope=ingest_only`,
+      `upstream_vortex_write_called=true`, `upstream_vortex_scan_called=true`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+    - Default builds emit `runtime_execution=false`, `source_io_performed=false`,
+      `vortex_ingest_performed=false`, `prepared_state_created=false`,
+      `vortex_ingest_status=blocked_feature_gate`,
+      `vortex_ingest_blocker_id=vortex_ingest.requires_vortex_write_feature`, and the same
+      no-fallback/no-external-engine fields.
+  - Verification:
+    - `cargo test -p shardloom-vortex --features vortex-write vortex_ingest`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke vortex_ingest_smoke_blocks_without_vortex_write_feature`
+    - `cargo test -p shardloom-cli --features vortex-write --test sql_local_source_runtime_smoke vortex_ingest_smoke_writes_reopens_vortex_prepared_state`
+    - `cargo test -p shardloom-cli classifies_representative_priority_39_families`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_vortex_ingest_smoke_helper_dispatches_prepare_once_route python.tests.test_cli_client.ShardLoomClientTests.test_context_prepare_vortex_dispatches_vortex_ingest_smoke`
+    - `python -m compileall -q python/src python/tests`
+  - Claim boundary: feature-gated local flat non-null int/uint/float/UTF-8/date32/timestamp
+    `vortex_ingest` fixture-smoke/runtime-admission only. This does not add broad Vortex writer support, object-store Vortex artifacts,
+    table/lakehouse commits, warm prepared query execution, encoded-native claims, production
+    SQL/DataFrame support, Foundry support, package publication, performance/superiority claims, or
+    Spark-displacement claims.
+  - Fallback boundary: `vortex_ingest` uses ShardLoom local adapters plus upstream Vortex write/
+    reopen APIs only. It does not invoke pandas, Polars, DuckDB, DataFusion, Spark, Dask, Vortex
+    query-engine integrations, databases, warehouses, or managed platforms as fallback engines.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4G feature-gated flat Parquet local-output sink runtime slice
   - Branch/PR: `codex/runtime-local-parquet-output-sink` / #821.
   - Primary files:

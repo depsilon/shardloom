@@ -129,6 +129,26 @@ claim-gate evidence. It is not broad SQL runtime, a production SQL/DataFrame cla
 SQL source support, joins, grouped aggregates, functions, subqueries, object-store/table support, or a
 performance claim.
 
+## Prepare Vortex Once With `vortex_ingest`
+
+```powershell
+New-Item -ItemType Directory -Force target | Out-Null
+@"
+id,label,amount
+1,alpha,8
+2,beta,15
+"@ | Set-Content -Encoding utf8 target\vortex-ingest-source.csv
+cargo run -q -p shardloom-cli --features vortex-write -- vortex-ingest-smoke target\vortex-ingest-source.csv target\vortex-ingest-source.vortex --allow-overwrite --format json
+$env:PYTHONPATH = "python\src"
+python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.input_row_count, r.fallback_attempted, r.external_engine_invoked)"
+```
+
+Use this for the scoped GAR-RUNTIME-IMPL-4H route that admits a local flat non-null
+int/uint/float/UTF-8/date32/timestamp source, writes a local Vortex artifact, reopens/scans it for
+row-count proof, and emits `VortexPreparedState` evidence. Default builds return a deterministic
+feature-gate blocker unless `--features vortex-write` is enabled. It is not broad Vortex writer
+support, object-store/table output, production SQL/DataFrame support, or a performance claim.
+
 ## SQL Local JSONL Cast Predicate Smoke
 
 ```powershell

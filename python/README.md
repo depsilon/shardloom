@@ -135,6 +135,32 @@ Python runtime support. Any future Python-visible buffer reuse must stay opt-in 
 scoped to a run/session and preserve correctness, evidence, no-fallback, and no-external-engine
 fields.
 
+The first scoped prepare-once Vortex lifecycle is available through a feature-gated CLI/Python
+surface. Build the CLI with `--features vortex-write`, then call `ctx.prepare_vortex(...)` or
+`ShardLoomClient.vortex_ingest_smoke(...)` to admit a local flat non-null int/uint/float/UTF-8/date32/timestamp CSV/JSON/JSONL source,
+write a local `.vortex` artifact, reopen/scan it for row-count proof, and emit
+`VortexPreparedState` refs/digests:
+
+```powershell
+@"
+id,label,amount
+1,alpha,8
+2,beta,15
+"@ | Set-Content -Encoding utf8 target\vortex-ingest-source.csv
+
+cargo run -q -p shardloom-cli --features vortex-write -- `
+  vortex-ingest-smoke target\vortex-ingest-source.csv target\vortex-ingest-source.vortex `
+  --allow-overwrite --format json
+
+$env:PYTHONPATH = "python\src"
+python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.fallback_attempted, r.external_engine_invoked)"
+```
+
+Default CLI builds return a deterministic feature-gate blocker instead of writing an artifact. This
+path is a local fixture smoke for `UniversalIngress -> SourceState -> vortex_ingest ->
+VortexPreparedState`; it is not broad Vortex writer support, object-store/table output support,
+production SQL/DataFrame support, or a performance claim.
+
 Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
 batch path when allowed; `live` selects the CG-22 in-memory fixture path for
 bounded/unbounded change streams; `hybrid` selects the CG-22 declared Vortex-base

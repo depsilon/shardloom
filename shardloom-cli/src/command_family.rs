@@ -140,7 +140,8 @@ fn is_vortex_primitive_command(command: &str) -> bool {
 fn is_prepared_source_backed_command(command: &str) -> bool {
     matches!(
         command,
-        "vortex-encoded-read-api"
+        "vortex-ingest-smoke"
+            | "vortex-encoded-read-api"
             | "vortex-encoded-read-boundary"
             | "vortex-encoded-read-metadata-probe"
             | "vortex-encoded-read-readiness"
@@ -399,6 +400,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("vortex-encoded-read-boundary"),
+            CommandFamily::PreparedSourceBackedExecution
+        );
+        assert_eq!(
+            classify_command("vortex-ingest-smoke"),
             CommandFamily::PreparedSourceBackedExecution
         );
         assert_eq!(

@@ -31,7 +31,9 @@ use crate::{
 };
 
 const COMMAND: &str = "sql-local-source-smoke";
+const VORTEX_INGEST_COMMAND: &str = "vortex-ingest-smoke";
 const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
+const VORTEX_INGEST_SCHEMA_VERSION: &str = "shardloom.vortex_ingest_smoke.v1";
 const JSONL_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
 const CSV_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-csv-output.native-io.v1";
 const PARQUET_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-parquet-output.native-io.v1";
@@ -477,6 +479,27 @@ struct SqlLocalSourceReport {
     total_runtime_millis: u128,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct VortexIngestRequest {
+    source_path: PathBuf,
+    target_path: PathBuf,
+    allow_overwrite: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct VortexIngestReport {
+    request: VortexIngestRequest,
+    source: CsvSourceData,
+    source_schema_digest: String,
+    source_state_id: String,
+    source_state_digest: String,
+    prepared_state_id: String,
+    prepared_state_digest: String,
+    prepare_once_total_millis: u128,
+    evidence_render_millis: u128,
+    vortex_report: shardloom_vortex::VortexPreparedStateWriteReport,
+}
+
 pub(crate) fn handle_sql_local_source_smoke(
     mut args: impl Iterator<Item = String>,
     format: OutputFormat,
@@ -583,6 +606,98 @@ pub(crate) fn handle_sql_local_source_smoke(
     ExitCode::SUCCESS
 }
 
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_vortex_ingest_smoke(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(source_path_raw) = args.next() else {
+        eprintln!(
+            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--format text|json]"
+        );
+        return ExitCode::from(2);
+    };
+    let Some(target_path_raw) = args.next() else {
+        eprintln!(
+            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--format text|json]"
+        );
+        return ExitCode::from(2);
+    };
+    let mut allow_overwrite = false;
+    for arg in args {
+        match arg.as_str() {
+            "--allow-overwrite" => allow_overwrite = true,
+            extra => {
+                return emit_error(
+                    VORTEX_INGEST_COMMAND,
+                    format,
+                    "vortex_ingest smoke failed",
+                    &cli_unknown_arg_error(VORTEX_INGEST_COMMAND, extra),
+                );
+            }
+        }
+    }
+
+    let source_path = Path::new(source_path_raw.trim()).to_path_buf();
+    let target_path = match normalize_local_vortex_ingest_target_path(&target_path_raw) {
+        Ok(path) => path,
+        Err(error) => {
+            return emit_error(
+                VORTEX_INGEST_COMMAND,
+                format,
+                "vortex_ingest smoke failed",
+                &error,
+            );
+        }
+    };
+    let request = VortexIngestRequest {
+        source_path,
+        target_path,
+        allow_overwrite,
+    };
+
+    if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
+        emit(
+            VORTEX_INGEST_COMMAND,
+            format,
+            CommandStatus::Unsupported,
+            "vortex_ingest feature gate is not enabled".to_string(),
+            "local vortex_ingest runtime requires shardloom-cli --features vortex-write; fallback execution remains disabled"
+                .to_string(),
+            Vec::new(),
+            vortex_ingest_feature_blocked_fields(&request),
+        );
+        return ExitCode::from(1);
+    }
+
+    let report = match run_vortex_ingest_smoke(request) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                VORTEX_INGEST_COMMAND,
+                format,
+                "vortex_ingest smoke failed",
+                &error,
+            );
+        }
+    };
+
+    emit(
+        VORTEX_INGEST_COMMAND,
+        format,
+        CommandStatus::Success,
+        format!(
+            "vortex_ingest prepared {} local row(s) into {}",
+            report.vortex_report.row_count,
+            report.request.target_path.display()
+        ),
+        report.to_text(),
+        Vec::new(),
+        report.fields(),
+    );
+    ExitCode::SUCCESS
+}
+
 fn validate_sql_local_source_output_request(
     output_format: SqlLocalSourceOutputFormat,
     output_path: Option<&Path>,
@@ -600,8 +715,498 @@ fn validate_sql_local_source_output_request(
     Ok(())
 }
 
+fn run_vortex_ingest_smoke(
+    request: VortexIngestRequest,
+) -> Result<VortexIngestReport, ShardLoomError> {
+    let prepare_start = Instant::now();
+    let source = read_local_source(&request.source_path)?;
+    let rows = ordered_source_rows(&source.header, &source.rows)?;
+    let vortex_request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
+        &request.target_path,
+        source.header.clone(),
+        rows,
+    )
+    .allow_overwrite(request.allow_overwrite);
+    let vortex_report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(vortex_request)?;
+    let prepare_once_total_millis = prepare_start.elapsed().as_millis();
+
+    let evidence_start = Instant::now();
+    let source_schema_digest = fnv64_digest(&source.header.join(","));
+    let source_state_id = source_state_id_for_source(&source);
+    let source_state_digest = source_state_digest_for_source(&source, &source_schema_digest);
+    let prepared_state_digest = fnv64_digest(&format!(
+        "{}|{}|{}|{}",
+        source_state_digest,
+        vortex_report.artifact_digest,
+        vortex_report.column_family_summary(),
+        vortex_report.row_count
+    ));
+    let prepared_state_id = format!(
+        "vortex-prepared-state-{}",
+        prepared_state_digest.replace(':', "-")
+    );
+    let evidence_render_millis = evidence_start.elapsed().as_millis();
+
+    Ok(VortexIngestReport {
+        request,
+        source,
+        source_schema_digest,
+        source_state_id,
+        source_state_digest,
+        prepared_state_id,
+        prepared_state_digest,
+        prepare_once_total_millis,
+        evidence_render_millis,
+        vortex_report,
+    })
+}
+
 fn output_column_names(parsed: &ParsedSqlLocalSource, source: &CsvSourceData) -> Vec<String> {
     parsed.output_columns(&source.header)
+}
+
+#[allow(clippy::too_many_lines)]
+impl VortexIngestReport {
+    fn fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "schema_version".to_string(),
+                VORTEX_INGEST_SCHEMA_VERSION.to_string(),
+            ),
+            ("execution_mode".to_string(), "prepared_vortex".to_string()),
+            (
+                "selected_execution_mode".to_string(),
+                "prepared_vortex".to_string(),
+            ),
+            ("engine_mode".to_string(), "batch".to_string()),
+            ("runtime_execution".to_string(), "true".to_string()),
+            (
+                "support_status".to_string(),
+                "fixture_smoke_supported".to_string(),
+            ),
+            ("source_io_performed".to_string(), "true".to_string()),
+            (
+                "source_kind".to_string(),
+                "local_non_vortex_file".to_string(),
+            ),
+            (
+                "source_format".to_string(),
+                self.source.source_format.as_str().to_string(),
+            ),
+            (
+                "source_adapter_id".to_string(),
+                source_adapter_id_for_format(self.source.source_format).to_string(),
+            ),
+            (
+                "source_adapter_status".to_string(),
+                "smoke_supported".to_string(),
+            ),
+            (
+                "source_adapter_blocker_id".to_string(),
+                "none_scoped_vortex_ingest_smoke_only".to_string(),
+            ),
+            ("ingress_route".to_string(), "vortex_ingest".to_string()),
+            (
+                "ingress_route_label".to_string(),
+                "Vortex ingest / prepare once route".to_string(),
+            ),
+            ("ingress_status".to_string(), "smoke_supported".to_string()),
+            (
+                "ingress_certification_level".to_string(),
+                "fixture_smoke".to_string(),
+            ),
+            ("vortex_ingest_performed".to_string(), "true".to_string()),
+            (
+                "vortex_ingest_status".to_string(),
+                "prepared_state_created".to_string(),
+            ),
+            (
+                "vortex_ingest_blocker_id".to_string(),
+                "none_scoped_local_vortex_ingest_smoke".to_string(),
+            ),
+            (
+                "prepared_state_id".to_string(),
+                self.prepared_state_id.clone(),
+            ),
+            (
+                "prepared_state_digest".to_string(),
+                self.prepared_state_digest.clone(),
+            ),
+            ("prepared_state_created".to_string(), "true".to_string()),
+            ("prepared_state_reused".to_string(), "false".to_string()),
+            ("prepared_state_reuse_hit".to_string(), "false".to_string()),
+            (
+                "execution_route_label".to_string(),
+                "Prepared Vortex route".to_string(),
+            ),
+            ("timing_scope".to_string(), "ingest_only".to_string()),
+            (
+                "certification_policy".to_string(),
+                "scoped_vortex_ingest_lifecycle_smoke".to_string(),
+            ),
+            (
+                "certification_status".to_string(),
+                "fixture_smoke_certified".to_string(),
+            ),
+            (
+                "certification_blocker_id".to_string(),
+                "not_claim_grade_fixture_smoke".to_string(),
+            ),
+            (
+                "source_path".to_string(),
+                self.request.source_path.display().to_string(),
+            ),
+            (
+                "source_bytes".to_string(),
+                self.source.source_bytes.to_string(),
+            ),
+            (
+                "source_digest".to_string(),
+                self.source.source_digest.clone(),
+            ),
+            (
+                "source_fingerprint_kind".to_string(),
+                "local_file_content_digest".to_string(),
+            ),
+            ("source_state_id".to_string(), self.source_state_id.clone()),
+            (
+                "source_state_digest".to_string(),
+                self.source_state_digest.clone(),
+            ),
+            (
+                "source_state_reuse_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("source_state_reuse_hit".to_string(), "false".to_string()),
+            (
+                "source_state_reuse_reason".to_string(),
+                "created_for_scoped_vortex_ingest_smoke".to_string(),
+            ),
+            (
+                "source_schema_digest".to_string(),
+                self.source_schema_digest.clone(),
+            ),
+            (
+                "source_column_count".to_string(),
+                self.source.header.len().to_string(),
+            ),
+            ("source_columns".to_string(), self.source.header.join(",")),
+            (
+                "input_row_count".to_string(),
+                self.source.rows.len().to_string(),
+            ),
+            (
+                "target_vortex_path".to_string(),
+                self.request.target_path.display().to_string(),
+            ),
+            (
+                "vortex_artifact_ref".to_string(),
+                self.vortex_report.target_path.display().to_string(),
+            ),
+            (
+                "vortex_artifact_digest".to_string(),
+                self.vortex_report.artifact_digest.clone(),
+            ),
+            (
+                "prepared_artifact_ref".to_string(),
+                self.vortex_report.target_path.display().to_string(),
+            ),
+            (
+                "prepared_artifact_digest".to_string(),
+                self.vortex_report.artifact_digest.clone(),
+            ),
+            (
+                "prepared_artifact_reuse_eligible".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "layout_summary".to_string(),
+                self.vortex_report.layout_summary(),
+            ),
+            (
+                "encoding_summary".to_string(),
+                self.vortex_report.encoding_summary(),
+            ),
+            (
+                "statistics_summary".to_string(),
+                self.vortex_report.statistics_summary(),
+            ),
+            (
+                "column_family_summary".to_string(),
+                self.vortex_report.column_family_summary(),
+            ),
+            ("vortex_prepare_included".to_string(), "true".to_string()),
+            (
+                "vortex_write_reopen_included".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "compatibility_import_included".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "preparation_included_in_timing".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "warm_query_timing_included".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_once_millis".to_string(),
+                self.prepare_once_total_millis.to_string(),
+            ),
+            (
+                "source_read_millis".to_string(),
+                self.source.read_millis.to_string(),
+            ),
+            (
+                "compatibility_parse_millis".to_string(),
+                self.source.parse_millis.to_string(),
+            ),
+            (
+                "vortex_ingest_millis".to_string(),
+                self.vortex_report.write_micros.div_ceil(1000).to_string(),
+            ),
+            (
+                "vortex_write_millis".to_string(),
+                self.vortex_report.write_micros.div_ceil(1000).to_string(),
+            ),
+            (
+                "vortex_reopen_millis".to_string(),
+                self.vortex_report
+                    .reopen_scan_micros
+                    .div_ceil(1000)
+                    .to_string(),
+            ),
+            (
+                "vortex_reopen_verify_millis".to_string(),
+                self.vortex_report
+                    .reopen_scan_micros
+                    .div_ceil(1000)
+                    .to_string(),
+            ),
+            (
+                "vortex_scan_millis".to_string(),
+                self.vortex_report
+                    .reopen_scan_micros
+                    .div_ceil(1000)
+                    .to_string(),
+            ),
+            ("warm_query_millis".to_string(), "0".to_string()),
+            (
+                "evidence_render_millis".to_string(),
+                self.evidence_render_millis.to_string(),
+            ),
+            (
+                "total_runtime_millis".to_string(),
+                self.prepare_once_total_millis.to_string(),
+            ),
+            (
+                "writer_row_count".to_string(),
+                self.vortex_report.writer_row_count.to_string(),
+            ),
+            (
+                "reopen_row_count".to_string(),
+                self.vortex_report.reopen_row_count.to_string(),
+            ),
+            (
+                "vortex_artifact_bytes".to_string(),
+                self.vortex_report.bytes_written.to_string(),
+            ),
+            (
+                "source_backed_scan_evidence_status".to_string(),
+                "scoped_reopen_row_count_scan".to_string(),
+            ),
+            (
+                "source_backed_scan_provider_kind".to_string(),
+                "vortex_scan".to_string(),
+            ),
+            (
+                "source_backed_scan_provider_surface".to_string(),
+                "VortexFile::scan".to_string(),
+            ),
+            (
+                "source_backed_scan_rows_scanned".to_string(),
+                self.vortex_report.reopen_row_count.to_string(),
+            ),
+            (
+                "materialization_boundary".to_string(),
+                format!(
+                    "local_{}_row_materialization_to_vortex_prepared_state",
+                    self.source.source_format.as_str()
+                ),
+            ),
+            ("data_decoded".to_string(), "true".to_string()),
+            ("data_materialized".to_string(), "true".to_string()),
+            (
+                "source_native_io_certificate_status".to_string(),
+                "scoped_compatibility_source_certificate".to_string(),
+            ),
+            (
+                "native_io_certificate_status".to_string(),
+                "certified_local_vortex_ingest_smoke".to_string(),
+            ),
+            (
+                "output_native_io_certificate_status".to_string(),
+                "not_requested".to_string(),
+            ),
+            (
+                "upstream_vortex_write_called".to_string(),
+                self.vortex_report.upstream_vortex_write_called.to_string(),
+            ),
+            (
+                "upstream_vortex_scan_called".to_string(),
+                self.vortex_report.upstream_vortex_scan_called.to_string(),
+            ),
+            ("object_store_io".to_string(), "false".to_string()),
+            ("fallback_attempted".to_string(), "false".to_string()),
+            (
+                "fallback_execution_allowed".to_string(),
+                "false".to_string(),
+            ),
+            ("external_engine_invoked".to_string(), "false".to_string()),
+            (
+                "claim_gate_status".to_string(),
+                "fixture_smoke_only".to_string(),
+            ),
+            (
+                "claim_gate_reason".to_string(),
+                "one_scoped_local_vortex_ingest_prepare_once_smoke".to_string(),
+            ),
+            ("performance_claim_allowed".to_string(), "false".to_string()),
+            ("production_claim_allowed".to_string(), "false".to_string()),
+            (
+                "sql_dataframe_runtime_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "object_store_lakehouse_claim_allowed".to_string(),
+                "false".to_string(),
+            ),
+        ]
+    }
+
+    fn to_text(&self) -> String {
+        format!(
+            "ShardLoom vortex_ingest smoke\nsource: {}\ntarget: {}\nsource format: {}\nrows prepared: {}\ncolumns: {}\nVortex write/reopen/scan: true\nprepared state: {}\nfallback execution: disabled",
+            self.request.source_path.display(),
+            self.request.target_path.display(),
+            self.source.source_format.as_str(),
+            self.vortex_report.row_count,
+            self.source.header.join(","),
+            self.prepared_state_id
+        )
+    }
+}
+
+fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(String, String)> {
+    vec![
+        (
+            "schema_version".to_string(),
+            VORTEX_INGEST_SCHEMA_VERSION.to_string(),
+        ),
+        ("execution_mode".to_string(), "prepared_vortex".to_string()),
+        (
+            "selected_execution_mode".to_string(),
+            "prepared_vortex".to_string(),
+        ),
+        ("engine_mode".to_string(), "batch".to_string()),
+        ("runtime_execution".to_string(), "false".to_string()),
+        ("support_status".to_string(), "blocked".to_string()),
+        (
+            "source_path".to_string(),
+            request.source_path.display().to_string(),
+        ),
+        (
+            "target_vortex_path".to_string(),
+            request.target_path.display().to_string(),
+        ),
+        ("source_io_performed".to_string(), "false".to_string()),
+        ("ingress_route".to_string(), "vortex_ingest".to_string()),
+        (
+            "ingress_route_label".to_string(),
+            "Vortex ingest / prepare once route".to_string(),
+        ),
+        ("vortex_ingest_performed".to_string(), "false".to_string()),
+        (
+            "vortex_ingest_status".to_string(),
+            "blocked_feature_gate".to_string(),
+        ),
+        (
+            "vortex_ingest_blocker_id".to_string(),
+            "vortex_ingest.requires_vortex_write_feature".to_string(),
+        ),
+        ("prepared_state_created".to_string(), "false".to_string()),
+        ("prepared_state_reused".to_string(), "false".to_string()),
+        ("prepared_state_reuse_hit".to_string(), "false".to_string()),
+        ("timing_scope".to_string(), "ingest_only".to_string()),
+        (
+            "claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+        ("fallback_attempted".to_string(), "false".to_string()),
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("external_engine_invoked".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("performance_claim_allowed".to_string(), "false".to_string()),
+        ("production_claim_allowed".to_string(), "false".to_string()),
+    ]
+}
+
+fn ordered_source_rows(
+    header: &[String],
+    rows: &[ExpressionInputRow],
+) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+    rows.iter()
+        .enumerate()
+        .map(|(row_index, row)| {
+            header
+                .iter()
+                .map(|column| {
+                    row.get(column)
+                        .cloned()
+                        .map(|value| (column.clone(), value))
+                        .ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(format!(
+                                "local vortex_ingest row {} is missing column '{column}'; no fallback execution was attempted",
+                                row_index + 1
+                            ))
+                        })
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn source_state_id_for_source(source: &CsvSourceData) -> String {
+    format!(
+        "local-{}-{}",
+        source.source_format.as_str(),
+        source.source_digest.replace(':', "-")
+    )
+}
+
+fn source_state_digest_for_source(source: &CsvSourceData, source_schema_digest: &str) -> String {
+    fnv64_digest(&format!(
+        "{}|{}|{}|{}",
+        source.source_format.as_str(),
+        source.source_digest,
+        source_schema_digest,
+        source.rows.len()
+    ))
+}
+
+fn source_adapter_id_for_format(source_format: LocalSourceFormat) -> &'static str {
+    match source_format {
+        LocalSourceFormat::Csv => "local_csv_input_adapter",
+        LocalSourceFormat::Json => "local_json_input_adapter",
+        LocalSourceFormat::JsonLines => "local_jsonl_input_adapter",
+        LocalSourceFormat::Parquet => "local_parquet_input_adapter",
+    }
 }
 
 fn run_sql_local_source_smoke(
@@ -3667,6 +4272,21 @@ fn normalize_local_output_path(value: &str) -> Result<PathBuf, ShardLoomError> {
         ));
     }
     Ok(Path::new(&local).to_path_buf())
+}
+
+fn normalize_local_vortex_ingest_target_path(value: &str) -> Result<PathBuf, ShardLoomError> {
+    let path = normalize_local_output_path(value)?;
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    if !extension.eq_ignore_ascii_case("vortex") {
+        return Err(ShardLoomError::InvalidOperation(
+            "vortex_ingest smoke writes local .vortex targets only; object-store, table, and non-Vortex sinks remain blocked"
+                .to_string(),
+        ));
+    }
+    Ok(path)
 }
 
 fn strip_utf8_bom_from_first_header_cell(header: &mut [String]) {

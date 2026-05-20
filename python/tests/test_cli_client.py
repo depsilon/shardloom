@@ -48,6 +48,7 @@ from shardloom import (
     RestApiPlanPreview,
     RestApiSecurityGovernance,
     SemanticConformanceSuite,
+    VortexIngestSmokeReport,
     WorkloadCertificationDossier,
     WorkflowReadinessSmokeReport,
 )
@@ -803,6 +804,120 @@ class ShardLoomClientTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ShardLoomProtocolError, "line 1 is not a JSON object"):
             _ = report_for("1\n").result_rows
+
+    def test_vortex_ingest_smoke_helper_dispatches_prepare_once_route(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "vortex-ingest-smoke",
+                    "target/source.csv",
+                    "target/source.vortex",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "vortex-ingest-smoke",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "source_path", "value": "target/source.csv"},
+                        {"key": "target_vortex_path", "value": "target/source.vortex"},
+                        {"key": "source_format", "value": "csv"},
+                        {"key": "vortex_ingest_status", "value": "prepared_state_created"},
+                        {"key": "prepared_state_id", "value": "vortex-prepared-state-fnv64-abc"},
+                        {"key": "prepared_state_digest", "value": "fnv64:abc"},
+                        {"key": "vortex_artifact_digest", "value": "fnv64:def"},
+                        {"key": "input_row_count", "value": "2"},
+                        {"key": "writer_row_count", "value": "2"},
+                        {"key": "reopen_row_count", "value": "2"},
+                        {"key": "source_io_performed", "value": "true"},
+                        {"key": "prepared_state_created", "value": "true"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).vortex_ingest_smoke(
+            "target/source.csv",
+            "target/source.vortex",
+            allow_overwrite=True,
+        )
+
+        self.assertIsInstance(result, VortexIngestSmokeReport)
+        self.assertEqual(result.source_path, "target/source.csv")
+        self.assertEqual(result.target_vortex_path, "target/source.vortex")
+        self.assertEqual(result.source_format, "csv")
+        self.assertEqual(result.vortex_ingest_status, "prepared_state_created")
+        self.assertEqual(result.prepared_state_id, "vortex-prepared-state-fnv64-abc")
+        self.assertEqual(result.prepared_state_digest, "fnv64:abc")
+        self.assertEqual(result.vortex_artifact_digest, "fnv64:def")
+        self.assertEqual(result.input_row_count, 2)
+        self.assertEqual(result.writer_row_count, 2)
+        self.assertEqual(result.reopen_row_count, 2)
+        self.assertTrue(result.source_io_performed)
+        self.assertTrue(result.prepared_state_created)
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.external_engine_invoked)
+        self.assertEqual(result.claim_gate_status, "fixture_smoke_only")
+
+    def test_context_prepare_vortex_dispatches_vortex_ingest_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "vortex-ingest-smoke",
+                    "target/source.csv",
+                    "target/source.vortex",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "vortex-ingest-smoke",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "source_path", "value": "target/source.csv"},
+                        {"key": "target_vortex_path", "value": "target/source.vortex"},
+                        {"key": "source_format", "value": "csv"},
+                        {"key": "vortex_ingest_status", "value": "prepared_state_created"},
+                        {"key": "prepared_state_id", "value": "vortex-prepared-state-fnv64-abc"},
+                        {"key": "prepared_state_digest", "value": "fnv64:abc"},
+                        {"key": "vortex_artifact_digest", "value": "fnv64:def"},
+                        {"key": "input_row_count", "value": "2"},
+                        {"key": "writer_row_count", "value": "2"},
+                        {"key": "reopen_row_count", "value": "2"},
+                        {"key": "source_io_performed", "value": "true"},
+                        {"key": "prepared_state_created", "value": "true"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+
+        result = ctx.prepare_vortex("target/source.csv", "target/source.vortex")
+
+        self.assertEqual(result.envelope.command, "vortex-ingest-smoke")
+        self.assertEqual(result.vortex_ingest_status, "prepared_state_created")
 
     def test_capabilities_scope_uses_explicit_scope(self) -> None:
         binary = self.fake_cli(

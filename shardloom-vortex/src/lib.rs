@@ -91,6 +91,7 @@ pub mod traditional_analytics;
 pub mod universal_format_io;
 pub mod vortex_compatibility;
 pub mod vortex_compute_provider;
+pub mod vortex_ingest;
 pub mod vortex_operational_facets;
 pub mod vortex_scan_compatibility;
 pub mod write_intent;
@@ -526,6 +527,10 @@ pub use traditional_analytics::{
 #[cfg(feature = "universal-format-io")]
 pub use universal_format_io::{
     FlatLocalSourceTable, encode_flat_parquet_rows, read_flat_parquet_source,
+};
+pub use vortex_ingest::{
+    VortexPreparedStateWriteReport, VortexPreparedStateWriteRequest,
+    vortex_ingest_write_feature_enabled, write_flat_scalar_vortex_prepared_state,
 };
 
 // Runtime bridge, scheduler, bounded execution, and narrow local engine/provider exports.
