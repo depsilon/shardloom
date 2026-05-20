@@ -506,6 +506,7 @@ enum ParsedPredicate {
     BooleanPredicate {
         column: String,
         expected: bool,
+        null_is_false: bool,
     },
     IsNull {
         column: String,
@@ -4985,9 +4986,11 @@ impl ParsedPredicate {
                 comparison,
                 value,
             } => timestamp_extract_compare_expression(column, *op, *comparison, value),
-            Self::BooleanPredicate { column, expected } => {
-                boolean_predicate_expression(column, *expected)
-            }
+            Self::BooleanPredicate {
+                column,
+                expected,
+                null_is_false,
+            } => boolean_predicate_expression(column, *expected, *null_is_false),
             Self::StringTransformCompare {
                 column,
                 op,
@@ -6697,21 +6700,34 @@ fn string_length_compare_expression(
 fn boolean_predicate_expression(
     column: &str,
     expected: bool,
+    null_is_false: bool,
 ) -> Result<Expression, ShardLoomError> {
     let column_expression = Expression::column(
         ExprId::new(format!("where.boolean.{column}"))?,
         ColumnRef::new(column.to_string())?,
     );
-    if expected {
-        Ok(column_expression)
+    let value_expression = if expected {
+        column_expression
     } else {
-        Ok(Expression::new(
+        Expression::new(
             ExprId::new("where.boolean.is_false")?,
             ExpressionKind::Unary {
                 op: UnaryOp::Not,
                 expr: Box::new(column_expression),
             },
+        )
+    };
+    if null_is_false {
+        Ok(Expression::new(
+            ExprId::new("where.boolean.null_is_false")?,
+            ExpressionKind::Binary {
+                left: Box::new(value_expression),
+                op: BinaryOp::And,
+                right: Box::new(null_predicate_expression(column, false)?),
+            },
         ))
+    } else {
+        Ok(value_expression)
     }
 }
 
@@ -10269,6 +10285,7 @@ fn parse_boolean_predicate_tokens(
             Ok(Some(ParsedPredicate::BooleanPredicate {
                 column: (*column).clone(),
                 expected: true,
+                null_is_false: false,
             }))
         }
         [column, is_keyword, truth_keyword]
@@ -10280,6 +10297,7 @@ fn parse_boolean_predicate_tokens(
             Ok(Some(ParsedPredicate::BooleanPredicate {
                 column: (*column).clone(),
                 expected: truth_keyword.eq_ignore_ascii_case("true"),
+                null_is_false: true,
             }))
         }
         [_, is_keyword, not_keyword, truth_keyword]
