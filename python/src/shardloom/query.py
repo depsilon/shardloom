@@ -1129,25 +1129,27 @@ class LazyFrame:
         *,
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
-        """Return a scoped literal-column workflow when admitted."""
+        """Return a scoped computed-column workflow when admitted."""
 
         column_name = _normalize_output_column_name(name)
         try:
             literal = _generated_literal_expression(expression)
+            expression_sql = _sql_literal(literal)
         except (TypeError, ValueError):
-            expression_text = _require_non_empty("column expression", expression)
-            return self._unsupported_operation(
-                "with-column",
-                f"{column_name}={expression_text}",
-                check=check,
-            )
-        if self._can_append_literal_column(column_name):
-            return self._append(
-                WorkflowOperation("with_column", (column_name, _sql_literal(literal)))
-            )
+            try:
+                expression_sql = _sql_numeric_arithmetic_projection_expression(expression)
+            except (TypeError, ValueError):
+                expression_text = _require_non_empty("column expression", expression)
+                return self._unsupported_operation(
+                    "with-column",
+                    f"{column_name}={expression_text}",
+                    check=check,
+                )
+        if self._can_append_projection_column(column_name):
+            return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         return self._unsupported_operation(
             "with-column",
-            f"{column_name}={_sql_literal(literal)}",
+            f"{column_name}={expression_sql}",
             check=check,
         )
 
@@ -1751,7 +1753,7 @@ class LazyFrame:
             for operation in self.operations
         )
 
-    def _can_append_literal_column(self, column_name: str) -> bool:
+    def _can_append_projection_column(self, column_name: str) -> bool:
         if not _is_query_builder_local_source(self.source):
             return False
         saw_projection = False
@@ -2759,6 +2761,37 @@ def _sql_numeric_literal(value: object) -> str:
             raise ValueError("numeric arithmetic float literals must be finite")
         return str(value)
     raise TypeError("numeric arithmetic literals must be int or finite float values")
+
+
+def _sql_numeric_arithmetic_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    parts = text.split()
+    if len(parts) != 3 or parts[1] not in {"+", "-", "*", "/"}:
+        raise ValueError(
+            "computed with_column currently admits sl.col(...) numeric arithmetic "
+            "expressions of the form column (+|-|*|/) literal"
+        )
+    _normalize_expression_column(parts[0])
+    literal = _parse_numeric_literal_token(parts[2])
+    _sql_numeric_literal(literal)
+    if parts[1] == "/" and literal == 0:
+        raise ValueError("numeric arithmetic projection division by zero is not admitted")
+    return text
+
+
+def _parse_numeric_literal_token(value: str) -> int | float:
+    try:
+        return int(value)
+    except ValueError:
+        try:
+            parsed = float(value)
+        except ValueError as exc:
+            raise ValueError("numeric arithmetic projection literal must be numeric") from exc
+        if not math.isfinite(parsed):
+            raise ValueError("numeric arithmetic projection float literal must be finite")
+        return parsed
 
 
 def _sql_in_literal(value: object) -> str:

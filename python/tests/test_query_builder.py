@@ -2043,6 +2043,70 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_with_column_numeric_arithmetic_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,amount + 5 AS adjusted FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source computed projection",
+                    "human_text": "sql local source computed projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"adjusted\\":20}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "numeric_arithmetic_projection_runtime_execution", "value": "true"},
+                        {"key": "numeric_arithmetic_projection_operator", "value": "add"},
+                        {"key": "numeric_arithmetic_projection_source_column", "value": "amount"},
+                        {"key": "numeric_arithmetic_projection_output_column", "value": "adjusted"},
+                        {"key": "numeric_arithmetic_projection_rhs_dtype", "value": "int64"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("adjusted", sl.col("amount") + 5)
+            .filter(sl.col("amount") >= 10)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.envelope.field("sql_statement_kind"),
+            "local_source_computed_projection_filter_limit",
+        )
+        self.assertTrue(report.numeric_arithmetic_projection_runtime_execution)
+        self.assertEqual(report.numeric_arithmetic_projection_operator, ("add",))
+        self.assertEqual(report.numeric_arithmetic_projection_source_columns, ("amount",))
+        self.assertEqual(report.numeric_arithmetic_projection_output_columns, ("adjusted",))
+        self.assertEqual(report.numeric_arithmetic_projection_rhs_dtypes, ("int64",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_write_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
