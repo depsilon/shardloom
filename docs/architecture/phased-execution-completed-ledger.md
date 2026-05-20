@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D direct SQL BETWEEN predicate runtime slice
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-sql-between-4d` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - SQL/Python local runtime smokes
+    - `docs/architecture/compute-engine-flow-reference.md`
+  - Scope:
+    - Admitted direct SQL `column [NOT] BETWEEN <lower> AND <upper>` predicates for
+      `sql-local-source-smoke`.
+    - Lowered `BETWEEN` to ShardLoom-native `>=` / `<=` comparison predicates joined by logical
+      `AND`, and lowered `NOT BETWEEN` to logical `NOT` over that admitted predicate tree.
+    - Supported scalar, `DATE 'YYYY-MM-DD'`, and UTC `TIMESTAMP` literal bounds through existing
+      literal parsers.
+    - Updated top-level logical parsing so the range separator inside `BETWEEN ... AND ...` is not
+      mistaken for a logical `AND` predicate separator.
+    - Added runtime success tests for scalar/date `BETWEEN` and scalar `NOT BETWEEN`, plus
+      deterministic blocker coverage for malformed and type-invalid `BETWEEN` shapes.
+    - Updated phase-plan, compute-flow, Python README, and Astro/Starlight static website mirrors.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, direct Python `client.sql_local_source_smoke(...)`, docs, and
+      website capability/status surfaces.
+  - Evidence:
+    - Admitted rows emit existing logical predicate/date literal evidence,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke between -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke -- --nocapture`
+    - `cargo fmt --all -- --check`
+    - `python -m compileall -q python/src python/tests`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `node website-src/scripts/sync-content.mjs`
+    - `node website-src/node_modules/@astrojs/check/bin/astro-check.js`
+    - `node website-src/node_modules/astro/bin/astro.mjs build`
+    - `node website-src/scripts/postbuild-static.mjs`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+  - Non-goals:
+    - No broad SQL planner, expression joins, subqueries, regex, UDFs, timezone-database
+      completeness, encoded-native claim, performance claim, production claim, or external
+      fallback engine.
+  - Claim boundary:
+    - Scoped local-source `BETWEEN` / `NOT BETWEEN` fixture smoke only; no broad SQL/DataFrame or
+      production SQL claim.
+  - Fallback boundary:
+    - Predicate parsing and evaluation remain ShardLoom-native. External engines are not invoked
+      for parsing, planning, filtering, or fallback execution.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, cast, null, string, date/time,
+      coercion, and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4G scoped local SQL/Python output fanout runtime slice
   - Date: 2026-05-20
   - Branch/PR: `runtime-output-fanout-4g` / pending.

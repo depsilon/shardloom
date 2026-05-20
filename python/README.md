@@ -383,7 +383,8 @@ Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
 `TIMESTAMP_YEAR(...)` / `TIMESTAMP_MONTH(...)` / `TIMESTAMP_DAY(...)` /
 `TIMESTAMP_HOUR(...)` / `TIMESTAMP_MINUTE(...)` / `TIMESTAMP_SECOND(...)`,
 Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
-bounded `IN (...)`, inclusive `between(...)` range predicates, string
+bounded `IN (...)`, direct SQL `BETWEEN` / `NOT BETWEEN`, inclusive Python
+`between(...)` range predicates, string
 `LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
 leaves. `where(...)` is a familiar alias for `filter(...)`. `IN` lists admit up to 32
 literal values from one scalar family, including `DATE 'YYYY-MM-DD'` lists and `NULL`

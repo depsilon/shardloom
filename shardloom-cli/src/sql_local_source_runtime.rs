@@ -5775,6 +5775,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_logical_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_between_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_date_extract_predicate(raw)? {
         return Ok(predicate);
     }
@@ -5859,7 +5862,7 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             }
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> IN (<literal>,...), <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> IN (<literal>,...), <column> LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -5889,6 +5892,83 @@ fn parse_logical_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
         return Ok(None);
     };
     parse_logical_binary_predicate(raw, and_index, "and", LogicalPredicateOp::And).map(Some)
+}
+
+fn parse_between_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    let Some(between_index) = tokens
+        .iter()
+        .position(|token| token.eq_ignore_ascii_case("between"))
+    else {
+        return Ok(None);
+    };
+
+    let negated = match between_index {
+        1 => false,
+        2 if tokens[1].eq_ignore_ascii_case("not") => true,
+        _ => {
+            return Err(unsupported_sql_error(
+                "BETWEEN predicates admit <column> [NOT] BETWEEN <lower> AND <upper> only",
+            ));
+        }
+    };
+
+    let column = tokens[0].clone();
+    validate_sql_column_ref(&column)?;
+    let lower_start = between_index + 1;
+    let Some(and_offset) = tokens[lower_start..]
+        .iter()
+        .position(|token| token.eq_ignore_ascii_case("and"))
+    else {
+        return Err(unsupported_sql_error(
+            "BETWEEN predicates require an AND separator between lower and upper bounds",
+        ));
+    };
+    let and_index = lower_start + and_offset;
+    let lower_tokens = &tokens[lower_start..and_index];
+    let upper_tokens = &tokens[and_index + 1..];
+    if lower_tokens.is_empty() || upper_tokens.is_empty() {
+        return Err(unsupported_sql_error(
+            "BETWEEN predicates require non-empty lower and upper literal bounds",
+        ));
+    }
+    let lower = parse_between_bound_literal(lower_tokens)?;
+    let upper = parse_between_bound_literal(upper_tokens)?;
+    let between = ParsedPredicate::Logical {
+        op: LogicalPredicateOp::And,
+        left: Box::new(ParsedPredicate::Compare {
+            column: column.clone(),
+            op: ComparisonOp::GtEq,
+            value: lower,
+        }),
+        right: Box::new(ParsedPredicate::Compare {
+            column,
+            op: ComparisonOp::LtEq,
+            value: upper,
+        }),
+    };
+    if negated {
+        Ok(Some(ParsedPredicate::Not {
+            inner: Box::new(between),
+        }))
+    } else {
+        Ok(Some(between))
+    }
+}
+
+fn parse_between_bound_literal(tokens: &[String]) -> Result<ScalarValue, ShardLoomError> {
+    match tokens {
+        [date_keyword, literal_raw] if date_keyword.eq_ignore_ascii_case("date") => {
+            parse_sql_date_literal(literal_raw)
+        }
+        [timestamp_keyword, literal_raw] if timestamp_keyword.eq_ignore_ascii_case("timestamp") => {
+            parse_sql_timestamp_literal(literal_raw)
+        }
+        [literal_raw] => parse_sql_literal(literal_raw),
+        _ => Err(unsupported_sql_error(
+            "BETWEEN bounds admit scalar, DATE 'YYYY-MM-DD', or TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z' literals only",
+        )),
+    }
 }
 
 fn trim_enclosing_predicate_parentheses(mut raw: &str) -> Result<&str, ShardLoomError> {
@@ -6692,6 +6772,7 @@ fn find_keyword_outside_quotes_and_parentheses(
     let mut chars = raw.char_indices().peekable();
     let mut in_quote = false;
     let mut depth = 0_u32;
+    let mut skip_next_and_for_between = false;
     while let Some((index, ch)) = chars.next() {
         if ch == '\'' {
             if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
@@ -6719,10 +6800,21 @@ fn find_keyword_outside_quotes_and_parentheses(
         }
         if depth == 0 {
             let remaining = &raw[index..];
+            if lower_keyword == "and"
+                && remaining.len() >= "between".len()
+                && remaining[.."between".len()].eq_ignore_ascii_case("between")
+                && keyword_boundary(raw, index, "between".len())
+            {
+                skip_next_and_for_between = true;
+            }
             if remaining.len() >= lower_keyword.len()
                 && remaining[..lower_keyword.len()].eq_ignore_ascii_case(&lower_keyword)
                 && keyword_boundary(raw, index, lower_keyword.len())
             {
+                if lower_keyword == "and" && skip_next_and_for_between {
+                    skip_next_and_for_between = false;
+                    continue;
+                }
                 return Ok(Some(index));
             }
         }
