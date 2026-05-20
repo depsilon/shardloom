@@ -2167,6 +2167,70 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_with_column_string_length_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,LENGTH(label) AS label_len FROM 'target/input.csv' WHERE LENGTH(label) >= 4 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source string length projection",
+                    "human_text": "sql local source string length projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label_len\\":4}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "predicate_operator_family", "value": "string_length"},
+                        {"key": "string_length_runtime_execution", "value": "true"},
+                        {"key": "string_length_source_column", "value": "label"},
+                        {"key": "string_length_rhs_dtype", "value": "int64"},
+                        {"key": "string_length_projection_runtime_execution", "value": "true"},
+                        {"key": "string_length_projection_source_column", "value": "label"},
+                        {"key": "string_length_projection_output_column", "value": "label_len"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("label_len", sl.length(sl.col("label")))
+            .filter(sl.col("label").length() >= 4)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "string_length")
+        self.assertTrue(report.string_length_runtime_execution)
+        self.assertEqual(report.string_length_source_columns, ("label",))
+        self.assertEqual(report.string_length_rhs_dtypes, ("int64",))
+        self.assertTrue(report.string_length_projection_runtime_execution)
+        self.assertEqual(report.string_length_projection_source_columns, ("label",))
+        self.assertEqual(report.string_length_projection_output_columns, ("label_len",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_with_column_cast_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

@@ -176,6 +176,7 @@ struct ParsedSqlLocalSource {
     conditional_projections: Vec<ParsedConditionalProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
+    string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
@@ -247,6 +248,12 @@ struct ParsedDateArithmeticProjection {
     column: String,
     op: DateArithmeticOp,
     day_count: i32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedStringLengthProjection {
+    alias: String,
+    column: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -374,6 +381,7 @@ struct ParsedProjectionList {
     conditional_projections: Vec<ParsedConditionalProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
+    string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
@@ -411,6 +419,11 @@ enum ParsedPredicate {
     DateExtractCompare {
         column: String,
         op: DateExtractOp,
+        comparison: ComparisonOp,
+        value: ScalarValue,
+    },
+    StringLengthCompare {
+        column: String,
         comparison: ComparisonOp,
         value: ScalarValue,
     },
@@ -1736,6 +1749,13 @@ fn projection_expressions(
         )
         .chain(
             parsed
+                .string_length_projections
+                .iter()
+                .map(string_length_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
+        .chain(
+            parsed
                 .string_transform_projections
                 .iter()
                 .map(string_transform_projection_expression)
@@ -1940,6 +1960,28 @@ fn string_transform_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(transformed),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn string_length_projection_expression(
+    projection: &ParsedStringLengthProjection,
+) -> Result<Expression, ShardLoomError> {
+    let length = Expression::new(
+        ExprId::new(format!("project.string_length.{}", projection.alias))?,
+        ExpressionKind::FunctionCall {
+            name: "length".to_string(),
+            args: vec![Expression::column(
+                ExprId::new(format!("project.{}", projection.column))?,
+                ColumnRef::new(projection.column.clone())?,
+            )],
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(length),
             alias: projection.alias.clone(),
         },
     ))
@@ -2410,6 +2452,7 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
+        | ParsedPredicate::StringLengthCompare { .. }
         | ParsedPredicate::TimestampExtractCompare { .. }
         | ParsedPredicate::StringTransformCompare { .. }
         | ParsedPredicate::IsNull { .. }
@@ -2464,6 +2507,7 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
         | ParsedPredicate::DateExtractCompare { .. }
+        | ParsedPredicate::StringLengthCompare { .. }
         | ParsedPredicate::StringTransformCompare { .. }
         | ParsedPredicate::IsNull { .. }
         | ParsedPredicate::IsNotNull { .. }
@@ -3177,6 +3221,14 @@ fn validate_projection_source_columns(
             "local source header",
         )?;
     }
+    for projection in &parsed.string_length_projections {
+        require_header_column(
+            header,
+            &projection.column,
+            "string length projection source column",
+            "local source header",
+        )?;
+    }
     for projection in &parsed.string_transform_projections {
         require_header_column(
             header,
@@ -3294,6 +3346,13 @@ fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(),
             ));
         }
     }
+    for length_projection in &parsed.string_length_projections {
+        if !output_names.insert(length_projection.alias.as_str()) {
+            return Err(unsupported_sql_error(
+                "computed projection smoke requires unique output column names",
+            ));
+        }
+    }
     for transform_projection in &parsed.string_transform_projections {
         if !output_names.insert(transform_projection.alias.as_str()) {
             return Err(unsupported_sql_error(
@@ -3345,6 +3404,7 @@ fn bind_join_sql_local_source(
         || !parsed.conditional_projections.is_empty()
         || !parsed.numeric_arithmetic_projections.is_empty()
         || !parsed.date_arithmetic_projections.is_empty()
+        || !parsed.string_length_projections.is_empty()
         || !parsed.string_transform_projections.is_empty()
         || !parsed.date_extract_projections.is_empty()
         || !parsed.timestamp_extract_projections.is_empty()
@@ -3490,6 +3550,10 @@ impl ParsedSqlLocalSource {
         !self.date_arithmetic_projections.is_empty()
     }
 
+    fn has_string_length_projection(&self) -> bool {
+        !self.string_length_projections.is_empty()
+    }
+
     fn has_string_transform_projection(&self) -> bool {
         !self.string_transform_projections.is_empty()
     }
@@ -3510,6 +3574,7 @@ impl ParsedSqlLocalSource {
             || self.has_conditional_projection()
             || self.has_numeric_arithmetic_projection()
             || self.has_date_arithmetic_projection()
+            || self.has_string_length_projection()
             || self.has_string_transform_projection()
             || self.has_date_extract_projection()
             || self.has_timestamp_extract_projection()
@@ -3555,6 +3620,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_date_arithmetic_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_string_length_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_string_length_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_string_transform_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
@@ -3620,6 +3689,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_date_arithmetic_projection() {
             "computed-projection-limit"
+        } else if self.has_string_length_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_string_length_projection() {
+            "computed-projection-limit"
         } else if self.has_string_transform_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_string_transform_projection() {
@@ -3683,6 +3756,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_date_arithmetic_projection() {
+            "computed_projection_limit"
+        } else if self.has_string_length_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_string_length_projection() {
             "computed_projection_limit"
         } else if self.has_string_transform_projection() && self.has_filter() {
             "computed_projection_filter_limit"
@@ -3764,6 +3841,11 @@ impl ParsedSqlLocalSource {
                 )
                 .chain(
                     self.date_arithmetic_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
+                    self.string_length_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
                 )
@@ -4050,6 +4132,30 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn string_length_projection_source_columns(&self) -> String {
+        if self.string_length_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.string_length_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn string_length_projection_output_columns(&self) -> String {
+        if self.string_length_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.string_length_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
     fn string_transform_projection_operators(&self) -> String {
         if self.string_transform_projections.is_empty() {
             "not_applicable".to_string()
@@ -4235,6 +4341,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { column, .. }
             | Self::DateArithmeticCompare { column, .. }
             | Self::DateExtractCompare { column, .. }
+            | Self::StringLengthCompare { column, .. }
             | Self::TimestampExtractCompare { column, .. }
             | Self::IsNull { column }
             | Self::IsNotNull { column }
@@ -4282,6 +4389,11 @@ impl ParsedPredicate {
                 comparison,
                 value,
             } => date_extract_compare_expression(column, *op, *comparison, value),
+            Self::StringLengthCompare {
+                column,
+                comparison,
+                value,
+            } => string_length_compare_expression(column, *comparison, value),
             Self::TimestampExtractCompare {
                 column,
                 op,
@@ -4342,6 +4454,7 @@ impl ParsedPredicate {
             Self::NumericArithmeticCompare { .. } => "numeric_arithmetic",
             Self::DateArithmeticCompare { .. } => "date_arithmetic",
             Self::DateExtractCompare { .. } => "date_extract",
+            Self::StringLengthCompare { .. } => "string_length",
             Self::TimestampExtractCompare { .. } => "timestamp_extract",
             Self::StringTransformCompare { .. } => "string_transform",
             Self::IsNull { .. } | Self::IsNotNull { .. } => "null_predicate",
@@ -4364,6 +4477,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4396,6 +4510,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4417,6 +4532,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -4449,6 +4565,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -4481,7 +4598,98 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn uses_string_length(&self) -> bool {
+        match self {
+            Self::StringLengthCompare { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_string_length() || right.uses_string_length()
+            }
+            Self::Not { inner } => inner.uses_string_length(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn string_length_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_string_length_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_string_length_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::StringLengthCompare { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_string_length_source_columns(columns);
+                right.push_string_length_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_string_length_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn string_length_rhs_dtypes(&self) -> String {
+        let mut dtypes = Vec::new();
+        self.push_string_length_rhs_dtypes(&mut dtypes);
+        if dtypes.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            dtypes.join(",")
+        }
+    }
+
+    fn push_string_length_rhs_dtypes(&self, dtypes: &mut Vec<String>) {
+        match self {
+            Self::StringLengthCompare { value, .. } => {
+                dtypes.push(value.dtype().as_str().to_string());
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_string_length_rhs_dtypes(dtypes);
+                right.push_string_length_rhs_dtypes(dtypes);
+            }
+            Self::Not { inner } => inner.push_string_length_rhs_dtypes(dtypes),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
             | Self::InList { .. }
@@ -4501,6 +4709,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4533,6 +4742,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4565,6 +4775,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4599,6 +4810,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4635,6 +4847,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4653,6 +4866,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4681,6 +4895,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4715,6 +4930,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4738,6 +4954,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4759,6 +4976,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4779,6 +4997,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4800,6 +5019,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4824,6 +5044,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4844,6 +5065,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::IsNull { .. }
@@ -4876,6 +5098,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::IsNull { .. }
@@ -4908,6 +5131,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::IsNull { .. }
@@ -4940,6 +5164,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -4961,6 +5186,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -4993,6 +5219,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -5025,6 +5252,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
             | Self::IsNotNull { .. }
@@ -5045,6 +5273,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -5077,6 +5306,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -5109,6 +5339,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -5141,6 +5372,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::IsNull { .. }
@@ -5276,6 +5508,33 @@ fn string_transform_compare_expression(
             op: comparison,
             right: Box::new(Expression::literal(
                 ExprId::new("where.string_transform.literal")?,
+                value.clone(),
+            )),
+        },
+    ))
+}
+
+fn string_length_compare_expression(
+    column: &str,
+    comparison: ComparisonOp,
+    value: &ScalarValue,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.string_length_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::new(
+                ExprId::new(format!("where.string_length.{column}"))?,
+                ExpressionKind::FunctionCall {
+                    name: "length".to_string(),
+                    args: vec![Expression::column(
+                        ExprId::new(format!("where.{column}"))?,
+                        ColumnRef::new(column.to_string())?,
+                    )],
+                },
+            )),
+            op: comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.string_length.literal")?,
                 value.clone(),
             )),
         },
@@ -5794,6 +6053,18 @@ impl SqlLocalSourceReport {
                 self.parsed.predicate.string_transform_source_columns(),
             ),
             (
+                "string_length_runtime_execution".to_string(),
+                self.parsed.predicate.uses_string_length().to_string(),
+            ),
+            (
+                "string_length_source_column".to_string(),
+                self.parsed.predicate.string_length_source_columns(),
+            ),
+            (
+                "string_length_rhs_dtype".to_string(),
+                self.parsed.predicate.string_length_rhs_dtypes(),
+            ),
+            (
                 "numeric_arithmetic_runtime_execution".to_string(),
                 self.parsed.predicate.uses_numeric_arithmetic().to_string(),
             ),
@@ -6030,6 +6301,18 @@ impl SqlLocalSourceReport {
             (
                 "date_arithmetic_projection_output_column".to_string(),
                 self.parsed.date_arithmetic_projection_output_columns(),
+            ),
+            (
+                "string_length_projection_runtime_execution".to_string(),
+                self.parsed.has_string_length_projection().to_string(),
+            ),
+            (
+                "string_length_projection_source_column".to_string(),
+                self.parsed.string_length_projection_source_columns(),
+            ),
+            (
+                "string_length_projection_output_column".to_string(),
+                self.parsed.string_length_projection_output_columns(),
             ),
             (
                 "string_transform_projection_runtime_execution".to_string(),
@@ -7215,6 +7498,7 @@ fn parsed_sql_local_source_from_parts(
         conditional_projections: projection_list.conditional_projections,
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
         date_arithmetic_projections: projection_list.date_arithmetic_projections,
+        string_length_projections: projection_list.string_length_projections,
         string_transform_projections: projection_list.string_transform_projections,
         date_extract_projections: projection_list.date_extract_projections,
         timestamp_extract_projections: projection_list.timestamp_extract_projections,
@@ -7260,6 +7544,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut conditional_projections = Vec::new();
     let mut numeric_arithmetic_projections = Vec::new();
     let mut date_arithmetic_projections = Vec::new();
+    let mut string_length_projections = Vec::new();
     let mut string_transform_projections = Vec::new();
     let mut date_extract_projections = Vec::new();
     let mut timestamp_extract_projections = Vec::new();
@@ -7289,6 +7574,8 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             parse_date_arithmetic_projection(projection)?
         {
             date_arithmetic_projections.push(date_arithmetic_projection);
+        } else if let Some(length_projection) = parse_string_length_projection(projection)? {
+            string_length_projections.push(length_projection);
         } else if let Some(transform_projection) = parse_string_transform_projection(projection)? {
             string_transform_projections.push(transform_projection);
         } else if let Some(date_projection) = parse_date_extract_projection(projection)? {
@@ -7313,6 +7600,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         conditional_projections,
         numeric_arithmetic_projections,
         date_arithmetic_projections,
+        string_length_projections,
         string_transform_projections,
         date_extract_projections,
         timestamp_extract_projections,
@@ -7750,6 +8038,40 @@ fn parse_string_transform_projection(
     }))
 }
 
+fn parse_string_length_projection(
+    raw: &str,
+) -> Result<Option<ParsedStringLengthProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes(raw, "as") else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    let Some(open_index) = expression_raw.find('(') else {
+        return Ok(None);
+    };
+    let function_raw = expression_raw[..open_index].trim();
+    if !function_raw.eq_ignore_ascii_case("length") {
+        return Ok(None);
+    }
+    if expression_raw.is_empty() || alias.is_empty() || !expression_raw.ends_with(')') {
+        return Err(unsupported_sql_error(
+            "string length projections must be written as LENGTH(<column>) AS <column>",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let argument = expression_raw[open_index + 1..expression_raw.len() - 1].trim();
+    if argument.is_empty() {
+        return Err(unsupported_sql_error(
+            "string length projections require one source column argument",
+        ));
+    }
+    validate_sql_column_ref(argument)?;
+    Ok(Some(ParsedStringLengthProjection {
+        alias: alias.to_string(),
+        column: argument.to_string(),
+    }))
+}
+
 fn parse_date_extract_projection(
     raw: &str,
 ) -> Result<Option<ParsedDateExtractProjection>, ShardLoomError> {
@@ -8096,6 +8418,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_numeric_arithmetic_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_string_length_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_string_transform_predicate(raw)? {
         return Ok(predicate);
     }
@@ -8187,7 +8512,7 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -8726,6 +9051,45 @@ fn parse_numeric_arithmetic_literal(raw: &str) -> Result<ScalarValue, ShardLoomE
             "numeric arithmetic expressions admit int64 or finite float64 literals only",
         )),
     }
+}
+
+fn parse_string_length_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed
+        .get(..6)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("length"))
+        || trimmed.as_bytes().get(6) != Some(&b'(')
+    {
+        return Ok(None);
+    }
+    let open_index = "length".len();
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error("string length predicates must use LENGTH(<column>)")
+    })?;
+    let inner = trimmed[open_index + 1..close_index].trim();
+    let tail = trimmed[close_index + 1..].trim();
+    if inner.is_empty() || tail.is_empty() {
+        return Err(unsupported_sql_error(
+            "string length predicates require a source column, comparison operator, and int64 literal",
+        ));
+    }
+    validate_sql_column_ref(inner)?;
+    let tokens = split_whitespace_outside_quotes(tail)?;
+    let [op_raw, literal_raw] = tokens.as_slice() else {
+        return Err(unsupported_sql_error(
+            "string length predicates admit LENGTH(<column>) <op> <int-literal> only",
+        ));
+    };
+    let value @ ScalarValue::Int64(_) = parse_sql_literal(literal_raw)? else {
+        return Err(unsupported_sql_error(
+            "string length predicates compare against int64 literals only",
+        ));
+    };
+    Ok(Some(ParsedPredicate::StringLengthCompare {
+        column: inner.to_string(),
+        comparison: parse_comparison_op(op_raw)?,
+        value,
+    }))
 }
 
 fn parse_string_transform_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
@@ -9933,6 +10297,34 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_string_length_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,LENGTH(label) AS label_len FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("string length projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert!(parsed.literal_projections.is_empty());
+        assert!(parsed.string_transform_projections.is_empty());
+        assert_eq!(parsed.string_length_projections.len(), 1);
+        assert_eq!(parsed.string_length_projections[0].alias, "label_len");
+        assert_eq!(parsed.string_length_projections[0].column, "label");
+        assert_eq!(
+            parsed.string_length_projection_output_columns(),
+            "label_len"
+        );
+        assert_eq!(parsed.string_length_projection_source_columns(), "label");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn parses_scoped_temporal_extract_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,DATE_YEAR(CAST(event_date AS date32)) AS event_year,TIMESTAMP_HOUR(CAST(event_ts AS timestamp_micros)) AS event_hour FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
@@ -10314,6 +10706,28 @@ mod tests {
         assert!(parsed.predicate.uses_date_literal());
         assert_eq!(parsed.predicate.family(), "cast");
         assert_eq!(parsed.predicate.cast_target_dtypes(), "date32");
+    }
+
+    #[test]
+    fn parses_scoped_string_length_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE LENGTH(label) >= 4 LIMIT 5",
+        )
+        .expect("string length predicate statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "label"]);
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::StringLengthCompare {
+                ref column,
+                comparison: ComparisonOp::GtEq,
+                value: ScalarValue::Int64(4)
+            } if column == "label"
+        ));
+        assert_eq!(parsed.predicate.family(), "string_length");
+        assert!(parsed.predicate.uses_string_length());
+        assert_eq!(parsed.predicate.string_length_source_columns(), "label");
+        assert_eq!(parsed.predicate.string_length_rhs_dtypes(), "int64");
     }
 
     #[test]

@@ -386,7 +386,7 @@ Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
 scoped numeric arithmetic predicates such as `<column> + 5 >= 20` and
 `<column> * 2.0 > 1.0`,
 bounded `IN (...)` / `NOT IN (...)`, direct SQL `BETWEEN` / `NOT BETWEEN`, inclusive Python
-`between(...)` range predicates, string
+`between(...)` range predicates, UTF-8 `LENGTH(column)` comparisons against integer literals, string
 `LIKE` / `NOT LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
 leaves. `where(...)` is a familiar alias for `filter(...)`. `IN` lists admit up to 32
 literal values from one scalar family, including `DATE 'YYYY-MM-DD'` lists and `NULL`
@@ -394,7 +394,9 @@ literals with SQL three-valued `WHERE`-filter semantics. Typed reports expose
 `in_predicate_runtime_execution`, `in_list_value_count`, `in_list_null_value_count`, and
 `in_predicate_null_semantics`, plus `numeric_arithmetic_runtime_execution`,
 `numeric_arithmetic_operator`, `numeric_arithmetic_source_column`, and
-`numeric_arithmetic_rhs_dtype` when arithmetic predicates are used.
+`numeric_arithmetic_rhs_dtype` when arithmetic predicates are used, plus
+`string_length_runtime_execution`, `string_length_source_column`, and `string_length_rhs_dtype`
+when UTF-8 length predicates are used.
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
 `not_contains()`, `startswith()`, `not_startswith()`, `endswith()`, `not_endswith()`, `like(...)`,
@@ -402,7 +404,7 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
 `timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons, and the scoped
-numeric `+`, `-`, `*`, and `/` operators for left-side arithmetic predicates into the same
+UTF-8 `length()` helper and numeric `+`, `-`, `*`, and `/` operators for left-side arithmetic predicates into the same
 ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed computed `with_column(...)` is also admitted after an explicit `select(...)` for local
 CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
@@ -410,6 +412,7 @@ projection/filter/limit workflows. The current slice accepts deterministic `lit(
 direct bool/int/float literals, and scoped numeric arithmetic expressions shaped as
 `sl.col("amount") + 5`, `-`, `*`, or `/` with an int/finite-float literal, plus scoped UTF-8
 `sl.col("label").lower()`, `.upper()`, and `.trim()` projections, scoped
+`sl.col("label").length()` / `sl.length(sl.col("label"))` projections, scoped
 `sl.col("amount").cast("float64")` / `.cast("date32")` / `.cast("timestamp_micros")`
 projections, and scoped Date32/UTC timestamp extract projections such as
 `sl.col("event_date").cast("date32").date_year()` or
@@ -424,7 +427,8 @@ conditional projections such as
 `sl.case_when(sl.col("amount") >= 10, "large", "small")`. Literal projections emit
 `literal_projection_*` evidence; cast projections emit `cast_projection_*` evidence; numeric
 arithmetic projections emit `numeric_arithmetic_projection_*` evidence; string transform
-projections emit `string_transform_projection_*` evidence; date/time extract projections emit
+projections emit `string_transform_projection_*` evidence; string length projections emit
+`string_length_projection_*` evidence; date/time extract projections emit
 `date_extract_projection_*` and `timestamp_extract_projection_*` evidence; date arithmetic
 projections emit `date_arithmetic_projection_*` evidence; null coalesce projections emit
 `null_coalesce_projection_*` evidence; nullif projections emit `nullif_projection_*` evidence;
@@ -649,7 +653,8 @@ print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 This is a fixture-smoke local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar
 Parquet/Arrow IPC/Avro/ORC bridge for the scoped
 projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
-preview/head/take select-star, input-backed literal and scoped numeric arithmetic `with_column`,
+preview/head/take select-star, input-backed literal, scoped numeric arithmetic, and scoped
+UTF-8 string length `with_column`,
 and single-key numeric top-N shapes.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,

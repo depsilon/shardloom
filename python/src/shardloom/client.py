@@ -648,6 +648,30 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def string_length_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted UTF-8 length predicate."""
+
+        return self.envelope.field_bool("string_length_runtime_execution", False) is True
+
+    @property
+    def string_length_source_columns(self) -> tuple[str, ...]:
+        """Return UTF-8 length predicate source columns emitted by the smoke."""
+
+        value = self.envelope.field("string_length_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_length_rhs_dtypes(self) -> tuple[str, ...]:
+        """Return UTF-8 length predicate literal dtypes emitted by the smoke."""
+
+        value = self.envelope.field("string_length_rhs_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def numeric_arithmetic_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted numeric arithmetic predicate."""
 
@@ -967,6 +991,33 @@ class SqlLocalSourceSmokeReport:
         """Return UTF-8 transform projection output columns emitted by the smoke."""
 
         value = self.envelope.field("string_transform_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_length_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted UTF-8 length projection."""
+
+        return (
+            self.envelope.field_bool("string_length_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def string_length_projection_source_columns(self) -> tuple[str, ...]:
+        """Return UTF-8 length projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("string_length_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_length_projection_output_columns(self) -> tuple[str, ...]:
+        """Return UTF-8 length projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("string_length_projection_output_column", "")
         if not value or value == "not_applicable":
             return ()
         return tuple(part for part in value.split(",") if part)
