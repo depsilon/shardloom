@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-REDESIGN-2G framework migration decision and implementation gate
+  - Branch/PR: `codex/website-framework-decision` / #832.
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/website-redesign-framework-decision.md`
+    - `docs/architecture/website-atlas-framework-decision.md`
+    - `docs/legal/static-website-third-party-assets.md`
+    - `website/README.md`
+  - Decision: keep the current Python static generator, committed static HTML/CSS/JS output, and
+    Cloudflare Workers Static Assets deployment. Do not migrate to Astro, Starlight, Pagefind, or
+    another website framework/search bundle in this slice.
+  - Migration status: `blocked_pending_explicit_approval`.
+  - Evidence:
+    - Current generated site has 67 committed HTML files, including public shell pages, 32 Field
+      Guide dossier pages, 19 use-case detail pages, and compatibility/index pages.
+    - `wrangler.toml` continues to serve `./website`.
+    - `scripts/check_website_readiness.py` and `website/validate_static_assets.js` now enforce the
+      publication and claim-safety gate.
+    - `website/pagefind/` is not part of the current public site.
+  - Documentation changes:
+    - Added `docs/architecture/website-redesign-framework-decision.md` as the current decision
+      record, with options, revisit triggers, migration blockers, and rollback path.
+    - Replaced the old `docs/architecture/website-atlas-framework-decision.md` with a superseded
+      historical pointer so stale Pagefind/Astro language is not treated as current guidance.
+    - Updated `docs/legal/static-website-third-party-assets.md` to state that the current website
+      has no committed third-party runtime asset bundle and that Pagefind has been retired.
+    - Updated `website/README.md` to document the framework decision and dependency-review
+      boundary.
+  - Verification:
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - bundled Node runtime: `website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q scripts website`
+    - `git diff --check`
+  - Claim boundary: framework decision only. This does not add runtime behavior, benchmark
+    recomputation, package publication, performance/superiority claims, Spark replacement claims,
+    production SQL/DataFrame support, object-store/lakehouse runtime, Foundry production support,
+    or managed/distributed support.
+  - Fallback boundary: no external compute/search fallback, runtime content fetch, or external
+    search SaaS is introduced.
+
 - [x] Session label: GAR-WEB-REDESIGN-2F performance, accessibility, and claim-safety gate
   - Branch/PR: `codex/website-readiness-gate-hardening` / #831.
   - Primary files:

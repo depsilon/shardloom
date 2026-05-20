@@ -39,6 +39,12 @@ The generator:
 
 Cloudflare serves committed files from `website/`; it does not run the generator during deployment.
 
+## Framework Decision
+
+The current website intentionally stays on the Python static generator. Astro, Starlight, Pagefind,
+or another framework/search bundle must not be added without a new approved implementation slice and
+dependency/license review. See `docs/architecture/website-redesign-framework-decision.md`.
+
 ## Validation
 
 ```powershell

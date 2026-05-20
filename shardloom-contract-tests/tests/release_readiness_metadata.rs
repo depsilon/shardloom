@@ -3161,6 +3161,64 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
 
+    let current_framework_decision =
+        read_repo_file("docs/architecture/website-redesign-framework-decision.md");
+    for required in [
+        "Status: accepted for `GAR-WEB-REDESIGN-2G`",
+        "Recommendation: keep the current Python static generator",
+        "Migration status: `blocked_pending_explicit_approval`",
+        "67 committed HTML files",
+        "There is no current Pagefind runtime bundle",
+        "Astro custom remains the preferred future migration candidate",
+        "No framework migration may begin",
+        "dependency/license review for npm packages",
+        "no external search SaaS",
+        "no Pagefind/static-search bundle unless explicitly reapproved",
+    ] {
+        assert!(
+            current_framework_decision.contains(required),
+            "missing current website framework decision field {required}"
+        );
+    }
+
+    let old_framework_decision =
+        read_repo_file("docs/architecture/website-atlas-framework-decision.md");
+    for required in [
+        "Status: superseded historical decision",
+        "website-redesign-framework-decision.md",
+        "Do not use this historical document to justify Pagefind",
+    ] {
+        assert!(
+            old_framework_decision.contains(required),
+            "missing superseded website framework pointer {required}"
+        );
+    }
+
+    let third_party = read_repo_file("docs/legal/static-website-third-party-assets.md");
+    for required in [
+        "no committed third-party runtime asset bundle",
+        "`website/pagefind/` must not exist",
+        "reject Pagefind runtime references",
+        "runtime `raw.githubusercontent.com` content fetches remain forbidden",
+        "dependency/license review item",
+    ] {
+        assert!(
+            third_party.contains(required),
+            "missing current third-party website asset posture {required}"
+        );
+    }
+    let notice = read_repo_file("NOTICE");
+    for required in [
+        "does not commit a third-party runtime asset bundle",
+        "Historical Pagefind website assets were retired",
+        "docs/legal/static-website-third-party-assets.md",
+    ] {
+        assert!(
+            notice.contains(required),
+            "missing current website asset NOTICE field {required}"
+        );
+    }
+
     if std::env::var_os("SHARDLOOM_RUN_RETIRED_WEBSITE_ATLAS_CONTRACT").is_none() {
         return;
     }
