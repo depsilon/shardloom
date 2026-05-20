@@ -335,14 +335,19 @@ or documentation updates alone are insufficient.
     `<column> (+|-|*|/) <numeric literal> <comparison> <numeric literal>` are runtime-admitted for
     same-family `int64` and finite `float64` literal families with `numeric_arithmetic_*` evidence,
     ShardLoom-native null propagation, and deterministic blockers for division by zero, mixed
-    literal families, or unsupported expression shapes.
+    literal families, or unsupported expression shapes. Scoped local-source numeric arithmetic
+    projections of the form `<column> (+|-|*|/) <numeric literal> AS <column>` are also
+    runtime-admitted for explicit projection/filter/limit rows with
+    `numeric_arithmetic_projection_*` evidence, ShardLoom-native null propagation, deterministic
+    duplicate-output-name blockers, and deterministic division-by-zero/unsupported-shape blockers.
     Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`
     / `NOT LIKE`, scoped UTF-8 lower/upper/trim transforms, bounded `IN` / `NOT IN`,
     cast/date/timestamp, Date32 extracts, Date32 day arithmetic, scoped UTC timestamp extracts,
-    scoped numeric arithmetic comparison operators, and logical predicates into the same local SQL
-    smoke path, plus `where(...)` as a familiar filter alias. User workflows still lack broad typed
-    coercions, generalized arithmetic expression trees and projections, mixed numeric coercions,
+    scoped numeric arithmetic comparison operators, scoped numeric arithmetic `with_column(...)`,
+    and logical predicates into the same local SQL smoke path, plus `where(...)` as a familiar
+    filter alias. User workflows still lack broad typed
+    coercions, generalized arithmetic expression trees and generalized projections, mixed numeric coercions,
     timezone-database helpers, interval/date-time completeness, subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
     family coverage.

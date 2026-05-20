@@ -170,6 +170,7 @@ impl SqlLocalSourceOutputFormat {
 struct ParsedSqlLocalSource {
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
+    numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
     order_by: Option<ParsedOrderBy>,
@@ -191,6 +192,14 @@ struct ParsedAggregate {
 struct ParsedLiteralProjection {
     alias: String,
     value: ScalarValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedNumericArithmeticProjection {
+    alias: String,
+    column: String,
+    op: NumericArithmeticOp,
+    rhs: ScalarValue,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -291,6 +300,7 @@ impl SortValue {
 struct ParsedProjectionList {
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
+    numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     aggregates: Vec<ParsedAggregate>,
 }
 
@@ -1571,6 +1581,13 @@ fn evaluate_projection_output(
                 .map(literal_projection_expression)
                 .collect::<Result<Vec<_>, ShardLoomError>>()?,
         )
+        .chain(
+            parsed
+                .numeric_arithmetic_projections
+                .iter()
+                .map(numeric_arithmetic_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
         .collect::<Vec<_>>();
     let mut output_rows = Vec::new();
     for row_index in selected_row_indexes.iter().take(parsed.limit) {
@@ -1598,6 +1615,35 @@ fn evaluate_projection_output(
         );
     }
     Ok(output_rows)
+}
+
+fn numeric_arithmetic_projection_expression(
+    projection: &ParsedNumericArithmeticProjection,
+) -> Result<Expression, ShardLoomError> {
+    let binary = Expression::new(
+        ExprId::new(format!("project.numeric_arithmetic.{}", projection.alias))?,
+        ExpressionKind::Binary {
+            left: Box::new(Expression::column(
+                ExprId::new(format!("project.{}", projection.column))?,
+                ColumnRef::new(projection.column.clone())?,
+            )),
+            op: projection.op.binary_op(),
+            right: Box::new(Expression::literal(
+                ExprId::new(format!(
+                    "project.numeric_arithmetic.literal.{}",
+                    projection.alias
+                ))?,
+                projection.rhs.clone(),
+            )),
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(binary),
+            alias: projection.alias.clone(),
+        },
+    ))
 }
 
 fn literal_projection_expression(
@@ -2462,6 +2508,29 @@ fn bind_sql_local_source(
     if parsed.is_join() {
         return bind_join_sql_local_source(parsed, header, right_header);
     }
+    validate_order_by_source(parsed, header)?;
+    validate_computed_projection_shape(parsed)?;
+    validate_projection_output_names(parsed)?;
+    if parsed.is_grouped_aggregate() {
+        validate_grouped_aggregate_sources(parsed, header)?;
+    } else if parsed.is_aggregate() {
+        validate_scalar_aggregate_sources(parsed, header)?;
+    } else {
+        validate_projection_source_columns(parsed, header)?;
+    }
+    if !parsed.group_by.is_empty() && !parsed.is_grouped_aggregate() {
+        return Err(unsupported_sql_error(
+            "GROUP BY requires at least one aggregate function in this scoped smoke",
+        ));
+    }
+    validate_predicate_source_columns(parsed, header)?;
+    Ok(())
+}
+
+fn validate_order_by_source(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
     if let Some(order_by) = parsed.order_by.as_ref() {
         if parsed.is_aggregate() || parsed.is_grouped_aggregate() {
             return Err(unsupported_sql_error(
@@ -2475,7 +2544,11 @@ fn bind_sql_local_source(
             )));
         }
     }
-    if !parsed.literal_projections.is_empty()
+    Ok(())
+}
+
+fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
+    if (parsed.has_literal_projection() || parsed.has_numeric_arithmetic_projection())
         && (parsed.is_aggregate()
             || !parsed.group_by.is_empty()
             || parsed.order_by.is_some()
@@ -2483,66 +2556,93 @@ fn bind_sql_local_source(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "literal projection smoke currently admits explicit projection columns plus <literal> AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column> or <column> (+|-|*|/) <numeric-literal> AS <column> before optional filter/limit only",
         ));
     }
-    validate_literal_projection_output_names(parsed)?;
-    if parsed.is_grouped_aggregate() {
-        if parsed.projections != parsed.group_by {
-            return Err(unsupported_sql_error(
-                "GROUP BY smoke requires SELECT group columns to exactly match GROUP BY columns before aggregate functions",
-            ));
+    Ok(())
+}
+
+fn validate_grouped_aggregate_sources(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
+    if parsed.projections != parsed.group_by {
+        return Err(unsupported_sql_error(
+            "GROUP BY smoke requires SELECT group columns to exactly match GROUP BY columns before aggregate functions",
+        ));
+    }
+    for column in &parsed.group_by {
+        if !header.iter().any(|candidate| candidate == column) {
+            return Err(unsupported_sql_error(&format!(
+                "GROUP BY column {column:?} is not present in the CSV header"
+            )));
         }
-        for column in &parsed.group_by {
+    }
+    validate_aggregate_source_columns(parsed, header)
+}
+
+fn validate_scalar_aggregate_sources(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
+    if parsed.has_literal_projection() || parsed.has_numeric_arithmetic_projection() {
+        return Err(unsupported_sql_error(
+            "scalar aggregate SELECT list cannot mix aggregate functions with computed projections in this scoped smoke",
+        ));
+    }
+    if !parsed.projections.is_empty() {
+        return Err(unsupported_sql_error(
+            "scalar aggregate SELECT list cannot mix aggregate functions with raw columns in this scoped smoke",
+        ));
+    }
+    validate_aggregate_source_columns(parsed, header)
+}
+
+fn validate_aggregate_source_columns(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
+    for aggregate in &parsed.aggregates {
+        if let Some(column) = aggregate.column.as_deref() {
             if !header.iter().any(|candidate| candidate == column) {
                 return Err(unsupported_sql_error(&format!(
-                    "GROUP BY column {column:?} is not present in the CSV header"
-                )));
-            }
-        }
-        for aggregate in &parsed.aggregates {
-            if let Some(column) = aggregate.column.as_deref() {
-                if !header.iter().any(|candidate| candidate == column) {
-                    return Err(unsupported_sql_error(&format!(
-                        "aggregate column {column:?} is not present in the CSV header"
-                    )));
-                }
-            }
-        }
-    } else if parsed.is_aggregate() {
-        if !parsed.literal_projections.is_empty() {
-            return Err(unsupported_sql_error(
-                "scalar aggregate SELECT list cannot mix aggregate functions with literal projections in this scoped smoke",
-            ));
-        }
-        if !parsed.projections.is_empty() {
-            return Err(unsupported_sql_error(
-                "scalar aggregate SELECT list cannot mix aggregate functions with raw columns in this scoped smoke",
-            ));
-        }
-        for aggregate in &parsed.aggregates {
-            if let Some(column) = aggregate.column.as_deref() {
-                if !header.iter().any(|candidate| candidate == column) {
-                    return Err(unsupported_sql_error(&format!(
-                        "aggregate column {column:?} is not present in the CSV header"
-                    )));
-                }
-            }
-        }
-    } else {
-        for column in parsed.projection_columns(header) {
-            if !header.iter().any(|candidate| candidate == &column) {
-                return Err(unsupported_sql_error(&format!(
-                    "projection column {column:?} is not present in the CSV header"
+                    "aggregate column {column:?} is not present in the CSV header"
                 )));
             }
         }
     }
-    if !parsed.group_by.is_empty() && !parsed.is_grouped_aggregate() {
-        return Err(unsupported_sql_error(
-            "GROUP BY requires at least one aggregate function in this scoped smoke",
-        ));
+    Ok(())
+}
+
+fn validate_projection_source_columns(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
+    for column in parsed.projection_columns(header) {
+        if !header.iter().any(|candidate| candidate == &column) {
+            return Err(unsupported_sql_error(&format!(
+                "projection column {column:?} is not present in the CSV header"
+            )));
+        }
     }
+    for projection in &parsed.numeric_arithmetic_projections {
+        if !header
+            .iter()
+            .any(|candidate| candidate == &projection.column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "numeric arithmetic projection source column {:?} is not present in the CSV header",
+                projection.column
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_predicate_source_columns(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
     for predicate_column in parsed.predicate.columns() {
         if !header.iter().any(|candidate| candidate == predicate_column) {
             return Err(unsupported_sql_error(&format!(
@@ -2553,24 +2653,29 @@ fn bind_sql_local_source(
     Ok(())
 }
 
-fn validate_literal_projection_output_names(
-    parsed: &ParsedSqlLocalSource,
-) -> Result<(), ShardLoomError> {
-    if parsed.literal_projections.is_empty() {
+fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
+    if parsed.literal_projections.is_empty() && parsed.numeric_arithmetic_projections.is_empty() {
         return Ok(());
     }
     let mut output_names = BTreeSet::new();
     for column in &parsed.projections {
         if !output_names.insert(column.as_str()) {
             return Err(unsupported_sql_error(
-                "literal projection smoke requires unique output column names",
+                "computed projection smoke requires unique output column names",
             ));
         }
     }
     for literal_projection in &parsed.literal_projections {
         if !output_names.insert(literal_projection.alias.as_str()) {
             return Err(unsupported_sql_error(
-                "literal projection smoke requires unique output column names",
+                "computed projection smoke requires unique output column names",
+            ));
+        }
+    }
+    for arithmetic_projection in &parsed.numeric_arithmetic_projections {
+        if !output_names.insert(arithmetic_projection.alias.as_str()) {
+            return Err(unsupported_sql_error(
+                "computed projection smoke requires unique output column names",
             ));
         }
     }
@@ -2599,6 +2704,7 @@ fn bind_join_sql_local_source(
         || !parsed.group_by.is_empty()
         || parsed.order_by.is_some()
         || !parsed.literal_projections.is_empty()
+        || !parsed.numeric_arithmetic_projections.is_empty()
         || parsed.projections.is_empty()
     {
         return Err(unsupported_sql_error(
@@ -2717,6 +2823,10 @@ impl ParsedSqlLocalSource {
         !self.literal_projections.is_empty()
     }
 
+    fn has_numeric_arithmetic_projection(&self) -> bool {
+        !self.numeric_arithmetic_projections.is_empty()
+    }
+
     fn statement_kind(&self) -> &'static str {
         if self.is_join() && self.has_filter() {
             "local_source_inner_equi_join_filter_limit"
@@ -2734,6 +2844,10 @@ impl ParsedSqlLocalSource {
             "local_source_aggregate_filter_limit"
         } else if self.is_aggregate() {
             "local_source_aggregate_limit"
+        } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_numeric_arithmetic_projection() {
+            "local_source_computed_projection_limit"
         } else if self.has_literal_projection() && self.has_filter() {
             "local_source_literal_projection_filter_limit"
         } else if self.has_literal_projection() {
@@ -2762,6 +2876,10 @@ impl ParsedSqlLocalSource {
             "aggregate-filter-limit"
         } else if self.is_aggregate() {
             "aggregate-limit"
+        } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_numeric_arithmetic_projection() {
+            "computed-projection-limit"
         } else if self.has_literal_projection() && self.has_filter() {
             "literal-projection-filter-limit"
         } else if self.has_literal_projection() {
@@ -2790,6 +2908,10 @@ impl ParsedSqlLocalSource {
             "scalar_aggregate_filter_limit"
         } else if self.is_aggregate() {
             "scalar_aggregate_limit"
+        } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_numeric_arithmetic_projection() {
+            "computed_projection_limit"
         } else if self.has_literal_projection() && self.has_filter() {
             "literal_projection_filter_limit"
         } else if self.has_literal_projection() {
@@ -2831,7 +2953,60 @@ impl ParsedSqlLocalSource {
                         .iter()
                         .map(|projection| projection.alias.clone()),
                 )
+                .chain(
+                    self.numeric_arithmetic_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
                 .collect()
+        }
+    }
+
+    fn numeric_arithmetic_projection_operators(&self) -> String {
+        if self.numeric_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.numeric_arithmetic_projections
+                .iter()
+                .map(|projection| projection.op.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn numeric_arithmetic_projection_source_columns(&self) -> String {
+        if self.numeric_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.numeric_arithmetic_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn numeric_arithmetic_projection_output_columns(&self) -> String {
+        if self.numeric_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.numeric_arithmetic_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn numeric_arithmetic_projection_rhs_dtypes(&self) -> String {
+        if self.numeric_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.numeric_arithmetic_projections
+                .iter()
+                .map(|projection| projection.rhs.dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
         }
     }
 }
@@ -4596,6 +4771,26 @@ impl SqlLocalSourceReport {
                 "literal_projection_count".to_string(),
                 self.parsed.literal_projections.len().to_string(),
             ),
+            (
+                "numeric_arithmetic_projection_runtime_execution".to_string(),
+                self.parsed.has_numeric_arithmetic_projection().to_string(),
+            ),
+            (
+                "numeric_arithmetic_projection_operator".to_string(),
+                self.parsed.numeric_arithmetic_projection_operators(),
+            ),
+            (
+                "numeric_arithmetic_projection_source_column".to_string(),
+                self.parsed.numeric_arithmetic_projection_source_columns(),
+            ),
+            (
+                "numeric_arithmetic_projection_output_column".to_string(),
+                self.parsed.numeric_arithmetic_projection_output_columns(),
+            ),
+            (
+                "numeric_arithmetic_projection_rhs_dtype".to_string(),
+                self.parsed.numeric_arithmetic_projection_rhs_dtypes(),
+            ),
             ("projection_pushed_down".to_string(), "false".to_string()),
             ("filter_pushed_down".to_string(), "false".to_string()),
             ("limit_pushed_down".to_string(), "false".to_string()),
@@ -5706,6 +5901,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     Ok(ParsedSqlLocalSource {
         projections: projection_list.projections,
         literal_projections: projection_list.literal_projections,
+        numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
         aggregates: projection_list.aggregates,
         group_by,
         order_by,
@@ -5742,6 +5938,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     }
     let mut projections = Vec::with_capacity(entries.len());
     let mut literal_projections = Vec::new();
+    let mut numeric_arithmetic_projections = Vec::new();
     let mut aggregates = Vec::new();
     let projection_count = entries.len();
     for projection in entries {
@@ -5755,6 +5952,9 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             projections.push("*".to_string());
         } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
             aggregates.push(aggregate);
+        } else if let Some(arithmetic_projection) = parse_numeric_arithmetic_projection(projection)?
+        {
+            numeric_arithmetic_projections.push(arithmetic_projection);
         } else if let Some(literal_projection) = parse_literal_projection(projection)? {
             literal_projections.push(literal_projection);
         } else {
@@ -5765,6 +5965,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     Ok(ParsedProjectionList {
         projections,
         literal_projections,
+        numeric_arithmetic_projections,
         aggregates,
     })
 }
@@ -5790,6 +5991,49 @@ fn parse_literal_projection(raw: &str) -> Result<Option<ParsedLiteralProjection>
     Ok(Some(ParsedLiteralProjection {
         alias: alias.to_string(),
         value,
+    }))
+}
+
+fn parse_numeric_arithmetic_projection(
+    raw: &str,
+) -> Result<Option<ParsedNumericArithmeticProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes(raw, "as") else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    let tokens = split_whitespace_outside_quotes(expression_raw)?;
+    let Some(op_index) = tokens
+        .iter()
+        .position(|token| parse_numeric_arithmetic_op(token).is_some())
+    else {
+        return Ok(None);
+    };
+    if expression_raw.is_empty() || alias.is_empty() || tokens.len() != 3 || op_index != 1 {
+        return Err(unsupported_sql_error(
+            "numeric arithmetic projections must be written as <column> (+|-|*|/) <numeric-literal> AS <column>",
+        ));
+    }
+    validate_sql_column_ref(&tokens[0])?;
+    validate_sql_identifier(alias)?;
+    let op = parse_numeric_arithmetic_op(&tokens[1]).expect("arithmetic op was detected");
+    let rhs = parse_numeric_arithmetic_literal(&tokens[2])?;
+    if matches!(
+        (op, &rhs),
+        (
+            NumericArithmeticOp::Divide,
+            ScalarValue::Int64(0) | ScalarValue::Float64(0.0)
+        )
+    ) {
+        return Err(unsupported_sql_error(
+            "numeric arithmetic projection division by zero is not admitted",
+        ));
+    }
+    Ok(Some(ParsedNumericArithmeticProjection {
+        alias: alias.to_string(),
+        column: tokens[0].clone(),
+        op,
+        rhs,
     }))
 }
 
@@ -6664,7 +6908,7 @@ fn parse_numeric_arithmetic_literal(raw: &str) -> Result<ScalarValue, ShardLoomE
     match parse_sql_literal(raw)? {
         value @ (ScalarValue::Int64(_) | ScalarValue::Float64(_)) => Ok(value),
         _ => Err(unsupported_sql_error(
-            "numeric arithmetic predicates admit int64 or finite float64 literals only",
+            "numeric arithmetic expressions admit int64 or finite float64 literals only",
         )),
     }
 }
@@ -7554,6 +7798,49 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_numeric_arithmetic_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,amount + 5 AS adjusted,ratio * 2.0 AS doubled FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+        )
+        .expect("numeric arithmetic projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert!(parsed.literal_projections.is_empty());
+        assert_eq!(parsed.numeric_arithmetic_projections.len(), 2);
+        assert_eq!(parsed.numeric_arithmetic_projections[0].alias, "adjusted");
+        assert_eq!(parsed.numeric_arithmetic_projections[0].column, "amount");
+        assert_eq!(
+            parsed.numeric_arithmetic_projections[0].op,
+            NumericArithmeticOp::Add
+        );
+        assert_eq!(
+            parsed.numeric_arithmetic_projections[0].rhs,
+            ScalarValue::Int64(5)
+        );
+        assert_eq!(parsed.numeric_arithmetic_projections[1].alias, "doubled");
+        assert_eq!(
+            parsed.numeric_arithmetic_projection_output_columns(),
+            "adjusted,doubled"
+        );
+        assert_eq!(
+            parsed.numeric_arithmetic_projection_source_columns(),
+            "amount,ratio"
+        );
+        assert_eq!(
+            parsed.numeric_arithmetic_projection_operators(),
+            "add,multiply"
+        );
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn literal_projection_duplicate_output_names_are_blocked() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,'north' AS id FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
@@ -7567,7 +7854,41 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("literal projection smoke requires unique output column names"),
+                .contains("computed projection smoke requires unique output column names"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn numeric_arithmetic_projection_duplicate_output_names_are_blocked() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,amount + 1 AS id FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+        )
+        .expect("numeric arithmetic projection statement parses before binding");
+        let header = vec!["id".to_string(), "amount".to_string()];
+
+        let error = bind_sql_local_source(&parsed, &header, None)
+            .expect_err("duplicate arithmetic projection output name is blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("computed projection smoke requires unique output column names"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn numeric_arithmetic_projection_divide_by_zero_is_blocked() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,amount / 0 AS ratio FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect_err("division by zero projection is blocked during parsing");
+
+        assert!(
+            error
+                .to_string()
+                .contains("numeric arithmetic projection division by zero is not admitted"),
             "{error}"
         );
     }

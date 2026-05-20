@@ -404,10 +404,14 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons, and the scoped
 numeric `+`, `-`, `*`, and `/` operators for left-side arithmetic predicates into the same
 ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
-Input-backed literal `with_column(...)` is also admitted after an explicit `select(...)` for local
-CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC projection/filter/limit workflows. The first slice accepts only
-deterministic `lit(...)` values or direct bool/int/float literals, emits literal-projection
-evidence, and blocks non-literal expressions before fallback.
+Input-backed computed `with_column(...)` is also admitted after an explicit `select(...)` for local
+CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
+projection/filter/limit workflows. The current slice accepts deterministic `lit(...)` values,
+direct bool/int/float literals, and scoped numeric arithmetic expressions shaped as
+`sl.col("amount") + 5`, `-`, `*`, or `/` with an int/finite-float literal. Literal projections emit
+`literal_projection_*` evidence; numeric arithmetic projections emit
+`numeric_arithmetic_projection_*` evidence. Unsupported computed-column expressions still block
+before fallback.
 CSV, local flat
 JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
@@ -472,6 +476,14 @@ literal_column = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
     .with_column("segment", "lit('north')")
+    .filter(sl.col("amount") >= 10)
+    .limit(10)
+    .collect()
+)
+arithmetic_column = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id")
+    .with_column("adjusted", sl.col("amount") + 5)
     .filter(sl.col("amount") >= 10)
     .limit(10)
     .collect()
@@ -551,6 +563,11 @@ print(head.result_rows)
 print(take.result_rows)
 print(filtered.logical_predicate_operator, filtered.logical_predicate_leaf_count)
 print(
+    arithmetic_column.result_rows,
+    arithmetic_column.numeric_arithmetic_projection_operator,
+    arithmetic_column.numeric_arithmetic_projection_output_columns,
+)
+print(
     in_filtered.in_predicate_runtime_execution,
     in_filtered.in_list_value_count,
     in_filtered.in_list_null_value_count,
@@ -609,10 +626,11 @@ print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 This is a fixture-smoke local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar
 Parquet/Arrow IPC/Avro/ORC bridge for the scoped
 projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
-preview/head/take select-star, input-backed literal `with_column`, and single-key numeric top-N shapes.
+preview/head/take select-star, input-backed literal and scoped numeric arithmetic `with_column`,
+and single-key numeric top-N shapes.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
-non-literal `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON,
+general expression-backed `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON,
 broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
@@ -686,7 +704,7 @@ That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
 generality, grouped aliases, multi-key sorts, null ordering, collation parity,
 subquery-backed `IN` / `NOT IN`, arbitrary predicate-tree completeness beyond the admitted
 parenthesized leaves, Python/DataFrame joins beyond
-the scoped local CSV inner-equi query-builder bridge, non-literal input-backed `with_column`,
+the scoped local CSV inner-equi query-builder bridge, broad expression-backed input-backed `with_column`,
 outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and
 production query support remain blocked until later runtime slices.
 

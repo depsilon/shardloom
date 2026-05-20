@@ -779,6 +779,90 @@ fn sql_local_source_smoke_executes_literal_projection_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-numeric-arithmetic-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,amount,ratio\n1,8,0.25\n2,15,0.5\n3,21,0.75\n4,,1.25\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,amount + 5 AS adjusted,ratio * 2.0 AS doubled FROM '{}' WHERE amount >= 10 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field(
+        "numeric_arithmetic_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "numeric_arithmetic_projection_operator",
+        "add,multiply"
+    )));
+    assert!(stdout.contains(&field(
+        "numeric_arithmetic_projection_source_column",
+        "amount,ratio"
+    )));
+    assert!(stdout.contains(&field(
+        "numeric_arithmetic_projection_output_column",
+        "adjusted,doubled"
+    )));
+    assert!(stdout.contains(&field(
+        "numeric_arithmetic_projection_rhs_dtype",
+        "int64,float64"
+    )));
+    assert!(stdout.contains(&field("projected_columns", "id,adjusted,doubled")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"adjusted\\\":20,\\\"doubled\\\":1.0}\\n{\\\"id\\\":3,\\\"adjusted\\\":26,\\\"doubled\\\":1.5}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,amount / 0 AS broken FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(
+        blocked_output.contains("numeric arithmetic projection division by zero is not admitted")
+    );
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
     let source_path = unique_path("sql-local-source-no-filter", "csv");
     fs::write(

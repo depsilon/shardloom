@@ -648,6 +648,86 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def numeric_arithmetic_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted numeric arithmetic predicate."""
+
+        return self.envelope.field_bool("numeric_arithmetic_runtime_execution", False) is True
+
+    @property
+    def numeric_arithmetic_operator(self) -> tuple[str, ...]:
+        """Return numeric arithmetic predicate operators emitted by the smoke."""
+
+        value = self.envelope.field("numeric_arithmetic_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_arithmetic_source_columns(self) -> tuple[str, ...]:
+        """Return numeric arithmetic predicate source columns emitted by the smoke."""
+
+        value = self.envelope.field("numeric_arithmetic_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_arithmetic_rhs_dtypes(self) -> tuple[str, ...]:
+        """Return numeric arithmetic predicate literal dtypes emitted by the smoke."""
+
+        value = self.envelope.field("numeric_arithmetic_rhs_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_arithmetic_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted numeric arithmetic projection."""
+
+        return (
+            self.envelope.field_bool(
+                "numeric_arithmetic_projection_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def numeric_arithmetic_projection_operator(self) -> tuple[str, ...]:
+        """Return numeric arithmetic projection operators emitted by the smoke."""
+
+        value = self.envelope.field("numeric_arithmetic_projection_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_arithmetic_projection_source_columns(self) -> tuple[str, ...]:
+        """Return numeric arithmetic projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("numeric_arithmetic_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_arithmetic_projection_output_columns(self) -> tuple[str, ...]:
+        """Return numeric arithmetic projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("numeric_arithmetic_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_arithmetic_projection_rhs_dtypes(self) -> tuple[str, ...]:
+        """Return numeric arithmetic projection literal dtypes emitted by the smoke."""
+
+        value = self.envelope.field("numeric_arithmetic_projection_rhs_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def output_io_performed(self) -> bool:
         """Whether the smoke wrote a local output file."""
 
