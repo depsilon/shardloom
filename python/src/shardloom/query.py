@@ -20,7 +20,7 @@ from .client import (
 )
 from .models import ClaimSummary, Diagnostic, EvidenceSummary, OutputEnvelope
 
-SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet")
+SUPPORTED_SOURCE_FORMATS = ("vortex", "csv", "json", "parquet", "arrow-ipc")
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,7 +40,8 @@ class WorkflowSource:
     def to_summary(self) -> str:
         """Return a deterministic source summary for CLI explain/estimate calls."""
 
-        return f"read_{self.source_format}({self.uri})"
+        source_method = self.source_format.replace("-", "_")
+        return f"read_{source_method}({self.uri})"
 
 
 @dataclass(frozen=True, slots=True)
@@ -967,7 +968,7 @@ class LazyFrame:
         *,
         check: bool = False,
     ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
-        """Collect rows for admitted local CSV/flat JSONL/flat JSON SQL smoke shapes."""
+        """Collect rows for admitted local file SQL smoke shapes."""
 
         if statement := self._sql_local_source_statement():
             return self.client.sql_local_source_smoke(statement, check=check)
@@ -1002,7 +1003,7 @@ class LazyFrame:
         statement = self._sql_local_source_statement()
         if statement is None:
             raise ValueError(
-                "LazyFrame.write currently requires a local CSV, flat JSONL/NDJSON, flat JSON, or feature-gated flat Parquet source with "
+                "LazyFrame.write currently requires a local CSV, flat JSONL/NDJSON, flat JSON, feature-gated flat Parquet, or feature-gated flat Arrow IPC source with "
                 "select(...), optional filter(...), and limit(...) operations, "
                 "aggregate(...), optional filter(...), and limit(...) operations, or "
                 "optional filter(...), group_by(...).agg(...), and limit(...) operations, or "
@@ -1709,6 +1710,32 @@ def read_parquet(
 
     return _read_source(
         "parquet",
+        uri,
+        schema=schema,
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
+
+
+def read_arrow_ipc(
+    uri: str | os.PathLike[str],
+    *,
+    schema: Mapping[str, object] | None = None,
+    client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
+    **client_config: object,
+) -> LazyFrame:
+    """Declare a lazy Arrow IPC compatibility source.
+
+    Scoped local Arrow IPC projection/filter/limit workflows lower to
+    `sql-local-source-smoke`; binaries built without `universal-format-io`
+    return ShardLoom's deterministic Arrow IPC adapter blocker. This is a
+    local file adapter, not an in-memory Arrow table fallback.
+    """
+
+    return _read_source(
+        "arrow-ipc",
         uri,
         schema=schema,
         client=client,
@@ -2452,7 +2479,9 @@ def _is_local_source_sql_ref(value: str) -> bool:
     lower = value.strip().lower()
     if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
         return False
-    return lower.endswith((".csv", ".json", ".jsonl", ".ndjson", ".parquet"))
+    return lower.endswith(
+        (".csv", ".json", ".jsonl", ".ndjson", ".parquet", ".arrow", ".ipc", ".feather")
+    )
 
 
 def _is_local_csv_source_ref(value: str) -> bool:
@@ -2470,6 +2499,11 @@ def _is_local_parquet_source_ref(value: str) -> bool:
     return _is_local_source_sql_ref(value) and lower.endswith(".parquet")
 
 
+def _is_local_arrow_ipc_source_ref(value: str) -> bool:
+    lower = value.strip().lower()
+    return _is_local_source_sql_ref(value) and lower.endswith((".arrow", ".ipc", ".feather"))
+
+
 def _is_query_builder_local_source(source: WorkflowSource) -> bool:
     if source.source_format == "csv":
         return _is_local_csv_source_ref(source.uri)
@@ -2477,6 +2511,8 @@ def _is_query_builder_local_source(source: WorkflowSource) -> bool:
         return _is_local_json_source_ref(source.uri)
     if source.source_format == "parquet":
         return _is_local_parquet_source_ref(source.uri)
+    if source.source_format == "arrow-ipc":
+        return _is_local_arrow_ipc_source_ref(source.uri)
     return False
 
 

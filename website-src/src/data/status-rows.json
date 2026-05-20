@@ -107,18 +107,20 @@
     "outputs": [
       "evidence"
     ],
-    "route": "compatibility_import_certified prepared_vortex",
+    "route": "direct_compatibility_transient compatibility_import_certified prepared_vortex",
     "platform": "local",
     "evidence": [
       "source_format",
-      "scenario_family",
+      "source_adapter_id",
+      "source_state_digest",
       "claim_gate_status"
     ],
-    "works": "Traditional benchmark fixture rows can expose Arrow IPC posture where the benchmark admits the format.",
-    "blocked": "User-facing broad Arrow IPC runtime is not production-claimable.",
+    "works": "Feature-gated local flat scalar Arrow IPC file sources can run through sql-local-source-smoke and Python read_arrow_ipc(...) with SourceState-style evidence when built with --features universal-format-io.",
+    "blocked": "Default binaries block Arrow IPC deterministically. Broad Arrow IPC type/nesting coverage, zero-copy Arrow execution, in-memory Arrow table fallback, Arrow IPC output, object-store/table/runtime claims, and production support remain blocked.",
     "references": [
       "benchmarks/traditional_analytics/README.md",
-      "docs/benchmarks/local-taxonomy-benchmark.md"
+      "docs/benchmarks/local-taxonomy-benchmark.md",
+      "python/README.md"
     ]
   },
   {
@@ -234,7 +236,7 @@
       "resolved_cli_path",
       "claim_gate_status"
     ],
-    "works": "The Python wrapper exposes status/capability checks and scoped local workflows through the local CLI.",
+    "works": "The Python wrapper exposes status/capability checks and scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC workflows through the local CLI.",
     "blocked": "It is not yet a native in-process SparkSession-equivalent runtime for all SQL/DataFrame operations.",
     "references": [
       "python/README.md",
@@ -259,8 +261,8 @@
       "runtime_execution",
       "claim_gate_status"
     ],
-    "works": "Scoped local CSV SQL/query-builder smokes exist for projection/filter/limit, aggregates, top-N, and a narrow join bridge.",
-    "blocked": "Broad SQL/DataFrame runtime parity, catalogs, subqueries, generalized joins, and production semantics remain blocked.",
+    "works": "Scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC SQL/query-builder smokes exist for projection/filter/limit, aggregates, top-N, and a narrow CSV join bridge.",
+    "blocked": "Broad SQL/DataFrame runtime parity, catalogs, subqueries, generalized joins, broad Parquet/Arrow IPC semantics, and production semantics remain blocked.",
     "references": [
       "python/README.md",
       "docs/architecture/compute-engine-flow-reference.md"

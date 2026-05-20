@@ -1,16 +1,17 @@
 {
-  "audience": "Python user who wants a tiny DataFrame-like local CSV, flat JSON, flat JSONL, or feature-gated flat scalar Parquet workflow with evidence",
-  "blocked_explanation": "The Python query-builder runtime admits local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet through the SQL local-source smoke for the documented projection/filter/limit, preview/head/take, literal-column, aggregate, group-by, top-N, and scoped CSV join shapes. Default binaries block Parquet until built with --features universal-format-io. Nested JSON, JSONPath, broader Parquet type/nesting coverage, non-literal with_column, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.",
+  "audience": "Python user who wants a tiny DataFrame-like local CSV, flat JSON, flat JSONL, or feature-gated flat scalar Parquet/Arrow IPC workflow with evidence",
+  "blocked_explanation": "The Python query-builder runtime admits local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC through the SQL local-source smoke for the documented projection/filter/limit, preview/head/take, literal-column, aggregate, group-by, top-N, and scoped CSV join shapes. Default binaries block Parquet and Arrow IPC until built with --features universal-format-io. Nested JSON, JSONPath, broader Parquet/Arrow IPC type/nesting coverage, non-literal with_column, timestamp/timezone completeness, subquery-backed IN, NOT IN, arbitrary predicate-tree completeness, multi-key/grouped aggregate generality, named grouped aggregate aliases, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.",
   "capability_family": "python_wrapper_client",
-  "claim_boundary": "Scoped Python read_csv/read_json/read_parquet local-source smokes cover projection, optional-filter, limit, preview/head/take, literal with_column(...), count, scalar aggregate, one-column group_by aggregate, single-key top-N, and one local CSV inner equi-join bridge over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar Parquet writes are admitted. No nested JSON, JSONPath, broader Parquet type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, Arrow/Avro/ORC/Vortex output sink, fanout, production SQL, object-store/table source, external fallback, or performance claim.",
+  "claim_boundary": "Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal with_column(...), count, scalar aggregate, one-column group_by aggregate, single-key top-N, and one local CSV inner equi-join bridge over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN including NULL list values with SQL three-valued WHERE-filter semantics, null/string/logical predicates, UTF-8 lower/upper/trim transforms, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar Parquet writes are admitted. No nested JSON, JSONPath, broader Parquet/Arrow IPC type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, subquery-backed IN, NOT IN, Arrow/Avro/ORC/Vortex output sink, fanout, production SQL, object-store/table source, external fallback, or performance claim.",
   "common_mistakes": [
     "expecting_dataframe_parity",
     "expecting_pandas_or_polars_execution",
     "expecting_nested_json_or_jsonpath_runtime",
     "expecting_parquet_default_build_support",
+    "expecting_arrow_ipc_default_build_support",
     "treating_fixture_smoke_as_production_support",
     "expecting_general_sort_or_null_ordering_support",
-    "expecting_subquery_or_null_in_semantics"
+    "expecting_subquery_in_semantics"
   ],
   "engine_mode": "batch",
   "evidence_fields": [
@@ -19,6 +20,7 @@
     "sql_binder_executed=true",
     "sql_planner_executed=true",
     "source_format",
+    "source_adapter_id",
     "source_io_performed=true",
     "source_state_id",
     "source_state_digest",
@@ -39,6 +41,8 @@
     "literal_projection_count",
     "in_predicate_runtime_execution",
     "in_list_value_count",
+    "in_list_null_value_count",
+    "in_predicate_null_semantics",
     "aggregate_runtime_execution",
     "aggregate_operator_family",
     "group_by_runtime_execution",
@@ -65,14 +69,15 @@
     "claim_gate_status=fixture_smoke_only"
   ],
   "execution_mode": "direct_compatibility_transient",
-  "expected_output_evidence": "A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV, flat JSON/JSONL, or feature-gated flat scalar Parquet source evidence, source_format/source_adapter/source_state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, string transform fields when requested, date extract/arithmetic fields when requested, literal-projection fields when requested, bounded IN evidence when requested, local JSONL/CSV or feature-gated flat scalar Parquet output evidence, count/scalar/grouped/top-N/join fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.",
+  "expected_output_evidence": "A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV, flat JSON/JSONL, or feature-gated flat scalar Parquet/Arrow IPC source evidence, source_format/source_adapter/source_state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, string transform fields when requested, date extract/arithmetic fields when requested, literal-projection fields when requested, bounded IN value/null/semantics evidence when requested, local JSONL/CSV or feature-gated flat scalar Parquet output evidence, count/scalar/grouped/top-N/join fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.",
   "id": "python-local-csv-query-builder-smoke",
   "inputs": [
     "local_csv",
     "local_json",
     "local_jsonl",
     "local_ndjson",
-    "local_parquet_feature_gated"
+    "local_parquet_feature_gated",
+    "local_arrow_ipc_feature_gated"
   ],
   "outputs": [
     "inline_jsonl_result",
@@ -106,5 +111,5 @@
   ],
   "runnable_example": "New-Item -ItemType Directory -Force target | Out-Null; \"id,label,amount`n1,alpha,8`n2,beta,15`n3,beta,21`n4,gamma,`n\" | Set-Content -Encoding utf8 target\\sql-local-source-smoke.csv; $env:PYTHONPATH = \"python\\src\"; python -c \"import shardloom as sl; ctx=sl.context(repo_root='.', profile_order=('debug','release')); preview=ctx.read_csv('target/sql-local-source-smoke.csv').preview(limit=2); head=ctx.read_csv('target/sql-local-source-smoke.csv').head(limit=2); take=ctx.read_csv('target/sql-local-source-smoke.csv').take(2); workflow=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').where(sl.col('amount').between(10, 30)).limit(1); r=workflow.write('target/sql-local-source-result.jsonl', allow_overwrite=True); c=workflow.write_csv('target/sql-local-source-result.csv', allow_overwrite=True); w=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').with_column('batch_id', 1).filter(sl.col('amount') >= 10).limit(10).collect(); n=ctx.read_csv('target/sql-local-source-smoke.csv').filter(sl.col('amount') >= 10).count(); a=ctx.read_csv('target/sql-local-source-smoke.csv').aggregate('count(*)','sum(amount)','avg(amount)').limit(1).collect(); g=ctx.read_csv('target/sql-local-source-smoke.csv').group_by('label').agg('count(*)','sum(amount)').limit(10).collect(); t=ctx.read_csv('target/sql-local-source-smoke.csv').select('id','label').sort('amount', descending=True).limit(2).collect(); print(preview.output_row_count, head.output_row_count, take.output_row_count, r.output_path, r.output_native_io_certificate_status, c.output_path, c.output_format, c.output_native_io_certificate_status, w.envelope.field('literal_projection_columns'), n.aggregate_functions, a.aggregate_operator_family, g.aggregate_operator_family, g.group_by_columns, t.sort_keys, t.top_n_limit, r.fallback_attempted, r.external_engine_invoked)\"",
   "status": "smoke_supported",
-  "title": "Python local CSV/JSON/JSONL/Parquet query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, and top-N smoke"
+  "title": "Python local CSV/JSON/JSONL/Parquet/Arrow IPC query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, and top-N smoke"
 }

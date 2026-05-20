@@ -16,6 +16,77 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F feature-gated local Arrow IPC source smoke
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-arrow-ipc-source-4f` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
+    - `GAR-RUNTIME-IMPL-5D local input adapter runtime parity`
+    - `GAR-USER-SURFACE-1C DataFrame/query-builder parity for ordinary local workflows`
+    - UniversalIngress route taxonomy and compatibility scoreboard
+  - Scope:
+    - Promoted feature-gated local flat scalar Arrow IPC file sources (`.arrow`, `.ipc`,
+      `.feather`) into `sql-local-source-smoke` and Python query-builder collect paths.
+    - Added `shardloom_vortex::read_flat_arrow_ipc_source(...)` beside the existing scoped
+      Parquet reader, with shared flat-schema validation and deterministic unsupported-type
+      diagnostics for nested, dictionary, union, decimal, and other unadmitted Arrow types.
+    - Added deterministic default-build blockers when `shardloom-cli` is not built with
+      `--features universal-format-io`.
+    - Added Python `sl.read_arrow_ipc(...)` / `ctx.read_arrow_ipc(...)` lowering for scoped local
+      projection/filter/limit, preview/select-star, aggregate, group-by, and top-N paths already
+      admitted through the SQL local-source runtime bridge.
+    - Updated the UniversalIngress taxonomy, compatibility scoreboard, use-case atlas, website
+      status/use-case data, and public website static output to show Arrow IPC as a feature-gated
+      local source smoke, not broad Arrow parity.
+  - User-visible surface:
+    - `sql-local-source-smoke`, Python `sl.read_arrow_ipc(...)`, Python
+      `ctx.read_arrow_ipc(...)`, the status/use-case pages, `python/README.md`, and the active
+      phase plan.
+  - Evidence:
+    - Feature-gated Arrow IPC source reports expose `source_format=arrow_ipc`,
+      `source_adapter_id=local_arrow_ipc_input_adapter`, SourceState-style route/source evidence,
+      `materialization_boundary=local_arrow_ipc_row_materialization_to_expression_semantics`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+    - Default builds return an explicit Arrow IPC adapter blocker and still report no fallback or
+      external engine invocation.
+  - Verification:
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_arrow_ipc_without_universal_format_feature`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_arrow_ipc_projection_filter_limit_with_source_state_evidence`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_universal_ingress_routes.py`
+    - `cargo fmt --all -- --check`
+    - `python -m compileall -q python/src python/tests scripts website-src`
+    - `node website-src/node_modules/@astrojs/check/bin/astro-check.js`
+    - `node website-src/node_modules/astro/bin/astro.mjs build` plus
+      `node website-src/scripts/postbuild-static.mjs`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Non-goals:
+    - No in-memory Arrow table fallback, zero-copy Arrow execution claim, broad Arrow IPC
+      type/nesting coverage, Arrow IPC output sink, object-store/table runtime, package
+      publication, performance claim, or external engine fallback.
+  - Claim boundary:
+    - This is a feature-gated local flat scalar Arrow IPC source smoke only. Arrow IPC remains a
+      compatibility source/export boundary and does not become a native execution substrate or
+      production support claim.
+  - Fallback boundary:
+    - Arrow IPC file decoding is isolated in the approved feature-gated local adapter path and feeds
+      ShardLoom-owned local expression/operator semantics. It does not invoke pandas, PyArrow
+      Python, Spark, DataFusion, DuckDB, Polars, or another external execution engine.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4F` and `GAR-RUNTIME-IMPL-5D` unchecked until the remaining local
+      adapter formats and blockers reach parity.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped null-aware IN predicate runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-null-aware-in-4d` / pending.
