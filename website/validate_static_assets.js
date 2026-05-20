@@ -46,6 +46,17 @@ const forbiddenRuntimeText = [
   "pagefind",
   "pagefind-modal",
 ];
+const statusVocabulary = new Set([
+  "runtime_supported",
+  "smoke_supported",
+  "fixture_smoke_only",
+  "ready_local",
+  "report_only",
+  "planned",
+  "blocked",
+  "unsupported",
+  "not_planned",
+]);
 
 function assert(condition, message) {
   if (!condition) {
@@ -127,6 +138,34 @@ for (const file of htmlFiles) {
   assert(content.includes('/assets/site.css'), `${file} must use shared CSS`);
   assert(content.includes('<link rel="canonical"'), `${file} must include canonical URL`);
   assert(content.includes('property="og:title"'), `${file} must include OG metadata`);
+}
+for (const file of collectFiles(root).filter((candidate) => candidate.endsWith(".html"))) {
+  const content = read(file);
+  assert(content.includes('<html lang="en">'), `${file} must declare language`);
+  assert(/<title>[^<]+<\/title>/.test(content), `${file} must include a document title`);
+  assert(content.includes('<meta name="viewport" content="width=device-width, initial-scale=1">'), `${file} must include responsive viewport metadata`);
+  assert(/<meta name="description" content="[^"]+">/.test(content), `${file} must include meta description`);
+  assert((content.match(/<h1[ >]/g) || []).length === 1, `${file} must include exactly one h1`);
+  assert(!content.includes("<details open"), `${file} must keep drawers collapsed by default`);
+  for (const image of content.match(/<img\b[^>]*>/g) || []) {
+    assert(/\salt=/.test(image), `${file} image missing alt text: ${image}`);
+    assert(/\swidth="\d+"/.test(image), `${file} image missing stable width: ${image}`);
+    assert(/\sheight="\d+"/.test(image), `${file} image missing stable height: ${image}`);
+  }
+  for (const match of content.matchAll(/<span class="status-chip[^"]*">([^<]+)<\/span>/g)) {
+    assert(statusVocabulary.has(match[1]), `${file} has unexpected status chip text: ${match[1]}`);
+  }
+}
+
+const css = read("assets/site.css");
+for (const required of [
+  ":focus-visible",
+  "input:focus-visible",
+  "@media (prefers-reduced-motion: reduce)",
+  ".status-chip",
+  ".filter-count",
+]) {
+  assert(css.includes(required), `site CSS missing ${required}`);
 }
 
 const index = read("index.html");

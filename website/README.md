@@ -49,6 +49,12 @@ git diff --check
 
 Use the bundled Node runtime if system `node` is blocked in the local environment.
 
+The readiness gate is intentionally stricter than a file-exists check. It validates canonical
+URLs, Open Graph and description metadata, responsive viewport metadata, page landmarks, one-H1
+structure, labeled controls, image alt/dimension stability, text-labeled status chips, collapsed
+drawers by default, reduced-motion/focus CSS markers, committed benchmark artifact posture, no
+runtime raw-GitHub/Pagefind fetches, and forbidden claim phrases.
+
 ## Claim Rules
 
 Website copy must preserve these boundaries:

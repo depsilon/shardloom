@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-REDESIGN-2F performance, accessibility, and claim-safety gate
+  - Branch/PR: `codex/website-readiness-gate-hardening` / #831.
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `scripts/check_website_readiness.py`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+    - `website/README.md`
+    - `website/assets/site.css`
+    - `website/build_static_pages.py`
+    - `website/validate_static_assets.js`
+    - generated `website/**/*.html`
+  - Scope: harden the rebuilt website publication gate so the richer static site fails closed on
+    common accessibility, metadata, layout, stale-content, and claim-safety regressions. The
+    readiness report schema is now `shardloom.website_readiness.v3`.
+  - Gate additions:
+    - HTML metadata: `lang=en`, document title, bounded meta description, responsive viewport,
+      `robots=index,follow`, canonical URL, Open Graph title/description, and ShardLoom favicon.
+    - Structure: exactly one H1, header/main/footer landmarks, primary navigation paths, no
+      anchors without `href`, no drawers open by default, and no unlabeled controls.
+    - Media stability: every `<img>` needs alt semantics and stable width/height dimensions.
+    - Status clarity: every status chip must contain text from the public status vocabulary, so
+      support state is not color-only.
+    - Runtime hygiene: continued rejection of runtime `raw.githubusercontent.com` and Pagefind
+      references, benchmark `performance_claim_allowed=false`, and forbidden overclaim phrases.
+    - CSS/JS markers: focus-visible styles, reduced-motion handling, status chips, filter counts,
+      and static filter behavior remain locally validated.
+  - Generator/UI changes:
+    - Added stable dimensions and async/lazy hints to transparent ShardLoom logo image usages.
+    - Shortened generated use-case detail `<title>` strings while preserving full visible H1 text.
+    - Added focus-visible styling for form controls in addition to links and summaries.
+    - Documented the hardened validation gate in `website/README.md`.
+  - Browser QA:
+    - Report: `target/website-readiness-gate-hardening/browser-smoke.json`.
+    - Routes checked: `/`, `/start`, `/field-guide`, `/use-cases`, `/benchmarks`,
+      `/architecture`, `/status`, and `/404.html`.
+    - Viewports checked: 1440px desktop and 390px mobile.
+    - CDP metrics showed `scrollWidth <= innerWidth`, exactly one H1, zero open drawers, and zero
+      unlabeled controls on every checked route/viewport.
+    - Representative screenshots include:
+      `target/website-readiness-gate-hardening/home-mobile.png`,
+      `target/website-readiness-gate-hardening/benchmarks-desktop.png`,
+      `target/website-readiness-gate-hardening/status-mobile.png`.
+  - Verification:
+    - `python website\build_static_pages.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - bundled Node runtime: `website\validate_static_assets.js`
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q scripts website`
+    - `git diff --check`
+  - Claim boundary: this gate proves website publication hygiene only. It does not add compute
+    runtime behavior, recompute benchmarks, publish packages, or create performance/superiority,
+    Spark replacement, production SQL/DataFrame, object-store/lakehouse, Foundry, distributed, or
+    managed-platform support claims.
+  - Fallback boundary: the gate preserves the no-fallback and external-baseline-only public
+    posture and rejects website copy that implies external-engine fallback.
+
 - [x] Session label: GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild
   - Branch/PR: `codex/website-benchmark-dashboard-rebuild` / #830.
   - Primary files:
