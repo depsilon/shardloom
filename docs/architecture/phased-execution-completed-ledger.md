@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped null coalesce projection runtime
   - Date: 2026-05-20
-  - Branch/PR: `runtime-null-coalesce-projections-4d` / pending.
+  - Branch/PR: `runtime-null-coalesce-projections-4d` / #853.
   - Source:
     - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
     - ShardLoom-native null-aware expression semantics
