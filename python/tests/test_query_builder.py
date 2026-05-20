@@ -2167,6 +2167,80 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_with_column_temporal_extract_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,DATE_YEAR(CAST(event_date AS date32)) AS event_year,TIMESTAMP_HOUR(CAST(event_ts AS timestamp_micros)) AS event_hour FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source computed projection",
+                    "human_text": "sql local source computed projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"event_year\\":2026,\\"event_hour\\":12}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "date_extract_projection_runtime_execution", "value": "true"},
+                        {"key": "date_extract_projection_operator", "value": "date_year"},
+                        {"key": "date_extract_projection_source_column", "value": "event_date"},
+                        {"key": "date_extract_projection_output_column", "value": "event_year"},
+                        {"key": "timestamp_extract_projection_runtime_execution", "value": "true"},
+                        {"key": "timestamp_extract_projection_operator", "value": "timestamp_hour"},
+                        {"key": "timestamp_extract_projection_source_column", "value": "event_ts"},
+                        {"key": "timestamp_extract_projection_output_column", "value": "event_hour"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("event_year", sl.col("event_date").cast("date32").date_year())
+            .with_column(
+                "event_hour",
+                sl.col("event_ts").cast("timestamp_micros").timestamp_hour(),
+            )
+            .filter(sl.col("id") >= 1)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.date_extract_projection_runtime_execution)
+        self.assertEqual(report.date_extract_projection_operator, ("date_year",))
+        self.assertEqual(report.date_extract_projection_source_columns, ("event_date",))
+        self.assertEqual(report.date_extract_projection_output_columns, ("event_year",))
+        self.assertTrue(report.timestamp_extract_projection_runtime_execution)
+        self.assertEqual(report.timestamp_extract_projection_operator, ("timestamp_hour",))
+        self.assertEqual(
+            report.timestamp_extract_projection_source_columns, ("event_ts",)
+        )
+        self.assertEqual(
+            report.timestamp_extract_projection_output_columns, ("event_hour",)
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_write_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

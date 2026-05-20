@@ -941,6 +941,79 @@ fn sql_local_source_smoke_executes_string_transform_projection_without_fallback(
 }
 
 #[test]
+fn sql_local_source_smoke_executes_temporal_extract_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-temporal-extract-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,event_date,event_ts\n\
+         1,2026-05-19,2026-05-19T12:34:56Z\n\
+         2,2027-01-02,2027-01-02T03:04:05Z\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,DATE_YEAR(CAST(event_date AS date32)) AS event_year,DATE_MONTH(event_date) AS event_month,TIMESTAMP_HOUR(CAST(event_ts AS timestamp_micros)) AS event_hour,TIMESTAMP_SECOND(event_ts) AS event_second FROM '{}' WHERE id >= 1 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("date_extract_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "date_extract_projection_operator",
+        "date_year,date_month"
+    )));
+    assert!(stdout.contains(&field(
+        "date_extract_projection_source_column",
+        "event_date,event_date"
+    )));
+    assert!(stdout.contains(&field(
+        "date_extract_projection_output_column",
+        "event_year,event_month"
+    )));
+    assert!(stdout.contains(&field(
+        "timestamp_extract_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "timestamp_extract_projection_operator",
+        "timestamp_hour,timestamp_second"
+    )));
+    assert!(stdout.contains(&field(
+        "timestamp_extract_projection_source_column",
+        "event_ts,event_ts"
+    )));
+    assert!(stdout.contains(&field(
+        "timestamp_extract_projection_output_column",
+        "event_hour,event_second"
+    )));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,event_year,event_month,event_hour,event_second"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"event_year\\\":2026,\\\"event_month\\\":5,\\\"event_hour\\\":12,\\\"event_second\\\":56}\\n{\\\"id\\\":2,\\\"event_year\\\":2027,\\\"event_month\\\":1,\\\"event_hour\\\":3,\\\"event_second\\\":5}\\n\""
+    ));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
     let source_path = unique_path("sql-local-source-no-filter", "csv");
     fs::write(

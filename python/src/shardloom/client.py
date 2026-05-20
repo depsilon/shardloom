@@ -764,6 +764,80 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def date_extract_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted Date32 extract projection."""
+
+        return (
+            self.envelope.field_bool("date_extract_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def date_extract_projection_operator(self) -> tuple[str, ...]:
+        """Return Date32 extract projection operators emitted by the smoke."""
+
+        value = self.envelope.field("date_extract_projection_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def date_extract_projection_source_columns(self) -> tuple[str, ...]:
+        """Return Date32 extract projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("date_extract_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def date_extract_projection_output_columns(self) -> tuple[str, ...]:
+        """Return Date32 extract projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("date_extract_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def timestamp_extract_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted UTC timestamp extract projection."""
+
+        return (
+            self.envelope.field_bool(
+                "timestamp_extract_projection_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def timestamp_extract_projection_operator(self) -> tuple[str, ...]:
+        """Return UTC timestamp extract projection operators emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_extract_projection_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def timestamp_extract_projection_source_columns(self) -> tuple[str, ...]:
+        """Return UTC timestamp extract projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_extract_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def timestamp_extract_projection_output_columns(self) -> tuple[str, ...]:
+        """Return UTC timestamp extract projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_extract_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def output_io_performed(self) -> bool:
         """Whether the smoke wrote a local output file."""
 

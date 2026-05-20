@@ -345,14 +345,20 @@ or documentation updates alone are insufficient.
     transform projections of the form `LOWER(column) AS column`, `UPPER(column) AS column`, and
     `TRIM(column) AS column` are runtime-admitted with `string_transform_projection_*` evidence,
     ShardLoom-native null propagation, and deterministic duplicate-output-name/source-column/
-    unsupported-shape blockers.
+    unsupported-shape blockers. Scoped Date32 and UTC timestamp extract projections through
+    `DATE_YEAR` / `DATE_MONTH` / `DATE_DAY` and `TIMESTAMP_YEAR` / `TIMESTAMP_MONTH` /
+    `TIMESTAMP_DAY` / `TIMESTAMP_HOUR` / `TIMESTAMP_MINUTE` / `TIMESTAMP_SECOND` are
+    runtime-admitted with `date_extract_projection_*` and `timestamp_extract_projection_*`
+    evidence, source-column coercion from admitted ISO strings, ShardLoom-native null propagation,
+    and deterministic duplicate-output-name/source-column/unsupported-shape blockers.
     Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`
     / `NOT LIKE`, scoped UTF-8 lower/upper/trim transforms, bounded `IN` / `NOT IN`,
     cast/date/timestamp, Date32 extracts, Date32 day arithmetic, scoped UTC timestamp extracts,
     scoped numeric arithmetic comparison operators, scoped numeric arithmetic `with_column(...)`,
-    scoped UTF-8 string transform `with_column(...)`, and logical predicates into the same local SQL
-    smoke path, plus `where(...)` as a familiar filter alias. User workflows still lack broad typed
+    scoped UTF-8 string transform `with_column(...)`, scoped Date32/UTC timestamp extract
+    `with_column(...)`, and logical predicates into the same local SQL smoke path, plus `where(...)`
+    as a familiar filter alias. User workflows still lack broad typed
     coercions, generalized arithmetic expression trees and generalized projections,
     timezone-database helpers, interval/date-time completeness, subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
