@@ -6,21 +6,37 @@ const repoRoot = path.resolve(root, "..");
 
 const requiredFiles = [
   "index.html",
+  "start.html",
+  "start/index.html",
+  "field-guide.html",
+  "field-guide/index.html",
+  "field-guide/no-fallback/index.html",
+  "field-guide/vortex-ingest/index.html",
+  "use-cases.html",
+  "use-cases/index.html",
+  "use-cases/first-10-minutes-local-smoke/index.html",
+  "use-cases/compatibility-import-certified-local/index.html",
   "benchmarks.html",
   "benchmarks/index.html",
+  "architecture.html",
+  "architecture/index.html",
   "compute-engine-flow.html",
   "compute-engine-flow/index.html",
+  "status.html",
+  "status/index.html",
   "404.html",
   "robots.txt",
   "sitemap.xml",
   "_headers",
   "_redirects",
   "assets/site.css",
+  "assets/site.js",
   "assets/logo/shardloom-favicon.png",
   "assets/logo/shardloom-logo.png",
   "assets/logo/shardloom-logo-trim.png",
   "assets/data/compute-engine-flow-reference.md",
   "assets/data/benchmark-evidence.json",
+  "assets/data/use-case-index.json",
   "assets/benchmarks/latest/manifest.json",
   "assets/benchmarks/latest/benchmark-results.json",
 ];
@@ -92,10 +108,17 @@ for (const file of runtimeFiles) {
 
 const htmlFiles = [
   "index.html",
+  "start.html",
+  "field-guide.html",
+  "field-guide/no-fallback/index.html",
+  "use-cases.html",
+  "use-cases/first-10-minutes-local-smoke/index.html",
   "benchmarks.html",
   "benchmarks/index.html",
+  "architecture.html",
   "compute-engine-flow.html",
   "compute-engine-flow/index.html",
+  "status.html",
   "404.html",
 ];
 for (const file of htmlFiles) {
@@ -150,8 +173,43 @@ for (const required of [
   assert(flow.includes(required), `compute-flow page missing ${required}`);
 }
 
+const fieldGuide = read("field-guide.html");
+for (const required of [
+  "A compact atlas for ShardLoom vocabulary.",
+  "UniversalIngress",
+  "vortex_ingest",
+  "VortexPreparedState",
+  "No fallback",
+  "claim_gate_status",
+]) {
+  assert(fieldGuide.includes(required), `field guide missing ${required}`);
+}
+
+const useCases = read("use-cases.html");
+for (const required of [
+  "Can ShardLoom do my thing?",
+  "compatibility_import_certified",
+  "fallback_attempted=false",
+  "claim_gate_status",
+]) {
+  assert(useCases.includes(required), `use cases page missing ${required}`);
+}
+
+const status = read("status.html");
+for (const required of [
+  "Support status stays visible.",
+  "Local CSV",
+  "Local JSONL / NDJSON",
+  "S3 / GCS / ADLS",
+  "Iceberg / Delta / Hudi",
+  "Foundry",
+  "Package / release",
+]) {
+  assert(status.includes(required), `status page missing ${required}`);
+}
+
 const redirects = read("_redirects");
-for (const legacy of ["/field-guide", "/use-cases", "/status", "/readme"]) {
+for (const legacy of ["/can-i-use-this", "/status.html", "/readme", "/docs"]) {
   assert(redirects.includes(legacy), `_redirects must preserve legacy route: ${legacy}`);
 }
 

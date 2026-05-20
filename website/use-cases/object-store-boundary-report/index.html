@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShardLoom Use Case - Object-store and cloud storage boundary</title>
+  <meta name="description" content="Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://shardloom.io/use-cases/object-store-boundary-report">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+  <meta property="og:title" content="ShardLoom Use Case - Object-store and cloud storage boundary">
+  <meta property="og:description" content="Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases/object-store-boundary-report">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="ShardLoom home">
+      <img src="/assets/logo/shardloom-favicon.png" alt="" width="40" height="40" aria-hidden="true">
+      <span>ShardLoom</span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="/">Home</a>
+          <a href="/start">Start</a>
+          <a href="/field-guide">Field Guide</a>
+          <a class="active" aria-current="page" href="/use-cases">Use Cases</a>
+          <a href="/benchmarks">Benchmarks</a>
+          <a href="/architecture">Architecture</a>
+          <a href="/status">Status</a>
+          <a href="https://github.com/depsilon/shardloom">GitHub</a>
+    </nav>
+  </header>
+  <main>
+
+    <section class="page-hero dossier-hero">
+      <p class="eyebrow">object-store/S3/GCS/ADLS boundaries</p>
+      <h1>Object-store and cloud storage boundary</h1>
+      <p class="lede">Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.</p>
+      <div class="status-chips"><span class="status-chip status-blocked">blocked</span><span>report_only_blocked</span><span>none</span></div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Runnable example</h2>
+        <p>A blocked or report-only object-store plan with no provider probe and no external engine invocation.</p>
+      </div>
+      <div class="code-panel">
+        <div class="panel-label">Runnable example</div>
+        <pre><code>target\debug\shardloom object-store-request-plan --format json</code></pre>
+      </div>
+    </section>
+
+    <section class="dossier-grid">
+      <article class="dossier-card">
+        <h2>Inputs</h2>
+        <ul class="pill-list"><li>s3_uri</li><li>gcs_uri</li><li>adls_uri</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Outputs</h2>
+        <ul class="pill-list"><li>object_store_plan</li><li>deterministic_blocker</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Evidence fields</h2>
+        <ul class="pill-list"><li>credential_policy_status</li><li>network_probe_allowed=false</li><li>byte_range_read_allowed</li><li>object_store_io=false</li><li>write_io=false</li><li>native_io_certificate_status=blocked</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Common mistakes</h2>
+        <ul class="pill-list"><li>expecting_public_s3_read</li><li>assuming_signed_url_support</li><li>treating_planner_as_runtime_io</li></ul>
+      </article>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Claim boundary</h2>
+        <p>Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.</p>
+      </div>
+      <div>
+        <h2>Reference files</h2>
+        <ul class="reference-list"><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md">docs/architecture/compute-engine-flow-reference.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-input-contract.md">docs/architecture/universal-input-contract.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/object-store-request-planner.md">docs/architecture/object-store-request-planner.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-compatibility-coverage-scoreboard.md">docs/architecture/universal-compatibility-coverage-scoreboard.md</a></li></ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Related use cases</h2>
+      <div class="related-links"><a href="/use-cases/table-lakehouse-boundary-report">Table and lakehouse boundary</a><a href="/use-cases/output-result-sink-and-fanout-boundary">Output and fanout boundary</a></div>
+    </section>
+
+  </main>
+  <footer class="site-footer">
+    <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+    <p>Pre-release technical preview. Vortex-first. No fallback. Benchmark evidence is not a public speed or production claim.</p>
+  </footer>
+</body>
+</html>

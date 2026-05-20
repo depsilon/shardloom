@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShardLoom Compute Flow</title>
+  <meta name="description" content="Human-readable ShardLoom compute-flow route map and execution-mode translation.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://shardloom.io/architecture">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+  <meta property="og:title" content="ShardLoom Compute Flow">
+  <meta property="og:description" content="Human-readable ShardLoom compute-flow route map and execution-mode translation.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/architecture">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="ShardLoom home">
+      <img src="/assets/logo/shardloom-favicon.png" alt="" width="40" height="40" aria-hidden="true">
+      <span>ShardLoom</span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="/">Home</a>
+          <a href="/start">Start</a>
+          <a href="/field-guide">Field Guide</a>
+          <a href="/use-cases">Use Cases</a>
+          <a href="/benchmarks">Benchmarks</a>
+          <a class="active" aria-current="page" href="/architecture">Architecture</a>
+          <a href="/status">Status</a>
+          <a href="https://github.com/depsilon/shardloom">GitHub</a>
+    </nav>
+  </header>
+  <main>
+
+    <section class="page-hero">
+      <p class="eyebrow">Compute-flow translation</p>
+      <h1>SQL and Python are front doors. The route is the contract.</h1>
+      <p class="lede">ShardLoom separates user surface from execution route: source admission, Vortex preparation, execution mode, output route, and evidence policy are all explicit.</p>
+    </section>
+
+    <section class="route"><article class="route-step">
+          <span>01</span>
+          <h3>Front door</h3>
+          <p>Python, SQL, CLI, benchmarks, or an adapter express the work.</p>
+        </article><article class="route-step">
+          <span>02</span>
+          <h3>UniversalIngress</h3>
+          <p>The source is admitted, classified, or blocked with a reason.</p>
+        </article><article class="route-step">
+          <span>03</span>
+          <h3>SourceState</h3>
+          <p>Schema, fingerprint, adapter status, and source evidence become reusable state.</p>
+        </article><article class="route-step">
+          <span>04</span>
+          <h3>vortex_ingest</h3>
+          <p>Admitted non-Vortex data is prepared into VortexPreparedState.</p>
+        </article><article class="route-step">
+          <span>05</span>
+          <h3>Execution</h3>
+          <p>prepared_vortex, native_vortex, certified cold route, direct one-shot, or generated source.</p>
+        </article><article class="route-step">
+          <span>06</span>
+          <h3>OutputPlan</h3>
+          <p>Result, local sink, Vortex artifact, or future platform sink is planned separately.</p>
+        </article><article class="route-step">
+          <span>07</span>
+          <h3>Evidence</h3>
+          <p>Certificates, no-fallback fields, materialization boundaries, timing, and claim gate.</p>
+        </article></section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Prepared Vortex means prepared state.</h2>
+        <p><code>prepared_vortex</code> executes from <code>VortexPreparedState</code>. Non-Vortex data reaches it only after <code>UniversalIngress</code> and <code>vortex_ingest</code>. Compatibility import is the certified cold route, not pure query speed.</p>
+      </div>
+      <div class="card-grid">
+        <article class="card">
+      <span class="badge">Ingress</span>
+      <h3>Source route</h3>
+      <p>What kind of input is this, and is it admitted or blocked?</p>
+    </article>
+        <article class="card">
+      <span class="badge">vortex_ingest</span>
+      <h3>Preparation route</h3>
+      <p>Does this create or reuse SourceState and VortexPreparedState?</p>
+    </article>
+        <article class="card">
+      <span class="badge">Mode</span>
+      <h3>Execution route</h3>
+      <p>Which explicit mode ran, and what timing scope applies?</p>
+    </article>
+        <article class="card">
+      <span class="badge">Claim</span>
+      <h3>Evidence route</h3>
+      <p>Which certificates, no-fallback fields, and claim gate came out?</p>
+    </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Execution modes</h2>
+      <div class="table-wrap "><table><thead><tr><th>Mode</th><th>Label</th><th>Meaning</th><th>Primary use</th><th>Vortex-native claim?</th><th>Claim posture</th></tr></thead><tbody><tr><td>compatibility_import_certified</td><td>Certified cold route</td><td>Use UniversalIngress plus certified vortex_ingest, then write/reopen/scan, compute, and certify.</td><td>Certified ingest/stage workflow.</td><td>Partial/scoped.</td><td>Can be claim-grade for ingest/stage workload.</td></tr><tr><td>prepared_vortex</td><td>Prepared warm route</td><td>Execute from VortexPreparedState. Non-Vortex input reaches this only through vortex_ingest.</td><td>Main prepared-runtime path after preparation.</td><td>Yes, if evidence supports it.</td><td>Preferred benchmark/runtime-development path.</td></tr><tr><td>native_vortex</td><td>Already-Vortex route</td><td>Existing .vortex input, Vortex-native scan/operator path.</td><td>Cleanest native query path when the input is already Vortex.</td><td>Yes.</td><td>Cleanest native-engine lane.</td></tr><tr><td>direct_compatibility_transient</td><td>Direct one-shot route</td><td>Read compatibility input and compute directly without persistent Vortex write/reopen.</td><td>Small one-shot jobs, quick ETL, and deterministic diagnostics.</td><td>No.</td><td>Not Vortex-native.</td></tr><tr><td>auto</td><td>Transparent route selector</td><td>Select a concrete execution mode based on input/request/policy.</td><td>User convenience.</td><td>Depends on selected mode.</td><td>Must report selected mode and reason.</td></tr></tbody></table></div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Timing fields stay visible.</h2>
+        <p>Compatibility rows must not be read as pure query speed. They include source, parse, ingest, Vortex write/reopen, scan, operator, sink, and evidence timing.</p>
+      </div>
+      <ul class="check-list"><li><code>source_read_millis</code></li><li><code>compatibility_parse_millis</code></li><li><code>compatibility_to_vortex_import_millis</code></li><li><code>vortex_write_millis</code></li><li><code>vortex_reopen_millis</code></li><li><code>vortex_scan_millis</code></li><li><code>operator_compute_millis</code></li><li><code>result_sink_write_millis</code></li><li><code>evidence_render_millis</code></li><li><code>total_runtime_millis</code></li></ul>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>What must never happen</h2>
+        <p>The compute-flow contract exists so unsupported work is blocked or diagnosed instead of becoming hidden fallback execution.</p>
+      </div>
+      <ul class="boundary-list as-list"><li>Unsupported work silently runs through Spark.</li><li>Unsupported work silently runs through DataFusion.</li><li>Unsupported work silently runs through DuckDB.</li><li>Unsupported work silently runs through Polars.</li><li>Direct transient mode is reported as Vortex-native.</li><li>Compatibility import timing is reported as pure query timing.</li><li>prepared_vortex is reported as reading non-Vortex inputs directly.</li><li>Auto mode hides what it selected.</li></ul>
+    </section>
+
+    <section>
+      <h2>Raw diagram source</h2>
+      <p class="narrow">Mermaid remains available as source text, but the public page leads with human-readable route structure.</p>
+      <details class="drawer">
+      <summary>Raw Mermaid source: Human-Readable Mental Model</summary>
+      <pre><code>flowchart LR
+    ACCESS[&quot;1. Access&lt;br/&gt;CLI / Python / benchmark / adapter&quot;]
+    REQUEST[&quot;2. Typed request&lt;br/&gt;workload + source + output intent&quot;]
+    ADMISSION[&quot;3. Admission&lt;br/&gt;policy + capability + semantics&quot;]
+    MODE[&quot;4. Explicit modes&lt;br/&gt;execution mode + engine mode&quot;]
+    PROVIDER[&quot;5. Provider path&lt;br/&gt;Vortex / ShardLoom kernel / diagnostic&quot;]
+    OUTPUT[&quot;6. Output path&lt;br/&gt;result ref / sink artifact / unsupported status&quot;]
+    EVIDENCE[&quot;7. Evidence and claim gate&lt;br/&gt;certificates + no-fallback + claim status&quot;]
+
+    ACCESS --&gt; REQUEST --&gt; ADMISSION --&gt; MODE --&gt; PROVIDER --&gt; OUTPUT --&gt; EVIDENCE</code></pre>
+    </details><details class="drawer">
+      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <pre><code>flowchart LR
+    subgraph PEOPLE[&quot;People and automation&quot;]
+        USER[&quot;End users&lt;br/&gt;analyst / engineer / app developer&quot;]
+        ADAPTER_AUTHOR[&quot;Adapter authors&lt;br/&gt;DB / orchestration / BI / notebook&quot;]
+        OPERATOR[&quot;Operators and agents&lt;br/&gt;CI / release gates / automation&quot;]
+    end
+
+    subgraph ACCESS[&quot;Access surfaces&quot;]
+        CLI[&quot;CLI&lt;br/&gt;current canonical entrypoint&quot;]
+        PYTHON[&quot;Python client&lt;br/&gt;typed wrapper over CLI protocol&quot;]
+        BENCH[&quot;Benchmark harness&lt;br/&gt;comparison reports and evidence&quot;]
+        REST[&quot;REST / event API&lt;br/&gt;report-only contract&quot;]
+        SDK[&quot;SDK / notebook clients&lt;br/&gt;planned&quot;]
+        ADAPTER[&quot;Thin adapters&lt;br/&gt;planned DB-API / SQLAlchemy / Ibis / dbt / BI&quot;]
+    end
+
+    subgraph CONTRACT[&quot;Shared protocol&quot;]
+        REQUEST[&quot;Typed request envelope&lt;br/&gt;workload + source + policy + output intent&quot;]
+        OUTPUT[&quot;Typed output envelope&lt;br/&gt;result refs + diagnostics + evidence + claim gate&quot;]
+    end
+
+    USER --&gt; CLI
+    USER --&gt; PYTHON
+    USER --&gt; SDK
+    USER --&gt; ADAPTER
+    ADAPTER_AUTHOR --&gt; ADAPTER
+    OPERATOR --&gt; CLI
+    OPERATOR --&gt; BENCH
+    SDK --&gt; PYTHON
+    SDK --&gt; REST
+    ADAPTER --&gt; PYTHON
+    ADAPTER --&gt; REST
+
+    CLI --&gt; REQUEST
+    PYTHON --&gt; REQUEST
+    BENCH --&gt; REQUEST
+    REST --&gt; REQUEST
+    REQUEST --&gt; OUTPUT
+    OUTPUT --&gt; CLI_RESULT[&quot;CLI text / JSON / artifacts&quot;]
+    OUTPUT --&gt; PY_RESULT[&quot;Python typed models / artifact refs&quot;]
+    OUTPUT --&gt; ADAPTER_RESULT[&quot;Adapter-facing result refs&quot;]
+    OUTPUT --&gt; BENCH_RESULT[&quot;Benchmark coverage + timing report&quot;]</code></pre>
+    </details><details class="drawer">
+      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <pre><code>flowchart TD
+    subgraph REQUEST_PHASE[&quot;1. Request binding&quot;]
+        REQUEST[&quot;Typed request&lt;br/&gt;query / workload / downstream intent&quot;]
+        SOURCE[&quot;Source descriptors&lt;br/&gt;format / schema / URI / pushdown&quot;]
+        GENERATED_SOURCE[&quot;Generated source declaration&lt;br/&gt;range / sequence / values / literal rows / calendar&quot;]
+        OUTPUT_INTENT[&quot;Output intent&lt;br/&gt;result / Vortex artifact / export / platform ref&quot;]
+    end
+
+    subgraph ADMISSION_PHASE[&quot;2. Admission before execution&quot;]
+        POLICY[&quot;Policy&lt;br/&gt;governance / credentials / no fallback&quot;]
+        CAPABILITY[&quot;Capability matrix&lt;br/&gt;source + operator + sink + feature gates&quot;]
+        INGRESS[&quot;UniversalIngress&lt;br/&gt;InputAdapter -&gt; SourceState or blocker&quot;]
+        VORTEX_INGEST[&quot;vortex_ingest&lt;br/&gt;SourceState -&gt; VortexPreparedState&quot;]
+        SEMANTICS[&quot;Semantic profile&lt;br/&gt;schema / expression / workload constitution&quot;]
+        MODE[&quot;Explicit execution mode&lt;br/&gt;requested + selected + reason&quot;]
+        ENGINE[&quot;Engine mode&lt;br/&gt;batch / live / hybrid / auto&quot;]
+    end
+
+    subgraph EXECUTION_PHASE[&quot;3. Provider decision&quot;]
+        BOUNDARY[&quot;Source or preparation boundary&quot;]
+        PLAN[&quot;Plan IR and physical plan&quot;]
+        ADMISSION[&quot;Provider admission&lt;br/&gt;Vortex provider / ShardLoom kernel / diagnostic&quot;]
+        DIAGNOSTIC[&quot;Deterministic unsupported diagnostic&lt;br/&gt;support_status=unsupported&quot;]
+        EXECUTE[&quot;Supported execution&lt;br/&gt;encoded / native / residual ShardLoom kernel&quot;]
+    end
+
+    subgraph OUTPUT_PHASE[&quot;4. Output and evidence&quot;]
+        RESULT[&quot;Result stream / scalar / result ref&quot;]
+        SINK[&quot;Sink and materialization boundary&quot;]
+        GENERATED_CERT[&quot;GeneratedSourceCertificate&lt;br/&gt;when input_dataset_count=0 and generated rows exist&quot;]
+        EVIDENCE[&quot;Evidence bundle&lt;br/&gt;certificates / diagnostics / benchmark rows / traces&quot;]
+        CLAIM[&quot;Claim gate&lt;br/&gt;claim_grade / fixture_smoke_only / not_claim_grade&quot;]
+        ENVELOPE[&quot;Typed output envelope&quot;]
+    end
+
+    REQUEST --&gt; SOURCE
+    REQUEST --&gt; GENERATED_SOURCE
+    REQUEST --&gt; OUTPUT_INTENT
+    SOURCE --&gt; POLICY --&gt; CAPABILITY --&gt; INGRESS --&gt; VORTEX_INGEST --&gt; SEMANTICS --&gt; MODE --&gt; ENGINE
+    GENERATED_SOURCE --&gt; POLICY
+    OUTPUT_INTENT --&gt; MODE
+    ENGINE --&gt; BOUNDARY --&gt; PLAN --&gt; ADMISSION
+    ADMISSION --&gt;|&quot;unsupported&quot;| DIAGNOSTIC --&gt; EVIDENCE
+    ADMISSION --&gt;|&quot;supported&quot;| EXECUTE --&gt; RESULT --&gt; SINK --&gt; GENERATED_CERT --&gt; EVIDENCE
+    EVIDENCE --&gt; CLAIM --&gt; ENVELOPE</code></pre>
+    </details><details class="drawer">
+      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <pre><code>flowchart TD
+    REQUESTED[&quot;requested_execution_mode&quot;]
+    AUTO[&quot;auto&lt;br/&gt;transparent selector&quot;]
+    SELECTED[&quot;selected_execution_mode&lt;br/&gt;mode_selection_reason required&quot;]
+
+    COMPAT[&quot;compatibility_import_certified&lt;br/&gt;certified cold ingest/stage lane&quot;]
+    PREPARED[&quot;prepared_vortex&lt;br/&gt;warm route from VortexPreparedState&quot;]
+    NATIVE[&quot;native_vortex&lt;br/&gt;current scoped native-artifact lane&quot;]
+    DIRECT[&quot;direct_compatibility_transient&lt;br/&gt;scoped CSV filter paths + unsupported diagnostics&quot;]
+
+    UNIVERSAL_INGRESS[&quot;UniversalIngress&lt;br/&gt;InputAdapter -&gt; SourceState&quot;]
+    VORTEX_INGEST[&quot;vortex_ingest&lt;br/&gt;SourceState -&gt; VortexPreparedState&quot;]
+    COMPAT_BOUNDARY[&quot;Certified ingest boundary&lt;br/&gt;UniversalIngress -&gt; certified vortex_ingest -&gt; Vortex write/reopen&quot;]
+    PREPARED_BOUNDARY[&quot;Prepared boundary&lt;br/&gt;VortexPreparedState required&quot;]
+    NATIVE_BOUNDARY[&quot;Native Vortex boundary&lt;br/&gt;existing .vortex -&gt; Source / Scan / Split&quot;]
+    DIRECT_BOUNDARY[&quot;Transient compatibility boundary&lt;br/&gt;no persistent Vortex artifact&quot;]
+
+    PROVIDER[&quot;Provider admission&lt;br/&gt;Vortex provider / ShardLoom kernel / diagnostic&quot;]
+    SELECTIVE_BLOCKER[&quot;Scoped filter providers&lt;br/&gt;selective filter + filter/project/limit evidence&quot;]
+
+    REQUESTED --&gt; AUTO --&gt; SELECTED
+    REQUESTED --&gt; COMPAT
+    REQUESTED --&gt; PREPARED
+    REQUESTED --&gt; NATIVE
+    REQUESTED --&gt; DIRECT
+    SELECTED --&gt; COMPAT
+    SELECTED --&gt; PREPARED
+    SELECTED --&gt; NATIVE
+    SELECTED --&gt; DIRECT
+
+    COMPAT --&gt; UNIVERSAL_INGRESS --&gt; VORTEX_INGEST --&gt; COMPAT_BOUNDARY --&gt; PROVIDER
+    PREPARED --&gt; PREPARED_BOUNDARY --&gt; PROVIDER
+    NATIVE --&gt; NATIVE_BOUNDARY --&gt; PROVIDER
+    DIRECT --&gt; DIRECT_BOUNDARY --&gt; PROVIDER
+    PROVIDER --&gt;|&quot;scoped CSV filter paths today&quot;| SELECTIVE_BLOCKER</code></pre>
+    </details><details class="drawer">
+      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <pre><code>flowchart TD
+    REQUEST[&quot;Typed request&lt;br/&gt;workload + source + output intent&quot;]
+    ENGINE_REQUEST[&quot;requested_engine_mode&lt;br/&gt;auto / batch / live / hybrid&quot;]
+    ENGINE_SELECTION[&quot;engine-selection-plan&lt;br/&gt;selected_engine_mode + allowed/rejected modes&quot;]
+    MATRIX[&quot;engine-capability-matrix&lt;br/&gt;batch/live/hybrid rows&quot;]
+    STREAM_MATRIX[&quot;GAR-0013 streaming capability matrix&lt;br/&gt;local / object-store / zero-copy / zero-decode / backpressure&quot;]
+
+    subgraph CURRENT[&quot;Current scoped engine surfaces&quot;]
+        BATCH[&quot;batch&lt;br/&gt;bounded snapshot local Vortex analytics&quot;]
+        LIVE_CONTRACT[&quot;live-change-contract-plan&lt;br/&gt;change records + watermark/checkpoint vocabulary&quot;]
+        LIVE_FIXTURE[&quot;live-fixture-run&lt;br/&gt;in-memory fixture operators + certificates&quot;]
+        HYBRID_FIXTURE[&quot;hybrid-overlay-run&lt;br/&gt;base snapshot + hot delta fixture evidence&quot;]
+        STREAM_REPORTS[&quot;streaming-plan / streaming-batch-plan / backpressure-plan&lt;br/&gt;full matrix + blocked diagnostics&quot;]
+    end
+
+    subgraph CLAIM_BOUNDARY[&quot;Claim and effect boundary&quot;]
+        FIXTURE_CLAIM[&quot;fixture evidence only&lt;br/&gt;production_claim_allowed=false&quot;]
+        NO_EFFECTS[&quot;no broker / object-store / external engine&lt;br/&gt;fallback_attempted=false&quot;]
+        PLANNED_GATES[&quot;planned gates&lt;br/&gt;durable state / freshness / object-store / workload evidence&quot;]
+    end
+
+    REQUEST --&gt; ENGINE_REQUEST --&gt; ENGINE_SELECTION --&gt; MATRIX
+    MATRIX --&gt; STREAM_MATRIX --&gt; STREAM_REPORTS
+    MATRIX --&gt; BATCH
+    MATRIX --&gt; LIVE_CONTRACT --&gt; LIVE_FIXTURE
+    MATRIX --&gt; HYBRID_FIXTURE
+    STREAM_REPORTS --&gt; FIXTURE_CLAIM
+    BATCH --&gt; FIXTURE_CLAIM
+    LIVE_FIXTURE --&gt; FIXTURE_CLAIM
+    HYBRID_FIXTURE --&gt; FIXTURE_CLAIM
+    FIXTURE_CLAIM --&gt; NO_EFFECTS --&gt; PLANNED_GATES</code></pre>
+    </details><details class="drawer">
+      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <pre><code>flowchart LR
+    subgraph SOURCES[&quot;Input families&quot;]
+        LOCAL[&quot;Local compatibility files&lt;br/&gt;CSV / Parquet / JSONL / Arrow IPC / Avro / ORC&quot;]
+        VORTEX[&quot;Existing Vortex artifacts&quot;]
+        GENERATED[&quot;Generated sources&lt;br/&gt;range / sequence / values / literal rows / calendar&quot;]
+        REMOTE[&quot;Remote/table/stream refs&lt;br/&gt;object-store / catalog / event stream&quot;]
+    end
+
+    subgraph DECISION[&quot;Runtime decision&quot;]
+        ADMIT[&quot;Admitted local path&quot;]
+        BLOCK[&quot;Deterministic diagnostic&lt;br/&gt;support_status=unsupported&quot;]
+    end
+
+    subgraph SINKS[&quot;Output and sink paths&quot;]
+        RESULT[&quot;Typed result/ref only&quot;]
+        VORTEX_OUT[&quot;Vortex result artifact&lt;br/&gt;scoped replay evidence&quot;]
+        LOCAL_EXPORT[&quot;Local compatibility export&lt;br/&gt;scoped or planned by format&quot;]
+        PLATFORM_OUT[&quot;Table/object-store/REST/event delivery&lt;br/&gt;planned or report-only&quot;]
+    end
+
+    subgraph CONSUMERS[&quot;Consumers&quot;]
+        CLI_OUT[&quot;CLI text / JSON / artifacts&quot;]
+        PY_OUT[&quot;Python typed models&quot;]
+        ADAPTER_OUT[&quot;Adapter consumers&quot;]
+        BENCH_OUT[&quot;Benchmark reports&quot;]
+        PLATFORM_CONSUMER[&quot;Governed platform consumers&lt;br/&gt;planned&quot;]
+    end
+
+    LOCAL --&gt; ADMIT
+    VORTEX --&gt; ADMIT
+    GENERATED --&gt; ADMIT
+    REMOTE --&gt; BLOCK
+    ADMIT --&gt; RESULT
+    ADMIT --&gt; VORTEX_OUT
+    ADMIT --&gt; LOCAL_EXPORT
+    ADMIT -.-&gt; PLATFORM_OUT
+    BLOCK --&gt; RESULT
+    PLATFORM_OUT --&gt; RESULT
+    RESULT --&gt; CLI_OUT
+    RESULT --&gt; PY_OUT
+    RESULT --&gt; ADAPTER_OUT
+    RESULT --&gt; BENCH_OUT
+    RESULT --&gt; PLATFORM_CONSUMER
+    VORTEX_OUT --&gt; BENCH_OUT
+    LOCAL_EXPORT --&gt; CLI_OUT</code></pre>
+    </details><details class="drawer">
+      <summary>Raw Mermaid source: Current Runtime Snapshot</summary>
+      <pre><code>flowchart TD
+    OUTCOME[&quot;Execution result or unsupported diagnostic&quot;]
+
+    subgraph RUNTIME_EVIDENCE[&quot;Runtime evidence&quot;]
+        CERTS[&quot;Certificates&lt;br/&gt;execution / Native I/O / generated-source&quot;]
+        MATERIALIZATION[&quot;Materialization and decode boundary&quot;]
+        POLICY[&quot;Policy evidence&lt;br/&gt;fallback_attempted=false&lt;br/&gt;external_engine_invoked=false&quot;]
+        SOURCE_SINK[&quot;Source/sink evidence&lt;br/&gt;SourceState / PreparedState / OutputPlan&quot;]
+    end
+
+    subgraph OPTIMIZATION_EVIDENCE[&quot;Optimization and timing evidence&quot;]
+        TIMING[&quot;Stage timing ledger&quot;]
+        SCAN[&quot;Vortex Scan pushdown evidence&quot;]
+        ENCODED[&quot;Encoded-kernel admission evidence&quot;]
+        FUSED[&quot;Fused residual pipeline evidence&quot;]
+        SESSION[&quot;Session and reuse evidence&quot;]
+        RESOURCE[&quot;Resource/build profile evidence&quot;]
+        MICRO[&quot;Native microbenchmark rows&lt;br/&gt;subsystem only&quot;]
+    end
+
+    subgraph OPTIONAL_EXPORTS[&quot;Optional exports&quot;]
+        LINEAGE[&quot;OpenLineage facets&lt;br/&gt;report-only / opt-in&quot;]
+        TELEMETRY[&quot;OpenTelemetry spans&lt;br/&gt;report-only / opt-in&quot;]
+        CONFIDENCE[&quot;Bayesian confidence&lt;br/&gt;advisory only&quot;]
+        BASELINE[&quot;External baseline/oracle&lt;br/&gt;comparison only&quot;]
+    end
+
+    CLAIM[&quot;Claim gate&lt;br/&gt;claim_grade / fixture_smoke_only / not_claim_grade&quot;]
+    ENVELOPE[&quot;Typed output envelope&quot;]
+
+    OUTCOME --&gt; CERTS
+    OUTCOME --&gt; MATERIALIZATION
+    OUTCOME --&gt; POLICY
+    OUTCOME --&gt; SOURCE_SINK
+    OUTCOME --&gt; TIMING
+    TIMING --&gt; SCAN
+    TIMING --&gt; ENCODED
+    TIMING --&gt; FUSED
+    TIMING --&gt; SESSION
+    TIMING --&gt; RESOURCE
+    TIMING --&gt; MICRO
+    CERTS --&gt; CLAIM
+    MATERIALIZATION --&gt; CLAIM
+    POLICY --&gt; CLAIM
+    SOURCE_SINK --&gt; CLAIM
+    TIMING --&gt; CLAIM
+    CLAIM --&gt; ENVELOPE
+    ENVELOPE --&gt; LINEAGE
+    ENVELOPE --&gt; TELEMETRY
+    TIMING --&gt; CONFIDENCE
+    BASELINE -.-&gt; CONFIDENCE</code></pre>
+    </details><details class="drawer">
+      <summary>Raw Mermaid source: Claim Gate Flow</summary>
+      <pre><code>flowchart TD
+    A[&quot;Execution result&quot;] --&gt; B[&quot;Correctness evidence&quot;]
+    A --&gt; C[&quot;Benchmark evidence&quot;]
+    A --&gt; D[&quot;Execution certificate&quot;]
+    A --&gt; E[&quot;Native I/O certificate&quot;]
+    A --&gt; F[&quot;Materialization/decode evidence&quot;]
+    A --&gt; G[&quot;No-fallback evidence&quot;]
+
+    B --&gt; H{&quot;All required evidence present?&quot;}
+    C --&gt; H
+    D --&gt; H
+    E --&gt; H
+    F --&gt; H
+    G --&gt; H
+
+    H --&gt;|yes| I[&quot;claim_grade&quot;]
+    H --&gt;|no| J[&quot;not_claim_grade&quot;]
+    H --&gt;|unsupported path| K[&quot;support_status=unsupported&lt;br/&gt;claim_gate_status=not_claim_grade&quot;]
+    H --&gt;|insufficient evidence| L[&quot;not claimable&quot;]
+    H --&gt;|fixture only| M[&quot;fixture_smoke_only&quot;]
+    H --&gt;|external baseline| N[&quot;external_baseline_only&quot;]</code></pre>
+    </details>
+      <p class="source-link"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md">Open canonical Markdown on GitHub</a></p>
+    </section>
+
+  </main>
+  <footer class="site-footer">
+    <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+    <p>Pre-release technical preview. Vortex-first. No fallback. Benchmark evidence is not a public speed or production claim.</p>
+  </footer>
+</body>
+</html>

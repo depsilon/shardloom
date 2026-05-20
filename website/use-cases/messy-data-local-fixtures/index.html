@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShardLoom Use Case - Messy data fixture coverage</title>
+  <meta name="description" content="Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://shardloom.io/use-cases/messy-data-local-fixtures">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+  <meta property="og:title" content="ShardLoom Use Case - Messy data fixture coverage">
+  <meta property="og:description" content="Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases/messy-data-local-fixtures">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="ShardLoom home">
+      <img src="/assets/logo/shardloom-favicon.png" alt="" width="40" height="40" aria-hidden="true">
+      <span>ShardLoom</span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="/">Home</a>
+          <a href="/start">Start</a>
+          <a href="/field-guide">Field Guide</a>
+          <a class="active" aria-current="page" href="/use-cases">Use Cases</a>
+          <a href="/benchmarks">Benchmarks</a>
+          <a href="/architecture">Architecture</a>
+          <a href="/status">Status</a>
+          <a href="https://github.com/depsilon/shardloom">GitHub</a>
+    </nav>
+  </header>
+  <main>
+
+    <section class="page-hero dossier-hero">
+      <p class="eyebrow">messy data / dirty CSV / nested JSON / CDC</p>
+      <h1>Messy data fixture coverage</h1>
+      <p class="lede">Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.</p>
+      <div class="status-chips"><span class="status-chip status-smoke-supported">smoke_supported</span><span>compatibility_import_certified</span><span>batch</span></div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Runnable example</h2>
+        <p>Benchmark rows and fixture metadata for the selected messy-data scenario with no fallback.</p>
+      </div>
+      <div class="code-panel">
+        <div class="panel-label">Runnable example</div>
+        <pre><code>python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv,jsonl --scenario &quot;malformed timestamp / dirty CSV&quot; --dataset-profile dirty_csv --rows 1000 --iterations 1 --output target\shardloom-dirty-csv-smoke.json --regenerate</code></pre>
+      </div>
+    </section>
+
+    <section class="dossier-grid">
+      <article class="dossier-card">
+        <h2>Inputs</h2>
+        <ul class="pill-list"><li>dirty_csv_fixture</li><li>nested_json_fixture</li><li>cdc_delta_overlay_fixture</li><li>null_heavy_fixture</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Outputs</h2>
+        <ul class="pill-list"><li>local_benchmark_artifact</li><li>fixture_sidecars</li><li>evidence_rows</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Evidence fields</h2>
+        <ul class="pill-list"><li>scenario_family</li><li>dataset_profile</li><li>source_metadata_snapshot_status</li><li>source_state_reuse_hit</li><li>materialization_boundary</li><li>claim_gate_status</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Common mistakes</h2>
+        <ul class="pill-list"><li>treating_fixture_cdc_as_table_commit</li><li>expecting_general_json_schema_inference</li><li>reading_smoke_as_data_quality_product</li></ul>
+      </article>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Claim boundary</h2>
+        <p>Local fixture smoke coverage only; not a production data-quality, CDC/table-transaction, lakehouse, streaming, or performance claim.</p>
+      </div>
+      <div>
+        <h2>Reference files</h2>
+        <ul class="reference-list"><li><a href="https://github.com/depsilon/shardloom/blob/main/benchmarks/traditional_analytics/README.md">benchmarks/traditional_analytics/README.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/benchmark-suite-catalog.md">docs/architecture/benchmark-suite-catalog.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/local-taxonomy-benchmark.md">docs/benchmarks/local-taxonomy-benchmark.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md">docs/getting-started/examples.md</a></li></ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Related use cases</h2>
+      <div class="related-links"><a href="/use-cases/query-scenario-cookbook-smoke">Query scenario cookbook smoke</a><a href="/use-cases/benchmark-interpretation-evidence-not-leaderboard">Benchmark evidence, not leaderboard</a></div>
+    </section>
+
+  </main>
+  <footer class="site-footer">
+    <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+    <p>Pre-release technical preview. Vortex-first. No fallback. Benchmark evidence is not a public speed or production claim.</p>
+  </footer>
+</body>
+</html>

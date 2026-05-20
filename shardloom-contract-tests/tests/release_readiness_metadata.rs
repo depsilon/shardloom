@@ -1093,13 +1093,15 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
 
     let website_readme = read_repo_file("website/README.md");
     for required in [
-        "compact and light-mode",
-        "GAR-WEB-REDESIGN-2",
-        "transparent ShardLoom logo on light surfaces",
-        "`/`: concise overview",
+        "light-mode and evidence-console oriented",
+        "`/`: route/evidence console overview",
+        "`/start`: first local proof entry point",
+        "`/field-guide`: compact technical vocabulary atlas",
+        "`/use-cases`: filterable use-case browser",
         "`/benchmarks`: committed benchmark artifact interpretation",
-        "`/compute-engine-flow`: human-readable route translation",
-        "Detailed docs, use cases, recipes, field-guide content, RFCs, and phase history remain in the",
+        "`/architecture` and `/compute-engine-flow`: human-readable route translation",
+        "`/status`: filterable support/status matrix",
+        "Detailed RFCs, phase history, recipes, and source-of-truth docs remain in the",
     ] {
         assert!(
             website_readme.contains(required),
@@ -1108,7 +1110,10 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
     }
 
     let redirects = read_repo_file("website/_redirects");
-    for required in ["/status /", "/docs https://github.com/depsilon/shardloom"] {
+    for required in [
+        "/status.html /status",
+        "/docs https://github.com/depsilon/shardloom",
+    ] {
         assert!(
             redirects.contains(required),
             "missing minimal website redirect {required}"
@@ -1117,9 +1122,9 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
 
     let website_readiness = read_repo_file("scripts/check_website_readiness.py");
     for required in [
-        "shardloom.website_readiness.minimal.v1",
+        "shardloom.website_readiness.v2",
         "EXPECTED_REDIRECTS",
-        "/status",
+        "status/index.html",
         "/docs",
         "benchmark manifest must keep performance_claim_allowed=false",
         "website compute-flow snapshot does not match canonical architecture doc",
@@ -2903,11 +2908,16 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
         );
     }
 
-    let redirects = read_repo_file("website/_redirects");
-    for required in ["/use-cases /", "/use-cases/* /"] {
+    let website_use_cases = read_repo_file("website/use-cases.html");
+    for required in [
+        "Can ShardLoom do my thing?",
+        "compatibility_import_certified",
+        "fallback_attempted=false",
+        "claim_gate_status",
+    ] {
         assert!(
-            redirects.contains(required),
-            "missing retired website use-case redirect {required}"
+            website_use_cases.contains(required),
+            "missing public website use-case atlas field {required}"
         );
     }
 
@@ -3012,8 +3022,13 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "Build the ShardLoom public website",
         "light-mode evidence-console surface",
         "Repo docs remain in the repository",
+        "FIELD_GUIDE_TERMS",
+        "STATUS_ROWS",
         "WEBSITE / \"benchmarks\" / \"index.html\"",
         "WEBSITE / \"compute-engine-flow\" / \"index.html\"",
+        "WEBSITE / \"field-guide\" / \"index.html\"",
+        "WEBSITE / \"use-cases\" / \"index.html\"",
+        "WEBSITE / \"status\" / \"index.html\"",
         "source_state_coverage_all_requested_scenarios_classified",
     ] {
         assert!(
@@ -3023,6 +3038,9 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     }
 
     let index = read_repo_file("website/index.html");
+    let field_guide = read_repo_file("website/field-guide.html");
+    let use_cases = read_repo_file("website/use-cases.html");
+    let status = read_repo_file("website/status.html");
     let benchmarks = read_repo_file("website/benchmarks.html");
     let flow = read_repo_file("website/compute-engine-flow.html");
     for required in [
@@ -3040,6 +3058,44 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         assert!(
             index.contains(required),
             "missing redesigned home field {required}"
+        );
+    }
+    for required in [
+        "A compact atlas for ShardLoom vocabulary.",
+        "UniversalIngress",
+        "vortex_ingest",
+        "VortexPreparedState",
+        "No fallback",
+        "claim_gate_status",
+    ] {
+        assert!(
+            field_guide.contains(required),
+            "missing public field guide field {required}"
+        );
+    }
+    for required in [
+        "Can ShardLoom do my thing?",
+        "compatibility_import_certified",
+        "fallback_attempted=false",
+        "claim_gate_status",
+    ] {
+        assert!(
+            use_cases.contains(required),
+            "missing public use-case field {required}"
+        );
+    }
+    for required in [
+        "Support status stays visible.",
+        "Local CSV",
+        "Local JSONL / NDJSON",
+        "S3 / GCS / ADLS",
+        "Iceberg / Delta / Hudi",
+        "Foundry",
+        "Package / release",
+    ] {
+        assert!(
+            status.contains(required),
+            "missing public status field {required}"
         );
     }
     for required in [
@@ -3070,22 +3126,20 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let redirects = read_repo_file("website/_redirects");
     for required in [
-        "/field-guide /",
-        "/field-guide/* /",
-        "/use-cases /",
-        "/use-cases/* /",
-        "/status /",
+        "/field-guide.html /field-guide",
+        "/use-cases.html /use-cases",
+        "/status.html /status",
         "/readme https://github.com/depsilon/shardloom#readme",
     ] {
         assert!(
             redirects.contains(required),
-            "missing retired-atlas redirect {required}"
+            "missing public website compatibility redirect {required}"
         );
     }
 
     let readiness = read_repo_file("scripts/check_website_readiness.py");
     for required in [
-        "shardloom.website_readiness.minimal.v1",
+        "shardloom.website_readiness.v2",
         "REMOVED_WEBSITE_SURFACES",
         "removed public website surface still exists",
         "runtime file still references Pagefind",

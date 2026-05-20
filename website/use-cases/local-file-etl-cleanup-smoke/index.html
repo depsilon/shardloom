@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShardLoom Use Case - Local file ETL smoke</title>
+  <meta name="description" content="Scoped local technical-preview workflow only; not production ETL, broad SQL/DataFrame, object-store, lakehouse, Foundry, performance, or Spark-replac...">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://shardloom.io/use-cases/local-file-etl-cleanup-smoke">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+  <meta property="og:title" content="ShardLoom Use Case - Local file ETL smoke">
+  <meta property="og:description" content="Scoped local technical-preview workflow only; not production ETL, broad SQL/DataFrame, object-store, lakehouse, Foundry, performance, or Spark-replac...">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases/local-file-etl-cleanup-smoke">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="ShardLoom home">
+      <img src="/assets/logo/shardloom-favicon.png" alt="" width="40" height="40" aria-hidden="true">
+      <span>ShardLoom</span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="/">Home</a>
+          <a href="/start">Start</a>
+          <a href="/field-guide">Field Guide</a>
+          <a class="active" aria-current="page" href="/use-cases">Use Cases</a>
+          <a href="/benchmarks">Benchmarks</a>
+          <a href="/architecture">Architecture</a>
+          <a href="/status">Status</a>
+          <a href="https://github.com/depsilon/shardloom">GitHub</a>
+    </nav>
+  </header>
+  <main>
+
+    <section class="page-hero dossier-hero">
+      <p class="eyebrow">local file ETL</p>
+      <h1>Local file ETL smoke</h1>
+      <p class="lede">Scoped local technical-preview workflow only; not production ETL, broad SQL/DataFrame, object-store, lakehouse, Foundry, performance, or Spark-replacement proof.</p>
+      <div class="status-chips"><span class="status-chip status-smoke-supported">smoke_supported</span><span>compatibility_import_certified</span><span>batch</span></div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Runnable example</h2>
+        <p>A target/shardloom-local-vortex-benchmark-smoke.json artifact with timing, coverage, result-sink, and no-fallback fields.</p>
+      </div>
+      <div class="code-panel">
+        <div class="panel-label">Runnable example</div>
+        <pre><code>python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1</code></pre>
+      </div>
+    </section>
+
+    <section class="dossier-grid">
+      <article class="dossier-card">
+        <h2>Inputs</h2>
+        <ul class="pill-list"><li>local_csv</li><li>local_parquet</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Outputs</h2>
+        <ul class="pill-list"><li>local_vortex_artifact</li><li>local_result_sink_evidence</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Evidence fields</h2>
+        <ul class="pill-list"><li>execution_mode</li><li>claim_gate_status</li><li>native_io_certificate_status</li><li>materialization_boundary</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Common mistakes</h2>
+        <ul class="pill-list"><li>reading_compatibility_import_as_pure_query_speed</li><li>expecting_s3_io</li><li>treating_smoke_as_production_etl</li></ul>
+      </article>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Claim boundary</h2>
+        <p>Scoped local technical-preview workflow only; not production ETL, broad SQL/DataFrame, object-store, lakehouse, Foundry, performance, or Spark-replacement proof.</p>
+      </div>
+      <div>
+        <h2>Reference files</h2>
+        <ul class="reference-list"><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md">docs/getting-started/examples.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/getting-started/certified-local-workload.md">docs/getting-started/certified-local-workload.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md">docs/architecture/compute-engine-flow-reference.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/local-taxonomy-benchmark.md">docs/benchmarks/local-taxonomy-benchmark.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/examples/local-vortex-benchmark/README.md">examples/local-vortex-benchmark/README.md</a></li></ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Related use cases</h2>
+      <div class="related-links"><a href="/use-cases/compatibility-import-certified-local">Compatibility import certified local workload</a><a href="/use-cases/messy-data-local-fixtures">Messy data fixture coverage</a><a href="/use-cases/output-result-sink-and-fanout-boundary">Output and fanout boundary</a></div>
+    </section>
+
+  </main>
+  <footer class="site-footer">
+    <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+    <p>Pre-release technical preview. Vortex-first. No fallback. Benchmark evidence is not a public speed or production claim.</p>
+  </footer>
+</body>
+</html>

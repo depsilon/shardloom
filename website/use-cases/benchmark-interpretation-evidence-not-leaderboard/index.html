@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShardLoom Use Case - Benchmark evidence, not leaderboard</title>
+  <meta name="description" content="Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production...">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://shardloom.io/use-cases/benchmark-interpretation-evidence-not-leaderboard">
+  <link rel="icon" type="image/png" href="/assets/logo/shardloom-favicon.png">
+  <link rel="apple-touch-icon" href="/assets/logo/shardloom-favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+  <meta property="og:title" content="ShardLoom Use Case - Benchmark evidence, not leaderboard">
+  <meta property="og:description" content="Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production...">
+  <meta property="og:image" content="https://shardloom.io/assets/logo/shardloom-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://shardloom.io/use-cases/benchmark-interpretation-evidence-not-leaderboard">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="ShardLoom home">
+      <img src="/assets/logo/shardloom-favicon.png" alt="" width="40" height="40" aria-hidden="true">
+      <span>ShardLoom</span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="/">Home</a>
+          <a href="/start">Start</a>
+          <a href="/field-guide">Field Guide</a>
+          <a class="active" aria-current="page" href="/use-cases">Use Cases</a>
+          <a href="/benchmarks">Benchmarks</a>
+          <a href="/architecture">Architecture</a>
+          <a href="/status">Status</a>
+          <a href="https://github.com/depsilon/shardloom">GitHub</a>
+    </nav>
+  </header>
+  <main>
+
+    <section class="page-hero dossier-hero">
+      <p class="eyebrow">benchmark interpretation</p>
+      <h1>Benchmark evidence, not leaderboard</h1>
+      <p class="lede">Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof.</p>
+      <div class="status-chips"><span class="status-chip status-smoke-supported">smoke_supported</span><span>mixed_by_row</span><span>batch</span></div>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Runnable example</h2>
+        <p>Timing rows and coverage rows that keep ShardLoom runtime lanes separate from optional external baselines.</p>
+      </div>
+      <div class="code-panel">
+        <div class="panel-label">Runnable example</div>
+        <pre><code>python examples\local-vortex-benchmark\run.py --repo-root . --rows 64 --iterations 1</code></pre>
+      </div>
+    </section>
+
+    <section class="dossier-grid">
+      <article class="dossier-card">
+        <h2>Inputs</h2>
+        <ul class="pill-list"><li>local_benchmark_fixture</li><li>optional_external_baselines</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Outputs</h2>
+        <ul class="pill-list"><li>timing_rows</li><li>coverage_rows</li><li>claim_boundary_notes</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Evidence fields</h2>
+        <ul class="pill-list"><li>engine</li><li>execution_mode</li><li>source_read_millis</li><li>compatibility_parse_millis</li><li>vortex_prepare_millis</li><li>vortex_scan_millis</li><li>operator_compute_millis</li><li>result_sink_write_millis</li><li>claim_gate_status</li><li>fallback_attempted=false</li><li>external_engine_invoked=false</li></ul>
+      </article>
+      <article class="dossier-card">
+        <h2>Common mistakes</h2>
+        <ul class="pill-list"><li>ranking_external_engines_as_public_claims</li><li>comparing_import_costs_to_pure_query_speed</li><li>hiding_external_baseline_only_status</li></ul>
+      </article>
+    </section>
+
+    <section class="section-grid">
+      <div>
+        <h2>Claim boundary</h2>
+        <p>Benchmarks are local evidence and attribution, not a speed leaderboard, performance claim, superiority claim, Spark-displacement claim, or production proof.</p>
+      </div>
+      <div>
+        <h2>Reference files</h2>
+        <ul class="reference-list"><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/local-taxonomy-benchmark.md">docs/benchmarks/local-taxonomy-benchmark.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/baseline-comparison-boundary.md">docs/benchmarks/baseline-comparison-boundary.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/benchmarks/traditional_analytics/README.md">benchmarks/traditional_analytics/README.md</a></li><li><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/benchmark-suite-catalog.md">docs/architecture/benchmark-suite-catalog.md</a></li></ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Related use cases</h2>
+      <div class="related-links"><a href="/use-cases/prepared-native-vortex-runtime-direction">Prepared/native Vortex runtime direction</a><a href="/use-cases/compatibility-import-certified-local">Compatibility import certified local workload</a></div>
+    </section>
+
+  </main>
+  <footer class="site-footer">
+    <img src="/assets/logo/shardloom-logo-trim.png" alt="ShardLoom">
+    <p>Pre-release technical preview. Vortex-first. No fallback. Benchmark evidence is not a public speed or production claim.</p>
+  </footer>
+</body>
+</html>
