@@ -728,6 +728,42 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def string_transform_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted UTF-8 transform projection."""
+
+        return (
+            self.envelope.field_bool("string_transform_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def string_transform_projection_operator(self) -> tuple[str, ...]:
+        """Return UTF-8 transform projection operators emitted by the smoke."""
+
+        value = self.envelope.field("string_transform_projection_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_transform_projection_source_columns(self) -> tuple[str, ...]:
+        """Return UTF-8 transform projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("string_transform_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_transform_projection_output_columns(self) -> tuple[str, ...]:
+        """Return UTF-8 transform projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("string_transform_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def output_io_performed(self) -> bool:
         """Whether the smoke wrote a local output file."""
 

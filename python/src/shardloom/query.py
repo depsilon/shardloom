@@ -1139,12 +1139,15 @@ class LazyFrame:
             try:
                 expression_sql = _sql_numeric_arithmetic_projection_expression(expression)
             except (TypeError, ValueError):
-                expression_text = _require_non_empty("column expression", expression)
-                return self._unsupported_operation(
-                    "with-column",
-                    f"{column_name}={expression_text}",
-                    check=check,
-                )
+                try:
+                    expression_sql = _sql_string_transform_projection_expression(expression)
+                except (TypeError, ValueError):
+                    expression_text = _require_non_empty("column expression", expression)
+                    return self._unsupported_operation(
+                        "with-column",
+                        f"{column_name}={expression_text}",
+                        check=check,
+                    )
         if self._can_append_projection_column(column_name):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         return self._unsupported_operation(
@@ -2779,6 +2782,25 @@ def _sql_numeric_arithmetic_projection_expression(expression: object) -> str:
     if parts[1] == "/" and literal == 0:
         raise ValueError("numeric arithmetic projection division by zero is not admitted")
     return text
+
+
+def _sql_string_transform_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits LOWER/UPPER/TRIM column expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"LOWER", "UPPER", "TRIM"}:
+        raise ValueError(
+            "computed with_column currently admits LOWER/UPPER/TRIM column expressions"
+        )
+    column = text[open_index + 1 : -1].strip()
+    _normalize_expression_column(column)
+    return f"{function}({column})"
 
 
 def _parse_numeric_literal_token(value: str) -> int | float:

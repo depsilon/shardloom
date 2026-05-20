@@ -863,6 +863,84 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
 }
 
 #[test]
+fn sql_local_source_smoke_executes_string_transform_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-string-transform-projection", "csv");
+    fs::write(&source_path, "id,label\n1, Alpha \n2,BETA\n3,gamma\n").expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,LOWER(label) AS lowered,UPPER(label) AS raised,TRIM(label) AS trimmed FROM '{}' WHERE id >= 1 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field(
+        "string_transform_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "string_transform_projection_operator",
+        "lower,upper,trim"
+    )));
+    assert!(stdout.contains(&field(
+        "string_transform_projection_source_column",
+        "label,label,label"
+    )));
+    assert!(stdout.contains(&field(
+        "string_transform_projection_output_column",
+        "lowered,raised,trimmed"
+    )));
+    assert!(stdout.contains(&field("projected_columns", "id,lowered,raised,trimmed")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(
+        stdout
+            .contains("\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"lowered\\\":\\\" alpha \\\"")
+    );
+    assert!(stdout.contains("\\\"raised\\\":\\\" ALPHA \\\""));
+    assert!(stdout.contains("\\\"trimmed\\\":\\\"Alpha\\\""));
+
+    let blocked_statement = format!(
+        "SELECT id,LOWER(missing) AS lowered FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(blocked_output.contains(
+        "string transform projection source column \\\"missing\\\" is not present in the CSV header"
+    ));
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
     let source_path = unique_path("sql-local-source-no-filter", "csv");
     fs::write(
