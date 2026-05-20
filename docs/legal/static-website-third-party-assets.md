@@ -1,34 +1,19 @@
 # Static Website Third-Party Assets
 
-ShardLoom's project code remains Apache-2.0. The static website also commits a generated Pagefind
-search bundle under `website/pagefind/` so `shardloom.io` can search Field Guide, use-case, status,
-telemetry, compute-flow, and rendered documentation pages without a runtime search service.
+Status: current public website has no committed third-party runtime asset bundle.
 
-## Pagefind
+The previous generated atlas website committed a Pagefind static-search bundle under
+`website/pagefind/`. That bundle was retired during the public website reset and is not part of the
+current `GAR-WEB-REDESIGN-2` website.
 
-- Package: `pagefind_bin_extended`
-- Version used for the committed bundle: `1.5.2`
-- License reported by local package metadata: MIT
-- Scope: generated static website search assets only
-- Runtime boundary: no ShardLoom runtime code, no benchmark execution, no fallback engine, and no
-  external search service
+Current posture:
 
-Pagefind is an independent static-search project. Its generated website bundle is served as a
-first-party static asset from `website/pagefind/`; it is not ShardLoom execution logic.
+- `website/pagefind/` must not exist.
+- `scripts/check_website_readiness.py` and `website/validate_static_assets.js` reject Pagefind runtime references.
+- The current public site uses committed first-party static HTML, CSS, JavaScript, logo assets,
+  benchmark artifacts, and generated data snapshots.
+- External GitHub links may appear as normal anchor links to source files, but runtime `raw.githubusercontent.com` content fetches remain forbidden.
 
-## MIT License Text
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
-associated documentation files (the "Software"), to deal in the Software without restriction,
-including without limitation the rights to use, copy, modify, merge, publish, distribute,
-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial
-portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
-OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+If Pagefind, Astro, Starlight, or another third-party website dependency is reintroduced later, the
+phase plan must include a new dependency/license review item and this document must be updated with
+the package name, version, license, scope, served artifact paths, and non-runtime boundary.
