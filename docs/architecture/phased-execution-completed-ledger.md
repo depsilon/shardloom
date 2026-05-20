@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped cast projection runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-cast-projections-4d` / #851.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - ShardLoom-native expression cast semantics
+    - SQL/Python local-source computed projection smokes
+  - Scope:
+    - Admitted scoped local SQL projections of the form `CAST(<column> AS <dtype>) AS <column>`
+      for `int64`, `float64`, `utf8`, `boolean`, `date32`, and `timestamp_micros`.
+    - Lowered cast projections to ShardLoom-native expression `Cast` nodes with alias output
+      columns, null propagation, and no external engine invocation.
+    - Added deterministic blockers for unadmitted target dtypes, malformed cast projection syntax,
+      missing source columns, duplicate output names, and unsupported join/aggregate combinations.
+    - Extended Python input-backed `with_column(...)` so admitted local query-builder workflows can
+      use `sl.col("amount").cast("float64")`, `.cast("date32")`, and
+      `.cast("timestamp_micros")` after an explicit `select(...)`.
+    - Updated Python README, use-case index, generated website content, and phase-plan current
+      state with the scoped cast projection surface and claim boundary.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder `with_column(...)`, direct Python
+      `client.sql_local_source_smoke(...)`, use-case docs, generated website content, and Python
+      README.
+  - Evidence:
+    - Rows emit `sql_statement_kind=local_source_computed_projection_*`,
+      `cast_projection_runtime_execution`, `cast_projection_source_column`,
+      `cast_projection_output_column`, `cast_projection_target_dtype`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused parser, CLI smoke, and Python query-builder tests during implementation.
+    - Full verification is recorded on the PR before merge.
+  - Non-goals:
+    - No generalized expression trees, complex casts, struct/variant/union casts, broad SQL/
+      DataFrame runtime, production claim, performance claim, or external fallback.
+  - Claim boundary:
+    - Scoped cast computed projection fixture smoke only.
+  - Fallback boundary:
+    - Parser admission, expression lowering, cast execution, and fixture evidence remain
+      ShardLoom-native. External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, arithmetic,
+      and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped Date32 and UTC timestamp extract projection runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-date-time-extract-projections-4d` / #850.

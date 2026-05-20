@@ -409,12 +409,14 @@ CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avr
 projection/filter/limit workflows. The current slice accepts deterministic `lit(...)` values,
 direct bool/int/float literals, and scoped numeric arithmetic expressions shaped as
 `sl.col("amount") + 5`, `-`, `*`, or `/` with an int/finite-float literal, plus scoped UTF-8
-`sl.col("label").lower()`, `.upper()`, and `.trim()` projections, and scoped Date32/UTC timestamp
-extract projections such as `sl.col("event_date").cast("date32").date_year()` or
+`sl.col("label").lower()`, `.upper()`, and `.trim()` projections, scoped
+`sl.col("amount").cast("float64")` / `.cast("date32")` / `.cast("timestamp_micros")`
+projections, and scoped Date32/UTC timestamp extract projections such as
+`sl.col("event_date").cast("date32").date_year()` or
 `sl.col("event_ts").cast("timestamp_micros").timestamp_hour()`. Literal projections emit
-`literal_projection_*` evidence; numeric arithmetic projections emit
-`numeric_arithmetic_projection_*` evidence; string transform projections emit
-`string_transform_projection_*` evidence; date/time extract projections emit
+`literal_projection_*` evidence; cast projections emit `cast_projection_*` evidence; numeric
+arithmetic projections emit `numeric_arithmetic_projection_*` evidence; string transform
+projections emit `string_transform_projection_*` evidence; date/time extract projections emit
 `date_extract_projection_*` and `timestamp_extract_projection_*` evidence. Mixed `int64`/`float64`
 arithmetic promotes to `float64` only when the `int64` operand is exactly representable as
 `float64`; lossy mixed coercions block deterministically before fallback. Unsupported

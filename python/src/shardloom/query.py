@@ -1137,20 +1137,25 @@ class LazyFrame:
             expression_sql = _sql_literal(literal)
         except (TypeError, ValueError):
             try:
-                expression_sql = _sql_numeric_arithmetic_projection_expression(expression)
+                expression_sql = _sql_cast_projection_expression(expression)
             except (TypeError, ValueError):
                 try:
-                    expression_sql = _sql_string_transform_projection_expression(expression)
+                    expression_sql = _sql_numeric_arithmetic_projection_expression(expression)
                 except (TypeError, ValueError):
                     try:
-                        expression_sql = _sql_temporal_extract_projection_expression(expression)
+                        expression_sql = _sql_string_transform_projection_expression(expression)
                     except (TypeError, ValueError):
-                        expression_text = _require_non_empty("column expression", expression)
-                        return self._unsupported_operation(
-                            "with-column",
-                            f"{column_name}={expression_text}",
-                            check=check,
-                        )
+                        try:
+                            expression_sql = _sql_temporal_extract_projection_expression(
+                                expression
+                            )
+                        except (TypeError, ValueError):
+                            expression_text = _require_non_empty("column expression", expression)
+                            return self._unsupported_operation(
+                                "with-column",
+                                f"{column_name}={expression_text}",
+                                check=check,
+                            )
         if self._can_append_projection_column(column_name):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         return self._unsupported_operation(
@@ -2785,6 +2790,23 @@ def _sql_numeric_arithmetic_projection_expression(expression: object) -> str:
     if parts[1] == "/" and literal == 0:
         raise ValueError("numeric arithmetic projection division by zero is not admitted")
     return text
+
+
+def _sql_cast_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    if not text.upper().startswith("CAST(") or not text.endswith(")"):
+        raise ValueError("computed with_column currently admits CAST column expressions")
+    inner = text[5:-1].strip()
+    upper_inner = inner.upper()
+    marker = " AS "
+    marker_index = upper_inner.find(marker)
+    if marker_index < 0:
+        raise ValueError("CAST column expressions must use CAST(column AS dtype)")
+    column = _normalize_expression_column(inner[:marker_index].strip())
+    dtype = _normalize_cast_dtype(inner[marker_index + len(marker) :].strip())
+    return f"CAST({column} AS {dtype})"
 
 
 def _sql_string_transform_projection_expression(expression: object) -> str:

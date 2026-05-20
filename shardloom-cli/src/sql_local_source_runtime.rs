@@ -170,6 +170,7 @@ impl SqlLocalSourceOutputFormat {
 struct ParsedSqlLocalSource {
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
+    cast_projections: Vec<ParsedCastProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
@@ -195,6 +196,13 @@ struct ParsedAggregate {
 struct ParsedLiteralProjection {
     alias: String,
     value: ScalarValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedCastProjection {
+    alias: String,
+    column: String,
+    target_dtype: LogicalDType,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -324,6 +332,7 @@ impl SortValue {
 struct ParsedProjectionList {
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
+    cast_projections: Vec<ParsedCastProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
@@ -1610,6 +1619,13 @@ fn evaluate_projection_output(
         )
         .chain(
             parsed
+                .cast_projections
+                .iter()
+                .map(cast_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
+        .chain(
+            parsed
                 .numeric_arithmetic_projections
                 .iter()
                 .map(numeric_arithmetic_projection_expression)
@@ -1663,6 +1679,26 @@ fn evaluate_projection_output(
         );
     }
     Ok(output_rows)
+}
+
+fn cast_projection_expression(
+    projection: &ParsedCastProjection,
+) -> Result<Expression, ShardLoomError> {
+    let cast = Expression::cast(
+        ExprId::new(format!("project.cast.{}", projection.alias))?,
+        Expression::column(
+            ExprId::new(format!("project.{}", projection.column))?,
+            ColumnRef::new(projection.column.clone())?,
+        ),
+        projection.target_dtype.clone(),
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(cast),
+            alias: projection.alias.clone(),
+        },
+    ))
 }
 
 fn numeric_arithmetic_projection_expression(
@@ -2692,7 +2728,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -2768,6 +2804,17 @@ fn validate_projection_source_columns(
         {
             return Err(unsupported_sql_error(&format!(
                 "numeric arithmetic projection source column {:?} is not present in the CSV header",
+                projection.column
+            )));
+        }
+    }
+    for projection in &parsed.cast_projections {
+        if !header
+            .iter()
+            .any(|candidate| candidate == &projection.column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "cast projection source column {:?} is not present in the local source header",
                 projection.column
             )));
         }
@@ -2848,6 +2895,13 @@ fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(),
             ));
         }
     }
+    for cast_projection in &parsed.cast_projections {
+        if !output_names.insert(cast_projection.alias.as_str()) {
+            return Err(unsupported_sql_error(
+                "computed projection smoke requires unique output column names",
+            ));
+        }
+    }
     for transform_projection in &parsed.string_transform_projections {
         if !output_names.insert(transform_projection.alias.as_str()) {
             return Err(unsupported_sql_error(
@@ -2894,6 +2948,7 @@ fn bind_join_sql_local_source(
         || !parsed.group_by.is_empty()
         || parsed.order_by.is_some()
         || !parsed.literal_projections.is_empty()
+        || !parsed.cast_projections.is_empty()
         || !parsed.numeric_arithmetic_projections.is_empty()
         || !parsed.string_transform_projections.is_empty()
         || !parsed.date_extract_projections.is_empty()
@@ -3016,6 +3071,10 @@ impl ParsedSqlLocalSource {
         !self.literal_projections.is_empty()
     }
 
+    fn has_cast_projection(&self) -> bool {
+        !self.cast_projections.is_empty()
+    }
+
     fn has_numeric_arithmetic_projection(&self) -> bool {
         !self.numeric_arithmetic_projections.is_empty()
     }
@@ -3034,6 +3093,7 @@ impl ParsedSqlLocalSource {
 
     fn has_computed_projection(&self) -> bool {
         self.has_literal_projection()
+            || self.has_cast_projection()
             || self.has_numeric_arithmetic_projection()
             || self.has_string_transform_projection()
             || self.has_date_extract_projection()
@@ -3057,6 +3117,10 @@ impl ParsedSqlLocalSource {
             "local_source_aggregate_filter_limit"
         } else if self.is_aggregate() {
             "local_source_aggregate_limit"
+        } else if self.has_cast_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_cast_projection() {
+            "local_source_computed_projection_limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_numeric_arithmetic_projection() {
@@ -3101,6 +3165,10 @@ impl ParsedSqlLocalSource {
             "aggregate-filter-limit"
         } else if self.is_aggregate() {
             "aggregate-limit"
+        } else if self.has_cast_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_cast_projection() {
+            "computed-projection-limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_numeric_arithmetic_projection() {
@@ -3145,6 +3213,10 @@ impl ParsedSqlLocalSource {
             "scalar_aggregate_filter_limit"
         } else if self.is_aggregate() {
             "scalar_aggregate_limit"
+        } else if self.has_cast_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_cast_projection() {
+            "computed_projection_limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_numeric_arithmetic_projection() {
@@ -3203,6 +3275,11 @@ impl ParsedSqlLocalSource {
                         .map(|projection| projection.alias.clone()),
                 )
                 .chain(
+                    self.cast_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
                     self.numeric_arithmetic_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
@@ -3223,6 +3300,42 @@ impl ParsedSqlLocalSource {
                         .map(|projection| projection.alias.clone()),
                 )
                 .collect()
+        }
+    }
+
+    fn cast_projection_source_columns(&self) -> String {
+        if self.cast_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.cast_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn cast_projection_output_columns(&self) -> String {
+        if self.cast_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.cast_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn cast_projection_target_dtypes(&self) -> String {
+        if self.cast_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.cast_projections
+                .iter()
+                .map(|projection| projection.target_dtype.as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
         }
     }
 
@@ -5144,6 +5257,22 @@ impl SqlLocalSourceReport {
                 self.parsed.literal_projections.len().to_string(),
             ),
             (
+                "cast_projection_runtime_execution".to_string(),
+                self.parsed.has_cast_projection().to_string(),
+            ),
+            (
+                "cast_projection_source_column".to_string(),
+                self.parsed.cast_projection_source_columns(),
+            ),
+            (
+                "cast_projection_output_column".to_string(),
+                self.parsed.cast_projection_output_columns(),
+            ),
+            (
+                "cast_projection_target_dtype".to_string(),
+                self.parsed.cast_projection_target_dtypes(),
+            ),
+            (
                 "numeric_arithmetic_projection_runtime_execution".to_string(),
                 self.parsed.has_numeric_arithmetic_projection().to_string(),
             ),
@@ -6341,6 +6470,7 @@ fn parsed_sql_local_source_from_parts(
     ParsedSqlLocalSource {
         projections: projection_list.projections,
         literal_projections: projection_list.literal_projections,
+        cast_projections: projection_list.cast_projections,
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
         string_transform_projections: projection_list.string_transform_projections,
         date_extract_projections: projection_list.date_extract_projections,
@@ -6381,6 +6511,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     }
     let mut projections = Vec::with_capacity(entries.len());
     let mut literal_projections = Vec::new();
+    let mut cast_projections = Vec::new();
     let mut numeric_arithmetic_projections = Vec::new();
     let mut string_transform_projections = Vec::new();
     let mut date_extract_projections = Vec::new();
@@ -6399,6 +6530,8 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         } else if let Some(arithmetic_projection) = parse_numeric_arithmetic_projection(projection)?
         {
             numeric_arithmetic_projections.push(arithmetic_projection);
+        } else if let Some(cast_projection) = parse_cast_projection(projection)? {
+            cast_projections.push(cast_projection);
         } else if let Some(transform_projection) = parse_string_transform_projection(projection)? {
             string_transform_projections.push(transform_projection);
         } else if let Some(date_projection) = parse_date_extract_projection(projection)? {
@@ -6417,6 +6550,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     Ok(ParsedProjectionList {
         projections,
         literal_projections,
+        cast_projections,
         numeric_arithmetic_projections,
         string_transform_projections,
         date_extract_projections,
@@ -6489,6 +6623,50 @@ fn parse_numeric_arithmetic_projection(
         column: tokens[0].clone(),
         op,
         rhs,
+    }))
+}
+
+fn parse_cast_projection(raw: &str) -> Result<Option<ParsedCastProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    if !expression_raw
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
+    {
+        return Ok(None);
+    }
+    if alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "CAST projections require an output alias",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let close_index = matching_closing_parenthesis(expression_raw, 4)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "CAST projections must be written as CAST(<column> AS <dtype>) AS <column>",
+        )
+    })?;
+    if !expression_raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "CAST projections must be a single CAST(<column> AS <dtype>) expression before AS",
+        ));
+    }
+    let inner = expression_raw[5..close_index].trim();
+    let Some(inner_as_index) = find_keyword_outside_quotes(inner, "as") else {
+        return Err(unsupported_sql_error(
+            "CAST projections must use CAST(<column> AS <dtype>) syntax",
+        ));
+    };
+    let column = inner[..inner_as_index].trim();
+    let target_raw = inner[inner_as_index + "as".len()..].trim();
+    validate_sql_column_ref(column)?;
+    Ok(Some(ParsedCastProjection {
+        alias: alias.to_string(),
+        column: column.to_string(),
+        target_dtype: parse_cast_target_dtype(target_raw)?,
     }))
 }
 
@@ -8436,6 +8614,44 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_cast_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CAST(amount AS float64) AS amount_float,CAST(event_date AS date32) AS event_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("cast projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert!(parsed.literal_projections.is_empty());
+        assert_eq!(parsed.cast_projections.len(), 2);
+        assert_eq!(parsed.cast_projections[0].alias, "amount_float");
+        assert_eq!(parsed.cast_projections[0].column, "amount");
+        assert_eq!(
+            parsed.cast_projections[0].target_dtype,
+            LogicalDType::Float64
+        );
+        assert_eq!(parsed.cast_projections[1].alias, "event_day");
+        assert_eq!(parsed.cast_projections[1].column, "event_date");
+        assert_eq!(
+            parsed.cast_projections[1].target_dtype,
+            LogicalDType::Date32
+        );
+        assert_eq!(parsed.cast_projection_source_columns(), "amount,event_date");
+        assert_eq!(
+            parsed.cast_projection_output_columns(),
+            "amount_float,event_day"
+        );
+        assert_eq!(parsed.cast_projection_target_dtypes(), "float64,date32");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
     fn parses_scoped_string_transform_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,LOWER(label) AS lowered,UPPER(label) AS raised,TRIM(label) AS trimmed FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
@@ -8561,6 +8777,25 @@ mod tests {
             error
                 .to_string()
                 .contains("computed projection smoke requires unique output column names"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn cast_projection_missing_source_column_is_blocked() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CAST(missing_amount AS float64) AS amount_float FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect("cast projection statement parses before binding");
+        let header = vec!["id".to_string(), "amount".to_string()];
+
+        let error = bind_sql_local_source(&parsed, &header, None)
+            .expect_err("missing cast projection source column is blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("cast projection source column \"missing_amount\" is not present"),
             "{error}"
         );
     }

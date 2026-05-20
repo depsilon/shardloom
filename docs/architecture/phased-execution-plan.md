@@ -350,14 +350,20 @@ or documentation updates alone are insufficient.
     `TIMESTAMP_DAY` / `TIMESTAMP_HOUR` / `TIMESTAMP_MINUTE` / `TIMESTAMP_SECOND` are
     runtime-admitted with `date_extract_projection_*` and `timestamp_extract_projection_*`
     evidence, source-column coercion from admitted ISO strings, ShardLoom-native null propagation,
-    and deterministic duplicate-output-name/source-column/unsupported-shape blockers.
+    and deterministic duplicate-output-name/source-column/unsupported-shape blockers. Scoped
+    cast projections of the form `CAST(column AS dtype) AS column` for `int64`, `float64`, `utf8`,
+    `boolean`, `date32`, and `timestamp_micros` are runtime-admitted over local-source
+    projection/filter/limit rows with `cast_projection_*` evidence, ShardLoom-native null
+    propagation, deterministic source-column/output-name/unsupported-dtype blockers, and no
+    external fallback.
     Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`
     / `NOT LIKE`, scoped UTF-8 lower/upper/trim transforms, bounded `IN` / `NOT IN`,
     cast/date/timestamp, Date32 extracts, Date32 day arithmetic, scoped UTC timestamp extracts,
     scoped numeric arithmetic comparison operators, scoped numeric arithmetic `with_column(...)`,
-    scoped UTF-8 string transform `with_column(...)`, scoped Date32/UTC timestamp extract
-    `with_column(...)`, and logical predicates into the same local SQL smoke path, plus `where(...)`
+    scoped cast `with_column(...)`, scoped UTF-8 string transform `with_column(...)`, scoped
+    Date32/UTC timestamp extract `with_column(...)`, and logical predicates into the same local SQL
+    smoke path, plus `where(...)`
     as a familiar filter alias. User workflows still lack broad typed
     coercions, generalized arithmetic expression trees and generalized projections,
     timezone-database helpers, interval/date-time completeness, subquery-backed IN semantics,
