@@ -2,7 +2,7 @@
 
 This directory contains the static Cloudflare Workers Static Assets site for ShardLoom.
 
-The public site is intentionally small and light-mode:
+The current public site is compact and light-mode:
 
 - `/`: concise overview, current posture, benchmark link, compute-flow link, GitHub link.
 - `/benchmarks`: committed benchmark artifact interpretation. Evidence, not a leaderboard.
@@ -12,6 +12,11 @@ The public site is intentionally small and light-mode:
 
 Detailed docs, use cases, recipes, field-guide content, RFCs, and phase history remain in the
 repository. They are not mirrored into the website.
+
+The next planned website queue is `GAR-WEB-REDESIGN-2`. It intentionally expands the public surface
+again into a cohesive light-mode product/docs site: route/evidence console homepage, Field Guide,
+use-case browser, status matrix, benchmark dashboard, and architecture map. That rebuild should use
+the transparent ShardLoom logo on light surfaces and preserve the same claim-safety rules below.
 
 ## Build
 

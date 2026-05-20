@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-WEB-REDESIGN-2A/2B reference synthesis and content model
+  - Branch/PR: `codex/website-redesign-plan-slice` / #827.
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `docs/architecture/website-redesign-reference-synthesis.md`
+    - `docs/architecture/website-redesign-information-architecture.md`
+    - `docs/architecture/website-redesign-content-model.md`
+    - `README.md`
+    - `website/README.md`
+  - Scope: incorporate the new website direction as a first-class non-runtime plan queue and
+    complete the first two planning slices before CSS/page implementation. The new direction
+    intentionally supersedes the minimal-public-surface default where it conflicts with the user's
+    requested richer site: light-mode product-console homepage, dense technical Field Guide,
+    use-case browser, status matrix, benchmark evidence dashboard, architecture map, and GitHub/doc
+    entry point.
+  - Design decision:
+    - Primary thesis: ShardLoom is the command center for evidence-gated compute.
+    - Visual default: light mode first; use transparent ShardLoom logo assets on light surfaces.
+    - Technique transfer: dense technical atlas, product-world storytelling, code-first developer
+      clarity, capability/status grid, and static knowledge-platform patterns are allowed as
+      structural references only.
+    - Copying third-party text, CSS, assets, animations, layout code, typography, brand identity, or
+      trade dress is explicitly forbidden.
+  - Information architecture:
+    - Planned routes: `/`, `/start`, `/field-guide`, `/field-guide/<slug>`, `/use-cases`,
+      `/use-cases/<id>`, `/benchmarks`, `/architecture`, `/status`, `/docs`, and GitHub.
+    - Canonical route story:
+      `Access Surface -> UniversalIngress -> SourceState -> vortex_ingest ->
+      VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact -> Evidence -> ClaimGate`.
+    - Compatibility aliases and redirects remain required so existing benchmark/compute-flow URLs do
+      not break.
+  - Content model:
+    - Structured registries are defined for route definitions, Field Guide terms, use cases, status
+      rows, benchmark summary cards, reference-file blocks, and claim-boundary blocks.
+    - Status vocabulary is fixed for the public site:
+      `runtime_supported`, `smoke_supported`, `fixture_smoke_only`, `report_only`, `blocked`,
+      `unsupported`, and `not_planned`.
+  - Phase plan: added open implementation slices `GAR-WEB-REDESIGN-2C` through
+    `GAR-WEB-REDESIGN-2G` for homepage, atlas/status, benchmark dashboard,
+    performance/accessibility/claim-safety validation, and a framework migration decision gate.
+  - Verification:
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q scripts website`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js` with the bundled Node runtime if needed.
+    - `git diff --check`
+  - Claim boundary: planning and public-site information architecture only. This does not add
+    runtime behavior, benchmark recomputation, package publication, production support, performance
+    or superiority claims, Spark replacement claims, object-store/lakehouse/Foundry claims, or broad
+    SQL/DataFrame claims.
+  - Fallback boundary: public website language must continue to state that external engines are
+    baseline context only and never ShardLoom fallback execution.
+
 - [x] Session label: GAR-RUNTIME-REVIEW-1 PR #740+ runtime correctness comment batch
   - Branch/PR: `codex/runtime-correctness-batch` / #826.
   - Primary files:

@@ -85,6 +85,10 @@ Reference index:
   `docs/architecture/rfc-phase-traceability.md`, `docs/architecture/global-architecture-review.md`,
   `docs/architecture/compute-engine-flow-reference.md`, and
   `docs/architecture/website-minimal-public-surface-reset.md`.
+- Website redesign references:
+  `docs/architecture/website-redesign-reference-synthesis.md`,
+  `docs/architecture/website-redesign-information-architecture.md`, and
+  `docs/architecture/website-redesign-content-model.md`.
 - Compute-flow and benchmark references:
   `docs/architecture/compute-engine-flow-overhaul-review.md`,
   `docs/architecture/benchmark-persistent-runner-decision.md`,
@@ -230,14 +234,193 @@ explicitly reprioritized.
 
 Current non-runtime sequence:
 
-1. Non-runtime closeout is complete through GAR-0043-B and GAR-VORTEX-071D.
-2. Autonomous work proceeds to the runtime implementation queue below.
-3. Continue moving completed runtime sessions to the ledger immediately after PR/session close.
+1. Non-runtime closeout is complete through GAR-0043-B, GAR-VORTEX-071D, and the completed
+   `GAR-WEB-REDESIGN-2A/2B` website redesign planning slice.
+2. Complete the open `GAR-WEB-REDESIGN-2` implementation slices below before returning to the
+   runtime implementation queue unless the user explicitly reprioritizes runtime work.
+3. Continue moving completed website/runtime sessions to the ledger immediately after PR/session
+   close.
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
 All currently defined non-runtime GAR-P5 closeout slices are complete. Continue with the runtime
 implementation queue below unless a new non-runtime blocker is explicitly added here first.
+
+##### Non-Runtime GAR-WEB-REDESIGN-2 - Next-Level Website Rebuild
+
+Source: user-requested website reboot after the minimal public surface reset, the ShardLoom logo
+assets, benchmark publishing artifacts, compute-flow route model, use-case/status docs, and
+best-in-class structural references including Modal-style technical glossary density, Linear-style
+product-system polish, Stripe/Resend-style developer clarity, and Vercel/Supabase-style platform
+confidence. Technique transfer is allowed; third-party code, text, CSS, layout code, assets,
+typography, animation, trade dress, and brand identity copying are not allowed.
+
+Goal: rebuild `shardloom.io` as a light-mode-first, cohesive technical product/docs surface for
+evidence-gated compute. The public site must show the route
+`UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> ExecutionPlan ->
+OutputPlan -> SinkArtifact -> Evidence -> ClaimGate`, while keeping benchmark, support, and
+claim-boundary language honest.
+
+Completed kickoff: `GAR-WEB-REDESIGN-2A reference synthesis and visual direction` and
+`GAR-WEB-REDESIGN-2B information architecture and content model` are captured in the completed
+ledger and the three `website-redesign-*` architecture docs. Remaining items below are the active
+implementation queue.
+
+- [ ] GAR-WEB-REDESIGN-2C homepage product-console rebuild
+  - Source: `docs/architecture/website-redesign-reference-synthesis.md`,
+    `docs/architecture/website-redesign-information-architecture.md`,
+    `docs/architecture/website-redesign-content-model.md`, current `website/index.html`,
+    ShardLoom transparent logo assets.
+  - Current state: the current homepage is intentionally minimal after the reset; it does not yet
+    deliver the richer command-center/product-console experience requested in the redesign spec.
+  - Next slice outcome: rebuild `/` as a light-mode product-console homepage with route/evidence
+    hero, Start/Field Guide/Benchmark CTAs, supported code example, claim-boundary chips, and
+    compact capability/status preview.
+  - User-visible surface: `/`, shared header/footer, sitemap/redirects as needed.
+  - Implementation scope: `website/build_static_pages.py`, `website/index.html`,
+    `website/assets/site.css`, logo usage, generated route links, website validators.
+  - Evidence required: route/evidence console fields, visible `fallback_attempted=false`,
+    `external_engine_invoked=false`, `claim_gate_status`, current technical-preview/non-production
+    boundary, benchmark artifact link, GitHub source-of-truth link.
+  - Acceptance: first viewport communicates ShardLoom in under five seconds; transparent logo is
+    displayed on a light surface; CTAs route to working pages; no blocked/report-only path is
+    framed as supported; mobile and desktop layouts have no overlap or horizontal overflow.
+  - Verification: `python website/build_static_pages.py`, `python scripts/check_website_readiness.py`,
+    `node website/validate_static_assets.js`, browser screenshots for `/` at mobile and desktop,
+    `git diff --check`.
+  - Non-goals: no runtime behavior changes, package publication, benchmark recomputation, external
+    search service, third-party visual copying, or public support-claim expansion.
+  - Claim boundary: homepage is an interpretation layer only; no performance, superiority,
+    Spark-replacement, production, SQL/DataFrame, object-store/lakehouse, Foundry, or package-ready
+    claim.
+  - Fallback boundary: homepage copy must state or imply external engines are baselines only and
+    never ShardLoom fallback execution.
+  - Dependencies/blockers: completed `GAR-WEB-REDESIGN-2A/2B` docs, current benchmark manifest,
+    compute-flow route vocabulary, transparent logo assets, and website validator updates.
+  - Ledger rule: ledger entry must include visual QA paths/screenshots and exact page routes
+    changed.
+
+- [ ] GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild
+  - Source: Use Case Atlas docs, universal compatibility scoreboard, compute-flow reference,
+    redesign content model, and retired website atlas history in the completed ledger.
+  - Current state: generated Field Guide, Use Case, and Status pages were removed from the public
+    website during the minimal reset; repo docs still contain the richer content.
+  - Next slice outcome: rebuild `/field-guide`, `/field-guide/<slug>`, `/use-cases`,
+    `/use-cases/<id>`, and `/status` from structured content with compact technical-index density,
+    filters, status chips, reference files, related routes, and blocked/report-only visibility.
+  - User-visible surface: Field Guide, Use Cases, Status matrix, navigation, sitemap, redirects.
+  - Implementation scope: website content registries or generator data, optional docs/use-case
+    index reuse, `website/build_static_pages.py`, `website/assets/site.css`,
+    `website/validate_static_assets.js`, `scripts/check_website_readiness.py`.
+  - Evidence required: status vocabulary, route labels, evidence fields, claim boundaries,
+    reference files, related use cases, blocker explanations for planned/blocked rows.
+  - Acceptance: every public status/use-case card has status, route, runnable example or blocker,
+    evidence fields, claim boundary, and references; blocked/report-only cards remain visible;
+    dossier pages follow the approved template; filters work without backend services.
+  - Verification: website build, static asset validation, website readiness, use-case index/coverage
+    checks if reused, browser smoke for `/field-guide`, `/use-cases`, and `/status`, `git diff
+    --check`.
+  - Non-goals: no runtime support expansion, package publication, object-store/lakehouse/Foundry
+    production claim, broad SQL/DataFrame runtime claim, or external search SaaS.
+  - Claim boundary: status pages are capability interpretation only; `runtime_supported`,
+    `smoke_supported`, `fixture_smoke_only`, `report_only`, `blocked`, `unsupported`, and
+    `not_planned` must remain visually and textually distinct.
+  - Fallback boundary: no page may describe pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray,
+    databases, warehouses, or managed platforms as fallback execution.
+  - Dependencies/blockers: structured content registry, exact reference-file paths, route/status
+    vocabulary, claim-boundary copy, and static filter implementation.
+  - Ledger rule: ledger entry must list generated routes, content sources, filter fields, and
+    validation commands.
+
+- [ ] GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild
+  - Source: static benchmark manifest/artifacts, benchmark publishing runbook, benchmark evidence
+    docs, and redesign benchmark page blueprint.
+  - Current state: `/benchmarks` renders the committed artifact and is claim-safe, but it can still
+    read as a dense artifact interpretation page rather than a polished route-level evidence
+    dashboard.
+  - Next slice outcome: rebuild `/benchmarks` around route timing cards, artifact completeness,
+    lane availability, claim-gate distribution, scenario coverage, collapsed raw tables, and clear
+    certified-cold versus prepared-warm timing interpretation.
+  - User-visible surface: `/benchmarks`, `/benchmarks/index.html`, benchmark links from home/status.
+  - Implementation scope: benchmark artifact ingestion/rendering in `website/build_static_pages.py`,
+    CSS/dashboard components, static validation, readiness checks.
+  - Evidence required: benchmark profile, expected/available/missing lanes, lane versions/reasons,
+    claim boundary, performance-claim flag, route timing fields, external-baseline-only labels,
+    source/prepared/output reuse fields when present.
+  - Acceptance: raw tables are collapsed by default; external baselines are visible but marked
+    context only; compatibility cold timing is never presented as pure query speed; prepared warm
+    rows disclose whether preparation is included.
+  - Verification: website build with benchmark manifest, artifact completeness/readiness checks,
+    static asset validation, browser smoke for benchmark tabs/drawers, `cargo test -p
+    shardloom-contract-tests --test traditional_benchmark_harness`, `git diff --check`.
+  - Non-goals: no benchmark recomputation unless separately requested, no performance/superiority
+    claim, no GPU/object-store comparison mixing, no hidden lane omission.
+  - Claim boundary: local benchmark evidence only; no leaderboard or replacement claim.
+  - Fallback boundary: external engines remain baseline rows only and never satisfy ShardLoom
+    evidence gates.
+  - Dependencies/blockers: committed benchmark manifest/results, route timing field availability,
+    artifact completeness data, claim-gate distribution fields, and drawer/tab renderer support.
+  - Ledger rule: ledger entry must include the manifest path rendered, completeness status, and
+    screenshot/validation evidence.
+
+- [ ] GAR-WEB-REDESIGN-2F performance, accessibility, and claim-safety gate
+  - Source: Core Web Vitals thresholds, WCAG 2.2 AA target, website readiness checks, static asset
+    validation, redesign quality bar.
+  - Current state: website readiness and static validation exist, but the redesigned richer site
+    will need stronger checks for accessibility, route coverage, retired/stale content, and
+    claim-safety regressions.
+  - Next slice outcome: extend validation so the rebuilt site fails on broken routes/assets,
+    missing metadata, inaccessible status color-only meaning, runtime raw-GitHub fetches, forbidden
+    claim language, missing reference blocks, and retired stale content.
+  - User-visible surface: all public website pages.
+  - Implementation scope: `scripts/check_website_readiness.py`, `website/validate_static_assets.js`,
+    optional lightweight browser/a11y smoke scripts, README/build docs.
+  - Evidence required: generated readiness report, asset validation output, route inventory,
+    metadata/canonical checks, forbidden-claim scan, keyboard/focus/reduced-motion checklist.
+  - Acceptance: redesigned site has deterministic local validation; status chips include text labels
+    not color-only meaning; no runtime external fetches; mobile/desktop pages meet layout checks;
+    claim boundaries are enforced by scripts where feasible.
+  - Verification: website readiness, static asset validation, compileall, browser smoke, `git diff
+    --check`.
+  - Non-goals: no paid analytics, external search SaaS, server-side rendering, runtime telemetry, or
+    Lighthouse-as-release-gate unless explicitly approved.
+  - Claim boundary: validation proves website publication hygiene only, not runtime or performance
+    claims for ShardLoom compute.
+  - Fallback boundary: validation must continue to reject copy implying external-engine fallback.
+  - Dependencies/blockers: rebuilt website route inventory, shared status-chip components,
+    canonical claim-boundary phrases, and local browser smoke path.
+  - Ledger rule: ledger entry must attach readiness report path, browser viewport list, and any
+    residual manual QA gaps.
+
+- [ ] GAR-WEB-REDESIGN-2G framework migration decision and implementation gate
+  - Source: redesign stack recommendation, current Python static generator, Cloudflare static asset
+    deployment, Astro/Starlight/Pagefind references.
+  - Current state: the site is generated by `website/build_static_pages.py` and deployed as static
+    assets. Astro/Starlight/Pagefind may improve content-model scale, but migration risk is not yet
+    justified by implementation evidence.
+  - Next slice outcome: make a framework decision and, only if explicitly approved, migrate to an
+    Astro custom site or Starlight-backed docs section while preserving static deployment and
+    validation.
+  - User-visible surface: build/deploy workflow, all public pages, website README.
+  - Implementation scope: report-only decision doc first; optional future package/config/source
+    changes if migration is approved; Cloudflare/static output compatibility; validation updates.
+  - Evidence required: page count/content-model complexity, build output parity, route/redirect
+    parity, search requirements, schema-validation benefits, dependency/license/provenance review,
+    local build timing, deployment compatibility.
+  - Acceptance: no framework migration occurs without an explicit decision and passing static
+    deployment/validation proof; if migration occurs, old URLs keep working and no runtime external
+    fetch/search service is introduced.
+  - Verification: decision doc, dependency/license checks if dependencies are added, local build,
+    website readiness, static asset validation, `git diff --check`.
+  - Non-goals: no framework churn for its own sake, no server-side search, no external search SaaS,
+    no deployment-provider change, no runtime behavior changes.
+  - Claim boundary: framework choice is website implementation infrastructure only.
+  - Fallback boundary: migration cannot introduce external compute/search fallback or runtime
+    content fetches that bypass committed artifacts.
+  - Dependencies/blockers: completed static-generator implementation slices, dependency/license
+    review, Cloudflare output compatibility proof, and explicit user approval for migration.
+  - Ledger rule: ledger entry must include the decision, alternatives, accepted tradeoffs, and
+    rollback path.
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 
