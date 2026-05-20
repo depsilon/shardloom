@@ -123,12 +123,36 @@ surface over existing `OutputEnvelope` fields and diagnostics. Unsupported or
 report-only scopes remain unsupported or report-only, and
 `fallback_attempted=false` / `external_engine_invoked=false` stay visible.
 
-`ShardLoomSession` is planned as `GAR-PERF-2F`, not current Python runtime support. The future
-surface should expose a caller-owned in-process local session over prepared/native artifacts with
-`session_id`, cache hit/miss fields, source-state reuse counts, prepared-artifact reuse counts,
-explicit close/drop status, and no-fallback/no-external-engine evidence. It must not imply a daemon,
-remote server, hidden global cache, DataFrame/SQL runtime, object-store/lakehouse runtime, or
-performance claim.
+`ShardLoomSession` is available as a scoped, caller-owned Python session for local prepare-once
+reuse. It currently caches `ctx.prepare_vortex(...)` / `vortex_ingest` reports only when the local
+source fingerprint and prepared Vortex artifact fingerprint still match. Session evidence exposes
+`session_id`, `session_state_scope`, cache hit/miss counts, source/prepared reuse counts, explicit
+close status, and no-fallback/no-external-engine fields. It does not imply a daemon, remote server,
+hidden global cache, DataFrame/SQL runtime, object-store/lakehouse runtime, or performance claim.
+
+```python
+import shardloom as sl
+
+ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
+with ctx.session(session_id="local-demo") as session:
+    first = session.prepare_vortex(
+        "target/vortex-ingest-source.csv",
+        "target/vortex-ingest-source.vortex",
+        allow_overwrite=True,
+    )
+    second = session.prepare_vortex(
+        "target/vortex-ingest-source.csv",
+        "target/vortex-ingest-source.vortex",
+    )
+
+print(first.reuse_hit, second.reuse_hit)
+print(second.evidence())
+print(session.evidence())
+```
+
+Reuse is invalidated when the source content/size/mtime or prepared artifact content/size/mtime
+changes. OutputPlan reuse, schema/dictionary caches, buffer pools, CLI batch sessions, and broader
+workflow session reuse remain planned under GAR-RUNTIME-IMPL-4L/5I.
 
 Allocation profiling and scoped buffer-pool optimization are planned as `GAR-PERF-2G`, not current
 Python runtime support. Any future Python-visible buffer reuse must stay opt-in or explicitly

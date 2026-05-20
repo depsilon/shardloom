@@ -57,6 +57,9 @@ Current runtime support is intentionally scoped and evidence-gated:
 - feature-gated local `vortex_ingest` smoke that prepares admitted flat scalar local sources into a
   local `.vortex` artifact and emits `VortexPreparedState` evidence with explicit
   `ingest_minimal` / `ingest_certified` certification-depth semantics;
+- caller-owned Python `ShardLoomSession` prepared-state reuse for scoped local `vortex_ingest`
+  workflows, guarded by source and prepared-artifact fingerprints with explicit close/evidence
+  fields;
 - report-only or blocked status for broader SQL/DataFrame, object-store, lakehouse/table,
   distributed, live/hybrid production, Foundry production, and package-publication claims.
 
@@ -81,6 +84,29 @@ python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 $env:PYTHONPATH = "python\src"
 python examples\local-python-smoke\run.py --repo-root .
 ```
+
+Scoped prepare-once reuse from Python:
+
+```python
+import shardloom as sl
+
+ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
+with ctx.session() as session:
+    first = session.prepare_vortex(
+        "target/vortex-ingest-source.csv",
+        "target/vortex-ingest-source.vortex",
+        allow_overwrite=True,
+    )
+    second = session.prepare_vortex(
+        "target/vortex-ingest-source.csv",
+        "target/vortex-ingest-source.vortex",
+    )
+    print(second.reuse_hit, second.reuse_reason)
+    print(session.evidence())
+```
+
+The session is in-process and caller-owned. It is not a daemon, hidden global cache, distributed
+runtime, object-store/table cache, SQL/DataFrame production surface, or performance claim.
 
 Exact smoke commands, feature flags, expected outputs, and claim boundaries live in the linked
 getting-started docs.
