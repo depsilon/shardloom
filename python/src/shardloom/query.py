@@ -1620,7 +1620,12 @@ def read_parquet(
     engine_mode: str = "auto",
     **client_config: object,
 ) -> LazyFrame:
-    """Declare a lazy Parquet compatibility source."""
+    """Declare a lazy Parquet compatibility source.
+
+    Scoped local Parquet projection/filter/limit workflows lower to
+    `sql-local-source-smoke`; binaries built without `universal-format-io`
+    return ShardLoom's deterministic Parquet adapter blocker.
+    """
 
     return _read_source(
         "parquet",
@@ -2348,7 +2353,7 @@ def _is_local_source_sql_ref(value: str) -> bool:
     lower = value.strip().lower()
     if "://" in lower or lower.startswith(("s3:", "gs:", "abfs:", "abfss:")):
         return False
-    return lower.endswith((".csv", ".json", ".jsonl", ".ndjson"))
+    return lower.endswith((".csv", ".json", ".jsonl", ".ndjson", ".parquet"))
 
 
 def _is_local_csv_source_ref(value: str) -> bool:
@@ -2361,11 +2366,18 @@ def _is_local_json_source_ref(value: str) -> bool:
     return _is_local_source_sql_ref(value) and lower.endswith((".json", ".jsonl", ".ndjson"))
 
 
+def _is_local_parquet_source_ref(value: str) -> bool:
+    lower = value.strip().lower()
+    return _is_local_source_sql_ref(value) and lower.endswith(".parquet")
+
+
 def _is_query_builder_local_source(source: WorkflowSource) -> bool:
     if source.source_format == "csv":
         return _is_local_csv_source_ref(source.uri)
     if source.source_format == "json":
         return _is_local_json_source_ref(source.uri)
+    if source.source_format == "parquet":
+        return _is_local_parquet_source_ref(source.uri)
     return False
 
 

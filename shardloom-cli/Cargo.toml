@@ -24,6 +24,7 @@ shardloom-vortex = { version = "0.1.0", path = "../shardloom-vortex" }
 
 [features]
 default = []
+universal-format-io = ["shardloom-vortex/universal-format-io"]
 vortex-write = ["shardloom-vortex/vortex-write"]
 vortex-encoded-read-spike = ["shardloom-vortex/vortex-encoded-read-spike"]
 vortex-local-primitives = ["shardloom-vortex/vortex-local-primitives"]
@@ -31,6 +32,11 @@ vortex-traditional-analytics-benchmark = [
     "shardloom-vortex/vortex-traditional-analytics-benchmark",
     "shardloom-vortex/vortex-staged-output-fs",
 ]
+
+[dev-dependencies]
+arrow-array = "58.3.0"
+arrow-schema = "58.3.0"
+parquet = "58.2.0"
 
 [[bin]]
 name = "shardloom"

@@ -326,7 +326,8 @@ and transformations only. `plan()`, `explain()`, `estimate()`, `certify()`, and
 not read input files, infer schemas, materialize rows, probe object stores,
 write output, or invoke fallback engines.
 
-One scoped local CSV plus flat JSON/JSONL/NDJSON query-builder workflow family is
+One scoped local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar
+Parquet query-builder workflow family is
 executable through the same typed CLI bridge. A workflow shaped as
 `read_csv(...).select(...).limit(...)`, with an optional `filter(...)`, lowers
 to ShardLoom's `sql-local-source-smoke` path, runs ShardLoom-owned
@@ -335,7 +336,10 @@ report. `preview(limit=n)`, `head(limit=n)`, and `take(n)` use the same bounded
 local path with `SELECT *`. The same projection/optional-filter/limit
 shape is admitted for `read_json(...)` when the source path is a local flat
 `.json`, `.jsonl`, or `.ndjson` file; nested JSON expansion and JSONPath remain
-deterministic unsupported surfaces. Filters admit scoped comparison,
+deterministic unsupported surfaces. The same shape is admitted for
+`read_parquet(...)` over local flat scalar `.parquet` files when the CLI is built
+with `--features universal-format-io`; default binaries return an explicit
+Parquet adapter blocker. Filters admit scoped comparison,
 cast, date-literal, Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
 `DATE_DAY(...)`, Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
 bounded `IN (...)`, inclusive `between(...)` range predicates, string
@@ -350,11 +354,11 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `date_sub_days(days)` comparisons into the same ShardLoom SQL smoke
 path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed literal `with_column(...)` is also admitted after an explicit `select(...)` for local
-CSV and flat JSON/JSONL/NDJSON projection/filter/limit workflows. The first slice accepts only
+CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet projection/filter/limit workflows. The first slice accepts only
 deterministic `lit(...)` values or direct bool/int/float literals, emits literal-projection
 evidence, and blocks non-literal expressions before fallback.
-CSV and local flat
-JSON/JSONL/NDJSON are both admitted for scoped scalar aggregates shaped as
+CSV, local flat
+JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
 `MIN`, and `MAX`. The convenience `count()` method lowers to the same
 `COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. One-column grouped aggregates shaped as
@@ -524,13 +528,13 @@ print(sql_written.output_path)
 print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 ```
 
-This is a fixture-smoke local CSV plus flat JSON/JSONL/NDJSON bridge for the scoped
+This is a fixture-smoke local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet bridge for the scoped
 projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
 preview/head/take select-star, input-backed literal `with_column`, and single-key numeric top-N shapes.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
-non-literal `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON, object
-stores, or table/lakehouse inputs, and does not create a performance or
+non-literal `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON,
+broader Parquet type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
 The Python query builder admits one local CSV inner equi-join shape through the
@@ -694,7 +698,8 @@ print(join.claim_boundary)
 ```
 
 This matrix is mostly report-only, with the scoped local CSV `collect` and
-`write` rows and the flat JSON/JSONL/NDJSON projection/optional-filter/limit bridge marked as
+`write` rows plus the flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet
+projection/optional-filter/limit bridges marked as
 fixture-smoke-supported only for the admitted projection/optional-filter/limit,
 preview/select-star, scalar aggregate, and one-column grouped aggregate shapes described above.
 It does not import DataFrame

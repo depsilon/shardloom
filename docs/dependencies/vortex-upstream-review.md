@@ -151,13 +151,14 @@ executable support from older PR-specific sections that say "this PR" or
 
 ## Universal-format local benchmark bridge dependencies
 
-- `shardloom-vortex` now gates local structured-file benchmark bridge support behind
-  `universal-format-io`, which is pulled only by the existing
-  `vortex-traditional-analytics-benchmark` feature.
+- `shardloom-vortex` gates local structured-file bridge support behind
+  `universal-format-io`, which is pulled by the existing
+  `vortex-traditional-analytics-benchmark` feature and by the scoped
+  `shardloom-cli --features universal-format-io` local Parquet source smoke.
 - Rust crates added under that gate:
   - `parquet 58.2.0` for local Parquet record-batch reads/writes.
-  - `arrow-ipc 58.2.0` for Arrow IPC reads/writes.
-  - `arrow-avro 58.2.0` for Avro reads/writes.
+  - `arrow-ipc 58.3.0` for Arrow IPC reads/writes.
+  - `arrow-avro 58.3.0` for Avro reads/writes.
   - `orc-rust 0.8.0` for ORC reads/writes.
   - `arrow-array 58.3.0` and `arrow-schema 58.3.0` for Arrow boundary arrays and schemas.
   - `arrow-json 58.2.0` is reserved under the same gate for JSON/NDJSON boundary work; the current
@@ -171,8 +172,8 @@ executable support from older PR-specific sections that say "this PR" or
   - Default workspace builds remain lightweight and do not enable these dependencies.
   - These dependencies do not introduce Spark, DataFusion, DuckDB, Polars, Velox, Trino, Dask, Ray,
     Calcite, or `vortex-datafusion`.
-  - They are file-format boundary readers/writers for local benchmark smoke and troubleshooting
-    only, not execution engines or fallback paths.
+  - They are file-format boundary readers/writers for local benchmark smoke, troubleshooting, and
+    the feature-gated flat scalar local Parquet SQL smoke, not execution engines or fallback paths.
   - Compatibility-format input is imported into native local Vortex output before the temporary
     benchmark operator runs.
   - Production adapter certification, object-store IO, catalog/table metadata IO, distributed
