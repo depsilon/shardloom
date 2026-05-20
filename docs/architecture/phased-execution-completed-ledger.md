@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped conditional projection runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-conditional-projections-4d` / #854.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - ShardLoom-native expression semantics
+    - SQL/Python local-source computed projection smokes
+  - Scope:
+    - Admitted scoped local SQL projections of the form
+      `CASE WHEN <admitted predicate> THEN <literal> ELSE <literal> END AS <column>`.
+    - Lowered admitted conditional projections to ShardLoom-native `case_when` function-call and
+      alias expression nodes with SQL-style predicate true/false/null branch semantics and no
+      external engine invocation.
+    - Reused already admitted predicate leaves inside CASE conditions, including Date32/UTC
+      timestamp source coercion for admitted predicate literals.
+    - Added deterministic blockers for malformed CASE syntax, missing predicate source columns,
+      NULL branch literals, mixed THEN/ELSE literal dtypes, duplicate output names, and unsupported
+      join/aggregate/order-by computed projection combinations.
+    - Extended Python input-backed `with_column(...)` so admitted local query-builder workflows can
+      use `sl.case_when(predicate, then_value, else_value)` after an explicit `select(...)`.
+    - Updated Python README, use-case index, generated website content, and phase-plan current
+      state with the scoped conditional projection surface and claim boundary.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder `with_column(...)`, direct Python
+      `client.sql_local_source_smoke(...)`, use-case docs, generated website content, and Python
+      README.
+  - Evidence:
+    - Rows emit `sql_statement_kind=local_source_computed_projection_*`,
+      `conditional_projection_runtime_execution`, `conditional_projection_predicate_family`,
+      `conditional_projection_source_column`, `conditional_projection_output_column`,
+      `conditional_projection_then_dtype`, `conditional_projection_else_dtype`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused core expression, parser, CLI smoke, and Python query-builder tests during
+      implementation.
+    - Full verification is recorded on the PR before merge.
+  - Non-goals:
+    - No generalized CASE expressions, nested CASE, non-literal branches, branch dtype coercion,
+      broad SQL/DataFrame runtime, production claim, performance claim, or external fallback.
+  - Claim boundary:
+    - Scoped single-branch conditional computed projection fixture smoke only.
+  - Fallback boundary:
+    - Parser admission, predicate lowering, expression execution, optional temporal source
+      coercion, and fixture evidence remain ShardLoom-native. External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, arithmetic,
+      and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped null coalesce projection runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-null-coalesce-projections-4d` / #853.
