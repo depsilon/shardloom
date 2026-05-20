@@ -1142,12 +1142,15 @@ class LazyFrame:
                 try:
                     expression_sql = _sql_string_transform_projection_expression(expression)
                 except (TypeError, ValueError):
-                    expression_text = _require_non_empty("column expression", expression)
-                    return self._unsupported_operation(
-                        "with-column",
-                        f"{column_name}={expression_text}",
-                        check=check,
-                    )
+                    try:
+                        expression_sql = _sql_temporal_extract_projection_expression(expression)
+                    except (TypeError, ValueError):
+                        expression_text = _require_non_empty("column expression", expression)
+                        return self._unsupported_operation(
+                            "with-column",
+                            f"{column_name}={expression_text}",
+                            check=check,
+                        )
         if self._can_append_projection_column(column_name):
             return self._append(WorkflowOperation("with_column", (column_name, expression_sql)))
         return self._unsupported_operation(
@@ -2801,6 +2804,59 @@ def _sql_string_transform_projection_expression(expression: object) -> str:
     column = text[open_index + 1 : -1].strip()
     _normalize_expression_column(column)
     return f"{function}({column})"
+
+
+def _sql_temporal_extract_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits DATE/TIMESTAMP extract column expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {
+        "DATE_YEAR",
+        "DATE_MONTH",
+        "DATE_DAY",
+        "TIMESTAMP_YEAR",
+        "TIMESTAMP_MONTH",
+        "TIMESTAMP_DAY",
+        "TIMESTAMP_HOUR",
+        "TIMESTAMP_MINUTE",
+        "TIMESTAMP_SECOND",
+    }:
+        raise ValueError(
+            "computed with_column currently admits DATE/TIMESTAMP extract column expressions"
+        )
+    column = text[open_index + 1 : -1].strip()
+    if function.startswith("DATE_"):
+        normalized = _normalize_temporal_extract_column(column, "date32")
+    else:
+        normalized = _normalize_temporal_extract_column(column, "timestamp_micros")
+    return f"{function}({normalized})"
+
+
+def _normalize_temporal_extract_column(expression: str, dtype: str) -> str:
+    text = _require_non_empty("temporal extract column expression", expression)
+    if text.upper().startswith("CAST("):
+        if not text.endswith(")"):
+            raise ValueError("temporal extract CAST expression must be closed")
+        inner = text[5:-1].strip()
+        upper_inner = inner.upper()
+        marker = " AS "
+        marker_index = upper_inner.find(marker)
+        if marker_index < 0:
+            raise ValueError("temporal extract CAST expression must use CAST(column AS dtype)")
+        column = inner[:marker_index].strip()
+        target = inner[marker_index + len(marker) :].strip().lower()
+        if target == "timestamp":
+            target = "timestamp_micros"
+        if target != dtype:
+            raise ValueError(f"temporal extract CAST target must be {dtype}")
+        return f"CAST({_normalize_expression_column(column)} AS {dtype})"
+    return _normalize_expression_column(text)
 
 
 def _parse_numeric_literal_token(value: str) -> int | float:
