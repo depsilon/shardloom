@@ -2171,6 +2171,76 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_with_column_numeric_rounding_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,FLOOR(amount) AS bucket FROM 'target/input.csv' WHERE ROUND(amount) >= 4 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source numeric rounding projection",
+                    "human_text": "sql local source numeric rounding projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"bucket\\":4.0}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "predicate_operator_family", "value": "numeric_rounding"},
+                        {"key": "numeric_rounding_runtime_execution", "value": "true"},
+                        {"key": "numeric_rounding_operator", "value": "round"},
+                        {"key": "numeric_rounding_source_column", "value": "amount"},
+                        {"key": "numeric_rounding_rhs_dtype", "value": "int64"},
+                        {"key": "numeric_rounding_projection_runtime_execution", "value": "true"},
+                        {"key": "numeric_rounding_projection_operator", "value": "floor"},
+                        {"key": "numeric_rounding_projection_source_column", "value": "amount"},
+                        {"key": "numeric_rounding_projection_output_column", "value": "bucket"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("bucket", sl.floor(sl.col("amount")))
+            .filter(sl.col("amount").round() >= 4)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "numeric_rounding")
+        self.assertTrue(report.numeric_rounding_runtime_execution)
+        self.assertEqual(report.numeric_rounding_operators, ("round",))
+        self.assertEqual(report.numeric_rounding_source_columns, ("amount",))
+        self.assertEqual(report.numeric_rounding_rhs_dtypes, ("int64",))
+        self.assertTrue(report.numeric_rounding_projection_runtime_execution)
+        self.assertEqual(report.numeric_rounding_projection_operators, ("floor",))
+        self.assertEqual(report.numeric_rounding_projection_source_columns, ("amount",))
+        self.assertEqual(report.numeric_rounding_projection_output_columns, ("bucket",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_with_column_string_transform_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

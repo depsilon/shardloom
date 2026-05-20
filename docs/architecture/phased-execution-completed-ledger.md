@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped numeric rounding runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-numeric-rounding-4d` / #858.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - ShardLoom-native numeric expression semantics
+    - SQL/Python local-source predicate and computed projection smokes
+  - Scope:
+    - Admitted scoped local SQL predicates of the form
+      `FLOOR(<column>) <comparison> <numeric literal>`,
+      `CEIL(<column>) <comparison> <numeric literal>`, and
+      `ROUND(<column>) <comparison> <numeric literal>` over admitted local-source smoke rows.
+    - Admitted scoped local SQL projections of the form `FLOOR(<column>) AS <column>`,
+      `CEIL(<column>) AS <column>`, and `ROUND(<column>) AS <column>` after explicit projection
+      selection, with ShardLoom-native `int64` identity and finite `float64` rounding semantics.
+    - Added Python query-builder helpers through `sl.floor(...)`, `sl.ceil(...)`, `sl.round(...)`,
+      and `.floor()` / `.ceil()` / `.round()` methods on column expressions.
+    - Added deterministic blockers for malformed rounding syntax, non-numeric predicate literals,
+      missing source columns, duplicate output names, unsupported join/aggregate/order combinations,
+      unsupported computed projection shapes, non-numeric values, and non-finite float inputs.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder `filter(...)` and `with_column(...)`,
+      direct Python `client.sql_local_source_smoke(...)`, use-case docs, generated website
+      content, and Python README.
+  - Evidence:
+    - Predicate rows emit `predicate_operator_family=numeric_rounding`,
+      `numeric_rounding_runtime_execution`, `numeric_rounding_operator`,
+      `numeric_rounding_source_column`, `numeric_rounding_rhs_dtype`, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+    - Projection rows also emit `numeric_rounding_projection_runtime_execution`,
+      `numeric_rounding_projection_operator`, `numeric_rounding_projection_source_column`, and
+      `numeric_rounding_projection_output_column`.
+  - Verification:
+    - Focused core expression, parser, CLI smoke, and Python query-builder tests during
+      implementation.
+    - Full verification is recorded on the PR before merge.
+  - Non-goals:
+    - No decimal rounding scale, configurable precision, generalized numeric function trees, broad
+      SQL/DataFrame runtime, production claim, performance claim, or external fallback.
+  - Claim boundary:
+    - Scoped numeric rounding predicate/projection fixture smoke only.
+  - Fallback boundary:
+    - Parser admission, expression execution, and fixture evidence remain ShardLoom-native.
+      External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, arithmetic,
+      and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped numeric ABS runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-numeric-abs-4d` / #857.

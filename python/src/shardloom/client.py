@@ -729,6 +729,39 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def numeric_rounding_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted numeric rounding predicate."""
+
+        return self.envelope.field_bool("numeric_rounding_runtime_execution", False) is True
+
+    @property
+    def numeric_rounding_operators(self) -> tuple[str, ...]:
+        """Return numeric rounding predicate operators emitted by the smoke."""
+
+        value = self.envelope.field("numeric_rounding_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_rounding_source_columns(self) -> tuple[str, ...]:
+        """Return numeric rounding predicate source columns emitted by the smoke."""
+
+        value = self.envelope.field("numeric_rounding_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_rounding_rhs_dtypes(self) -> tuple[str, ...]:
+        """Return numeric rounding predicate literal dtypes emitted by the smoke."""
+
+        value = self.envelope.field("numeric_rounding_rhs_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def numeric_arithmetic_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted numeric arithmetic projection."""
 
@@ -959,6 +992,44 @@ class SqlLocalSourceSmokeReport:
         """Return numeric ABS projection output columns emitted by the smoke."""
 
         value = self.envelope.field("numeric_abs_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_rounding_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted numeric rounding projection."""
+
+        return (
+            self.envelope.field_bool(
+                "numeric_rounding_projection_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def numeric_rounding_projection_operators(self) -> tuple[str, ...]:
+        """Return numeric rounding projection operators emitted by the smoke."""
+
+        value = self.envelope.field("numeric_rounding_projection_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_rounding_projection_source_columns(self) -> tuple[str, ...]:
+        """Return numeric rounding projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("numeric_rounding_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def numeric_rounding_projection_output_columns(self) -> tuple[str, ...]:
+        """Return numeric rounding projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("numeric_rounding_projection_output_column", "")
         if not value or value == "not_applicable":
             return ()
         return tuple(part for part in value.split(",") if part)
