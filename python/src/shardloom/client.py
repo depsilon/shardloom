@@ -692,6 +692,39 @@ class SqlLocalSourceSmokeReport:
         )
 
     @property
+    def cast_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted cast projection."""
+
+        return self.envelope.field_bool("cast_projection_runtime_execution", False) is True
+
+    @property
+    def cast_projection_source_columns(self) -> tuple[str, ...]:
+        """Return cast projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("cast_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def cast_projection_output_columns(self) -> tuple[str, ...]:
+        """Return cast projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("cast_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def cast_projection_target_dtypes(self) -> tuple[str, ...]:
+        """Return cast projection target dtypes emitted by the smoke."""
+
+        value = self.envelope.field("cast_projection_target_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def numeric_arithmetic_projection_operator(self) -> tuple[str, ...]:
         """Return numeric arithmetic projection operators emitted by the smoke."""
 

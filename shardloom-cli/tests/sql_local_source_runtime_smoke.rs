@@ -863,6 +863,87 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
 }
 
 #[test]
+fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-cast-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,amount,active,event_date,event_ts\n\
+         1,8,true,2026-05-19,2026-05-19T12:34:56Z\n\
+         2,15,false,2027-01-02,2027-01-02T03:04:05Z\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,CAST(amount AS float64) AS amount_float,CAST(active AS utf8) AS active_text,CAST(event_date AS date32) AS event_day,CAST(event_ts AS timestamp_micros) AS event_time FROM '{}' WHERE id >= 1 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("cast_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "cast_projection_source_column",
+        "amount,active,event_date,event_ts"
+    )));
+    assert!(stdout.contains(&field(
+        "cast_projection_output_column",
+        "amount_float,active_text,event_day,event_time"
+    )));
+    assert!(stdout.contains(&field(
+        "cast_projection_target_dtype",
+        "float64,utf8,date32,timestamp_micros"
+    )));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,amount_float,active_text,event_day,event_time"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"amount_float\\\":8.0,\\\"active_text\\\":\\\"true\\\",\\\"event_day\\\":\\\"2026-05-19\\\",\\\"event_time\\\":\\\"2026-05-19T12:34:56Z\\\"}\\n{\\\"id\\\":2,\\\"amount_float\\\":15.0,\\\"active_text\\\":\\\"false\\\",\\\"event_day\\\":\\\"2027-01-02\\\",\\\"event_time\\\":\\\"2027-01-02T03:04:05Z\\\"}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,CAST(label AS decimal128) AS unsupported FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(blocked_output.contains(
+        "CAST target dtype must be one of int64, float64, utf8, boolean, date32, or timestamp_micros"
+    ));
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_string_transform_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-string-transform-projection", "csv");
     fs::write(&source_path, "id,label\n1, Alpha \n2,BETA\n3,gamma\n").expect("write source csv");
