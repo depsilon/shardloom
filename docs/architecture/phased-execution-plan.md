@@ -350,7 +350,13 @@ or documentation updates alone are insufficient.
     `TIMESTAMP_DAY` / `TIMESTAMP_HOUR` / `TIMESTAMP_MINUTE` / `TIMESTAMP_SECOND` are
     runtime-admitted with `date_extract_projection_*` and `timestamp_extract_projection_*`
     evidence, source-column coercion from admitted ISO strings, ShardLoom-native null propagation,
-    and deterministic duplicate-output-name/source-column/unsupported-shape blockers. Scoped
+    and deterministic duplicate-output-name/source-column/unsupported-shape blockers. Scoped Date32
+    day arithmetic projections through `DATE_ADD_DAYS(column, days) AS column` and
+    `DATE_SUB_DAYS(column, days) AS column`, including scoped `CAST(column AS date32)` arguments,
+    are runtime-admitted over local-source projection/filter/limit rows with
+    `date_arithmetic_projection_*` evidence, source-column coercion from admitted ISO Date32
+    strings, ShardLoom-native null propagation, and deterministic invalid-day/source-column/
+    duplicate-output-name/unsupported-shape blockers. Scoped
     cast projections of the form `CAST(column AS dtype) AS column` for `int64`, `float64`, `utf8`,
     `boolean`, `date32`, and `timestamp_micros` are runtime-admitted over local-source
     projection/filter/limit rows with `cast_projection_*` evidence, ShardLoom-native null
@@ -361,8 +367,9 @@ or documentation updates alone are insufficient.
     / `NOT LIKE`, scoped UTF-8 lower/upper/trim transforms, bounded `IN` / `NOT IN`,
     cast/date/timestamp, Date32 extracts, Date32 day arithmetic, scoped UTC timestamp extracts,
     scoped numeric arithmetic comparison operators, scoped numeric arithmetic `with_column(...)`,
-    scoped cast `with_column(...)`, scoped UTF-8 string transform `with_column(...)`, scoped
-    Date32/UTC timestamp extract `with_column(...)`, and logical predicates into the same local SQL
+    scoped cast `with_column(...)`, scoped Date32 day arithmetic `with_column(...)`, scoped UTF-8
+    string transform `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
+    and logical predicates into the same local SQL
     smoke path, plus `where(...)`
     as a familiar filter alias. User workflows still lack broad typed
     coercions, generalized arithmetic expression trees and generalized projections,

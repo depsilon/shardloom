@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped Date32 day arithmetic projection runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-date-arithmetic-projections-4d` / #852.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - ShardLoom-native Date32 day arithmetic semantics
+    - SQL/Python local-source computed projection smokes
+  - Scope:
+    - Admitted scoped local SQL projections of the form
+      `DATE_ADD_DAYS(<column>, <days>) AS <column>` and
+      `DATE_SUB_DAYS(<column>, <days>) AS <column>`, including scoped
+      `CAST(<column> AS date32)` source arguments.
+    - Lowered admitted Date32 day arithmetic projections to ShardLoom-native function-call and
+      alias expression nodes with source-column Date32 coercion, null propagation, and no external
+      engine invocation.
+    - Added deterministic blockers for invalid day counts, malformed date arithmetic projection
+      syntax, missing source columns, duplicate output names, and unsupported join/aggregate
+      combinations.
+    - Extended Python input-backed `with_column(...)` so admitted local query-builder workflows can
+      use `sl.col("event_date").cast("date32").date_add_days(7)` and `.date_sub_days(1)` after an
+      explicit `select(...)`.
+    - Updated Python README, use-case index, generated website content, and phase-plan current
+      state with the scoped Date32 day arithmetic projection surface and claim boundary.
+  - User-visible surface:
+    - CLI `sql-local-source-smoke`, Python query-builder `with_column(...)`, direct Python
+      `client.sql_local_source_smoke(...)`, use-case docs, generated website content, and Python
+      README.
+  - Evidence:
+    - Rows emit `sql_statement_kind=local_source_computed_projection_*`,
+      `date_arithmetic_projection_runtime_execution`,
+      `date_arithmetic_projection_operator`, `date_arithmetic_projection_days`,
+      `date_arithmetic_projection_source_column`, `date_arithmetic_projection_output_column`,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused parser, CLI smoke, and Python query-builder tests during implementation.
+    - Full verification is recorded on the PR before merge.
+  - Non-goals:
+    - No interval/date-time completeness, timezone database, generalized expression projections,
+      broad SQL/DataFrame runtime, production claim, performance claim, or external fallback.
+  - Claim boundary:
+    - Scoped Date32 day arithmetic computed projection fixture smoke only.
+  - Fallback boundary:
+    - Parser admission, source coercion, expression lowering, Date32 day arithmetic execution, and
+      fixture evidence remain ShardLoom-native. External engines are not invoked.
+  - Ledger rule:
+    - Keep `GAR-RUNTIME-IMPL-4D` open until remaining expression, coercion, date/time, arithmetic,
+      and diagnostic runtime families are implemented or explicitly blocked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped cast projection runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-cast-projections-4d` / #851.

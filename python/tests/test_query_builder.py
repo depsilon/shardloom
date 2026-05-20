@@ -2304,6 +2304,80 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_with_column_date_arithmetic_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,DATE_ADD_DAYS(CAST(event_date AS date32), 7) AS next_week,DATE_SUB_DAYS(CAST(event_date AS date32), 1) AS prior_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source computed projection",
+                    "human_text": "sql local source computed projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"next_week\\":\\"2026-05-26\\",\\"prior_day\\":\\"2026-05-18\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "date_arithmetic_projection_runtime_execution", "value": "true"},
+                        {"key": "date_arithmetic_projection_operator", "value": "date_add_days,date_sub_days"},
+                        {"key": "date_arithmetic_projection_days", "value": "7,1"},
+                        {"key": "date_arithmetic_projection_source_column", "value": "event_date,event_date"},
+                        {"key": "date_arithmetic_projection_output_column", "value": "next_week,prior_day"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column(
+                "next_week", sl.col("event_date").cast("date32").date_add_days(7)
+            )
+            .with_column(
+                "prior_day", sl.col("event_date").cast("date32").date_sub_days(1)
+            )
+            .filter(sl.col("id") >= 1)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.date_arithmetic_projection_runtime_execution)
+        self.assertEqual(
+            report.date_arithmetic_projection_operator,
+            ("date_add_days", "date_sub_days"),
+        )
+        self.assertEqual(report.date_arithmetic_projection_days, ("7", "1"))
+        self.assertEqual(
+            report.date_arithmetic_projection_source_columns,
+            ("event_date", "event_date"),
+        )
+        self.assertEqual(
+            report.date_arithmetic_projection_output_columns,
+            ("next_week", "prior_day"),
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_write_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

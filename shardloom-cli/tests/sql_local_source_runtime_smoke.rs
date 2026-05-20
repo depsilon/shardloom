@@ -1095,6 +1095,86 @@ fn sql_local_source_smoke_executes_temporal_extract_projection_without_fallback(
 }
 
 #[test]
+fn sql_local_source_smoke_executes_date_arithmetic_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-date-arithmetic-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,event_date\n\
+         1,2026-05-19\n\
+         2,2027-01-02\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,DATE_ADD_DAYS(CAST(event_date AS date32), 7) AS next_week,DATE_SUB_DAYS(event_date, 1) AS prior_day FROM '{}' WHERE id >= 1 LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field(
+        "date_arithmetic_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "date_arithmetic_projection_operator",
+        "date_add_days,date_sub_days"
+    )));
+    assert!(stdout.contains(&field("date_arithmetic_projection_days", "7,1")));
+    assert!(stdout.contains(&field(
+        "date_arithmetic_projection_source_column",
+        "event_date,event_date"
+    )));
+    assert!(stdout.contains(&field(
+        "date_arithmetic_projection_output_column",
+        "next_week,prior_day"
+    )));
+    assert!(stdout.contains(&field("projected_columns", "id,next_week,prior_day")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"next_week\\\":\\\"2026-05-26\\\",\\\"prior_day\\\":\\\"2026-05-18\\\"}\\n{\\\"id\\\":2,\\\"next_week\\\":\\\"2027-01-09\\\",\\\"prior_day\\\":\\\"2027-01-01\\\"}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,DATE_ADD_DAYS(event_date, 366001) AS too_far FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(blocked_output.contains("date arithmetic day count admits absolute values <= 366000"));
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
     let source_path = unique_path("sql-local-source-no-filter", "csv");
     fs::write(
