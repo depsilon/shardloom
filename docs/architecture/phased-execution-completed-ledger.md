@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-REVIEW-1 PR #740+ runtime correctness comment batch
+  - Branch/PR: `codex/runtime-correctness-batch` / #826.
+  - Primary files:
+    - `docs/architecture/phased-execution-plan.md`
+    - `python/src/shardloom/query.py`
+    - `python/tests/test_query_builder.py`
+    - `python/tests/test_release_scripts.py`
+    - `scripts/check_release_architecture_tracker.py`
+    - `shardloom-cli/src/sql_local_source_runtime.rs`
+    - `shardloom-cli/tests/sql_local_source_runtime_smoke.rs`
+    - `shardloom-contract-tests/tests/release_readiness_metadata.rs`
+  - Scope: resolve high-priority Codex review findings from PRs #740 and up while preserving the
+    no-fallback architecture and adding the missing implementation-ready plan slice for
+    `compatibility_import_certified` optimization.
+  - Runtime behavior:
+    - Python `ctx.sql(...)` now only admits quoted local source paths from SQL `FROM`/`JOIN`
+      positions; ordinary string literals like `'target/input.csv'` in a projection no longer
+      trigger local source runtime admission.
+    - Python predicate datetime values now fail closed instead of truncating to `DATE`; callers
+      must use `datetime.date` for scoped date32 predicates.
+    - Python `group_by(...)` without an aggregate no longer silently lowers into a projection/limit
+      smoke; it reports unsupported without runtime execution or fallback.
+    - `LazyFrame.write_parquet(...)` checks CLI failures by default so blocked/unsupported output
+      writes are surfaced unless the caller explicitly opts out with `check=False`.
+    - Local SQL join smoke remains explicitly CSV-only; JSON/JSONL/NDJSON/Parquet joins block with
+      deterministic diagnostics instead of emitting misleading certified join evidence.
+    - `scripts/check_release_architecture_tracker.py` now fails closed when required architecture
+      tracker inputs are missing, even with `--allow-blocked`, and records the missing input list in
+      the report.
+  - Phase plan: added `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and
+    vortex_ingest attribution` with exclusive timing fields, certification-depth levels,
+    prepare-once reuse evidence, and benchmark/website interpretation requirements.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder python.tests.test_release_scripts`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo fmt --all -- --check`
+    - `cargo test --workspace --all-targets`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics website`
+    - `python website\build_static_pages.py`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js` with the bundled Node runtime because the
+      WindowsApps `node.exe` was blocked by OS permissions.
+    - `python scripts\check_release_architecture_tracker.py --allow-blocked`
+    - `git diff --check`
+  - Claim boundary: runtime correctness and planning only. This does not add broad SQL/DataFrame,
+    object-store, lakehouse, Foundry, package publication, performance, superiority, or
+    Spark-displacement claims.
+  - Fallback boundary: no external engines were introduced or admitted. Unsupported paths remain
+    explicit blockers, and affected reports preserve `fallback_attempted=false` /
+    `external_engine_invoked=false`.
+
 - [x] Session label: GAR-WEB-RESET-1 minimal public website reset
   - Branch/PR: `codex/website-minimal-atlas-reset` / #825.
   - Primary files:

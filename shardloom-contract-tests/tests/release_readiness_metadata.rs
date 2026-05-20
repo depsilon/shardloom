@@ -1753,6 +1753,8 @@ fn gar_0043_a_release_architecture_tracker_gate_fails_closed() {
         "unchecked_global_architecture_review_items",
         "unchecked_phase_plan_items",
         "missing required architecture tracker input",
+        "missing_required_input_count",
+        "missing_required_inputs",
         "architecture_tracker_status",
         "public_release_claim_allowed",
         "public_package_claim_allowed",

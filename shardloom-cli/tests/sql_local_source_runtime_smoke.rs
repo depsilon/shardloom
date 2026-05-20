@@ -1891,6 +1891,8 @@ fn sql_local_source_smoke_blocks_duplicate_key_join_explosion_without_materializ
 fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-blocked-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-blocked-dim", "csv");
+    let json_fact_path = unique_path("sql-local-source-join-blocked-fact", "jsonl");
+    let json_dim_path = unique_path("sql-local-source-join-blocked-dim", "jsonl");
     fs::write(&fact_path, "id,customer_id,amount\n1,10,8\n2,20,15\n").expect("write fact csv");
     fs::write(&dim_path, "customer_id,segment\n10,seed\n20,enterprise\n").expect("write dim csv");
 
@@ -1942,6 +1944,14 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
                 dim_path.display()
             ),
             "JOIN smoke requires left source syntax",
+        ),
+        (
+            format!(
+                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 0 LIMIT 10",
+                json_fact_path.display(),
+                json_dim_path.display()
+            ),
+            "JOIN smoke is scoped to local CSV sources",
         ),
     ];
 

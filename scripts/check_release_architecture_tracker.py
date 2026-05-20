@@ -39,9 +39,15 @@ def resolve(repo_root: Path, path: Path) -> Path:
     return path if path.is_absolute() else repo_root / path
 
 
-def read_required_text(path: Path, label: str, blockers: list[str]) -> str:
+def read_required_text(
+    path: Path,
+    label: str,
+    blockers: list[str],
+    missing_required_inputs: list[str],
+) -> str:
     if not path.exists():
         blockers.append(f"missing required architecture tracker input: {label} ({path.as_posix()})")
+        missing_required_inputs.append(str(path).replace("\\", "/"))
         return ""
     return path.read_text(encoding="utf-8")
 
@@ -93,14 +99,55 @@ def main() -> int:
     completed_ref = Path("docs/architecture/phased-execution-completed-ledger.md")
 
     blockers: list[str] = []
-    global_review = read_required_text(repo_root / global_review_ref, "global architecture review", blockers)
-    phase_plan = read_required_text(repo_root / phase_plan_ref, "phased execution plan", blockers)
-    traceability = read_required_text(repo_root / traceability_ref, "RFC phase traceability", blockers)
-    unsupported = read_required_text(repo_root / unsupported_ref, "known unsupported paths", blockers)
-    security = read_required_text(repo_root / security_ref, "release security gate", blockers)
-    provenance = read_required_text(repo_root / provenance_ref, "release provenance dry run", blockers)
-    per_claim_matrix = read_required_text(repo_root / per_claim_matrix_ref, "per-claim evidence matrix", blockers)
-    completed = read_required_text(repo_root / completed_ref, "completed ledger", blockers)
+    missing_required_inputs: list[str] = []
+    global_review = read_required_text(
+        repo_root / global_review_ref,
+        "global architecture review",
+        blockers,
+        missing_required_inputs,
+    )
+    phase_plan = read_required_text(
+        repo_root / phase_plan_ref,
+        "phased execution plan",
+        blockers,
+        missing_required_inputs,
+    )
+    traceability = read_required_text(
+        repo_root / traceability_ref,
+        "RFC phase traceability",
+        blockers,
+        missing_required_inputs,
+    )
+    unsupported = read_required_text(
+        repo_root / unsupported_ref,
+        "known unsupported paths",
+        blockers,
+        missing_required_inputs,
+    )
+    security = read_required_text(
+        repo_root / security_ref,
+        "release security gate",
+        blockers,
+        missing_required_inputs,
+    )
+    provenance = read_required_text(
+        repo_root / provenance_ref,
+        "release provenance dry run",
+        blockers,
+        missing_required_inputs,
+    )
+    per_claim_matrix = read_required_text(
+        repo_root / per_claim_matrix_ref,
+        "per-claim evidence matrix",
+        blockers,
+        missing_required_inputs,
+    )
+    completed = read_required_text(
+        repo_root / completed_ref,
+        "completed ledger",
+        blockers,
+        missing_required_inputs,
+    )
 
     global_unchecked = unchecked_items(global_review)
     phase_unchecked = unchecked_items(phase_plan)
@@ -217,6 +264,8 @@ def main() -> int:
         "release_security_refs_present": not security_missing,
         "release_provenance_refs_present": not provenance_missing,
         "per_claim_evidence_matrix_present": not per_claim_matrix_missing,
+        "missing_required_input_count": len(missing_required_inputs),
+        "missing_required_inputs": missing_required_inputs,
         "blockers": blockers,
         "publication_attempted": False,
         "tag_created": False,
@@ -227,6 +276,8 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(output)
+    if missing_required_inputs:
+        return 1
     return 0 if passed or args.allow_blocked else 1
 
 
