@@ -1318,6 +1318,7 @@ fn local_vortex_path(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+#[allow(clippy::too_many_lines)]
 fn read_local_vortex_scan(
     source_uri: &DatasetUri,
     path: &std::path::Path,

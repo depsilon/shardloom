@@ -126,7 +126,11 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
     assert!(stdout.contains(&field("vortex_ingest_status", "prepared_state_created")));
     assert!(stdout.contains(&field("prepared_state_created", "true")));
     assert!(stdout.contains(&field("prepared_state_reuse_hit", "false")));
-    assert!(stdout.contains(&field("timing_scope", "ingest_only")));
+    assert!(stdout.contains(&field("timing_scope", "vortex_ingest_prepare_once")));
+    assert!(stdout.contains(&field("certification_level", "ingest_certified")));
+    assert!(stdout.contains(&field("preparation_included_in_timing", "true")));
+    assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
+    assert!(stdout.contains("\"key\":\"vortex_digest_millis\""));
     assert!(stdout.contains(&field("input_row_count", "2")));
     assert!(stdout.contains(&field("writer_row_count", "2")));
     assert!(stdout.contains(&field("reopen_row_count", "2")));

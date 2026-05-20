@@ -502,16 +502,29 @@ flowchart TD
 Mode timing fields must stay visible:
 
 ```text
+source_stat_millis
 source_read_millis
+source_parse_millis
 compatibility_parse_millis
+source_to_columnar_millis
 compatibility_to_vortex_import_millis
+compatibility_to_vortex_import_timing_scope
+vortex_array_build_millis
 vortex_write_millis
+vortex_digest_millis
 vortex_reopen_millis
+vortex_reopen_verify_millis
 vortex_scan_millis
 operator_compute_millis
+operator_compute_timing_scope
 result_sink_write_millis
 evidence_render_millis
+evidence_render_timing_status
 total_runtime_millis
+timing_scope
+preparation_included
+query_timing_starts_after_preparation
+certification_level
 ```
 
 ### View 4 - Engine Fabric Layer
@@ -1094,6 +1107,13 @@ This mode is not the default pure query-speed benchmark path. It includes source
 compatibility parsing, compatibility-to-Vortex import, Vortex write, Vortex reopen, Vortex scan,
 operator compute, result-sink write if enabled, and evidence rendering.
 
+The certified route must expose exclusive attribution fields where the current runtime can isolate
+them. `compatibility_to_vortex_import_millis` is scoped as
+`source_read_parse_plus_vortex_array_build_plus_vortex_write` until the import path is further
+split into batch-native adapters. If the current streaming loop cannot isolate Vortex scan from
+operator work, rows must keep `operator_compute_millis` present and disclose the limitation through
+`operator_compute_timing_scope=included_in_vortex_scan_millis_for_current_streaming_loop`.
+
 Evidence posture:
 
 ```text
@@ -1463,15 +1483,28 @@ Every benchmark row should say exactly where time went.
 ```text
 total_runtime_millis
   process_start_millis
+  source_stat_millis
   source_read_millis
+  source_parse_millis
   compatibility_parse_millis
+  source_to_columnar_millis
   compatibility_to_vortex_import_millis
+  compatibility_to_vortex_import_timing_scope
+  vortex_array_build_millis
   vortex_write_millis
+  vortex_digest_millis
   vortex_reopen_millis
+  vortex_reopen_verify_millis
   vortex_scan_millis
   operator_compute_millis
+  operator_compute_timing_scope
   result_sink_write_millis
   evidence_render_millis
+  evidence_render_timing_status
+  timing_scope
+  preparation_included
+  query_timing_starts_after_preparation
+  certification_level
 ```
 
 Route interpretation:

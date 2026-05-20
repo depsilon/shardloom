@@ -702,15 +702,25 @@ each row. Every row must carry `requested_execution_mode`,
 `direct_transient_execution`, and `claim_gate_status`.
 
 Every row also carries the stage timing fields
-`source_read_millis`, `compatibility_parse_millis`,
-`compatibility_to_vortex_import_millis`, `vortex_write_millis`,
-`vortex_reopen_millis`, `vortex_scan_millis`,
-`operator_compute_millis`, `result_sink_write_millis`,
-`evidence_render_millis`, and `total_runtime_millis`. Unknown or
-not-yet-isolated values stay present as `null`, `n/a`, or
-`not_measured` rather than being omitted. In particular,
+`source_stat_millis`, `source_read_millis`, `source_parse_millis`,
+`compatibility_parse_millis`, `source_to_columnar_millis`,
+`compatibility_to_vortex_import_millis`,
+`compatibility_to_vortex_import_timing_scope`, `vortex_array_build_millis`,
+`vortex_write_millis`, `vortex_digest_millis`, `vortex_reopen_millis`,
+`vortex_reopen_verify_millis`, `vortex_scan_millis`,
+`operator_compute_millis`, `operator_compute_timing_scope`,
+`result_sink_write_millis`, `evidence_render_millis`,
+`evidence_render_timing_status`, `total_runtime_millis`, `timing_scope`,
+`preparation_included`, `query_timing_starts_after_preparation`, and
+`certification_level`. Unknown or not-yet-isolated values stay present as
+`null`, `n/a`, or `not_measured` rather than being omitted. In particular,
 `compatibility_import_certified` rows time the ingest/stage/certification
 workflow; do not read those rows as pure ShardLoom query-speed rows.
+Current certified cold rows scope `compatibility_to_vortex_import_millis`
+as source read/parse plus Vortex array build plus Vortex write. If scan and
+operator work are still fused in the current streaming loop, the row keeps
+`operator_compute_millis` present and explains the limitation through
+`operator_compute_timing_scope`.
 
 The CLI `runtime-report --format json` exposes the same field order as a
 GAR-0018-A report-only introspection schema. It is useful for tooling that wants

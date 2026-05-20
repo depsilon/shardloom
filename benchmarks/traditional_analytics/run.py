@@ -225,15 +225,24 @@ EXECUTION_MODE_CONTRACT_FIELDS = (
     "claim_gate_status",
 )
 STAGE_TIMING_CONTRACT_FIELDS = (
+    "source_stat_millis",
     "source_read_millis",
+    "source_parse_millis",
     "compatibility_parse_millis",
+    "source_to_columnar_millis",
     "compatibility_to_vortex_import_millis",
+    "compatibility_to_vortex_import_timing_scope",
+    "vortex_array_build_millis",
     "vortex_write_millis",
+    "vortex_digest_millis",
+    "vortex_reopen_verify_millis",
     "vortex_reopen_millis",
     "vortex_scan_millis",
     "operator_compute_millis",
+    "operator_compute_timing_scope",
     "result_sink_write_millis",
     "evidence_render_millis",
+    "evidence_render_timing_status",
     "total_runtime_millis",
 )
 OPERATOR_BLOCKER_MATRIX_FIELDS = (
@@ -10579,13 +10588,22 @@ def failed_result(
         "preparation_included_in_timing": False,
         "prepared_artifact_ref": None,
         "prepared_artifact_digest": None,
+        "source_stat_millis": None,
         "source_read_millis": None,
+        "source_parse_millis": None,
         "compatibility_parse_millis": None,
+        "source_to_columnar_millis": None,
         "compatibility_to_vortex_import_millis": None,
+        "compatibility_to_vortex_import_timing_scope": None,
+        "vortex_array_build_millis": None,
         "vortex_write_millis": None,
+        "vortex_digest_millis": None,
+        "vortex_reopen_verify_millis": None,
         "vortex_reopen_millis": None,
         "vortex_scan_millis": None,
+        "operator_compute_timing_scope": None,
         "evidence_render_millis": None,
+        "evidence_render_timing_status": None,
         "build_time_excluded": True,
         "process_startup_attribution": "not_executed",
         "python_harness_overhead_status": "not_executed",
@@ -10850,14 +10868,24 @@ def successful_result_from_iterations(
     computed_result_sink_bytes = None
     scenario_compute_millis = None
     computed_result_sink_write_millis = None
+    source_stat_millis = None
     source_read_millis = None
+    source_parse_millis = None
     compatibility_parse_millis = None
+    source_to_columnar_millis = None
     compatibility_to_vortex_import_millis = None
+    compatibility_to_vortex_import_timing_scope = None
+    vortex_array_build_millis = None
     vortex_write_millis = None
+    vortex_digest_millis = None
+    vortex_reopen_verify_millis = None
     vortex_reopen_millis = None
     vortex_scan_millis = None
     operator_compute_millis = None
+    operator_compute_timing_scope = None
     evidence_render_millis = None
+    evidence_render_timing_status = None
+    total_runtime_from_evidence_millis = None
     preparation_millis = None
     preparation_cli_process_wall_millis = None
     preparation_included_in_timing = False
@@ -10887,17 +10915,30 @@ def successful_result_from_iterations(
         computed_result_sink_write_millis = mean_evidence_micros(
             "computed_result_sink_write_micros"
         )
-        if scenario_compute_millis is not None:
+        operator_compute_millis = mean_evidence_micros("operator_compute_micros")
+        if operator_compute_millis is None and scenario_compute_millis is not None:
             operator_compute_millis = scenario_compute_millis
+        operator_compute_timing_scope = evidence.get("operator_compute_timing_scope")
+        source_stat_millis = mean_evidence_micros("source_stat_micros")
         source_read_millis = mean_evidence_micros("source_read_micros")
+        source_parse_millis = mean_evidence_micros("source_parse_micros")
         compatibility_parse_millis = mean_evidence_micros("compatibility_parse_micros")
+        source_to_columnar_millis = mean_evidence_micros("source_to_columnar_micros")
         compatibility_to_vortex_import_millis = mean_evidence_micros(
             "compatibility_to_vortex_import_micros"
         )
+        compatibility_to_vortex_import_timing_scope = evidence.get(
+            "compatibility_to_vortex_import_timing_scope"
+        )
+        vortex_array_build_millis = mean_evidence_micros("vortex_array_build_micros")
         vortex_write_millis = mean_evidence_micros("vortex_write_micros")
+        vortex_digest_millis = mean_evidence_micros("vortex_digest_micros")
+        vortex_reopen_verify_millis = mean_evidence_micros("vortex_reopen_verify_micros")
         vortex_reopen_millis = mean_evidence_micros("vortex_reopen_micros")
         vortex_scan_millis = mean_evidence_micros("vortex_scan_micros")
         evidence_render_millis = mean_evidence_micros("evidence_render_micros")
+        evidence_render_timing_status = evidence.get("evidence_render_timing_status")
+        total_runtime_from_evidence_millis = mean_evidence_micros("total_runtime_micros")
         preparation_millis = parse_optional_float(evidence.get("preparation_millis"))
         preparation_cli_process_wall_millis = parse_optional_float(
             evidence.get("preparation_cli_process_wall_millis")
@@ -10955,7 +10996,9 @@ def successful_result_from_iterations(
     metrics = {
         "wall_time_millis": round(sum(timings), 4),
         "query_runtime_millis": query_runtime_millis,
-        "total_runtime_millis": query_runtime_millis,
+        "total_runtime_millis": total_runtime_from_evidence_millis
+        if total_runtime_from_evidence_millis is not None
+        else query_runtime_millis,
         "peak_memory_bytes": max(peak_memory) if peak_memory else None,
         "bytes_read": bytes_read
         if bytes_read is not None
@@ -10990,13 +11033,22 @@ def successful_result_from_iterations(
         "preparation_included_in_timing": preparation_included_in_timing,
         "prepared_artifact_ref": prepared_artifact_ref,
         "prepared_artifact_digest": prepared_artifact_digest,
+        "source_stat_millis": source_stat_millis,
         "source_read_millis": source_read_millis,
+        "source_parse_millis": source_parse_millis,
         "compatibility_parse_millis": compatibility_parse_millis,
+        "source_to_columnar_millis": source_to_columnar_millis,
         "compatibility_to_vortex_import_millis": compatibility_to_vortex_import_millis,
+        "compatibility_to_vortex_import_timing_scope": compatibility_to_vortex_import_timing_scope,
+        "vortex_array_build_millis": vortex_array_build_millis,
         "vortex_write_millis": vortex_write_millis,
+        "vortex_digest_millis": vortex_digest_millis,
+        "vortex_reopen_verify_millis": vortex_reopen_verify_millis,
         "vortex_reopen_millis": vortex_reopen_millis,
         "vortex_scan_millis": vortex_scan_millis,
+        "operator_compute_timing_scope": operator_compute_timing_scope,
         "evidence_render_millis": evidence_render_millis,
+        "evidence_render_timing_status": evidence_render_timing_status,
         "build_time_excluded": True,
         "process_startup_attribution": evidence.get(
             "process_startup_attribution", "not_measured"
