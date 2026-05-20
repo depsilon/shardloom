@@ -1,0 +1,47 @@
+---
+title: "Native I/O certificate"
+description: "Evidence for admitted local source or sink I/O without external engine fallback."
+sidebar: {"label":"Native I/O certificate"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Evidence for admitted local source or sink I/O without external engine fallback.
+
+## Plain-English Meaning
+
+Evidence for admitted local source or sink I/O without external engine fallback.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Evidence`
+- Category: Evidence + Certificates
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `native_io_certificate_status`
+- `output_native_io_certificate_status`
+- `certificate_ref`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [local-file-etl-cleanup-smoke](/use-cases/local-file-etl-cleanup-smoke)
+- [output-result-sink-and-fanout-boundary](/use-cases/output-result-sink-and-fanout-boundary)
+
+## Reference Files
+
+- `docs/getting-started/certified-local-workload.md`
+- `docs/use-cases/use-case-index.yml`

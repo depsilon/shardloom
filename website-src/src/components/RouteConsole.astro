@@ -1,0 +1,33 @@
+---
+const steps = [
+  "Source",
+  "UniversalIngress",
+  "SourceState",
+  "vortex_ingest",
+  "VortexPreparedState",
+  "Execution",
+  "OutputPlan",
+  "Evidence",
+];
+---
+
+<div class="route-console" aria-label="ShardLoom route evidence console">
+  <div class="console-brand">
+    <img src="/assets/logo/shardloom-logo.png" width="640" height="300" alt="ShardLoom" />
+    <span>Route console</span>
+  </div>
+  <div class="pipeline" aria-label="Compute route">
+    {steps.map((step) => <span>{step}</span>)}
+  </div>
+  <div class="evidence-grid">
+    <div><span>selected_execution_mode</span><strong>prepared_vortex</strong></div>
+    <div><span>vortex_ingest_status</span><strong>smoke_supported</strong></div>
+    <div><span>prepared_state_reuse_hit</span><strong>true when evidence proves reuse</strong></div>
+    <div><span>fallback_attempted</span><strong>false</strong></div>
+    <div><span>external_engine_invoked</span><strong>false</strong></div>
+    <div><span>claim_gate_status</span><strong>fixture_smoke_only / claim_grade</strong></div>
+  </div>
+  <p class="console-note">
+    prepared_vortex executes from VortexPreparedState. Non-Vortex input reaches it only through vortex_ingest.
+  </p>
+</div>

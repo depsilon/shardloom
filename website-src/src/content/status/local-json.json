@@ -1,0 +1,24 @@
+{
+  "capability": "Local JSON",
+  "status": "smoke_supported",
+  "inputs": [
+    "local_json"
+  ],
+  "outputs": [
+    "jsonl",
+    "evidence"
+  ],
+  "route": "direct_compatibility_transient vortex_ingest",
+  "platform": "local",
+  "evidence": [
+    "source_format",
+    "source_adapter_status",
+    "claim_gate_status"
+  ],
+  "works": "Flat local JSON source smokes are visible through Python/local-source evidence paths.",
+  "blocked": "Nested objects, arrays, JSONPath, and broad document runtime support remain blocked or report-only.",
+  "references": [
+    "python/README.md",
+    "docs/use-cases/use-case-index.yml"
+  ]
+}

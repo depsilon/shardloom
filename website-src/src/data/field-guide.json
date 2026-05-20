@@ -1,0 +1,679 @@
+[
+  {
+    "slug": "what-is-shardloom",
+    "title": "What is ShardLoom?",
+    "category": "Start Here",
+    "status": "runtime_supported",
+    "summary": "A pre-release compute engine focused on Vortex-prepared routes, explicit evidence, and no hidden fallback.",
+    "route": "overview",
+    "evidence_fields": [
+      "claim_gate_status",
+      "fallback_attempted",
+      "external_engine_invoked"
+    ],
+    "related_use_cases": [
+      "first-10-minutes-local-smoke",
+      "evidence-audit-claim-gates"
+    ],
+    "references": [
+      "README.md",
+      "docs/getting-started/first-10-minutes.md"
+    ]
+  },
+  {
+    "slug": "evidence-gated-compute",
+    "title": "Evidence-gated compute",
+    "category": "Start Here",
+    "status": "smoke_supported",
+    "summary": "Every supported route must emit evidence before any claim can be upgraded.",
+    "route": "all routes",
+    "evidence_fields": [
+      "evidence_level",
+      "claim_gate_status",
+      "claim_boundary"
+    ],
+    "related_use_cases": [
+      "evidence-audit-claim-gates",
+      "benchmark-interpretation-evidence-not-leaderboard"
+    ],
+    "references": [
+      "docs/architecture/compute-engine-flow-reference.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "no-fallback",
+    "title": "No fallback",
+    "category": "Start Here",
+    "status": "runtime_supported",
+    "summary": "Unsupported work blocks or reports a deterministic diagnostic instead of running through another engine.",
+    "route": "all routes",
+    "evidence_fields": [
+      "fallback_attempted=false",
+      "external_engine_invoked=false",
+      "blocker_id"
+    ],
+    "related_use_cases": [
+      "sql-dataframe-capability-posture",
+      "object-store-boundary-report"
+    ],
+    "references": [
+      "README.md",
+      "docs/architecture/compute-engine-flow-reference.md"
+    ]
+  },
+  {
+    "slug": "compatibility-import-certified",
+    "title": "compatibility_import_certified",
+    "category": "Execution Routes",
+    "status": "smoke_supported",
+    "summary": "The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs.",
+    "route": "Certified import/stage route",
+    "evidence_fields": [
+      "timing_scope=cold_certified_end_to_end",
+      "source_read_millis",
+      "vortex_write_millis",
+      "claim_gate_status"
+    ],
+    "related_use_cases": [
+      "compatibility-import-certified-local",
+      "local-file-etl-cleanup-smoke"
+    ],
+    "references": [
+      "docs/getting-started/certified-local-workload.md",
+      "docs/benchmarks/local-taxonomy-benchmark.md"
+    ]
+  },
+  {
+    "slug": "direct-compatibility-transient",
+    "title": "direct_compatibility_transient",
+    "category": "Execution Routes",
+    "status": "smoke_supported",
+    "summary": "A scoped one-shot local route without persistent Vortex preparation.",
+    "route": "Direct one-shot route",
+    "evidence_fields": [
+      "execution_mode",
+      "source_format",
+      "materialization_boundary"
+    ],
+    "related_use_cases": [
+      "sql-local-source-csv-smoke",
+      "python-local-csv-query-builder-smoke"
+    ],
+    "references": [
+      "python/README.md",
+      "docs/architecture/compute-engine-flow-reference.md"
+    ]
+  },
+  {
+    "slug": "generated-source-route",
+    "title": "Generated source route",
+    "category": "Execution Routes",
+    "status": "smoke_supported",
+    "summary": "No input dataset is read; ShardLoom creates deterministic rows and writes local outputs with evidence.",
+    "route": "Source-free generated route",
+    "evidence_fields": [
+      "input_dataset_count=0",
+      "generated_source_created",
+      "generated_source_certificate_status"
+    ],
+    "related_use_cases": [
+      "source-free-generated-output-boundary",
+      "foundry-local-proof-boundary"
+    ],
+    "references": [
+      "docs/foundry/proof-of-use-certification.md",
+      "python/README.md"
+    ]
+  },
+  {
+    "slug": "universal-ingress",
+    "title": "UniversalIngress",
+    "category": "UniversalIngress",
+    "status": "report_only",
+    "summary": "The source admission layer that recognizes, admits, or blocks every potential input family.",
+    "route": "UniversalIngress",
+    "evidence_fields": [
+      "source_adapter_status",
+      "source_adapter_blocker_id",
+      "ingress_status"
+    ],
+    "related_use_cases": [
+      "vortex-ingest-prepare-once-local",
+      "object-store-boundary-report"
+    ],
+    "references": [
+      "docs/architecture/universal-ingress-route-taxonomy.md",
+      "docs/architecture/compute-engine-flow-reference.md"
+    ]
+  },
+  {
+    "slug": "source-state",
+    "title": "SourceState",
+    "category": "UniversalIngress",
+    "status": "smoke_supported",
+    "summary": "Reusable source identity, schema, fingerprint, adapter posture, and source evidence.",
+    "route": "UniversalIngress -> SourceState",
+    "evidence_fields": [
+      "source_state_id",
+      "source_state_digest",
+      "schema_digest",
+      "source_state_reuse_hit"
+    ],
+    "related_use_cases": [
+      "prepared-native-vortex-runtime-direction",
+      "query-scenario-cookbook-smoke"
+    ],
+    "references": [
+      "docs/architecture/universal-input-contract.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "source-adapter-status",
+    "title": "Source adapter status",
+    "category": "UniversalIngress",
+    "status": "smoke_supported",
+    "summary": "The visible admit/block posture for an input adapter and source format.",
+    "route": "UniversalIngress",
+    "evidence_fields": [
+      "source_adapter_id",
+      "source_adapter_status",
+      "source_adapter_blocker_id"
+    ],
+    "related_use_cases": [
+      "compatibility-import-certified-local",
+      "python-local-csv-query-builder-smoke"
+    ],
+    "references": [
+      "docs/architecture/compute-engine-flow-reference.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "vortex-ingest",
+    "title": "vortex_ingest",
+    "category": "Vortex Ingest",
+    "status": "smoke_supported",
+    "summary": "The prepare-once stage that turns admitted non-Vortex sources into VortexPreparedState.",
+    "route": "Vortex ingest / prepare once route",
+    "evidence_fields": [
+      "vortex_ingest_status",
+      "prepared_state_id",
+      "vortex_artifact_digest"
+    ],
+    "related_use_cases": [
+      "vortex-ingest-prepare-once-local",
+      "prepared-native-vortex-runtime-direction"
+    ],
+    "references": [
+      "docs/architecture/universal-ingress-route-taxonomy.md",
+      "python/README.md"
+    ]
+  },
+  {
+    "slug": "vortex-prepared-state",
+    "title": "VortexPreparedState",
+    "category": "Vortex Ingest",
+    "status": "smoke_supported",
+    "summary": "The prepared artifact/state that prepared_vortex executes from.",
+    "route": "VortexPreparedState -> prepared_vortex",
+    "evidence_fields": [
+      "prepared_state_id",
+      "prepared_state_digest",
+      "prepared_state_reuse_hit"
+    ],
+    "related_use_cases": [
+      "vortex-ingest-prepare-once-local",
+      "prepared-native-vortex-runtime-direction"
+    ],
+    "references": [
+      "docs/architecture/compute-engine-flow-reference.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "prepared-state-reuse",
+    "title": "Prepared state reuse",
+    "category": "Vortex Ingest",
+    "status": "smoke_supported",
+    "summary": "Reuse of a prepared Vortex artifact across scenarios, queries, or outputs.",
+    "route": "Prepared warm route",
+    "evidence_fields": [
+      "prepared_state_reuse_hit",
+      "source_state_reuse_hit",
+      "invalidation_reason"
+    ],
+    "related_use_cases": [
+      "prepared-native-vortex-runtime-direction",
+      "output-result-sink-and-fanout-boundary"
+    ],
+    "references": [
+      "docs/benchmarks/local-taxonomy-benchmark.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "prepared-vortex",
+    "title": "prepared_vortex",
+    "category": "Prepared/Native Vortex",
+    "status": "smoke_supported",
+    "summary": "Prepared warm execution over an existing VortexPreparedState, not direct non-Vortex input.",
+    "route": "Prepared Vortex route",
+    "evidence_fields": [
+      "execution_mode=prepared_vortex",
+      "timing_scope=warm_prepared_query",
+      "prepared_state_id"
+    ],
+    "related_use_cases": [
+      "prepared-native-vortex-runtime-direction",
+      "vortex-ingest-prepare-once-local"
+    ],
+    "references": [
+      "docs/architecture/compute-engine-flow-reference.md",
+      "docs/benchmarks/local-taxonomy-benchmark.md"
+    ]
+  },
+  {
+    "slug": "native-vortex",
+    "title": "native_vortex",
+    "category": "Prepared/Native Vortex",
+    "status": "smoke_supported",
+    "summary": "Execution over input that already exists as Vortex before the query starts.",
+    "route": "Native Vortex route",
+    "evidence_fields": [
+      "execution_mode=native_vortex",
+      "vortex_artifact_ref",
+      "claim_gate_status"
+    ],
+    "related_use_cases": [
+      "prepared-native-vortex-runtime-direction",
+      "benchmark-interpretation-evidence-not-leaderboard"
+    ],
+    "references": [
+      "docs/architecture/compute-engine-flow-reference.md",
+      "benchmarks/traditional_analytics/README.md"
+    ]
+  },
+  {
+    "slug": "source-backed-scan",
+    "title": "Source-backed scan",
+    "category": "Prepared/Native Vortex",
+    "status": "smoke_supported",
+    "summary": "Prepared/native scan evidence showing columns, pushdown, decode, and materialization posture.",
+    "route": "Prepared/native scan",
+    "evidence_fields": [
+      "scan_filter_pushed_down",
+      "scan_projection_pushed_down",
+      "data_decoded",
+      "data_materialized"
+    ],
+    "related_use_cases": [
+      "prepared-native-vortex-runtime-direction",
+      "query-scenario-cookbook-smoke"
+    ],
+    "references": [
+      "docs/architecture/compute-engine-flow-reference.md",
+      "docs/benchmarks/local-taxonomy-benchmark.md"
+    ]
+  },
+  {
+    "slug": "claim-gate-status",
+    "title": "claim_gate_status",
+    "category": "Evidence + Certificates",
+    "status": "runtime_supported",
+    "summary": "The field that says whether evidence is claim-grade, fixture-smoke-only, report-only, or blocked.",
+    "route": "Evidence -> ClaimGate",
+    "evidence_fields": [
+      "claim_gate_status",
+      "claim_boundary",
+      "evidence_preserved"
+    ],
+    "related_use_cases": [
+      "evidence-audit-claim-gates",
+      "benchmark-interpretation-evidence-not-leaderboard"
+    ],
+    "references": [
+      "docs/architecture/compute-engine-flow-reference.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "native-io-certificate",
+    "title": "Native I/O certificate",
+    "category": "Evidence + Certificates",
+    "status": "smoke_supported",
+    "summary": "Evidence for admitted local source or sink I/O without external engine fallback.",
+    "route": "Evidence",
+    "evidence_fields": [
+      "native_io_certificate_status",
+      "output_native_io_certificate_status",
+      "certificate_ref"
+    ],
+    "related_use_cases": [
+      "local-file-etl-cleanup-smoke",
+      "output-result-sink-and-fanout-boundary"
+    ],
+    "references": [
+      "docs/getting-started/certified-local-workload.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "materialization-boundary",
+    "title": "Materialization boundary",
+    "category": "Evidence + Certificates",
+    "status": "smoke_supported",
+    "summary": "Evidence describing when data was decoded, materialized, or kept source-backed.",
+    "route": "Evidence",
+    "evidence_fields": [
+      "materialization_boundary",
+      "data_decoded",
+      "data_materialized"
+    ],
+    "related_use_cases": [
+      "prepared-native-vortex-runtime-direction",
+      "evidence-audit-claim-gates"
+    ],
+    "references": [
+      "docs/architecture/compute-engine-flow-reference.md",
+      "docs/benchmarks/local-taxonomy-benchmark.md"
+    ]
+  },
+  {
+    "slug": "result-sink-replay",
+    "title": "Result-sink replay",
+    "category": "Evidence + Certificates",
+    "status": "smoke_supported",
+    "summary": "Output proof that a local result sink can be replayed or checked for evidence consistency.",
+    "route": "OutputPlan -> SinkArtifact -> Evidence",
+    "evidence_fields": [
+      "result_sink_write_millis",
+      "result_replay_verified",
+      "output_certificate_ref"
+    ],
+    "related_use_cases": [
+      "output-result-sink-and-fanout-boundary",
+      "evidence-audit-claim-gates"
+    ],
+    "references": [
+      "docs/getting-started/certified-local-workload.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "benchmark-evidence",
+    "title": "Benchmark evidence",
+    "category": "Benchmarks",
+    "status": "smoke_supported",
+    "summary": "Committed local timing and coverage artifacts interpreted as evidence, not a leaderboard.",
+    "route": "Benchmark artifact",
+    "evidence_fields": [
+      "benchmark_profile",
+      "expected_lanes",
+      "available_lanes",
+      "performance_claim_allowed=false"
+    ],
+    "related_use_cases": [
+      "benchmark-interpretation-evidence-not-leaderboard",
+      "query-scenario-cookbook-smoke"
+    ],
+    "references": [
+      "docs/benchmarks/local-taxonomy-benchmark.md",
+      "docs/benchmarks/baseline-comparison-boundary.md"
+    ]
+  },
+  {
+    "slug": "certified-cold-route",
+    "title": "Certified cold route",
+    "category": "Benchmarks",
+    "status": "smoke_supported",
+    "summary": "Timing scope that includes source read, parse, ingest, Vortex write/reopen, compute, output, and evidence.",
+    "route": "compatibility_import_certified",
+    "evidence_fields": [
+      "timing_scope=cold_certified_end_to_end",
+      "preparation_included=true",
+      "total_runtime_millis"
+    ],
+    "related_use_cases": [
+      "compatibility-import-certified-local",
+      "benchmark-interpretation-evidence-not-leaderboard"
+    ],
+    "references": [
+      "docs/benchmarks/local-taxonomy-benchmark.md",
+      "docs/architecture/compute-engine-flow-reference.md"
+    ]
+  },
+  {
+    "slug": "prepared-warm-route",
+    "title": "Prepared warm route",
+    "category": "Benchmarks",
+    "status": "smoke_supported",
+    "summary": "Timing scope for query/runtime after VortexPreparedState already exists.",
+    "route": "prepared_vortex",
+    "evidence_fields": [
+      "timing_scope=warm_prepared_query",
+      "preparation_included=false",
+      "prepared_state_id"
+    ],
+    "related_use_cases": [
+      "prepared-native-vortex-runtime-direction",
+      "benchmark-interpretation-evidence-not-leaderboard"
+    ],
+    "references": [
+      "docs/benchmarks/local-taxonomy-benchmark.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "external-baseline-only",
+    "title": "external_baseline_only",
+    "category": "Benchmarks",
+    "status": "runtime_supported",
+    "summary": "Competitor engines are comparison context only and never satisfy ShardLoom evidence gates.",
+    "route": "Benchmark artifact",
+    "evidence_fields": [
+      "external_baseline_only",
+      "external_engine_invoked=false",
+      "fallback_attempted=false"
+    ],
+    "related_use_cases": [
+      "benchmark-interpretation-evidence-not-leaderboard",
+      "evidence-audit-claim-gates"
+    ],
+    "references": [
+      "docs/benchmarks/baseline-comparison-boundary.md",
+      "benchmarks/traditional_analytics/README.md"
+    ]
+  },
+  {
+    "slug": "output-plan",
+    "title": "OutputPlan",
+    "category": "I/O + Outputs",
+    "status": "smoke_supported",
+    "summary": "The output planning layer that stays separate from input format and execution route.",
+    "route": "OutputPlan",
+    "evidence_fields": [
+      "output_plan_id",
+      "output_plan_status",
+      "output_format"
+    ],
+    "related_use_cases": [
+      "output-result-sink-and-fanout-boundary",
+      "source-free-generated-output-boundary"
+    ],
+    "references": [
+      "docs/use-cases/use-case-index.yml",
+      "docs/architecture/compute-engine-flow-reference.md"
+    ]
+  },
+  {
+    "slug": "sink-artifact",
+    "title": "SinkArtifact",
+    "category": "I/O + Outputs",
+    "status": "smoke_supported",
+    "summary": "The written output artifact plus digest, format, replay, and certificate posture.",
+    "route": "SinkArtifact",
+    "evidence_fields": [
+      "output_path",
+      "output_format",
+      "output_native_io_certificate_status"
+    ],
+    "related_use_cases": [
+      "output-result-sink-and-fanout-boundary",
+      "source-free-generated-output-boundary"
+    ],
+    "references": [
+      "docs/use-cases/use-case-index.yml",
+      "python/README.md"
+    ]
+  },
+  {
+    "slug": "output-fanout",
+    "title": "Output fanout",
+    "category": "I/O + Outputs",
+    "status": "planned",
+    "summary": "One prepared source or result writing multiple output formats without coupling input and output types.",
+    "route": "Output fanout route",
+    "evidence_fields": [
+      "fanout_output_count",
+      "output_plan_reuse_hit",
+      "output_replay_millis"
+    ],
+    "related_use_cases": [
+      "output-result-sink-and-fanout-boundary",
+      "source-free-generated-output-boundary"
+    ],
+    "references": [
+      "docs/architecture/phased-execution-plan.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "scale-classes",
+    "title": "Scale classes",
+    "category": "Scale + Resource Envelope",
+    "status": "planned",
+    "summary": "Bounded scale claims such as local smoke, local claim-grade, split-local, object-store runtime, and distributed runtime.",
+    "route": "Scale contract",
+    "evidence_fields": [
+      "scale_profile",
+      "scale_claim_status",
+      "memory_budget_bytes",
+      "claim_gate_status"
+    ],
+    "related_use_cases": [
+      "benchmark-interpretation-evidence-not-leaderboard",
+      "object-store-boundary-report"
+    ],
+    "references": [
+      "docs/architecture/phased-execution-plan.md",
+      "docs/architecture/compute-engine-flow-reference.md"
+    ]
+  },
+  {
+    "slug": "object-store-boundary",
+    "title": "Object-store boundary",
+    "category": "Platform Boundaries",
+    "status": "blocked",
+    "summary": "S3/GCS/ADLS remain separate blocked/report-only routes until runtime evidence is admitted.",
+    "route": "Future object-store route",
+    "evidence_fields": [
+      "credential_policy_status",
+      "object_store_involved",
+      "fallback_attempted=false"
+    ],
+    "related_use_cases": [
+      "object-store-boundary-report",
+      "table-lakehouse-boundary-report"
+    ],
+    "references": [
+      "docs/use-cases/use-case-index.yml",
+      "docs/architecture/phased-execution-plan.md"
+    ]
+  },
+  {
+    "slug": "table-lakehouse-boundary",
+    "title": "Table/lakehouse boundary",
+    "category": "Platform Boundaries",
+    "status": "blocked",
+    "summary": "Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims.",
+    "route": "Future table route",
+    "evidence_fields": [
+      "table_format_involved",
+      "table_snapshot_id",
+      "output_commit_status"
+    ],
+    "related_use_cases": [
+      "table-lakehouse-boundary-report",
+      "object-store-boundary-report"
+    ],
+    "references": [
+      "docs/use-cases/use-case-index.yml",
+      "docs/architecture/phased-execution-plan.md"
+    ]
+  },
+  {
+    "slug": "foundry-boundary",
+    "title": "Foundry boundary",
+    "category": "Platform Boundaries",
+    "status": "smoke_supported",
+    "summary": "Local/dev-stack Foundry proof posture without production Foundry runtime or Spark substitution claims.",
+    "route": "Foundry proof boundary",
+    "evidence_fields": [
+      "foundry_runtime_invoked",
+      "foundry_spark_invoked=false",
+      "public_foundry_claim_allowed=false"
+    ],
+    "related_use_cases": [
+      "foundry-local-proof-boundary",
+      "source-free-generated-output-boundary"
+    ],
+    "references": [
+      "docs/foundry/proof-of-use-certification.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "deterministic-blockers",
+    "title": "Deterministic blockers",
+    "category": "Unsupported Diagnostics",
+    "status": "runtime_supported",
+    "summary": "Unsupported work must return an explicit blocker instead of silently disappearing or falling back.",
+    "route": "all routes",
+    "evidence_fields": [
+      "blocker_id",
+      "support_status",
+      "claim_gate_status=not_claim_grade"
+    ],
+    "related_use_cases": [
+      "sql-dataframe-capability-posture",
+      "object-store-boundary-report"
+    ],
+    "references": [
+      "docs/architecture/compute-engine-flow-reference.md",
+      "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "slug": "report-only",
+    "title": "report_only",
+    "category": "Unsupported Diagnostics",
+    "status": "report_only",
+    "summary": "A visible design or capability posture that is not runtime execution.",
+    "route": "capability posture",
+    "evidence_fields": [
+      "support_status=report_only",
+      "runtime_execution=false",
+      "claim_gate_status=not_claim_grade"
+    ],
+    "related_use_cases": [
+      "sql-dataframe-capability-posture",
+      "package-channel-readiness-boundary"
+    ],
+    "references": [
+      "docs/use-cases/use-case-index.yml",
+      "docs/architecture/phased-execution-plan.md"
+    ]
+  }
+]

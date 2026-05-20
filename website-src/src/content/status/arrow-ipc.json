@@ -1,0 +1,23 @@
+{
+  "capability": "Arrow IPC",
+  "status": "smoke_supported",
+  "inputs": [
+    "arrow_ipc"
+  ],
+  "outputs": [
+    "evidence"
+  ],
+  "route": "compatibility_import_certified prepared_vortex",
+  "platform": "local",
+  "evidence": [
+    "source_format",
+    "scenario_family",
+    "claim_gate_status"
+  ],
+  "works": "Traditional benchmark fixture rows can expose Arrow IPC posture where the benchmark admits the format.",
+  "blocked": "User-facing broad Arrow IPC runtime is not production-claimable.",
+  "references": [
+    "benchmarks/traditional_analytics/README.md",
+    "docs/benchmarks/local-taxonomy-benchmark.md"
+  ]
+}

@@ -1,0 +1,47 @@
+---
+title: "Result-sink replay"
+description: "Output proof that a local result sink can be replayed or checked for evidence consistency."
+sidebar: {"label":"Result-sink replay"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Output proof that a local result sink can be replayed or checked for evidence consistency.
+
+## Plain-English Meaning
+
+Output proof that a local result sink can be replayed or checked for evidence consistency.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `OutputPlan -> SinkArtifact -> Evidence`
+- Category: Evidence + Certificates
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `result_sink_write_millis`
+- `result_replay_verified`
+- `output_certificate_ref`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [output-result-sink-and-fanout-boundary](/use-cases/output-result-sink-and-fanout-boundary)
+- [evidence-audit-claim-gates](/use-cases/evidence-audit-claim-gates)
+
+## Reference Files
+
+- `docs/getting-started/certified-local-workload.md`
+- `docs/use-cases/use-case-index.yml`

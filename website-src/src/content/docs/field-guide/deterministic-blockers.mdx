@@ -1,0 +1,47 @@
+---
+title: "Deterministic blockers"
+description: "Unsupported work must return an explicit blocker instead of silently disappearing or falling back."
+sidebar: {"label":"Deterministic blockers"}
+---
+
+
+<span class="status-chip status-runtime-supported">runtime_supported</span>
+
+Unsupported work must return an explicit blocker instead of silently disappearing or falling back.
+
+## Plain-English Meaning
+
+Unsupported work must return an explicit blocker instead of silently disappearing or falling back.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `all routes`
+- Category: Unsupported Diagnostics
+
+## Current Support
+
+Status: `runtime_supported`
+
+## Evidence Fields
+
+- `blocker_id`
+- `support_status`
+- `claim_gate_status=not_claim_grade`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [sql-dataframe-capability-posture](/use-cases/sql-dataframe-capability-posture)
+- [object-store-boundary-report](/use-cases/object-store-boundary-report)
+
+## Reference Files
+
+- `docs/architecture/compute-engine-flow-reference.md`
+- `docs/use-cases/use-case-index.yml`

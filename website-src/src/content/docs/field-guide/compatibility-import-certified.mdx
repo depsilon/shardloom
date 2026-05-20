@@ -1,0 +1,48 @@
+---
+title: "compatibility_import_certified"
+description: "The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs."
+sidebar: {"label":"compatibility_import_certified"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs.
+
+## Plain-English Meaning
+
+The certified cold ingest/stage route for local compatibility inputs and evidence-heavy runs.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Certified import/stage route`
+- Category: Execution Routes
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `timing_scope=cold_certified_end_to_end`
+- `source_read_millis`
+- `vortex_write_millis`
+- `claim_gate_status`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [compatibility-import-certified-local](/use-cases/compatibility-import-certified-local)
+- [local-file-etl-cleanup-smoke](/use-cases/local-file-etl-cleanup-smoke)
+
+## Reference Files
+
+- `docs/getting-started/certified-local-workload.md`
+- `docs/benchmarks/local-taxonomy-benchmark.md`

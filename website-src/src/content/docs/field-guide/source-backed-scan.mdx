@@ -1,0 +1,48 @@
+---
+title: "Source-backed scan"
+description: "Prepared/native scan evidence showing columns, pushdown, decode, and materialization posture."
+sidebar: {"label":"Source-backed scan"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Prepared/native scan evidence showing columns, pushdown, decode, and materialization posture.
+
+## Plain-English Meaning
+
+Prepared/native scan evidence showing columns, pushdown, decode, and materialization posture.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Prepared/native scan`
+- Category: Prepared/Native Vortex
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `scan_filter_pushed_down`
+- `scan_projection_pushed_down`
+- `data_decoded`
+- `data_materialized`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [prepared-native-vortex-runtime-direction](/use-cases/prepared-native-vortex-runtime-direction)
+- [query-scenario-cookbook-smoke](/use-cases/query-scenario-cookbook-smoke)
+
+## Reference Files
+
+- `docs/architecture/compute-engine-flow-reference.md`
+- `docs/benchmarks/local-taxonomy-benchmark.md`

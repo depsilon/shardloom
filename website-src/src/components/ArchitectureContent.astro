@@ -1,0 +1,56 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import RenderedDiagrams from "./RenderedDiagrams.astro";
+import { flowMarkdown } from "../lib/diagrams";
+
+interface Props {
+  path: string;
+}
+
+const { path } = Astro.props;
+const markdown = flowMarkdown();
+---
+
+<SiteLayout title="Architecture" description="Human-readable ShardLoom route architecture from UniversalIngress to claim gates." path={path} active="architecture">
+  <section class="page-hero">
+    <p class="eyebrow">Architecture</p>
+    <h1>SQL and Python are front doors.</h1>
+    <p class="lede">
+      The route is source admission, SourceState, vortex_ingest, VortexPreparedState, prepared_vortex or native_vortex execution, OutputPlan, SinkArtifact, evidence, and claim gate.
+    </p>
+  </section>
+  <section>
+    <div class="route compact-route">
+      <article class="route-step"><span>Access</span><h3>Python / SQL / CLI</h3><p>User surfaces express work; they are not the execution route.</p></article>
+      <article class="route-step"><span>Ingress</span><h3>UniversalIngress</h3><p>Recognizes sources and emits SourceState or deterministic blockers.</p></article>
+      <article class="route-step"><span>Prepare once</span><h3>vortex_ingest</h3><p>Non-Vortex input reaches prepared_vortex only through VortexPreparedState.</p></article>
+      <article class="route-step"><span>Execute</span><h3>prepared_vortex / native_vortex</h3><p>compatibility_import_certified is the certified cold ingest/stage route.</p></article>
+      <article class="route-step"><span>Output</span><h3>OutputPlan / SinkArtifact</h3><p>Output format and input format remain independent.</p></article>
+      <article class="route-step"><span>Boundary</span><h3>External engines are baselines only</h3><p>They never satisfy ShardLoom fallback or claim gates.</p></article>
+    </div>
+  </section>
+  <section class="section-grid">
+    <div>
+      <p class="eyebrow">What must never happen</p>
+      <h2>What must never happen</h2>
+      <p class="narrow">The website must not imply production support, Spark displacement, external fallback execution, object-store/lakehouse runtime, Foundry production support, or package publication.</p>
+    </div>
+    <ul class="boundary-list as-list">
+      <li>External engines are baseline-only.</li>
+      <li>Blocked and report-only paths remain visible.</li>
+      <li>Benchmark timing remains evidence, not a leaderboard.</li>
+    </ul>
+  </section>
+  <section>
+    <p class="eyebrow">Rendered architecture diagrams</p>
+    <h2>Rendered architecture diagrams</h2>
+    <RenderedDiagrams />
+  </section>
+  <section>
+    <details class="drawer">
+      <summary>Raw Mermaid source</summary>
+      <pre><code>{markdown}</code></pre>
+    </details>
+    <p class="source-link"><a href="https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md">Open canonical Markdown on GitHub</a></p>
+  </section>
+</SiteLayout>

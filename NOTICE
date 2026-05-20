@@ -4,10 +4,10 @@ Copyright 2026 Dylan Justin Heinrich
 
 Licensed under the Apache License, Version 2.0.
 
-The current public website does not commit a third-party runtime asset bundle.
-Historical Pagefind website assets were retired; see
+The public website is built with website-only Astro/Starlight dependencies and
+serves a local generated Pagefind static-search bundle. See
 `docs/legal/static-website-third-party-assets.md` for the current website
-asset posture.
+asset posture and non-runtime boundary.
 
 Third-party dependencies remain under their own licenses and notices, and
 release artifacts should include generated dependency license bundles where

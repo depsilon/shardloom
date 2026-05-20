@@ -45,6 +45,9 @@ website/build/
 website/.cache/
 website/cache/
 website/.wrangler/
+website-src/node_modules/
+website-src/.astro/
+website-src/dist/
 
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

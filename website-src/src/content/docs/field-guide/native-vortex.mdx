@@ -1,0 +1,47 @@
+---
+title: "native_vortex"
+description: "Execution over input that already exists as Vortex before the query starts."
+sidebar: {"label":"native_vortex"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+Execution over input that already exists as Vortex before the query starts.
+
+## Plain-English Meaning
+
+Execution over input that already exists as Vortex before the query starts.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Native Vortex route`
+- Category: Prepared/Native Vortex
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `execution_mode=native_vortex`
+- `vortex_artifact_ref`
+- `claim_gate_status`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [prepared-native-vortex-runtime-direction](/use-cases/prepared-native-vortex-runtime-direction)
+- [benchmark-interpretation-evidence-not-leaderboard](/use-cases/benchmark-interpretation-evidence-not-leaderboard)
+
+## Reference Files
+
+- `docs/architecture/compute-engine-flow-reference.md`
+- `benchmarks/traditional_analytics/README.md`

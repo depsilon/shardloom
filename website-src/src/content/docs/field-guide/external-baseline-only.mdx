@@ -1,0 +1,47 @@
+---
+title: "external_baseline_only"
+description: "Competitor engines are comparison context only and never satisfy ShardLoom evidence gates."
+sidebar: {"label":"external_baseline_only"}
+---
+
+
+<span class="status-chip status-runtime-supported">runtime_supported</span>
+
+Competitor engines are comparison context only and never satisfy ShardLoom evidence gates.
+
+## Plain-English Meaning
+
+Competitor engines are comparison context only and never satisfy ShardLoom evidence gates.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Benchmark artifact`
+- Category: Benchmarks
+
+## Current Support
+
+Status: `runtime_supported`
+
+## Evidence Fields
+
+- `external_baseline_only`
+- `external_engine_invoked=false`
+- `fallback_attempted=false`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [benchmark-interpretation-evidence-not-leaderboard](/use-cases/benchmark-interpretation-evidence-not-leaderboard)
+- [evidence-audit-claim-gates](/use-cases/evidence-audit-claim-gates)
+
+## Reference Files
+
+- `docs/benchmarks/baseline-comparison-boundary.md`
+- `benchmarks/traditional_analytics/README.md`

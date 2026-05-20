@@ -1,0 +1,47 @@
+---
+title: "Object-store boundary"
+description: "S3/GCS/ADLS remain separate blocked/report-only routes until runtime evidence is admitted."
+sidebar: {"label":"Object-store boundary"}
+---
+
+
+<span class="status-chip status-blocked">blocked</span>
+
+S3/GCS/ADLS remain separate blocked/report-only routes until runtime evidence is admitted.
+
+## Plain-English Meaning
+
+S3/GCS/ADLS remain separate blocked/report-only routes until runtime evidence is admitted.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Future object-store route`
+- Category: Platform Boundaries
+
+## Current Support
+
+Status: `blocked`
+
+## Evidence Fields
+
+- `credential_policy_status`
+- `object_store_involved`
+- `fallback_attempted=false`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [object-store-boundary-report](/use-cases/object-store-boundary-report)
+- [table-lakehouse-boundary-report](/use-cases/table-lakehouse-boundary-report)
+
+## Reference Files
+
+- `docs/use-cases/use-case-index.yml`
+- `docs/architecture/phased-execution-plan.md`

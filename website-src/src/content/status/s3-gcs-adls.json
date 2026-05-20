@@ -1,0 +1,25 @@
+{
+  "capability": "S3 / GCS / ADLS",
+  "status": "blocked",
+  "inputs": [
+    "s3",
+    "gcs",
+    "adls"
+  ],
+  "outputs": [
+    "blocked_diagnostic"
+  ],
+  "route": "object_store_report_only",
+  "platform": "object_store",
+  "evidence": [
+    "credential_policy_status",
+    "object_store_io=false",
+    "fallback_attempted=false"
+  ],
+  "works": "Object-store posture is documented as a boundary.",
+  "blocked": "No object-store runtime, byte-range read, write, commit, or credentialed network path is claimed.",
+  "references": [
+    "docs/use-cases/use-case-index.yml",
+    "docs/architecture/phased-execution-plan.md"
+  ]
+}

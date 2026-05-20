@@ -1,0 +1,36 @@
+# ShardLoom Website Source
+
+This directory contains the Astro/Starlight source for `shardloom.io`.
+
+The public website is light-mode and evidence-console oriented. It is an interpretation layer for the current repository evidence, not a replacement for the canonical architecture, release, benchmark, and phase-plan documents.
+
+Build shape:
+
+- `website-src/` is the source tree and website-only Node toolchain.
+- `website-public/` contains static assets copied into the build.
+- `website/` is the committed static output served by Cloudflare Workers Static Assets.
+
+Public surface:
+
+- `/`: route/evidence console overview.
+- `/start`: first local proof entry point.
+- `/field-guide`: compact technical vocabulary atlas.
+- `/use-cases`: filterable use-case browser.
+- `/benchmarks`: committed benchmark artifact interpretation.
+- `/architecture` and `/compute-engine-flow`: human-readable route translation.
+- `/status`: filterable support/status matrix.
+- `/docs`: Starlight docs entry point.
+
+Detailed RFCs, phase history, recipes, and source-of-truth docs remain in the repository under `docs/`.
+
+Common commands:
+
+```powershell
+npm install
+npm run build
+npm run check
+```
+
+The build must not run ShardLoom benchmarks, fetch runtime GitHub/raw content, publish packages, or
+expand support claims. Benchmark pages render committed artifacts under
+`website-public/assets/benchmarks/latest/`.

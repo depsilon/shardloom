@@ -1091,7 +1091,7 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         );
     }
 
-    let website_readme = read_repo_file("website/README.md");
+    let website_readme = read_repo_file("website-src/README.md");
     for required in [
         "light-mode and evidence-console oriented",
         "`/`: route/evidence console overview",
@@ -1110,10 +1110,7 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
     }
 
     let redirects = read_repo_file("website/_redirects");
-    for required in [
-        "/status.html /status",
-        "/docs https://github.com/depsilon/shardloom",
-    ] {
+    for required in ["/status.html /status", "/docs.html /docs"] {
         assert!(
             redirects.contains(required),
             "missing minimal website redirect {required}"
@@ -3022,23 +3019,52 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         );
     }
 
-    let generator = read_repo_file("website/build_static_pages.py");
+    let astro_config = read_repo_file("website-src/astro.config.mjs");
+    let site_layout = read_repo_file("website-src/src/layouts/SiteLayout.astro");
+    let benchmark_dashboard = read_repo_file("website-src/src/components/BenchmarkDashboard.astro");
+    let content_sync = read_repo_file("website-src/scripts/sync-content.mjs");
     for required in [
-        "Build the ShardLoom public website",
-        "light-mode evidence-console surface",
-        "Repo docs remain in the repository",
-        "FIELD_GUIDE_TERMS",
-        "STATUS_ROWS",
-        "WEBSITE / \"benchmarks\" / \"index.html\"",
-        "WEBSITE / \"compute-engine-flow\" / \"index.html\"",
-        "WEBSITE / \"field-guide\" / \"index.html\"",
-        "WEBSITE / \"use-cases\" / \"index.html\"",
-        "WEBSITE / \"status\" / \"index.html\"",
+        "starlight(",
+        "pagefind: true",
+        "outDir: \"../website\"",
+        "publicDir: \"../website-public\"",
+        "localStorage.setItem('starlight-theme','light')",
+    ] {
+        assert!(
+            astro_config.contains(required),
+            "missing Astro config field {required}"
+        );
+    }
+    for required in [
+        "siteNav",
+        "ShardLoom is pre-release, local-first, and claim-gated",
+        "/assets/site.css",
+        "/assets/site.js",
+    ] {
+        assert!(
+            site_layout.contains(required),
+            "missing Astro layout field {required}"
+        );
+    }
+    for required in [
+        "field-guide.json",
+        "use-case-index.json",
+        "status-rows.json",
+        "A compact atlas for ShardLoom vocabulary",
+        "Spark-displacement",
+    ] {
+        assert!(
+            content_sync.contains(required),
+            "missing Astro content sync field {required}"
+        );
+    }
+    for required in [
+        "Route timing dashboard",
         "source_state_coverage_all_requested_scenarios_classified",
     ] {
         assert!(
-            generator.contains(required),
-            "missing minimal website generator field {required}"
+            benchmark_dashboard.contains(required),
+            "missing Astro benchmark dashboard field {required}"
         );
     }
 
@@ -3152,7 +3178,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
         "shardloom.website_readiness.v3",
         "REMOVED_WEBSITE_SURFACES",
         "removed public website surface still exists",
-        "runtime file still references Pagefind",
+        "pagefind/pagefind-entry.json",
+        "Starlight's local Pagefind bundle is an approved static-search asset",
         "@media (prefers-reduced-motion: reduce)",
         ":focus-visible",
         "site CSS missing accessibility/readiness marker",
@@ -3166,16 +3193,18 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     let current_framework_decision =
         read_repo_file("docs/architecture/website-redesign-framework-decision.md");
     for required in [
-        "Status: accepted for `GAR-WEB-REDESIGN-2G`",
-        "Recommendation: keep the current Python static generator",
-        "Migration status: `blocked_pending_explicit_approval`",
-        "67 committed HTML files",
-        "There is no current Pagefind runtime bundle",
-        "Astro custom remains the preferred future migration candidate",
-        "No framework migration may begin",
-        "dependency/license review for npm packages",
+        "Status: accepted and implemented for `GAR-WEB-REDESIGN-2I`",
+        "Decision status: `approved_runtime_static_site_migration`",
+        "Recommendation: use Astro for the public website shell and Starlight",
+        "Migration status: `implemented_after_explicit_approval`",
+        "website-src/package.json",
+        "website-src/astro.config.mjs",
+        "website-src/src/content.config.ts",
+        "website-src/scripts/sync-content.mjs",
+        "website-src/scripts/postbuild-static.mjs",
+        "website/pagefind/",
         "no external search SaaS",
-        "no Pagefind/static-search bundle unless explicitly reapproved",
+        "Astro + Starlight",
     ] {
         assert!(
             current_framework_decision.contains(required),
@@ -3198,11 +3227,11 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let third_party = read_repo_file("docs/legal/static-website-third-party-assets.md");
     for required in [
-        "no committed third-party runtime asset bundle",
-        "`website/pagefind/` must not exist",
-        "reject Pagefind runtime references",
+        "Astro/Starlight static website migration approved",
+        "`website/pagefind/`, generated by Starlight's local Pagefind integration",
+        "no external search SaaS",
         "runtime `raw.githubusercontent.com` content fetches remain forbidden",
-        "dependency/license review item",
+        "website-only dependencies",
     ] {
         assert!(
             third_party.contains(required),
@@ -3211,8 +3240,8 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
     }
     let notice = read_repo_file("NOTICE");
     for required in [
-        "does not commit a third-party runtime asset bundle",
-        "Historical Pagefind website assets were retired",
+        "website-only Astro/Starlight dependencies",
+        "local generated Pagefind static-search bundle",
         "docs/legal/static-website-third-party-assets.md",
     ] {
         assert!(

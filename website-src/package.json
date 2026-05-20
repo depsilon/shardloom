@@ -1,0 +1,23 @@
+{
+  "name": "shardloom-website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Astro/Starlight static website source for shardloom.io.",
+  "scripts": {
+    "sync-content": "node scripts/sync-content.mjs",
+    "dev": "npm run sync-content && astro dev --host 127.0.0.1",
+    "build": "npm run sync-content && astro build && node scripts/postbuild-static.mjs",
+    "preview": "astro preview --host 127.0.0.1",
+    "check": "npm run sync-content && astro check"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/mdx": "^5.0.6",
+    "@astrojs/sitemap": "^3.7.2",
+    "@astrojs/starlight": "^0.39.2",
+    "astro": "^6.3.5",
+    "typescript": "^5.9.3",
+    "yaml": "^2.9.0"
+  }
+}

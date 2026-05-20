@@ -1402,7 +1402,10 @@ fn source_state_reuse_coverage_matrix_classifies_every_traditional_family() {
     let local_benchmark = read_workspace_file("docs/benchmarks/local-taxonomy-benchmark.md");
     let readme = read_workspace_file("benchmarks/traditional_analytics/README.md");
     let rust_source = read_workspace_file("shardloom-vortex/src/traditional_analytics.rs");
-    let website_builder = read_workspace_file("website/build_static_pages.py");
+    let website_benchmark_data =
+        read_workspace_file("website-src/src/data/benchmark-evidence.json");
+    let website_benchmark_dashboard =
+        read_workspace_file("website-src/src/components/BenchmarkDashboard.astro");
 
     for required_text in [
         "source_state_coverage_schema_version",
@@ -1474,9 +1477,12 @@ fn source_state_reuse_coverage_matrix_classifies_every_traditional_family() {
         assert!(doc.contains("not_emitted_scoped_in_memory_source_state"));
     }
 
-    assert!(website_builder.contains("source_state_coverage_all_requested_scenarios_classified"));
-    assert!(website_builder.contains("source_state_coverage_reused_scenario_count"));
-    assert!(website_builder.contains("source_state_digest_status"));
+    assert!(
+        website_benchmark_data.contains("source_state_coverage_all_requested_scenarios_classified")
+    );
+    assert!(website_benchmark_data.contains("source_state_coverage_reused_scenario_count"));
+    assert!(website_benchmark_data.contains("source_state_digest_status"));
+    assert!(website_benchmark_dashboard.contains("Prepared/native source-state coverage"));
 }
 
 fn read_workspace_file(relative: &str) -> String {

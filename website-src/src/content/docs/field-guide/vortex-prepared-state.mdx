@@ -1,0 +1,47 @@
+---
+title: "VortexPreparedState"
+description: "The prepared artifact/state that prepared_vortex executes from."
+sidebar: {"label":"VortexPreparedState"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+The prepared artifact/state that prepared_vortex executes from.
+
+## Plain-English Meaning
+
+The prepared artifact/state that prepared_vortex executes from.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `VortexPreparedState -> prepared_vortex`
+- Category: Vortex Ingest
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `prepared_state_id`
+- `prepared_state_digest`
+- `prepared_state_reuse_hit`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [vortex-ingest-prepare-once-local](/use-cases/vortex-ingest-prepare-once-local)
+- [prepared-native-vortex-runtime-direction](/use-cases/prepared-native-vortex-runtime-direction)
+
+## Reference Files
+
+- `docs/architecture/compute-engine-flow-reference.md`
+- `docs/use-cases/use-case-index.yml`

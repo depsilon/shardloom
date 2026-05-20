@@ -1,0 +1,46 @@
+{
+  "audience": "Foundry-adjacent user who wants to see the local transform shape",
+  "capability_family": "foundry_dev_stack_local_proof",
+  "claim_boundary": "Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.",
+  "common_mistakes": [
+    "treating_local_style_as_real_foundry_runtime",
+    "expecting_foundry_package",
+    "writing_directly_to_s3"
+  ],
+  "engine_mode": "batch_status",
+  "evidence_fields": [
+    "no_dataset_smoke_performed",
+    "transform_import_proven",
+    "cli_binary_resolved",
+    "foundry_runtime_invoked=false",
+    "foundry_compute_invoked=false",
+    "foundry_spark_invoked=false",
+    "fallback_attempted=false",
+    "external_engine_invoked=false",
+    "public_foundry_claim_allowed=false"
+  ],
+  "execution_mode": "no_dataset_smoke",
+  "expected_output_evidence": "A local proof report showing Foundry and external compute were not invoked.",
+  "id": "foundry-local-proof-boundary",
+  "inputs": [
+    "none",
+    "local_style_fixture"
+  ],
+  "outputs": [
+    "local_foundry_style_report",
+    "certificate_metrics_dataset_output"
+  ],
+  "references": [
+    "docs/foundry/proof-of-use-certification.md",
+    "docs/foundry/integration-pack-readiness.md",
+    "examples/foundry-lightweight-transform/README.md",
+    "docs/architecture/compute-engine-flow-reference.md"
+  ],
+  "related_use_cases": [
+    "source-free-generated-output-boundary",
+    "package-channel-readiness-boundary"
+  ],
+  "runnable_example": "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1",
+  "status": "smoke_supported",
+  "title": "Foundry-style local proof boundary"
+}

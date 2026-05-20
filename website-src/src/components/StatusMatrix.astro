@@ -1,0 +1,60 @@
+---
+import StatusChip from "./StatusChip.astro";
+import ReferenceList from "./ReferenceList.astro";
+import { formatList, publicStatusRows } from "../lib/data";
+
+const statuses = [...new Set(publicStatusRows.map((item) => item.status))].sort();
+const platforms = [...new Set(publicStatusRows.map((item) => item.platform))].sort();
+---
+
+<section class="page-hero">
+  <p class="eyebrow">Capability Status</p>
+  <h1>Support status stays visible.</h1>
+  <p class="lede">
+    Runtime-supported, smoke-supported, report-only, blocked, unsupported, and not-planned paths remain in one filterable matrix.
+  </p>
+</section>
+
+<section data-filter-scope>
+  <div class="filter-bar">
+    <label>Search <input type="search" data-filter="search" placeholder="Local CSV, Foundry, S3, package..." /></label>
+    <label>Status
+      <select data-filter="status">
+        <option value="">All statuses</option>
+        {statuses.map((status) => <option value={status}>{status}</option>)}
+      </select>
+    </label>
+    <label>Platform
+      <select data-filter="platform">
+        <option value="">All platforms</option>
+        {platforms.map((platform) => <option value={platform}>{platform}</option>)}
+      </select>
+    </label>
+    <p class="filter-count" data-filter-count></p>
+  </div>
+  <div class="status-matrix">
+    {publicStatusRows.map((row) => (
+      <article
+        class="status-row-card"
+        data-filter-card
+        data-status={row.status}
+        data-platform={row.platform}
+        data-inputs={row.inputs.join(" ")}
+        data-outputs={row.outputs.join(" ")}
+      >
+        <div class="card-top">
+          <StatusChip value={row.status} />
+          <span>{row.platform}</span>
+        </div>
+        <h3>{row.capability}</h3>
+        <dl class="mini-meta">
+          <div><dt>Route</dt><dd>{row.route}</dd></div>
+          <div><dt>What works</dt><dd>{row.works}</dd></div>
+          <div><dt>What is blocked</dt><dd>{row.blocked}</dd></div>
+          <div><dt>Evidence required</dt><dd>{formatList(row.evidence)}</dd></div>
+        </dl>
+        <ReferenceList references={row.references.slice(0, 3)} />
+      </article>
+    ))}
+  </div>
+</section>

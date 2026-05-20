@@ -1,0 +1,25 @@
+{
+  "capability": "Local CSV",
+  "status": "smoke_supported",
+  "inputs": [
+    "local_csv"
+  ],
+  "outputs": [
+    "jsonl",
+    "csv",
+    "evidence"
+  ],
+  "route": "direct_compatibility_transient compatibility_import_certified vortex_ingest",
+  "platform": "local",
+  "evidence": [
+    "source_adapter_status",
+    "fallback_attempted=false",
+    "claim_gate_status"
+  ],
+  "works": "Scoped local CSV smokes cover Python query-builder paths, SQL local-source smokes, certified import/stage runs, and feature-gated Vortex ingest.",
+  "blocked": "Not production CSV ETL, not broad SQL/DataFrame parity, and not a performance claim.",
+  "references": [
+    "python/README.md",
+    "docs/getting-started/examples.md"
+  ]
+}

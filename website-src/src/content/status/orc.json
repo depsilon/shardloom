@@ -1,0 +1,23 @@
+{
+  "capability": "ORC",
+  "status": "smoke_supported",
+  "inputs": [
+    "orc"
+  ],
+  "outputs": [
+    "evidence"
+  ],
+  "route": "compatibility_import_certified prepared_vortex",
+  "platform": "local",
+  "evidence": [
+    "source_format",
+    "scenario_family",
+    "claim_gate_status"
+  ],
+  "works": "Traditional benchmark fixture rows can expose ORC posture where the benchmark admits the format.",
+  "blocked": "Broad ORC runtime and production writer support are not claimed.",
+  "references": [
+    "benchmarks/traditional_analytics/README.md",
+    "docs/benchmarks/local-taxonomy-benchmark.md"
+  ]
+}

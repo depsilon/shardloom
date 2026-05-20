@@ -1,0 +1,47 @@
+---
+title: "Generated source route"
+description: "No input dataset is read; ShardLoom creates deterministic rows and writes local outputs with evidence."
+sidebar: {"label":"Generated source route"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+No input dataset is read; ShardLoom creates deterministic rows and writes local outputs with evidence.
+
+## Plain-English Meaning
+
+No input dataset is read; ShardLoom creates deterministic rows and writes local outputs with evidence.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `Source-free generated route`
+- Category: Execution Routes
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `input_dataset_count=0`
+- `generated_source_created`
+- `generated_source_certificate_status`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [source-free-generated-output-boundary](/use-cases/source-free-generated-output-boundary)
+- [foundry-local-proof-boundary](/use-cases/foundry-local-proof-boundary)
+
+## Reference Files
+
+- `docs/foundry/proof-of-use-certification.md`
+- `python/README.md`
