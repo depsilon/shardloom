@@ -16,6 +16,28 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python local IN-subquery predicate runtime
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-in-subquery-predicates` / #878.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - SQL local-source predicate runtime
+    - Python query-builder predicate surface.
+  - Scope:
+    - Promoted scoped local `column [NOT] IN (SELECT <column> FROM '<local-source>')` predicates to runtime-admitted local-source SQL filters.
+    - Materialized bounded scalar subquery sets through ShardLoom-owned local source readers before predicate execution.
+    - Preserved SQL three-valued `WHERE` null-filter semantics and deterministic blockers for missing source columns, oversized materialized sets, and unsupported correlated, joined, filtered, grouped, ordered, limited, nested, or multi-column subquery shapes.
+    - Added Python `sl.col(...).isin_source(source, column)` and `.not_in_source(source, column)` helpers plus typed report accessors.
+  - Evidence:
+    - `predicate_operator_family=in_subquery`, `in_predicate_runtime_execution=true`, `in_list_value_count`, `in_list_null_value_count`, `in_subquery_runtime_execution=true`, `in_subquery_source_column`, `in_subquery_source_format`, `in_subquery_materialized_value_count`, `in_subquery_materialized_null_value_count`, SQL three-valued null semantics, selected row counts, inline JSONL result rows, `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust parser and CLI smoke tests for scoped local IN-subquery predicates.
+    - Focused Python query-builder tests for source-backed IN helpers and typed report accessors.
+    - Full verification gates are run before the PR is opened and merged.
+  - Claim boundary:
+    - Scoped local SQL/Python IN-subquery fixture smoke only. This is not broad SQL/DataFrame subquery parity, correlated subquery support, arbitrary predicate-tree completeness, production SQL support, claim-grade compute, or performance evidence.
+  - Fallback boundary:
+    - IN-subquery predicates are parsed, planned, materialized, evaluated, and evidenced by ShardLoom-native local-source runtime code. External engines remain baseline/oracle-only and are not invoked.
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python generic numeric expression predicate runtime
   - Date: 2026-05-21
   - Branch/PR: `runtime-generic-expression-predicates` / #877.

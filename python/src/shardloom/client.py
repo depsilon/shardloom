@@ -663,6 +663,45 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("in_list_null_value_count", 0) or 0
 
     @property
+    def in_subquery_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted IN-subquery predicate path."""
+
+        return self.envelope.field_bool("in_subquery_runtime_execution", False) is True
+
+    @property
+    def in_subquery_source_columns(self) -> tuple[str, ...]:
+        """Return subquery source columns used by admitted IN-subquery predicates."""
+
+        value = self.envelope.field("in_subquery_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def in_subquery_source_formats(self) -> tuple[str, ...]:
+        """Return subquery source formats used by admitted IN-subquery predicates."""
+
+        value = self.envelope.field("in_subquery_source_format", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def in_subquery_materialized_value_count(self) -> int:
+        """Return the bounded materialized IN-subquery value count."""
+
+        return self.envelope.field_int("in_subquery_materialized_value_count", 0) or 0
+
+    @property
+    def in_subquery_materialized_null_value_count(self) -> int:
+        """Return the bounded materialized NULL count for IN-subquery values."""
+
+        return (
+            self.envelope.field_int("in_subquery_materialized_null_value_count", 0)
+            or 0
+        )
+
+    @property
     def in_predicate_null_semantics(self) -> str | None:
         """Return the null-semantics contract for admitted IN predicates."""
 

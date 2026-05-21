@@ -742,6 +742,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "label NOT IN ('alpha','gamma')",
         )
         self.assertEqual(
+            str(sl.col("id").isin_source("target/allowed.csv", "id")),
+            "id IN (SELECT id FROM 'target/allowed.csv')",
+        )
+        self.assertEqual(
+            str(sl.col("id").not_in_source("target/blocked.csv", "id")),
+            "id NOT IN (SELECT id FROM 'target/blocked.csv')",
+        )
+        self.assertEqual(
             str(sl.col("amount").between(10, 20)),
             "(amount >= 10 AND amount <= 20)",
         )
@@ -818,6 +826,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.col("label").contains("%")
         with self.assertRaises(ValueError):
             sl.col("label").isin([])
+        with self.assertRaises(ValueError):
+            sl.col("id").isin_source("target/allowed.csv", "bad column")
+        with self.assertRaises(ValueError):
+            sl.col("id").isin_source("target/has'quote.csv", "id")
         with self.assertRaises(ValueError):
             sl.col("amount").between(None, 10)
         with self.assertRaises(ValueError):
@@ -1629,6 +1641,84 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             report.in_predicate_null_semantics, "sql_three_valued_where_filter"
         )
         self.assertEqual(report.result_jsonl, '{"id":1,"label":"alpha"}\n')
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_in_subquery_filter_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv') LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n"},
+                        {"key": "predicate_operator_family", "value": "in_subquery"},
+                        {"key": "in_predicate_runtime_execution", "value": "true"},
+                        {"key": "in_list_value_count", "value": "3"},
+                        {"key": "in_list_null_value_count", "value": "1"},
+                        {"key": "in_subquery_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_source_column", "value": "id"},
+                        {"key": "in_subquery_source_format", "value": "csv"},
+                        {"key": "in_subquery_materialized_value_count", "value": "3"},
+                        {"key": "in_subquery_materialized_null_value_count", "value": "1"},
+                        {"key": "in_predicate_null_semantics", "value": "sql_three_valued_where_filter"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        allowed = ctx.read_csv("target/allowed.csv")
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter(sl.col("id").isin_source(allowed, "id"))
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "in_subquery")
+        self.assertTrue(report.in_predicate_runtime_execution)
+        self.assertEqual(report.in_list_value_count, 3)
+        self.assertEqual(report.in_list_null_value_count, 1)
+        self.assertTrue(report.in_subquery_runtime_execution)
+        self.assertEqual(report.in_subquery_source_columns, ("id",))
+        self.assertEqual(report.in_subquery_source_formats, ("csv",))
+        self.assertEqual(report.in_subquery_materialized_value_count, 3)
+        self.assertEqual(report.in_subquery_materialized_null_value_count, 1)
+        self.assertEqual(
+            report.in_predicate_null_semantics, "sql_three_valued_where_filter"
+        )
+        self.assertEqual(
+            report.result_jsonl,
+            '{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
