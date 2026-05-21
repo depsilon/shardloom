@@ -233,20 +233,14 @@ runtime behavior or support claims. The GAR-P0/P4/P5 groups in this section are 
 non-runtime queue; do not start the runtime implementation queue below until these are closed or
 explicitly reprioritized.
 
-Current non-runtime sequence:
-
-1. Non-runtime closeout is complete through GAR-0043-B, GAR-VORTEX-071D, and the completed
-   `GAR-WEB-REDESIGN-2A/2B`, `GAR-WEB-REDESIGN-2C`, `GAR-WEB-REDESIGN-2D`,
-   `GAR-WEB-REDESIGN-2E`, `GAR-WEB-REDESIGN-2F`, `GAR-WEB-REDESIGN-2G`, and
-   `GAR-WEB-REDESIGN-2H` website slices.
-2. Return to the runtime implementation queue unless the user explicitly reprioritizes new
-   non-runtime work.
-3. Continue moving completed website/runtime sessions to the ledger immediately after PR/session
-   close.
+Current non-runtime sequence: there are no active non-runtime closeout items above the runtime
+queue. Completed non-runtime history belongs in
+`docs/architecture/phased-execution-completed-ledger.md`; add a new unchecked item here only when a
+new docs, website, security, release, or claim-gate blocker must interrupt runtime work.
 
 ##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
 
-All currently defined non-runtime GAR-P5 closeout slices are complete. Continue with the runtime
+There are no active GAR-P5 closeout items in the live queue. Continue with the runtime
 implementation queue below unless a new non-runtime blocker is explicitly added here first.
 
 ##### Non-Runtime GAR-WEB-REDESIGN-2 - Next-Level Website Rebuild
@@ -264,16 +258,9 @@ evidence-gated compute. The public site must show the route
 OutputPlan -> SinkArtifact -> Evidence -> ClaimGate`, while keeping benchmark, support, and
 claim-boundary language honest.
 
-Completed slices: `GAR-WEB-REDESIGN-2A reference synthesis and visual direction`,
-`GAR-WEB-REDESIGN-2B information architecture and content model`,
-`GAR-WEB-REDESIGN-2C homepage product-console rebuild`,
-`GAR-WEB-REDESIGN-2D Field Guide, Use Case, and Status atlas rebuild`,
-`GAR-WEB-REDESIGN-2E benchmark evidence dashboard rebuild`, and
-`GAR-WEB-REDESIGN-2F performance, accessibility, and claim-safety gate`,
-`GAR-WEB-REDESIGN-2G framework migration decision and implementation gate`, and
-`GAR-WEB-REDESIGN-2H architecture diagram rendering and README simplification`, and
-`GAR-WEB-REDESIGN-2I Astro/Starlight static-site migration` are captured in the completed ledger.
-There are no remaining website redesign items in the active non-runtime queue.
+There are no active website redesign items in the live non-runtime queue. Completed website
+redesign history is captured in the completed ledger; future website work must be added here as a
+new unchecked implementation or validation item before it is started.
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 
@@ -303,26 +290,15 @@ or documentation updates alone are insufficient.
 - [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families
   - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics,
     `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: scoped SQL/Python local-source expression coverage now includes many predicate
-    and computed-projection families, including comparison/logical/null/boolean predicates,
-    bounded `IN` plus scoped local-source `IN (SELECT ...)`, temporal literal/coercion paths,
-    numeric arithmetic/expression-tree predicates and projections, UTF-8 transforms/functions,
-    Date32/UTC timestamp extracts and arithmetic, casts, null cleanup, predicate-valued
-    projections, `COUNT(DISTINCT <column>)`, and single-branch `CASE WHEN` projections over
-    literal or source-column branches. These completed slices live in
-    `docs/architecture/phased-execution-completed-ledger.md`; this live plan keeps only the
-    remaining runtime work and claim blockers.
-    Remaining gaps are broader non-numeric/generalized expression families, broader coercion and
-    function coverage, interval/date-time and timezone-database semantics, correlated/multi-column/
-    nested subquery semantics, arbitrary predicate-tree completeness beyond the currently admitted
-    leaves, and final SQL/Python ergonomics. Unsupported residual work must continue to fail with
-    deterministic no-fallback diagnostics.
-  - Closeout posture: this parent item is intentionally still open even though many scoped
-    `GAR-RUNTIME-IMPL-4D` slices have been completed and moved into the completed ledger. The
-    remaining work is no longer "basic expression support"; it is the explicit parity gap around
-    broader non-numeric/generalized expression families, broader coercion/function coverage,
-    interval/timezone semantics, broader correlated/multi-column/nested subquery semantics,
-    arbitrary predicate-tree completeness, and final SQL/Python ergonomics.
+  - Current state: scoped SQL/Python local-source expression coverage has moved well past the first
+    predicate/projection leaves; detailed completed 4D slices live in
+    `docs/architecture/phased-execution-completed-ledger.md`. The remaining work is the parity gap
+    around broader non-numeric/generalized expression families, broader coercion/function coverage,
+    interval/date-time and timezone-database semantics, correlated/multi-column/nested subquery
+    semantics, arbitrary predicate-tree completeness beyond the currently admitted leaves, and final
+    SQL/Python ergonomics. Unsupported residual work must continue to fail with deterministic
+    no-fallback diagnostics.
+  - Closeout posture: this parent item remains open for the residual parity gaps above.
     A future closeout PR must either implement those gaps or split each non-goal into separate
     follow-on runtime items before marking `GAR-RUNTIME-IMPL-4D` complete.
   - Next slice outcome: add one implementation PR per remaining expression family: remaining
@@ -527,6 +503,11 @@ or documentation updates alone are insufficient.
     reuse can be correlated across benchmark rows without treating the digest as a persistent cache
     key or performance claim. The benchmark row exposes the direct batch digest as
     `batch_source_state_digest` to avoid colliding with the universal SourceState contract digest.
+    Python now exposes the prepared/native batch CLI, CDC-aware compatibility preparation,
+    prepared-artifact SourceState/PreparedState accessors, and a
+    `prepare_and_run_traditional_analytics_vortex_batch(...)` helper that prepares compatibility
+    inputs once and then runs the scoped prepared Vortex batch runner without reimporting the source
+    for every scenario.
   - Runtime enablement: certified ingest/stage execution remains supported, while repeated
     workflows can certify or prepare once and then run `prepared_vortex` from
     `VortexPreparedState` without reinterpreting compatibility cold timing as query speed.

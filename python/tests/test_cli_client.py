@@ -43,6 +43,7 @@ from shardloom import (
     SessionSqlResult,
     OutputEnvelope,
     PreparedVortexArtifacts,
+    PreparedVortexBatchResult,
     PredicateDtypeCoverageRow,
     RestApiContractPlan,
     RestApiDataPlane,
@@ -4780,6 +4781,12 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "prepared_artifact_fact_ref", "value": "fact.vortex"},
                         {"key": "prepared_artifact_dim_ref", "value": "dim.vortex"},
                         {"key": "prepared_artifact_digest", "value": "fact=sha256:f,dim=sha256:d"},
+                        {"key": "prepared_state_id", "value": "prepared-state://abc"},
+                        {"key": "prepared_state_digest", "value": "fnv1a64:abc"},
+                        {"key": "source_state_id", "value": "source-state://abc"},
+                        {"key": "source_state_digest", "value": "fnv1a64:source"},
+                        {"key": "source_state_columnar_preserved", "value": "true"},
+                        {"key": "source_state_record_batch_count", "value": "2"},
                         {"key": "prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
                         {"key": "prepared_artifact_reuse_eligible", "value": "true"}
                     ],
@@ -4799,8 +4806,180 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(artifacts.fact_vortex_path, "fact.vortex")
         self.assertEqual(artifacts.dim_vortex_path, "dim.vortex")
         self.assertEqual(artifacts.artifact_digest, "fact=sha256:f,dim=sha256:d")
+        self.assertEqual(artifacts.prepared_state_id, "prepared-state://abc")
+        self.assertEqual(artifacts.source_state_digest, "fnv1a64:source")
+        self.assertTrue(artifacts.source_state_columnar_preserved)
+        self.assertEqual(artifacts.source_state_record_batch_count, 2)
         self.assertEqual(artifacts.cleanup_policy, "caller_owned_workspace_cleanup")
         self.assertTrue(artifacts.reuse_eligible)
+
+    def test_traditional_analytics_vortex_batch_run_dispatches_prepared_batch(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-vortex-batch-run",
+                    "hash join,join + aggregate",
+                    "fact.vortex",
+                    "dim.vortex",
+                    "--cdc-delta-vortex",
+                    "cdc.vortex",
+                    "--workspace",
+                    "out",
+                    "--write-result-vortex",
+                    "--execution-mode",
+                    "prepared_vortex",
+                    "--evidence-level",
+                    "full_replay",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "traditional-analytics-vortex-batch-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "schema_version", "value": "shardloom.traditional_analytics.vortex_batch.v1"},
+                        {"key": "scenario_order", "value": "hash join,join + aggregate"},
+                        {"key": "source_state_digest", "value": "fnv1a64:batch"},
+                        {"key": "source_state_reuse_status", "value": "per_batch_dimension_label_state_reused"},
+                        {"key": "source_state_reused", "value": "true"},
+                        {"key": "source_state_recompute_avoided_count", "value": "1"},
+                        {"key": "selected_evidence_level", "value": "full_replay"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).traditional_analytics_vortex_batch_run(
+            ["hash join", "join + aggregate"],
+            "fact.vortex",
+            "dim.vortex",
+            cdc_delta_vortex="cdc.vortex",
+            workspace="out",
+            write_result_vortex=True,
+            evidence_level="full_replay",
+        )
+
+        self.assertEqual(result.command, "traditional-analytics-vortex-batch-run")
+        self.assertEqual(result.field("source_state_digest"), "fnv1a64:batch")
+
+    def test_prepare_and_run_traditional_analytics_vortex_batch_reuses_artifacts(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                if sys.argv[1] == "traditional-analytics-run":
+                    assert sys.argv[1:] == [
+                        "traditional-analytics-run",
+                        "small change over large base",
+                        "fact.csv",
+                        "dim.csv",
+                        "--workspace",
+                        "work",
+                        "--input-format",
+                        "csv",
+                        "--cdc-delta",
+                        "cdc.csv",
+                        "--memory-gb",
+                        "2",
+                        "--max-parallelism",
+                        "4",
+                        "--execution-mode",
+                        "compatibility_import_certified",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "traditional-analytics-run",
+                        "status": "success",
+                        "summary": "prepared",
+                        "human_text": "prepared",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "prepared_artifact_ref", "value": "fact=fact.vortex,dim=dim.vortex"},
+                            {"key": "prepared_artifact_fact_ref", "value": "fact.vortex"},
+                            {"key": "prepared_artifact_dim_ref", "value": "dim.vortex"},
+                            {"key": "cdc_delta_vortex_path", "value": "cdc.vortex"},
+                            {"key": "prepared_artifact_digest", "value": "fact=sha256:f,dim=sha256:d,cdc=sha256:c"},
+                            {"key": "prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
+                            {"key": "prepared_artifact_reuse_eligible", "value": "true"}
+                        ],
+                    }))
+                elif sys.argv[1] == "traditional-analytics-vortex-batch-run":
+                    assert sys.argv[1:] == [
+                        "traditional-analytics-vortex-batch-run",
+                        "hash join,join + aggregate",
+                        "fact.vortex",
+                        "dim.vortex",
+                        "--cdc-delta-vortex",
+                        "cdc.vortex",
+                        "--workspace",
+                        "batch-work",
+                        "--execution-mode",
+                        "prepared_vortex",
+                        "--evidence-level",
+                        "certified",
+                        "--format",
+                        "json",
+                    ], sys.argv
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "traditional-analytics-vortex-batch-run",
+                        "status": "success",
+                        "summary": "batch",
+                        "human_text": "batch",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "scenario_order", "value": "hash join,join + aggregate"},
+                            {"key": "source_state_digest", "value": "fnv1a64:batch"},
+                            {"key": "source_state_reuse_status", "value": "per_batch_dimension_label_state_reused"},
+                            {"key": "source_state_reused", "value": "true"},
+                            {"key": "source_state_recompute_avoided_count", "value": "1"},
+                            {"key": "selected_evidence_level", "value": "certified"},
+                            {"key": "external_engine_invoked", "value": "false"}
+                        ],
+                    }))
+                else:
+                    raise AssertionError(sys.argv)
+                """
+            )
+        )
+
+        result = ShardLoomClient(
+            binary=binary
+        ).prepare_and_run_traditional_analytics_vortex_batch(
+            ["hash join", "join + aggregate"],
+            "fact.csv",
+            "dim.csv",
+            workspace="work",
+            input_format="csv",
+            cdc_delta_input="cdc.csv",
+            result_workspace="batch-work",
+            evidence_level="certified",
+            memory_gb=2,
+            max_parallelism=4,
+        )
+
+        self.assertIsInstance(result, PreparedVortexBatchResult)
+        self.assertEqual(result.artifacts.cdc_delta_vortex_path, "cdc.vortex")
+        self.assertEqual(result.scenario_order, ("hash join", "join + aggregate"))
+        self.assertEqual(result.source_state_digest, "fnv1a64:batch")
+        self.assertTrue(result.source_state_reused)
+        self.assertEqual(result.source_state_recompute_avoided_count, 1)
+        self.assertTrue(result.prepared_artifacts_reuse_eligible)
+        self.assertEqual(result.selected_evidence_level, "certified")
+        self.assertFalse(result.fallback_attempted)
+        self.assertFalse(result.external_engine_invoked)
 
     def test_live_etl_smoke_dispatches_csv_and_vortex_modes(self) -> None:
         csv_binary = self.fake_cli(

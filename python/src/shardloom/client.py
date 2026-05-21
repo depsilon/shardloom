@@ -173,6 +173,49 @@ class PreparedVortexArtifacts:
         return _required_field(self.prepare, "prepared_artifact_digest")
 
     @property
+    def cdc_delta_vortex_path(self) -> str | None:
+        """Return the prepared CDC delta Vortex artifact path, when emitted."""
+
+        value = self.prepare.field("cdc_delta_vortex_path")
+        return value or None
+
+    @property
+    def prepared_state_id(self) -> str:
+        """Return the prepared-state identifier from the ingest/stage report."""
+
+        return _required_field(self.prepare, "prepared_state_id")
+
+    @property
+    def prepared_state_digest(self) -> str:
+        """Return the prepared-state digest from the ingest/stage report."""
+
+        return _required_field(self.prepare, "prepared_state_digest")
+
+    @property
+    def source_state_id(self) -> str:
+        """Return the SourceState identifier from the ingest/stage report."""
+
+        return _required_field(self.prepare, "source_state_id")
+
+    @property
+    def source_state_digest(self) -> str:
+        """Return the SourceState digest from the ingest/stage report."""
+
+        return _required_field(self.prepare, "source_state_digest")
+
+    @property
+    def source_state_columnar_preserved(self) -> bool:
+        """Whether preparation preserved columnar SourceState evidence."""
+
+        return self.prepare.field_bool("source_state_columnar_preserved", False) is True
+
+    @property
+    def source_state_record_batch_count(self) -> int:
+        """Return the number of preserved SourceState record batches."""
+
+        return self.prepare.field_int("source_state_record_batch_count", 0) or 0
+
+    @property
     def cleanup_policy(self) -> str:
         """Return the caller-visible cleanup policy for prepared artifacts."""
 
@@ -201,6 +244,101 @@ class PreparedVortexArtifacts:
             cdc_delta_vortex=cdc_delta_vortex,
             execution_mode="prepared_vortex",
             check=check,
+        )
+
+    def run_batch(
+        self,
+        client: "ShardLoomClient",
+        scenarios: str | Sequence[str],
+        *,
+        cdc_delta_vortex: str | os.PathLike[str] | None = None,
+        workspace: str | os.PathLike[str] | None = None,
+        write_result_vortex: bool = False,
+        evidence_level: str | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run multiple scenarios from these prepared Vortex artifacts."""
+
+        return client.traditional_analytics_vortex_batch_run(
+            scenarios,
+            self.fact_vortex_path,
+            self.dim_vortex_path,
+            cdc_delta_vortex=cdc_delta_vortex or self.cdc_delta_vortex_path,
+            workspace=workspace,
+            write_result_vortex=write_result_vortex,
+            execution_mode="prepared_vortex",
+            evidence_level=evidence_level,
+            check=check,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedVortexBatchResult:
+    """Prepare-once compatibility import plus prepared/native batch replay result."""
+
+    prepare: OutputEnvelope
+    batch: OutputEnvelope
+
+    @property
+    def artifacts(self) -> PreparedVortexArtifacts:
+        """Return typed prepared-artifact accessors for the preparation step."""
+
+        return PreparedVortexArtifacts(self.prepare)
+
+    @property
+    def scenario_order(self) -> tuple[str, ...]:
+        """Return the batch scenario order reported by the runtime."""
+
+        return _csv_values(self.batch.field("scenario_order"))
+
+    @property
+    def source_state_digest(self) -> str:
+        """Return the batch SourceState digest."""
+
+        return _required_field(self.batch, "source_state_digest")
+
+    @property
+    def source_state_reuse_status(self) -> str:
+        """Return the batch SourceState reuse status."""
+
+        return _required_field(self.batch, "source_state_reuse_status")
+
+    @property
+    def source_state_reused(self) -> bool:
+        """Whether the batch reported SourceState reuse."""
+
+        return self.batch.field_bool("source_state_reused", False) is True
+
+    @property
+    def source_state_recompute_avoided_count(self) -> int:
+        """Return the reported recompute-avoided count for batch SourceState reuse."""
+
+        return self.batch.field_int("source_state_recompute_avoided_count", 0) or 0
+
+    @property
+    def prepared_artifacts_reuse_eligible(self) -> bool:
+        """Whether the preparation step marked artifacts as reuse eligible."""
+
+        return self.artifacts.reuse_eligible
+
+    @property
+    def selected_evidence_level(self) -> str:
+        """Return the selected runtime evidence level for the batch."""
+
+        return _required_field(self.batch, "selected_evidence_level")
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether either step reported attempted fallback execution."""
+
+        return self.prepare.fallback.attempted or self.batch.fallback.attempted
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether either step reported external engine invocation."""
+
+        return _envelope_external_engine_invoked(self.prepare) or _envelope_external_engine_invoked(
+            self.batch
         )
 
 
@@ -6117,6 +6255,7 @@ class ShardLoomClient:
         *,
         workspace: str | os.PathLike[str] | None = None,
         input_format: str | None = None,
+        cdc_delta_input: str | os.PathLike[str] | None = None,
         compatibility_output_format: str | None = None,
         verify_native_replay: bool = False,
         write_result_vortex: bool = False,
@@ -6137,6 +6276,8 @@ class ShardLoomClient:
             args.extend(["--workspace", str(workspace)])
         if input_format is not None:
             args.extend(["--input-format", input_format])
+        if cdc_delta_input is not None:
+            args.extend(["--cdc-delta", str(cdc_delta_input)])
         if compatibility_output_format is not None:
             args.extend(["--compat-output-format", compatibility_output_format])
         if verify_native_replay:
@@ -6181,6 +6322,39 @@ class ShardLoomClient:
             args.extend(["--execution-mode", execution_mode])
         return self.run(args, check=check)
 
+    def traditional_analytics_vortex_batch_run(
+        self,
+        scenarios: str | Sequence[str],
+        fact_vortex: str | os.PathLike[str],
+        dim_vortex: str | os.PathLike[str],
+        *,
+        cdc_delta_vortex: str | os.PathLike[str] | None = None,
+        workspace: str | os.PathLike[str] | None = None,
+        write_result_vortex: bool = False,
+        execution_mode: str | None = "prepared_vortex",
+        evidence_level: str | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the scoped prepared/native Vortex batch command."""
+
+        args = [
+            "traditional-analytics-vortex-batch-run",
+            _scenario_csv_arg(scenarios),
+            str(fact_vortex),
+            str(dim_vortex),
+        ]
+        if cdc_delta_vortex is not None:
+            args.extend(["--cdc-delta-vortex", str(cdc_delta_vortex)])
+        if workspace is not None:
+            args.extend(["--workspace", str(workspace)])
+        if write_result_vortex:
+            args.append("--write-result-vortex")
+        if execution_mode is not None:
+            args.extend(["--execution-mode", execution_mode])
+        if evidence_level is not None:
+            args.extend(["--evidence-level", evidence_level])
+        return self.run(args, check=check)
+
     def prepare_traditional_analytics_vortex_artifacts(
         self,
         fact_input: str | os.PathLike[str],
@@ -6188,6 +6362,7 @@ class ShardLoomClient:
         *,
         workspace: str | os.PathLike[str],
         input_format: str | None = None,
+        cdc_delta_input: str | os.PathLike[str] | None = None,
         memory_gb: int | None = None,
         max_parallelism: int | None = None,
         check: bool = True,
@@ -6195,17 +6370,56 @@ class ShardLoomClient:
         """Prepare reusable local Vortex artifacts through the certified ingest/stage path."""
 
         envelope = self.traditional_analytics_run(
-            "csv/file ingest",
+            "small change over large base" if cdc_delta_input is not None else "csv/file ingest",
             fact_input,
             dim_input,
             workspace=workspace,
             input_format=input_format,
+            cdc_delta_input=cdc_delta_input,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
             execution_mode="compatibility_import_certified",
             check=check,
         )
         return PreparedVortexArtifacts(prepare=envelope)
+
+    def prepare_and_run_traditional_analytics_vortex_batch(
+        self,
+        scenarios: str | Sequence[str],
+        fact_input: str | os.PathLike[str],
+        dim_input: str | os.PathLike[str],
+        *,
+        workspace: str | os.PathLike[str],
+        input_format: str | None = None,
+        cdc_delta_input: str | os.PathLike[str] | None = None,
+        result_workspace: str | os.PathLike[str] | None = None,
+        write_result_vortex: bool = False,
+        evidence_level: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> PreparedVortexBatchResult:
+        """Prepare local compatibility inputs once, then run a prepared Vortex batch."""
+
+        artifacts = self.prepare_traditional_analytics_vortex_artifacts(
+            fact_input,
+            dim_input,
+            workspace=workspace,
+            input_format=input_format,
+            cdc_delta_input=cdc_delta_input,
+            memory_gb=memory_gb,
+            max_parallelism=max_parallelism,
+            check=check,
+        )
+        batch = artifacts.run_batch(
+            self,
+            scenarios,
+            workspace=result_workspace,
+            write_result_vortex=write_result_vortex,
+            evidence_level=evidence_level,
+            check=check,
+        )
+        return PreparedVortexBatchResult(prepare=artifacts.prepare, batch=batch)
 
     def live_etl_smoke(
         self,
@@ -7253,6 +7467,21 @@ def _signals_arg(signals: str | Sequence[str]) -> str:
         raise ValueError("signals must not be empty")
     if any(part.strip() == "" for part in value.split(",")):
         raise ValueError("signals must not contain empty tokens")
+    return value
+
+
+def _scenario_csv_arg(scenarios: str | Sequence[str]) -> str:
+    if isinstance(scenarios, str):
+        value = scenarios
+    else:
+        values = [str(scenario).strip() for scenario in scenarios]
+        if not values:
+            raise ValueError("scenarios must not be empty")
+        value = ",".join(values)
+    if value.strip() == "":
+        raise ValueError("scenarios must not be empty")
+    if any(part.strip() == "" for part in value.split(",")):
+        raise ValueError("scenarios must not contain empty tokens")
     return value
 
 

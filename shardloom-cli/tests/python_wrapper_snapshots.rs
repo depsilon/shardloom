@@ -47,7 +47,7 @@ fn python_wrapper_plan_json_exposes_cli_json_foundation() {
     assert!(output.contains(&field("invocation_model", "subprocess_cli_json")));
     assert!(output.contains(&field(
         "initial_command_scope",
-        "status,capabilities,api-compat-plan,python-wrapper-plan,vortex-run,traditional-analytics-run,traditional-analytics-vortex-run,dynamic-work-shaping-plan,sizing-feedback-plan,benchmark-plan,benchmark-claim-evidence-plan"
+        "status,capabilities,api-compat-plan,python-wrapper-plan,vortex-run,traditional-analytics-run,traditional-analytics-vortex-run,traditional-analytics-vortex-batch-run,dynamic-work-shaping-plan,sizing-feedback-plan,benchmark-plan,benchmark-claim-evidence-plan"
     )));
 }
 

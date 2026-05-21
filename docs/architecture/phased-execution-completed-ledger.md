@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F1 Python prepare-once prepared/native batch workflow
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-9-20260521` / #898.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest
+      attribution`.
+    - User request to finish the 8-item sweep, keep phase-plan completed content in this ledger,
+      and make the current batch a meatier runtime slice.
+  - Scope:
+    - Added CDC-aware Python lowering for `traditional_analytics_run(... cdc_delta_input=...)`
+      while preserving the explicit `compatibility_import_certified` CLI route.
+    - Exposed `traditional-analytics-vortex-batch-run` through
+      `ShardLoomClient.traditional_analytics_vortex_batch_run(...)` so Python users can invoke the
+      existing scoped prepared/native batch runner directly.
+    - Added `PreparedVortexArtifacts.run_batch(...)` and
+      `ShardLoomClient.prepare_and_run_traditional_analytics_vortex_batch(...)`, which prepare local
+      compatibility inputs once and then run multiple prepared Vortex scenarios from the emitted
+      artifacts without reimporting the source per scenario.
+    - Added typed Python accessors for prepared-state id/digest, SourceState id/digest,
+      columnar-preservation evidence, record-batch count, CDC prepared artifact refs, selected
+      evidence level, SourceState reuse status, recompute-avoided count, and no-fallback/external
+      engine status across the two-step workflow.
+    - Updated the Python wrapper foundation command-scope contract to include the prepared/native
+      batch command.
+    - Cleaned the live phased execution plan so completed non-runtime/website/runtime history stays
+      in this ledger and the live plan remains an active unchecked queue.
+  - Evidence:
+    - A Python user can now call one helper to run
+      `compatibility_import_certified -> prepared Vortex batch` with one prepared artifact set.
+    - CDC preparation routes through the existing CLI `--cdc-delta` flag and passes the emitted
+      `cdc_delta_vortex_path` into the prepared/native batch command.
+    - The batch helper preserves explicit `--execution-mode prepared_vortex` and optional
+      `--evidence-level` routing; it does not introduce a hidden fast mode or external fallback.
+  - Verification:
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_prepare_traditional_analytics_vortex_artifacts_reports_lifecycle python.tests.test_cli_client.ShardLoomClientTests.test_traditional_analytics_vortex_batch_run_dispatches_prepared_batch python.tests.test_cli_client.ShardLoomClientTests.test_prepare_and_run_traditional_analytics_vortex_batch_reuses_artifacts`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_live_etl_csv_to_vortex_replay_runs_import_then_native_replay python.tests.test_cli_client.ShardLoomClientTests.test_live_etl_smoke_dispatches_csv_and_vortex_modes`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests`
+    - `python -m unittest discover -s python\tests`
+    - `python -m compileall -q python\src\shardloom\client.py python\src\shardloom\__init__.py python\tests\test_cli_client.py`
+    - `python -m compileall -q python\src python\tests scripts examples benchmarks\traditional_analytics`
+    - `cargo test -p shardloom-cli --test python_wrapper_snapshots python_wrapper_plan_json_exposes_cli_json_foundation -- --nocapture`
+    - `cargo test -p shardloom-core python_wrapper -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a Python/CLI wrapper surface over the existing scoped local prepared/native batch
+      runtime. It does not claim broad SQL/DataFrame runtime support, persistent session caching,
+      object-store/lakehouse runtime, production readiness, performance superiority, or Spark
+      displacement.
+  - Fallback boundary:
+    - The helper invokes only ShardLoom CLI commands. Compatibility import, Vortex artifact
+      preparation, prepared/native batch execution, evidence selection, and rejection behavior keep
+      `fallback_attempted=false` and `external_engine_invoked=false`; no pandas, Polars, DuckDB,
+      DataFusion, Spark, Dask, Ray, database, or managed platform path is used as execution
+      fallback.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E/5A source-free SQL range filter/limit query workflow
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-8-20260521` / #897.

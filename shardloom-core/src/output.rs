@@ -1099,6 +1099,7 @@ impl PythonWrapperFoundationReport {
                 "vortex-run",
                 "traditional-analytics-run",
                 "traditional-analytics-vortex-run",
+                "traditional-analytics-vortex-batch-run",
                 "dynamic-work-shaping-plan",
                 "sizing-feedback-plan",
                 "benchmark-plan",
