@@ -339,6 +339,78 @@ fn vortex_ingest_smoke_full_replay_requires_output_replay_evidence() {
     fs::remove_file(source_path).expect("remove source csv");
 }
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+fn vortex_ingest_smoke_preserves_columnar_source_state_for_parquet() {
+    let source_path = unique_path("vortex-ingest-columnar-source", "parquet");
+    let target_path = unique_path("vortex-ingest-columnar-target", "vortex");
+    write_parquet_vortex_ingest_source(&source_path);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--allow-overwrite",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-ingest-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "parquet")));
+    assert!(stdout.contains(&field("source_state_read_plan", "full_columns")));
+    assert!(stdout.contains(&field(
+        "source_state_materialization_layout",
+        "arrow_record_batch_columnar_source_state"
+    )));
+    assert!(stdout.contains(&field(
+        "source_state_parse_normalization",
+        "structured_reader_to_arrow_record_batches"
+    )));
+    assert!(stdout.contains(&field("source_state_columnar_preserved", "true")));
+    assert!(stdout.contains(&field("source_state_record_batch_count", "1")));
+    assert!(stdout.contains(&field(
+        "source_state_materialized_columns",
+        "id,label,amount"
+    )));
+    assert!(stdout.contains(&field(
+        "source_state_reader_projection_columns",
+        "id,label,amount"
+    )));
+    assert!(stdout.contains(&field("compatibility_parse_millis", "0")));
+    assert!(stdout.contains("\"key\":\"source_to_columnar_millis\""));
+    assert!(stdout.contains("\"key\":\"vortex_array_build_millis\""));
+    assert!(stdout.contains(&field("input_row_count", "3")));
+    assert!(stdout.contains(&field("writer_row_count", "3")));
+    assert!(stdout.contains(&field("reopen_row_count", "3")));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "local_parquet_arrow_record_batch_columnar_source_state_to_vortex_prepared_state"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(target_path.exists());
+
+    fs::remove_file(source_path).expect("remove source parquet");
+    fs::remove_file(target_path).expect("remove target vortex");
+}
+
 #[cfg(feature = "universal-format-io")]
 fn write_parquet_smoke_source(path: &std::path::Path) {
     use arrow_array::{BooleanArray, Int64Array, RecordBatch, StringArray};
@@ -362,6 +434,32 @@ fn write_parquet_smoke_source(path: &std::path::Path) {
     )
     .expect("record batch");
     let file = File::create(path).expect("create parquet source");
+    let mut writer = ArrowWriter::try_new(file, schema, None).expect("parquet writer");
+    writer.write(&batch).expect("write parquet batch");
+    writer.close().expect("close parquet writer");
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn write_parquet_vortex_ingest_source(path: &std::path::Path) {
+    use arrow_array::{Float64Array, Int64Array, RecordBatch, StringArray};
+    use arrow_schema::{DataType, Field, Schema};
+    use parquet::arrow::ArrowWriter;
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("id", DataType::Int64, false),
+        Field::new("label", DataType::Utf8, false),
+        Field::new("amount", DataType::Float64, false),
+    ]));
+    let batch = RecordBatch::try_new(
+        Arc::clone(&schema),
+        vec![
+            Arc::new(Int64Array::from(vec![1, 2, 3])),
+            Arc::new(StringArray::from(vec!["alpha", "beta", "gamma"])),
+            Arc::new(Float64Array::from(vec![8.0, 15.5, 21.25])),
+        ],
+    )
+    .expect("record batch");
+    let file = File::create(path).expect("create parquet vortex ingest source");
     let mut writer = ArrowWriter::try_new(file, schema, None).expect("parquet writer");
     writer.write(&batch).expect("write parquet batch");
     writer.close().expect("close parquet writer");

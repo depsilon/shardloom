@@ -46,6 +46,14 @@ not by compiling every reader by default. Active implementation status for input
     default builds report deterministic Parquet, Arrow IPC, Avro, or ORC adapter blockers. The
     same gate admits scoped flat scalar local Parquet/Arrow IPC/Avro/ORC output for that SQL
     local-source smoke and reports deterministic sink blockers in default builds.
+  - When `vortex-ingest-smoke` is built with both `vortex-write` and `universal-format-io`, flat
+    scalar Parquet/Arrow IPC/Avro/ORC inputs preserve an Arrow `RecordBatch` columnar SourceState
+    through the prepare-once boundary and convert directly into the scoped local
+    `VortexPreparedState` writer. Reports emit `source_state_columnar_preserved`,
+    `source_state_record_batch_count`, `source_to_columnar_millis`, and
+    `vortex_array_build_millis` so ingest timing is not collapsed into generic scalar parse time.
+    CSV/JSON/JSONL and unsupported structured shapes still use the scalar or blocked adapter
+    paths; this does not create a hidden Arrow-default execution model.
   - Production-certified adapters remain separate phases and must emit full capability, pushdown,
     fidelity, and certificate evidence.
 - Catalog/table refs

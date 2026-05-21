@@ -289,6 +289,42 @@ class VortexIngestSmokeReport:
         return self.envelope.field("certification_status")
 
     @property
+    def source_state_materialization_layout(self) -> str | None:
+        """Return the SourceState materialization layout."""
+
+        return self.envelope.field("source_state_materialization_layout")
+
+    @property
+    def source_state_parse_normalization(self) -> str | None:
+        """Return the SourceState parse/normalization path."""
+
+        return self.envelope.field("source_state_parse_normalization")
+
+    @property
+    def source_state_columnar_preserved(self) -> bool:
+        """Whether the prepare-once route preserved a columnar SourceState."""
+
+        return self.envelope.field_bool("source_state_columnar_preserved", False) is True
+
+    @property
+    def source_state_record_batch_count(self) -> int:
+        """Return the number of columnar record batches in SourceState."""
+
+        return self.envelope.field_int("source_state_record_batch_count", 0) or 0
+
+    @property
+    def source_to_columnar_millis(self) -> int:
+        """Return source-to-columnar preparation time in milliseconds."""
+
+        return self.envelope.field_int("source_to_columnar_millis", 0) or 0
+
+    @property
+    def vortex_array_build_millis(self) -> int:
+        """Return Vortex array-build time in milliseconds."""
+
+        return self.envelope.field_int("vortex_array_build_millis", 0) or 0
+
+    @property
     def source_io_performed(self) -> bool:
         """Whether source I/O was performed by the smoke."""
 

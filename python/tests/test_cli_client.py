@@ -844,6 +844,12 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "reopen_verification_status", "value": "reopen_row_count_verified"},
                         {"key": "certification_level", "value": "ingest_certified"},
                         {"key": "certification_status", "value": "fixture_smoke_certified"},
+                        {"key": "source_state_materialization_layout", "value": "arrow_record_batch_columnar_source_state"},
+                        {"key": "source_state_parse_normalization", "value": "structured_reader_to_arrow_record_batches"},
+                        {"key": "source_state_columnar_preserved", "value": "true"},
+                        {"key": "source_state_record_batch_count", "value": "1"},
+                        {"key": "source_to_columnar_millis", "value": "4"},
+                        {"key": "vortex_array_build_millis", "value": "3"},
                         {"key": "source_io_performed", "value": "true"},
                         {"key": "prepared_state_created", "value": "true"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
@@ -875,6 +881,18 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.reopen_verification_status, "reopen_row_count_verified")
         self.assertEqual(result.certification_level, "ingest_certified")
         self.assertEqual(result.certification_status, "fixture_smoke_certified")
+        self.assertEqual(
+            result.source_state_materialization_layout,
+            "arrow_record_batch_columnar_source_state",
+        )
+        self.assertEqual(
+            result.source_state_parse_normalization,
+            "structured_reader_to_arrow_record_batches",
+        )
+        self.assertTrue(result.source_state_columnar_preserved)
+        self.assertEqual(result.source_state_record_batch_count, 1)
+        self.assertEqual(result.source_to_columnar_millis, 4)
+        self.assertEqual(result.vortex_array_build_millis, 3)
         self.assertTrue(result.source_io_performed)
         self.assertTrue(result.prepared_state_created)
         self.assertFalse(result.fallback_attempted)
