@@ -349,8 +349,51 @@ struct ParsedNullIfProjection {
 struct ParsedConditionalProjection {
     alias: String,
     predicate: ParsedPredicate,
-    then_value: ScalarValue,
-    else_value: ScalarValue,
+    then_branch: ParsedConditionalBranch,
+    else_branch: ParsedConditionalBranch,
+    then_dtype: Option<LogicalDType>,
+    else_dtype: Option<LogicalDType>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum ParsedConditionalBranch {
+    Literal(ScalarValue),
+    Column(String),
+}
+
+impl ParsedConditionalBranch {
+    fn source_column(&self) -> Option<&str> {
+        match self {
+            Self::Literal(_) => None,
+            Self::Column(column) => Some(column.as_str()),
+        }
+    }
+
+    fn literal_dtype(&self) -> Option<LogicalDType> {
+        match self {
+            Self::Literal(value) => Some(value.dtype()),
+            Self::Column(_) => None,
+        }
+    }
+
+    fn dtype_label(&self, resolved_dtype: Option<&LogicalDType>) -> String {
+        resolved_dtype
+            .cloned()
+            .or_else(|| self.literal_dtype())
+            .map_or_else(
+                || "source_column".to_string(),
+                |dtype| dtype.as_str().to_string(),
+            )
+    }
+
+    fn to_expression(&self, expr_id: ExprId) -> Result<Expression, ShardLoomError> {
+        match self {
+            Self::Literal(value) => Ok(Expression::literal(expr_id, value.clone())),
+            Self::Column(column) => {
+                Ok(Expression::column(expr_id, ColumnRef::new(column.clone())?))
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2480,6 +2523,12 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
         for column in projection.predicate.columns() {
             columns.insert(column.to_string());
         }
+        if let Some(column) = projection.then_branch.source_column() {
+            columns.insert(column.to_string());
+        }
+        if let Some(column) = projection.else_branch.source_column() {
+            columns.insert(column.to_string());
+        }
     }
     for projection in &parsed.predicate_projections {
         for column in projection.predicate.columns() {
@@ -2540,6 +2589,7 @@ fn run_sql_local_source_smoke(
     )?;
     materialize_in_subquery_predicates(&mut parsed.predicate)?;
     apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
+    resolve_conditional_projection_branch_dtypes(&mut parsed, &source)?;
     validate_null_coalesce_projection_values(&parsed, &source, right_source.as_ref())?;
     validate_nullif_projection_values(&parsed, &source, right_source.as_ref())?;
 
@@ -3128,14 +3178,14 @@ fn conditional_projection_expression(
             name: "case_when".to_string(),
             args: vec![
                 projection.predicate.to_expression()?,
-                Expression::literal(
-                    ExprId::new(format!("project.conditional.then.{}", projection.alias))?,
-                    projection.then_value.clone(),
-                ),
-                Expression::literal(
-                    ExprId::new(format!("project.conditional.else.{}", projection.alias))?,
-                    projection.else_value.clone(),
-                ),
+                projection.then_branch.to_expression(ExprId::new(format!(
+                    "project.conditional.then.{}",
+                    projection.alias
+                ))?)?,
+                projection.else_branch.to_expression(ExprId::new(format!(
+                    "project.conditional.else.{}",
+                    projection.alias
+                ))?)?,
             ],
         },
     );
@@ -5051,7 +5101,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -5220,6 +5270,22 @@ fn validate_value_projection_source_columns(
                 header,
                 column,
                 "conditional projection predicate column",
+                "CSV header",
+            )?;
+        }
+        if let Some(column) = projection.then_branch.source_column() {
+            require_header_column(
+                header,
+                column,
+                "conditional projection THEN branch column",
+                "CSV header",
+            )?;
+        }
+        if let Some(column) = projection.else_branch.source_column() {
+            require_header_column(
+                header,
+                column,
+                "conditional projection ELSE branch column",
                 "CSV header",
             )?;
         }
@@ -6429,7 +6495,21 @@ impl ParsedSqlLocalSource {
         } else {
             self.conditional_projections
                 .iter()
-                .map(|projection| projection.predicate.columns().join("+"))
+                .map(|projection| {
+                    let mut columns = projection
+                        .predicate
+                        .columns()
+                        .into_iter()
+                        .map(str::to_string)
+                        .collect::<BTreeSet<_>>();
+                    if let Some(column) = projection.then_branch.source_column() {
+                        columns.insert(column.to_string());
+                    }
+                    if let Some(column) = projection.else_branch.source_column() {
+                        columns.insert(column.to_string());
+                    }
+                    columns.into_iter().collect::<Vec<_>>().join("+")
+                })
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -6465,7 +6545,11 @@ impl ParsedSqlLocalSource {
         } else {
             self.conditional_projections
                 .iter()
-                .map(|projection| projection.then_value.dtype().as_str().to_string())
+                .map(|projection| {
+                    projection
+                        .then_branch
+                        .dtype_label(projection.then_dtype.as_ref())
+                })
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -6477,7 +6561,11 @@ impl ParsedSqlLocalSource {
         } else {
             self.conditional_projections
                 .iter()
-                .map(|projection| projection.else_value.dtype().as_str().to_string())
+                .map(|projection| {
+                    projection
+                        .else_branch
+                        .dtype_label(projection.else_dtype.as_ref())
+                })
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -13469,7 +13557,7 @@ fn parse_conditional_projection(
     let when_index = find_keyword_outside_quotes_and_parentheses(expression_raw, "when")?
         .ok_or_else(|| {
             unsupported_sql_error(
-                "CASE projections must use CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>",
+                "CASE projections must use CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>",
             )
         })?;
     if !expression_raw[..when_index]
@@ -13481,14 +13569,14 @@ fn parse_conditional_projection(
         ));
     }
     let then_index = find_keyword_outside_quotes_and_parentheses(expression_raw, "then")?
-        .ok_or_else(|| unsupported_sql_error("CASE projections require a THEN literal branch"))?;
+        .ok_or_else(|| unsupported_sql_error("CASE projections require a THEN branch"))?;
     let else_index = find_keyword_outside_quotes_and_parentheses(expression_raw, "else")?
-        .ok_or_else(|| unsupported_sql_error("CASE projections require an ELSE literal branch"))?;
+        .ok_or_else(|| unsupported_sql_error("CASE projections require an ELSE branch"))?;
     let end_index = find_keyword_outside_quotes_and_parentheses(expression_raw, "end")?
         .ok_or_else(|| unsupported_sql_error("CASE projections require an END marker before AS"))?;
     if !(when_index < then_index && then_index < else_index && else_index < end_index) {
         return Err(unsupported_sql_error(
-            "CASE projections must use CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>",
+            "CASE projections must use CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>",
         ));
     }
     if !expression_raw[end_index + "end".len()..].trim().is_empty() {
@@ -13501,29 +13589,135 @@ fn parse_conditional_projection(
     let else_raw = expression_raw[else_index + "else".len()..end_index].trim();
     if predicate_raw.is_empty() || then_raw.is_empty() || else_raw.is_empty() {
         return Err(unsupported_sql_error(
-            "CASE projections require non-empty predicate, THEN literal, and ELSE literal",
+            "CASE projections require non-empty predicate, THEN branch, and ELSE branch",
         ));
     }
-    let then_value = parse_projection_literal_value(then_raw)?;
-    let else_value = parse_projection_literal_value(else_raw)?;
-    if matches!(then_value, ScalarValue::Null) || matches!(else_value, ScalarValue::Null) {
-        return Err(unsupported_sql_error(
-            "CASE projections require non-NULL THEN and ELSE literals in this scoped runtime slice",
-        ));
-    }
-    if then_value.dtype() != else_value.dtype() {
-        return Err(unsupported_sql_error(&format!(
-            "CASE projection THEN/ELSE literals must have matching dtypes; got {} and {}",
-            then_value.dtype().as_str(),
-            else_value.dtype().as_str()
-        )));
+    let then_branch = parse_conditional_projection_branch(then_raw, "THEN")?;
+    let else_branch = parse_conditional_projection_branch(else_raw, "ELSE")?;
+    let then_dtype = then_branch.literal_dtype();
+    let else_dtype = else_branch.literal_dtype();
+    if let (Some(then_dtype), Some(else_dtype)) = (&then_dtype, &else_dtype) {
+        if then_dtype != else_dtype {
+            return Err(unsupported_sql_error(&format!(
+                "CASE projection THEN/ELSE branches must have matching dtypes; got {} and {}",
+                then_dtype.as_str(),
+                else_dtype.as_str()
+            )));
+        }
     }
     Ok(Some(ParsedConditionalProjection {
         alias: alias.to_string(),
         predicate: parse_predicate(predicate_raw)?,
-        then_value,
-        else_value,
+        then_branch,
+        else_branch,
+        then_dtype,
+        else_dtype,
     }))
+}
+
+fn parse_conditional_projection_branch(
+    raw: &str,
+    branch_label: &str,
+) -> Result<ParsedConditionalBranch, ShardLoomError> {
+    if let Ok(value) = parse_projection_literal_value(raw) {
+        if matches!(value, ScalarValue::Null) {
+            return Err(unsupported_sql_error(&format!(
+                "CASE projections require a non-NULL {branch_label} branch literal in this scoped runtime slice",
+            )));
+        }
+        Ok(ParsedConditionalBranch::Literal(value))
+    } else {
+        validate_sql_column_ref(raw)?;
+        Ok(ParsedConditionalBranch::Column(raw.to_string()))
+    }
+}
+
+fn resolve_conditional_projection_branch_dtypes(
+    parsed: &mut ParsedSqlLocalSource,
+    source: &CsvSourceData,
+) -> Result<(), ShardLoomError> {
+    let has_source_column_branch = parsed.conditional_projections.iter().any(|projection| {
+        projection.then_branch.source_column().is_some()
+            || projection.else_branch.source_column().is_some()
+    });
+    if parsed.is_join() && has_source_column_branch {
+        return Err(unsupported_sql_error(
+            "CASE projection source-column branches are not admitted for JOIN projections in this scoped runtime slice",
+        ));
+    }
+    for projection in &mut parsed.conditional_projections {
+        let then_dtype = resolve_conditional_projection_branch_dtype(
+            &projection.then_branch,
+            source,
+            "THEN",
+            &projection.alias,
+        )?;
+        let else_dtype = resolve_conditional_projection_branch_dtype(
+            &projection.else_branch,
+            source,
+            "ELSE",
+            &projection.alias,
+        )?;
+        if then_dtype != else_dtype {
+            return Err(unsupported_sql_error(&format!(
+                "CASE projection {:?} THEN/ELSE branches must have matching dtypes after source-column binding; got {} and {}",
+                projection.alias,
+                then_dtype.as_str(),
+                else_dtype.as_str()
+            )));
+        }
+        projection.then_dtype = Some(then_dtype);
+        projection.else_dtype = Some(else_dtype);
+    }
+    Ok(())
+}
+
+fn resolve_conditional_projection_branch_dtype(
+    branch: &ParsedConditionalBranch,
+    source: &CsvSourceData,
+    branch_label: &str,
+    alias: &str,
+) -> Result<LogicalDType, ShardLoomError> {
+    match branch {
+        ParsedConditionalBranch::Literal(value) => Ok(value.dtype()),
+        ParsedConditionalBranch::Column(column) => {
+            infer_source_column_dtype(source, column, branch_label, alias)
+        }
+    }
+}
+
+fn infer_source_column_dtype(
+    source: &CsvSourceData,
+    column: &str,
+    branch_label: &str,
+    alias: &str,
+) -> Result<LogicalDType, ShardLoomError> {
+    let mut dtype: Option<LogicalDType> = None;
+    for row in &source.rows {
+        let Some(value) = row.get(column) else {
+            continue;
+        };
+        if matches!(value, ScalarValue::Null) {
+            continue;
+        }
+        let value_dtype = value.dtype();
+        match dtype.as_ref() {
+            Some(existing) if existing != &value_dtype => {
+                return Err(unsupported_sql_error(&format!(
+                    "CASE projection {alias:?} {branch_label} branch column {column:?} has mixed non-NULL dtypes {} and {}",
+                    existing.as_str(),
+                    value_dtype.as_str()
+                )));
+            }
+            Some(_) => {}
+            None => dtype = Some(value_dtype),
+        }
+    }
+    dtype.ok_or_else(|| {
+        unsupported_sql_error(&format!(
+            "CASE projection {alias:?} {branch_label} branch column {column:?} has no non-NULL values to infer a stable dtype"
+        ))
+    })
 }
 
 fn parse_predicate_projection(
@@ -17695,17 +17889,17 @@ mod tests {
             "comparison"
         );
         assert_eq!(
-            parsed.conditional_projections[0].then_value,
-            ScalarValue::Utf8("large".to_string())
+            parsed.conditional_projections[0].then_branch,
+            ParsedConditionalBranch::Literal(ScalarValue::Utf8("large".to_string()))
         );
         assert_eq!(
-            parsed.conditional_projections[0].else_value,
-            ScalarValue::Utf8("small".to_string())
+            parsed.conditional_projections[0].else_branch,
+            ParsedConditionalBranch::Literal(ScalarValue::Utf8("small".to_string()))
         );
         assert_eq!(parsed.conditional_projections[1].alias, "cutoff_day");
         assert!(matches!(
-            parsed.conditional_projections[1].then_value,
-            ScalarValue::Date32(_)
+            parsed.conditional_projections[1].then_branch,
+            ParsedConditionalBranch::Literal(ScalarValue::Date32(_))
         ));
         assert_eq!(
             parsed.conditional_projection_source_columns(),
@@ -17729,6 +17923,32 @@ mod tests {
             parsed.execution_certificate_suffix(),
             "computed-projection-filter-limit"
         );
+    }
+
+    #[test]
+    fn parses_scoped_conditional_projection_source_column_branches() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CASE WHEN amount >= 10 THEN preferred_label ELSE fallback_label END AS label_out FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("conditional projection column branch statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.conditional_projections.len(), 1);
+        assert_eq!(parsed.conditional_projections[0].alias, "label_out");
+        assert_eq!(
+            parsed.conditional_projections[0].then_branch,
+            ParsedConditionalBranch::Column("preferred_label".to_string())
+        );
+        assert_eq!(
+            parsed.conditional_projections[0].else_branch,
+            ParsedConditionalBranch::Column("fallback_label".to_string())
+        );
+        assert_eq!(
+            parsed.conditional_projection_source_columns(),
+            "amount+fallback_label+preferred_label"
+        );
+        assert_eq!(parsed.conditional_projection_then_dtypes(), "source_column");
+        assert_eq!(parsed.conditional_projection_else_dtypes(), "source_column");
     }
 
     #[test]
@@ -18143,7 +18363,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("CASE projections require non-NULL THEN and ELSE literals"),
+                .contains("CASE projections require a non-NULL THEN branch literal"),
             "{error}"
         );
     }
@@ -18158,7 +18378,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("CASE projection THEN/ELSE literals must have matching dtypes"),
+                .contains("CASE projection THEN/ELSE branches must have matching dtypes"),
             "{error}"
         );
     }

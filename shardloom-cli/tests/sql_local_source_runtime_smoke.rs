@@ -2277,20 +2277,37 @@ fn sql_local_source_smoke_executes_nullif_projection_without_fallback() {
     fs::remove_file(source_path).expect("remove source csv");
 }
 
+fn assert_sql_local_source_smoke_rejects(statement: &str, expected_fragments: &[&str]) {
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    for fragment in expected_fragments {
+        assert!(blocked_output.contains(fragment), "{blocked_output}");
+    }
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+}
+
 #[test]
 fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-conditional-projection", "csv");
     fs::write(
         &source_path,
-        "id,label,amount,event_date\n\
-         1,alpha,8,2025-12-31\n\
-         2,beta,15,2026-05-19\n\
-         3,gamma,,2026-06-01\n",
+        "id,label,amount,event_date,preferred_label,fallback_label,empty_label\n\
+         1,alpha,8,2025-12-31,preferred-alpha,fallback-alpha,\n\
+         2,beta,15,2026-05-19,preferred-beta,fallback-beta,\n\
+         3,gamma,,2026-06-01,preferred-gamma,fallback-gamma,\n",
     )
     .expect("write source csv");
 
     let statement = format!(
-        "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 'small' END AS size_band,CASE WHEN event_date >= DATE '2026-01-01' THEN DATE '2026-12-31' ELSE DATE '2025-12-31' END AS cutoff_day FROM '{}' WHERE id >= 1 LIMIT 3",
+        "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 'small' END AS size_band,CASE WHEN event_date >= DATE '2026-01-01' THEN DATE '2026-12-31' ELSE DATE '2025-12-31' END AS cutoff_day,CASE WHEN amount >= 10 THEN preferred_label ELSE fallback_label END AS label_choice FROM '{}' WHERE id >= 1 LIMIT 3",
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -2312,48 +2329,60 @@ fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
     assert!(stdout.contains(&field("conditional_projection_runtime_execution", "true")));
     assert!(stdout.contains(&field(
         "conditional_projection_predicate_family",
-        "comparison,comparison"
+        "comparison,comparison,comparison"
     )));
     assert!(stdout.contains(&field(
         "conditional_projection_source_column",
-        "amount,event_date"
+        "amount,event_date,amount+fallback_label+preferred_label"
     )));
     assert!(stdout.contains(&field(
         "conditional_projection_output_column",
-        "size_band,cutoff_day"
+        "size_band,cutoff_day,label_choice"
     )));
-    assert!(stdout.contains(&field("conditional_projection_then_dtype", "utf8,date32")));
-    assert!(stdout.contains(&field("conditional_projection_else_dtype", "utf8,date32")));
-    assert!(stdout.contains(&field("projected_columns", "id,size_band,cutoff_day")));
+    assert!(stdout.contains(&field(
+        "conditional_projection_then_dtype",
+        "utf8,date32,utf8"
+    )));
+    assert!(stdout.contains(&field(
+        "conditional_projection_else_dtype",
+        "utf8,date32,utf8"
+    )));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,size_band,cutoff_day,label_choice"
+    )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(stdout.contains(
-        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"size_band\\\":\\\"small\\\",\\\"cutoff_day\\\":\\\"2025-12-31\\\"}\\n{\\\"id\\\":2,\\\"size_band\\\":\\\"large\\\",\\\"cutoff_day\\\":\\\"2026-12-31\\\"}\\n{\\\"id\\\":3,\\\"size_band\\\":\\\"small\\\",\\\"cutoff_day\\\":\\\"2026-12-31\\\"}\\n\""
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"size_band\\\":\\\"small\\\",\\\"cutoff_day\\\":\\\"2025-12-31\\\",\\\"label_choice\\\":\\\"fallback-alpha\\\"}\\n{\\\"id\\\":2,\\\"size_band\\\":\\\"large\\\",\\\"cutoff_day\\\":\\\"2026-12-31\\\",\\\"label_choice\\\":\\\"preferred-beta\\\"}\\n{\\\"id\\\":3,\\\"size_band\\\":\\\"small\\\",\\\"cutoff_day\\\":\\\"2026-12-31\\\",\\\"label_choice\\\":\\\"fallback-gamma\\\"}\\n\""
     ));
 
     let blocked_statement = format!(
         "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 0 END AS size_band FROM '{}' LIMIT 10",
         source_path.display()
     );
-    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
-        .args([
-            "sql-local-source-smoke",
-            &blocked_statement,
-            "--format",
-            "json",
-        ])
-        .output()
-        .expect("sql-local-source-smoke command runs");
-    assert!(!blocked.status.success());
-    let blocked_output = format!(
-        "{}{}",
-        String::from_utf8_lossy(&blocked.stdout),
-        String::from_utf8_lossy(&blocked.stderr)
+    assert_sql_local_source_smoke_rejects(
+        &blocked_statement,
+        &["CASE projection THEN/ELSE branches must have matching dtypes"],
     );
-    assert!(
-        blocked_output.contains("CASE projection THEN/ELSE literals must have matching dtypes")
+
+    let mixed_source_statement = format!(
+        "SELECT id,CASE WHEN amount >= 10 THEN amount ELSE fallback_label END AS mixed_case FROM '{}' LIMIT 10",
+        source_path.display()
     );
-    assert!(blocked_output.contains("external_engine_invoked=false"));
+    assert_sql_local_source_smoke_rejects(
+        &mixed_source_statement,
+        &["THEN/ELSE branches must have matching dtypes after source-column binding"],
+    );
+
+    let all_null_source_statement = format!(
+        "SELECT id,CASE WHEN amount >= 10 THEN empty_label ELSE fallback_label END AS label_or_empty FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    assert_sql_local_source_smoke_rejects(
+        &all_null_source_statement,
+        &["empty_label", "has no non-NULL values"],
+    );
 
     fs::remove_file(source_path).expect("remove source csv");
 }

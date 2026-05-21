@@ -4399,7 +4399,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 'small' END AS size_band,CASE WHEN event_date >= DATE '2026-01-01' THEN DATE '2026-12-31' ELSE DATE '2025-12-31' END AS cutoff_day FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 'small' END AS size_band,CASE WHEN event_date >= DATE '2026-01-01' THEN DATE '2026-12-31' ELSE DATE '2025-12-31' END AS cutoff_day,CASE WHEN amount >= 10 THEN preferred_label ELSE fallback_label END AS label_choice FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -4414,14 +4414,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
                     "diagnostics": [],
                     "fields": [
-                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"size_band\\":\\"large\\",\\"cutoff_day\\":\\"2026-12-31\\"}\\n"},
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"size_band\\":\\"large\\",\\"cutoff_day\\":\\"2026-12-31\\",\\"label_choice\\":\\"preferred-beta\\"}\\n"},
                         {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
                         {"key": "conditional_projection_runtime_execution", "value": "true"},
-                        {"key": "conditional_projection_predicate_family", "value": "comparison,comparison"},
-                        {"key": "conditional_projection_source_column", "value": "amount,event_date"},
-                        {"key": "conditional_projection_output_column", "value": "size_band,cutoff_day"},
-                        {"key": "conditional_projection_then_dtype", "value": "utf8,date32"},
-                        {"key": "conditional_projection_else_dtype", "value": "utf8,date32"},
+                        {"key": "conditional_projection_predicate_family", "value": "comparison,comparison,comparison"},
+                        {"key": "conditional_projection_source_column", "value": "amount,event_date,amount+fallback_label+preferred_label"},
+                        {"key": "conditional_projection_output_column", "value": "size_band,cutoff_day,label_choice"},
+                        {"key": "conditional_projection_then_dtype", "value": "utf8,date32,utf8"},
+                        {"key": "conditional_projection_else_dtype", "value": "utf8,date32,utf8"},
                         {"key": "output_row_count", "value": "1"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
@@ -4445,6 +4445,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     date(2025, 12, 31),
                 ),
             )
+            .with_column(
+                "label_choice",
+                sl.case_when(
+                    sl.col("amount") >= 10,
+                    sl.col("preferred_label"),
+                    sl.col("fallback_label"),
+                ),
+            )
             .filter(sl.col("id") >= 1)
             .limit(2)
             .collect()
@@ -4454,18 +4462,24 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.conditional_projection_runtime_execution)
         self.assertEqual(
             report.conditional_projection_predicate_families,
-            ("comparison", "comparison"),
+            ("comparison", "comparison", "comparison"),
         )
         self.assertEqual(
             report.conditional_projection_source_columns,
-            ("amount", "event_date"),
+            ("amount", "event_date", "amount+fallback_label+preferred_label"),
         )
         self.assertEqual(
             report.conditional_projection_output_columns,
-            ("size_band", "cutoff_day"),
+            ("size_band", "cutoff_day", "label_choice"),
         )
-        self.assertEqual(report.conditional_projection_then_dtypes, ("utf8", "date32"))
-        self.assertEqual(report.conditional_projection_else_dtypes, ("utf8", "date32"))
+        self.assertEqual(
+            report.conditional_projection_then_dtypes,
+            ("utf8", "date32", "utf8"),
+        )
+        self.assertEqual(
+            report.conditional_projection_else_dtypes,
+            ("utf8", "date32", "utf8"),
+        )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
