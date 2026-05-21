@@ -55,11 +55,16 @@ export function formatList(values: unknown, fallback = "not reported"): string {
 export function routeMetrics() {
   const rows = Array.isArray((benchmark as any).rows) ? (benchmark as any).rows : [];
   const batchRows = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
-  const allRows = [...rows, ...batchRows];
-  const routeRows = allRows.filter((row) => row && row.engine && String(row.engine).includes("shardloom"));
+  const publishedRows = Array.isArray((benchmark as any).published_benchmark_rows)
+    ? (benchmark as any).published_benchmark_rows
+    : [];
+  const allRows = [...rows, ...batchRows, ...publishedRows];
+  const routeRows = (publishedRows.length ? publishedRows : allRows).filter((row) =>
+    row && row.engine && String(row.engine).includes("shardloom"),
+  );
   const claimGrade = routeRows.filter((row) => row.claim_gate_status === "claim_grade").length;
   const fixtureSmoke = routeRows.filter((row) => row.claim_gate_status === "fixture_smoke_only").length;
-  const sourceStateRows = routeRows.filter((row) =>
+  const sourceStateRows = allRows.filter((row) =>
     Object.keys(row).some((key) => key.includes("source_state")),
   ).length;
   return {

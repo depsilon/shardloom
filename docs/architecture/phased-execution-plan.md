@@ -1246,20 +1246,37 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate
   - Source: `GAR-RUNTIME-IMPL-4M`, `GAR-BENCH-PUB-1`, benchmark publishing runbook.
   - Current state: benchmark publishing has a structured artifact model, but every runtime
-    promotion still needs fresh, profile-scoped evidence and public website/docs rendering.
+    promotion still needs fresh, profile-scoped evidence and public website/docs rendering. The
+    current public benchmark artifact is `full_local` and therefore shows CSV/Parquet comparative
+    rows without Spark profile rows; the website must keep `spark-default` and
+    `spark-local-tuned` visible as `full_local_plus_spark` lanes even when the current artifact did
+    not request them. Current promoted rows also still include ShardLoom `blocked`,
+    `fixture_smoke_only`, and external `external_baseline_only` rows, and the main artifact lacks
+    broad-format JSONL/Arrow IPC/Avro/ORC comparative coverage.
   - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
-    promoted runtime path and block stale or incomplete public claims.
+    promoted runtime path and block stale or incomplete public claims. The next public comparative
+    refresh should run or explicitly gate `full_local_plus_spark`, include Spark lane availability,
+    publish broad-format coverage for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC, and move the
+    main ShardLoom comparative roster toward `claim_grade` rows only for admitted runtime paths.
   - Runtime enablement: runtime-claim publishing validator that keeps public support status tied to
     fresh evidence.
   - User-visible surface: website benchmarks, docs/benchmarks, status page, release readiness.
   - Implementation scope: artifact freshness checker, profile matrix, runtime claim matrix,
-    benchmark page ingestion, release validators.
+    benchmark page ingestion, release validators, Spark/JVM profile publishing checks, format
+    coverage checks, and claim-gate closeout diagnostics.
   - Evidence required: benchmark profile/environment, scenario coverage, lane status, correctness
-    refs, certificate refs, no-fallback fields, claim gate.
+    refs, certificate refs, no-fallback fields, claim gate, Spark lane availability, format
+    coverage, and source-state/prepared-state coverage.
   - Acceptance: promoted paths are not presented publicly without current evidence; missing
-    required lanes/scenarios are visible and block claim-grade status.
+    required lanes/scenarios are visible and block claim-grade status; Spark lanes are visible in
+    artifact lane availability; broad formats are visible as available or missing; prepared/native
+    source-state coverage is rendered from batch evidence instead of a misleading scalar count; the
+    raw comparative roster renders all promoted rows, not a sample; the main ShardLoom comparative
+    roster has no `blocked`, `unsupported`, `not_claim_grade`, or `fixture_smoke_only` rows before
+    any broad claim-grade benchmark publication, while external lanes remain `external_baseline_only`
+    and never satisfy ShardLoom evidence.
   - Verification: benchmark artifact completeness checker, website readiness, release readiness,
-    traditional benchmark harness tests.
+    traditional benchmark harness tests, `full_local_plus_spark` preflight/runbook evidence.
   - Non-goals: no performance/superiority/Spark-replacement claim.
   - Claim boundary: workload-scoped local benchmark evidence only.
   - Fallback boundary: external baseline lanes cannot satisfy ShardLoom-native evidence.

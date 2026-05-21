@@ -361,6 +361,35 @@
         ]
       ]
     },
+    "claim_grade_closeout": {
+      "headers": [
+        "Scope",
+        "Current rows",
+        "Target",
+        "Owning plan item"
+      ],
+      "heading": "ShardLoom Claim-Grade Closeout",
+      "rows": [
+        [
+          "ShardLoom runtime rows",
+          "120 rows; 96 not claim-grade/blocked/unsupported/fixture rows",
+          "claim_grade for every admitted row in the published comparative profile",
+          "GAR-RUNTIME-IMPL-5J"
+        ],
+        [
+          "External baseline rows",
+          "external_baseline_only rows remain comparison context",
+          "visible baseline-only rows; never fallback execution",
+          "GAR-BENCH-PUB-1 / GAR-RUNTIME-IMPL-5J"
+        ],
+        [
+          "Unsupported or blocked rows",
+          "48 ShardLoom rows",
+          "implemented, claim-gated, or moved to an explicit non-comparative gap appendix",
+          "GAR-RUNTIME-IMPL-5J"
+        ]
+      ]
+    },
     "dataset_rows": 100000,
     "engine_timing_overview": {
       "headers": [
@@ -457,8 +486,251 @@
         ]
       ]
     },
+    "format_coverage": {
+      "headers": [
+        "Format",
+        "Profile role",
+        "Status",
+        "Rows",
+        "Reason"
+      ],
+      "heading": "Format Coverage",
+      "rows": [
+        [
+          "csv",
+          "required",
+          "available",
+          180,
+          "published benchmark rows include this format"
+        ],
+        [
+          "parquet",
+          "required",
+          "available",
+          180,
+          "published benchmark rows include this format"
+        ],
+        [
+          "jsonl",
+          "optional",
+          "missing_optional",
+          0,
+          "format is expected by the profile but absent from the promoted artifact"
+        ],
+        [
+          "arrow-ipc",
+          "optional",
+          "missing_optional",
+          0,
+          "format is expected by the profile but absent from the promoted artifact"
+        ],
+        [
+          "avro",
+          "optional",
+          "missing_optional",
+          0,
+          "format is expected by the profile but absent from the promoted artifact"
+        ],
+        [
+          "orc",
+          "optional",
+          "missing_optional",
+          0,
+          "format is expected by the profile but absent from the promoted artifact"
+        ]
+      ]
+    },
     "generated": "2026-05-19T11:21:05.796643+00:00 from promoted local benchmark artifact.",
     "missing_baselines": [],
+    "profile_lane_availability": {
+      "headers": [
+        "Profile",
+        "Lane",
+        "Profile role",
+        "Lane group",
+        "Status",
+        "Version / reason"
+      ],
+      "heading": "Profile Lane Availability",
+      "rows": [
+        [
+          "full_local",
+          "shardloom",
+          "required",
+          "shardloom",
+          "available",
+          "available, version workspace-local-release-532ba0b"
+        ],
+        [
+          "full_local",
+          "shardloom-prepared-vortex",
+          "required",
+          "shardloom",
+          "available",
+          "available, version workspace-local-release-532ba0b"
+        ],
+        [
+          "full_local",
+          "shardloom-vortex",
+          "required",
+          "shardloom",
+          "available",
+          "available, version workspace-local-release-532ba0b"
+        ],
+        [
+          "full_local",
+          "pandas",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 3.0.3"
+        ],
+        [
+          "full_local",
+          "polars-eager",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 1.40.1"
+        ],
+        [
+          "full_local",
+          "polars-lazy",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 1.40.1 (lazy scan API)"
+        ],
+        [
+          "full_local",
+          "duckdb",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 1.5.2"
+        ],
+        [
+          "full_local",
+          "datafusion",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 53.0.0"
+        ],
+        [
+          "full_local",
+          "dask",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 2026.3.0"
+        ],
+        [
+          "full_local",
+          "native-vortex",
+          "optional",
+          "shardloom",
+          "available",
+          "available, version from promoted benchmark artifact"
+        ],
+        [
+          "full_local_plus_spark",
+          "shardloom",
+          "required",
+          "shardloom",
+          "available",
+          "available, version workspace-local-release-532ba0b"
+        ],
+        [
+          "full_local_plus_spark",
+          "shardloom-prepared-vortex",
+          "required",
+          "shardloom",
+          "available",
+          "available, version workspace-local-release-532ba0b"
+        ],
+        [
+          "full_local_plus_spark",
+          "shardloom-vortex",
+          "required",
+          "shardloom",
+          "available",
+          "available, version workspace-local-release-532ba0b"
+        ],
+        [
+          "full_local_plus_spark",
+          "pandas",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 3.0.3"
+        ],
+        [
+          "full_local_plus_spark",
+          "polars-eager",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 1.40.1"
+        ],
+        [
+          "full_local_plus_spark",
+          "polars-lazy",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 1.40.1 (lazy scan API)"
+        ],
+        [
+          "full_local_plus_spark",
+          "duckdb",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 1.5.2"
+        ],
+        [
+          "full_local_plus_spark",
+          "datafusion",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 53.0.0"
+        ],
+        [
+          "full_local_plus_spark",
+          "dask",
+          "required",
+          "core_local_baseline",
+          "available",
+          "available, version 2026.3.0"
+        ],
+        [
+          "full_local_plus_spark",
+          "spark-default",
+          "required",
+          "spark_baseline",
+          "not_requested_by_current_profile",
+          "run benchmark profile full_local_plus_spark to publish this lane"
+        ],
+        [
+          "full_local_plus_spark",
+          "spark-local-tuned",
+          "required",
+          "spark_baseline",
+          "not_requested_by_current_profile",
+          "run benchmark profile full_local_plus_spark to publish this lane"
+        ],
+        [
+          "full_local_plus_spark",
+          "native-vortex",
+          "optional",
+          "shardloom",
+          "available",
+          "available, version from promoted benchmark artifact"
+        ]
+      ]
+    },
     "source": "target/benchmark-artifacts/traditional-full-local-20260519.json",
     "vortex_oriented_lanes": {
       "headers": [

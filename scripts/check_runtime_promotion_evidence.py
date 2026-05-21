@@ -240,6 +240,33 @@ def _validate_benchmark_results(path: Path, blockers: list[str]) -> None:
         if results is not None:
             blockers.append("benchmark results must be a JSON object")
         return
+    dashboard = results.get("comparative_dashboard")
+    if not isinstance(dashboard, dict):
+        blockers.append("benchmark results must include comparative_dashboard metadata")
+        dashboard = {}
+    profile_lanes = dashboard.get("profile_lane_availability")
+    profile_lane_rows = _as_list(profile_lanes.get("rows") if isinstance(profile_lanes, dict) else None)
+    visible_lanes = {
+        str(row[1])
+        for row in profile_lane_rows
+        if isinstance(row, list) and len(row) > 1
+    }
+    for lane in ("spark-default", "spark-local-tuned"):
+        if lane not in visible_lanes:
+            blockers.append(f"benchmark results must keep {lane} visible in profile lane availability")
+    format_coverage = dashboard.get("format_coverage")
+    format_rows = _as_list(format_coverage.get("rows") if isinstance(format_coverage, dict) else None)
+    visible_formats = {
+        str(row[0])
+        for row in format_rows
+        if isinstance(row, list) and row
+    }
+    for fmt in ("csv", "parquet", "jsonl", "arrow-ipc", "avro", "orc"):
+        if fmt not in visible_formats:
+            blockers.append(f"benchmark results must keep {fmt} visible in format coverage")
+    closeout = dashboard.get("claim_grade_closeout")
+    if not isinstance(closeout, dict) or not _as_list(closeout.get("rows")):
+        blockers.append("benchmark results must include claim_grade_closeout rows")
     rows = _as_list(results.get("rows"))
     if not rows:
         blockers.append("benchmark results must include promoted rows")

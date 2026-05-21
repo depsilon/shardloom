@@ -197,10 +197,15 @@ for (const required of [
   "Certified cold ingest/stage route",
   "Prepared warm query route",
   "Artifact lane availability",
+  "full_local_plus_spark",
+  "spark-default",
+  "Format coverage",
   "Claim-gate distribution",
+  "Claim-grade closeout",
   "Prepared/native source-state coverage",
-  "source_state_coverage_all_requested_scenarios_classified",
+  "Prepared/native source-state evidence rows",
   "Raw timing tables",
+  "Published comparative roster",
   "Performance claim",
 ]) {
   assert(benchmarks.includes(required), `benchmarks page missing ${required}`);

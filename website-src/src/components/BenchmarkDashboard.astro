@@ -4,10 +4,20 @@ import { benchmark, manifest, routeMetrics } from "../lib/data";
 const metrics = routeMetrics();
 const dashboard = (benchmark as any).comparative_dashboard ?? {};
 const claimDistribution = dashboard.claim_gate_distribution ?? {};
+const claimRows = Array.isArray(claimDistribution.rows) ? claimDistribution.rows : [];
 const engineOverview = dashboard.engine_timing_overview ?? {};
 const engineHeaders = Array.isArray(engineOverview.headers) ? engineOverview.headers : ["Engine", "Available", "Success / total", "Geomean", "CSV/Parquet geomean", "Local fastest count"];
 const engineRows = Array.isArray(engineOverview.rows) ? engineOverview.rows : [];
-const publishedRows = ((benchmark as any).published_benchmark_rows ?? []).slice(0, 80);
+const profileLaneTable = dashboard.profile_lane_availability ?? {};
+const profileLaneRows = Array.isArray(profileLaneTable.rows) ? profileLaneTable.rows : [];
+const formatCoverage = dashboard.format_coverage ?? {};
+const formatRows = Array.isArray(formatCoverage.rows) ? formatCoverage.rows : [];
+const closeoutTable = dashboard.claim_grade_closeout ?? {};
+const closeoutRows = Array.isArray(closeoutTable.rows) ? closeoutTable.rows : [];
+const publishedRows = Array.isArray((benchmark as any).published_benchmark_rows) ? (benchmark as any).published_benchmark_rows : [];
+const shardloomRows = publishedRows.filter((row: any) => String(row.engine ?? "").startsWith("shardloom"));
+const batchRows = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
+const sourceStateRows = batchRows.filter((row: any) => row.source_state_coverage_matrix);
 const manifestAny = manifest as any;
 ---
 
@@ -48,13 +58,41 @@ const manifestAny = manifest as any;
     <p class="narrow">Missing lanes are reported from the manifest instead of disappearing from the published page.</p>
   </div>
   <div class="artifact-panel">
-    <dl class="mini-meta">
-      <div><dt>Expected lanes</dt><dd>{manifestAny.expected_lanes.join(", ")}</dd></div>
-      <div><dt>Available lanes</dt><dd>{manifestAny.available_lanes.join(", ")}</dd></div>
-      <div><dt>Missing lanes</dt><dd>{manifestAny.missing_lanes.length ? manifestAny.missing_lanes.join(", ") : "none"}</dd></div>
-      <div><dt>Performance claim</dt><dd>{String(manifestAny.performance_claim_allowed)}</dd></div>
-      <div><dt>Claim boundary</dt><dd>{manifestAny.claim_boundary}</dd></div>
-    </dl>
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr><th>Profile</th><th>Lane</th><th>Role</th><th>Group</th><th>Status</th><th>Version / reason</th></tr></thead>
+        <tbody>
+          {profileLaneRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">
+      Current artifact profile: <strong>{manifestAny.benchmark_profile}</strong>. Spark lanes are visible here as
+      <code>full_local_plus_spark</code> lanes even when the committed artifact was generated without the JVM/Spark profile.
+      Performance claim allowed: <strong>{String(manifestAny.performance_claim_allowed)}</strong>. Claim boundary: {manifestAny.claim_boundary}.
+    </p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Format coverage</p>
+    <h2>CSV and Parquet are not the whole target roster.</h2>
+    <p class="narrow">The published artifact now shows expected broad-format coverage instead of making absent JSONL, Arrow IPC, Avro, or ORC rows look irrelevant.</p>
+  </div>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr><th>Format</th><th>Role</th><th>Status</th><th>Rows</th><th>Reason</th></tr></thead>
+        <tbody>
+          {formatRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>
 
@@ -62,15 +100,64 @@ const manifestAny = manifest as any;
   <div>
     <p class="eyebrow">Claim-gate distribution</p>
     <h2>Route-level evidence before timing interpretation.</h2>
-    <p class="narrow">Timing rows remain local context, not superiority proof. Compatibility cold timing is not pure query speed.</p>
+    <p class="narrow">Timing rows remain local context, not superiority proof. Compatibility cold timing is not pure query speed. The target state is claim-grade ShardLoom rows for the admitted comparative roster; external rows remain baseline-only.</p>
   </div>
   <div class="benchmark-preview">
-    {Object.entries(claimDistribution).map(([key, value]) => (
-      <div><span>{key}</span><strong>{String(value)}</strong></div>
+    {claimRows.map((row: unknown[]) => (
+      <div><span>{String(row[0])}</span><strong>{String(row[1])} rows · {String(row[2])}</strong></div>
     ))}
-    <div><span>Prepared/native source-state coverage</span><strong>{metrics.sourceStateRows} rows</strong></div>
-    <div><span>source_state_coverage_all_requested_scenarios_classified</span><strong>published as evidence where emitted</strong></div>
+    <div><span>Prepared/native source-state evidence rows</span><strong>{sourceStateRows.length} batch rows</strong></div>
+    <div><span>Published comparative roster</span><strong>{publishedRows.length} rows</strong></div>
   </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Claim-grade closeout</p>
+    <h2>Blocked and unsupported rows are implementation work.</h2>
+    <p class="narrow">This page keeps gaps visible while the phased plan closes them. The goal is not to hide unsupported rows; it is to remove them from the main comparative roster by implementing the runtime path or moving the gap to an explicit non-comparative appendix.</p>
+  </div>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr><th>Scope</th><th>Current rows</th><th>Target</th><th>Plan item</th></tr></thead>
+        <tbody>
+          {closeoutRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Prepared/native source-state coverage</h2>
+  <p class="narrow">Source-state coverage comes from prepared/native batch evidence, not the raw comparative timing rows. The matrix stays visible here so reuse evidence is not reduced to a single misleading count.</p>
+  <details class="drawer">
+    <summary>Open prepared/native source-state coverage</summary>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Requested mode</th><th>Scenarios</th><th>All classified</th><th>Reused</th><th>Not needed</th><th>Blocked</th><th>Unsupported</th><th>Prepare ms</th><th>Claim gate</th><th>Matrix</th></tr></thead>
+        <tbody>
+          {sourceStateRows.map((row: any) => (
+            <tr>
+              <td>{row.requested_execution_mode}</td>
+              <td>{row.scenario_count}</td>
+              <td data-field="source_state_coverage_all_requested_scenarios_classified">{String(row.source_state_coverage_all_requested_scenarios_classified)}</td>
+              <td>{row.source_state_coverage_reused_scenario_count}</td>
+              <td>{row.source_state_coverage_not_needed_scenario_count}</td>
+              <td>{row.source_state_coverage_blocked_scenario_count}</td>
+              <td>{row.source_state_coverage_unsupported_scenario_count}</td>
+              <td>{row.source_state_prepare_millis}</td>
+              <td>{row.claim_gate_status}</td>
+              <td>{row.source_state_coverage_matrix}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
 </section>
 
 <section>
@@ -90,7 +177,7 @@ const manifestAny = manifest as any;
     </div>
   </details>
   <details class="drawer">
-    <summary>Published benchmark row sample</summary>
+    <summary>Published comparative roster ({publishedRows.length} rows)</summary>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Engine</th><th>Scenario</th><th>Format</th><th>Status</th><th>Mode</th><th>Total ms</th><th>Fallback</th><th>External engine</th><th>Claim gate</th></tr></thead>
@@ -99,6 +186,22 @@ const manifestAny = manifest as any;
             <tr>
               <td>{row.engine}</td><td>{row.scenario_name}</td><td>{row.storage_format}</td><td>{row.status}</td><td>{row.selected_execution_mode}</td>
               <td>{row.total_runtime_millis}</td><td>{String(row.fallback_attempted)}</td><td>{String(row.external_engine_invoked)}</td><td>{row.claim_gate_status}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  <details class="drawer">
+    <summary>ShardLoom detailed evidence rows ({shardloomRows.length} rows)</summary>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Scenario</th><th>Mode</th><th>Format</th><th>Status</th><th>Total ms</th><th>Scan ms</th><th>Compute ms</th><th>Sink ms</th><th>Claim gate</th></tr></thead>
+        <tbody>
+          {shardloomRows.map((row: any) => (
+            <tr>
+              <td>{row.scenario_name}</td><td>{row.selected_execution_mode}</td><td>{row.storage_format}</td><td>{row.status}</td>
+              <td>{row.total_runtime_millis}</td><td>{row.vortex_scan_millis}</td><td>{row.operator_compute_millis}</td><td>{row.result_sink_write_millis}</td><td>{row.claim_gate_status}</td>
             </tr>
           ))}
         </tbody>
