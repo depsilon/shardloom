@@ -3432,6 +3432,117 @@ class MaterializationPolicyRow:
 
 
 @dataclass(frozen=True, slots=True)
+class CommandMetadataReport:
+    """Typed view over the side-effect-free CLI command registry metadata."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def schema_version(self) -> str:
+        """Return the command registry metadata schema version."""
+
+        return _required_field(self.envelope, "command_registry_schema_version")
+
+    @property
+    def registered_command_count(self) -> int:
+        """Return the number of commands in the registry."""
+
+        return self.envelope.field_int("registered_command_count", 0) or 0
+
+    @property
+    def support_state_vocabulary(self) -> tuple[str, ...]:
+        """Return the registry support-state vocabulary."""
+
+        return _csv_values(self.envelope.field("command_registry_support_state_vocabulary"))
+
+    @property
+    def registered_commands(self) -> tuple[str, ...]:
+        """Return registered CLI command names in usage order."""
+
+        return _csv_values(self.envelope.field("registered_commands"))
+
+    @property
+    def registered_command_families(self) -> Mapping[str, str]:
+        """Return command name to command-family mappings."""
+
+        return _csv_key_value_map(self.envelope.field("registered_command_families"))
+
+    @property
+    def registered_command_support_states(self) -> Mapping[str, str]:
+        """Return command name to support-state mappings."""
+
+        return _csv_key_value_map(self.envelope.field("registered_command_support_states"))
+
+    @property
+    def registered_command_side_effect_levels(self) -> Mapping[str, str]:
+        """Return command name to side-effect-level mappings."""
+
+        return _csv_key_value_map(
+            self.envelope.field("registered_command_side_effect_levels")
+        )
+
+    @property
+    def selected_command(self) -> str | None:
+        """Return the selected command, when the CLI request targeted one command."""
+
+        return self.envelope.field("selected_command")
+
+    @property
+    def selected_command_family(self) -> str | None:
+        """Return the selected command family, when present."""
+
+        return self.envelope.field("selected_command_family")
+
+    @property
+    def selected_command_support_state(self) -> str | None:
+        """Return the selected command support state, when present."""
+
+        return self.envelope.field("selected_command_support_state")
+
+    @property
+    def selected_command_side_effect_level(self) -> str | None:
+        """Return the selected command side-effect level, when present."""
+
+        return self.envelope.field("selected_command_side_effect_level")
+
+    @property
+    def selected_command_usage_fragment(self) -> str | None:
+        """Return the selected command usage fragment, when present."""
+
+        return self.envelope.field("selected_command_usage_fragment")
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether command metadata attempted fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool("fallback_attempted", False) is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether command metadata invoked an external execution engine."""
+
+        return _envelope_external_engine_invoked(self.envelope)
+
+    def family_for(self, command: str) -> str:
+        """Return the registered family for a command."""
+
+        return self.registered_command_families[command]
+
+    def support_state_for(self, command: str) -> str:
+        """Return the registered support state for a command."""
+
+        return self.registered_command_support_states[command]
+
+    def side_effect_level_for(self, command: str) -> str:
+        """Return the registered side-effect level for a command."""
+
+        return self.registered_command_side_effect_levels[command]
+
+
+@dataclass(frozen=True, slots=True)
 class RunsTodaySupportRow:
     """One current-support row from the `runs-today` matrix."""
 
@@ -5963,6 +6074,16 @@ class ShardLoomClient:
 
         return RunsTodaySupportMatrix(self.run(["runs-today"], check=check))
 
+    def command_metadata(
+        self, command: str | None = None, *, check: bool = True
+    ) -> CommandMetadataReport:
+        """Return side-effect-free CLI command registry metadata."""
+
+        args = ["command-metadata"]
+        if command is not None:
+            args.append(command)
+        return CommandMetadataReport(self.run(args, check=check))
+
     def api_compat_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the CLI/API JSON compatibility plan envelope."""
 
@@ -7575,6 +7696,16 @@ def _csv_values(value: str | None) -> tuple[str, ...]:
     if value is None or value == "" or value == "none":
         return ()
     return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
+def _csv_key_value_map(value: str | None) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for part in _csv_values(value):
+        if "=" not in part:
+            continue
+        key, item_value = part.split("=", 1)
+        fields[key] = item_value
+    return fields
 
 
 LOCAL_VORTEX_FALLBACK_ATTEMPTED_FIELDS = (
