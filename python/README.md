@@ -439,6 +439,12 @@ literals with SQL three-valued `WHERE`-filter semantics. Typed reports expose
 `numeric_rounding_runtime_execution`, `numeric_rounding_operator`,
 `numeric_rounding_source_column`, and `numeric_rounding_rhs_dtype` when
 `FLOOR`/`CEIL`/`ROUND` predicates are used, plus
+`generic_expression_predicate_runtime_execution`,
+`generic_expression_predicate_source_columns`,
+`generic_expression_predicate_operator_families`,
+`generic_expression_predicate_binary_operator_count`, and
+`generic_expression_predicate_comparison_operators` when generalized numeric expression-tree
+predicates are used, plus
 `string_length_runtime_execution`, `string_length_source_column`, and `string_length_rhs_dtype`
 when UTF-8 length predicates are used.
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
@@ -449,7 +455,7 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
 `timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons, and the scoped
-UTF-8 `length()` helper, numeric `abs()` / `floor()` / `ceil()` / `round()` helpers, and numeric `+`, `-`, `*`, and `/` operators for left-side arithmetic predicates into the same
+UTF-8 `length()` helper, numeric `abs()` / `floor()` / `ceil()` / `round()` helpers, and numeric `+`, `-`, `*`, and `/` operators for arithmetic predicates, including scoped generalized numeric expression-tree filters such as `(sl.col("amount") + sl.col("tax")) * 2 >= 40`, into the same
 ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed computed `with_column(...)` is also admitted after an explicit `select(...)` for local
 CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
@@ -481,7 +487,8 @@ conditional projections such as
 arithmetic projections emit `numeric_arithmetic_projection_*` evidence; numeric absolute-value
 projections emit `numeric_abs_projection_*` evidence; numeric rounding projections emit
 `numeric_rounding_projection_*` evidence; generalized numeric expression-tree projections emit
-`generic_expression_projection_*` evidence; string transform
+`generic_expression_projection_*` evidence; generalized numeric expression-tree predicates emit
+`generic_expression_predicate_*` evidence; string transform
 projections emit `string_transform_projection_*` evidence; string length projections emit
 `string_length_projection_*` evidence; date/time extract projections emit
 `date_extract_projection_*` and `timestamp_extract_projection_*` evidence; date arithmetic

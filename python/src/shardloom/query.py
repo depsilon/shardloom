@@ -122,7 +122,12 @@ class ColumnExpression:
         return self._compare(">=", value)
 
     def _compare(self, operator: str, value: object) -> PredicateExpression:
-        return PredicateExpression(f"{self.sql} {operator} {_sql_literal(value)}")
+        rhs = (
+            _parenthesize_numeric_operand(value.sql)
+            if isinstance(value, ColumnExpression)
+            else _sql_literal(value)
+        )
+        return PredicateExpression(f"{self.sql} {operator} {rhs}")
 
     def _numeric_binary(self, operator: str, value: object) -> "ColumnExpression":
         rhs = (

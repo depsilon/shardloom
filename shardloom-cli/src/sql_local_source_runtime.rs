@@ -490,6 +490,14 @@ enum ParsedPredicate {
         comparison: ComparisonOp,
         value: ScalarValue,
     },
+    GenericExpressionCompare {
+        left: Box<Expression>,
+        comparison: ComparisonOp,
+        right: Box<Expression>,
+        source_columns: Vec<String>,
+        operator_families: Vec<String>,
+        binary_operator_count: usize,
+    },
     DateArithmeticCompare {
         column: String,
         op: DateArithmeticOp,
@@ -2748,6 +2756,7 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::NumericAbsCompare { .. }
         | ParsedPredicate::NumericRoundingCompare { .. }
+        | ParsedPredicate::GenericExpressionCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
         | ParsedPredicate::StringLengthCompare { .. }
         | ParsedPredicate::TimestampExtractCompare { .. }
@@ -2805,6 +2814,7 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::NumericAbsCompare { .. }
         | ParsedPredicate::NumericRoundingCompare { .. }
+        | ParsedPredicate::GenericExpressionCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
         | ParsedPredicate::DateExtractCompare { .. }
         | ParsedPredicate::StringLengthCompare { .. }
@@ -5033,6 +5043,9 @@ impl ParsedPredicate {
             | Self::InList { column, .. }
             | Self::StringMatch { column, .. }
             | Self::StringTransformCompare { column, .. } => columns.push(column),
+            Self::GenericExpressionCompare { source_columns, .. } => {
+                columns.extend(source_columns.iter().map(String::as_str));
+            }
             Self::Logical { left, right, .. } => {
                 left.push_columns(columns);
                 right.push_columns(columns);
@@ -5072,6 +5085,12 @@ impl ParsedPredicate {
                 comparison,
                 value,
             } => numeric_rounding_compare_expression(column, *op, *comparison, value),
+            Self::GenericExpressionCompare {
+                left,
+                comparison,
+                right,
+                ..
+            } => generic_expression_compare_expression(left, *comparison, right),
             Self::DateArithmeticCompare {
                 column,
                 op,
@@ -5138,6 +5157,7 @@ impl ParsedPredicate {
             Self::NumericArithmeticCompare { .. } => "numeric_arithmetic",
             Self::NumericAbsCompare { .. } => "numeric_abs",
             Self::NumericRoundingCompare { .. } => "numeric_rounding",
+            Self::GenericExpressionCompare { .. } => "generic_expression",
             Self::DateArithmeticCompare { .. } => "date_arithmetic",
             Self::DateExtractCompare { .. } => "date_extract",
             Self::StringLengthCompare { .. } => "string_length",
@@ -5164,6 +5184,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5200,6 +5221,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5235,6 +5257,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5259,6 +5282,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5314,6 +5338,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5350,6 +5375,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5391,6 +5417,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5417,6 +5444,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5453,6 +5481,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5478,6 +5507,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5514,6 +5544,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5550,6 +5581,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5575,6 +5607,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5611,6 +5644,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5649,6 +5683,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -5673,6 +5708,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5709,6 +5745,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5745,6 +5782,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5783,6 +5821,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5808,6 +5847,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5844,6 +5884,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5882,6 +5923,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5907,6 +5949,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5943,6 +5986,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -5979,6 +6023,7 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6017,6 +6062,182 @@ impl ParsedPredicate {
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn uses_generic_expression(&self) -> bool {
+        match self {
+            Self::GenericExpressionCompare { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_generic_expression() || right.uses_generic_expression()
+            }
+            Self::Not { inner } => inner.uses_generic_expression(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn generic_expression_source_columns(&self) -> String {
+        let mut groups = Vec::new();
+        self.push_generic_expression_source_columns(&mut groups);
+        if groups.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            groups.join(",")
+        }
+    }
+
+    fn push_generic_expression_source_columns(&self, groups: &mut Vec<String>) {
+        match self {
+            Self::GenericExpressionCompare { source_columns, .. } => {
+                groups.push(source_columns.join("+"));
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_generic_expression_source_columns(groups);
+                right.push_generic_expression_source_columns(groups);
+            }
+            Self::Not { inner } => inner.push_generic_expression_source_columns(groups),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn generic_expression_operator_families(&self) -> String {
+        let mut groups = Vec::new();
+        self.push_generic_expression_operator_families(&mut groups);
+        if groups.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            groups.join(",")
+        }
+    }
+
+    fn push_generic_expression_operator_families(&self, groups: &mut Vec<String>) {
+        match self {
+            Self::GenericExpressionCompare {
+                operator_families, ..
+            } => {
+                groups.push(operator_families.join("+"));
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_generic_expression_operator_families(groups);
+                right.push_generic_expression_operator_families(groups);
+            }
+            Self::Not { inner } => inner.push_generic_expression_operator_families(groups),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn generic_expression_binary_operator_count(&self) -> usize {
+        match self {
+            Self::GenericExpressionCompare {
+                binary_operator_count,
+                ..
+            } => *binary_operator_count,
+            Self::Logical { left, right, .. } => {
+                left.generic_expression_binary_operator_count()
+                    + right.generic_expression_binary_operator_count()
+            }
+            Self::Not { inner } => inner.generic_expression_binary_operator_count(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => 0,
+        }
+    }
+
+    fn generic_expression_comparison_operator(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_generic_expression_comparison_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_generic_expression_comparison_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::GenericExpressionCompare { comparison, .. } => {
+                operators.push(comparison_op_label(*comparison));
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_generic_expression_comparison_operators(operators);
+                right.push_generic_expression_comparison_operators(operators);
+            }
+            Self::Not { inner } => inner.push_generic_expression_comparison_operators(operators),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6057,6 +6278,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6079,6 +6301,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6111,6 +6334,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6149,6 +6373,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6176,6 +6401,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6201,6 +6427,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6225,6 +6452,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6250,6 +6478,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6278,6 +6507,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6303,6 +6533,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -6339,6 +6570,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -6375,6 +6607,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -6410,6 +6643,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6435,6 +6669,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6471,6 +6706,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6507,6 +6743,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
@@ -6532,6 +6769,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6568,6 +6806,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6604,6 +6843,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6640,6 +6880,7 @@ impl ParsedPredicate {
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6784,6 +7025,21 @@ fn numeric_rounding_compare_expression(
                 ExprId::new("where.numeric_rounding.literal")?,
                 value.clone(),
             )),
+        },
+    ))
+}
+
+fn generic_expression_compare_expression(
+    left: &Expression,
+    comparison: ComparisonOp,
+    right: &Expression,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.generic_expression_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(left.clone()),
+            op: comparison,
+            right: Box::new(right.clone()),
         },
     ))
 }
@@ -7551,6 +7807,31 @@ impl SqlLocalSourceReport {
             (
                 "numeric_rounding_rhs_dtype".to_string(),
                 self.parsed.predicate.numeric_rounding_rhs_dtypes(),
+            ),
+            (
+                "generic_expression_predicate_runtime_execution".to_string(),
+                self.parsed.predicate.uses_generic_expression().to_string(),
+            ),
+            (
+                "generic_expression_predicate_source_column".to_string(),
+                self.parsed.predicate.generic_expression_source_columns(),
+            ),
+            (
+                "generic_expression_predicate_operator_family".to_string(),
+                self.parsed.predicate.generic_expression_operator_families(),
+            ),
+            (
+                "generic_expression_predicate_binary_operator_count".to_string(),
+                self.parsed
+                    .predicate
+                    .generic_expression_binary_operator_count()
+                    .to_string(),
+            ),
+            (
+                "generic_expression_predicate_comparison_operator".to_string(),
+                self.parsed
+                    .predicate
+                    .generic_expression_comparison_operator(),
             ),
             (
                 "logical_predicate_runtime_execution".to_string(),
@@ -9973,7 +10254,7 @@ fn numeric_binary_expression(
     let right_raw = raw[op_index + op_char.len_utf8()..].trim();
     if left_raw.is_empty() || right_raw.is_empty() {
         return Err(unsupported_sql_error(
-            "generic numeric expression projections require operands on both sides of an arithmetic operator",
+            "generic numeric expressions require operands on both sides of an arithmetic operator",
         ));
     }
     if op_char == '/'
@@ -9983,7 +10264,7 @@ fn numeric_binary_expression(
         )
     {
         return Err(unsupported_sql_error(
-            "generic numeric expression projection division by zero is not admitted",
+            "generic numeric expression division by zero is not admitted",
         ));
     }
     Ok(Expression::new(
@@ -10321,6 +10602,20 @@ fn expression_binary_operator_count(expression: &Expression) -> usize {
         | ExpressionKind::Column(_)
         | ExpressionKind::Unsupported { .. } => 0,
     }
+}
+
+fn expression_pair_source_columns(left: &Expression, right: &Expression) -> Vec<String> {
+    let mut columns = BTreeSet::new();
+    collect_expression_source_columns(left, &mut columns);
+    collect_expression_source_columns(right, &mut columns);
+    columns.into_iter().collect()
+}
+
+fn expression_pair_operator_families(left: &Expression, right: &Expression) -> Vec<String> {
+    let mut families = BTreeSet::new();
+    collect_expression_operator_families(left, &mut families);
+    collect_expression_operator_families(right, &mut families);
+    families.into_iter().collect()
 }
 
 fn parse_null_coalesce_column_arg(
@@ -10825,6 +11120,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_cast_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_generic_expression_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_numeric_arithmetic_predicate(raw)? {
         return Ok(predicate);
     }
@@ -10931,7 +11229,7 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -11536,6 +11834,70 @@ fn parse_numeric_arithmetic_literal(raw: &str) -> Result<ScalarValue, ShardLoomE
     }
 }
 
+fn parse_generic_expression_predicate(
+    raw: &str,
+) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let Some((comparison_index, comparison_raw)) = find_top_level_comparison_operator(raw)? else {
+        return Ok(None);
+    };
+    if is_simple_numeric_arithmetic_predicate_shape(raw)? {
+        return Ok(None);
+    }
+    let left_raw = raw[..comparison_index].trim();
+    let right_raw = raw[comparison_index + comparison_raw.len()..].trim();
+    if left_raw.is_empty() || right_raw.is_empty() {
+        return Err(unsupported_sql_error(
+            "generic numeric expression predicates require expressions on both sides of a comparison operator",
+        ));
+    }
+    if !expression_contains_numeric_operator(left_raw)?
+        && !expression_contains_numeric_operator(right_raw)?
+    {
+        return Ok(None);
+    }
+    let left = parse_numeric_scalar_expression(left_raw, "where.generic.left")?;
+    let right = parse_numeric_scalar_expression(right_raw, "where.generic.right")?;
+    let source_columns = expression_pair_source_columns(&left, &right);
+    if source_columns.is_empty() {
+        return Err(unsupported_sql_error(
+            "generic numeric expression predicates require at least one source column",
+        ));
+    }
+    let operator_families = expression_pair_operator_families(&left, &right);
+    let binary_operator_count =
+        expression_binary_operator_count(&left) + expression_binary_operator_count(&right);
+    if binary_operator_count == 0 {
+        return Ok(None);
+    }
+    Ok(Some(ParsedPredicate::GenericExpressionCompare {
+        left: Box::new(left),
+        comparison: parse_comparison_op(comparison_raw)?,
+        right: Box::new(right),
+        source_columns,
+        operator_families,
+        binary_operator_count,
+    }))
+}
+
+fn is_simple_numeric_arithmetic_predicate_shape(raw: &str) -> Result<bool, ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    let Some(op_index) = tokens
+        .iter()
+        .position(|token| parse_numeric_arithmetic_op(token).is_some())
+    else {
+        return Ok(false);
+    };
+    if tokens.len() != 5 || op_index != 1 {
+        return Ok(false);
+    }
+    if validate_sql_column_ref(&tokens[0]).is_err() {
+        return Ok(false);
+    }
+    Ok(parse_numeric_arithmetic_literal(&tokens[2]).is_ok()
+        && parse_comparison_op(&tokens[3]).is_ok()
+        && parse_numeric_arithmetic_literal(&tokens[4]).is_ok())
+}
+
 fn parse_numeric_abs_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
     let trimmed = raw.trim();
     if !trimmed
@@ -11851,6 +12213,81 @@ fn parse_comparison_op(raw: &str) -> Result<ComparisonOp, ShardLoomError> {
             "WHERE comparison operator must be one of =, !=, <>, >, >=, <, <=",
         )),
     }
+}
+
+fn comparison_op_label(op: ComparisonOp) -> &'static str {
+    match op {
+        ComparisonOp::Eq => "eq",
+        ComparisonOp::NotEq => "not_eq",
+        ComparisonOp::Gt => "gt",
+        ComparisonOp::GtEq => "gte",
+        ComparisonOp::Lt => "lt",
+        ComparisonOp::LtEq => "lte",
+    }
+}
+
+fn find_top_level_comparison_operator(
+    raw: &str,
+) -> Result<Option<(usize, &'static str)>, ShardLoomError> {
+    let mut chars = raw.char_indices().peekable();
+    let mut in_quote = false;
+    let mut depth = 0_u32;
+    let mut candidate = None;
+    while let Some((index, ch)) = chars.next() {
+        if ch == '\'' {
+            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                let _ = chars.next();
+            } else {
+                in_quote = !in_quote;
+            }
+            continue;
+        }
+        if in_quote {
+            continue;
+        }
+        match ch {
+            '(' => {
+                depth += 1;
+                continue;
+            }
+            ')' => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error(
+                        "generic numeric expression predicate parentheses are not balanced",
+                    )
+                })?;
+                continue;
+            }
+            _ => {}
+        }
+        if depth == 0 {
+            let tail = &raw[index..];
+            let Some(op) = ["!=", "<>", ">=", "<=", "=", ">", "<"]
+                .into_iter()
+                .find(|op| tail.starts_with(op))
+            else {
+                continue;
+            };
+            if candidate.is_some() {
+                return Err(unsupported_sql_error(
+                    "generic numeric expression predicates admit exactly one comparison operator",
+                ));
+            }
+            candidate = Some((index, op));
+            for _ in 1..op.chars().count() {
+                let _ = chars.next();
+            }
+        }
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    if depth != 0 {
+        return Err(unsupported_sql_error(
+            "generic numeric expression predicate parentheses are not balanced",
+        ));
+    }
+    Ok(candidate)
 }
 
 fn parse_limit(raw: &str) -> Result<usize, ShardLoomError> {
@@ -13430,6 +13867,41 @@ mod tests {
         assert_eq!(parsed.predicate.numeric_rounding_operator(), "floor");
         assert_eq!(parsed.predicate.numeric_rounding_source_columns(), "amount");
         assert_eq!(parsed.predicate.numeric_rounding_rhs_dtypes(), "int64");
+    }
+
+    #[test]
+    fn parses_generic_expression_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,amount FROM 'target/input.csv' WHERE (amount + tax) * 2 >= 40 AND ABS(amount - tax) > 8 LIMIT 5",
+        )
+        .expect("generic expression predicate statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "amount"]);
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
+        assert!(parsed.predicate.uses_logical_predicate());
+        assert!(parsed.predicate.uses_generic_expression());
+        assert_eq!(parsed.predicate.logical_operator(), "and");
+        assert_eq!(parsed.predicate.logical_leaf_count(), 2);
+        assert_eq!(
+            parsed.predicate.generic_expression_source_columns(),
+            "amount+tax,amount+tax"
+        );
+        assert_eq!(
+            parsed.predicate.generic_expression_operator_families(),
+            "numeric_binary,numeric_abs+numeric_binary"
+        );
+        assert_eq!(
+            parsed.predicate.generic_expression_binary_operator_count(),
+            3
+        );
+        assert_eq!(
+            parsed.predicate.generic_expression_comparison_operator(),
+            "gte,gt"
+        );
+        assert_eq!(
+            parsed.predicate.columns(),
+            vec!["amount", "tax", "amount", "tax"]
+        );
     }
 
     #[test]

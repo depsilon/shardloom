@@ -16,6 +16,29 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python generic numeric expression predicate runtime
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-generic-expression-predicates` / #877.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - SQL local-source predicate runtime
+    - Python query-builder predicate surface.
+  - Scope:
+    - Promoted scoped parenthesized and chained numeric expression-tree predicates to runtime-admitted local-source SQL filters.
+    - Lowered admitted `+`, `-`, `*`, `/`, nested `ABS`, `FLOOR`, `CEIL`, `ROUND`, and numeric `CAST(... AS int64|float64)` predicate expressions into ShardLoom-native expression evaluation.
+    - Added Python chained numeric expression filters such as `(sl.col("amount") + sl.col("tax")) * 2 >= 40`.
+    - Preserved existing simple numeric arithmetic, ABS, and rounding predicate evidence families while keeping missing columns, unsupported shapes, and literal division by zero blocked deterministically.
+  - Evidence:
+    - `generic_expression_predicate_runtime_execution=true`, `generic_expression_predicate_source_column`, `generic_expression_predicate_operator_family`, `generic_expression_predicate_binary_operator_count`, `generic_expression_predicate_comparison_operator`, logical predicate composition evidence, selected row counts, inline JSONL result rows including null filter-out semantics, `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust parser and CLI smoke tests for generic numeric expression predicates.
+    - Existing numeric arithmetic predicate and generic expression projection Rust regression smokes.
+    - Focused Python query-builder tests for generic expression filters and typed report accessors.
+    - `cargo check -p shardloom-cli`, Python query-builder unittest coverage, runtime promotion/use-case checks, Python compileall, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, full workspace Rust tests, and `git diff --check`.
+  - Claim boundary:
+    - Scoped local SQL/Python generic numeric predicate fixture smoke only. This is not arbitrary SQL expression parity, broad DataFrame expression parity, production SQL support, encoded-native operator completeness, claim-grade compute, or performance evidence.
+  - Fallback boundary:
+    - Generic numeric predicate expressions are parsed, planned, evaluated, and evidenced by ShardLoom-native local-source runtime code. External engines remain baseline/oracle-only and are not invoked.
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python generic numeric expression projection runtime
   - Date: 2026-05-21
   - Branch/PR: `runtime-generic-expression-projections` / #876.
