@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python predicate projection runtime
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-3-20260521` / #892.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - Remaining 4D parity gap around broader non-numeric/generalized expression-family coverage
+      and final SQL/Python ergonomics.
+  - Scope:
+    - Added scoped SQL predicate-valued computed projections of the form
+      `<admitted predicate> AS <column>` for local-source projection/filter/limit rows.
+    - Reused the existing admitted `ParsedPredicate` parser/lowering path so comparison,
+      `IS NULL`, `IS [NOT] TRUE/FALSE`, logical, string, IN, temporal, and other already-admitted
+      predicate families keep the same ShardLoom-native semantics and deterministic blockers when
+      projected as boolean/null values.
+    - Added `predicate_projection_*` evidence fields for runtime execution, predicate family,
+      source columns, output columns, and null-semantics labels.
+    - Extended Python input-backed `with_column(...)` to accept `PredicateExpression` values such
+      as `sl.col("amount") >= 10`, `.is_null()`, and `.is_not_true()` through the same SQL local
+      smoke path.
+    - Added Python client accessors for predicate-projection evidence fields.
+  - Evidence:
+    - SQL smoke verifies `amount >= 10 AS is_large`, `label IS NULL AS missing_label`,
+      `active IS NOT TRUE AS inactive_or_unknown`, and a Date32 literal comparison projection with
+      true/false/null output values.
+    - Python query-builder smoke verifies the same admitted predicate projection lowering through
+      chained `.with_column(...)` calls.
+    - Missing predicate-projection source columns fail deterministically before execution with
+      `external_engine_invoked=false`.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q python\src python\tests scripts examples benchmarks\traditional_analytics`
+    - `git diff --check`
+    - `cargo check -p shardloom-cli`
+    - `cargo test -p shardloom-cli parses_scoped_predicate_projection_statement -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_predicate_projection_without_fallback -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_predicate_invokes_sql_smoke`
+  - Claim boundary:
+    - This admits scoped boolean/null predicate projections for already-admitted local-source
+      predicate families. It does not claim arbitrary SQL expression parity, UDF support, regex,
+      timezone completeness, broad DataFrame runtime, production SQL/DataFrame support, or
+      performance superiority.
+  - Fallback boundary:
+    - Predicate projection parsing, binding, evaluation, and Python lowering remain
+      ShardLoom-owned. Rows preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+
 - [x] Session label: 2026-05-21 compute-engine checklist follow-up and columnar SourceState guard
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-checklist-runtime-sweep-20260521` / #891.
