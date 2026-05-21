@@ -3721,8 +3721,8 @@ fn sql_local_source_smoke_preserves_is_true_null_semantics_under_not_without_fal
 }
 
 #[test]
-fn sql_local_source_smoke_blocks_is_not_boolean_predicates_without_fallback() {
-    let source_path = unique_path("sql-local-source-boolean-predicate-blocked", "csv");
+fn sql_local_source_smoke_executes_is_not_boolean_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-boolean-is-not-predicate", "csv");
     fs::write(
         &source_path,
         "id,active,label\n1,true,alpha\n2,false,beta\n3,,missing\n",
@@ -3738,16 +3738,58 @@ fn sql_local_source_smoke_blocks_is_not_boolean_predicates_without_fallback() {
         .output()
         .expect("sql-local-source-smoke command runs");
     assert!(
-        !output.status.success(),
+        output.status.success(),
         "stdout={} stderr={}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
-    assert!(stdout.contains("\"status\":\"error\""));
-    assert!(stdout.contains("IS NOT TRUE/FALSE three-valued matching remains blocked"));
-    assert!(stdout.contains("no fallback execution was attempted"));
-    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "boolean_predicate")));
+    assert!(stdout.contains(&field("filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("boolean_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("boolean_predicate_operator", "is_not_true")));
+    assert!(stdout.contains(&field("boolean_predicate_source_column", "active")));
+    assert!(stdout.contains(&field(
+        "boolean_predicate_null_semantics",
+        "sql_boolean_is_not_true_false_null_matches"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"missing\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE active IS NOT FALSE LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("predicate_operator_family", "boolean_predicate")));
+    assert!(stdout.contains(&field("boolean_predicate_operator", "is_not_false")));
+    assert!(stdout.contains(&field("boolean_predicate_source_column", "active")));
+    assert!(stdout.contains(&field(
+        "boolean_predicate_null_semantics",
+        "sql_boolean_is_not_true_false_null_matches"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"missing\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
     fs::remove_file(source_path).expect("remove source csv");
 }
