@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
+    LANES,
     MANIFEST_SCHEMA_VERSION,
     PROFILES,
     expected_lanes_for_profile,
@@ -31,6 +32,21 @@ from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
 SUMMARY_SCHEMA_VERSION = "shardloom.website.benchmark_evidence.v1"
 DEFAULT_LATEST_DIR = ROOT / "website" / "assets" / "benchmarks" / "latest"
 DEFAULT_WEBSITE_DATA = ROOT / "website" / "assets" / "data" / "benchmark-evidence.json"
+BENCHMARK_PROFILE_ROSTER = ("full_local", "full_local_plus_spark")
+EXTRA_PUBLISHED_KEY_FRAGMENTS = (
+    "source_state",
+    "prepared_state",
+    "reuse",
+    "native_io",
+    "coverage",
+    "unsupported",
+    "blocker",
+    "diagnostic",
+    "certificate",
+    "route",
+    "timing_scope",
+    "claim_boundary",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -247,6 +263,113 @@ def claim_gate_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def format_coverage_table(artifact: dict[str, Any], rows: list[dict[str, Any]], profile: str) -> dict[str, Any]:
+    profile_spec = PROFILES[profile]
+    required = set(profile_spec.required_formats)
+    optional = set(profile_spec.optional_formats)
+    expected = list(dict.fromkeys([*profile_spec.required_formats, *profile_spec.optional_formats]))
+    available = {
+        str(value)
+        for value in artifact.get("format_order", [])
+        if isinstance(value, str) and value
+    }
+    available.update(
+        str(row.get("storage_format"))
+        for row in rows
+        if row.get("storage_format")
+    )
+    counts = Counter(str(row.get("storage_format")) for row in rows if row.get("storage_format"))
+    return {
+        "heading": "Format Coverage",
+        "headers": ["Format", "Profile role", "Status", "Rows", "Reason"],
+        "rows": [
+            [
+                fmt,
+                "required" if fmt in required else "optional",
+                "available" if fmt in available else "missing_optional" if fmt in optional else "missing_required",
+                counts[fmt],
+                (
+                    "published benchmark rows include this format"
+                    if fmt in available
+                    else "format is expected by the profile but absent from the promoted artifact"
+                ),
+            ]
+            for fmt in expected
+        ],
+    }
+
+
+def profile_lane_availability_table(
+    artifact: dict[str, Any],
+    rows: list[dict[str, Any]],
+    active_profile: str,
+) -> dict[str, Any]:
+    available = set(available_lanes(artifact, rows))
+    active_expected = set(expected_lanes_for_profile(active_profile))
+    rendered_rows: list[list[Any]] = []
+    for profile in BENCHMARK_PROFILE_ROSTER:
+        profile_expected = expected_lanes_for_profile(profile)
+        for lane in profile_expected:
+            required = lane_required_for_profile(profile, lane)
+            lane_meta = LANES.get(lane)
+            if lane in available:
+                status = "available"
+                reason = lane_reason(lane, artifact)
+            elif lane in active_expected:
+                status = "missing_required" if lane_required_for_profile(active_profile, lane) else "missing_optional"
+                reason = missing_reason(lane, artifact)
+            else:
+                status = "not_requested_by_current_profile"
+                reason = f"run benchmark profile {profile} to publish this lane"
+            rendered_rows.append(
+                [
+                    profile,
+                    lane,
+                    "required" if required else "optional",
+                    lane_meta.group if lane_meta else "unknown",
+                    status,
+                    reason,
+                ]
+            )
+    return {
+        "heading": "Profile Lane Availability",
+        "headers": ["Profile", "Lane", "Profile role", "Lane group", "Status", "Version / reason"],
+        "rows": rendered_rows,
+    }
+
+
+def claim_grade_closeout_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    shardloom_rows = [
+        row for row in rows if str(row.get("engine", "")).startswith("shardloom")
+    ]
+    counts = Counter(str(row.get("claim_gate_status", "unknown")) for row in shardloom_rows)
+    blockers = counts["blocked"] + counts["unsupported"] + counts["not_claim_grade"] + counts["fixture_smoke_only"]
+    return {
+        "heading": "ShardLoom Claim-Grade Closeout",
+        "headers": ["Scope", "Current rows", "Target", "Owning plan item"],
+        "rows": [
+            [
+                "ShardLoom runtime rows",
+                f"{len(shardloom_rows)} rows; {blockers} not claim-grade/blocked/unsupported/fixture rows",
+                "claim_grade for every admitted row in the published comparative profile",
+                "GAR-RUNTIME-IMPL-5J",
+            ],
+            [
+                "External baseline rows",
+                "external_baseline_only rows remain comparison context",
+                "visible baseline-only rows; never fallback execution",
+                "GAR-BENCH-PUB-1 / GAR-RUNTIME-IMPL-5J",
+            ],
+            [
+                "Unsupported or blocked rows",
+                f"{counts['blocked'] + counts['unsupported']} ShardLoom rows",
+                "implemented, claim-gated, or moved to an explicit non-comparative gap appendix",
+                "GAR-RUNTIME-IMPL-5J",
+            ],
+        ],
+    }
+
+
 def vortex_lane_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     selected = [
         row
@@ -255,7 +378,7 @@ def vortex_lane_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
         and row.get("status") == "success"
     ]
     rendered = []
-    for row in selected[:40]:
+    for row in selected:
         metrics = row.get("metrics") if isinstance(row.get("metrics"), dict) else {}
         rendered.append(
             [
@@ -293,35 +416,39 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rendered = []
     for row in rows:
         metrics = row.get("metrics") if isinstance(row.get("metrics"), dict) else {}
-        rendered.append(
-            {
-                "engine": row.get("engine"),
-                "status": row.get("status"),
-                "scenario_name": row.get("scenario_name"),
-                "scenario_id": row.get("scenario_id"),
-                "storage_format": row.get("storage_format"),
-                "selected_execution_mode": row.get("selected_execution_mode"),
-                "requested_execution_mode": row.get("requested_execution_mode"),
-                "claim_gate_status": row.get("claim_gate_status"),
-                "external_baseline_only": row.get("external_baseline_only"),
-                "fallback_attempted": row.get("fallback_attempted", False),
-                "external_engine_invoked": row.get("external_engine_invoked", False),
-                "iteration_wall_time_millis": row.get("iteration_wall_time_millis"),
-                "query_runtime_millis": metrics.get("query_runtime_millis"),
-                "total_runtime_millis": metrics.get("total_runtime_millis"),
-                "source_read_millis": metrics.get("source_read_millis"),
-                "compatibility_parse_millis": metrics.get("compatibility_parse_millis"),
-                "compatibility_to_vortex_import_millis": metrics.get(
-                    "compatibility_to_vortex_import_millis"
-                ),
-                "vortex_write_millis": metrics.get("vortex_write_millis"),
-                "vortex_reopen_millis": metrics.get("vortex_reopen_millis"),
-                "vortex_scan_millis": metrics.get("vortex_scan_millis"),
-                "operator_compute_millis": metrics.get("operator_compute_millis"),
-                "result_sink_write_millis": metrics.get("result_sink_write_millis"),
-                "evidence_render_millis": metrics.get("evidence_render_millis"),
-            }
-        )
+        rendered_row = {
+            "engine": row.get("engine"),
+            "status": row.get("status"),
+            "scenario_name": row.get("scenario_name"),
+            "scenario_id": row.get("scenario_id"),
+            "storage_format": row.get("storage_format"),
+            "selected_execution_mode": row.get("selected_execution_mode"),
+            "requested_execution_mode": row.get("requested_execution_mode"),
+            "claim_gate_status": row.get("claim_gate_status"),
+            "external_baseline_only": row.get("external_baseline_only"),
+            "fallback_attempted": row.get("fallback_attempted", False),
+            "external_engine_invoked": row.get("external_engine_invoked", False),
+            "iteration_wall_time_millis": row.get("iteration_wall_time_millis"),
+            "query_runtime_millis": metrics.get("query_runtime_millis"),
+            "total_runtime_millis": metrics.get("total_runtime_millis"),
+            "source_read_millis": metrics.get("source_read_millis"),
+            "compatibility_parse_millis": metrics.get("compatibility_parse_millis"),
+            "compatibility_to_vortex_import_millis": metrics.get(
+                "compatibility_to_vortex_import_millis"
+            ),
+            "vortex_write_millis": metrics.get("vortex_write_millis"),
+            "vortex_reopen_millis": metrics.get("vortex_reopen_millis"),
+            "vortex_scan_millis": metrics.get("vortex_scan_millis"),
+            "operator_compute_millis": metrics.get("operator_compute_millis"),
+            "result_sink_write_millis": metrics.get("result_sink_write_millis"),
+            "evidence_render_millis": metrics.get("evidence_render_millis"),
+        }
+        for key, value in row.items():
+            if key in rendered_row:
+                continue
+            if any(fragment in key for fragment in EXTRA_PUBLISHED_KEY_FRAGMENTS):
+                rendered_row[key] = value
+        rendered.append(rendered_row)
     return rendered
 
 
@@ -329,6 +456,7 @@ def comparative_summary(
     artifact: dict[str, Any],
     rows: list[dict[str, Any]],
     source_path: Path,
+    profile: str,
 ) -> dict[str, Any]:
     dataset = artifact.get("dataset") if isinstance(artifact.get("dataset"), dict) else {}
     generated = artifact.get("generated_at_utc") or datetime.now(timezone.utc).isoformat()
@@ -347,6 +475,13 @@ def comparative_summary(
         "engine_timing_overview": engine_timing_table(rows),
         "vortex_oriented_lanes": vortex_lane_table(rows),
         "claim_gate_distribution": claim_gate_table(rows),
+        "profile_lane_availability": profile_lane_availability_table(
+            artifact, rows, profile
+        ),
+        "format_coverage": format_coverage_table(
+            artifact, rows, profile
+        ),
+        "claim_grade_closeout": claim_grade_closeout_table(rows),
         "missing_baselines": [],
         "dataset_rows": dataset.get("rows"),
         "claim_boundary": (
@@ -447,7 +582,7 @@ def main() -> int:
             "scenario_order": artifact.get("scenario_order", []),
         },
         "published_benchmark_rows": published_rows(rows),
-        "comparative_dashboard": comparative_summary(artifact, rows, source_path),
+        "comparative_dashboard": comparative_summary(artifact, rows, source_path, args.profile),
         "benchmark_manifest": manifest,
         "claim_boundary": {
             "performance_claim_allowed": False,

@@ -720,6 +720,31 @@ p {
   color: var(--muted);
 }
 
+.compact-table table {
+  min-width: 900px;
+}
+
+.compact-table th,
+.compact-table td {
+  padding: 9px 10px;
+  font-size: 0.84rem;
+}
+
+.table-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.table-note code {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-soft);
+  padding: 1px 5px;
+  color: var(--navy);
+}
+
 .mini-strip {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
