@@ -25,6 +25,34 @@ architecture compliance, and appropriate tests before merge.
 Outside pull requests may be discussed, but acceptance requires maintainer
 approval of the contribution-rights path for that specific contribution.
 
+## Contribution Intake Governance Gate
+
+Contribution intake posture is checked by `scripts/check_contribution_governance.py`.
+The script emits `shardloom.contribution_governance_report.v1` at
+`target/contribution-governance-report.json` and verifies that `CONTRIBUTING.md`,
+this policy, `docs/legal/contribution-intake-readiness.md`, the pull request
+template, CI wiring, and the CI gate matrix agree on the required signoff/CLA/DCO
+state.
+
+The report is a governance drift check with `legal_claim_status=documented_policy_only`.
+It is not legal advice, broad outside-contribution acceptance, package approval,
+release approval, or runtime support. The report must keep:
+
+```text
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+The governance gate also requires review-state reporting in the pull request
+template. Pull requests must surface contribution route, dependency/license and
+provenance impact, security/release/RFC impact, claim boundary, no-fallback
+impact, tests, and reviewer state. External contribution acceptance remains
+blocked until maintainer approval of the contribution-rights path.
+
+Decision escalation goes to the maintainer before merge for unclear contributor
+rights, CLA/DCO state, copied-code provenance, new dependencies, release/package
+posture, public claims, security policy, or external-engine/fallback risk.
+
 ## Future Outside Contributions
 
 Before accepting future outside contributions, the maintainer must require one
@@ -36,9 +64,10 @@ of these routes:
   signed-off-by attestations as a lightweight alternative
 
 ShardLoom does not currently ship `DCO-1.1.txt` and does not require
-`Signed-off-by` lines. DCO remains a future optional policy choice. If activated,
-the maintainer should add the DCO text, document the sign-off requirements, and
-add CI or repository automation that checks the policy consistently.
+`Signed-off-by` lines. DCO remains inactive and is a future optional policy
+choice. If activated, the maintainer should add the DCO text, document the
+sign-off requirements, and add CI or repository automation that checks the
+policy consistently.
 
 ## Bots And Dependency Updates
 
@@ -102,6 +131,8 @@ The contribution policy is ready for future activation when:
 
 - `CONTRIBUTING.md`, `CLA.md`, and this policy agree on contribution routes
 - pull requests ask contributors to confirm rights and provenance
+- pull requests expose review-state reporting and decision escalation
+- `scripts/check_contribution_governance.py` passes in CI
 - incompatible copied code remains disallowed
 - AI-assisted contribution review is explicit
 - employer or client contribution-rights warnings are visible

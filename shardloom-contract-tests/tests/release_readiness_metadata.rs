@@ -2100,6 +2100,118 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
 }
 
 #[test]
+fn contribution_governance_gate_is_wired_into_release_readiness() {
+    let script = read_repo_file("scripts/check_contribution_governance.py");
+    for required in [
+        "shardloom.contribution_governance_report.v1",
+        "CONTRIBUTING.md",
+        "docs/legal/contributor-policy.md",
+        "docs/legal/contribution-intake-readiness.md",
+        ".github/PULL_REQUEST_TEMPLATE.md",
+        ".github/workflows/ci.yml",
+        "required signoff/CLA/DCO state",
+        "contribution_intake_status",
+        "external_contribution_acceptance_status",
+        "cla_assistant_status",
+        "dco_policy_status",
+        "legal_claim_status",
+        "review_state_reporting_status",
+        "decision_escalation_status",
+        "automated_controls",
+        "documented_controls",
+        "blocked_controls",
+        "public_release_claim_allowed",
+        "public_package_claim_allowed",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ] {
+        assert!(
+            script.contains(required),
+            "missing contribution governance script marker {required}"
+        );
+    }
+
+    let readiness_doc = read_repo_file("docs/legal/contribution-intake-readiness.md");
+    for required in [
+        "shardloom.contribution_governance_report.v1",
+        "contribution_intake_status=documented_and_ci_checked",
+        "external_contribution_acceptance_status=maintainer_approval_required",
+        "cla_assistant_status=not_active",
+        "dco_policy_status=not_active",
+        "legal_claim_status=documented_policy_only",
+        "automated_control=ci_contribution_governance_validator",
+        "documented_control=reviewer_roles_and_decision_escalation",
+        "blocked_control=external_cla_assistant",
+        "blocked_control=dco_signoff_route",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            readiness_doc.contains(required),
+            "missing contribution governance doc marker {required}"
+        );
+    }
+
+    let ci_workflow = read_repo_file(".github/workflows/ci.yml");
+    assert!(ci_workflow.contains("Contribution governance"));
+    assert!(ci_workflow.contains("python scripts/check_contribution_governance.py"));
+    assert!(ci_workflow.contains("target/contribution-governance-report.json"));
+
+    let ci_doc = read_repo_file("docs/release/ci-gate-matrix.md");
+    assert!(ci_doc.contains("python scripts/check_contribution_governance.py"));
+    assert!(ci_doc.contains("target/contribution-governance-report.json"));
+    assert!(ci_doc.contains("contribution governance"));
+
+    let ci_script = read_repo_file("scripts/check_ci_gate_matrix.py");
+    assert!(ci_script.contains("python scripts/check_contribution_governance.py"));
+    assert!(ci_script.contains("target/contribution-governance-report.json"));
+    assert!(ci_script.contains("contribution governance"));
+
+    let release_readiness = read_repo_file("scripts/check_release_readiness.py");
+    for required in [
+        "--contribution-governance-report",
+        "target/contribution-governance-report.json",
+        "contribution_governance_intake_gate",
+        "external_contribution_acceptance_status",
+        "maintainer_approval_required",
+        "cla_assistant_status",
+        "dco_policy_status",
+        "documented_policy_only",
+        "python scripts/check_contribution_governance.py",
+    ] {
+        assert!(
+            release_readiness.contains(required),
+            "missing contribution release-readiness marker {required}"
+        );
+    }
+
+    let validation = read_repo_file("scripts/run_release_validation_evidence.py");
+    assert!(validation.contains("contribution_governance"));
+    assert!(validation.contains("scripts/check_contribution_governance.py"));
+
+    let final_rehearsal = read_repo_file("scripts/final_release_rehearsal.py");
+    assert!(final_rehearsal.contains("--contribution-governance-report"));
+    assert!(final_rehearsal.contains("contribution_governance_report_ref"));
+    assert!(final_rehearsal.contains("contribution governance"));
+
+    let hard_gate = read_repo_file("docs/release/hard-release-readiness-gate.md");
+    assert!(hard_gate.contains("shardloom.contribution_governance_report.v1"));
+    assert!(hard_gate.contains("target/contribution-governance-report.json"));
+    assert!(hard_gate.contains("legal_claim_status=documented_policy_only"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] REVIEW-P2-1 contribution governance intake automation"));
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("REVIEW-P2-1 contribution governance intake automation"));
+    assert!(completed.contains("Automated controls"));
+    assert!(completed.contains("Documented controls"));
+    assert!(completed.contains("Blocked controls"));
+    assert!(completed.contains("shardloom.contribution_governance_report.v1"));
+    assert!(completed.contains("fallback_attempted=false"));
+    assert!(completed.contains("external_engine_invoked=false"));
+}
+
+#[test]
 fn cg5_cg6_stateful_reuse_evidence_expansion_remains_fail_closed() {
     let core = read_repo_file("shardloom-core/src/correctness.rs");
     for required in [

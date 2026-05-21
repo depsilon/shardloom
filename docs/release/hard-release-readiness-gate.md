@@ -30,6 +30,7 @@ The gate aggregates:
 - clean install, first-10-minutes, and local benchmark smoke transcript
 - clean Conda environment install proof
 - release security gate report
+- contribution governance intake report
 - package metadata, license, repository, and homepage metadata
 - package-channel readiness matrix and channel-specific install/smoke/provenance/rollback proof
 - per-claim evidence attachment matrix for release, package, performance, Spark-displacement,
@@ -58,6 +59,7 @@ python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 cargo run -q -p shardloom-cli -- global-architecture-gate --format json
 python scripts\check_release_security_gate.py
 python scripts\check_release_architecture_tracker.py --allow-blocked
+python scripts\check_contribution_governance.py
 python scripts\check_package_channel_readiness.py --require-local-evidence
 python scripts\final_release_rehearsal.py --allow-blocked
 ```
@@ -100,6 +102,42 @@ The broader release process must also attach clean Conda proof, benchmark smoke 
 package metadata/license proof, package-channel proof, SBOM/checksum/provenance evidence, runtime
 no-fallback dependency audit, and release notes or known-unsupported-path evidence before public
 claims are allowed.
+
+Contribution governance uses schema `shardloom.contribution_governance_report.v1`:
+
+```powershell
+python scripts\check_contribution_governance.py
+```
+
+It writes:
+
+```text
+target/contribution-governance-report.json
+```
+
+The gate checks that `CONTRIBUTING.md`, `docs/legal/contributor-policy.md`,
+`docs/legal/contribution-intake-readiness.md`, `.github/PULL_REQUEST_TEMPLATE.md`, CI, and the CI
+gate matrix agree on the required signoff/CLA/DCO state, review-state reporting, maintainer
+decision escalation, dependency/license/provenance checklist, security/release/RFC checklist, claim
+boundary checklist, and no-fallback policy. It intentionally reports:
+
+```text
+contribution_intake_status=documented_and_ci_checked
+external_contribution_acceptance_status=maintainer_approval_required
+cla_assistant_status=not_active
+dco_policy_status=not_active
+legal_claim_status=documented_policy_only
+public_release_claim_allowed=false
+public_package_claim_allowed=false
+publication_attempted=false
+tag_created=false
+secrets_required=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+This is a governance drift check only. It does not activate CLA/DCO automation, publish packages,
+transfer maintainer governance, or satisfy public release/package approval.
 
 Benchmark rows also pass through the fail-closed constitution validator:
 
@@ -231,7 +269,8 @@ target/final-release-rehearsal/final-release-rehearsal-report.json
 ```
 
 The local no-publication rehearsal is expected to pass once local artifact, SBOM, checksum,
-provenance, security, architecture, package-channel, unsupported-path, per-claim, and
+provenance, security, contribution-governance, architecture, package-channel, unsupported-path,
+per-claim, and
 publication/API/schema refs are present and internally consistent. It requires the package-channel
 report to be generated with `--require-local-evidence` so dependency audit, package smoke, and
 SBOM/checksum/provenance evidence cannot be skipped. It still keeps publication and claim flags

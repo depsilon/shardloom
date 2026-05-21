@@ -195,6 +195,10 @@ fn contributor_policy_requires_future_cla_or_approved_dco_route() {
     );
     assert!(contributing.contains("future DCO policy"));
     assert!(contributing.contains("No external CLA Assistant"));
+    assert!(contributing.contains("Contribution Governance Controls"));
+    assert!(contributing.contains("Maintainer Roles And Review States"));
+    assert!(contributing.contains("Decision Escalation"));
+    assert!(contributing.contains("docs/legal/contribution-intake-readiness.md"));
     assert!(contributing.contains("AI/Codex-generated content was reviewed"));
     assert!(contributing.contains("no Spark, DataFusion, DuckDB, Polars, Velox"));
 
@@ -226,14 +230,37 @@ fn contributor_policy_requires_future_cla_or_approved_dco_route() {
     assert!(policy.contains("exempted only by explicit maintainer policy"));
     assert!(policy.contains("must not include copied implementation code from GPL, AGPL, SSPL,"));
     assert!(policy.contains("No external CLA Assistant is active"));
+    assert!(policy.contains("Contribution Intake Governance Gate"));
+    assert!(policy.contains("shardloom.contribution_governance_report.v1"));
+    assert!(policy.contains("legal_claim_status=documented_policy_only"));
     assert!(policy.contains("does not"));
     assert!(policy.contains("change the project license away from Apache-2.0"));
 
     let template = read_repo_file(".github/PULL_REQUEST_TEMPLATE.md");
     assert!(template.starts_with("<!-- SPDX-License-Identifier: Apache-2.0 -->"));
     assert!(template.contains("- [ ] I have the right to submit this contribution."));
+    assert!(template.contains("Contribution Route"));
+    assert!(template.contains("required signoff/CLA/DCO state"));
     assert!(template.contains("does not include copied implementation code"));
     assert!(template.contains("AI/Codex-assisted content"));
+    assert!(template.contains("No-Fallback And Dependency Check"));
+    assert!(template.contains("Security, Release, And RFC Impact"));
+    assert!(template.contains("Claim Boundary"));
+    assert!(template.contains("Reviewer State"));
     assert!(template.contains("runtime fallback dependency"));
     assert!(template.contains("Tests Run"));
+
+    let readiness = read_repo_file("docs/legal/contribution-intake-readiness.md");
+    assert!(readiness.contains("shardloom.contribution_governance_report.v1"));
+    assert!(readiness.contains("contribution_intake_status=documented_and_ci_checked"));
+    assert!(
+        readiness.contains("external_contribution_acceptance_status=maintainer_approval_required")
+    );
+    assert!(readiness.contains("cla_assistant_status=not_active"));
+    assert!(readiness.contains("dco_policy_status=not_active"));
+    assert!(readiness.contains("legal_claim_status=documented_policy_only"));
+    assert!(readiness.contains("automated_control=ci_contribution_governance_validator"));
+    assert!(readiness.contains("blocked_control=external_cla_assistant"));
+    assert!(readiness.contains("fallback_attempted=false"));
+    assert!(readiness.contains("external_engine_invoked=false"));
 }

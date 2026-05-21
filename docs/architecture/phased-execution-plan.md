@@ -236,32 +236,6 @@ Current non-runtime sequence: complete the review-derived action items below bef
 expansion unless the user explicitly reprioritizes. Completed non-runtime history belongs in
 `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] REVIEW-P2-1 contribution governance intake automation
-  - Source: 2026-05-21 structured repository review action sequence; RFC and release governance
-    docs.
-  - Current state: contribution policy is founder-maintainer oriented and RFC-based evolution is
-    planned, but broader contribution intake does not yet have full CLA/DCO automation,
-    maintainer-role documentation, decision escalation, and review-state reporting.
-  - Next slice outcome: add contribution intake policy and automation that keeps dependency,
-    license, RFC, review, and claim-boundary requirements explicit before broader community
-    adoption.
-  - User-visible surface: CONTRIBUTING docs, PR templates, CI checks, governance docs, issue/PR
-    labels where applicable.
-  - Implementation scope: governance docs, PR templates, optional DCO/CLA check wiring, review
-    checklist, release/dependency policy links.
-  - Evidence required: required signoff/CLA/DCO state, reviewer roles, decision escalation path,
-    dependency/RFC/security checklist, claim-boundary checklist.
-  - Acceptance: external contribution requirements are inspectable and enforced or explicitly
-    blocked before public package/release adoption.
-  - Verification: doc link checks, PR template checks, release-readiness metadata, `git diff
-    --check`.
-  - Non-goals: no legal guarantee, package publication, broad governance transfer, or runtime
-    behavior change.
-  - Claim boundary: contribution readiness only.
-  - Fallback boundary: contribution automation must preserve no-fallback dependency and claim
-    policies.
-  - Ledger rule: ledger entry must identify automated vs documented governance controls.
-
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 
 The earlier broad runtime rollup queues have been consolidated into the implementation-ready
