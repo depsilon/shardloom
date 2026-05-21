@@ -492,6 +492,11 @@ or documentation updates alone are insufficient.
     semantics, Date32/UTC timestamp source coercion for admitted predicate literals,
     deterministic predicate-source/output-name/null-branch/mixed-branch-dtype/unsupported-shape
     blockers, and no external fallback.
+    Scoped predicate-valued computed projections of the form `<admitted predicate> AS column` are
+    runtime-admitted over local-source projection/filter/limit rows with
+    `predicate_projection_*` evidence, ShardLoom-native SQL boolean/null projection semantics,
+    Date32/UTC timestamp source coercion for admitted predicate literals, deterministic
+    source-column/output-name/unsupported-shape blockers, and no external fallback.
     Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`
     / `NOT LIKE`, scoped UTF-8 lower/upper/trim transforms, bounded `IN` / `NOT IN`,
@@ -504,7 +509,8 @@ or documentation updates alone are insufficient.
     `with_column(...)`, scoped UTF-8 `concat(...)`, `substr(...)` / `substring(...)`, and
     `replace(...)` predicates and `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
     scoped null-cleanup `with_column(...)` via `.fill_null(...)` and `.null_if(...)`, scoped
-    conditional `with_column(...)` via `sl.case_when(...)`, and logical predicates into the same
+    conditional `with_column(...)` via `sl.case_when(...)`, scoped predicate-valued
+    `with_column(...)` from `PredicateExpression`, and logical predicates into the same
     local SQL
     smoke path, plus `where(...)`
     as a familiar filter alias. User workflows still lack broad typed

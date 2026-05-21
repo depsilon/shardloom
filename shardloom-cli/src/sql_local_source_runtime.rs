@@ -285,6 +285,7 @@ struct ParsedSqlLocalSource {
     null_coalesce_projections: Vec<ParsedNullCoalesceProjection>,
     nullif_projections: Vec<ParsedNullIfProjection>,
     conditional_projections: Vec<ParsedConditionalProjection>,
+    predicate_projections: Vec<ParsedPredicateProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     numeric_abs_projections: Vec<ParsedNumericAbsProjection>,
     numeric_rounding_projections: Vec<ParsedNumericRoundingProjection>,
@@ -349,6 +350,12 @@ struct ParsedConditionalProjection {
     predicate: ParsedPredicate,
     then_value: ScalarValue,
     else_value: ScalarValue,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedPredicateProjection {
+    alias: String,
+    predicate: ParsedPredicate,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -463,6 +470,7 @@ impl_projection_alias!(
     ParsedNullCoalesceProjection,
     ParsedNullIfProjection,
     ParsedConditionalProjection,
+    ParsedPredicateProjection,
     ParsedNumericArithmeticProjection,
     ParsedNumericAbsProjection,
     ParsedNumericRoundingProjection,
@@ -584,6 +592,7 @@ struct ParsedProjectionList {
     null_coalesce_projections: Vec<ParsedNullCoalesceProjection>,
     nullif_projections: Vec<ParsedNullIfProjection>,
     conditional_projections: Vec<ParsedConditionalProjection>,
+    predicate_projections: Vec<ParsedPredicateProjection>,
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     numeric_abs_projections: Vec<ParsedNumericAbsProjection>,
     numeric_rounding_projections: Vec<ParsedNumericRoundingProjection>,
@@ -606,6 +615,7 @@ enum ParsedProjectionOutput {
     NullCoalesce(String),
     NullIf(String),
     Conditional(String),
+    Predicate(String),
     NumericArithmetic(String),
     NumericAbs(String),
     NumericRounding(String),
@@ -2470,6 +2480,11 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
             columns.insert(column.to_string());
         }
     }
+    for projection in &parsed.predicate_projections {
+        for column in projection.predicate.columns() {
+            columns.insert(column.to_string());
+        }
+    }
     for projection in &parsed.numeric_arithmetic_projections {
         columns.insert(projection.column.clone());
     }
@@ -2850,6 +2865,13 @@ fn append_ordered_projection_expression(
                 "conditional projection",
             )?)?,
         ),
+        ParsedProjectionOutput::Predicate(alias) => {
+            expressions.push(predicate_projection_expression(find_projection_by_alias(
+                &parsed.predicate_projections,
+                alias,
+                "predicate projection",
+            )?)?);
+        }
         ParsedProjectionOutput::NumericArithmetic(alias) => expressions.push(
             numeric_arithmetic_projection_expression(find_projection_by_alias(
                 &parsed.numeric_arithmetic_projections,
@@ -3120,6 +3142,18 @@ fn conditional_projection_expression(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
             expr: Box::new(case_when),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn predicate_projection_expression(
+    projection: &ParsedPredicateProjection,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(projection.predicate.to_expression()?),
             alias: projection.alias.clone(),
         },
     ))
@@ -3580,6 +3614,7 @@ fn apply_temporal_literal_column_coercions(
         right_source.as_deref_mut(),
     )?;
     apply_conditional_projection_date_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_predicate_projection_date_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_null_coalesce_projection_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_nullif_projection_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_date_arithmetic_projection_coercions(parsed, source, right_source.as_deref_mut())?;
@@ -3593,8 +3628,15 @@ fn apply_temporal_literal_column_coercions(
         right_source.as_deref_mut(),
     )?;
     apply_conditional_projection_timestamp_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_predicate_projection_timestamp_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_timestamp_extract_projection_coercions(parsed, source, right_source.as_deref_mut())?;
-    apply_temporal_difference_predicate_coercions(&parsed.predicate, parsed, source, right_source)
+    apply_temporal_difference_predicate_coercions(
+        &parsed.predicate,
+        parsed,
+        source,
+        right_source.as_deref_mut(),
+    )?;
+    apply_predicate_projection_temporal_difference_coercions(parsed, source, right_source)
 }
 
 fn apply_conditional_projection_date_coercions(
@@ -3620,6 +3662,54 @@ fn apply_conditional_projection_timestamp_coercions(
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.conditional_projections {
         apply_timestamp_literal_predicate_coercions(
+            &projection.predicate,
+            parsed,
+            source,
+            right_source.as_deref_mut(),
+        )?;
+    }
+    Ok(())
+}
+
+fn apply_predicate_projection_date_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.predicate_projections {
+        apply_date_literal_predicate_coercions(
+            &projection.predicate,
+            parsed,
+            source,
+            right_source.as_deref_mut(),
+        )?;
+    }
+    Ok(())
+}
+
+fn apply_predicate_projection_timestamp_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.predicate_projections {
+        apply_timestamp_literal_predicate_coercions(
+            &projection.predicate,
+            parsed,
+            source,
+            right_source.as_deref_mut(),
+        )?;
+    }
+    Ok(())
+}
+
+fn apply_predicate_projection_temporal_difference_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.predicate_projections {
+        apply_temporal_difference_predicate_coercions(
             &projection.predicate,
             parsed,
             source,
@@ -4913,7 +5003,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -5086,6 +5176,16 @@ fn validate_value_projection_source_columns(
             )?;
         }
     }
+    for projection in &parsed.predicate_projections {
+        for column in projection.predicate.columns() {
+            require_header_column(
+                header,
+                column,
+                "predicate projection source column",
+                "local source header",
+            )?;
+        }
+    }
     Ok(())
 }
 
@@ -5233,6 +5333,9 @@ fn validate_value_output_names<'a>(
         require_unique_projection_output_name(output_names, &projection.alias)?;
     }
     for projection in &parsed.conditional_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.predicate_projections {
         require_unique_projection_output_name(output_names, &projection.alias)?;
     }
     Ok(())
@@ -5643,6 +5746,10 @@ impl ParsedSqlLocalSource {
         !self.conditional_projections.is_empty()
     }
 
+    fn has_predicate_projection(&self) -> bool {
+        !self.predicate_projections.is_empty()
+    }
+
     fn has_numeric_arithmetic_projection(&self) -> bool {
         !self.numeric_arithmetic_projections.is_empty()
     }
@@ -5693,6 +5800,7 @@ impl ParsedSqlLocalSource {
             || self.has_null_coalesce_projection()
             || self.has_nullif_projection()
             || self.has_conditional_projection()
+            || self.has_predicate_projection()
             || self.has_numeric_arithmetic_projection()
             || self.has_numeric_abs_projection()
             || self.has_numeric_rounding_projection()
@@ -5767,6 +5875,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_conditional_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_conditional_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_predicate_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_predicate_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
@@ -5866,6 +5978,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_conditional_projection() {
             "computed-projection-limit"
+        } else if self.has_predicate_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_predicate_projection() {
+            "computed-projection-limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_numeric_arithmetic_projection() {
@@ -5964,6 +6080,10 @@ impl ParsedSqlLocalSource {
             "computed_projection_filter_limit"
         } else if self.has_conditional_projection() {
             "computed_projection_limit"
+        } else if self.has_predicate_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_predicate_projection() {
+            "computed_projection_limit"
         } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_numeric_arithmetic_projection() {
@@ -6057,6 +6177,7 @@ impl ParsedSqlLocalSource {
                 | ParsedProjectionOutput::NullCoalesce(column)
                 | ParsedProjectionOutput::NullIf(column)
                 | ParsedProjectionOutput::Conditional(column)
+                | ParsedProjectionOutput::Predicate(column)
                 | ParsedProjectionOutput::NumericArithmetic(column)
                 | ParsedProjectionOutput::NumericAbs(column)
                 | ParsedProjectionOutput::NumericRounding(column)
@@ -6269,6 +6390,54 @@ impl ParsedSqlLocalSource {
             self.conditional_projections
                 .iter()
                 .map(|projection| projection.else_value.dtype().as_str().to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn predicate_projection_source_columns(&self) -> String {
+        if self.predicate_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.predicate_projections
+                .iter()
+                .map(|projection| projection.predicate.columns().join("+"))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn predicate_projection_output_columns(&self) -> String {
+        if self.predicate_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.predicate_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn predicate_projection_predicate_families(&self) -> String {
+        if self.predicate_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.predicate_projections
+                .iter()
+                .map(|projection| projection.predicate.family())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn predicate_projection_null_semantics(&self) -> String {
+        if self.predicate_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.predicate_projections
+                .iter()
+                .map(|projection| projection.predicate.projection_null_semantics())
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -7218,6 +7387,16 @@ impl ParsedPredicate {
             "sql_boolean_is_not_true_false_null_matches"
         } else {
             "sql_where_true_only_null_filters_out"
+        }
+    }
+
+    fn projection_null_semantics(&self) -> &'static str {
+        if self.uses_null_predicate() {
+            "sql_is_null_is_not_null"
+        } else if self.uses_boolean_predicate() {
+            self.boolean_predicate_null_semantics()
+        } else {
+            "sql_three_valued_boolean_or_null_projection"
         }
     }
 
@@ -10850,6 +11029,26 @@ impl SqlLocalSourceReport {
                 self.parsed.conditional_projection_else_dtypes(),
             ),
             (
+                "predicate_projection_runtime_execution".to_string(),
+                self.parsed.has_predicate_projection().to_string(),
+            ),
+            (
+                "predicate_projection_predicate_family".to_string(),
+                self.parsed.predicate_projection_predicate_families(),
+            ),
+            (
+                "predicate_projection_source_column".to_string(),
+                self.parsed.predicate_projection_source_columns(),
+            ),
+            (
+                "predicate_projection_output_column".to_string(),
+                self.parsed.predicate_projection_output_columns(),
+            ),
+            (
+                "predicate_projection_null_semantics".to_string(),
+                self.parsed.predicate_projection_null_semantics(),
+            ),
+            (
                 "numeric_arithmetic_projection_runtime_execution".to_string(),
                 self.parsed.has_numeric_arithmetic_projection().to_string(),
             ),
@@ -12643,6 +12842,7 @@ fn parsed_sql_local_source_from_parts(
         null_coalesce_projections: projection_list.null_coalesce_projections,
         nullif_projections: projection_list.nullif_projections,
         conditional_projections: projection_list.conditional_projections,
+        predicate_projections: projection_list.predicate_projections,
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
         numeric_abs_projections: projection_list.numeric_abs_projections,
         numeric_rounding_projections: projection_list.numeric_rounding_projections,
@@ -12696,6 +12896,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut null_coalesce_projections = Vec::new();
     let mut nullif_projections = Vec::new();
     let mut conditional_projections = Vec::new();
+    let mut predicate_projections = Vec::new();
     let mut numeric_arithmetic_projections = Vec::new();
     let mut numeric_abs_projections = Vec::new();
     let mut numeric_rounding_projections = Vec::new();
@@ -12760,6 +12961,11 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                 conditional_projection.alias.clone(),
             ));
             conditional_projections.push(conditional_projection);
+        } else if let Some(predicate_projection) = parse_predicate_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::Predicate(
+                predicate_projection.alias.clone(),
+            ));
+            predicate_projections.push(predicate_projection);
         } else if let Some(date_arithmetic_projection) =
             parse_date_arithmetic_projection(projection)?
         {
@@ -12818,6 +13024,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         null_coalesce_projections,
         nullif_projections,
         conditional_projections,
+        predicate_projections,
         numeric_arithmetic_projections,
         numeric_abs_projections,
         numeric_rounding_projections,
@@ -13206,6 +13413,52 @@ fn parse_conditional_projection(
         predicate: parse_predicate(predicate_raw)?,
         then_value,
         else_value,
+    }))
+}
+
+fn parse_predicate_projection(
+    raw: &str,
+) -> Result<Option<ParsedPredicateProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    if expression_raw.is_empty() || alias.is_empty() {
+        return Ok(None);
+    }
+    if !is_explicit_predicate_projection_shape(expression_raw)? {
+        return Ok(None);
+    }
+    validate_sql_identifier(alias)?;
+    Ok(Some(ParsedPredicateProjection {
+        alias: alias.to_string(),
+        predicate: parse_predicate(expression_raw)?,
+    }))
+}
+
+fn is_explicit_predicate_projection_shape(raw: &str) -> Result<bool, ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    if tokens.len() <= 1 {
+        return Ok(false);
+    }
+    Ok(tokens.iter().any(|token| {
+        matches!(
+            token.to_ascii_lowercase().as_str(),
+            "=" | "!="
+                | "<>"
+                | "<"
+                | "<="
+                | ">"
+                | ">="
+                | "is"
+                | "not"
+                | "in"
+                | "like"
+                | "between"
+                | "and"
+                | "or"
+        )
     }))
 }
 
@@ -17311,6 +17564,54 @@ mod tests {
         );
         assert_eq!(parsed.conditional_projection_then_dtypes(), "utf8,date32");
         assert_eq!(parsed.conditional_projection_else_dtypes(), "utf8,date32");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_predicate_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,amount >= 10 AS is_large,label IS NULL AS missing_label,active IS NOT TRUE AS inactive_or_unknown FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("predicate projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.predicate_projections.len(), 3);
+        assert_eq!(parsed.predicate_projections[0].alias, "is_large");
+        assert_eq!(
+            parsed.predicate_projections[0].predicate.family(),
+            "comparison"
+        );
+        assert_eq!(
+            parsed.predicate_projections[1].predicate.family(),
+            "null_predicate"
+        );
+        assert_eq!(
+            parsed.predicate_projections[2].predicate.family(),
+            "boolean_predicate"
+        );
+        assert_eq!(
+            parsed.predicate_projection_predicate_families(),
+            "comparison,null_predicate,boolean_predicate"
+        );
+        assert_eq!(
+            parsed.predicate_projection_source_columns(),
+            "amount,label,active"
+        );
+        assert_eq!(
+            parsed.predicate_projection_output_columns(),
+            "is_large,missing_label,inactive_or_unknown"
+        );
+        assert_eq!(
+            parsed.predicate_projection_null_semantics(),
+            "sql_three_valued_boolean_or_null_projection,sql_is_null_is_not_null,sql_boolean_is_not_true_false_null_matches"
+        );
         assert_eq!(
             parsed.statement_kind(),
             "local_source_computed_projection_filter_limit"

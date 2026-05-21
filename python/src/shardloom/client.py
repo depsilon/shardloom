@@ -1282,6 +1282,51 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def predicate_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted predicate projection."""
+
+        return (
+            self.envelope.field_bool("predicate_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def predicate_projection_predicate_families(self) -> tuple[str, ...]:
+        """Return predicate projection predicate families emitted by the smoke."""
+
+        value = self.envelope.field("predicate_projection_predicate_family", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def predicate_projection_source_columns(self) -> tuple[str, ...]:
+        """Return predicate projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("predicate_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def predicate_projection_output_columns(self) -> tuple[str, ...]:
+        """Return predicate projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("predicate_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def predicate_projection_null_semantics(self) -> tuple[str, ...]:
+        """Return predicate projection null-semantics labels emitted by the smoke."""
+
+        value = self.envelope.field("predicate_projection_null_semantics", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def numeric_arithmetic_projection_operator(self) -> tuple[str, ...]:
         """Return numeric arithmetic projection operators emitted by the smoke."""
 

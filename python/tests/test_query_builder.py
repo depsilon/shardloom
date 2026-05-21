@@ -4379,6 +4379,84 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_with_column_predicate_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,amount >= 10 AS is_large,label IS NULL AS missing_label,active IS NOT TRUE AS inactive_or_unknown FROM 'target/input.csv' WHERE id >= 1 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source predicate projection",
+                    "human_text": "sql local source predicate projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"is_large\\":true,\\"missing_label\\":false,\\"inactive_or_unknown\\":true}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "predicate_projection_runtime_execution", "value": "true"},
+                        {"key": "predicate_projection_predicate_family", "value": "comparison,null_predicate,boolean_predicate"},
+                        {"key": "predicate_projection_source_column", "value": "amount,label,active"},
+                        {"key": "predicate_projection_output_column", "value": "is_large,missing_label,inactive_or_unknown"},
+                        {"key": "predicate_projection_null_semantics", "value": "sql_three_valued_boolean_or_null_projection,sql_is_null_is_not_null,sql_boolean_is_not_true_false_null_matches"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("is_large", sl.col("amount") >= 10)
+            .with_column("missing_label", sl.col("label").is_null())
+            .with_column("inactive_or_unknown", sl.col("active").is_not_true())
+            .filter(sl.col("id") >= 1)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.predicate_projection_runtime_execution)
+        self.assertEqual(
+            report.predicate_projection_predicate_families,
+            ("comparison", "null_predicate", "boolean_predicate"),
+        )
+        self.assertEqual(
+            report.predicate_projection_source_columns,
+            ("amount", "label", "active"),
+        )
+        self.assertEqual(
+            report.predicate_projection_output_columns,
+            ("is_large", "missing_label", "inactive_or_unknown"),
+        )
+        self.assertEqual(
+            report.predicate_projection_null_semantics,
+            (
+                "sql_three_valued_boolean_or_null_projection",
+                "sql_is_null_is_not_null",
+                "sql_boolean_is_not_true_false_null_matches",
+            ),
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_write_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

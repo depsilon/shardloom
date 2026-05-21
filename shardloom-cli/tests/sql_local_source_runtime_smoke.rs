@@ -2359,6 +2359,90 @@ fn sql_local_source_smoke_executes_conditional_projection_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_predicate_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-predicate-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount,active,event_date\n\
+         1,alpha,8,true,2025-12-31\n\
+         2,,15,false,2026-05-19\n\
+         3,gamma,,,\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,amount >= 10 AS is_large,label IS NULL AS missing_label,active IS NOT TRUE AS inactive_or_unknown,event_date >= DATE '2026-01-01' AS current_year FROM '{}' WHERE id >= 1 LIMIT 3",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("predicate_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "predicate_projection_predicate_family",
+        "comparison,null_predicate,boolean_predicate,comparison"
+    )));
+    assert!(stdout.contains(&field(
+        "predicate_projection_source_column",
+        "amount,label,active,event_date"
+    )));
+    assert!(stdout.contains(&field(
+        "predicate_projection_output_column",
+        "is_large,missing_label,inactive_or_unknown,current_year"
+    )));
+    assert!(stdout.contains(&field(
+        "predicate_projection_null_semantics",
+        "sql_three_valued_boolean_or_null_projection,sql_is_null_is_not_null,sql_boolean_is_not_true_false_null_matches,sql_three_valued_boolean_or_null_projection"
+    )));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,is_large,missing_label,inactive_or_unknown,current_year"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"is_large\\\":false,\\\"missing_label\\\":false,\\\"inactive_or_unknown\\\":false,\\\"current_year\\\":false}\\n{\\\"id\\\":2,\\\"is_large\\\":true,\\\"missing_label\\\":true,\\\"inactive_or_unknown\\\":true,\\\"current_year\\\":true}\\n{\\\"id\\\":3,\\\"is_large\\\":null,\\\"missing_label\\\":false,\\\"inactive_or_unknown\\\":true,\\\"current_year\\\":null}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,missing >= 10 AS missing_flag FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(blocked_output.contains("predicate projection source column"));
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_csv_projection_limit_without_predicate() {
     let source_path = unique_path("sql-local-source-no-filter", "csv");
     fs::write(

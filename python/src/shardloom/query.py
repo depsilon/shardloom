@@ -3315,6 +3315,7 @@ def _sql_computed_projection_expression(expression: object) -> str:
         _sql_null_coalesce_projection_expression,
         _sql_nullif_projection_expression,
         _sql_conditional_projection_expression,
+        _sql_predicate_projection_expression,
         _sql_numeric_arithmetic_projection_expression,
         _sql_numeric_abs_projection_expression,
         _sql_numeric_rounding_projection_expression,
@@ -3335,6 +3336,15 @@ def _sql_computed_projection_expression(expression: object) -> str:
     if last_error is None:
         raise ValueError("computed with_column expression is not admitted")
     raise last_error
+
+
+def _sql_predicate_projection_expression(expression: object) -> str:
+    if not isinstance(expression, PredicateExpression):
+        raise TypeError("computed with_column predicate projections require a PredicateExpression")
+    text = _predicate_sql(expression).strip()
+    if not text:
+        raise ValueError("predicate with_column expression must not be empty")
+    return text
 
 
 def _sql_cast_projection_expression(expression: object) -> str:
