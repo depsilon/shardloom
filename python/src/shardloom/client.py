@@ -152,98 +152,168 @@ class PreparedVortexArtifacts:
     def fact_vortex_path(self) -> str:
         """Return the prepared fact-table Vortex artifact path."""
 
-        return _required_field(self.prepare, "prepared_artifact_fact_ref")
+        return _required_field_any(
+            self.prepare,
+            "prepared_artifact_fact_ref",
+            "prepare_batch_fact_vortex_path",
+        )
 
     @property
     def dim_vortex_path(self) -> str:
         """Return the prepared dimension-table Vortex artifact path."""
 
-        return _required_field(self.prepare, "prepared_artifact_dim_ref")
+        return _required_field_any(
+            self.prepare,
+            "prepared_artifact_dim_ref",
+            "prepare_batch_dim_vortex_path",
+        )
 
     @property
     def artifact_ref(self) -> str:
         """Return the combined prepared artifact ref."""
 
+        value = self.prepare.field("prepared_artifact_ref")
+        if value:
+            return value
+        fact = self.prepare.field("prepare_batch_fact_vortex_path")
+        dim = self.prepare.field("prepare_batch_dim_vortex_path")
+        cdc = self.prepare.field("prepare_batch_cdc_delta_vortex_path")
+        if fact and dim:
+            refs = [f"fact={fact}", f"dim={dim}"]
+            if cdc:
+                refs.append(f"cdc={cdc}")
+            return ",".join(refs)
         return _required_field(self.prepare, "prepared_artifact_ref")
 
     @property
     def artifact_digest(self) -> str:
         """Return the combined prepared artifact digest summary."""
 
+        value = self.prepare.field("prepared_artifact_digest")
+        if value:
+            return value
+        fact = self.prepare.field("prepare_batch_fact_vortex_digest")
+        dim = self.prepare.field("prepare_batch_dim_vortex_digest")
+        cdc = self.prepare.field("prepare_batch_cdc_delta_vortex_digest")
+        if fact and dim:
+            digests = [f"fact={fact}", f"dim={dim}"]
+            if cdc:
+                digests.append(f"cdc={cdc}")
+            return ",".join(digests)
         return _required_field(self.prepare, "prepared_artifact_digest")
 
     @property
     def cdc_delta_vortex_path(self) -> str | None:
         """Return the prepared CDC delta Vortex artifact path, when emitted."""
 
-        value = self.prepare.field("cdc_delta_vortex_path")
+        value = self.prepare.field("cdc_delta_vortex_path") or self.prepare.field(
+            "prepare_batch_cdc_delta_vortex_path"
+        )
         return value or None
 
     @property
     def prepared_state_id(self) -> str:
         """Return the prepared-state identifier from the ingest/stage report."""
 
-        return _required_field(self.prepare, "prepared_state_id")
+        return _required_field_any(
+            self.prepare,
+            "prepared_state_id",
+            "prepare_batch_prepared_state_id",
+        )
 
     @property
     def prepared_state_digest(self) -> str:
         """Return the prepared-state digest from the ingest/stage report."""
 
-        return _required_field(self.prepare, "prepared_state_digest")
+        return _required_field_any(
+            self.prepare,
+            "prepared_state_digest",
+            "prepare_batch_prepared_state_digest",
+        )
 
     @property
     def source_state_id(self) -> str:
         """Return the SourceState identifier from the ingest/stage report."""
 
-        return _required_field(self.prepare, "source_state_id")
+        return _required_field_any(
+            self.prepare,
+            "source_state_id",
+            "prepare_batch_source_state_id",
+        )
 
     @property
     def source_state_digest(self) -> str:
         """Return the SourceState digest from the ingest/stage report."""
 
-        return _required_field(self.prepare, "source_state_digest")
+        return _required_field_any(
+            self.prepare,
+            "source_state_digest",
+            "prepare_batch_source_state_digest",
+        )
 
     @property
     def source_state_columnar_preserved(self) -> bool:
         """Whether preparation preserved columnar SourceState evidence."""
 
-        return self.prepare.field_bool("source_state_columnar_preserved", False) is True
+        return (
+            self.prepare.field_bool("source_state_columnar_preserved", False) is True
+            or self.prepare.field_bool(
+                "prepare_batch_source_state_columnar_preserved", False
+            )
+            is True
+        )
 
     @property
     def source_state_record_batch_count(self) -> int:
         """Return the number of preserved SourceState record batches."""
 
-        return self.prepare.field_int("source_state_record_batch_count", 0) or 0
+        return (
+            self.prepare.field_int("source_state_record_batch_count")
+            or self.prepare.field_int("prepare_batch_source_state_record_batch_count")
+            or 0
+        )
 
     @property
     def vortex_array_build_provider_kind(self) -> str | None:
         """Return the Vortex array-build provider kind, when emitted."""
 
-        return self.prepare.field("vortex_array_build_provider_kind")
+        return self.prepare.field(
+            "vortex_array_build_provider_kind"
+        ) or self.prepare.field("prepare_batch_vortex_array_build_provider_kind")
 
     @property
     def vortex_array_build_provider_surface(self) -> str | None:
         """Return the Vortex array-build provider API surface, when emitted."""
 
-        return self.prepare.field("vortex_array_build_provider_surface")
+        return self.prepare.field(
+            "vortex_array_build_provider_surface"
+        ) or self.prepare.field("prepare_batch_vortex_array_build_provider_surface")
 
     @property
     def vortex_array_build_strategy(self) -> str | None:
         """Return the Vortex array-build strategy, when emitted."""
 
-        return self.prepare.field("vortex_array_build_strategy")
+        return self.prepare.field("vortex_array_build_strategy") or self.prepare.field(
+            "prepare_batch_vortex_array_build_strategy"
+        )
 
     @property
     def vortex_array_build_input_layout(self) -> str | None:
         """Return the Vortex array-build input layout, when emitted."""
 
-        return self.prepare.field("vortex_array_build_input_layout")
+        return self.prepare.field(
+            "vortex_array_build_input_layout"
+        ) or self.prepare.field("prepare_batch_vortex_array_build_input_layout")
 
     @property
     def vortex_array_build_record_batch_count(self) -> int:
         """Return the number of record batches handed to the Vortex provider."""
 
-        return self.prepare.field_int("vortex_array_build_record_batch_count", 0) or 0
+        return (
+            self.prepare.field_int("vortex_array_build_record_batch_count")
+            or self.prepare.field_int("prepare_batch_vortex_array_build_record_batch_count")
+            or 0
+        )
 
     @property
     def vortex_array_build_manual_scalar_copy_avoided(self) -> bool:
@@ -254,19 +324,35 @@ class PreparedVortexArtifacts:
                 "vortex_array_build_manual_scalar_copy_avoided", False
             )
             is True
+            or self.prepare.field_bool(
+                "prepare_batch_vortex_array_build_manual_scalar_copy_avoided", False
+            )
+            is True
         )
 
     @property
     def cleanup_policy(self) -> str:
         """Return the caller-visible cleanup policy for prepared artifacts."""
 
-        return _required_field(self.prepare, "prepared_artifact_cleanup_policy")
+        return (
+            self.prepare.field("prepared_artifact_cleanup_policy")
+            or self.prepare.field("prepare_batch_prepared_artifact_cleanup_policy")
+            or "caller_owned_workspace_cleanup"
+        )
 
     @property
     def reuse_eligible(self) -> bool:
         """Whether the prepared artifact pair is eligible for native/prepared replay."""
 
-        return self.prepare.field_bool("prepared_artifact_reuse_eligible", False) is True
+        return (
+            self.prepare.field_bool("prepared_artifact_reuse_eligible", False) is True
+            or self.prepare.field_bool(
+                "prepare_batch_prepared_artifact_reuse_eligible", False
+            )
+            is True
+            or self.prepare.field_bool("prepare_batch_prepared_state_reused", False)
+            is True
+        )
 
     def run_prepared(
         self,
@@ -7193,27 +7279,29 @@ class ShardLoomClient:
         max_parallelism: int | None = None,
         check: bool = True,
     ) -> PreparedVortexBatchResult:
-        """Prepare local compatibility inputs once, then run a prepared Vortex batch."""
+        """Prepare local compatibility inputs once, then run a prepared Vortex batch.
 
-        artifacts = self.prepare_traditional_analytics_vortex_artifacts(
+        This convenience helper uses the single-process prepare/batch route so callers do not
+        pay for a separate prepare command followed by a separate batch command. Use
+        :meth:`prepare_traditional_analytics_vortex_artifacts` when the caller needs to manage
+        prepared artifact lifecycles explicitly across multiple later commands.
+        """
+
+        envelope = self.traditional_analytics_prepare_batch_run(
+            scenarios,
             fact_input,
             dim_input,
             workspace=workspace,
             input_format=input_format,
             cdc_delta_input=cdc_delta_input,
+            result_workspace=result_workspace,
+            write_result_vortex=write_result_vortex,
+            evidence_level=evidence_level,
             memory_gb=memory_gb,
             max_parallelism=max_parallelism,
             check=check,
         )
-        batch = artifacts.run_batch(
-            self,
-            scenarios,
-            workspace=result_workspace,
-            write_result_vortex=write_result_vortex,
-            evidence_level=evidence_level,
-            check=check,
-        )
-        return PreparedVortexBatchResult(prepare=artifacts.prepare, batch=batch)
+        return PreparedVortexBatchResult(prepare=envelope, batch=envelope)
 
     def live_etl_smoke(
         self,
@@ -8046,6 +8134,17 @@ def _required_field(envelope: OutputEnvelope, key: str) -> str:
             f"ShardLoom command {envelope.command!r} did not emit required field {key!r}"
         )
     return value
+
+
+def _required_field_any(envelope: OutputEnvelope, *keys: str) -> str:
+    for key in keys:
+        value = envelope.field(key)
+        if value:
+            return value
+    joined = ", ".join(repr(key) for key in keys)
+    raise ShardLoomProtocolError(
+        f"ShardLoom command {envelope.command!r} did not emit any required field from {joined}"
+    )
 
 
 def _iter_fanout_outputs(

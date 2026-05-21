@@ -78,11 +78,12 @@ Every indexed recipe maps back to a Use Case Atlas id, declares a claim boundary
 - **User goal:** inspect the current prepared/native runtime-development lane.
 - **Command:**
   ```powershell
-  python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\shardloom-prepared-vortex-smoke.json --regenerate
+  python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex,shardloom-prepare-batch --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\shardloom-prepared-vortex-smoke.json --regenerate
   ```
-- **Expected output:** prepared Vortex rows separate from compatibility import rows.
+- **Expected output:** warm prepared Vortex rows separate from the single-process prepare/batch
+  rows that carry `prepare_batch_*` adapter evidence.
 - **Evidence fields:** `source_backed_scan_*`, `source_state_*`,
-  `encoded_predicate_provider_*`, `claim_gate_status`.
+  `encoded_predicate_provider_*`, `prepare_batch_*`, `claim_gate_status`.
 - **Claim boundary:** prepared/native smoke, not performance or encoded-native proof.
 - **References:** `benchmarks/traditional_analytics/README.md`,
   `docs/architecture/compute-engine-flow-reference.md`.

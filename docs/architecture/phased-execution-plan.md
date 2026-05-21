@@ -445,17 +445,19 @@ or documentation updates alone are insufficient.
     feature-gated `vortex_ingest` creates scoped local `VortexPreparedState` artifacts, and local
     prepared/native benchmark rows can reuse those artifacts without treating preparation time as
     warm-query timing. The active CLI/Python surface includes
-    `traditional-analytics-prepare-batch-run` and
-    `ShardLoomClient.traditional_analytics_prepare_batch_run(...)`, which prepare local
-    compatibility inputs once and run a prepared Vortex scenario batch in the same process with
-    explicit preparation, query, reuse, no-fallback, and claim-boundary evidence.
+    `traditional-analytics-prepare-batch-run`,
+    `ShardLoomClient.traditional_analytics_prepare_batch_run(...)`,
+    `ShardLoomClient.prepare_and_run_traditional_analytics_vortex_batch(...)`, and the
+    `shardloom-prepare-batch` comparative-harness lane, which prepare local compatibility inputs
+    once and run a prepared Vortex scenario batch in the same process with explicit preparation,
+    query, reuse, no-fallback, and claim-boundary evidence.
   - Remaining gap: direct-transient local CSV/JSON and feature-gated Parquet/Arrow IPC/Avro/ORC
     paths still cross scalar row-map normalization for some workflows. The prepare-once route is
     local/scoped evidence only; it is not a persistent cache, object-store/table workflow,
     SQL/DataFrame production runtime, performance claim, or package-readiness claim.
   - Next slice outcome: keep reducing the UniversalIngress/adapter bottleneck by carrying
-    columnar SourceState into more prepared-state and benchmark paths, while preserving
-    certification-depth policy and claim-safe cold/warm timing separation.
+    columnar SourceState into more direct-transient and generated/admitted local-source paths, while
+    preserving certification-depth policy and claim-safe cold/warm timing separation.
   - Runtime enablement: certified ingest/stage execution remains supported, and repeated local
     benchmark/workflow commands can certify or prepare once and then run `prepared_vortex` from
     `VortexPreparedState`.

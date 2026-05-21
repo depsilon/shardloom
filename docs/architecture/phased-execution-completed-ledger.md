@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F1 prepare/batch Python and benchmark harness adoption
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-26-20260521` / #915.
+  - Source:
+    - Follow-through from #914's in-process compatibility prepare plus prepared/native batch route.
+    - User priority to keep slices meatier and reduce the UniversalIngress/adapter bottleneck where
+      it affects end-to-end runtime workflows.
+  - Vortex-first provider check:
+    - Subject area: benchmark/Python entry into the already admitted local compatibility
+      `SourceState -> VortexPreparedState -> prepared_vortex batch` route.
+    - Upstream Vortex concept checked: no new provider was invented; this slice reuses the existing
+      certified compatibility preparation and prepared/native Vortex batch provider surface.
+    - Decision: wrap the combined route in Python and benchmark harness evidence instead of adding a
+      hidden cache, daemon, external engine, or parallel execution path.
+    - Residual handling: child prepared/native scenarios keep their existing ShardLoom-native
+      residual execution or deterministic blockers.
+    - Materialization/decode boundary: benchmark rows preserve `warm_prepared_query` child timing and
+      carry `prepare_batch_*` preparation timing separately.
+    - Evidence added: Python typed artifact fallbacks for `prepare_batch_*`, benchmark
+      `shardloom-prepare-batch` rows, per-row adapter timing metrics, prepared artifact refs/digests,
+      source-state reuse, and no-fallback fields.
+    - Gates still blocked: performance superiority, persistent/global cache, object-store/table/
+      lakehouse runtime, SQL/DataFrame production support, package readiness, and Spark-displacement
+      claims.
+  - Scope:
+    - Switched `ShardLoomClient.prepare_and_run_traditional_analytics_vortex_batch(...)` to the
+      single-process `traditional-analytics-prepare-batch-run` route while keeping
+      `prepare_traditional_analytics_vortex_artifacts(...)` for explicit caller-managed artifact
+      lifecycles.
+    - Added prepare-batch-prefixed field fallbacks to `PreparedVortexArtifacts` so combined-route
+      results retain artifact/path/digest/provider accessors.
+    - Added `prepare_batch_prepared_state_*`, `prepare_batch_source_state_*`,
+      `prepare_batch_prepared_artifact_*`, and source Native I/O certificate id fields to the Rust
+      report.
+    - Added the comparative harness `shardloom-prepare-batch` engine lane, preserving the existing
+      warm `shardloom-prepared-vortex` lane and reporting the new lane under requested source-format
+      rows with `prepare_batch_*` metrics.
+    - Updated benchmark, Python, getting-started, use-case, benchmark catalog, and phase-plan docs.
+  - Verification:
+    - `python -m py_compile benchmarks\traditional_analytics\run.py python\src\shardloom\client.py python\tests\test_cli_client.py`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_traditional_analytics_prepare_batch_run_dispatches_combined_route python.tests.test_cli_client.ShardLoomClientTests.test_prepare_and_run_traditional_analytics_vortex_batch_reuses_artifacts`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex prepared_batch_run_prepares_once_inside_process --lib --features vortex-traditional-analytics-benchmark -- --nocapture`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepare-batch --formats csv --scenario "selective filter" --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 100 --iterations 1 --shardloom-build-profile debug --skip-shardloom-native --no-markdown --output target\shardloom-prepare-batch-smoke.json --regenerate`
+    - `python -m compileall -q python\src python\tests benchmarks\traditional_analytics scripts`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_workflow_recipes.py`
+    - `& 'C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' scripts\sync-content.mjs`
+    - `& 'C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' node_modules\astro\bin\astro.mjs build`
+    - `& 'C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' scripts\postbuild-static.mjs`
+    - `& 'C:\Users\djhei\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe' validate_static_assets.js`
+    - `python scripts\check_website_readiness.py`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local prepare/batch runtime evidence only. This is not a hidden fast mode, persistent
+      cache, performance claim, production claim, SQL/DataFrame support, object-store/lakehouse
+      support, Foundry support, package readiness, or Spark-displacement claim.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F1 in-process compatibility prepare plus prepared batch
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-25-20260521` / #914.

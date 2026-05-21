@@ -52,12 +52,14 @@ EXTENDED_OPTIONAL_ENGINE_ORDER = (
 )
 ENGINE_CHOICES = ENGINE_ORDER + (
     "shardloom-prepared-vortex",
+    "shardloom-prepare-batch",
     "shardloom-direct-transient",
 ) + EXTENDED_OPTIONAL_ENGINE_ORDER
 ENGINE_ALIASES = {
     "spark": ("spark-default", "spark-local-tuned"),
     "polars": ("polars-eager", "polars-lazy"),
     "native-vortex": ("shardloom-vortex",),
+    "prepare-batch": ("shardloom-prepare-batch",),
     "extended-local": EXTENDED_OPTIONAL_ENGINE_ORDER[:-1],
     "gpu-optional": ("cudf-gpu",),
 }
@@ -1599,12 +1601,14 @@ def parse_args() -> argparse.Namespace:
         default=",".join(ENGINE_ORDER),
         help=(
             "Comma-separated engines: shardloom,shardloom-vortex,"
-            "shardloom-prepared-vortex,shardloom-direct-transient,pandas,"
+            "shardloom-prepared-vortex,shardloom-prepare-batch,"
+            "shardloom-direct-transient,pandas,"
             "polars-eager,polars-lazy,duckdb,spark-default,spark-local-tuned,"
             "datafusion,dask, plus optional extended lanes pyarrow-dataset,"
             "pyarrow-acero,clickhouse-local,daft,ray-data,ibis-duckdb,"
             "ibis-datafusion,ibis-polars,cudf-gpu. Aliases: polars expands to "
             "polars-eager and polars-lazy; spark expands to both Spark profiles; "
+            "prepare-batch expands to the single-process ShardLoom prepare/batch lane; "
             "extended-local expands to CPU optional extended lanes."
         ),
     )
@@ -2803,6 +2807,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
     env = os.environ.copy()
     env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
     prepared_paths: dict[str, dict[str, Path | float | str]] = {}
+    single_process_prepare_batch = engine_name == "shardloom-prepare-batch"
 
     def prepare_format(paths: DatasetPaths, data_format: str) -> None:
         if data_format in prepared_paths:
@@ -2927,6 +2932,8 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             prepare_format(paths, data_format)
 
     def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
+        if single_process_prepare_batch:
+            return run_prepare_batch_scenarios(paths, data_format, (scenario,))[scenario]
         if data_format == SHARDLOOM_VORTEX_FORMAT:
             raise BenchmarkUnsupported(
                 "shardloom-vortex reports prepared/native results under the requested source format rows"
@@ -3099,6 +3106,47 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             prepared_refs.append(str(prepared["cdc_delta"]))
             prepared_digests.append(str(prepared["cdc_delta_digest"]))
         return "|".join(prepared_refs), "|".join(prepared_digests)
+
+    def prepared_from_prepare_batch_fields(
+        fields: dict[str, str],
+    ) -> dict[str, Path | float | str]:
+        fact_vortex = Path(fields.get("prepare_batch_fact_vortex_path", ""))
+        dim_vortex = Path(fields.get("prepare_batch_dim_vortex_path", ""))
+        if not fact_vortex.exists() or not dim_vortex.exists():
+            raise BenchmarkUnsupported(
+                "ShardLoom prepare/batch did not produce fact/dim .vortex files"
+            )
+        preparation_micros = parse_optional_int(
+            fields.get("prepare_batch_preparation_micros")
+        )
+        prepared: dict[str, Path | float | str] = {
+            "fact": fact_vortex,
+            "dim": dim_vortex,
+            "preparation_millis": round((preparation_micros or 0) / 1000.0, 4),
+            "preparation_cli_process_wall_millis": "none",
+            "fact_digest": fields.get("prepare_batch_fact_vortex_digest", ""),
+            "dim_digest": fields.get("prepare_batch_dim_vortex_digest", ""),
+            "source_native_io_certificate_status": fields.get(
+                "prepare_batch_source_native_io_certificate_status", ""
+            ),
+            "source_native_io_certificate_id": fields.get(
+                "prepare_batch_source_native_io_certificate_id", ""
+            ),
+        }
+        cdc_delta = fields.get("prepare_batch_cdc_delta_vortex_path", "")
+        if cdc_delta:
+            cdc_delta_vortex = Path(cdc_delta)
+            if not cdc_delta_vortex.exists():
+                raise BenchmarkUnsupported(
+                    "ShardLoom prepare/batch did not produce cdc_delta .vortex file"
+                )
+            prepared["cdc_delta"] = cdc_delta_vortex
+            prepared["cdc_delta_digest"] = fields.get(
+                "prepare_batch_cdc_delta_vortex_digest", ""
+            )
+            prepared["cdc_delta_preparation_millis"] = 0.0
+            prepared["cdc_delta_preparation_cli_process_wall_millis"] = "none"
+        return prepared
 
     def extract_batch_scenario_output(
         scenario: str,
@@ -3466,6 +3514,33 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
             }
         )
+        for prepare_key, value in batch_fields.items():
+            if prepare_key.startswith("prepare_batch_"):
+                fields.setdefault(prepare_key, value)
+        prepare_batch_stage_fields = {
+            "source_state_columnar_preserved": "prepare_batch_source_state_columnar_preserved",
+            "source_state_record_batch_count": "prepare_batch_source_state_record_batch_count",
+            "source_to_columnar_micros": "prepare_batch_source_to_columnar_micros",
+            "compatibility_to_vortex_import_timing_scope": "prepare_batch_preparation_timing_scope",
+            "vortex_array_build_micros": "prepare_batch_vortex_array_build_micros",
+            "vortex_array_build_provider_kind": "prepare_batch_vortex_array_build_provider_kind",
+            "vortex_array_build_provider_surface": "prepare_batch_vortex_array_build_provider_surface",
+            "vortex_array_build_strategy": "prepare_batch_vortex_array_build_strategy",
+            "vortex_array_build_input_layout": "prepare_batch_vortex_array_build_input_layout",
+            "vortex_array_build_record_batch_count": "prepare_batch_vortex_array_build_record_batch_count",
+            "vortex_array_build_manual_scalar_copy_avoided": "prepare_batch_vortex_array_build_manual_scalar_copy_avoided",
+            "vortex_write_micros": "prepare_batch_vortex_write_micros",
+            "vortex_reopen_verify_micros": "prepare_batch_vortex_reopen_verify_micros",
+            "preparation_included_in_timing": "prepare_batch_preparation_included_in_batch_timing",
+        }
+        for row_key, prepare_key in prepare_batch_stage_fields.items():
+            if prepare_key in batch_fields:
+                fields.setdefault(row_key, batch_fields[prepare_key])
+        if "prepare_batch_cli_process_wall_millis" in batch_fields:
+            fields.setdefault(
+                "prepare_batch_cli_process_wall_millis",
+                batch_fields["prepare_batch_cli_process_wall_millis"],
+            )
         for field in SESSION_RUNTIME_FIELDS:
             fields.setdefault(field, batch_fields.get(field, "unknown"))
         for field in ALLOCATION_RESOURCE_PROFILE_FIELDS:
@@ -3477,9 +3552,123 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             "__shardloom_evidence": fields,
         }
 
+    def run_prepare_batch_scenarios(
+        paths: DatasetPaths, data_format: str, scenarios: tuple[str, ...]
+    ) -> dict[str, Any]:
+        if data_format == SHARDLOOM_VORTEX_FORMAT:
+            raise BenchmarkUnsupported(
+                "shardloom-prepare-batch reports compatibility prepare/batch results under source format rows"
+            )
+        scenario_csv = ",".join(scenarios)
+        workspace = (
+            paths.root
+            / "shardloom_prepare_batch_inputs"
+            / data_format
+            / hashlib.sha256(scenario_csv.encode("utf-8")).hexdigest()[:12]
+        )
+        command = [
+            str(binary),
+            "traditional-analytics-prepare-batch-run",
+            scenario_csv,
+            str(fact_path(paths, data_format)),
+            str(dim_path(paths, data_format)),
+            "--workspace",
+            str(workspace),
+            "--input-format",
+            data_format,
+            "--evidence-level",
+            SHARDLOOM_EVIDENCE_LEVEL,
+            "--format",
+            "json",
+        ]
+        if any(scenario == "small change over large base" for scenario in scenarios):
+            if paths.cdc_delta_csv is None or not paths.cdc_delta_csv.exists():
+                raise BenchmarkUnsupported("CDC overlay scenario requires cdc_delta.csv")
+            command.extend(["--cdc-delta", str(paths.cdc_delta_csv)])
+        if SHARDLOOM_RESULT_SINK:
+            result_workspace = (
+                paths.root
+                / "shardloom_prepare_batch_result_sinks"
+                / data_format
+                / hashlib.sha256(scenario_csv.encode("utf-8")).hexdigest()[:12]
+            )
+            command.extend(
+                ["--result-workspace", str(result_workspace), "--write-result-vortex"]
+            )
+        completed = subprocess_run(command, root, env)
+        try:
+            payload = json.loads(completed["stdout"].splitlines()[0])
+        except (json.JSONDecodeError, IndexError) as exc:
+            if completed["returncode"] != 0:
+                raise RuntimeError(
+                    completed["stderr"] or completed["stdout"] or "unknown failure"
+                ) from exc
+            raise RuntimeError(f"ShardLoom prepare/batch emitted invalid JSON: {exc}") from exc
+        if completed["returncode"] != 0:
+            raise RuntimeError(completed["stderr"] or completed["stdout"] or "unknown failure")
+        fields = parse_output_fields(payload)
+        fields["prepare_batch_cli_process_wall_millis"] = str(
+            completed.get("process_wall_millis", "not_measured")
+        )
+        if payload.get("status") != "success":
+            reason = fields.get("reason") or payload.get("human_text") or "unsupported"
+            raise BenchmarkUnsupported(str(reason))
+        if fields.get("schema_version") != "shardloom.traditional_analytics.vortex_batch.v1":
+            raise RuntimeError(
+                "ShardLoom prepare/batch schema was unexpected: "
+                + str(fields.get("schema_version", "missing"))
+            )
+        if (
+            fields.get("prepare_batch_schema_version")
+            != "shardloom.traditional_analytics.prepare_and_batch.v1"
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch route schema was unexpected: "
+                + str(fields.get("prepare_batch_schema_version", "missing"))
+            )
+        if (
+            fields.get("prepare_batch_runtime_status")
+            != "single_process_compatibility_prepare_then_prepared_batch_supported"
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch runtime status was unexpected: "
+                + str(fields.get("prepare_batch_runtime_status", "missing"))
+            )
+        if (
+            fields.get("prepare_batch_route")
+            != "compatibility_import_certified_to_prepared_vortex_batch"
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch route was unexpected: "
+                + str(fields.get("prepare_batch_route", "missing"))
+            )
+        if fields.get("prepare_batch_preparation_included_in_batch_timing") != "false":
+            raise RuntimeError("ShardLoom prepare/batch included preparation in query timing")
+        if fields.get("prepare_batch_query_timing_starts_after_preparation") != "true":
+            raise RuntimeError("ShardLoom prepare/batch did not separate query timing")
+        if fields.get("prepare_batch_prepared_state_reused") != "true":
+            raise RuntimeError("ShardLoom prepare/batch did not report prepared-state reuse")
+        if fields.get("prepare_batch_fallback_attempted") != "false":
+            raise RuntimeError("ShardLoom prepare/batch reported fallback attempts")
+        if fields.get("prepare_batch_external_engine_invoked") != "false":
+            raise RuntimeError("ShardLoom prepare/batch reported external engine invocation")
+        if fields.get("all_fallback_attempted_false") != "true":
+            raise RuntimeError("ShardLoom prepare/batch child rows reported fallback attempts")
+        if fields.get("all_external_engine_invoked_false") != "true":
+            raise RuntimeError(
+                "ShardLoom prepare/batch child rows reported external engine invocation"
+            )
+        prepared = prepared_from_prepare_batch_fields(fields)
+        return {
+            scenario: extract_batch_scenario_output(scenario, fields, prepared, completed)
+            for scenario in scenarios
+        }
+
     def run_batch_scenarios(
         paths: DatasetPaths, data_format: str, scenarios: tuple[str, ...]
     ) -> dict[str, Any]:
+        if single_process_prepare_batch:
+            return run_prepare_batch_scenarios(paths, data_format, scenarios)
         if data_format == SHARDLOOM_VORTEX_FORMAT:
             raise BenchmarkUnsupported(
                 "shardloom-vortex reports prepared/native results under the requested source format rows"
@@ -3614,13 +3803,17 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         },
         formats=FORMAT_ORDER,
         batch_scenarios=run_batch_scenarios,
-        prepare=prepare,
+        prepare=None if single_process_prepare_batch else prepare,
         build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
 
 
 def shardloom_prepared_vortex_runner() -> EngineRunner:
     return shardloom_vortex_runner("shardloom-prepared-vortex")
+
+
+def shardloom_prepare_batch_runner() -> EngineRunner:
+    return shardloom_vortex_runner("shardloom-prepare-batch")
 
 
 def available_runners(engine_names: tuple[str, ...]) -> tuple[dict[str, EngineRunner], dict[str, str]]:
@@ -5524,6 +5717,7 @@ ENGINE_FACTORIES: dict[str, Callable[[], EngineRunner]] = {
     "shardloom": shardloom_runner,
     "shardloom-vortex": shardloom_vortex_runner,
     "shardloom-prepared-vortex": shardloom_prepared_vortex_runner,
+    "shardloom-prepare-batch": shardloom_prepare_batch_runner,
     "shardloom-direct-transient": shardloom_direct_transient_runner,
     "pandas": pandas_runner,
     "polars-eager": polars_eager_runner,
@@ -7591,6 +7785,8 @@ def rows_materialized(value: Any) -> int:
 def materialization_policy(engine: str, data_format: str) -> str:
     if engine == "shardloom-direct-transient":
         return "direct_transient_local_csv_no_vortex_persistence"
+    if engine == "shardloom-prepare-batch":
+        return "single_process_compatibility_prepare_then_prepared_vortex_before_scenario_timing"
     if engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
         return "prepared_vortex_input_before_scenario_timing"
     if data_format == SHARDLOOM_VORTEX_FORMAT:
@@ -7603,6 +7799,8 @@ def materialization_policy(engine: str, data_format: str) -> str:
 def native_vortex_or_compatibility_import(engine: str, data_format: str) -> str:
     if engine == "shardloom-direct-transient":
         return "direct_compatibility_transient_no_vortex_persistence"
+    if engine == "shardloom-prepare-batch":
+        return "compatibility_import_certified_to_prepared_vortex_batch"
     if engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
         return "prepared_vortex"
     if data_format == SHARDLOOM_VORTEX_FORMAT:
@@ -7676,12 +7874,16 @@ def claim_grade_readiness(result: dict[str, Any]) -> dict[str, Any]:
                 "direct transient local CSV smoke is scoped and not Vortex-native"
             ],
         }
-    if engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
+    if engine in (
+        "shardloom-vortex",
+        "shardloom-prepared-vortex",
+        "shardloom-prepare-batch",
+    ):
         return {
             "claim_gate_status": "fixture_smoke_only",
             "claim_grade_requirements_met": False,
             "claim_grade_missing_evidence": [
-                "native Vortex lane lacks workload scorecard/result-sink replay evidence"
+                "native or prepare/batch Vortex lane lacks workload scorecard/result-sink replay evidence"
             ],
         }
     missing = shardloom_claim_grade_missing_evidence(result)
@@ -7864,7 +8066,10 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
     if selected_mode == "prepared_vortex":
         if result.get("timing_scope") != "warm_prepared_query":
             raise RuntimeError("prepared_vortex rows must report warm_prepared_query timing")
-        if result.get("vortex_ingest_performed") is True:
+        if (
+            result.get("vortex_ingest_performed") is True
+            and result.get("engine") != "shardloom-prepare-batch"
+        ):
             raise RuntimeError(
                 "prepared_vortex rows cannot perform vortex_ingest inside warm query timing"
             )
@@ -8745,6 +8950,7 @@ def coverage_status(result: dict[str, Any]) -> str:
     if result["engine"] in (
         "shardloom-vortex",
         "shardloom-prepared-vortex",
+        "shardloom-prepare-batch",
         "shardloom-direct-transient",
     ):
         return "fixture_smoke_only"
@@ -10236,6 +10442,47 @@ def execution_mode_metadata(
         vortex_write_reopen_included = False
         direct_transient_execution = True
         external_engine_invoked = False
+    elif engine == "shardloom-prepare-batch":
+        selected = str(evidence.get("selected_execution_mode") or "prepared_vortex")
+        reason = str(
+            evidence.get("mode_selection_reason")
+            or "compatibility input was prepared and reused by a prepared Vortex batch in one process"
+        )
+        family = "native_vortex"
+        source_kind = "non_vortex_source_to_vortex_prepared_state"
+        source_adapter_id = f"{data_format}_input_adapter"
+        source_adapter_status = "smoke_supported"
+        source_adapter_blocker_id = "none_scoped_smoke_only"
+        ingress_route = "certified_vortex_ingest_then_prepared_batch"
+        ingress_route_label = "Single-process prepare/batch route"
+        ingress_status = "smoke_supported"
+        ingress_certification_level = "certified_ingest_stage"
+        vortex_ingest_performed = True
+        vortex_ingest_status = "single_process_precompleted_before_batch_timing"
+        vortex_ingest_blocker_id = "none_scoped_smoke_only"
+        prepared_state_created = True
+        prepared_state_reused = True
+        prepared_state_reuse_hit = (
+            parse_optional_bool(evidence.get("prepare_batch_prepared_state_reuse_hit"))
+            is True
+            or parse_optional_bool(evidence.get("prepare_batch_prepared_state_reused"))
+            is True
+        )
+        execution_route_label = "Prepared warm route"
+        timing_scope = "warm_prepared_query"
+        certification_policy = "certified_import_stage_then_prepared_native_smoke"
+        certification_status = "scoped_certification_path"
+        certification_blocker_id = "none_scoped_smoke_only"
+        output_route = "local_result_sink_or_report"
+        output_format = "vortex_result_sink_or_none"
+        output_plan_id = "see_output_plan_contract"
+        output_plan_status = "see_output_plan_contract"
+        vortex_native_claim_allowed = True
+        compatibility_import_included = False
+        vortex_prepare_included = False
+        vortex_write_reopen_included = False
+        direct_transient_execution = False
+        external_engine_invoked = False
     elif engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
         default_selected = "native_vortex" if engine == "shardloom-vortex" else "prepared_vortex"
         selected = str(evidence.get("selected_execution_mode") or default_selected)
@@ -11200,6 +11447,47 @@ def successful_result_from_iterations(
         "computed_result_sink_bytes": computed_result_sink_bytes,
         "startup_warmup_millis": runner.startup_time_millis,
         "build_time_millis": runner.build_time_millis,
+        "prepare_batch_schema_version": evidence.get(
+            "prepare_batch_schema_version", "not_applicable"
+        ),
+        "prepare_batch_runtime_status": evidence.get(
+            "prepare_batch_runtime_status", "not_applicable"
+        ),
+        "prepare_batch_route": evidence.get("prepare_batch_route", "not_applicable"),
+        "prepare_batch_cli_process_wall_millis": parse_optional_float(
+            evidence.get("prepare_batch_cli_process_wall_millis")
+        ),
+        "prepare_batch_preparation_millis": mean_evidence_micros(
+            "prepare_batch_preparation_micros"
+        ),
+        "prepare_batch_source_to_columnar_millis": mean_evidence_micros(
+            "prepare_batch_source_to_columnar_micros"
+        ),
+        "prepare_batch_vortex_array_build_millis": mean_evidence_micros(
+            "prepare_batch_vortex_array_build_micros"
+        ),
+        "prepare_batch_vortex_write_millis": mean_evidence_micros(
+            "prepare_batch_vortex_write_micros"
+        ),
+        "prepare_batch_vortex_reopen_verify_millis": mean_evidence_micros(
+            "prepare_batch_vortex_reopen_verify_micros"
+        ),
+        "prepare_batch_prepared_artifact_reuse_count": parse_optional_int(
+            evidence.get("prepare_batch_prepared_artifact_reuse_count")
+        ),
+        "prepare_batch_preparation_included_in_batch_timing": (
+            parse_optional_bool(
+                evidence.get("prepare_batch_preparation_included_in_batch_timing")
+            )
+            is True
+        ),
+        "prepare_batch_fallback_attempted": (
+            parse_optional_bool(evidence.get("prepare_batch_fallback_attempted")) is True
+        ),
+        "prepare_batch_external_engine_invoked": (
+            parse_optional_bool(evidence.get("prepare_batch_external_engine_invoked"))
+            is True
+        ),
         "preparation_millis": preparation_millis
         if preparation_millis is not None
         else runner.preparation_time_millis,
@@ -12567,7 +12855,7 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "status": "local_smoke_not_claim_grade",
         "rows": paths.rows,
         "dim_rows": paths.dim_rows,
-        "storage_format": "CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC where supported; ShardLoom compatibility rows import into local Vortex files; shardloom-vortex rows report prepared/native Vortex execution under the requested source-format rows; shardloom-direct-transient is a scoped local CSV smoke lane without Vortex persistence",
+        "storage_format": "CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC where supported; ShardLoom compatibility rows import into local Vortex files; shardloom-vortex rows report prepared/native Vortex execution under the requested source-format rows; shardloom-prepare-batch rows run compatibility prepare plus prepared/native batch in one process with query timing split from preparation; shardloom-direct-transient is a scoped local CSV smoke lane without Vortex persistence",
         "benchmark_suite": BENCHMARK_SUITE,
         "scenario_catalog_schema": SCENARIO_CATALOG["schema_version"],
         "dataset_profile": args.dataset_profile,
@@ -12620,7 +12908,12 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "orc_included": "orc" in args.format_list,
         "shardloom_resource_sizing": "auto by default; optional --memory-gb and --max-parallelism caps are reflected in ShardLoom evidence fields",
         "native_vortex_included": any(
-            engine in ("shardloom-vortex", "shardloom-prepared-vortex")
+            engine
+            in (
+                "shardloom-vortex",
+                "shardloom-prepared-vortex",
+                "shardloom-prepare-batch",
+            )
             for engine in args.engine_list
         ),
         "direct_transient_included": "shardloom-direct-transient" in args.engine_list,

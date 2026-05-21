@@ -63,7 +63,10 @@ each selected compatibility format into local Vortex files before running the
 temporary benchmark operator. The `shardloom-vortex` and `shardloom-prepared-vortex`
 lanes prepare native Vortex artifacts once for each requested source format and then
 report the native/prepared scenario result under that source-format row, such as CSV
-or Parquet. They do not add standalone `.vortex` report rows.
+or Parquet. The optional `shardloom-prepare-batch` lane runs the scoped
+compatibility prepare plus prepared/native batch route in one ShardLoom process and
+keeps preparation timing split from child query timing. These lanes do not add
+standalone `.vortex` report rows.
 The optional `shardloom-direct-transient` lane runs only the scoped local CSV
 `selective filter` and `filter + projection + limit` smoke paths without persistent Vortex
 write/reopen. It exists to prove direct transient admission and evidence shape; it is not a
@@ -526,6 +529,18 @@ outside child query timing, and the route is still scoped local evidence only: i
 fast mode, persistent cache, performance claim, SQL/DataFrame support, object-store/lakehouse
 support, package-readiness claim, or Spark-displacement claim.
 
+The comparative harness exposes the same route as `--engines shardloom-prepare-batch`:
+
+```powershell
+python benchmarks\traditional_analytics\run.py --engines shardloom-prepare-batch --formats csv --scenario "selective filter" --scenario "filter + projection + limit" --rows 1000 --iterations 1 --shardloom-build-profile debug --skip-shardloom-native --no-markdown --output target\shardloom-prepare-batch-smoke.json --regenerate
+```
+
+This lane is useful for UniversalIngress/adapter bottleneck attribution because benchmark rows carry
+`prepare_batch_preparation_millis`, `prepare_batch_source_to_columnar_millis`,
+`prepare_batch_vortex_array_build_millis`, Vortex artifact refs/digests, source-state reuse, and
+no-fallback fields in the same artifact as the child scenario timings. It does not replace the
+warm `shardloom-prepared-vortex` lane, which remains the route for already-prepared artifact reuse.
+
 GAR-PERF-1B adds the complete source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md`. Batch evidence now also emits
 `source_state_coverage_schema_version`,
@@ -796,7 +811,7 @@ Useful focused prepared/native checks:
 
 ```powershell
 benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom-vortex,pandas --formats csv,parquet --scenario "selective filter" --rows 10000 --iterations 3
-benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex,pandas --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "filter + projection + limit" --rows 10000 --iterations 1
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex,shardloom-prepare-batch,pandas --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "filter + projection + limit" --rows 10000 --iterations 1
 ```
 
 ShardLoom's compatibility-format rows report `row_read=true` and

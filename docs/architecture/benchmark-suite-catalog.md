@@ -160,9 +160,12 @@ Prepared/native Vortex result sinks are opt-in and caller-owned. When enabled, r
 `commit_state`, and `rollback_cleanup_status`. Missing result-sink replay or certificate evidence
 must block claim-grade promotion rather than silently omitting the sink proof.
 
-shardloom-vortex and shardloom-prepared-vortex rows are reported under requested source-format rows
-such as CSV, JSONL, Parquet, Arrow IPC, Avro, or ORC. They do not add a synthetic standalone
-`.vortex` report format row; preparation metadata records the Vortex artifact boundary.
+shardloom-vortex, shardloom-prepared-vortex, and shardloom-prepare-batch rows are reported under
+requested source-format rows such as CSV, JSONL, Parquet, Arrow IPC, Avro, or ORC. They do not add a
+synthetic standalone `.vortex` report format row; preparation metadata records the Vortex artifact
+boundary. The shardloom-prepare-batch lane is the scoped single-process
+`compatibility_import_certified -> prepared_vortex batch` route and emits `prepare_batch_*` adapter
+timing/evidence fields without treating preparation as child query timing.
 
 native_vortex rows start from existing `.vortex` input and are the cleanest future ShardLoom
 performance lane once operator coverage matures. Current native rows can still use temporary

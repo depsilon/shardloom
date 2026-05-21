@@ -201,9 +201,10 @@ VortexPreparedState`; it is not broad Vortex writer support, object-store/table 
 production SQL/DataFrame support, or a performance claim.
 
 Traditional analytics compatibility inputs can also use a single-process prepare/batch route
-through `ShardLoomClient.traditional_analytics_prepare_batch_run(...)`. The helper invokes
-`traditional-analytics-prepare-batch-run`, prepares the local fact/dimension inputs once into
-prepared Vortex artifacts, then runs a prepared/native scenario batch while preserving
+through `ShardLoomClient.traditional_analytics_prepare_batch_run(...)` or the convenience
+`prepare_and_run_traditional_analytics_vortex_batch(...)` helper. Both invoke
+`traditional-analytics-prepare-batch-run`, prepare the local fact/dimension inputs once into
+prepared Vortex artifacts, then run a prepared/native scenario batch while preserving
 `prepare_batch_*`, source-state reuse, fallback, and claim-boundary fields:
 
 ```python
@@ -225,8 +226,9 @@ print(result.fallback.attempted)
 ```
 
 This is a scoped local runtime route for avoiding repeated compatibility preparation inside a batch.
-It is not a native Python binding, persistent cache, object-store/table runtime, package-readiness
-claim, or performance claim.
+Use `prepare_traditional_analytics_vortex_artifacts(...)` only when the caller needs to manage
+prepared artifacts explicitly across later commands. This is not a native Python binding,
+persistent cache, object-store/table runtime, package-readiness claim, or performance claim.
 
 Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
 batch path when allowed; `live` selects the CG-22 in-memory fixture path for

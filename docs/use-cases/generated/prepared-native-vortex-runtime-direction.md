@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `prepared_vortex/native_vortex`
 - **Engine mode:** `batch`
-- **Claim boundary:** Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState and does not directly read non-Vortex sources. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
+- **Claim boundary:** Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,12 +16,12 @@ Prepared/native Vortex runtime direction has a scoped local path. Treat it as te
 
 ## Claim Boundary
 
-Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState and does not directly read non-Vortex sources. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
+Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
 
 ## How To Try It
 
 ```powershell
-python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\shardloom-prepared-vortex-smoke.json --regenerate
+python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex,shardloom-prepare-batch --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\shardloom-prepared-vortex-smoke.json --regenerate
 ```
 
 ## Internal Flow
@@ -37,6 +37,9 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 - `source_backed_scan_used`
 - `source_state_reuse_hit`
 - `encoded_predicate_provider_status`
+- `prepare_batch_route`
+- `prepare_batch_preparation_millis`
+- `prepare_batch_source_to_columnar_millis`
 - `data_decoded`
 - `data_materialized`
 - `claim_gate_status`
@@ -45,7 +48,7 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 
 ## Expected Output Or Evidence
 
-Prepared Vortex rows separate from compatibility import rows, with source-backed scan and no-fallback fields where available.
+Warm prepared Vortex rows separate from single-process prepare/batch rows, with source-backed scan, prepare_batch, and no-fallback fields where available.
 
 ## Common Mistakes
 
