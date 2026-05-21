@@ -932,6 +932,8 @@ class ShardLoomClientTests(unittest.TestCase):
                     "fields": [
                         {"key": "source_path", "value": "target/source.csv"},
                         {"key": "target_vortex_path", "value": "target/source.vortex"},
+                        {"key": "vortex_ingest_output_workspace_path_safety_status", "value": "enforced"},
+                        {"key": "vortex_ingest_output_commit_status", "value": "committed"},
                         {"key": "source_format", "value": "csv"},
                         {"key": "vortex_ingest_status", "value": "prepared_state_created"},
                         {"key": "prepared_state_id", "value": "vortex-prepared-state-fnv64-abc"},
@@ -969,6 +971,8 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsInstance(result, VortexIngestSmokeReport)
         self.assertEqual(result.source_path, "target/source.csv")
         self.assertEqual(result.target_vortex_path, "target/source.vortex")
+        self.assertEqual(result.workspace_path_safety_status, "enforced")
+        self.assertEqual(result.output_commit_status, "committed")
         self.assertEqual(result.source_format, "csv")
         self.assertEqual(result.vortex_ingest_status, "prepared_state_created")
         self.assertEqual(result.prepared_state_id, "vortex-prepared-state-fnv64-abc")

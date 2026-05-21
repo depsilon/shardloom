@@ -56,8 +56,8 @@ Treat the following as untrusted unless a later certificate says otherwise:
 | --- | --- | --- | --- |
 | Malicious Vortex artifact | `RuntimeInputSafetyReport` | malformed Vortex fixture does not panic | yes |
 | Malformed CSV/JSONL/Parquet/Arrow/Avro/ORC | `RuntimeInputSafetyReport` | deterministic unsupported/error diagnostics | yes for supported formats |
-| Path traversal | `WorkspacePathSafetyReport` | output path outside workspace rejected | yes |
-| Unsafe symlink or hardlink writes | `WorkspacePathSafetyReport` | deterministic blocker or safe rejection | yes |
+| Path traversal | `WorkspacePathSafetyReport`; `WorkspaceSafeLocalWriteReport` | output path outside workspace rejected before write | yes |
+| Unsafe symlink or hardlink writes | `WorkspaceSafeLocalWriteReport` | deterministic blocker or safe rejection at sink boundary | yes |
 | Oversized or deeply nested inputs | `RuntimeInputSafetyReport` | size/depth limit diagnostics | yes for supported paths |
 | Invalid UTF-8 | `RuntimeInputSafetyReport` | deterministic invalid-text diagnostic | yes for text paths |
 | Resource exhaustion | runtime memory/spill evidence plus security diagnostics | fail-before-OOM or bounded blocker | yes for claimed workloads |
@@ -77,6 +77,7 @@ Release-readiness evidence should reference these report families from RFC 0043:
 - `SupplyChainReleaseEvidence`
 - `RuntimeInputSafetyReport`
 - `WorkspacePathSafetyReport`
+- `WorkspaceSafeLocalWriteReport`
 - `EvidenceArtifactSafetyReport`
 - `VulnerabilityResponseReport`
 
@@ -84,8 +85,8 @@ Release-readiness evidence should reference these report families from RFC 0043:
 
 Current state is `SEC-1 documented policy` for the threat model itself. Some dependency and release
 scaffolding is `SEC-2 checked configuration`. P8.0D adds the first `SEC-4 deterministic regression
-tests` for report-level runtime input safety, workspace path safety, and evidence artifact redaction
-in `docs/security/runtime-exploit-regression-suite.md`.
+tests` for report-level runtime input safety, enforced workspace-safe local writes, workspace path
+safety, and evidence artifact redaction in `docs/security/runtime-exploit-regression-suite.md`.
 
 P8.0G now wires these reports into the local release security gate. Public release still requires
 P8.4 to complete the full hard release-readiness gate across runtime, CLI, Python, packaging,

@@ -23,8 +23,8 @@ use std::{
 use shardloom_core::{
     BinaryOp, ColumnRef, CommandStatus, ComparisonOp, ExprId, Expression, ExpressionInputRow,
     ExpressionKind, LogicalDType, OutputFormat, ScalarValue, ShardLoomError, UnaryOp,
-    evaluate_filter, evaluate_projection, format_iso_date32, format_iso_timestamp_micros,
-    parse_iso_date32, parse_iso_timestamp_micros,
+    WorkspaceSafeLocalWriteReport, evaluate_filter, evaluate_projection, format_iso_date32,
+    format_iso_timestamp_micros, parse_iso_date32, parse_iso_timestamp_micros,
 };
 
 use crate::{
@@ -158,6 +158,7 @@ struct SqlWrittenOutput {
     bytes: u64,
     write_millis: u128,
     replay: SqlOutputReplayEvidence,
+    workspace_write_report: WorkspaceSafeLocalWriteReport,
     vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
 }
 
@@ -1966,7 +1967,7 @@ impl VortexIngestReport {
         } else {
             "ingest_minimal_records_artifact_digest_without_reopen_or_result_replay"
         };
-        vec![
+        let mut fields = vec![
             (
                 "schema_version".to_string(),
                 VORTEX_INGEST_SCHEMA_VERSION.to_string(),
@@ -2389,7 +2390,13 @@ impl VortexIngestReport {
                 "object_store_lakehouse_claim_allowed".to_string(),
                 "false".to_string(),
             ),
-        ]
+        ];
+        fields.extend(
+            self.vortex_report
+                .workspace_write_report
+                .evidence_fields("vortex_ingest_output"),
+        );
+        fields
     }
 
     fn to_text(&self) -> String {
@@ -4877,20 +4884,17 @@ fn fanout_plan_digest_fragment(request: &SqlLocalSourceRequest) -> String {
 }
 
 fn preflight_sql_output_writes(request: &SqlLocalSourceRequest) -> Result<(), ShardLoomError> {
-    if request.allow_overwrite {
-        return Ok(());
-    }
     let targets = request
         .output_path
         .iter()
         .chain(request.fanout_outputs.iter().map(|target| &target.path));
     for path in targets {
-        if path.exists() {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "SQL local-source output path already exists: {}; pass --allow-overwrite to replace it",
-                path.display()
-            )));
-        }
+        let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+        shardloom_core::plan_workspace_safe_local_output(
+            workspace_root,
+            path,
+            request.allow_overwrite,
+        )?;
     }
     Ok(())
 }
@@ -4931,22 +4935,6 @@ fn write_sql_output(
     rows: &[Vec<(String, ScalarValue)>],
     allow_overwrite: bool,
 ) -> Result<SqlWrittenOutput, ShardLoomError> {
-    if rendered.path.exists() && !allow_overwrite {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "SQL local-source output path already exists: {}; pass --allow-overwrite to replace it",
-            rendered.path.display()
-        )));
-    }
-    if let Some(parent) = rendered.path.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent).map_err(|error| {
-                ShardLoomError::Message(format!(
-                    "failed to create local SQL output directory {}: {error}",
-                    parent.display()
-                ))
-            })?;
-        }
-    }
     match rendered.payload {
         SqlOutputPayload::Bytes {
             content,
@@ -4954,12 +4942,14 @@ fn write_sql_output(
             bytes,
         } => {
             let write_start = Instant::now();
-            fs::write(&rendered.path, &content).map_err(|error| {
-                ShardLoomError::Message(format!(
-                    "failed to write local SQL output {}: {error}",
-                    rendered.path.display()
-                ))
-            })?;
+            let workspace_root = shardloom_core::infer_local_output_workspace_root(&rendered.path)?;
+            let workspace_write_report = shardloom_core::write_workspace_safe_bytes(
+                workspace_root,
+                &rendered.path,
+                allow_overwrite,
+                "SQL local-source output",
+                &content,
+            )?;
             let write_millis = write_start.elapsed().as_millis();
             let replay = replay_sql_byte_output(rendered.format, &rendered.path, &digest)?;
             Ok(SqlWrittenOutput {
@@ -4969,6 +4959,7 @@ fn write_sql_output(
                 bytes,
                 write_millis,
                 replay,
+                workspace_write_report,
                 vortex_report: None,
             })
         }
@@ -4998,6 +4989,7 @@ fn write_sql_vortex_output(
     let report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(request)?;
     let write_millis = report.write_micros / 1_000;
     let replay = replay_sql_vortex_output(format, &report);
+    let workspace_write_report = report.workspace_write_report.clone();
     Ok(SqlWrittenOutput {
         format,
         path,
@@ -5005,6 +4997,7 @@ fn write_sql_vortex_output(
         bytes: report.bytes_written,
         write_millis,
         replay,
+        workspace_write_report,
         vortex_report: Some(report),
     })
 }
@@ -10398,7 +10391,7 @@ fn in_list_equality_expression(
 #[allow(clippy::too_many_lines)]
 impl SqlLocalSourceReport {
     fn fields(&self) -> Vec<(String, String)> {
-        vec![
+        let mut fields = vec![
             ("schema_version".to_string(), SCHEMA_VERSION.to_string()),
             (
                 "execution_mode".to_string(),
@@ -11855,7 +11848,26 @@ impl SqlLocalSourceReport {
                 "spark_replacement_claim_allowed".to_string(),
                 "false".to_string(),
             ),
-        ]
+        ];
+        if let Some(output) = self.primary_written_output() {
+            fields.extend(output.workspace_write_report.evidence_fields("output"));
+        } else {
+            fields.push((
+                "output_workspace_path_safety_status".to_string(),
+                "not_applicable_inline_result".to_string(),
+            ));
+        }
+        fields.extend([
+            (
+                "fanout_output_workspace_path_safety_statuses".to_string(),
+                self.fanout_output_workspace_safety_statuses(),
+            ),
+            (
+                "fanout_output_commit_modes".to_string(),
+                self.fanout_output_commit_modes(),
+            ),
+        ]);
+        fields
     }
 
     fn to_text(&self) -> String {
@@ -11987,6 +11999,13 @@ impl SqlLocalSourceReport {
         !self.request.fanout_outputs.is_empty()
     }
 
+    fn primary_written_output(&self) -> Option<&SqlWrittenOutput> {
+        let primary_path = self.request.output_path.as_ref()?;
+        self.written_outputs
+            .iter()
+            .find(|output| &output.path == primary_path)
+    }
+
     fn fanout_written_outputs(&self) -> impl Iterator<Item = &SqlWrittenOutput> {
         let primary_path = self.request.output_path.as_ref();
         self.written_outputs
@@ -12081,6 +12100,26 @@ impl SqlLocalSourceReport {
                 "{}:{}",
                 output.format.sink_format(),
                 output.replay.fidelity_loss
+            )
+        }))
+    }
+
+    fn fanout_output_workspace_safety_statuses(&self) -> String {
+        csv_or_not_applicable(self.fanout_written_outputs().map(|output| {
+            format!(
+                "{}:{}",
+                output.format.sink_format(),
+                output.workspace_write_report.path_safety_report.accepted()
+            )
+        }))
+    }
+
+    fn fanout_output_commit_modes(&self) -> String {
+        csv_or_not_applicable(self.fanout_written_outputs().map(|output| {
+            format!(
+                "{}:{}",
+                output.format.sink_format(),
+                output.workspace_write_report.commit_mode.as_str()
             )
         }))
     }

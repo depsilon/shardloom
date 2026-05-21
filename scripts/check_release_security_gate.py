@@ -85,6 +85,7 @@ def main() -> int:
             "SecurityThreatModelReport",
             "RuntimeInputSafetyReport",
             "WorkspacePathSafetyReport",
+            "WorkspaceSafeLocalWriteReport",
             "EvidenceArtifactSafetyReport",
             "SEC-4 deterministic regression",
         ]
@@ -162,9 +163,15 @@ def main() -> int:
         for item in [
             "RuntimeInputSafetyReport",
             "WorkspacePathSafetyReport",
+            "WorkspaceSafeLocalWriteReport",
+            "write_workspace_safe_bytes",
+            "plan_workspace_safe_local_output",
             "EvidenceArtifactSafetyReport",
             "runtime_input_safety_report_blocks_malformed_inputs_without_fallback",
             "workspace_path_safety_rejects_parent_traversal_and_external_outputs",
+            "workspace_safe_local_write_commits_with_staging_evidence",
+            "workspace_safe_local_write_requires_explicit_overwrite_and_replaces_safely",
+            "workspace_safe_local_write_rejects_symlink_targets_when_supported",
             "evidence_artifact_safety_redacts_credential_like_values",
         ]
         if item not in runtime_text

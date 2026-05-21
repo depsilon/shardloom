@@ -285,6 +285,17 @@ fn vortex_ingest_smoke_minimal_certification_skips_reopen_scan() {
     assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field(
+        "vortex_ingest_output_workspace_path_safety_status",
+        "enforced"
+    )));
+    assert!(stdout.contains(&field("vortex_ingest_output_within_workspace", "true")));
+    assert!(stdout.contains(&field("vortex_ingest_output_commit_status", "committed")));
+    assert!(stdout.contains(&field(
+        "vortex_ingest_output_cleanup_status",
+        "no_staging_artifacts_remaining"
+    )));
+    assert!(stdout.contains(&field("vortex_ingest_output_fallback_attempted", "false")));
     assert!(target_path.exists());
 
     fs::remove_file(source_path).expect("remove source csv");
@@ -2671,6 +2682,18 @@ fn sql_local_source_smoke_writes_local_jsonl_output_with_certificate_fields() {
     assert!(stdout.contains(&field("object_store_io", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("output_workspace_path_safety_status", "enforced")));
+    assert!(stdout.contains(&field("output_within_workspace", "true")));
+    assert!(stdout.contains(&field("output_symlink_followed", "false")));
+    assert!(stdout.contains(&field("output_overwrite_allowed", "false")));
+    assert!(stdout.contains(&field("output_commit_mode", "atomic_rename_same_directory")));
+    assert!(stdout.contains(&field("output_commit_status", "committed")));
+    assert!(stdout.contains(&field(
+        "output_cleanup_status",
+        "no_staging_artifacts_remaining"
+    )));
+    assert!(stdout.contains(&field("output_fallback_attempted", "false")));
+    assert!(stdout.contains(&field("output_external_engine_invoked", "false")));
 
     fs::remove_file(source_path).expect("remove source csv");
     fs::remove_file(output_path).expect("remove output jsonl");
@@ -2820,6 +2843,14 @@ fn sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence() {
     assert!(stdout.contains("csv:logical_rows_replay_verified_type_metadata_not_preserved"));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field(
+        "fanout_output_workspace_path_safety_statuses",
+        "jsonl:true,csv:true"
+    )));
+    assert!(stdout.contains(&field(
+        "fanout_output_commit_modes",
+        "jsonl:atomic_rename_same_directory,csv:atomic_rename_same_directory"
+    )));
 
     fs::remove_file(source_path).expect("remove source csv");
     fs::remove_file(jsonl_output_path).expect("remove jsonl fanout");

@@ -82,6 +82,22 @@ fn user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence() {
     assert!(stdout.contains(&field("output_io_performed", "true")));
     assert!(stdout.contains(&field("write_io", "true")));
     assert!(stdout.contains(&field("output_format", "jsonl")));
+    assert!(stdout.contains(&field("output_workspace_path_safety_status", "enforced")));
+    assert!(stdout.contains(&field("output_within_workspace", "true")));
+    assert!(stdout.contains(&field("output_path_traversal_checked", "true")));
+    assert!(stdout.contains(&field("output_symlink_followed", "false")));
+    assert!(stdout.contains(&field("output_overwrite_allowed", "false")));
+    assert!(stdout.contains(&field("output_overwrite_performed", "false")));
+    assert!(stdout.contains(&field("output_commit_mode", "atomic_rename_same_directory")));
+    assert!(stdout.contains(&field("output_commit_status", "committed")));
+    assert!(stdout.contains(&field(
+        "output_cleanup_status",
+        "no_staging_artifacts_remaining"
+    )));
+    assert!(stdout.contains(&field("output_rollback_status", "not_required_new_target")));
+    assert!(stdout.contains(&field("output_fallback_attempted", "false")));
+    assert!(stdout.contains(&field("output_external_engine_invoked", "false")));
+    assert!(stdout.contains("\"output_staging_path\",\"value\":\""));
     assert!(stdout.contains(&field("vortex_output_runtime_execution", "false")));
     assert!(stdout.contains(&field("upstream_vortex_write_called", "false")));
     assert!(stdout.contains(&field("upstream_vortex_scan_called", "false")));

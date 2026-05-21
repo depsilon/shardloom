@@ -329,8 +329,10 @@ pub use security::{
     SecretRefId, SecurityGovernanceEvidenceArea, SecurityGovernanceEvidenceEntry,
     SecurityGovernanceEvidenceGateReport, SecurityGovernanceEvidenceStatus, SecurityPlan,
     SecurityPolicyStatus, SecurityReport, SensitiveField, WorkspacePathSafetyReport,
+    WorkspaceSafeLocalWritePlan, WorkspaceSafeLocalWriteReport, infer_local_output_workspace_root,
     plan_credential_policy_enforcement_gate, plan_sandbox_governance_readiness_gate,
-    plan_security_governance_evidence_gate, redact_credential_like_values,
+    plan_security_governance_evidence_gate, plan_workspace_safe_local_output,
+    redact_credential_like_values, write_workspace_safe_bytes,
 };
 
 pub use session::{

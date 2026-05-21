@@ -13,7 +13,6 @@
 use std::{
     collections::BTreeMap,
     fmt::Write as _,
-    fs,
     path::{Path, PathBuf},
     process::ExitCode,
     time::Instant,
@@ -21,6 +20,7 @@ use std::{
 
 #[cfg(any(feature = "universal-format-io", feature = "vortex-write"))]
 use shardloom_core::ScalarValue;
+use shardloom_core::WorkspaceSafeLocalWriteReport;
 use shardloom_core::{CommandStatus, OutputFormat, ShardLoomError};
 
 use crate::{
@@ -191,6 +191,7 @@ struct GeneratedOutputWriteReport {
     output_bytes: u64,
     output_digest: String,
     write_millis: u128,
+    workspace_write_report: WorkspaceSafeLocalWriteReport,
     vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
 }
 
@@ -258,6 +259,7 @@ struct GeneratedUserRowsSmokeReport {
     schema_digest: String,
     plan_digest: String,
     write_millis: u128,
+    workspace_write_report: WorkspaceSafeLocalWriteReport,
     vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
 }
 
@@ -289,6 +291,7 @@ struct GeneratedRangeSmokeReport {
     schema_digest: String,
     plan_digest: String,
     write_millis: u128,
+    workspace_write_report: WorkspaceSafeLocalWriteReport,
     vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
 }
 
@@ -467,6 +470,7 @@ struct GeneratedSqlSmokeReport {
     schema_digest: String,
     plan_digest: String,
     write_millis: u128,
+    workspace_write_report: WorkspaceSafeLocalWriteReport,
     vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
 }
 
@@ -1082,6 +1086,7 @@ impl GeneratedUserRowsSmokeReport {
                 self.write_millis.to_string(),
             ),
         ];
+        fields.extend(self.workspace_write_report.evidence_fields("output"));
         fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
         fields
     }
@@ -1290,6 +1295,7 @@ impl GeneratedRangeSmokeReport {
                 self.write_millis.to_string(),
             ),
         ];
+        fields.extend(self.workspace_write_report.evidence_fields("output"));
         fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
         fields
     }
@@ -1487,6 +1493,7 @@ impl GeneratedSqlSmokeReport {
                 self.write_millis.to_string(),
             ),
         ];
+        fields.extend(self.workspace_write_report.evidence_fields("output"));
         fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
         if let Some(range) = &self.range {
             fields.extend([
@@ -1613,6 +1620,7 @@ fn run_generated_user_rows_smoke(
             request.output_format.as_str()
         )),
         write_millis: write_report.write_millis,
+        workspace_write_report: write_report.workspace_write_report,
         vortex_report: write_report.vortex_report,
     })
 }
@@ -1658,6 +1666,7 @@ fn run_generated_range_smoke(
             request.column_name
         )),
         write_millis: write_report.write_millis,
+        workspace_write_report: write_report.workspace_write_report,
         vortex_report: write_report.vortex_report,
     })
 }
@@ -1697,6 +1706,7 @@ fn run_generated_sql_smoke(
             request.statement
         )),
         write_millis: write_report.write_millis,
+        workspace_write_report: write_report.workspace_write_report,
         vortex_report: write_report.vortex_report,
     })
 }
@@ -1732,35 +1742,21 @@ fn write_generated_file_output(
     allow_overwrite: bool,
     output_label: &str,
 ) -> Result<GeneratedOutputWriteReport, ShardLoomError> {
-    if output_path.exists() && !allow_overwrite {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "output path already exists: {}; pass --allow-overwrite to replace it",
-            output_path.display()
-        )));
-    }
-    if let Some(parent) = output_path.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent).map_err(|error| {
-            ShardLoomError::Message(format!(
-                "failed to create local output directory {}: {error}",
-                parent.display()
-            ))
-        })?;
-    }
-
     let start = Instant::now();
     let content = output_format.render_rows(schema, rows)?;
-    fs::write(output_path, &content).map_err(|error| {
-        ShardLoomError::Message(format!(
-            "failed to write local {output_label} {}: {error}",
-            output_path.display()
-        ))
-    })?;
+    let workspace_root = shardloom_core::infer_local_output_workspace_root(output_path)?;
+    let workspace_write_report = shardloom_core::write_workspace_safe_bytes(
+        workspace_root,
+        output_path,
+        allow_overwrite,
+        output_label,
+        &content,
+    )?;
     Ok(GeneratedOutputWriteReport {
-        output_bytes: u64::try_from(content.len()).unwrap_or(u64::MAX),
-        output_digest: fnv64_digest_bytes(&content),
+        output_bytes: workspace_write_report.bytes_written,
+        output_digest: workspace_write_report.output_digest.clone(),
         write_millis: start.elapsed().as_millis(),
+        workspace_write_report,
         vortex_report: None,
     })
 }
@@ -1799,6 +1795,7 @@ fn write_generated_vortex_output(
         output_bytes: report.bytes_written,
         output_digest: report.artifact_digest.clone(),
         write_millis,
+        workspace_write_report: report.workspace_write_report.clone(),
         vortex_report: Some(report),
     })
 }

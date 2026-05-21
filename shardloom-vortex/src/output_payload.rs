@@ -2,7 +2,6 @@ use std::fmt::Write as _;
 #[cfg(any(feature = "vortex-staged-output-fs", feature = "vortex-write"))]
 use std::{
     collections::hash_map::DefaultHasher,
-    fs,
     hash::{Hash, Hasher},
     path::Path,
 };
@@ -1690,11 +1689,13 @@ pub fn write_vortex_output_payload_artifact(
             request.payload_content.content_kind().as_str(),
             request.payload_content.summary()
         );
-        fs::write(payload_path, &content).map_err(|e| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to write output payload artifact: {e}"
-            ))
-        })?;
+        shardloom_core::write_workspace_safe_bytes(
+            parent,
+            payload_path,
+            request.has_option(VortexOutputPayloadArtifactWriteOption::AllowOverwrite),
+            "Vortex output payload artifact",
+            content.as_bytes(),
+        )?;
         let mut hasher = DefaultHasher::new();
         content.hash(&mut hasher);
         Ok(VortexOutputPayloadArtifactWriteReport::written(
@@ -1784,11 +1785,13 @@ pub fn write_vortex_native_count_output_payload(
             ));
         }
         let bytes = native_count_vortex_payload_bytes(count_result)?;
-        fs::write(path, &bytes).map_err(|e| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to write native Vortex output payload: {e}"
-            ))
-        })?;
+        shardloom_core::write_workspace_safe_bytes(
+            parent,
+            path,
+            request.has_option(VortexOutputPayloadArtifactWriteOption::AllowOverwrite),
+            "native Vortex output payload",
+            &bytes,
+        )?;
         let mut hasher = DefaultHasher::new();
         count_result.hash(&mut hasher);
         bytes.len().hash(&mut hasher);

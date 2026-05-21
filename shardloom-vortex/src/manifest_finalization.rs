@@ -1081,7 +1081,6 @@ pub fn write_vortex_finalized_manifest_artifact(
     }
     #[cfg(feature = "vortex-staged-output-fs")]
     {
-        use std::fs;
         if !request.finalization_plan_feature_gate_ready {
             return Ok(VortexFinalizedManifestArtifactWriteReport::blocked(
                 request,
@@ -1139,11 +1138,13 @@ pub fn write_vortex_finalized_manifest_artifact(
                 "finalized-manifest candidate already exists",
             ));
         }
-        fs::write(&path, request.finalized_manifest_content.as_str()).map_err(|e| {
-            ShardLoomError::new(format!(
-                "failed to write finalized-manifest candidate artifact: {e}"
-            ))
-        })?;
+        shardloom_core::write_workspace_safe_bytes(
+            parent,
+            &path,
+            request.has_option(VortexFinalizedManifestArtifactWriteOption::AllowOverwrite),
+            "Vortex finalized-manifest candidate artifact",
+            request.finalized_manifest_content.as_str().as_bytes(),
+        )?;
         let bytes = request.finalized_manifest_content.len();
         let checksum = request.finalized_manifest_content.checksum_u64();
         Ok(
