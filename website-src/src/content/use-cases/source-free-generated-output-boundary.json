@@ -68,7 +68,7 @@
     "docs/architecture/compute-engine-flow-reference.md",
     "docs/foundry/proof-of-use-certification.md",
     "python/README.md",
-    "docs/architecture/phased-execution-plan.md"
+    "docs/architecture/phased-execution-completed-ledger.md"
   ],
   "related_use_cases": [
     "first-10-minutes-local-smoke",

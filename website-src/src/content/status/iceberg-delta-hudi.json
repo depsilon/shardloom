@@ -20,6 +20,6 @@
   "blocked": "No table runtime, merge/update/delete, commit, rollback, or lakehouse production support is claimed.",
   "references": [
     "docs/use-cases/use-case-index.yml",
-    "docs/architecture/phased-execution-plan.md"
+    "docs/architecture/universal-compatibility-coverage-scoreboard.md"
   ]
 }

@@ -858,6 +858,8 @@ fn eval_function_call(
         "date_sub_days" => eval_date_add_days(name, args, row, -1),
         "timestamp_add_seconds" => eval_timestamp_add_seconds(name, args, row, 1),
         "timestamp_sub_seconds" => eval_timestamp_add_seconds(name, args, row, -1),
+        "date_diff_days" => eval_date_diff_days(name, args, row),
+        "timestamp_diff_seconds" => eval_timestamp_diff_seconds(name, args, row),
         "coalesce" => eval_coalesce(name, args, row),
         "nullif" => eval_nullif(name, args, row),
         "case_when" => eval_case_when(name, args, row),
@@ -1093,6 +1095,90 @@ fn eval_timestamp_add_seconds(
     }
 }
 
+fn eval_date_diff_days(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() != 2 {
+        return Err(EvalFailure::invalid(
+            "temporal_difference",
+            format!("function {name:?} requires exactly two Date32 arguments"),
+        ));
+    }
+    let left = eval_expression(&args[0], row)?;
+    let right = eval_expression(&args[1], row)?;
+    let data_materialized = left.data_materialized || right.data_materialized;
+    if left.value.is_null() || right.value.is_null() {
+        return Ok(
+            EvalValue::null(LogicalDType::Int64, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    match (left.value, right.value) {
+        (ScalarValue::Date32(left_days), ScalarValue::Date32(right_days)) => {
+            let result = i64::from(left_days) - i64::from(right_days);
+            Ok(EvalValue::new(
+                ScalarValue::Int64(result),
+                LogicalDType::Int64,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        (left, right) => Err(EvalFailure::unsupported(
+            "temporal_difference",
+            format!(
+                "function {name:?} supports Date32/null operands only, got {} and {}",
+                left.dtype().as_str(),
+                right.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn eval_timestamp_diff_seconds(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() != 2 {
+        return Err(EvalFailure::invalid(
+            "temporal_difference",
+            format!("function {name:?} requires exactly two TimestampMicros arguments"),
+        ));
+    }
+    let left = eval_expression(&args[0], row)?;
+    let right = eval_expression(&args[1], row)?;
+    let data_materialized = left.data_materialized || right.data_materialized;
+    if left.value.is_null() || right.value.is_null() {
+        return Ok(
+            EvalValue::null(LogicalDType::Int64, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    match (left.value, right.value) {
+        (ScalarValue::TimestampMicros(left_micros), ScalarValue::TimestampMicros(right_micros)) => {
+            let delta_micros = left_micros.checked_sub(right_micros).ok_or_else(|| {
+                EvalFailure::invalid("temporal_difference", "timestamp difference overflow")
+            })?;
+            Ok(EvalValue::new(
+                ScalarValue::Int64(delta_micros / MICROS_PER_SECOND),
+                LogicalDType::Int64,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        (left, right) => Err(EvalFailure::unsupported(
+            "temporal_difference",
+            format!(
+                "function {name:?} supports TimestampMicros/null operands only, got {} and {}",
+                left.dtype().as_str(),
+                right.dtype().as_str()
+            ),
+        )),
+    }
+}
+
 fn eval_date_extract(
     name: &str,
     args: &[Expression],
@@ -1219,6 +1305,18 @@ fn eval_string_concat(
         ));
     }
     let (values, data_materialized) = eval_function_args(args, row)?;
+    if let Some(other) = values
+        .iter()
+        .find(|value| !matches!(value, ScalarValue::Utf8(_) | ScalarValue::Null))
+    {
+        return Err(EvalFailure::unsupported(
+            "string_function",
+            format!(
+                "function {name:?} supports UTF-8/null operands only, got {}",
+                other.dtype().as_str()
+            ),
+        ));
+    }
     if values.iter().any(ScalarValue::is_null) {
         return Ok(
             EvalValue::null(LogicalDType::Utf8, NullBehavior::NullPropagating)
@@ -1260,6 +1358,20 @@ fn eval_string_substr(
         ));
     }
     let (values, data_materialized) = eval_function_args(args, row)?;
+    if !matches!(values[0], ScalarValue::Utf8(_) | ScalarValue::Null)
+        || !matches!(values[1], ScalarValue::Int64(_) | ScalarValue::Null)
+        || !matches!(values[2], ScalarValue::Int64(_) | ScalarValue::Null)
+    {
+        return Err(EvalFailure::unsupported(
+            "string_function",
+            format!(
+                "function {name:?} supports UTF-8/null, int64/null, int64/null operands only, got {}, {}, and {}",
+                values[0].dtype().as_str(),
+                values[1].dtype().as_str(),
+                values[2].dtype().as_str()
+            ),
+        ));
+    }
     if values.iter().any(ScalarValue::is_null) {
         return Ok(
             EvalValue::null(LogicalDType::Utf8, NullBehavior::NullPropagating)
@@ -1322,6 +1434,20 @@ fn eval_string_replace(
         ));
     }
     let (values, data_materialized) = eval_function_args(args, row)?;
+    if !values
+        .iter()
+        .all(|value| matches!(value, ScalarValue::Utf8(_) | ScalarValue::Null))
+    {
+        return Err(EvalFailure::unsupported(
+            "string_function",
+            format!(
+                "function {name:?} supports UTF-8/null operands only, got {}, {}, and {}",
+                values[0].dtype().as_str(),
+                values[1].dtype().as_str(),
+                values[2].dtype().as_str()
+            ),
+        ));
+    }
     if values.iter().any(ScalarValue::is_null) {
         return Ok(
             EvalValue::null(LogicalDType::Utf8, NullBehavior::NullPropagating)
@@ -1895,6 +2021,7 @@ fn function_operator_family(name: &str) -> &'static str {
         | "timestamp_minute" | "timestamp_second" => "timestamp_extract",
         "date_add_days" | "date_sub_days" => "date_arithmetic",
         "timestamp_add_seconds" | "timestamp_sub_seconds" => "timestamp_arithmetic",
+        "date_diff_days" | "timestamp_diff_seconds" => "temporal_difference",
         "coalesce" => "null_coalesce",
         "nullif" => "nullif_projection",
         "case_when" => "conditional_projection",
@@ -3257,6 +3384,19 @@ mod tests {
         assert!(!replace_report.external_engine_invoked);
     }
 
+    fn assert_string_function_error(
+        expression: &Expression,
+        input: &ExpressionInputRow,
+        expected_status: ExpressionEvaluationStatus,
+    ) {
+        let report = evaluate_expression(expression, input);
+        assert_eq!(report.status, expected_status);
+        assert_eq!(report.operator_family, "string_function");
+        assert!(report.has_errors());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
     #[test]
     fn expression_semantics_blocks_invalid_string_functions_without_fallback() {
         let invalid_start = Expression::new(
@@ -3270,18 +3410,11 @@ mod tests {
                 ],
             },
         );
-        let invalid_start_report = evaluate_expression(
+        assert_string_function_error(
             &invalid_start,
             &row(&[("label", ScalarValue::Utf8("alpha".to_string()))]),
+            ExpressionEvaluationStatus::InvalidInput,
         );
-        assert_eq!(
-            invalid_start_report.status,
-            ExpressionEvaluationStatus::InvalidInput
-        );
-        assert_eq!(invalid_start_report.operator_family, "string_function");
-        assert!(invalid_start_report.has_errors());
-        assert!(!invalid_start_report.fallback_attempted);
-        assert!(!invalid_start_report.external_engine_invoked);
 
         let empty_replace = Expression::new(
             expr_id("replace-empty"),
@@ -3294,18 +3427,11 @@ mod tests {
                 ],
             },
         );
-        let empty_replace_report = evaluate_expression(
+        assert_string_function_error(
             &empty_replace,
             &row(&[("label", ScalarValue::Utf8("alpha".to_string()))]),
+            ExpressionEvaluationStatus::InvalidInput,
         );
-        assert_eq!(
-            empty_replace_report.status,
-            ExpressionEvaluationStatus::InvalidInput
-        );
-        assert_eq!(empty_replace_report.operator_family, "string_function");
-        assert!(empty_replace_report.has_errors());
-        assert!(!empty_replace_report.fallback_attempted);
-        assert!(!empty_replace_report.external_engine_invoked);
 
         let wrong_type = Expression::new(
             expr_id("concat-wrong-type"),
@@ -3317,18 +3443,44 @@ mod tests {
                 ],
             },
         );
-        let wrong_type_report = evaluate_expression(
+        assert_string_function_error(
             &wrong_type,
             &row(&[("label", ScalarValue::Utf8("alpha".to_string()))]),
+            ExpressionEvaluationStatus::Unsupported,
         );
-        assert_eq!(
-            wrong_type_report.status,
-            ExpressionEvaluationStatus::Unsupported
+
+        let null_and_wrong_type = Expression::new(
+            expr_id("concat-null-wrong-type"),
+            ExpressionKind::FunctionCall {
+                name: "concat".to_string(),
+                args: vec![
+                    Expression::literal(expr_id("null"), ScalarValue::Null),
+                    Expression::literal(expr_id("bad"), ScalarValue::Int64(1)),
+                ],
+            },
         );
-        assert_eq!(wrong_type_report.operator_family, "string_function");
-        assert!(wrong_type_report.has_errors());
-        assert!(!wrong_type_report.fallback_attempted);
-        assert!(!wrong_type_report.external_engine_invoked);
+        assert_string_function_error(
+            &null_and_wrong_type,
+            &row(&[]),
+            ExpressionEvaluationStatus::Unsupported,
+        );
+
+        let substr_null_and_wrong_type = Expression::new(
+            expr_id("substr-null-wrong-type"),
+            ExpressionKind::FunctionCall {
+                name: "substr".to_string(),
+                args: vec![
+                    Expression::literal(expr_id("null-text"), ScalarValue::Null),
+                    Expression::literal(expr_id("bad-start"), ScalarValue::Utf8("1".to_string())),
+                    Expression::literal(expr_id("length"), ScalarValue::Int64(3)),
+                ],
+            },
+        );
+        assert_string_function_error(
+            &substr_null_and_wrong_type,
+            &row(&[]),
+            ExpressionEvaluationStatus::Unsupported,
+        );
     }
 
     #[test]
@@ -3489,6 +3641,86 @@ mod tests {
         assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_temporal_difference_without_fallback() {
+        let date_expression = Expression::new(
+            expr_id("date-diff"),
+            ExpressionKind::FunctionCall {
+                name: "date_diff_days".to_string(),
+                args: vec![
+                    Expression::column(expr_id("end_date"), col("end_date")),
+                    Expression::column(expr_id("start_date"), col("start_date")),
+                ],
+            },
+        );
+        let start_date = parse_iso_date32("2026-05-19").expect("date parses");
+        let end_date = parse_iso_date32("2026-05-23").expect("date parses");
+        let date_report = evaluate_expression(
+            &date_expression,
+            &row(&[
+                ("start_date", ScalarValue::Date32(start_date)),
+                ("end_date", ScalarValue::Date32(end_date)),
+            ]),
+        );
+
+        assert_eq!(date_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(date_report.operator_family, "temporal_difference");
+        assert_eq!(date_report.value, Some(ScalarValue::Int64(4)));
+        assert_eq!(date_report.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(date_report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!date_report.fallback_attempted);
+        assert!(!date_report.external_engine_invoked);
+
+        let timestamp_expression = Expression::new(
+            expr_id("timestamp-diff"),
+            ExpressionKind::FunctionCall {
+                name: "timestamp_diff_seconds".to_string(),
+                args: vec![
+                    Expression::column(expr_id("end_ts"), col("end_ts")),
+                    Expression::column(expr_id("start_ts"), col("start_ts")),
+                ],
+            },
+        );
+        let start_ts =
+            parse_iso_timestamp_micros("2026-05-19T12:34:45Z").expect("timestamp parses");
+        let end_ts = parse_iso_timestamp_micros("2026-05-19T12:37:50Z").expect("timestamp parses");
+        let timestamp_report = evaluate_expression(
+            &timestamp_expression,
+            &row(&[
+                ("start_ts", ScalarValue::TimestampMicros(start_ts)),
+                ("end_ts", ScalarValue::TimestampMicros(end_ts)),
+            ]),
+        );
+
+        assert_eq!(
+            timestamp_report.status,
+            ExpressionEvaluationStatus::Evaluated
+        );
+        assert_eq!(timestamp_report.operator_family, "temporal_difference");
+        assert_eq!(timestamp_report.value, Some(ScalarValue::Int64(185)));
+        assert_eq!(timestamp_report.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(
+            timestamp_report.null_behavior,
+            NullBehavior::NullPropagating
+        );
+        assert!(!timestamp_report.fallback_attempted);
+        assert!(!timestamp_report.external_engine_invoked);
+
+        let null_report = evaluate_expression(
+            &timestamp_expression,
+            &row(&[
+                ("start_ts", ScalarValue::Null),
+                ("end_ts", ScalarValue::TimestampMicros(end_ts)),
+            ]),
+        );
+        assert_eq!(null_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(null_report.value, Some(ScalarValue::Null));
+        assert_eq!(null_report.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(null_report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!null_report.fallback_attempted);
+        assert!(!null_report.external_engine_invoked);
     }
 
     #[test]

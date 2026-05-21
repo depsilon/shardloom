@@ -16,6 +16,59 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: CHECKPOINT-2026-05-21-A compute-engine release-readiness sweep
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-temporal-diff-4d` / local checkpoint sweep.
+  - Source:
+    - User-requested checkpoint covering PR #880 and newer, docs drift, modularization,
+      optimization, website Docs cohesion, benchmark telemetry, universal ingest/adapter
+      bottleneck research, and end-to-end path consolidation.
+  - Scope:
+    - Reviewed PR #880 and newer Codex comments. PR #882/#883/#884 review findings were
+      reproduced against `main` and fixed locally: string function argument types validate before
+      null short-circuit, Python lowering rejects aggregate-before-join plans, and joined computed
+      projection output preserves SELECT order.
+    - Replaced public/use-case/status/Field Guide references that treated the active phase plan as
+      proof with stable architecture contracts or the completed ledger; generated public website
+      data no longer references `phased-execution-plan.md`.
+    - Replaced the generated Starlight `/docs` placeholder with a branded public Docs page,
+      preserving legacy `docs.html` output and adding Docs to public navigation/readiness checks.
+    - Audited modularization, optimization, and parallel-path risks around
+      `shardloom-cli/src/sql_local_source_runtime.rs`, `shardloom-vortex/src/universal_format_io.rs`,
+      and `python/src/shardloom/query.py`.
+    - Researched Arrow RS and Vortex ingest/scan surfaces. The recorded direction is a reusable
+      columnar `SourceState` adapter that pushes projection/limit/filter where supported, preserves
+      columnar batches until scalar rows are required, and routes admitted preparation through
+      `VortexPreparedState`.
+    - Reviewed benchmark state. The committed `full_local` artifact is complete but stale relative
+      to current runtime work; smoke benchmark environment validation passes, while a one-lane smoke
+      rerun timed out after five minutes without artifacts. A fresh full comparative rerun is
+      required after this WIP is clean and should add exclusive stage counters, rows/bytes per
+      second, allocations/peak RSS, cold/warm labels, confidence/outlier fields, and trace/span
+      naming.
+  - Evidence:
+    - Checkpoint findings are folded into `GAR-RUNTIME-IMPL-4F/4F1` for adapter/source-state and
+      ingest attribution follow-through.
+    - Public website generated data has no active phase-plan citation leakage.
+    - Benchmark rerun is explicitly gated rather than promoted from an incomplete timed-out run.
+  - Verification:
+    - `cargo fmt --all`
+    - `cargo test -p shardloom-core expression::tests::expression_semantics_blocks_invalid_string_functions_without_fallback -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_join_computed_projection_topn_without_fallback -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_rejects_aggregate_before_join_lowering`
+    - `cd website-src; npm run build`
+    - `node website\validate_static_assets.js`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_benchmark_environment.py --profile smoke`
+  - Claim boundary:
+    - Release-readiness, cleanup, and research checkpoint only. It does not create production,
+      performance, Spark-displacement, object-store/lakehouse, Foundry, REST, or package-release
+      claims.
+  - Fallback boundary:
+    - Runtime fixes remain ShardLoom-native. External engines stay baselines/oracles only and are
+      not invoked as fallback execution.
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTC timestamp arithmetic runtime
   - Date: 2026-05-21
   - Branch/PR: `runtime-timestamp-arithmetic` / #885.

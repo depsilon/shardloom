@@ -136,7 +136,7 @@ A JSON envelope and typed Python report with inline JSONL result, result_rows/fi
 - `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
 - `docs/getting-started/examples.md` - What this proves: Current example catalog and local workflow entrypoints.
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
-- `docs/architecture/phased-execution-plan.md` - What this proves: Active planned work, claim boundaries, non-goals, and ledger move rules.
+- `docs/architecture/phased-execution-completed-ledger.md` - What this proves: Completed runtime provenance and historical phase evidence for this smoke.
 
 ## Related Use Cases
 

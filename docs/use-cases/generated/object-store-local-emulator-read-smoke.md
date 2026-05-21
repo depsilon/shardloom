@@ -58,7 +58,7 @@ A fixture-smoke report with SourceState digest fields, selected byte-range evide
 ## Reference Files
 
 - `docs/architecture/object-store-request-planner.md` - What this proves: Object-store request planning posture and blocked/runtime admission boundaries.
-- `docs/architecture/phased-execution-plan.md` - What this proves: Runtime slice scope and remaining object-store/table claim boundaries.
+- `docs/architecture/universal-input-contract.md` - What this proves: Universal input adapter boundaries and no-fallback input contract for object-store-like sources.
 - `docs/architecture/vortex-public-api-inventory.md` - What this proves: Vortex 0.71 I/O hooks are candidate inputs but not broad object-store admission by themselves.
 - `python/README.md` - What this proves: Python-facing command wrapper posture and local technical-preview scope.
 

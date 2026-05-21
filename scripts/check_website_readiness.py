@@ -32,6 +32,8 @@ EXPECTED_PAGES = [
     "compute-engine-flow/index.html",
     "status.html",
     "status/index.html",
+    "docs.html",
+    "docs/index.html",
     "404.html",
 ]
 EXPECTED_ASSETS = [
@@ -59,6 +61,7 @@ EXPECTED_NAV_PATHS = {
     "/benchmarks",
     "/architecture",
     "/status",
+    "/docs",
 }
 STATUS_VOCABULARY = {
     "runtime_supported",

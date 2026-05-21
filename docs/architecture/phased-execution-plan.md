@@ -334,6 +334,13 @@ or documentation updates alone are insufficient.
     admitted UTC timestamp strings, ShardLoom-native null propagation, and deterministic blockers
     for invalid second counts or unsupported non-timestamp shapes. This is UTC timestamp-micros
     second arithmetic only, not timezone-database interval completeness.
+    Scoped temporal-difference expressions through `DATE_DIFF_DAYS(left, right)` and
+    `TIMESTAMP_DIFF_SECONDS(left, right)` are runtime-admitted as `int64` generic-expression
+    predicates/projections over admitted Date32 or UTC timestamp-micros columns/literals with
+    `generic_expression_*` evidence, source-column coercion from admitted ISO/UTC timestamp
+    strings, ShardLoom-native null propagation, deterministic arity/type blockers, and no external
+    fallback. This is scoped date-day and UTC timestamp whole-second delta coverage, not ANSI
+    interval or timezone-database completeness.
     Scoped UTF-8 `LOWER(column)`, `UPPER(column)`, and `TRIM(column)` transform predicates are
     runtime-admitted with `string_transform_*` evidence and deterministic blockers for non-UTF-8
     or unsupported expression shapes; this is not locale/collation completeness. Scoped
@@ -378,18 +385,19 @@ or documentation updates alone are insufficient.
     `CEIL(column) AS column`, and `ROUND(column) AS column` are runtime-admitted with
     `numeric_rounding_projection_*` evidence, ShardLoom-native null propagation, deterministic
     duplicate-output-name/source-column/type/unsupported-shape blockers, and no external fallback.
-    Scoped generalized numeric expression-tree projections over admitted local-source numeric
-    columns and finite numeric literals, including parenthesized `+` / `-` / `*` / `/` trees and
-    nested `ABS` / `FLOOR` / `CEIL` / `ROUND` calls, are runtime-admitted with
+    Scoped generalized numeric expression-tree and temporal-difference projections over admitted
+    local-source numeric, Date32, and UTC timestamp columns/literals, including parenthesized `+` /
+    `-` / `*` / `/` trees, nested `ABS` / `FLOOR` / `CEIL` / `ROUND` calls, `DATE_DIFF_DAYS(...)`,
+    and `TIMESTAMP_DIFF_SECONDS(...)`, are runtime-admitted with
     `generic_expression_projection_*` evidence, ShardLoom-native null propagation, deterministic
     source-column/division-by-zero/unsupported-shape blockers, and no external fallback. This is
     expression-tree coverage for local computed projections, not arbitrary SQL expression parity.
-    Scoped generalized numeric expression-tree predicates comparing an admitted numeric expression
-    tree to another numeric expression or finite numeric literal are runtime-admitted with
-    `generic_expression_predicate_*` evidence, ShardLoom-native SQL `WHERE` null-filter semantics,
-    deterministic source-column/division-by-zero/unsupported-shape blockers, and no external
-    fallback. This is expression-tree coverage for local predicates, not arbitrary SQL expression
-    parity.
+    Scoped generalized numeric expression-tree and temporal-difference predicates comparing an
+    admitted numeric/temporal-difference expression to another numeric expression or finite numeric
+    literal are runtime-admitted with `generic_expression_predicate_*` evidence, ShardLoom-native
+    SQL `WHERE` null-filter semantics, deterministic source-column/division-by-zero/type/
+    unsupported-shape blockers, and no external fallback. This is expression-tree coverage for
+    local predicates, not arbitrary SQL expression parity.
     Scoped UTF-8
     transform projections of the form `LOWER(column) AS column`, `UPPER(column) AS column`, and
     `TRIM(column) AS column` are runtime-admitted with `string_transform_projection_*` evidence,
@@ -451,7 +459,7 @@ or documentation updates alone are insufficient.
     scoped numeric arithmetic comparison operators, scoped numeric absolute-value predicates and
     `with_column(...)`, scoped numeric rounding predicates and `with_column(...)`, scoped numeric
     arithmetic `with_column(...)`, scoped cast `with_column(...)`,
-    scoped Date32 day arithmetic `with_column(...)`, scoped UTF-8 string transform and length
+    scoped Date32 day arithmetic and temporal-difference `with_column(...)`, scoped UTF-8 string transform and length
     `with_column(...)`, scoped UTF-8 `concat(...)`, `substr(...)` / `substring(...)`, and
     `replace(...)` predicates and `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
     scoped null-cleanup `with_column(...)` via `.fill_null(...)` and `.null_if(...)`, scoped
@@ -637,6 +645,14 @@ or documentation updates alone are insufficient.
   - Next slice outcome: finish the optimization path by splitting deeper source-to-columnar ingest
     work where feasible, promoting prepare-once reuse across repeated certified workflows, and
     keeping benchmark/website interpretation aligned.
+  - Checkpoint A7 research note: the current slow path still normalizes local CSV/JSON and
+    feature-gated Parquet/Arrow IPC/Avro/ORC readers into scalar row maps before execution.
+    Arrow RS reader docs expose RecordBatch streaming with batch sizing, CSV projection, JSON
+    schema/batch options, and Parquet projection/filter/metadata reuse; Vortex Scan API docs
+    describe Source/Sink/Split pushdown and compressed scan boundaries while noting the full API is
+    still under active development. The next optimization slice should therefore start with a
+    format-neutral columnar `SourceState` adapter and Vortex-first wrapper/report boundary, not a
+    hidden Arrow-default execution model or external-engine fallback.
   - Runtime enablement: certified ingest/stage execution remains supported, while repeated
     workflows can certify or prepare once and then run `prepared_vortex` from
     `VortexPreparedState` without reinterpreting compatibility cold timing as query speed.

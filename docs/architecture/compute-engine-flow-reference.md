@@ -726,8 +726,8 @@ flowchart TD
 ```
 
 These diagrams are intentionally broader than the current implementation. Planned nodes must remain
-unchecked in `docs/architecture/global-architecture-review.md` and represented in
-`docs/architecture/phased-execution-plan.md` until implemented and certified. Current commands must
+unchecked in the architecture review and represented in the active phase queue until implemented
+and certified. Current commands must
 return deterministic unsupported diagnostics where execution is absent. Planned nodes do not
 authorize fallback execution, dependency expansion, package publication, external side effects, or
 public performance claims.
@@ -2461,5 +2461,5 @@ Unsupported work must return deterministic unsupported diagnostics, not delegate
 This document is a flow reference only. It does not authorize new runtime behavior, package
 publication, external engine invocation, fallback execution, or public performance claims.
 
-Actionable implementation work must be represented in
-`docs/architecture/phased-execution-plan.md` before implementation begins.
+Actionable implementation work must be represented in the active phase queue before implementation
+begins.

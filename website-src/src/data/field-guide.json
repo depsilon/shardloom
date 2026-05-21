@@ -545,7 +545,7 @@
       "source-free-generated-output-boundary"
     ],
     "references": [
-      "docs/architecture/phased-execution-plan.md",
+      "docs/architecture/io-reuse-and-fanout-architecture.md",
       "docs/use-cases/use-case-index.yml"
     ]
   },
@@ -567,7 +567,7 @@
       "object-store-boundary-report"
     ],
     "references": [
-      "docs/architecture/phased-execution-plan.md",
+      "docs/architecture/scale-readiness-contract.md",
       "docs/architecture/compute-engine-flow-reference.md"
     ]
   },
@@ -589,7 +589,7 @@
     ],
     "references": [
       "docs/use-cases/use-case-index.yml",
-      "docs/architecture/phased-execution-plan.md"
+      "docs/architecture/object-store-request-planner.md"
     ]
   },
   {
@@ -610,7 +610,7 @@
     ],
     "references": [
       "docs/use-cases/use-case-index.yml",
-      "docs/architecture/phased-execution-plan.md"
+      "docs/architecture/universal-compatibility-coverage-scoreboard.md"
     ]
   },
   {
@@ -673,7 +673,7 @@
     ],
     "references": [
       "docs/use-cases/use-case-index.yml",
-      "docs/architecture/phased-execution-plan.md"
+      "docs/architecture/compute-engine-flow-reference.md"
     ]
   }
 ]

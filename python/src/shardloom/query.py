@@ -405,6 +405,20 @@ class ColumnExpression:
             f"TIMESTAMP_SUB_SECONDS({self.sql}, {normalized_seconds})"
         )
 
+    def date_diff_days(self, other: object) -> "ColumnExpression":
+        """Return a scoped Date32 day-difference expression."""
+
+        return ColumnExpression(
+            f"DATE_DIFF_DAYS({self.sql}, {_sql_temporal_difference_arg(other, 'date32')})"
+        )
+
+    def timestamp_diff_seconds(self, other: object) -> "ColumnExpression":
+        """Return a scoped UTC timestamp second-difference expression."""
+
+        return ColumnExpression(
+            f"TIMESTAMP_DIFF_SECONDS({self.sql}, {_sql_temporal_difference_arg(other, 'timestamp_micros')})"
+        )
+
     def date_year(self) -> "ColumnExpression":
         """Return a scoped Date32 year-extract expression for date predicates."""
 
@@ -2015,6 +2029,8 @@ class LazyFrame:
             elif operation.kind == "sort" and sort_key is None:
                 sort_key = (operation.values[0], operation.values[1])
             elif operation.kind == "join" and join_info is None:
+                if aggregate_list is not None or group_by_list is not None:
+                    return None
                 join_info = operation.values  # type: ignore[assignment]
             elif operation.kind == "filter" and predicate is None:
                 predicate = operation.values[0]
@@ -3078,6 +3094,22 @@ def _normalize_timestamp_arithmetic_seconds(value: object) -> int:
     return seconds
 
 
+def _sql_temporal_difference_arg(value: object, dtype: str) -> str:
+    if isinstance(value, ColumnExpression):
+        return value.sql
+    if dtype == "date32":
+        if isinstance(value, datetime):
+            raise TypeError("date_diff_days arguments must be date values or columns")
+        if isinstance(value, date):
+            return f"DATE '{value.isoformat()}'"
+    elif dtype == "timestamp_micros":
+        if isinstance(value, datetime):
+            return f"TIMESTAMP '{_normalize_timestamp_literal(value)}'"
+    else:
+        raise ValueError("temporal difference dtype must be date32 or timestamp_micros")
+    raise TypeError("temporal difference arguments must be shardloom columns or typed literals")
+
+
 def _sql_string_literal(value: object) -> str:
     text = _require_non_empty("string literal", value)
     return "'" + text.replace("'", "''") + "'"
@@ -3148,9 +3180,11 @@ def _sql_generic_expression_projection_expression(expression: object) -> str:
     if not isinstance(expression, ColumnExpression):
         raise TypeError("computed with_column requires a shardloom ColumnExpression")
     text = expression.sql.strip()
-    if not _expression_has_numeric_operator(text):
+    if not _expression_has_numeric_operator(
+        text
+    ) and not _expression_has_temporal_difference_call(text):
         raise ValueError(
-            "computed with_column generic expressions require a numeric expression tree"
+            "computed with_column generic expressions require a numeric expression tree or temporal difference expression"
         )
     _validate_balanced_expression_parentheses(text)
     return text
@@ -3185,6 +3219,19 @@ def _expression_has_numeric_operator(value: str) -> bool:
         if char in {"+", "-"} and not _is_unary_numeric_sign(value, index, char):
             return True
     return False
+
+
+def _expression_has_temporal_difference_call(value: str) -> bool:
+    text = value.strip()
+    while text.startswith("(") and text.endswith(")"):
+        inner = text[1:-1].strip()
+        if not inner:
+            return False
+        text = inner
+    upper = text.upper()
+    return upper.startswith("DATE_DIFF_DAYS(") or upper.startswith(
+        "TIMESTAMP_DIFF_SECONDS("
+    )
 
 
 def _is_unary_numeric_sign(value: str, index: int, char: str) -> bool:

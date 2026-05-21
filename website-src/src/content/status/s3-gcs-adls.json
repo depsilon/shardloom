@@ -20,6 +20,6 @@
   "blocked": "No object-store runtime, byte-range read, write, commit, or credentialed network path is claimed.",
   "references": [
     "docs/use-cases/use-case-index.yml",
-    "docs/architecture/phased-execution-plan.md"
+    "docs/architecture/object-store-request-planner.md"
   ]
 }

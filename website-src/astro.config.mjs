@@ -48,6 +48,7 @@ export default defineConfig({
             { label: "Benchmarks", link: "/benchmarks" },
             { label: "Architecture", link: "/architecture" },
             { label: "Status", link: "/status" },
+            { label: "Docs", link: "/docs" },
           ],
         },
       ],

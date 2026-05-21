@@ -19,7 +19,7 @@ relationship auditable.
 | `docs/architecture/io-reuse-and-fanout-architecture.md` | `output-result-sink-and-fanout-boundary` |
 | `docs/architecture/object-store-request-planner.md` | `object-store-boundary-report`, `object-store-local-emulator-read-smoke` |
 | `docs/architecture/operational-evidence-policy-hardening.md` | `evidence-audit-claim-gates` |
-| `docs/architecture/phased-execution-plan.md` | `source-free-generated-output-boundary`, `object-store-local-emulator-read-smoke` |
+| `docs/architecture/phased-execution-completed-ledger.md` | `source-free-generated-output-boundary` |
 | `docs/architecture/universal-compatibility-coverage-scoreboard.md` | `object-store-boundary-report`, `table-lakehouse-boundary-report` |
 | `docs/architecture/universal-input-contract.md` | `object-store-boundary-report`, `table-lakehouse-boundary-report` |
 | `docs/architecture/vortex-public-api-inventory.md` | `object-store-local-emulator-read-smoke` |
