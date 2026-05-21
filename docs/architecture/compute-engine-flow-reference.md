@@ -1781,6 +1781,10 @@ traditional analytics benchmark JSON/Markdown report. It covers local CSV, JSONL
 IPC, Avro, and ORC SourceState posture with `source_state_contract_schema_version`,
 `source_state_status`, identity/digest/fingerprint/schema fields, source parse timing when measured,
 reuse hit/reason, materialization policy ref, no-fallback fields, and claim boundary text.
+The scoped local-source SQL runtime now emits direct-transient
+`shardloom.local_source_state.v1` read-plan evidence as well: requested source columns,
+materialized columns, pruned-column count, parse-normalization family, scalar-row materialization
+layout, and local adapter-registry version.
 
 The current `GAR-IOREUSE-1B` slice implements the companion VortexPreparedState artifact contract in
 the traditional analytics benchmark JSON/Markdown report. It covers local prepared Vortex artifact

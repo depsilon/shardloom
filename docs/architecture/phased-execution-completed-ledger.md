@@ -16,6 +16,40 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F local SourceState read-plan runtime evidence
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-source-state-runtime-20260521` / local WIP.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F` UniversalIngress local/non-Vortex adapter runtime coverage.
+    - `GAR-RUNTIME-IMPL-4F1` compatibility import optimization research note.
+  - Scope:
+    - Added an explicit local SourceState read-plan boundary for `sql-local-source-smoke` and
+      `vortex-ingest-smoke` source admission.
+    - Direct transient SQL reads now derive required source columns from parsed projections,
+      predicates, aggregates, group-by, top-N, computed projections, and IN-subquery sources before
+      row materialization.
+    - CSV and flat JSON/JSONL materialization now only inserts required columns when the query shape
+      permits pruning; feature-gated Parquet/Arrow IPC/Avro/ORC rows are pruned after scalar
+      conversion until columnar projection is promoted.
+    - Runtime reports now emit `shardloom.local_source_state.v1`,
+      `shardloom.local_input_adapter_registry.v1`, source read-plan status/reason, requested
+      columns, scalar-row materialization layout, parse-normalization family, materialized columns,
+      pruned-column count, and pruning-applied evidence.
+  - Evidence:
+    - Per-format source evidence remains no-fallback and source-format-aware.
+    - Select-star and join paths keep full source-state materialization; explicit projection/filter
+      paths can use required-column materialization.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo clippy -p shardloom-cli --all-targets -- -D warnings`
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke -- --nocapture`
+  - Claim boundary:
+    - Scoped local SourceState/read-plan runtime evidence only. It is not columnar-native execution,
+      persistent cache support, object-store/table support, production SQL, or performance evidence.
+  - Fallback boundary:
+    - No external engine parses, plans, or executes the admitted reads. Unsupported formats/features
+      continue to fail closed with deterministic blockers.
 - [x] Session label: CHECKPOINT-2026-05-21-A compute-engine release-readiness sweep
   - Date: 2026-05-21
   - Branch/PR: `runtime-temporal-diff-4d` / local checkpoint sweep.

@@ -36,6 +36,8 @@ const COMMAND: &str = "sql-local-source-smoke";
 const VORTEX_INGEST_COMMAND: &str = "vortex-ingest-smoke";
 const SCHEMA_VERSION: &str = "shardloom.sql_local_source_smoke.v1";
 const VORTEX_INGEST_SCHEMA_VERSION: &str = "shardloom.vortex_ingest_smoke.v1";
+const LOCAL_SOURCE_STATE_SCHEMA_VERSION: &str = "shardloom.local_source_state.v1";
+const LOCAL_INPUT_ADAPTER_REGISTRY_VERSION: &str = "shardloom.local_input_adapter_registry.v1";
 const JSONL_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-jsonl-output.native-io.v1";
 const CSV_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.csv.local-csv-output.native-io.v1";
 const PARQUET_OUTPUT_CERTIFICATE_ID: &str = "sql-local-source.local-parquet-output.native-io.v1";
@@ -50,6 +52,64 @@ const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
 const MAX_IN_LIST_VALUES: usize = 32;
 const MAX_DATE_ARITHMETIC_DAYS: i32 = 366_000;
 const MAX_TIMESTAMP_ARITHMETIC_SECONDS: i64 = (MAX_DATE_ARITHMETIC_DAYS as i64) * 86_400;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LocalSourceReadPlan {
+    required_columns: Option<BTreeSet<String>>,
+    reason: &'static str,
+}
+
+impl LocalSourceReadPlan {
+    fn full(reason: &'static str) -> Self {
+        Self {
+            required_columns: None,
+            reason,
+        }
+    }
+
+    fn required(columns: BTreeSet<String>, reason: &'static str) -> Self {
+        Self {
+            required_columns: Some(columns),
+            reason,
+        }
+    }
+
+    fn should_materialize(&self, column: &str) -> bool {
+        match self.required_columns.as_ref() {
+            Some(columns) => columns.contains(column),
+            None => true,
+        }
+    }
+
+    fn materialized_columns(&self, header: &[String]) -> Vec<String> {
+        header
+            .iter()
+            .filter(|column| self.should_materialize(column))
+            .cloned()
+            .collect()
+    }
+
+    fn requested_columns(&self) -> String {
+        self.required_columns.as_ref().map_or_else(
+            || "all".to_string(),
+            |columns| {
+                if columns.is_empty() {
+                    "none".to_string()
+                } else {
+                    columns.iter().cloned().collect::<Vec<_>>().join(",")
+                }
+            },
+        )
+    }
+
+    const fn status(&self) -> &'static str {
+        if self.required_columns.is_some() {
+            "required_columns"
+        } else {
+            "full_columns"
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SqlLocalSourceRequest {
@@ -996,10 +1056,69 @@ struct CsvSourceData {
     source_format: LocalSourceFormat,
     header: Vec<String>,
     rows: Vec<ExpressionInputRow>,
+    read_plan: LocalSourceReadPlan,
+    materialized_columns: Vec<String>,
     source_bytes: u64,
     source_digest: String,
     read_millis: u128,
     parse_millis: u128,
+}
+
+impl CsvSourceData {
+    fn materialized_columns_field(&self) -> String {
+        if self.materialized_columns.is_empty() {
+            "none".to_string()
+        } else {
+            self.materialized_columns.join(",")
+        }
+    }
+
+    fn pruned_column_count(&self) -> usize {
+        self.header
+            .len()
+            .saturating_sub(self.materialized_columns.len())
+    }
+
+    fn column_pruning_applied(&self) -> bool {
+        self.pruned_column_count() > 0
+    }
+
+    const fn materialization_layout() -> &'static str {
+        "scalar_row_map"
+    }
+
+    const fn parse_normalization(&self) -> &'static str {
+        match self.source_format {
+            LocalSourceFormat::Csv | LocalSourceFormat::Json | LocalSourceFormat::JsonLines => {
+                "local_text_to_scalar_rows"
+            }
+            LocalSourceFormat::Parquet
+            | LocalSourceFormat::ArrowIpc
+            | LocalSourceFormat::Avro
+            | LocalSourceFormat::Orc => "arrow_record_batch_to_scalar_rows",
+        }
+    }
+
+    fn source_state_id(&self) -> String {
+        format!(
+            "local-{}-{}",
+            self.source_format.as_str(),
+            self.source_digest.replace(':', "-")
+        )
+    }
+
+    fn source_state_digest(&self, source_schema_digest: &str) -> String {
+        fnv64_digest(&format!(
+            "{}|{}|{}|{}|{}|{}|{}",
+            self.source_format.as_str(),
+            self.source_digest,
+            source_schema_digest,
+            self.rows.len(),
+            self.source_bytes,
+            self.read_plan.requested_columns(),
+            self.materialized_columns_field()
+        ))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1532,6 +1651,50 @@ impl VortexIngestReport {
                 self.source_state_digest.clone(),
             ),
             (
+                "source_state_contract_schema_version".to_string(),
+                LOCAL_SOURCE_STATE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "local_input_adapter_registry_version".to_string(),
+                LOCAL_INPUT_ADAPTER_REGISTRY_VERSION.to_string(),
+            ),
+            (
+                "source_state_read_plan".to_string(),
+                self.source.read_plan.status().to_string(),
+            ),
+            (
+                "source_state_read_plan_reason".to_string(),
+                self.source.read_plan.reason.to_string(),
+            ),
+            (
+                "source_state_requested_columns".to_string(),
+                self.source.read_plan.requested_columns(),
+            ),
+            (
+                "source_state_materialization_layout".to_string(),
+                CsvSourceData::materialization_layout().to_string(),
+            ),
+            (
+                "source_state_parse_normalization".to_string(),
+                self.source.parse_normalization().to_string(),
+            ),
+            (
+                "source_state_materialized_column_count".to_string(),
+                self.source.materialized_columns.len().to_string(),
+            ),
+            (
+                "source_state_materialized_columns".to_string(),
+                self.source.materialized_columns_field(),
+            ),
+            (
+                "source_state_pruned_column_count".to_string(),
+                self.source.pruned_column_count().to_string(),
+            ),
+            (
+                "source_state_column_pruning_applied".to_string(),
+                self.source.column_pruning_applied().to_string(),
+            ),
+            (
                 "source_state_reuse_allowed".to_string(),
                 "false".to_string(),
             ),
@@ -1873,21 +2036,11 @@ fn ordered_source_rows(
 }
 
 fn source_state_id_for_source(source: &CsvSourceData) -> String {
-    format!(
-        "local-{}-{}",
-        source.source_format.as_str(),
-        source.source_digest.replace(':', "-")
-    )
+    source.source_state_id()
 }
 
 fn source_state_digest_for_source(source: &CsvSourceData, source_schema_digest: &str) -> String {
-    fnv64_digest(&format!(
-        "{}|{}|{}|{}",
-        source.source_format.as_str(),
-        source.source_digest,
-        source_schema_digest,
-        source.rows.len()
-    ))
+    source.source_state_digest(source_schema_digest)
 }
 
 fn source_adapter_id_for_format(source_format: LocalSourceFormat) -> &'static str {
@@ -1902,12 +2055,94 @@ fn source_adapter_id_for_format(source_format: LocalSourceFormat) -> &'static st
     }
 }
 
+fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPlan {
+    if parsed.is_join() {
+        return LocalSourceReadPlan::full("join_requires_full_qualified_source_state");
+    }
+    if parsed.projections.iter().any(|column| column == "*") {
+        return LocalSourceReadPlan::full("select_star_requires_full_source_state");
+    }
+
+    let mut columns = BTreeSet::new();
+    for column in &parsed.projections {
+        columns.insert(column.clone());
+    }
+    for column in &parsed.group_by {
+        columns.insert(column.clone());
+    }
+    for aggregate in &parsed.aggregates {
+        if let Some(column) = aggregate.column.as_ref() {
+            columns.insert(column.clone());
+        }
+    }
+    if let Some(order_by) = parsed.order_by.as_ref() {
+        columns.insert(order_by.column.clone());
+    }
+    for column in parsed.predicate.columns() {
+        columns.insert(column.to_string());
+    }
+    push_projection_required_columns(parsed, &mut columns);
+
+    LocalSourceReadPlan::required(columns, "sql_required_source_columns")
+}
+
+fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut BTreeSet<String>) {
+    for projection in &parsed.cast_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.null_coalesce_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.nullif_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.conditional_projections {
+        for column in projection.predicate.columns() {
+            columns.insert(column.to_string());
+        }
+    }
+    for projection in &parsed.numeric_arithmetic_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.numeric_abs_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.numeric_rounding_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.generic_expression_projections {
+        columns.extend(projection.source_columns.iter().cloned());
+    }
+    for projection in &parsed.date_arithmetic_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.timestamp_arithmetic_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.string_length_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.string_transform_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.string_function_projections {
+        columns.extend(projection.source_columns.iter().cloned());
+    }
+    for projection in &parsed.date_extract_projections {
+        columns.insert(projection.column.clone());
+    }
+    for projection in &parsed.timestamp_extract_projections {
+        columns.insert(projection.column.clone());
+    }
+}
+
 fn run_sql_local_source_smoke(
     request: &SqlLocalSourceRequest,
 ) -> Result<SqlLocalSourceReport, ShardLoomError> {
     let total_start = Instant::now();
     let mut parsed = parse_sql_local_source_statement(&request.statement)?;
-    let mut source = read_local_source(&parsed.source_path)?;
+    let source_read_plan = source_read_plan_for_sql(&parsed);
+    let mut source = read_local_source_with_plan(&parsed.source_path, &source_read_plan)?;
     let mut right_source = parsed
         .join
         .as_ref()
@@ -2016,14 +2251,15 @@ fn sql_local_source_plan_digest(
     source_schema_digest: &str,
 ) -> String {
     fnv64_digest(&format!(
-        "{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}",
         parsed.normalized_statement,
         source_schema_digest,
         source.source_digest,
         right_source.map_or_else(String::new, |source| source.source_digest.clone()),
         parsed.predicate.in_subquery_plan_digest_fragment(),
         request.output_format.as_str(),
-        fanout_plan_digest_fragment(request)
+        fanout_plan_digest_fragment(request),
+        source.read_plan.requested_columns()
     ))
 }
 
@@ -2035,7 +2271,13 @@ fn materialize_in_subquery_predicates(
             if subquery.source_format.is_some() {
                 return Ok(());
             }
-            let source = read_local_source(&subquery.source_path)?;
+            let source = read_local_source_with_plan(
+                &subquery.source_path,
+                &LocalSourceReadPlan::required(
+                    BTreeSet::from([subquery.source_column.clone()]),
+                    "in_subquery_required_source_column",
+                ),
+            )?;
             require_header_column(
                 &source.header,
                 &subquery.source_column,
@@ -9435,6 +9677,50 @@ impl SqlLocalSourceReport {
                 self.source_state_digest(&self.source),
             ),
             (
+                "source_state_contract_schema_version".to_string(),
+                LOCAL_SOURCE_STATE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "local_input_adapter_registry_version".to_string(),
+                LOCAL_INPUT_ADAPTER_REGISTRY_VERSION.to_string(),
+            ),
+            (
+                "source_state_read_plan".to_string(),
+                self.source.read_plan.status().to_string(),
+            ),
+            (
+                "source_state_read_plan_reason".to_string(),
+                self.source.read_plan.reason.to_string(),
+            ),
+            (
+                "source_state_requested_columns".to_string(),
+                self.source.read_plan.requested_columns(),
+            ),
+            (
+                "source_state_materialization_layout".to_string(),
+                CsvSourceData::materialization_layout().to_string(),
+            ),
+            (
+                "source_state_parse_normalization".to_string(),
+                self.source.parse_normalization().to_string(),
+            ),
+            (
+                "source_state_materialized_column_count".to_string(),
+                self.source.materialized_columns.len().to_string(),
+            ),
+            (
+                "source_state_materialized_columns".to_string(),
+                self.source.materialized_columns_field(),
+            ),
+            (
+                "source_state_pruned_column_count".to_string(),
+                self.source.pruned_column_count().to_string(),
+            ),
+            (
+                "source_state_column_pruning_applied".to_string(),
+                self.source.column_pruning_applied().to_string(),
+            ),
+            (
                 "source_state_reuse_allowed".to_string(),
                 "false".to_string(),
             ),
@@ -10707,22 +10993,11 @@ impl SqlLocalSourceReport {
     }
 
     fn source_state_id(source: &CsvSourceData) -> String {
-        format!(
-            "local-{}-{}",
-            source.source_format.as_str(),
-            source.source_digest.replace(':', "-")
-        )
+        source.source_state_id()
     }
 
     fn source_state_digest(&self, source: &CsvSourceData) -> String {
-        fnv64_digest(&format!(
-            "{}|{}|{}|{}|{}",
-            source.source_format.as_str(),
-            source.source_digest,
-            self.source_schema_digest,
-            source.rows.len(),
-            source.source_bytes
-        ))
+        source.source_state_digest(&self.source_schema_digest)
     }
 
     fn source_format_label(&self) -> &'static str {
@@ -11145,6 +11420,16 @@ impl SqlLocalSourceReport {
 }
 
 fn read_local_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
+    read_local_source_with_plan(
+        path,
+        &LocalSourceReadPlan::full("full_source_state_default"),
+    )
+}
+
+fn read_local_source_with_plan(
+    path: &Path,
+    read_plan: &LocalSourceReadPlan,
+) -> Result<CsvSourceData, ShardLoomError> {
     reject_remote_source_path(path)?;
     let source_format = LocalSourceFormat::from_path(path)?;
     let read_start = Instant::now();
@@ -11164,28 +11449,32 @@ fn read_local_source(path: &Path) -> Result<CsvSourceData, ShardLoomError> {
     })?;
     let source_digest = fnv64_digest_bytes(&bytes);
     let parse_start = Instant::now();
-    let (header, rows) = match source_format {
+    let (header, mut rows) = match source_format {
         LocalSourceFormat::Csv => {
             let content = decode_local_text_source(path, source_format, bytes)?;
-            parse_csv_source_content(&content)?
+            parse_csv_source_content_with_plan(&content, read_plan)?
         }
         LocalSourceFormat::Json => {
             let content = decode_local_text_source(path, source_format, bytes)?;
-            parse_json_source_content(&content)?
+            parse_json_source_content_with_plan(&content, read_plan)?
         }
         LocalSourceFormat::JsonLines => {
             let content = decode_local_text_source(path, source_format, bytes)?;
-            parse_jsonl_source_content(&content)?
+            parse_jsonl_source_content_with_plan(&content, read_plan)?
         }
         LocalSourceFormat::Parquet => read_parquet_source_content(path)?,
         LocalSourceFormat::ArrowIpc => read_arrow_ipc_source_content(path)?,
         LocalSourceFormat::Avro => read_avro_source_content(path)?,
         LocalSourceFormat::Orc => read_orc_source_content(path)?,
     };
+    prune_rows_to_read_plan(&mut rows, read_plan);
+    let materialized_columns = read_plan.materialized_columns(&header);
     Ok(CsvSourceData {
         source_format,
         header,
         rows,
+        read_plan: read_plan.clone(),
+        materialized_columns,
         source_bytes,
         source_digest,
         read_millis,
@@ -11205,6 +11494,15 @@ fn decode_local_text_source(
             path.display()
         ))
     })
+}
+
+fn prune_rows_to_read_plan(rows: &mut [ExpressionInputRow], read_plan: &LocalSourceReadPlan) {
+    let Some(required_columns) = read_plan.required_columns.as_ref() else {
+        return;
+    };
+    for row in rows {
+        row.retain(|column, _value| required_columns.contains(column));
+    }
 }
 
 #[cfg(feature = "universal-format-io")]
@@ -11287,8 +11585,9 @@ fn read_orc_source_content(
     ))
 }
 
-fn parse_csv_source_content(
+fn parse_csv_source_content_with_plan(
     content: &str,
+    read_plan: &LocalSourceReadPlan,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
     let mut records = content
         .lines()
@@ -11322,15 +11621,28 @@ fn parse_csv_source_content(
         }
         let mut row = ExpressionInputRow::new();
         for (column, value) in header.iter().zip(record) {
-            row.insert(column.clone(), parse_csv_scalar(&value));
+            if read_plan.should_materialize(column) {
+                row.insert(column.clone(), parse_csv_scalar(&value));
+            }
         }
         rows.push(row);
     }
     Ok((header, rows))
 }
 
+#[cfg(test)]
 fn parse_jsonl_source_content(
     content: &str,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    parse_jsonl_source_content_with_plan(
+        content,
+        &LocalSourceReadPlan::full("full_source_state_parse_test"),
+    )
+}
+
+fn parse_jsonl_source_content_with_plan(
+    content: &str,
+    read_plan: &LocalSourceReadPlan,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
     let mut raw_rows = Vec::new();
     for (line_index, line) in content
@@ -11351,11 +11663,22 @@ fn parse_jsonl_source_content(
         })?;
         raw_rows.push(fields);
     }
-    materialize_flat_json_rows("JSONL", raw_rows)
+    materialize_flat_json_rows("JSONL", raw_rows, read_plan)
 }
 
+#[cfg(test)]
 fn parse_json_source_content(
     content: &str,
+) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    parse_json_source_content_with_plan(
+        content,
+        &LocalSourceReadPlan::full("full_source_state_parse_test"),
+    )
+}
+
+fn parse_json_source_content_with_plan(
+    content: &str,
+    read_plan: &LocalSourceReadPlan,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
     let trimmed = content.trim_start_matches('\u{feff}').trim();
     if trimmed.is_empty() {
@@ -11413,12 +11736,13 @@ fn parse_json_source_content(
             ));
         }
     }
-    materialize_flat_json_rows("JSON", raw_rows)
+    materialize_flat_json_rows("JSON", raw_rows, read_plan)
 }
 
 fn materialize_flat_json_rows(
     source_label: &str,
     raw_rows: Vec<Vec<(String, ScalarValue)>>,
+    read_plan: &LocalSourceReadPlan,
 ) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
     let mut header = Vec::new();
     for fields in &raw_rows {
@@ -11443,10 +11767,14 @@ fn materialize_flat_json_rows(
     for fields in raw_rows {
         let mut row = ExpressionInputRow::new();
         for column in &header {
-            row.insert(column.clone(), ScalarValue::Null);
+            if read_plan.should_materialize(column) {
+                row.insert(column.clone(), ScalarValue::Null);
+            }
         }
         for (column, value) in fields {
-            row.insert(column, value);
+            if read_plan.should_materialize(&column) {
+                row.insert(column, value);
+            }
         }
         rows.push(row);
     }
@@ -17730,6 +18058,41 @@ mod tests {
         assert_eq!(row, vec!["id", "label"]);
         let row = split_csv_record("1,\"hello, world\"").expect("record parses");
         assert_eq!(row, vec!["1", "hello, world"]);
+    }
+
+    #[test]
+    fn source_read_plan_collects_sql_required_columns() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,amount * 2 AS doubled FROM 'target/input.csv' WHERE label = 'alpha' LIMIT 5",
+        )
+        .expect("statement parses");
+
+        let plan = source_read_plan_for_sql(&parsed);
+
+        assert_eq!(plan.status(), "required_columns");
+        assert_eq!(plan.reason, "sql_required_source_columns");
+        assert_eq!(plan.requested_columns(), "amount,id,label");
+        assert_eq!(
+            plan.materialized_columns(&["id".into(), "label".into(), "amount".into()]),
+            vec!["id", "label", "amount"]
+        );
+    }
+
+    #[test]
+    fn csv_source_read_plan_materializes_required_columns_only() {
+        let plan = LocalSourceReadPlan::required(
+            BTreeSet::from(["id".to_string(), "amount".to_string()]),
+            "test_required_columns",
+        );
+
+        let (header, rows) =
+            parse_csv_source_content_with_plan("id,label,amount\n1,alpha,8\n", &plan)
+                .expect("CSV parses with read plan");
+
+        assert_eq!(header, vec!["id", "label", "amount"]);
+        assert_eq!(rows[0].get("id"), Some(&ScalarValue::Int64(1)));
+        assert_eq!(rows[0].get("amount"), Some(&ScalarValue::Int64(8)));
+        assert!(!rows[0].contains_key("label"));
     }
 
     #[test]
