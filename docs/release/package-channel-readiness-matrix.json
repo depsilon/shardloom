@@ -25,6 +25,29 @@
   ],
   "claim_boundary": "Package-channel readiness is release evidence only. Package access does not imply production readiness, performance or superiority, Spark replacement, production SQL/DataFrame support, production object-store/lakehouse support, production Foundry support, or fallback execution.",
   "fallback_boundary": "Package channels cannot add Spark, DataFusion, DuckDB, Polars, pandas, Dask, Velox, Trino, or another external query engine as a ShardLoom runtime fallback dependency.",
+  "publication_authorization_state": "human_approval_required",
+  "package_gate_required_evidence": [
+    "dependency_inventory",
+    "license_classification",
+    "provenance_status",
+    "forbidden_fallback_dependency_check",
+    "package_smoke_transcript",
+    "sbom_refs",
+    "checksum_refs",
+    "rollback_policy_ref",
+    "publication_authorization_state"
+  ],
+  "gate_evidence_refs": {
+    "dependency_audit_script": "scripts/check_dependency_audit.py",
+    "dependency_audit_report": "target/dependency-audit-report.json",
+    "release_dry_run_script": "scripts/release_dry_run_proof.py",
+    "release_dry_run_transcript": "target/release-dry-run-proof/transcript.json",
+    "release_provenance_script": "scripts/release_provenance_dry_run.py",
+    "release_provenance_report": "target/release-provenance-dry-run/supply-chain-release-evidence.json",
+    "sbom_generation_plan": "docs/release/sbom-generation-plan.md",
+    "rollback_policy_ref": "docs/security/supply-chain-response.md",
+    "package_channel_validator": "scripts/check_package_channel_readiness.py"
+  },
   "channels": [
     {
       "channel_id": "github_prerelease",

@@ -79,6 +79,12 @@ and benchmark checks complete. Its transcript records:
 - `sbom_checksum_manifest_generated`
 - the `release_provenance_dry_run` step result
 
+`scripts/check_package_channel_readiness.py --require-local-evidence` consumes
+`target/release-provenance-dry-run/supply-chain-release-evidence.json` and requires artifact refs,
+SBOM refs, checksum refs, `provenance_status=dry_run_unsigned_local_evidence`,
+`fallback_dependency_absent=true`, and no-publication safety fields before the package-gate report
+can pass.
+
 ## Non-Goals
 
 This dry run does not sign artifacts, create SLSA attestations, upload SBOMs, publish to PyPI,

@@ -236,33 +236,6 @@ Current non-runtime sequence: complete the review-derived action items below bef
 expansion unless the user explicitly reprioritizes. Completed non-runtime history belongs in
 `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] REVIEW-P1-4 dependency, license, provenance, and package-gate automation
-  - Source: 2026-05-21 structured repository review action sequence; RFC 0024, release security
-    gate, package-channel readiness matrix, dependency audit docs.
-  - Current state: package channels remain blocked and dependency/license policy exists, but public
-    package readiness requires automated dependency audit, license/provenance checks, SBOM/checksum
-    dry runs, package smoke, and rollback/yank/deprecate policy checks in release gates.
-  - Next slice outcome: wire dependency/license/provenance/package checks into local validators and
-    CI so package-channel rows remain blocked until evidence is attached.
-  - User-visible surface: release readiness report, package-channel readiness matrix, CI checks,
-    security/release docs.
-  - Implementation scope: dependency audit script, license/provenance metadata checks,
-    SBOM/checksum dry-run script, package smoke script, package-channel validator, CI workflow,
-    release-readiness integration.
-  - Evidence required: dependency inventory, license classification, provenance status, forbidden
-    fallback dependency check, SBOM/checksum artifact refs, package smoke transcript, rollback
-    policy refs, publication authorization state.
-  - Acceptance: any unreviewed dependency, forbidden fallback dependency, missing package smoke,
-    missing SBOM/checksum/provenance, or missing rollback policy fails package readiness.
-  - Verification: dependency audit script, package-channel readiness script, release-readiness
-    metadata, CI gate matrix, `git diff --check`.
-  - Non-goals: no package publication, release tag, upload token use, signing key use, or public
-    package availability claim.
-  - Claim boundary: automated release/package gating only.
-  - Fallback boundary: dependency checks must continue to reject query-engine fallback dependencies
-    and must not authorize external execution.
-  - Ledger rule: ledger entry must list automated gates and channels still blocked.
-
 - [ ] REVIEW-P2-1 contribution governance intake automation
   - Source: 2026-05-21 structured repository review action sequence; RFC and release governance
     docs.

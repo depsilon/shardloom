@@ -107,6 +107,17 @@ The provenance step writes SBOM, checksum, workflow policy, and local
 `SupplyChainReleaseEvidence` dry-run artifacts under
 `target/release-provenance-dry-run/`.
 
+The package-channel validator's strict mode consumes this transcript:
+
+```powershell
+python scripts\check_package_channel_readiness.py --require-local-evidence
+```
+
+That strict mode requires the generated-source smokes, prepared/native benchmark smoke,
+provenance dry run, SBOM/checksum manifest generation, and no-publication safety fields before the
+package-gate report can pass. Channel-specific package rows still remain blocked until real
+channel evidence is attached.
+
 ## Relationship To First 10 Minutes
 
 The dry run is the source-mode version of the public first-10-minutes path. It

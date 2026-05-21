@@ -95,7 +95,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "python scripts/check_security_posture.py",
             "python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda",
             "python scripts/check_release_security_gate.py",
-            "python scripts/check_package_channel_readiness.py",
+            "python scripts/check_package_channel_readiness.py --require-local-evidence",
             "python scripts/check_release_architecture_tracker.py --allow-blocked",
             "python scripts/final_release_rehearsal.py --allow-blocked",
             "python scripts/check_ci_gate_matrix.py",

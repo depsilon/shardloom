@@ -116,7 +116,7 @@ images, or add secrets.
 Before any public package claim, maintainers must also run:
 
 ```powershell
-python scripts\check_package_channel_readiness.py
+python scripts\check_package_channel_readiness.py --require-local-evidence
 python scripts\check_release_readiness.py --allow-blocked
 ```
 

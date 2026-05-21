@@ -38,6 +38,10 @@ benchmarks/**/results/*.md
 *.local
 secrets/
 
+# Python package build output
+python/dist/
+python/src/*.egg-info/
+
 # Future website tooling/build output
 website/node_modules/
 website/dist/
