@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F1 traditional benchmark columnar SourceState telemetry
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-20260521` / #890.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F1` compatibility import certified optimization and `vortex_ingest`
+      attribution.
+    - Follow-up to the columnar `vortex_ingest` preservation slice so benchmark rows expose the
+      same SourceState boundary instead of keeping the evidence only in standalone smoke output.
+  - Scope:
+    - Split traditional compatibility-import timing so structured source-to-columnar decode is no
+      longer conflated with Vortex array build time.
+    - Added `source_state_materialization_layout`, `source_state_parse_normalization`,
+      `source_state_columnar_preserved`, and `source_state_record_batch_count` to Rust evidence,
+      benchmark rows, and benchmark contract validation.
+    - Optimized structured Arrow batch normalization by resolving and downcasting columns once per
+      batch before materializing the current traditional row boundary.
+    - Updated compute-flow/universal-input docs and regenerated the public website artifacts.
+  - Evidence:
+    - Local benchmark smoke over CSV and Parquet reports Parquet
+      `source_state_columnar_preserved=true`, `source_state_record_batch_count=2`,
+      source-to-columnar timing, and separate Vortex array-build timing.
+    - No external engine fallback, hidden Arrow-default execution model, or performance claim was
+      introduced.
+  - Verification:
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark compatibility_import_report_exposes_exclusive_route_timing_and_prepared_state --lib -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_build_roundtrips_common_formats_through_vortex_outputs --lib -- --nocapture`
+    - `cargo clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib -- -D warnings`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv,parquet --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --shardloom-native-iterations 1 --skip-shardloom-native --output target\codex-benchmark-artifacts\runtime-columnar-source-state-smoke.json --markdown-output target\codex-benchmark-artifacts\runtime-columnar-source-state-smoke.md`
+    - `node website-src\scripts\sync-content.mjs` using bundled Node.
+    - `node website-src\node_modules\astro\bin\astro.mjs build` plus `node website-src\scripts\postbuild-static.mjs` using bundled Node.
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js` using bundled Node.
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_use_case_index.py`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo fmt --all -- --check`
+    - `git diff --check`
+  - Claim boundary:
+    - This is route/timing/evidence attribution and adapter normalization optimization only. It
+      does not create package readiness, production SQL/DataFrame support, object-store/table
+      support, broad structured-format support, or benchmark superiority claims.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F/4F1 columnar SourceState `vortex_ingest` preservation
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-columnar-source-state-next` / #889.

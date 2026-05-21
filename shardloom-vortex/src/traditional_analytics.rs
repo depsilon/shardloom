@@ -13,6 +13,8 @@ use crate::source_backed_encoded_execution::{
     execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs,
 };
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+use arrow_array::Array as _;
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_core::{
     ColumnRef, ComparisonOp, DatasetUri, ExecutionCertificateInput, ExecutionProviderKind,
     ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoMaterializationBoundaryReport,
@@ -1937,6 +1939,10 @@ pub struct TraditionalAnalyticsReport {
     pub source_read_micros: u64,
     pub source_parse_micros: u64,
     pub source_to_columnar_micros: u64,
+    pub source_state_materialization_layout: String,
+    pub source_state_parse_normalization: String,
+    pub source_state_columnar_preserved: bool,
+    pub source_state_record_batch_count: usize,
     pub compatibility_to_vortex_import_micros: u64,
     pub compatibility_to_vortex_import_timing_scope: String,
     pub vortex_array_build_micros: u64,
@@ -2061,6 +2067,83 @@ impl TraditionalVortexWriteTiming {
             )?,
         })
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct TraditionalSourceReadEvidence {
+    read_micros: u64,
+    parse_micros: u64,
+    columnar_micros: u64,
+    record_batch_count: usize,
+    columnar_preserved: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalSourceReadEvidence {
+    fn scalar(source_read_micros: u64) -> Self {
+        Self {
+            read_micros: source_read_micros,
+            parse_micros: source_read_micros,
+            columnar_micros: 0,
+            record_batch_count: 0,
+            columnar_preserved: false,
+        }
+    }
+
+    fn columnar(
+        columnar_micros: u64,
+        parse_micros: u64,
+        record_batch_count: usize,
+    ) -> Result<Self> {
+        Ok(Self {
+            read_micros: checked_u64_sum(columnar_micros, parse_micros)?,
+            parse_micros,
+            columnar_micros,
+            record_batch_count,
+            columnar_preserved: true,
+        })
+    }
+
+    fn add(self, other: Self) -> Result<Self> {
+        Ok(Self {
+            read_micros: checked_u64_sum(self.read_micros, other.read_micros)?,
+            parse_micros: checked_u64_sum(self.parse_micros, other.parse_micros)?,
+            columnar_micros: checked_u64_sum(self.columnar_micros, other.columnar_micros)?,
+            record_batch_count: self
+                .record_batch_count
+                .checked_add(other.record_batch_count)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(
+                        "traditional analytics SourceState record batch count overflow".to_string(),
+                    )
+                })?,
+            columnar_preserved: self.columnar_preserved || other.columnar_preserved,
+        })
+    }
+
+    fn materialization_layout(&self) -> &'static str {
+        if self.columnar_preserved {
+            "columnar_record_batches_preserved_until_traditional_row_boundary"
+        } else {
+            "scalar_rows_materialized_in_source_adapter"
+        }
+    }
+
+    fn parse_normalization(&self) -> &'static str {
+        if self.columnar_preserved {
+            "arrow_record_batches_to_traditional_rows_for_current_vortex_writer"
+        } else {
+            "compatibility_scalar_parse_to_traditional_rows"
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TraditionalSourceRead<T> {
+    rows: Vec<T>,
+    evidence: TraditionalSourceReadEvidence,
 }
 
 /// Report emitted by the scoped direct compatibility transient CSV smoke path.
@@ -3020,6 +3103,22 @@ impl TraditionalAnalyticsReport {
             (
                 "source_to_columnar_micros".to_string(),
                 self.source_to_columnar_micros.to_string(),
+            ),
+            (
+                "source_state_materialization_layout".to_string(),
+                self.source_state_materialization_layout.clone(),
+            ),
+            (
+                "source_state_parse_normalization".to_string(),
+                self.source_state_parse_normalization.clone(),
+            ),
+            (
+                "source_state_columnar_preserved".to_string(),
+                self.source_state_columnar_preserved.to_string(),
+            ),
+            (
+                "source_state_record_batch_count".to_string(),
+                self.source_state_record_batch_count.to_string(),
             ),
             (
                 "compatibility_to_vortex_import_micros".to_string(),
@@ -8215,16 +8314,48 @@ fn run_traditional_analytics_benchmark_enabled(
     let resource_policy = request
         .resource_policy
         .resolve_for_sources(source_bytes_read);
-    let source_read_start = std::time::Instant::now();
-    let fact_rows =
-        read_traditional_fact_rows(&request.fact_csv, request.input_format, resource_policy)?;
-    let dim_rows =
-        read_traditional_dim_rows(&request.dim_csv, request.input_format, resource_policy)?;
-    let cdc_delta_rows = request.cdc_delta_csv.as_ref().map_or_else(
-        || Ok(Vec::new()),
-        |path| read_traditional_cdc_delta_csv(path),
+    let fact_source = read_traditional_fact_rows_with_evidence(
+        &request.fact_csv,
+        request.input_format,
+        resource_policy,
     )?;
-    let source_read_micros = duration_to_micros(source_read_start.elapsed());
+    let dim_source = read_traditional_dim_rows_with_evidence(
+        &request.dim_csv,
+        request.input_format,
+        resource_policy,
+    )?;
+    let cdc_delta_source = request.cdc_delta_csv.as_ref().map_or_else(
+        || {
+            Ok(TraditionalSourceRead {
+                rows: Vec::new(),
+                evidence: TraditionalSourceReadEvidence::default(),
+            })
+        },
+        |path| read_traditional_cdc_delta_csv_with_evidence(path),
+    )?;
+    let TraditionalSourceRead {
+        rows: fact_rows,
+        evidence: fact_source_evidence,
+    } = fact_source;
+    let TraditionalSourceRead {
+        rows: dim_rows,
+        evidence: dim_source_evidence,
+    } = dim_source;
+    let TraditionalSourceRead {
+        rows: cdc_delta_rows,
+        evidence: cdc_delta_source_evidence,
+    } = cdc_delta_source;
+    let source_read_evidence = fact_source_evidence
+        .add(dim_source_evidence)?
+        .add(cdc_delta_source_evidence)?;
+    let source_read_micros = source_read_evidence.read_micros;
+    let source_parse_micros = source_read_evidence.parse_micros;
+    let source_to_columnar_micros = source_read_evidence.columnar_micros;
+    let source_state_materialization_layout =
+        source_read_evidence.materialization_layout().to_string();
+    let source_state_parse_normalization = source_read_evidence.parse_normalization().to_string();
+    let source_state_columnar_preserved = source_read_evidence.columnar_preserved;
+    let source_state_record_batch_count = source_read_evidence.record_batch_count;
     let source_rows_materialized = checked_usize_sum_to_u64(fact_rows.len(), dim_rows.len())?
         .checked_add(usize_to_u64(cdc_delta_rows.len())?)
         .ok_or_else(|| {
@@ -8247,9 +8378,8 @@ fn run_traditional_analytics_benchmark_enabled(
     }
     let vortex_array_build_micros = vortex_write_timing.array_build_micros;
     let vortex_write_micros = vortex_write_timing.vortex_write_micros;
-    let source_to_columnar_micros = vortex_array_build_micros;
     let compatibility_to_vortex_import_micros = checked_u64_sum(
-        checked_u64_sum(source_read_micros, source_to_columnar_micros)?,
+        checked_u64_sum(source_read_micros, vortex_array_build_micros)?,
         vortex_write_micros,
     )?;
     let mut compatibility_output = None;
@@ -8466,11 +8596,16 @@ fn run_traditional_analytics_benchmark_enabled(
         computed_result_sink_schema_summary: COMPUTED_RESULT_VORTEX_SCHEMA_SUMMARY.to_string(),
         source_stat_micros,
         source_read_micros,
-        source_parse_micros: source_read_micros,
+        source_parse_micros,
         source_to_columnar_micros,
+        source_state_materialization_layout,
+        source_state_parse_normalization,
+        source_state_columnar_preserved,
+        source_state_record_batch_count,
         compatibility_to_vortex_import_micros,
         compatibility_to_vortex_import_timing_scope:
-            "source_read_parse_plus_vortex_array_build_plus_vortex_write".to_string(),
+            "source_read_parse_including_columnar_decode_plus_vortex_array_build_plus_vortex_write"
+                .to_string(),
         vortex_array_build_micros,
         vortex_write_micros,
         vortex_digest_micros,
@@ -11407,17 +11542,31 @@ where
     Ok(values[0])
 }
 
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[cfg(all(test, feature = "vortex-traditional-analytics-benchmark"))]
 fn read_traditional_fact_rows(
     path: &std::path::Path,
     input_format: TraditionalAnalyticsInputFormat,
     resource_policy: TraditionalAnalyticsResourcePolicy,
 ) -> Result<Vec<TraditionalFactRow>> {
+    read_traditional_fact_rows_with_evidence(path, input_format, resource_policy)
+        .map(|source| source.rows)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn read_traditional_fact_rows_with_evidence(
+    path: &std::path::Path,
+    input_format: TraditionalAnalyticsInputFormat,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+) -> Result<TraditionalSourceRead<TraditionalFactRow>> {
     if path.is_dir() {
         let mut rows = Vec::new();
+        let mut evidence = TraditionalSourceReadEvidence::default();
         for part in fact_input_part_paths(path, input_format, "fact input")? {
-            match read_traditional_fact_rows(&part, input_format, resource_policy) {
-                Ok(part_rows) => rows.extend(part_rows),
+            match read_traditional_fact_rows_with_evidence(&part, input_format, resource_policy) {
+                Ok(part_source) => {
+                    rows.extend(part_source.rows);
+                    evidence = evidence.add(part_source.evidence)?;
+                }
                 Err(error)
                     if input_format == TraditionalAnalyticsInputFormat::JsonLines
                         && error.to_string().contains("contains no rows") => {}
@@ -11430,42 +11579,104 @@ fn read_traditional_fact_rows(
                 path.display()
             )));
         }
-        return Ok(rows);
+        return Ok(TraditionalSourceRead { rows, evidence });
     }
     match input_format {
-        TraditionalAnalyticsInputFormat::Csv => read_traditional_fact_csv(path),
-        TraditionalAnalyticsInputFormat::JsonLines => read_traditional_fact_jsonl(path),
+        TraditionalAnalyticsInputFormat::Csv => {
+            let source_read_start = std::time::Instant::now();
+            let rows = read_traditional_fact_csv(path)?;
+            Ok(TraditionalSourceRead {
+                rows,
+                evidence: TraditionalSourceReadEvidence::scalar(duration_to_micros(
+                    source_read_start.elapsed(),
+                )),
+            })
+        }
+        TraditionalAnalyticsInputFormat::JsonLines => {
+            let source_read_start = std::time::Instant::now();
+            let rows = read_traditional_fact_jsonl(path)?;
+            Ok(TraditionalSourceRead {
+                rows,
+                evidence: TraditionalSourceReadEvidence::scalar(duration_to_micros(
+                    source_read_start.elapsed(),
+                )),
+            })
+        }
         TraditionalAnalyticsInputFormat::Parquet
         | TraditionalAnalyticsInputFormat::ArrowIpc
         | TraditionalAnalyticsInputFormat::Avro
         | TraditionalAnalyticsInputFormat::Orc => {
+            let source_to_columnar_start = std::time::Instant::now();
             let batches =
                 read_traditional_arrow_batches(path, input_format, "fact input", resource_policy)?;
-            fact_rows_from_arrow_batches(&batches, path)
+            let source_to_columnar_micros = duration_to_micros(source_to_columnar_start.elapsed());
+            let record_batch_count = batches.len();
+            let source_parse_start = std::time::Instant::now();
+            let rows = fact_rows_from_arrow_batches(&batches, path)?;
+            let source_parse_micros = duration_to_micros(source_parse_start.elapsed());
+            Ok(TraditionalSourceRead {
+                rows,
+                evidence: TraditionalSourceReadEvidence::columnar(
+                    source_to_columnar_micros,
+                    source_parse_micros,
+                    record_batch_count,
+                )?,
+            })
         }
     }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn read_traditional_dim_rows(
+fn read_traditional_dim_rows_with_evidence(
     path: &std::path::Path,
     input_format: TraditionalAnalyticsInputFormat,
     resource_policy: TraditionalAnalyticsResourcePolicy,
-) -> Result<Vec<TraditionalDimRow>> {
+) -> Result<TraditionalSourceRead<TraditionalDimRow>> {
     match input_format {
-        TraditionalAnalyticsInputFormat::Csv => read_traditional_dim_csv(path),
-        TraditionalAnalyticsInputFormat::JsonLines => read_traditional_dim_jsonl(path),
+        TraditionalAnalyticsInputFormat::Csv => {
+            let source_read_start = std::time::Instant::now();
+            let rows = read_traditional_dim_csv(path)?;
+            Ok(TraditionalSourceRead {
+                rows,
+                evidence: TraditionalSourceReadEvidence::scalar(duration_to_micros(
+                    source_read_start.elapsed(),
+                )),
+            })
+        }
+        TraditionalAnalyticsInputFormat::JsonLines => {
+            let source_read_start = std::time::Instant::now();
+            let rows = read_traditional_dim_jsonl(path)?;
+            Ok(TraditionalSourceRead {
+                rows,
+                evidence: TraditionalSourceReadEvidence::scalar(duration_to_micros(
+                    source_read_start.elapsed(),
+                )),
+            })
+        }
         TraditionalAnalyticsInputFormat::Parquet
         | TraditionalAnalyticsInputFormat::ArrowIpc
         | TraditionalAnalyticsInputFormat::Avro
         | TraditionalAnalyticsInputFormat::Orc => {
+            let source_to_columnar_start = std::time::Instant::now();
             let batches = read_traditional_arrow_batches(
                 path,
                 input_format,
                 "dimension input",
                 resource_policy,
             )?;
-            dim_rows_from_arrow_batches(&batches, path)
+            let source_to_columnar_micros = duration_to_micros(source_to_columnar_start.elapsed());
+            let record_batch_count = batches.len();
+            let source_parse_start = std::time::Instant::now();
+            let rows = dim_rows_from_arrow_batches(&batches, path)?;
+            let source_parse_micros = duration_to_micros(source_parse_start.elapsed());
+            Ok(TraditionalSourceRead {
+                rows,
+                evidence: TraditionalSourceReadEvidence::columnar(
+                    source_to_columnar_micros,
+                    source_parse_micros,
+                    record_batch_count,
+                )?,
+            })
         }
     }
 }
@@ -11594,7 +11805,10 @@ fn read_traditional_dim_csv(path: &std::path::Path) -> Result<Vec<TraditionalDim
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn read_traditional_cdc_delta_csv(path: &std::path::Path) -> Result<Vec<TraditionalCdcDeltaRow>> {
+fn read_traditional_cdc_delta_csv_with_evidence(
+    path: &std::path::Path,
+) -> Result<TraditionalSourceRead<TraditionalCdcDeltaRow>> {
+    let source_read_start = std::time::Instant::now();
     let text = std::fs::read_to_string(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to read CDC delta input '{}': {error}",
@@ -11663,7 +11877,12 @@ fn read_traditional_cdc_delta_csv(path: &std::path::Path) -> Result<Vec<Traditio
             effective_ts: cols[effective_ts_index].to_string(),
         });
     }
-    Ok(rows)
+    Ok(TraditionalSourceRead {
+        rows,
+        evidence: TraditionalSourceReadEvidence::scalar(duration_to_micros(
+            source_read_start.elapsed(),
+        )),
+    })
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -12185,41 +12404,35 @@ fn fact_rows_from_arrow_batches(
 ) -> Result<Vec<TraditionalFactRow>> {
     let mut rows = Vec::new();
     for batch in batches {
+        let ids = arrow_u64_column(batch, path, "id")?;
+        let group_keys = arrow_u32_column(batch, path, "group_key")?;
+        let dim_keys = arrow_u32_column(batch, path, "dim_key")?;
+        let values = arrow_u32_column(batch, path, "value")?;
+        let metrics = arrow_f64_column(batch, path, "metric")?;
+        let flags = arrow_u8_column(batch, path, "flag")?;
+        let categories = arrow_string_column(batch, path, "category")?;
+        let event_dates = arrow_optional_string_column(batch, path, "event_date")?;
+        let nullable_metrics =
+            arrow_optional_value_string_column(batch, path, "nullable_metric_00")?;
+        let nested_payloads = arrow_optional_string_column(batch, path, "nested_payload")?;
+        let raw_event_times = arrow_optional_string_column(batch, path, "raw_event_time")?;
+        let dirty_numeric = arrow_optional_string_column(batch, path, "dirty_numeric")?;
+        let dirty_flags = arrow_optional_string_column(batch, path, "dirty_flag")?;
         for row_index in 0..batch.num_rows() {
             rows.push(TraditionalFactRow {
-                id: arrow_u64_field(batch, path, row_index, "id")?,
-                group_key: arrow_u32_field(batch, path, row_index, "group_key")?,
-                dim_key: arrow_u32_field(batch, path, row_index, "dim_key")?,
-                value: arrow_u32_field(batch, path, row_index, "value")?,
-                metric: arrow_f64_field(batch, path, row_index, "metric")?,
-                flag: arrow_u8_field(batch, path, row_index, "flag")?,
-                category: arrow_string_field(batch, path, row_index, "category")?,
-                event_date: arrow_optional_string_field(batch, path, row_index, "event_date")?,
-                nullable_metric_00: arrow_optional_value_string_field(
-                    batch,
-                    path,
-                    row_index,
-                    "nullable_metric_00",
-                )?,
-                nested_payload: arrow_optional_string_field(
-                    batch,
-                    path,
-                    row_index,
-                    "nested_payload",
-                )?,
-                raw_event_time: arrow_optional_string_field(
-                    batch,
-                    path,
-                    row_index,
-                    "raw_event_time",
-                )?,
-                dirty_numeric: arrow_optional_string_field(
-                    batch,
-                    path,
-                    row_index,
-                    "dirty_numeric",
-                )?,
-                dirty_flag: arrow_optional_string_field(batch, path, row_index, "dirty_flag")?,
+                id: ids[row_index],
+                group_key: group_keys[row_index],
+                dim_key: dim_keys[row_index],
+                value: values[row_index],
+                metric: metrics[row_index],
+                flag: flags[row_index],
+                category: categories[row_index].clone(),
+                event_date: event_dates[row_index].clone(),
+                nullable_metric_00: nullable_metrics[row_index].clone(),
+                nested_payload: nested_payloads[row_index].clone(),
+                raw_event_time: raw_event_times[row_index].clone(),
+                dirty_numeric: dirty_numeric[row_index].clone(),
+                dirty_flag: dirty_flags[row_index].clone(),
             });
         }
     }
@@ -12233,11 +12446,14 @@ fn dim_rows_from_arrow_batches(
 ) -> Result<Vec<TraditionalDimRow>> {
     let mut rows = Vec::new();
     for batch in batches {
+        let dim_keys = arrow_u32_column(batch, path, "dim_key")?;
+        let dim_labels = arrow_string_column(batch, path, "dim_label")?;
+        let weights = arrow_f64_column(batch, path, "weight")?;
         for row_index in 0..batch.num_rows() {
             rows.push(TraditionalDimRow {
-                dim_key: arrow_u32_field(batch, path, row_index, "dim_key")?,
-                dim_label: arrow_string_field(batch, path, row_index, "dim_label")?,
-                weight: arrow_f64_field(batch, path, row_index, "weight")?,
+                dim_key: dim_keys[row_index],
+                dim_label: dim_labels[row_index].clone(),
+                weight: weights[row_index],
             });
         }
     }
@@ -12260,110 +12476,387 @@ fn arrow_column<'a>(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn arrow_u64_field(
+fn arrow_u64_column(
     batch: &arrow_array::RecordBatch,
     path: &std::path::Path,
-    row_index: usize,
     field: &str,
-) -> Result<u64> {
-    let value = arrow_i128_field(batch, path, row_index, field)?;
-    u64::try_from(value).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "Arrow input '{}' field '{field}' row {} does not fit u64: {error}",
-            path.display(),
-            row_index + 1
-        ))
-    })
+) -> Result<Vec<u64>> {
+    arrow_i128_column(batch, path, field)?
+        .into_iter()
+        .enumerate()
+        .map(|(row_index, value)| {
+            u64::try_from(value).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "Arrow input '{}' field '{field}' row {} does not fit u64: {error}",
+                    path.display(),
+                    row_index + 1
+                ))
+            })
+        })
+        .collect()
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn arrow_u32_field(
+fn arrow_u32_column(
     batch: &arrow_array::RecordBatch,
     path: &std::path::Path,
-    row_index: usize,
     field: &str,
-) -> Result<u32> {
-    let value = arrow_i128_field(batch, path, row_index, field)?;
-    u32::try_from(value).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "Arrow input '{}' field '{field}' row {} does not fit u32: {error}",
-            path.display(),
-            row_index + 1
-        ))
-    })
+) -> Result<Vec<u32>> {
+    arrow_i128_column(batch, path, field)?
+        .into_iter()
+        .enumerate()
+        .map(|(row_index, value)| {
+            u32::try_from(value).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "Arrow input '{}' field '{field}' row {} does not fit u32: {error}",
+                    path.display(),
+                    row_index + 1
+                ))
+            })
+        })
+        .collect()
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn arrow_u8_field(
+fn arrow_u8_column(
     batch: &arrow_array::RecordBatch,
     path: &std::path::Path,
-    row_index: usize,
     field: &str,
-) -> Result<u8> {
-    let value = arrow_i128_field(batch, path, row_index, field)?;
-    u8::try_from(value).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "Arrow input '{}' field '{field}' row {} does not fit u8: {error}",
-            path.display(),
-            row_index + 1
-        ))
-    })
+) -> Result<Vec<u8>> {
+    arrow_i128_column(batch, path, field)?
+        .into_iter()
+        .enumerate()
+        .map(|(row_index, value)| {
+            u8::try_from(value).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "Arrow input '{}' field '{field}' row {} does not fit u8: {error}",
+                    path.display(),
+                    row_index + 1
+                ))
+            })
+        })
+        .collect()
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn arrow_i128_field(
+fn arrow_i128_column(
     batch: &arrow_array::RecordBatch,
     path: &std::path::Path,
-    row_index: usize,
     field: &str,
-) -> Result<i128> {
+) -> Result<Vec<i128>> {
     let array = arrow_column(batch, path, field)?;
-    ensure_arrow_not_null(array, path, row_index, field)?;
     if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int8Array>() {
-        Ok(i128::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| i128::from(values.value(row_index)))
+            .collect())
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int16Array>() {
-        Ok(i128::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| i128::from(values.value(row_index)))
+            .collect())
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int32Array>() {
-        Ok(i128::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| i128::from(values.value(row_index)))
+            .collect())
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int64Array>() {
-        Ok(i128::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| i128::from(values.value(row_index)))
+            .collect())
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt8Array>() {
-        Ok(i128::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| i128::from(values.value(row_index)))
+            .collect())
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt16Array>() {
-        Ok(i128::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| i128::from(values.value(row_index)))
+            .collect())
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt32Array>() {
-        Ok(i128::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| i128::from(values.value(row_index)))
+            .collect())
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt64Array>() {
-        Ok(i128::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| i128::from(values.value(row_index)))
+            .collect())
     } else {
-        Err(arrow_type_error(array, path, row_index, field, "integer"))
+        Err(arrow_type_error(array, path, 0, field, "integer"))
     }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn arrow_f64_field(
+fn arrow_f64_column(
     batch: &arrow_array::RecordBatch,
     path: &std::path::Path,
-    row_index: usize,
     field: &str,
-) -> Result<f64> {
+) -> Result<Vec<f64>> {
     let array = arrow_column(batch, path, field)?;
-    ensure_arrow_not_null(array, path, row_index, field)?;
     if let Some(values) = array.as_any().downcast_ref::<arrow_array::Float64Array>() {
-        Ok(values.value(row_index))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| values.value(row_index))
+            .collect())
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::Float32Array>() {
-        Ok(f64::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| f64::from(values.value(row_index)))
+            .collect())
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int64Array>() {
-        arrow_i64_to_f64(values.value(row_index), path, row_index, field)
+        ensure_arrow_column_not_null(values, path, field)?;
+        (0..values.len())
+            .map(|row_index| arrow_i64_to_f64(values.value(row_index), path, row_index, field))
+            .collect()
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int32Array>() {
-        Ok(f64::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| f64::from(values.value(row_index)))
+            .collect())
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt64Array>() {
-        arrow_u64_to_f64(values.value(row_index), path, row_index, field)
+        ensure_arrow_column_not_null(values, path, field)?;
+        (0..values.len())
+            .map(|row_index| arrow_u64_to_f64(values.value(row_index), path, row_index, field))
+            .collect()
     } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt32Array>() {
-        Ok(f64::from(values.value(row_index)))
+        ensure_arrow_column_not_null(values, path, field)?;
+        Ok((0..values.len())
+            .map(|row_index| f64::from(values.value(row_index)))
+            .collect())
     } else {
-        Err(arrow_type_error(array, path, row_index, field, "numeric"))
+        Err(arrow_type_error(array, path, 0, field, "numeric"))
     }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn arrow_string_column(
+    batch: &arrow_array::RecordBatch,
+    path: &std::path::Path,
+    field: &str,
+) -> Result<Vec<String>> {
+    let array = arrow_column(batch, path, field)?;
+    ensure_arrow_column_not_null(array, path, field)?;
+    arrow_string_values(array, path, field)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn arrow_optional_string_column(
+    batch: &arrow_array::RecordBatch,
+    path: &std::path::Path,
+    field: &str,
+) -> Result<Vec<Option<String>>> {
+    let Some(array) = optional_arrow_column(batch, path, field)? else {
+        return Ok(vec![None; batch.num_rows()]);
+    };
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::Date32Array>() {
+        return Ok((0..values.len())
+            .map(|row_index| {
+                if values.is_null(row_index) {
+                    None
+                } else {
+                    Some(date32_days_to_yyyy_mm_dd(values.value(row_index)))
+                }
+            })
+            .collect());
+    }
+    arrow_optional_string_values(array, path, field)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn arrow_optional_value_string_column(
+    batch: &arrow_array::RecordBatch,
+    path: &std::path::Path,
+    field: &str,
+) -> Result<Vec<Option<String>>> {
+    let Some(array) = optional_arrow_column(batch, path, field)? else {
+        return Ok(vec![None; batch.num_rows()]);
+    };
+    if array.as_any().is::<arrow_array::StringArray>()
+        || array.as_any().is::<arrow_array::LargeStringArray>()
+        || array.as_any().is::<arrow_array::StringViewArray>()
+    {
+        return arrow_optional_string_values(array, path, field);
+    }
+    arrow_optional_f64_values(array, path, field)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn optional_arrow_column<'a>(
+    batch: &'a arrow_array::RecordBatch,
+    path: &std::path::Path,
+    field: &str,
+) -> Result<Option<&'a dyn arrow_array::Array>> {
+    if batch.schema().index_of(field).is_err() {
+        return Ok(None);
+    }
+    arrow_column(batch, path, field).map(Some)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn arrow_string_values(
+    array: &dyn arrow_array::Array,
+    path: &std::path::Path,
+    field: &str,
+) -> Result<Vec<String>> {
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::StringArray>() {
+        Ok((0..values.len())
+            .map(|row_index| values.value(row_index).to_string())
+            .collect())
+    } else if let Some(values) = array
+        .as_any()
+        .downcast_ref::<arrow_array::LargeStringArray>()
+    {
+        Ok((0..values.len())
+            .map(|row_index| values.value(row_index).to_string())
+            .collect())
+    } else if let Some(values) = array
+        .as_any()
+        .downcast_ref::<arrow_array::StringViewArray>()
+    {
+        Ok((0..values.len())
+            .map(|row_index| values.value(row_index).to_string())
+            .collect())
+    } else {
+        Err(arrow_type_error(array, path, 0, field, "string"))
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn arrow_optional_string_values(
+    array: &dyn arrow_array::Array,
+    path: &std::path::Path,
+    field: &str,
+) -> Result<Vec<Option<String>>> {
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::StringArray>() {
+        Ok((0..values.len())
+            .map(|row_index| {
+                if values.is_null(row_index) {
+                    None
+                } else {
+                    Some(values.value(row_index).to_string())
+                }
+            })
+            .collect())
+    } else if let Some(values) = array
+        .as_any()
+        .downcast_ref::<arrow_array::LargeStringArray>()
+    {
+        Ok((0..values.len())
+            .map(|row_index| {
+                if values.is_null(row_index) {
+                    None
+                } else {
+                    Some(values.value(row_index).to_string())
+                }
+            })
+            .collect())
+    } else if let Some(values) = array
+        .as_any()
+        .downcast_ref::<arrow_array::StringViewArray>()
+    {
+        Ok((0..values.len())
+            .map(|row_index| {
+                if values.is_null(row_index) {
+                    None
+                } else {
+                    Some(values.value(row_index).to_string())
+                }
+            })
+            .collect())
+    } else {
+        Err(arrow_type_error(array, path, 0, field, "string"))
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn arrow_optional_f64_values(
+    array: &dyn arrow_array::Array,
+    path: &std::path::Path,
+    field: &str,
+) -> Result<Vec<Option<String>>> {
+    if let Some(values) = array.as_any().downcast_ref::<arrow_array::Float64Array>() {
+        Ok((0..values.len())
+            .map(|row_index| {
+                if values.is_null(row_index) {
+                    Ok(None)
+                } else {
+                    Ok(Some(json_float(values.value(row_index))))
+                }
+            })
+            .collect::<Result<Vec<_>>>()?)
+    } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::Float32Array>() {
+        Ok((0..values.len())
+            .map(|row_index| {
+                if values.is_null(row_index) {
+                    Ok(None)
+                } else {
+                    Ok(Some(json_float(f64::from(values.value(row_index)))))
+                }
+            })
+            .collect::<Result<Vec<_>>>()?)
+    } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int64Array>() {
+        (0..values.len())
+            .map(|row_index| {
+                if values.is_null(row_index) {
+                    Ok(None)
+                } else {
+                    arrow_i64_to_f64(values.value(row_index), path, row_index, field)
+                        .map(json_float)
+                        .map(Some)
+                }
+            })
+            .collect()
+    } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::Int32Array>() {
+        Ok((0..values.len())
+            .map(|row_index| {
+                if values.is_null(row_index) {
+                    None
+                } else {
+                    Some(json_float(f64::from(values.value(row_index))))
+                }
+            })
+            .collect())
+    } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt64Array>() {
+        (0..values.len())
+            .map(|row_index| {
+                if values.is_null(row_index) {
+                    Ok(None)
+                } else {
+                    arrow_u64_to_f64(values.value(row_index), path, row_index, field)
+                        .map(json_float)
+                        .map(Some)
+                }
+            })
+            .collect()
+    } else if let Some(values) = array.as_any().downcast_ref::<arrow_array::UInt32Array>() {
+        Ok((0..values.len())
+            .map(|row_index| {
+                if values.is_null(row_index) {
+                    None
+                } else {
+                    Some(json_float(f64::from(values.value(row_index))))
+                }
+            })
+            .collect())
+    } else {
+        Err(arrow_type_error(array, path, 0, field, "numeric or string"))
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn ensure_arrow_column_not_null(
+    array: &dyn arrow_array::Array,
+    path: &std::path::Path,
+    field: &str,
+) -> Result<()> {
+    for row_index in 0..array.len() {
+        ensure_arrow_not_null(array, path, row_index, field)?;
+    }
+    Ok(())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -12409,52 +12902,6 @@ fn arrow_u64_to_f64(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn arrow_string_field(
-    batch: &arrow_array::RecordBatch,
-    path: &std::path::Path,
-    row_index: usize,
-    field: &str,
-) -> Result<String> {
-    let array = arrow_column(batch, path, field)?;
-    ensure_arrow_not_null(array, path, row_index, field)?;
-    if let Some(values) = array.as_any().downcast_ref::<arrow_array::StringArray>() {
-        Ok(values.value(row_index).to_string())
-    } else if let Some(values) = array
-        .as_any()
-        .downcast_ref::<arrow_array::LargeStringArray>()
-    {
-        Ok(values.value(row_index).to_string())
-    } else if let Some(values) = array
-        .as_any()
-        .downcast_ref::<arrow_array::StringViewArray>()
-    {
-        Ok(values.value(row_index).to_string())
-    } else {
-        Err(arrow_type_error(array, path, row_index, field, "string"))
-    }
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn arrow_optional_string_field(
-    batch: &arrow_array::RecordBatch,
-    path: &std::path::Path,
-    row_index: usize,
-    field: &str,
-) -> Result<Option<String>> {
-    if batch.schema().index_of(field).is_err() {
-        return Ok(None);
-    }
-    let array = arrow_column(batch, path, field)?;
-    if array.is_null(row_index) {
-        return Ok(None);
-    }
-    if let Some(values) = array.as_any().downcast_ref::<arrow_array::Date32Array>() {
-        return Ok(Some(date32_days_to_yyyy_mm_dd(values.value(row_index))));
-    }
-    arrow_string_field(batch, path, row_index, field).map(Some)
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn date32_days_to_yyyy_mm_dd(days_since_epoch: i32) -> String {
     let z = i64::from(days_since_epoch) + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
@@ -12467,29 +12914,6 @@ fn date32_days_to_yyyy_mm_dd(days_since_epoch: i32) -> String {
     let month = mp + if mp < 10 { 3 } else { -9 };
     year += i64::from(month <= 2);
     format!("{year:04}-{month:02}-{day:02}")
-}
-
-#[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn arrow_optional_value_string_field(
-    batch: &arrow_array::RecordBatch,
-    path: &std::path::Path,
-    row_index: usize,
-    field: &str,
-) -> Result<Option<String>> {
-    if batch.schema().index_of(field).is_err() {
-        return Ok(None);
-    }
-    let array = arrow_column(batch, path, field)?;
-    if array.is_null(row_index) {
-        return Ok(None);
-    }
-    if array.as_any().is::<arrow_array::StringArray>()
-        || array.as_any().is::<arrow_array::LargeStringArray>()
-        || array.as_any().is::<arrow_array::StringViewArray>()
-    {
-        return arrow_string_field(batch, path, row_index, field).map(Some);
-    }
-    arrow_f64_field(batch, path, row_index, field).map(|value| Some(json_float(value)))
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -15851,8 +16275,20 @@ mod tests {
         assert_field_eq(
             &fields,
             "compatibility_to_vortex_import_timing_scope",
-            "source_read_parse_plus_vortex_array_build_plus_vortex_write",
+            "source_read_parse_including_columnar_decode_plus_vortex_array_build_plus_vortex_write",
         );
+        assert_field_eq(
+            &fields,
+            "source_state_materialization_layout",
+            "scalar_rows_materialized_in_source_adapter",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_parse_normalization",
+            "compatibility_scalar_parse_to_traditional_rows",
+        );
+        assert_field_eq(&fields, "source_state_columnar_preserved", "false");
+        assert_field_eq(&fields, "source_state_record_batch_count", "0");
         for field in [
             "source_stat_micros",
             "source_read_micros",
@@ -21026,6 +21462,40 @@ mod tests {
             assert!(replay_report.compatibility_source_adapter_used);
             assert!(replay_report.compatibility_to_vortex_import_performed);
             assert!(!replay_report.fallback_execution_allowed);
+            let replay_fields = field_map(replay_report.fields());
+            if matches!(
+                output_format,
+                TraditionalAnalyticsInputFormat::Parquet
+                    | TraditionalAnalyticsInputFormat::ArrowIpc
+                    | TraditionalAnalyticsInputFormat::Avro
+                    | TraditionalAnalyticsInputFormat::Orc
+            ) {
+                assert_field_eq(
+                    &replay_fields,
+                    "source_state_materialization_layout",
+                    "columnar_record_batches_preserved_until_traditional_row_boundary",
+                );
+                assert_field_eq(
+                    &replay_fields,
+                    "source_state_parse_normalization",
+                    "arrow_record_batches_to_traditional_rows_for_current_vortex_writer",
+                );
+                assert_field_eq(&replay_fields, "source_state_columnar_preserved", "true");
+                assert!(
+                    replay_fields
+                        .get("source_state_record_batch_count")
+                        .and_then(|value| value.parse::<usize>().ok())
+                        .is_some_and(|value| value >= 2),
+                    "structured replay should report fact+dimension record batches"
+                );
+                assert!(
+                    replay_fields
+                        .get("source_to_columnar_micros")
+                        .and_then(|value| value.parse::<u64>().ok())
+                        .is_some(),
+                    "structured replay should report source-to-columnar timing"
+                );
+            }
 
             let _ = std::fs::remove_dir_all(root);
         }
