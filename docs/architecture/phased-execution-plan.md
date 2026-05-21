@@ -236,37 +236,6 @@ Current non-runtime sequence: complete the review-derived action items below bef
 expansion unless the user explicitly reprioritizes. Completed non-runtime history belongs in
 `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] REVIEW-P0-3 enforced workspace path safety for local output writers
-  - Source: 2026-05-21 structured repository review action sequence; RFC 0019, RFC 0024,
-    local-output writer and staged-workspace safety surfaces.
-  - Current state: workspace path safety reports and lexical checks exist, but the release gate
-    needs actual local writer enforcement across output boundaries, not only report-level safety
-    posture.
-  - Next slice outcome: route local output writers through one enforced workspace/path safety layer
-    covering canonical workspace root checks, symlink/hardlink policy, explicit overwrite policy,
-    temp staging, atomic commit where supported, rollback/cleanup evidence, and deterministic
-    blockers.
-  - User-visible surface: CLI/Python local writes, generated-source writes, SQL local-source output
-    writes, Vortex/staged output commands, diagnostics, release readiness.
-  - Implementation scope: output path validation helpers, generated-source local sinks,
-    SQL/local-source result sinks, Vortex/staged output commit paths, Python write helpers,
-    security tests, release-readiness checks.
-  - Evidence required: canonical path decision, workspace root, symlink/hardlink policy result,
-    overwrite decision, staging path, commit mode, cleanup result, rollback status, output digest,
-    `fallback_attempted=false`, and `external_engine_invoked=false`.
-  - Acceptance: every admitted local writer either commits through the shared safety layer or fails
-    with a deterministic diagnostic before writing outside the admitted boundary.
-  - Verification: writer safety unit tests, symlink/path traversal regression tests where supported,
-    local output smoke tests, release-readiness metadata, Python write-helper tests, `cargo clippy
-    --workspace --all-targets -- -D warnings`, `cargo test --workspace --all-targets`.
-  - Non-goals: no object-store write, production transaction manager, distributed commit protocol,
-    package publication, or platform-specific production filesystem guarantee.
-  - Claim boundary: local writer safety enforcement for admitted paths only.
-  - Fallback boundary: safety failures must not retry through external tools, shell copy helpers, or
-    fallback engines.
-  - Ledger rule: ledger entry must list writer families covered and any remaining report-only
-    writers.
-
 - [ ] REVIEW-P1-1 typed command registry and generated command metadata
   - Source: 2026-05-21 structured repository review action sequence; RFC 0010, RFC 0012,
     typed command-result envelope, capability discovery.

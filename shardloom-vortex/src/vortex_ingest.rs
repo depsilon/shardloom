@@ -9,11 +9,10 @@
 use std::path::PathBuf;
 
 #[cfg(feature = "vortex-write")]
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::Path,
-    time::Instant,
-};
+use std::{collections::BTreeSet, path::Path, time::Instant};
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use std::collections::BTreeMap;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
@@ -21,7 +20,7 @@ use arrow_array::{
     Int16Array, Int32Array, Int64Array, LargeStringArray, StringArray, StringViewArray,
     TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
 };
-use shardloom_core::{Result, ScalarValue, ShardLoomError};
+use shardloom_core::{Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWriteReport};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use crate::universal_format_io::FlatLocalColumnarSource;
@@ -174,6 +173,7 @@ pub struct VortexPreparedStateWriteReport {
     pub query_timing_starts_after_preparation: bool,
     pub upstream_vortex_write_called: bool,
     pub upstream_vortex_scan_called: bool,
+    pub workspace_write_report: WorkspaceSafeLocalWriteReport,
 }
 
 impl VortexPreparedStateWriteReport {
@@ -264,15 +264,16 @@ pub fn write_flat_scalar_vortex_prepared_state(
     let array_build_start = Instant::now();
     let array = flat_rows_to_vortex_struct(&request.columns, &request.rows, &column_families)?;
     let array_build_micros = array_build_start.elapsed().as_micros();
-    finalize_vortex_prepared_state_write(
-        request.target_path,
-        request.columns.len(),
+    finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
+        target_path: request.target_path,
+        column_count: request.columns.len(),
         column_families,
         row_count,
-        &array,
+        array: &array,
         array_build_micros,
-        request.certification_level,
-    )
+        certification_level: request.certification_level,
+        allow_overwrite: request.allow_overwrite,
+    })
 }
 
 /// Write flat columnar Arrow batches into a local Vortex artifact and
@@ -300,15 +301,16 @@ pub fn write_flat_columnar_vortex_prepared_state(
         flat_columnar_source_to_vortex_struct(&request.source, &source_shape)?;
     let array_build_micros = array_build_start.elapsed().as_micros();
     let row_count = usize_to_u64(request.source.row_count)?;
-    finalize_vortex_prepared_state_write(
-        request.target_path,
-        request.source.materialized_columns.len(),
+    finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
+        target_path: request.target_path,
+        column_count: request.source.materialized_columns.len(),
         column_families,
         row_count,
-        &array,
+        array: &array,
         array_build_micros,
-        request.certification_level,
-    )
+        certification_level: request.certification_level,
+        allow_overwrite: request.allow_overwrite,
+    })
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -326,24 +328,8 @@ struct FlatColumnarSourceShape {
 
 #[cfg(feature = "vortex-write")]
 fn prepare_vortex_target(target_path: &Path, allow_overwrite: bool) -> Result<()> {
-    use std::fs;
-
-    if target_path.exists() && !allow_overwrite {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest target '{}' already exists; pass --allow-overwrite to replace it",
-            target_path.display()
-        )));
-    }
-    if let Some(parent) = target_path.parent()
-        && !parent.as_os_str().is_empty()
-    {
-        fs::create_dir_all(parent).map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to create local vortex_ingest target directory '{}': {error}",
-                parent.display()
-            ))
-        })?;
-    }
+    let workspace_root = shardloom_core::infer_local_output_workspace_root(target_path)?;
+    shardloom_core::plan_workspace_safe_local_output(workspace_root, target_path, allow_overwrite)?;
     Ok(())
 }
 
@@ -427,30 +413,36 @@ fn validate_flat_columnar_source_shape(
 }
 
 #[cfg(feature = "vortex-write")]
-fn finalize_vortex_prepared_state_write(
+struct VortexPreparedStateFinalizeInput<'a> {
     target_path: PathBuf,
     column_count: usize,
     column_families: Vec<(String, String)>,
     row_count: u64,
-    array: &vortex::array::ArrayRef,
+    array: &'a vortex::array::ArrayRef,
     array_build_micros: u128,
     certification_level: VortexIngestCertificationLevel,
+    allow_overwrite: bool,
+}
+
+#[cfg(feature = "vortex-write")]
+fn finalize_vortex_prepared_state_write(
+    input: VortexPreparedStateFinalizeInput<'_>,
 ) -> Result<VortexPreparedStateWriteReport> {
-    let write_result = write_vortex_array(&target_path, array)?;
+    let write_result = write_vortex_array(&input.target_path, input.array, input.allow_overwrite)?;
 
     let (
         reopen_row_count,
         reopen_scan_micros,
         reopen_verification_status,
         upstream_vortex_scan_called,
-    ) = if certification_level == VortexIngestCertificationLevel::IngestCertified {
+    ) = if input.certification_level == VortexIngestCertificationLevel::IngestCertified {
         let reopen_start = Instant::now();
-        let reopen_row_count = reopen_vortex_row_count(&target_path)?;
+        let reopen_row_count = reopen_vortex_row_count(&input.target_path)?;
         let reopen_scan_micros = reopen_start.elapsed().as_micros();
-        if write_result.writer_row_count != row_count || reopen_row_count != row_count {
+        if write_result.writer_row_count != input.row_count || reopen_row_count != input.row_count {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "local vortex_ingest row-count proof mismatch: source={row_count} writer={} reopen={reopen_row_count}",
-                write_result.writer_row_count
+                "local vortex_ingest row-count proof mismatch: source={} writer={} reopen={reopen_row_count}",
+                input.row_count, write_result.writer_row_count
             )));
         }
         (
@@ -460,35 +452,36 @@ fn finalize_vortex_prepared_state_write(
             true,
         )
     } else {
-        if write_result.writer_row_count != row_count {
+        if write_result.writer_row_count != input.row_count {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "local vortex_ingest writer row count mismatch: source={row_count} writer={}; no fallback execution was attempted",
-                write_result.writer_row_count
+                "local vortex_ingest writer row count mismatch: source={} writer={}; no fallback execution was attempted",
+                input.row_count, write_result.writer_row_count
             )));
         }
         (0, 0, "not_performed_ingest_minimal".to_string(), false)
     };
 
     Ok(VortexPreparedStateWriteReport {
-        target_path,
-        row_count,
-        column_count,
-        column_families,
+        target_path: input.target_path,
+        row_count: input.row_count,
+        column_count: input.column_count,
+        column_families: input.column_families,
         bytes_written: write_result.bytes_written,
         artifact_digest: write_result.artifact_digest,
         digest_micros: write_result.digest_micros,
         writer_row_count: write_result.writer_row_count,
         reopen_row_count,
-        array_build_micros,
+        array_build_micros: input.array_build_micros,
         write_micros: write_result.write_micros,
         reopen_scan_micros,
         reopen_verification_status,
         timing_scope: "vortex_ingest_prepare_once".to_string(),
-        certification_level: certification_level.as_str().to_string(),
+        certification_level: input.certification_level.as_str().to_string(),
         preparation_included: true,
         query_timing_starts_after_preparation: false,
         upstream_vortex_write_called: true,
         upstream_vortex_scan_called,
+        workspace_write_report: write_result.workspace_write_report,
     })
 }
 
@@ -1009,15 +1002,15 @@ struct LocalVortexWriteResult {
     artifact_digest: String,
     digest_micros: u128,
     write_micros: u128,
+    workspace_write_report: WorkspaceSafeLocalWriteReport,
 }
 
 #[cfg(feature = "vortex-write")]
 fn write_vortex_array(
     path: &Path,
     array: &vortex::array::ArrayRef,
+    allow_overwrite: bool,
 ) -> Result<LocalVortexWriteResult> {
-    use std::fs;
-
     use vortex::VortexSessionDefault as _;
     use vortex::file::WriteOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
@@ -1048,18 +1041,21 @@ fn write_vortex_array(
     let artifact_digest = fnv64_digest_bytes(&bytes);
     let digest_micros = digest_start.elapsed().as_micros();
     let bytes_written = usize_to_u64(bytes.len())?;
-    fs::write(path, bytes).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to write local vortex_ingest artifact '{}': {error}",
-            path.display()
-        ))
-    })?;
+    let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+    let workspace_write_report = shardloom_core::write_workspace_safe_bytes(
+        workspace_root,
+        path,
+        allow_overwrite,
+        "local vortex_ingest artifact",
+        &bytes,
+    )?;
     Ok(LocalVortexWriteResult {
         writer_row_count: summary.row_count(),
         bytes_written,
         artifact_digest,
         digest_micros,
         write_micros: write_start.elapsed().as_micros(),
+        workspace_write_report,
     })
 }
 

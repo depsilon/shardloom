@@ -2285,6 +2285,7 @@ pub(crate) fn handle_vortex_staged_marker_write(
             workspace_id_raw,
             workspace_path_raw,
             report.marker_written(),
+            report.workspace_write_report.as_ref(),
         ),
     );
     if report.has_errors() {

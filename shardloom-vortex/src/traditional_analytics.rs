@@ -11168,14 +11168,14 @@ fn write_traditional_compatibility_outputs(
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn write_fact_csv_output(fact: &VortexFactTable, path: &std::path::Path) -> Result<()> {
-    use std::io::Write as _;
+    use std::fmt::Write as _;
 
-    let mut file = create_compatibility_output_file(path, "fact CSV")?;
-    writeln!(file, "id,group_key,dim_key,value,metric,flag,category")
+    let mut content = String::new();
+    writeln!(content, "id,group_key,dim_key,value,metric,flag,category")
         .map_err(|error| compatibility_write_error(path, "fact CSV", error))?;
     for index in 0..fact.len() {
         writeln!(
-            file,
+            content,
             "{},{},{},{},{:.2},{},{}",
             fact.id[index],
             fact.group_key[index],
@@ -11187,35 +11187,35 @@ fn write_fact_csv_output(fact: &VortexFactTable, path: &std::path::Path) -> Resu
         )
         .map_err(|error| compatibility_write_error(path, "fact CSV", error))?;
     }
-    Ok(())
+    write_compatibility_output_bytes(path, "fact CSV", content.as_bytes())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn write_dim_csv_output(dim: &VortexDimTable, path: &std::path::Path) -> Result<()> {
-    use std::io::Write as _;
+    use std::fmt::Write as _;
 
-    let mut file = create_compatibility_output_file(path, "dimension CSV")?;
-    writeln!(file, "dim_key,dim_label,weight")
+    let mut content = String::new();
+    writeln!(content, "dim_key,dim_label,weight")
         .map_err(|error| compatibility_write_error(path, "dimension CSV", error))?;
     for index in 0..dim.len() {
         writeln!(
-            file,
+            content,
             "{},{},{:.2}",
             dim.dim_key[index], dim.dim_label[index], dim.weight[index]
         )
         .map_err(|error| compatibility_write_error(path, "dimension CSV", error))?;
     }
-    Ok(())
+    write_compatibility_output_bytes(path, "dimension CSV", content.as_bytes())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn write_fact_jsonl_output(fact: &VortexFactTable, path: &std::path::Path) -> Result<()> {
-    use std::io::Write as _;
+    use std::fmt::Write as _;
 
-    let mut file = create_compatibility_output_file(path, "fact JSONL")?;
+    let mut content = String::new();
     for index in 0..fact.len() {
         writeln!(
-            file,
+            content,
             "{{\"id\":{},\"group_key\":{},\"dim_key\":{},\"value\":{},\"metric\":{:.2},\"flag\":{},\"category\":\"{}\"}}",
             fact.id[index],
             fact.group_key[index],
@@ -11227,17 +11227,17 @@ fn write_fact_jsonl_output(fact: &VortexFactTable, path: &std::path::Path) -> Re
         )
         .map_err(|error| compatibility_write_error(path, "fact JSONL", error))?;
     }
-    Ok(())
+    write_compatibility_output_bytes(path, "fact JSONL", content.as_bytes())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn write_dim_jsonl_output(dim: &VortexDimTable, path: &std::path::Path) -> Result<()> {
-    use std::io::Write as _;
+    use std::fmt::Write as _;
 
-    let mut file = create_compatibility_output_file(path, "dimension JSONL")?;
+    let mut content = String::new();
     for index in 0..dim.len() {
         writeln!(
-            file,
+            content,
             "{{\"dim_key\":{},\"dim_label\":\"{}\",\"weight\":{:.2}}}",
             dim.dim_key[index],
             json_escape(&dim.dim_label[index]),
@@ -11245,17 +11245,24 @@ fn write_dim_jsonl_output(dim: &VortexDimTable, path: &std::path::Path) -> Resul
         )
         .map_err(|error| compatibility_write_error(path, "dimension JSONL", error))?;
     }
-    Ok(())
+    write_compatibility_output_bytes(path, "dimension JSONL", content.as_bytes())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-fn create_compatibility_output_file(path: &std::path::Path, label: &str) -> Result<std::fs::File> {
-    std::fs::File::create(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to create {label} compatibility output '{}': {error}",
-            path.display()
-        ))
-    })
+fn write_compatibility_output_bytes(
+    path: &std::path::Path,
+    label: &str,
+    bytes: &[u8],
+) -> Result<()> {
+    let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+    shardloom_core::write_workspace_safe_bytes(
+        workspace_root,
+        path,
+        true,
+        format!("{label} compatibility output"),
+        bytes,
+    )
+    .map(|_| ())
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -11430,27 +11437,30 @@ fn write_parquet_output(
     path: &std::path::Path,
     label: &str,
 ) -> Result<()> {
-    let file = create_compatibility_output_file(path, label)?;
-    let mut writer =
-        parquet::arrow::ArrowWriter::try_new(file, batch.schema(), None).map_err(|error| {
+    let mut bytes = Vec::new();
+    {
+        let cursor = std::io::Cursor::new(&mut bytes);
+        let mut writer = parquet::arrow::ArrowWriter::try_new(cursor, batch.schema(), None)
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to create Parquet writer for {label} '{}': {error}",
+                    path.display()
+                ))
+            })?;
+        writer.write(batch).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
-                "failed to create Parquet writer for {label} '{}': {error}",
+                "failed to write Parquet {label} '{}': {error}",
                 path.display()
             ))
         })?;
-    writer.write(batch).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to write Parquet {label} '{}': {error}",
-            path.display()
-        ))
-    })?;
-    writer.close().map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to close Parquet {label} '{}': {error}",
-            path.display()
-        ))
-    })?;
-    Ok(())
+        writer.close().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to close Parquet {label} '{}': {error}",
+                path.display()
+            ))
+        })?;
+    }
+    write_compatibility_output_bytes(path, label, &bytes)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -11459,27 +11469,30 @@ fn write_arrow_ipc_output(
     path: &std::path::Path,
     label: &str,
 ) -> Result<()> {
-    let file = create_compatibility_output_file(path, label)?;
-    let mut writer =
-        arrow_ipc::writer::FileWriter::try_new(file, &batch.schema()).map_err(|error| {
+    let mut bytes = Vec::new();
+    {
+        let cursor = std::io::Cursor::new(&mut bytes);
+        let mut writer =
+            arrow_ipc::writer::FileWriter::try_new(cursor, &batch.schema()).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to create Arrow IPC writer for {label} '{}': {error}",
+                    path.display()
+                ))
+            })?;
+        writer.write(batch).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
-                "failed to create Arrow IPC writer for {label} '{}': {error}",
+                "failed to write Arrow IPC {label} '{}': {error}",
                 path.display()
             ))
         })?;
-    writer.write(batch).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to write Arrow IPC {label} '{}': {error}",
-            path.display()
-        ))
-    })?;
-    writer.finish().map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to finish Arrow IPC {label} '{}': {error}",
-            path.display()
-        ))
-    })?;
-    Ok(())
+        writer.finish().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to finish Arrow IPC {label} '{}': {error}",
+                path.display()
+            ))
+        })?;
+    }
+    write_compatibility_output_bytes(path, label, &bytes)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -11488,27 +11501,32 @@ fn write_avro_output(
     path: &std::path::Path,
     label: &str,
 ) -> Result<()> {
-    let file = create_compatibility_output_file(path, label)?;
-    let mut writer = arrow_avro::writer::AvroWriter::new(file, batch.schema().as_ref().clone())
-        .map_err(|error| {
+    let mut bytes = Vec::new();
+    {
+        let cursor = std::io::Cursor::new(&mut bytes);
+        let mut writer =
+            arrow_avro::writer::AvroWriter::new(cursor, batch.schema().as_ref().clone()).map_err(
+                |error| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "failed to create Avro writer for {label} '{}': {error}",
+                        path.display()
+                    ))
+                },
+            )?;
+        writer.write(batch).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
-                "failed to create Avro writer for {label} '{}': {error}",
+                "failed to write Avro {label} '{}': {error}",
                 path.display()
             ))
         })?;
-    writer.write(batch).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to write Avro {label} '{}': {error}",
-            path.display()
-        ))
-    })?;
-    writer.finish().map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to finish Avro {label} '{}': {error}",
-            path.display()
-        ))
-    })?;
-    Ok(())
+        writer.finish().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to finish Avro {label} '{}': {error}",
+                path.display()
+            ))
+        })?;
+    }
+    write_compatibility_output_bytes(path, label, &bytes)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -11517,34 +11535,35 @@ fn write_orc_output(
     path: &std::path::Path,
     label: &str,
 ) -> Result<()> {
-    let file = create_compatibility_output_file(path, label)?;
-    let mut writer = orc_rust::ArrowWriterBuilder::new(file, batch.schema())
-        .try_build()
-        .map_err(|error| {
+    let mut bytes = Vec::new();
+    {
+        let cursor = std::io::Cursor::new(&mut bytes);
+        let mut writer = orc_rust::ArrowWriterBuilder::new(cursor, batch.schema())
+            .try_build()
+            .map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to create ORC writer for {label} '{}': {error}",
+                    path.display()
+                ))
+            })?;
+        writer.write(batch).map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
-                "failed to create ORC writer for {label} '{}': {error}",
+                "failed to write ORC {label} '{}': {error}",
                 path.display()
             ))
         })?;
-    writer.write(batch).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to write ORC {label} '{}': {error}",
-            path.display()
-        ))
-    })?;
-    writer.close().map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to close ORC {label} '{}': {error}",
-            path.display()
-        ))
-    })?;
-    Ok(())
+        writer.close().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to close ORC {label} '{}': {error}",
+                path.display()
+            ))
+        })?;
+    }
+    write_compatibility_output_bytes(path, label, &bytes)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 fn write_vortex_array(path: &std::path::Path, array: &vortex::array::ArrayRef) -> Result<u64> {
-    use std::fs;
-
     use vortex::VortexSessionDefault as _;
     use vortex::file::WriteOptionsSessionExt as _;
     use vortex::io::runtime::BlockingRuntime as _;
@@ -11571,12 +11590,14 @@ fn write_vortex_array(path: &std::path::Path, array: &vortex::array::ArrayRef) -
             expected_rows
         )));
     }
-    fs::write(path, bytes).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to write Vortex file '{}': {error}",
-            path.display()
-        ))
-    })?;
+    let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+    shardloom_core::write_workspace_safe_bytes(
+        workspace_root,
+        path,
+        true,
+        "traditional analytics Vortex artifact",
+        &bytes,
+    )?;
     Ok(duration_to_micros(write_start.elapsed()))
 }
 

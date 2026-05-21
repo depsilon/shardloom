@@ -361,6 +361,18 @@ class VortexIngestSmokeReport:
         return _required_field(self.envelope, "target_vortex_path")
 
     @property
+    def workspace_path_safety_status(self) -> str | None:
+        """Return the enforced workspace path safety status for the Vortex output."""
+
+        return self.envelope.field("vortex_ingest_output_workspace_path_safety_status")
+
+    @property
+    def output_commit_status(self) -> str | None:
+        """Return the local output commit status for the Vortex artifact."""
+
+        return self.envelope.field("vortex_ingest_output_commit_status")
+
+    @property
     def source_format(self) -> str:
         """Return the local source format."""
 
@@ -513,6 +525,24 @@ class GeneratedSourceWriteReport:
         """Return the local output sink format when present."""
 
         return self.envelope.field("output_format")
+
+    @property
+    def workspace_path_safety_status(self) -> str | None:
+        """Return the enforced workspace path safety status for the output."""
+
+        return self.envelope.field("output_workspace_path_safety_status")
+
+    @property
+    def output_commit_mode(self) -> str | None:
+        """Return the local output commit mode."""
+
+        return self.envelope.field("output_commit_mode")
+
+    @property
+    def output_commit_status(self) -> str | None:
+        """Return the local output commit status."""
+
+        return self.envelope.field("output_commit_status")
 
     @property
     def generated_source_kind(self) -> str:
@@ -811,6 +841,24 @@ class SqlLocalSourceSmokeReport:
 
         value = self.envelope.field("output_format")
         return value or None
+
+    @property
+    def workspace_path_safety_status(self) -> str | None:
+        """Return the enforced workspace path safety status for the primary output."""
+
+        return self.envelope.field("output_workspace_path_safety_status")
+
+    @property
+    def output_commit_mode(self) -> str | None:
+        """Return the primary local output commit mode."""
+
+        return self.envelope.field("output_commit_mode")
+
+    @property
+    def output_commit_status(self) -> str | None:
+        """Return the primary local output commit status."""
+
+        return self.envelope.field("output_commit_status")
 
     @property
     def output_row_count(self) -> int:
@@ -2138,6 +2186,20 @@ class SqlLocalSourceSmokeReport:
         """Return `format:digest` entries for fanout outputs."""
 
         return _csv_values(self.envelope.field("fanout_output_digests"))
+
+    @property
+    def fanout_output_workspace_path_safety_statuses(self) -> tuple[str, ...]:
+        """Return `format:accepted` entries for fanout workspace path safety."""
+
+        return _csv_values(
+            self.envelope.field("fanout_output_workspace_path_safety_statuses")
+        )
+
+    @property
+    def fanout_output_commit_modes(self) -> tuple[str, ...]:
+        """Return `format:commit_mode` entries for fanout outputs."""
+
+        return _csv_values(self.envelope.field("fanout_output_commit_modes"))
 
     @property
     def fanout_output_native_io_certificate_statuses(self) -> tuple[str, ...]:

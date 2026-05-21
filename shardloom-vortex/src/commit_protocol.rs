@@ -1,8 +1,7 @@
 use std::fmt::Write as _;
 #[cfg(feature = "vortex-staged-output-fs")]
 use std::{
-    fs::{self, OpenOptions},
-    io::Write as _,
+    fs,
     path::{Path, PathBuf},
 };
 
@@ -2528,30 +2527,25 @@ fn write_or_verify_committed_manifest(
             checksum,
         );
     }
-    let mut file = match OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(committed_manifest_path)
-    {
-        Ok(file) => file,
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-            return Ok(VortexLocalCommitExecutionReport::blocked(
-                request,
-                VortexLocalCommitExecutionStatus::BlockedByExistingCommittedManifest,
-                "committed-manifest artifact appeared before local commit could create it",
-            ));
-        }
-        Err(error) => {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "failed to create committed-manifest artifact: {error}"
-            )));
-        }
-    };
-    file.write_all(finalized_bytes).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to write committed-manifest artifact: {error}"
-        ))
+    if committed_manifest_path.exists() {
+        return Ok(VortexLocalCommitExecutionReport::blocked(
+            request,
+            VortexLocalCommitExecutionStatus::BlockedByExistingCommittedManifest,
+            "committed-manifest artifact appeared before local commit could create it",
+        ));
+    }
+    let workspace_path = committed_manifest_path.parent().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "committed-manifest artifact is missing a workspace parent".to_string(),
+        )
     })?;
+    shardloom_core::write_workspace_safe_bytes(
+        workspace_path,
+        committed_manifest_path,
+        false,
+        "Vortex committed-manifest artifact",
+        finalized_bytes,
+    )?;
     Ok(VortexLocalCommitExecutionReport::committed(
         request,
         VortexLocalCommitExecutionStatus::CommitExecuted,

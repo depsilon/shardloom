@@ -16,6 +16,86 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-P0-3 enforced workspace path safety for local output writers
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-15-20260521` / pending.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - RFC 0019, RFC 0024, release security gate, local-output writer safety surfaces.
+    - `REVIEW-P0-3 enforced workspace path safety for local output writers`.
+  - Scope:
+    - Added `WorkspaceSafeLocalWriteReport`, `WorkspaceSafeLocalWritePlan`,
+      `plan_workspace_safe_local_output`, and `write_workspace_safe_bytes` as the shared local
+      output sink boundary.
+    - Enforced canonical workspace-root checks, parent-traversal rejection, symlink rejection,
+      hardlink policy where the platform exposes hardlink counts, explicit overwrite policy,
+      same-directory staging, rename commit, overwrite backup/rollback, cleanup evidence, output
+      digest evidence, and no-fallback fields for admitted local writes.
+    - Preserved deterministic blockers for unsafe local output targets instead of retrying through
+      shell helpers, external tools, or fallback engines.
+  - Writer families covered:
+    - Generated-source local JSONL, CSV, and feature-gated compatibility outputs.
+    - SQL local-source primary and fanout JSONL/CSV outputs.
+    - SQL/generated-source Vortex output through `vortex_ingest`.
+    - `vortex-ingest-smoke` prepared output writes.
+    - Staged output marker writes.
+    - Output payload artifacts and native output payload artifacts.
+    - Finalized manifest candidate artifacts.
+    - Staged manifest draft artifacts.
+    - Commit marker artifacts.
+    - Committed manifest artifacts.
+    - Local-primitives Vortex fixture writes.
+    - Traditional-analytics Vortex artifacts and compatibility CSV, JSONL, Parquet, Arrow IPC,
+      Avro, and ORC outputs.
+  - User-visible evidence:
+    - CLI and Python generated-source write reports now expose workspace path-safety and commit
+      fields.
+    - CLI and Python SQL local-source write reports now expose primary and fanout workspace
+      path-safety and commit fields.
+    - Vortex ingest fields now include `vortex_ingest_output_*` workspace-safe write evidence.
+    - Staged marker evidence includes marker workspace path-safety status when marker writes are
+      performed.
+  - Security/release evidence:
+    - `scripts/check_release_security_gate.py` requires the enforced local writer report and helper
+      symbols.
+    - `docs/security/runtime-exploit-regression-suite.md` records traversal, symlink/hardlink,
+      overwrite, staging, commit, cleanup, and rollback coverage.
+    - `docs/security/threat-model.md` distinguishes report-level path checks from enforced local
+      sink-boundary checks.
+    - Core regression tests include
+      `workspace_safe_local_write_commits_with_staging_evidence`,
+      `workspace_safe_local_write_blocks_traversal_before_writing`,
+      `workspace_safe_local_write_requires_explicit_overwrite_and_replaces_safely`, and
+      `workspace_safe_local_write_rejects_symlink_targets_when_supported`.
+  - Verification:
+    - `cargo test -p shardloom-core security::tests::workspace_safe_local_write --lib`
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke user_rows_smoke_writes_local_jsonl_and_emits_generated_source_evidence -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_local_jsonl_output_with_certificate_fields -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence -- --nocapture`
+    - `cargo check -p shardloom-vortex -p shardloom-cli --features vortex-staged-output-fs,vortex-write`
+    - `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+    - `cargo test -p shardloom-vortex --features vortex-staged-output-fs output_payload -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-staged-output-fs staged_manifest -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-staged-output-fs commit_marker -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-staged-output-fs commit_protocol -- --nocapture`
+    - `cargo test -p shardloom-vortex --features vortex-staged-output-fs marker_feature_writes_deterministic_marker_and_overwrite -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke --features vortex-write vortex_ingest_smoke_minimal_certification_skips_reopen_scan -- --nocapture`
+    - `python scripts\check_release_security_gate.py`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_vortex_ingest_smoke_helper_dispatches_prepare_once_route`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_from_rows_write_invokes_generated_source_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_write_invokes_sql_smoke_output python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_fanout_invokes_sql_smoke_outputs`
+  - Remaining non-goals:
+    - Object-store writes, distributed commit protocols, package publication, and production
+      filesystem guarantees remain unsupported or blocked.
+    - Report-only architecture surfaces remain report-only until a runtime slice adds executable
+      support and evidence.
+  - Claim boundary:
+    - This is local writer enforcement for admitted local output paths only. It does not authorize
+      production, package, object-store, lakehouse, Foundry, distributed runtime, broad SQL/DataFrame,
+      or performance claims.
+  - Fallback boundary:
+    - Local write admission failures remain deterministic and preserve `fallback_attempted=false`
+      and `external_engine_invoked=false`.
+
 - [x] Session label: REVIEW-P0-2 release-grade CI gate matrix
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-14-20260521` / #903.

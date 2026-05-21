@@ -151,6 +151,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "generated_source_created", "value": "true"},
                         {"key": "source_io_performed", "value": "false"},
                         {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_workspace_path_safety_status", "value": "enforced"},
+                        {"key": "output_commit_mode", "value": "atomic_rename_same_directory"},
+                        {"key": "output_commit_status", "value": "committed"},
                         {"key": "generated_source_certificate_status", "value": "present"},
                         {"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"},
                         {"key": "fallback_attempted", "value": "false"},
@@ -181,6 +184,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             report.output_native_io_certificate_status,
             "certified_local_file_sink",
         )
+        self.assertEqual(report.workspace_path_safety_status, "enforced")
+        self.assertEqual(report.output_commit_mode, "atomic_rename_same_directory")
+        self.assertEqual(report.output_commit_status, "committed")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
@@ -3225,6 +3231,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "result_jsonl", "value": "{\\"f.id\\":2,\\"d.segment\\":\\"enterprise\\"}\\n"},
                         {"key": "output_path", "value": "target/joined.jsonl"},
                         {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_workspace_path_safety_status", "value": "enforced"},
+                        {"key": "output_commit_mode", "value": "staged_replace_with_backup_same_directory"},
+                        {"key": "output_commit_status", "value": "committed"},
                         {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
                         {"key": "join_runtime_execution", "value": "true"},
                         {"key": "join_type", "value": "inner_equi"},
@@ -4685,6 +4694,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "output_row_count", "value": "1"},
                         {"key": "selected_row_count", "value": "2"},
                         {"key": "output_io_performed", "value": "true"},
+                        {"key": "output_workspace_path_safety_status", "value": "enforced"},
+                        {"key": "output_commit_mode", "value": "staged_replace_with_backup_same_directory"},
+                        {"key": "output_commit_status", "value": "committed"},
                         {"key": "output_native_io_certificate_status", "value": "certified_local_jsonl_sink"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
@@ -4711,6 +4723,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             report.output_native_io_certificate_status,
             "certified_local_jsonl_sink",
         )
+        self.assertEqual(report.workspace_path_safety_status, "enforced")
+        self.assertEqual(
+            report.output_commit_mode,
+            "staged_replace_with_backup_same_directory",
+        )
+        self.assertEqual(report.output_commit_status, "committed")
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -4834,6 +4852,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "fanout_output_formats", "value": "jsonl,csv"},
                         {"key": "fanout_output_paths", "value": "target/out.jsonl,target/out.csv"},
                         {"key": "fanout_output_digests", "value": "jsonl:abc,csv:def"},
+                        {"key": "fanout_output_workspace_path_safety_statuses", "value": "jsonl:true,csv:true"},
+                        {"key": "fanout_output_commit_modes", "value": "jsonl:atomic_rename_same_directory,csv:atomic_rename_same_directory"},
                         {"key": "fanout_output_native_io_certificate_statuses", "value": "jsonl:certified_local_jsonl_sink,csv:certified_local_csv_sink"},
                         {"key": "fanout_output_replay_statuses", "value": "jsonl:verified_local_file_digest,csv:verified_local_file_digest"},
                         {"key": "fanout_output_fidelity_statuses", "value": "jsonl:logical_rows_replay_verified,csv:logical_rows_replay_verified_type_metadata_not_preserved"},
@@ -4872,6 +4892,17 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ("target/out.jsonl", "target/out.csv"),
         )
         self.assertEqual(report.fanout_output_digests, ("jsonl:abc", "csv:def"))
+        self.assertEqual(
+            report.fanout_output_workspace_path_safety_statuses,
+            ("jsonl:true", "csv:true"),
+        )
+        self.assertEqual(
+            report.fanout_output_commit_modes,
+            (
+                "jsonl:atomic_rename_same_directory",
+                "csv:atomic_rename_same_directory",
+            ),
+        )
         self.assertTrue(report.result_replay_verified)
         self.assertEqual(report.output_replay_status, "verified_local_sink_artifacts")
         self.assertEqual(

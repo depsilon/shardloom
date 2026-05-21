@@ -42,7 +42,7 @@ mod workflow_planning;
 mod workload_certification;
 
 use cli_output::emit_error;
-use shardloom_core::{OutputFormat, ShardLoomError};
+use shardloom_core::{OutputFormat, ShardLoomError, WorkspaceSafeLocalWriteReport};
 use shardloom_vortex::{
     VortexCommitIntentSignal, VortexCommitMarkerSignal, VortexCommitMarkerWriteOption,
     VortexCommitProtocolSignal, VortexCommitProtocolState, VortexCommitProtocolTransition,
@@ -307,8 +307,9 @@ fn vortex_staged_marker_fields(
     workspace_id: String,
     workspace_path: String,
     marker_written: bool,
+    workspace_write_report: Option<&WorkspaceSafeLocalWriteReport>,
 ) -> Vec<(String, String)> {
-    vec![
+    let mut fields = vec![
         (
             "fallback_execution_allowed".to_string(),
             "false".to_string(),
@@ -329,7 +330,16 @@ fn vortex_staged_marker_fields(
             "execution".to_string(),
             "marker_write_or_not_performed".to_string(),
         ),
-    ]
+    ];
+    if let Some(report) = workspace_write_report {
+        fields.extend(report.evidence_fields("marker"));
+    } else {
+        fields.push((
+            "marker_workspace_path_safety_status".to_string(),
+            "not_applicable_or_not_performed".to_string(),
+        ));
+    }
+    fields
 }
 
 fn parse_vortex_staged_manifest_file_write_signals(
@@ -3920,6 +3930,7 @@ mod tests {
             "stage1".to_string(),
             "file:///tmp/shardloom-stage".to_string(),
             false,
+            None,
         );
         assert!(fields.contains(&(
             "fallback_execution_allowed".to_string(),
@@ -3927,6 +3938,10 @@ mod tests {
         )));
         assert!(fields.contains(&("marker_written".to_string(), "false".to_string())));
         assert!(fields.contains(&("output_data_written".to_string(), "false".to_string())));
+        assert!(fields.contains(&(
+            "marker_workspace_path_safety_status".to_string(),
+            "not_applicable_or_not_performed".to_string()
+        )));
     }
 
     #[test]

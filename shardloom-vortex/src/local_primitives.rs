@@ -2557,12 +2557,15 @@ mod tests {
             summary.row_count(),
             u64::try_from(array.len()).expect("len")
         );
-        std::fs::write(path, bytes).map_err(|error| {
-            ShardLoomError::InvalidOperation(format!(
-                "failed to write test Vortex file '{}': {error}",
-                path.display()
-            ))
-        })
+        let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+        shardloom_core::write_workspace_safe_bytes(
+            workspace_root,
+            path,
+            false,
+            "local primitive Vortex fixture",
+            &bytes,
+        )
+        .map(|_| ())
     }
 
     fn write_struct_fixture(path: &std::path::Path) -> Result<()> {

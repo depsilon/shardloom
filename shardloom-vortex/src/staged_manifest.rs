@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 #[cfg(feature = "vortex-staged-output-fs")]
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 
 #[cfg(feature = "vortex-staged-output-fs")]
 use shardloom_core::UriScheme;
@@ -1953,15 +1953,13 @@ pub fn write_vortex_staged_manifest_file(
             report.status = VortexStagedManifestFileWriteStatus::BlockedByExistingDraftFile;
             return Ok(report);
         }
-        fs::write(
+        shardloom_core::write_workspace_safe_bytes(
+            workspace_path,
             &draft_path,
+            report.overwrite_allowed(),
+            "Vortex staged manifest draft file",
             report.request.draft_content.as_str().as_bytes(),
-        )
-        .map_err(|err| {
-            shardloom_core::ShardLoomError::InvalidOperation(format!(
-                "failed to write staged manifest draft file: {err}"
-            ))
-        })?;
+        )?;
         report.mode = VortexStagedManifestFileWriteMode::LocalDraftFileWrite;
         report.status = VortexStagedManifestFileWriteStatus::DraftFileWritten;
         report.bytes_written = report.request.draft_content.len();

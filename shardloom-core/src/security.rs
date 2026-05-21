@@ -11,8 +11,12 @@
 )]
 
 use crate::{Diagnostic, DiagnosticCode, ObservedField, Result, ShardLoomError};
+use std::ffi::OsString;
 use std::fmt::Write as _;
+use std::fs;
+use std::io::Write as _;
 use std::path::{Component, Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn validate_non_empty(label: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
@@ -1154,6 +1158,585 @@ impl WorkspacePathSafetyReport {
             && !self.external_engine_invoked
             && self.diagnostics.iter().all(|d| !d.fallback.attempted)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceSafeLocalWritePlan {
+    pub path_safety_report: WorkspacePathSafetyReport,
+    pub target_path: PathBuf,
+    pub parent_path: PathBuf,
+    pub target_existed_before: bool,
+    pub overwrite_allowed: bool,
+    pub hardlink_count: Option<u64>,
+}
+
+impl WorkspaceSafeLocalWritePlan {
+    #[must_use]
+    pub fn accepted(&self) -> bool {
+        self.path_safety_report.accepted()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceSafeLocalWriteReport {
+    pub schema_version: &'static str,
+    pub report_id: String,
+    pub operation_label: String,
+    pub path_safety_report: WorkspacePathSafetyReport,
+    pub target_path: PathBuf,
+    pub staging_path: PathBuf,
+    pub target_existed_before: bool,
+    pub overwrite_allowed: bool,
+    pub overwrite_performed: bool,
+    pub hardlink_count: Option<u64>,
+    pub commit_mode: String,
+    pub commit_status: String,
+    pub cleanup_status: String,
+    pub rollback_status: String,
+    pub bytes_written: u64,
+    pub output_digest: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl WorkspaceSafeLocalWriteReport {
+    #[must_use]
+    pub fn evidence_fields(&self, prefix: &str) -> Vec<(String, String)> {
+        let p = prefix.trim_matches('_');
+        let key = |name: &str| -> String {
+            if p.is_empty() {
+                name.to_string()
+            } else {
+                format!("{p}_{name}")
+            }
+        };
+        vec![
+            (key("workspace_path_safety_status"), "enforced".to_string()),
+            (
+                key("workspace_path_safety_schema_version"),
+                self.path_safety_report.schema_version.to_string(),
+            ),
+            (
+                key("workspace_root"),
+                self.path_safety_report.workspace_root.clone(),
+            ),
+            (
+                key("canonical_workspace_root"),
+                self.path_safety_report.canonical_workspace_root.clone(),
+            ),
+            (
+                key("requested_output_path"),
+                self.path_safety_report.requested_output_path.clone(),
+            ),
+            (
+                key("canonical_output_path"),
+                self.path_safety_report.canonical_output_path.clone(),
+            ),
+            (
+                key("within_workspace"),
+                self.path_safety_report.within_workspace.to_string(),
+            ),
+            (
+                key("path_traversal_checked"),
+                self.path_safety_report.path_traversal_checked.to_string(),
+            ),
+            (
+                key("symlink_followed"),
+                self.path_safety_report.symlink_followed.to_string(),
+            ),
+            (
+                key("symlink_policy"),
+                self.path_safety_report.symlink_policy.clone(),
+            ),
+            (
+                key("hardlink_policy"),
+                self.path_safety_report.hardlink_policy.clone(),
+            ),
+            (
+                key("hardlink_count"),
+                self.hardlink_count.map_or_else(
+                    || "unknown_or_not_applicable".to_string(),
+                    |n| n.to_string(),
+                ),
+            ),
+            (key("overwrite_allowed"), self.overwrite_allowed.to_string()),
+            (
+                key("overwrite_performed"),
+                self.overwrite_performed.to_string(),
+            ),
+            (
+                key("target_existed_before"),
+                self.target_existed_before.to_string(),
+            ),
+            (key("staging_path"), self.staging_path.display().to_string()),
+            (key("commit_mode"), self.commit_mode.clone()),
+            (key("commit_status"), self.commit_status.clone()),
+            (key("cleanup_status"), self.cleanup_status.clone()),
+            (key("rollback_status"), self.rollback_status.clone()),
+            (key("bytes_written"), self.bytes_written.to_string()),
+            (key("output_digest"), self.output_digest.clone()),
+            (
+                key("fallback_attempted"),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                key("external_engine_invoked"),
+                self.external_engine_invoked.to_string(),
+            ),
+        ]
+    }
+
+    #[must_use]
+    pub fn no_fallback_invariant_holds(&self) -> bool {
+        !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self.path_safety_report.no_fallback_invariant_holds()
+    }
+}
+
+pub fn infer_local_output_workspace_root(output_path: impl AsRef<Path>) -> Result<PathBuf> {
+    let output_path = output_path.as_ref();
+    if !output_path.is_absolute() {
+        return std::env::current_dir().map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to resolve current directory for workspace-safe local output: {error}; no fallback execution was attempted"
+            ))
+        });
+    }
+
+    let mut candidate = output_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(output_path)
+        .to_path_buf();
+    loop {
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+        let Some(parent) = candidate.parent() else {
+            return std::env::current_dir().map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "failed to resolve current directory for workspace-safe local output: {error}; no fallback execution was attempted"
+                ))
+            });
+        };
+        if parent == candidate {
+            return Ok(candidate);
+        }
+        candidate = parent.to_path_buf();
+    }
+}
+
+pub fn plan_workspace_safe_local_output(
+    workspace_root: impl AsRef<Path>,
+    requested_output_path: impl AsRef<Path>,
+    allow_overwrite: bool,
+) -> Result<WorkspaceSafeLocalWritePlan> {
+    let workspace_root = workspace_root.as_ref();
+    let requested_output_path = requested_output_path.as_ref();
+    let canonical_workspace_root = fs::canonicalize(workspace_root).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "workspace-safe local output root '{}' must already exist and be canonicalizable: {error}; no fallback execution was attempted",
+            workspace_root.display()
+        ))
+    })?;
+    let requested_absolute = if requested_output_path.is_absolute() {
+        requested_output_path.to_path_buf()
+    } else {
+        canonical_workspace_root.join(requested_output_path)
+    };
+    let target_path = canonicalize_local_output_target_path(&requested_absolute)?;
+    let parent_path = target_path.parent().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "workspace-safe local output target '{}' has no parent directory; no fallback execution was attempted",
+            target_path.display()
+        ))
+    })?;
+    let mut report = WorkspacePathSafetyReport::evaluate(&canonical_workspace_root, &target_path);
+    report.workspace_root = workspace_root.display().to_string();
+    report.canonical_workspace_root = canonical_workspace_root.display().to_string();
+    report.requested_output_path = requested_output_path.display().to_string();
+    report.canonical_output_path = target_path.display().to_string();
+    let parent_traversal = path_has_parent_traversal(requested_output_path);
+    report.within_workspace =
+        !parent_traversal && target_path.starts_with(&canonical_workspace_root);
+    if parent_traversal {
+        report.diagnostics.push(invalid_security_input(
+            "workspace_path_safety",
+            "output path contains parent-directory traversal",
+        ));
+    }
+    if !report.within_workspace && report.diagnostics.is_empty() {
+        report.diagnostics.push(invalid_security_input(
+            "workspace_path_safety",
+            "output path resolves outside the declared workspace",
+        ));
+    }
+    if let Some(symlink_path) =
+        first_existing_symlink_component(&canonical_workspace_root, &target_path)?
+    {
+        report.diagnostics.push(invalid_security_input(
+            "workspace_path_safety",
+            format!(
+                "output path crosses symlink component '{}'",
+                symlink_path.display()
+            ),
+        ));
+    }
+
+    let parent = parent_path.to_path_buf();
+    let target_metadata = fs::symlink_metadata(&target_path).ok();
+    let target_existed_before = target_metadata.is_some();
+    let observed_hardlink_count;
+    if let Some(metadata) = target_metadata.as_ref() {
+        if metadata.file_type().is_symlink() {
+            report.diagnostics.push(invalid_security_input(
+                "workspace_path_safety",
+                "output target is a symlink and will not be followed",
+            ));
+        }
+        if metadata.is_dir() {
+            report.diagnostics.push(invalid_security_input(
+                "workspace_path_safety",
+                "output target exists as a directory",
+            ));
+        }
+        if !allow_overwrite {
+            report.diagnostics.push(invalid_security_input(
+                "workspace_path_safety",
+                "output target already exists and overwrite is disabled",
+            ));
+        }
+        observed_hardlink_count = observe_workspace_safe_hardlink_count(metadata, &mut report);
+    } else {
+        observed_hardlink_count = None;
+    }
+
+    if !report.accepted() {
+        return Err(workspace_path_safety_error(&report));
+    }
+
+    Ok(WorkspaceSafeLocalWritePlan {
+        path_safety_report: report,
+        target_path,
+        parent_path: parent,
+        target_existed_before,
+        overwrite_allowed: allow_overwrite,
+        hardlink_count: observed_hardlink_count,
+    })
+}
+
+pub fn write_workspace_safe_bytes(
+    workspace_root: impl AsRef<Path>,
+    requested_output_path: impl AsRef<Path>,
+    allow_overwrite: bool,
+    operation_label: impl Into<String>,
+    content: &[u8],
+) -> Result<WorkspaceSafeLocalWriteReport> {
+    let operation_label = operation_label.into();
+    let plan =
+        plan_workspace_safe_local_output(workspace_root, requested_output_path, allow_overwrite)?;
+    fs::create_dir_all(&plan.parent_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create workspace-safe local output directory '{}': {error}; no fallback execution was attempted",
+            plan.parent_path.display()
+        ))
+    })?;
+    reject_workspace_safe_symlink_race(&plan)?;
+
+    let staging_path = create_workspace_safe_staging_file(&plan, content)?;
+    let (commit_mode, cleanup_status, rollback_status, overwrite_performed) =
+        commit_workspace_safe_staging_file(&plan, &staging_path)?;
+
+    Ok(WorkspaceSafeLocalWriteReport {
+        schema_version: "shardloom.workspace_safe_local_write_report.v1",
+        report_id: "workspace_safe_local_write.local_output".to_string(),
+        operation_label,
+        path_safety_report: plan.path_safety_report,
+        target_path: plan.target_path,
+        staging_path,
+        target_existed_before: plan.target_existed_before,
+        overwrite_allowed: plan.overwrite_allowed,
+        overwrite_performed,
+        hardlink_count: plan.hardlink_count,
+        commit_mode,
+        commit_status: "committed".to_string(),
+        cleanup_status,
+        rollback_status,
+        bytes_written: u64::try_from(content.len()).unwrap_or(u64::MAX),
+        output_digest: fnv64_digest_bytes(content),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    })
+}
+
+fn reject_workspace_safe_symlink_race(plan: &WorkspaceSafeLocalWritePlan) -> Result<()> {
+    if let Some(symlink_path) = first_existing_symlink_component(
+        Path::new(&plan.path_safety_report.canonical_workspace_root),
+        &plan.target_path,
+    )? {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "workspace-safe local output target '{}' crosses symlink component '{}'; no fallback execution was attempted",
+            plan.target_path.display(),
+            symlink_path.display()
+        )));
+    }
+    Ok(())
+}
+
+fn create_workspace_safe_staging_file(
+    plan: &WorkspaceSafeLocalWritePlan,
+    content: &[u8],
+) -> Result<PathBuf> {
+    let staging_path = unique_sidecar_path(&plan.parent_path, &plan.target_path, "tmp");
+    let mut staging_file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&staging_path)
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create workspace-safe local output staging file '{}': {error}; no fallback execution was attempted",
+                staging_path.display()
+            ))
+        })?;
+    if let Err(error) = staging_file.write_all(content) {
+        let _ = fs::remove_file(&staging_path);
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "failed to write workspace-safe local output staging file '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
+            staging_path.display()
+        )));
+    }
+    if let Err(error) = staging_file.flush() {
+        let _ = fs::remove_file(&staging_path);
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "failed to flush workspace-safe local output staging file '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
+            staging_path.display()
+        )));
+    }
+    drop(staging_file);
+    Ok(staging_path)
+}
+
+fn commit_workspace_safe_staging_file(
+    plan: &WorkspaceSafeLocalWritePlan,
+    staging_path: &Path,
+) -> Result<(String, String, String, bool)> {
+    let target_existed_at_commit = plan.target_path.exists();
+    if target_existed_at_commit && !plan.overwrite_allowed {
+        let _ = fs::remove_file(staging_path);
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "workspace-safe local output target '{}' appeared before commit and overwrite is disabled; staging cleanup attempted; no fallback execution was attempted",
+            plan.target_path.display()
+        )));
+    }
+
+    if target_existed_at_commit {
+        replace_workspace_safe_existing_target(plan, staging_path)
+    } else {
+        commit_workspace_safe_new_target(plan, staging_path)
+    }
+}
+
+fn replace_workspace_safe_existing_target(
+    plan: &WorkspaceSafeLocalWritePlan,
+    staging_path: &Path,
+) -> Result<(String, String, String, bool)> {
+    let backup_path = unique_sidecar_path(&plan.parent_path, &plan.target_path, "backup");
+    fs::rename(&plan.target_path, &backup_path).map_err(|error| {
+        let _ = fs::remove_file(staging_path);
+        ShardLoomError::InvalidOperation(format!(
+            "failed to stage existing workspace-safe local output target '{}' for replacement: {error}; staging cleanup attempted; no fallback execution was attempted",
+            plan.target_path.display()
+        ))
+    })?;
+    if let Err(error) = fs::rename(staging_path, &plan.target_path) {
+        let rollback = fs::rename(&backup_path, &plan.target_path).is_ok();
+        let _ = fs::remove_file(staging_path);
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "failed to commit workspace-safe local output target '{}': {error}; rollback_restored_existing_target={rollback}; no fallback execution was attempted",
+            plan.target_path.display()
+        )));
+    }
+    let backup_cleanup_status = if fs::remove_file(&backup_path).is_ok() {
+        "backup_removed"
+    } else {
+        "backup_cleanup_failed_or_not_needed"
+    };
+    Ok((
+        "staged_replace_with_backup_same_directory".to_string(),
+        "no_staging_artifacts_remaining".to_string(),
+        backup_cleanup_status.to_string(),
+        true,
+    ))
+}
+
+fn commit_workspace_safe_new_target(
+    plan: &WorkspaceSafeLocalWritePlan,
+    staging_path: &Path,
+) -> Result<(String, String, String, bool)> {
+    fs::rename(staging_path, &plan.target_path).map_err(|error| {
+        let _ = fs::remove_file(staging_path);
+        ShardLoomError::InvalidOperation(format!(
+            "failed to atomically commit workspace-safe local output target '{}': {error}; staging cleanup attempted; no fallback execution was attempted",
+            plan.target_path.display()
+        ))
+    })?;
+    Ok((
+        "atomic_rename_same_directory".to_string(),
+        "no_staging_artifacts_remaining".to_string(),
+        "not_required_new_target".to_string(),
+        false,
+    ))
+}
+
+fn workspace_path_safety_error(report: &WorkspacePathSafetyReport) -> ShardLoomError {
+    let reasons = report
+        .diagnostics
+        .iter()
+        .filter_map(|diagnostic| diagnostic.reason.as_deref())
+        .collect::<Vec<_>>()
+        .join("; ");
+    ShardLoomError::InvalidOperation(format!(
+        "workspace-safe local output rejected for '{}': {}; no fallback execution was attempted",
+        report.requested_output_path,
+        if reasons.is_empty() {
+            "path safety policy rejected the output"
+        } else {
+            &reasons
+        }
+    ))
+}
+
+fn canonicalize_local_output_target_path(requested_absolute: &Path) -> Result<PathBuf> {
+    let parent = requested_absolute.parent().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "workspace-safe local output target '{}' has no parent directory; no fallback execution was attempted",
+            requested_absolute.display()
+        ))
+    })?;
+    let file_name = requested_absolute.file_name().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "workspace-safe local output target '{}' must include a file name; no fallback execution was attempted",
+            requested_absolute.display()
+        ))
+    })?;
+    let canonical_parent = canonicalize_local_output_parent(parent)?;
+    Ok(canonical_parent.join(file_name))
+}
+
+fn canonicalize_local_output_parent(parent: &Path) -> Result<PathBuf> {
+    let mut candidate = parent.to_path_buf();
+    let mut missing_components = Vec::<OsString>::new();
+    while !candidate.exists() {
+        let Some(name) = candidate.file_name() else {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "workspace-safe local output parent '{}' has no existing ancestor; no fallback execution was attempted",
+                parent.display()
+            )));
+        };
+        missing_components.push(name.to_os_string());
+        let Some(next) = candidate.parent() else {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "workspace-safe local output parent '{}' has no existing ancestor; no fallback execution was attempted",
+                parent.display()
+            )));
+        };
+        candidate = next.to_path_buf();
+    }
+    let mut canonical = fs::canonicalize(&candidate).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to canonicalize workspace-safe local output parent ancestor '{}': {error}; no fallback execution was attempted",
+            candidate.display()
+        ))
+    })?;
+    for component in missing_components.iter().rev() {
+        canonical.push(component);
+    }
+    Ok(canonical)
+}
+
+fn first_existing_symlink_component(
+    canonical_workspace_root: &Path,
+    target_path: &Path,
+) -> Result<Option<PathBuf>> {
+    let mut current = PathBuf::new();
+    for component in target_path.components() {
+        current.push(component.as_os_str());
+        if !current.starts_with(canonical_workspace_root) && current != canonical_workspace_root {
+            continue;
+        }
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) if metadata.file_type().is_symlink() => return Ok(Some(current)),
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "failed to inspect workspace-safe local output path component '{}': {error}; no fallback execution was attempted",
+                    current.display()
+                )));
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn unique_sidecar_path(parent: &Path, target_path: &Path, kind: &str) -> PathBuf {
+    let file_name = target_path
+        .file_name()
+        .and_then(std::ffi::OsStr::to_str)
+        .unwrap_or("output");
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_nanos());
+    for attempt in 0..1024_u16 {
+        let candidate = parent.join(format!(
+            ".{file_name}.shardloom-{kind}-{}-{nanos}-{attempt}",
+            std::process::id()
+        ));
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+    parent.join(format!(
+        ".{file_name}.shardloom-{kind}-{}-{nanos}-fallback",
+        std::process::id()
+    ))
+}
+
+fn fnv64_digest_bytes(value: &[u8]) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in value {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("fnv64:{hash:016x}")
+}
+
+#[cfg(unix)]
+fn observe_workspace_safe_hardlink_count(
+    metadata: &fs::Metadata,
+    report: &mut WorkspacePathSafetyReport,
+) -> Option<u64> {
+    use std::os::unix::fs::MetadataExt as _;
+    if !metadata.is_file() {
+        return None;
+    }
+    let count = metadata.nlink();
+    if count > 1 {
+        report.diagnostics.push(invalid_security_input(
+            "workspace_path_safety",
+            "output target has multiple hardlinks and overwrite is blocked",
+        ));
+    }
+    Some(count)
+}
+
+#[cfg(not(unix))]
+fn observe_workspace_safe_hardlink_count(
+    _metadata: &fs::Metadata,
+    _report: &mut WorkspacePathSafetyReport,
+) -> Option<u64> {
+    None
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2444,6 +3027,117 @@ mod tests {
                 .contains("outside the declared workspace")
         }));
         assert!(external.no_fallback_invariant_holds());
+    }
+
+    fn workspace_write_fixture_root(name: &str) -> std::path::PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "shardloom_workspace_write_{name}_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("create workspace write fixture");
+        root
+    }
+
+    #[test]
+    fn workspace_safe_local_write_commits_with_staging_evidence() {
+        let workspace = workspace_write_fixture_root("commit");
+        let report = write_workspace_safe_bytes(
+            &workspace,
+            "results/out.jsonl",
+            false,
+            "test local output",
+            b"{\"id\":1}\n",
+        )
+        .expect("workspace-safe write succeeds");
+
+        let output_path = workspace.join("results/out.jsonl");
+        assert_eq!(std::fs::read(&output_path).unwrap(), b"{\"id\":1}\n");
+        assert_eq!(report.commit_status, "committed");
+        assert_eq!(report.commit_mode, "atomic_rename_same_directory");
+        assert_eq!(report.cleanup_status, "no_staging_artifacts_remaining");
+        assert!(!report.staging_path.exists());
+        assert!(report.path_safety_report.accepted());
+        assert!(report.no_fallback_invariant_holds());
+        std::fs::remove_dir_all(workspace).unwrap();
+    }
+
+    #[test]
+    fn workspace_safe_local_write_blocks_traversal_before_writing() {
+        let workspace = workspace_write_fixture_root("traversal");
+        let error = write_workspace_safe_bytes(
+            &workspace,
+            "../shardloom_workspace_write_escape/out.jsonl",
+            false,
+            "test local output",
+            b"x\n",
+        )
+        .expect_err("parent traversal is rejected");
+
+        assert!(error.message().contains("parent-directory traversal"));
+        assert!(
+            !workspace
+                .parent()
+                .unwrap()
+                .join("shardloom_workspace_write_escape/out.jsonl")
+                .exists()
+        );
+        std::fs::remove_dir_all(workspace).unwrap();
+    }
+
+    #[test]
+    fn workspace_safe_local_write_requires_explicit_overwrite_and_replaces_safely() {
+        let workspace = workspace_write_fixture_root("overwrite");
+        let output_path = workspace.join("out.csv");
+        std::fs::write(&output_path, b"old\n").unwrap();
+
+        let blocked =
+            write_workspace_safe_bytes(&workspace, "out.csv", false, "test local output", b"new\n")
+                .expect_err("overwrite requires explicit permission");
+        assert!(blocked.message().contains("overwrite is disabled"));
+        assert_eq!(std::fs::read(&output_path).unwrap(), b"old\n");
+
+        let report =
+            write_workspace_safe_bytes(&workspace, "out.csv", true, "test local output", b"new\n")
+                .expect("explicit overwrite succeeds");
+        assert_eq!(std::fs::read(&output_path).unwrap(), b"new\n");
+        assert!(report.overwrite_performed);
+        assert_eq!(
+            report.commit_mode,
+            "staged_replace_with_backup_same_directory"
+        );
+        assert!(report.no_fallback_invariant_holds());
+        std::fs::remove_dir_all(workspace).unwrap();
+    }
+
+    #[test]
+    fn workspace_safe_local_write_rejects_symlink_targets_when_supported() {
+        let workspace = workspace_write_fixture_root("symlink");
+        let real_target = workspace.join("real.txt");
+        let symlink_target = workspace.join("link.txt");
+        std::fs::write(&real_target, b"real").unwrap();
+
+        #[cfg(unix)]
+        let symlink_result = std::os::unix::fs::symlink(&real_target, &symlink_target);
+        #[cfg(windows)]
+        let symlink_result = std::os::windows::fs::symlink_file(&real_target, &symlink_target);
+        #[cfg(not(any(unix, windows)))]
+        let symlink_result: std::io::Result<()> = Err(std::io::Error::other("unsupported"));
+
+        if symlink_result.is_ok() {
+            let error = write_workspace_safe_bytes(
+                &workspace,
+                "link.txt",
+                true,
+                "test local output",
+                b"new",
+            )
+            .expect_err("symlink output is rejected");
+            assert!(error.message().contains("symlink"));
+            assert_eq!(std::fs::read(&real_target).unwrap(), b"real");
+        }
+        let _ = std::fs::remove_file(&symlink_target);
+        std::fs::remove_dir_all(workspace).unwrap();
     }
 
     #[test]

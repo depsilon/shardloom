@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use shardloom_core::{
     DatasetUri, Diagnostic, DiagnosticCode, DiagnosticSeverity, Result, ShardLoomError, UriScheme,
+    WorkspaceSafeLocalWriteReport,
 };
 
 use crate::{VortexWriteIntentReport, VortexWriteIntentStatus};
@@ -460,6 +461,7 @@ pub struct VortexStagedMarkerReport {
     pub mode: VortexStagedMarkerMode,
     pub request: VortexStagedMarkerRequest,
     pub effects_performed: Vec<VortexStagedOutputEffect>,
+    pub workspace_write_report: Option<WorkspaceSafeLocalWriteReport>,
     pub diagnostics: Vec<Diagnostic>,
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -791,14 +793,14 @@ impl VortexStagedMarkerReport {
                     "marker already exists and overwrite is disabled",
                 ));
             }
-            std::fs::write(&marker_path, b"shardloom-staged-output-marker-v1\n").map_err(
-                |error| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "failed to write staged marker file: {error}"
-                    ))
-                },
+            let workspace_write_report = shardloom_core::write_workspace_safe_bytes(
+                &path_ref,
+                &marker_path,
+                request.has_option(VortexStagedMarkerOption::AllowOverwrite),
+                "Vortex staged marker",
+                b"shardloom-staged-output-marker-v1\n",
             )?;
-            Ok(Self::marker_written_report(request))
+            Ok(Self::marker_written_report(request, workspace_write_report))
         }
     }
     #[must_use]
@@ -808,6 +810,7 @@ impl VortexStagedMarkerReport {
             mode: VortexStagedMarkerMode::ReportOnly,
             request,
             effects_performed: Vec::new(),
+            workspace_write_report: None,
             diagnostics: Vec::new(),
         }
     }
@@ -818,16 +821,21 @@ impl VortexStagedMarkerReport {
             mode: VortexStagedMarkerMode::ReportOnly,
             request,
             effects_performed: Vec::new(),
+            workspace_write_report: None,
             diagnostics: Vec::new(),
         }
     }
     #[must_use]
-    pub fn marker_written_report(request: VortexStagedMarkerRequest) -> Self {
+    pub fn marker_written_report(
+        request: VortexStagedMarkerRequest,
+        workspace_write_report: WorkspaceSafeLocalWriteReport,
+    ) -> Self {
         Self {
             status: VortexStagedMarkerStatus::MarkerWritten,
             mode: VortexStagedMarkerMode::LocalMarkerWrite,
             request,
             effects_performed: vec![VortexStagedOutputEffect::MarkerWritten],
+            workspace_write_report: Some(workspace_write_report),
             diagnostics: Vec::new(),
         }
     }
@@ -858,6 +866,7 @@ impl VortexStagedMarkerReport {
             mode: VortexStagedMarkerMode::Unsupported,
             request,
             effects_performed: Vec::new(),
+            workspace_write_report: None,
             diagnostics: Vec::new(),
         };
         report.add_diagnostic(Diagnostic::unsupported(
@@ -934,6 +943,15 @@ impl VortexStagedMarkerReport {
         let _ = writeln!(t, "manifest written: false");
         let _ = writeln!(t, "object-store IO: false");
         let _ = writeln!(t, "upstream Vortex write called: false");
+        let _ = writeln!(
+            t,
+            "workspace path safety: {}",
+            if self.workspace_write_report.is_some() {
+                "enforced"
+            } else {
+                "not_applicable"
+            }
+        );
         let _ = write!(t, "fallback execution: disabled");
         if self.request.diagnostics.is_empty() && self.diagnostics.is_empty() {
             let _ = write!(t, "\ndiagnostics: none");
@@ -1769,6 +1787,23 @@ mod tests {
         assert!(!report.object_store_io());
         assert!(!report.upstream_vortex_write_called());
         assert!(!report.fallback_execution_allowed());
+        assert!(report.workspace_write_report.is_some());
+        assert_eq!(
+            report
+                .workspace_write_report
+                .as_ref()
+                .unwrap()
+                .commit_status,
+            "committed"
+        );
+        assert!(
+            report
+                .workspace_write_report
+                .as_ref()
+                .unwrap()
+                .path_safety_report
+                .accepted()
+        );
         assert_eq!(
             std::fs::read_to_string(&marker_path).unwrap(),
             "shardloom-staged-output-marker-v1\n"
@@ -1783,6 +1818,13 @@ mod tests {
         )
         .unwrap();
         assert_eq!(overwritten.status, VortexStagedMarkerStatus::MarkerWritten);
+        assert!(
+            overwritten
+                .workspace_write_report
+                .as_ref()
+                .unwrap()
+                .overwrite_performed
+        );
         assert!(!path.join("manifest.json").exists());
         assert!(!path.join("output.vortex").exists());
         std::fs::remove_file(marker_path).unwrap();

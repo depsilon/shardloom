@@ -477,6 +477,9 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
         "RuntimeInputSafetyReport",
         "OpenSourceSecurityPostureReport",
         "KnownUnsupportedPathsReport",
+        "WorkspaceSafeLocalWriteReport",
+        "write_workspace_safe_bytes",
+        "plan_workspace_safe_local_output",
         "public_release_claim_allowed",
         "fallback_attempted",
         "external_engine_invoked",
@@ -1981,12 +1984,24 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
     assert!(plan.contains("complete the review-derived action items below before new runtime"));
     assert!(!plan.contains("- [ ] REVIEW-P0-1 generated current-support matrix"));
     assert!(!plan.contains("- [ ] REVIEW-P0-2 release-grade CI gate matrix"));
-    assert!(plan.contains("REVIEW-P0-3 enforced workspace path safety"));
+    assert!(!plan.contains("- [ ] REVIEW-P0-3 enforced workspace path safety"));
     assert!(plan.contains("Completed non-runtime history belongs in"));
     assert!(plan.contains("docs/release/final-release-rehearsal.md"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "REVIEW-P0-3 enforced workspace path safety for local output writers",
+        "WorkspaceSafeLocalWriteReport",
+        "plan_workspace_safe_local_output",
+        "write_workspace_safe_bytes",
+        "Generated-source local JSONL, CSV",
+        "SQL local-source primary and fanout",
+        "vortex_ingest",
+        "Staged output marker",
+        "Traditional-analytics Vortex artifacts",
+        "workspace_safe_local_write_commits_with_staging_evidence",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
         "REVIEW-P0-2 release-grade CI gate matrix",
         "shardloom.ci_gate_matrix_report.v1",
         "docs/release/ci-gate-matrix.md",
@@ -5778,6 +5793,7 @@ fn security_policy_threat_model_and_supply_chain_response_are_present() {
         "SecurityThreatModelReport",
         "RuntimeInputSafetyReport",
         "WorkspacePathSafetyReport",
+        "WorkspaceSafeLocalWriteReport",
         "EvidenceArtifactSafetyReport",
         "SEC-4 deterministic regression",
     ] {
@@ -5815,13 +5831,16 @@ fn runtime_exploit_regression_suite_documents_report_level_security_tests() {
     for required in [
         "RuntimeInputSafetyReport",
         "WorkspacePathSafetyReport",
+        "WorkspaceSafeLocalWriteReport",
         "EvidenceArtifactSafetyReport",
         "malformed Vortex/local compatibility input blockers",
         "invalid UTF-8 blockers",
         "oversized or deeply nested input blockers",
         "path traversal rejection",
         "outside the declared workspace",
-        "unsafe symlink/hardlink policy",
+        "unsafe symlink/hardlink rejection",
+        "explicit overwrite policy",
+        "same-directory staging",
         "credential-like redaction",
         "fallback_attempted=false",
         "external_engine_invoked=false",
@@ -5837,12 +5856,19 @@ fn runtime_exploit_regression_suite_documents_report_level_security_tests() {
     for required in [
         "pub struct RuntimeInputSafetyReport",
         "pub struct WorkspacePathSafetyReport",
+        "pub struct WorkspaceSafeLocalWriteReport",
+        "write_workspace_safe_bytes",
+        "plan_workspace_safe_local_output",
         "pub struct EvidenceArtifactSafetyReport",
         "redact_credential_like_values",
         "malformed_without_panic",
         "invalid_utf8_without_panic",
         "oversized_or_deeply_nested_blocker",
         "workspace_path_safety_rejects_parent_traversal_and_external_outputs",
+        "workspace_safe_local_write_commits_with_staging_evidence",
+        "workspace_safe_local_write_blocks_traversal_before_writing",
+        "workspace_safe_local_write_requires_explicit_overwrite_and_replaces_safely",
+        "workspace_safe_local_write_rejects_symlink_targets_when_supported",
         "evidence_artifact_safety_redacts_credential_like_values",
     ] {
         assert!(
