@@ -2255,6 +2255,32 @@ impl VortexIngestReport {
                     .to_string(),
             ),
             (
+                "vortex_array_build_provider_kind".to_string(),
+                self.vortex_report.array_build_provider_kind.clone(),
+            ),
+            (
+                "vortex_array_build_provider_surface".to_string(),
+                self.vortex_report.array_build_provider_surface.clone(),
+            ),
+            (
+                "vortex_array_build_strategy".to_string(),
+                self.vortex_report.array_build_strategy.clone(),
+            ),
+            (
+                "vortex_array_build_input_layout".to_string(),
+                self.vortex_report.array_build_input_layout.clone(),
+            ),
+            (
+                "vortex_array_build_record_batch_count".to_string(),
+                self.vortex_report
+                    .array_build_record_batch_count
+                    .to_string(),
+            ),
+            (
+                "vortex_array_build_manual_scalar_copy_avoided".to_string(),
+                self.vortex_report.manual_scalar_copy_avoided.to_string(),
+            ),
+            (
                 "vortex_ingest_millis".to_string(),
                 self.vortex_report.write_micros.div_ceil(1000).to_string(),
             ),

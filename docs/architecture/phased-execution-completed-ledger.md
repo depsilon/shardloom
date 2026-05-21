@@ -16,6 +16,83 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F1 Vortex RecordBatch provider array-build path
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-24-20260521` / #913.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest
+      attribution`.
+    - Vortex-first provider check for the UniversalIngress/adapter bottleneck and current Vortex
+      `ArrayRef::from_arrow(RecordBatch)` provider surface.
+  - Scope:
+    - Replaced the non-empty columnar `vortex_ingest` Vortex array-build path with upstream Vortex
+      `ArrayRef::from_arrow(RecordBatch)` and `ChunkedArray::try_new` for multi-batch SourceState
+      input, while preserving ShardLoom validation for flat projected columns, non-null admitted
+      scalar families, row-count proofs, workspace-safe writes, and no-fallback diagnostics.
+    - Added stable `VortexPreparedStateWriteReport` provider attribution:
+      `array_build_provider_kind`, `array_build_provider_surface`, `array_build_strategy`,
+      `array_build_input_layout`, `array_build_record_batch_count`, and
+      `manual_scalar_copy_avoided`.
+    - Surfaced the same attribution through `vortex-ingest-smoke` JSON as
+      `vortex_array_build_provider_*`, record-batch count, and scalar-copy-avoidance evidence,
+      with scalar CSV/JSONL paths still reported as `shardloom_kernel` and structured non-empty
+      columnar paths reported as `vortex_array_kernel`.
+    - Moved the traditional benchmark compatibility-import writer from manual Vortex
+      `StructArray`/scalar construction to typed Arrow `RecordBatch` construction followed by
+      `ArrayRef::from_arrow(RecordBatch)` for fact, dimension, and CDC table artifacts.
+    - Propagated provider attribution through the Python benchmark harness prepared-state contract,
+      benchmark README, compute-flow reference docs, Python typed accessors, and contract tests.
+    - Updated Vortex API inventory and Universal Input Contract docs to keep the admitted provider
+      path narrow, feature-gated, no-fallback, and not a broad Arrow-default execution model or
+      performance claim.
+  - Benchmark artifact:
+    - Ran a fresh structured local benchmark smoke:
+      `target/shardloom-provider-smoke-benchmark.json`.
+    - Observed `selected_execution_mode=compatibility_import_certified`,
+      `source_state_columnar_preserved=true`, `source_state_record_batch_count=2`,
+      `source_state_parse_normalization=arrow_record_batches_to_traditional_rows_then_vortex_from_arrow_provider`,
+      `vortex_array_build_provider_kind=vortex_array_kernel`,
+      `vortex_array_build_provider_surface=ArrayRef::from_arrow(RecordBatch)`,
+      `vortex_array_build_strategy=vortex_from_arrow_record_batch`,
+      `vortex_array_build_input_layout=traditional_arrow_record_batch`,
+      `vortex_array_build_record_batch_count=2`,
+      `vortex_array_build_manual_scalar_copy_avoided=true`, `claim_gate_status=not_claim_grade`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Verification:
+    - `cargo test -p shardloom-vortex vortex_ingest --lib --features vortex-write,universal-format-io`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke --features vortex-write,universal-format-io vortex_ingest_smoke -- --nocapture`
+    - `cargo test -p shardloom-vortex traditional_analytics --lib --features vortex-traditional-analytics-benchmark -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python -m compileall -q python/src python/tests benchmarks/traditional_analytics scripts`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_vortex_ingest_smoke_helper_dispatches_prepare_once_route python.tests.test_cli_client.ShardLoomClientTests.test_prepare_traditional_analytics_vortex_artifacts_reports_lifecycle`
+    - `python -m unittest discover -s python\tests`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom --formats parquet --scenario "selective filter" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --skip-shardloom-native --output target\shardloom-provider-smoke-benchmark.json --no-markdown`
+    - `python scripts\check_ci_gate_matrix.py`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Release-readiness policy check:
+    - `python scripts\check_release_readiness.py` emitted
+      `target\hard-release-readiness-gate.json` with `status=blocked`,
+      `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - The blocked result is expected: package/publication, clean-install, API/schema stability, and
+      per-claim evidence gates remain intentionally closed.
+  - Residual risk:
+    - `cargo clippy -p shardloom-vortex --all-targets --features
+      vortex-traditional-analytics-benchmark,vortex-write,universal-format-io -- -D warnings`
+      still trips existing `too_many_lines` test-body lints in the feature-gated benchmark test
+      module. The required workspace clippy gate passed.
+    - The structured benchmark path still materializes compatibility inputs into traditional row
+      structs before the Vortex provider batch; this slice removes the manual Vortex scalar-array
+      build boundary, not all compatibility read/materialization work.
+  - Claim boundary:
+    - This is scoped local artifact-preparation optimization and evidence attribution. It is not a
+      performance-superiority claim, broad Arrow execution claim, object-store/table/lakehouse
+      support claim, SQL/DataFrame production claim, package-readiness claim, or Spark-replacement
+      claim.
+
 - [x] Session label: REVIEW-RUNTIME-2 admitted-semantics fixture matrix and property/differential execution
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-23-20260521` / #912.

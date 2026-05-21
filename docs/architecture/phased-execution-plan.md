@@ -452,7 +452,14 @@ or documentation updates alone are insufficient.
     bytes/digest and writer row-count evidence without reopen verification, `ingest_certified`
     remains the default reopen/scan row-count proof, and `ingest_full_replay` fails closed until a
     downstream output/result replay workflow supplies the required evidence. It remains
-    intentionally narrow, flat-scalar, local-only, and not a claim-grade or broad writer path.
+    intentionally narrow, flat/local-only, and not a claim-grade or broad writer path. The
+    feature-gated columnar SourceState route now admits upstream Vortex
+    `ArrayRef::from_arrow(RecordBatch)` as the array-build provider for non-empty flat
+    Parquet/Arrow IPC/Avro/ORC batches, avoiding the prior manual Arrow-to-scalar-Vec copy before
+    the local `VortexPreparedState` write while preserving deterministic validation and no-fallback
+    evidence. The traditional benchmark compatibility-import writer now uses the same admitted
+    Vortex provider surface for fact/dimension/CDC table array construction and emits matching
+    provider attribution in benchmark rows.
   - Next slice outcome: continue the optimization path by promoting prepare-once reuse across
     repeated certified workflows and keeping benchmark/website interpretation aligned.
   - Checkpoint A7 research note: the current slow path still normalizes local CSV/JSON and
@@ -460,6 +467,12 @@ or documentation updates alone are insufficient.
     execution, but the structured-format path now pushes required-column projection into the local
     readers before that scalar boundary, and the `vortex_ingest` prepare-once path preserves those
     structured inputs as Arrow `RecordBatch` columnar SourceState until Vortex artifact creation.
+    The `vortex_ingest` array-build report distinguishes `shardloom_kernel` scalar-row construction
+    from `vortex_array_kernel` / `ArrayRef::from_arrow(RecordBatch)` construction through
+    `vortex_array_build_provider_kind`, `vortex_array_build_provider_surface`,
+    `vortex_array_build_strategy`, `vortex_array_build_input_layout`,
+    `vortex_array_build_record_batch_count`, and
+    `vortex_array_build_manual_scalar_copy_avoided`.
     Arrow RS reader docs expose RecordBatch streaming with batch sizing, projection APIs, and
     Parquet projection/filter/metadata reuse; local crate APIs confirm Parquet `ProjectionMask`,
     Arrow IPC/Avro projection indices, and ORC named-root projection.
@@ -498,6 +511,10 @@ or documentation updates alone are insufficient.
     `source_state_id`, `source_state_digest`, `source_state_materialization_layout`,
     `source_state_parse_normalization`, `source_state_columnar_preserved`,
     `source_state_record_batch_count`, `prepared_state_id`, `prepared_state_digest`,
+    `vortex_array_build_provider_kind`, `vortex_array_build_provider_surface`,
+    `vortex_array_build_strategy`, `vortex_array_build_input_layout`,
+    `vortex_array_build_record_batch_count`,
+    `vortex_array_build_manual_scalar_copy_avoided`,
     `prepared_state_created`, `prepared_state_reused`, `prepared_state_reuse_hit`,
     `invalidation_reason`, `source_fingerprint_kind`, `source_content_digest`, `schema_digest`,
     `plan_digest`, `fallback_attempted=false`, `external_engine_invoked=false`, and

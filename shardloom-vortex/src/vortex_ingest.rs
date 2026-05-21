@@ -173,6 +173,12 @@ pub struct VortexPreparedStateWriteReport {
     pub query_timing_starts_after_preparation: bool,
     pub upstream_vortex_write_called: bool,
     pub upstream_vortex_scan_called: bool,
+    pub array_build_provider_kind: String,
+    pub array_build_provider_surface: String,
+    pub array_build_strategy: String,
+    pub array_build_input_layout: String,
+    pub array_build_record_batch_count: usize,
+    pub manual_scalar_copy_avoided: bool,
     pub workspace_write_report: WorkspaceSafeLocalWriteReport,
 }
 
@@ -273,6 +279,12 @@ pub fn write_flat_scalar_vortex_prepared_state(
         array_build_micros,
         certification_level: request.certification_level,
         allow_overwrite: request.allow_overwrite,
+        array_build_provider_kind: "shardloom_kernel",
+        array_build_provider_surface: "shardloom_scalar_rows_to_vortex_struct",
+        array_build_strategy: "scalar_rows_to_vortex_struct",
+        array_build_input_layout: "materialized_rows",
+        array_build_record_batch_count: 0,
+        manual_scalar_copy_avoided: false,
     })
 }
 
@@ -297,19 +309,24 @@ pub fn write_flat_columnar_vortex_prepared_state(
     let source_shape = validate_flat_columnar_source_shape(&request.source)?;
     prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let array_build_start = Instant::now();
-    let (array, column_families) =
-        flat_columnar_source_to_vortex_struct(&request.source, &source_shape)?;
+    let array_build = flat_columnar_source_to_vortex_struct(&request.source, &source_shape)?;
     let array_build_micros = array_build_start.elapsed().as_micros();
     let row_count = usize_to_u64(request.source.row_count)?;
     finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
         target_path: request.target_path,
         column_count: request.source.materialized_columns.len(),
-        column_families,
+        column_families: array_build.column_families,
         row_count,
-        array: &array,
+        array: &array_build.array,
         array_build_micros,
         certification_level: request.certification_level,
         allow_overwrite: request.allow_overwrite,
+        array_build_provider_kind: array_build.provider_kind,
+        array_build_provider_surface: array_build.provider_surface,
+        array_build_strategy: array_build.strategy,
+        array_build_input_layout: "arrow_record_batch_columnar_source_state",
+        array_build_record_batch_count: request.source.batches.len(),
+        manual_scalar_copy_avoided: array_build.manual_scalar_copy_avoided,
     })
 }
 
@@ -422,6 +439,12 @@ struct VortexPreparedStateFinalizeInput<'a> {
     array_build_micros: u128,
     certification_level: VortexIngestCertificationLevel,
     allow_overwrite: bool,
+    array_build_provider_kind: &'static str,
+    array_build_provider_surface: &'static str,
+    array_build_strategy: &'static str,
+    array_build_input_layout: &'static str,
+    array_build_record_batch_count: usize,
+    manual_scalar_copy_avoided: bool,
 }
 
 #[cfg(feature = "vortex-write")]
@@ -481,6 +504,12 @@ fn finalize_vortex_prepared_state_write(
         query_timing_starts_after_preparation: false,
         upstream_vortex_write_called: true,
         upstream_vortex_scan_called,
+        array_build_provider_kind: input.array_build_provider_kind.to_string(),
+        array_build_provider_surface: input.array_build_provider_surface.to_string(),
+        array_build_strategy: input.array_build_strategy.to_string(),
+        array_build_input_layout: input.array_build_input_layout.to_string(),
+        array_build_record_batch_count: input.array_build_record_batch_count,
+        manual_scalar_copy_avoided: input.manual_scalar_copy_avoided,
         workspace_write_report: write_result.workspace_write_report,
     })
 }
@@ -588,16 +617,38 @@ fn scalar_family(value: &ScalarValue) -> Option<&'static str> {
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+struct ColumnarVortexArrayBuild {
+    array: vortex::array::ArrayRef,
+    column_families: Vec<(String, String)>,
+    provider_kind: &'static str,
+    provider_surface: &'static str,
+    strategy: &'static str,
+    manual_scalar_copy_avoided: bool,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn flat_columnar_source_to_vortex_struct(
     source: &FlatLocalColumnarSource,
     source_shape: &FlatColumnarSourceShape,
-) -> Result<(vortex::array::ArrayRef, Vec<(String, String)>)> {
+) -> Result<ColumnarVortexArrayBuild> {
     use vortex::array::IntoArray as _;
     use vortex::array::arrays::StructArray;
     use vortex::array::dtype::FieldNames;
     use vortex::array::validity::Validity;
 
     let column_families = columnar_column_families(source, source_shape)?;
+    if !source.batches.is_empty() {
+        let array = flat_columnar_source_to_vortex_from_arrow_provider(source, source_shape)?;
+        return Ok(ColumnarVortexArrayBuild {
+            array,
+            column_families,
+            provider_kind: "vortex_array_kernel",
+            provider_surface: "ArrayRef::from_arrow(RecordBatch)",
+            strategy: "vortex_from_arrow_record_batch",
+            manual_scalar_copy_avoided: true,
+        });
+    }
+
     let fields = column_families
         .iter()
         .zip(&source_shape.projected_columns)
@@ -624,7 +675,55 @@ fn flat_columnar_source_to_vortex_struct(
     )
     .map_err(vortex_error)?
     .into_array();
-    Ok((array, column_families))
+    Ok(ColumnarVortexArrayBuild {
+        array,
+        column_families,
+        provider_kind: "shardloom_kernel",
+        provider_surface: "shardloom_empty_columnar_struct_builder",
+        strategy: "empty_columnar_schema_to_vortex_struct",
+        manual_scalar_copy_avoided: false,
+    })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn flat_columnar_source_to_vortex_from_arrow_provider(
+    source: &FlatLocalColumnarSource,
+    source_shape: &FlatColumnarSourceShape,
+) -> Result<vortex::array::ArrayRef> {
+    use vortex::array::IntoArray as _;
+    use vortex::array::arrays::ChunkedArray;
+    use vortex::array::arrow::FromArrowArray as _;
+
+    let projection_indices = source_shape
+        .projected_columns
+        .iter()
+        .map(|column| column.reader_index)
+        .collect::<Vec<_>>();
+    let chunks = source
+        .batches
+        .iter()
+        .map(|batch| {
+            let projected = batch.project(&projection_indices).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local vortex_ingest Arrow RecordBatch projection failed: {error}; no fallback execution was attempted"
+                ))
+            })?;
+            vortex::array::ArrayRef::from_arrow(projected, false).map_err(vortex_error)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    match chunks.as_slice() {
+        [single] => Ok(single.clone()),
+        [] => Err(ShardLoomError::InvalidOperation(
+            "local vortex_ingest columnar SourceState contained no RecordBatch chunks; no fallback execution was attempted"
+                .to_string(),
+        )),
+        _ => {
+            let dtype = chunks[0].dtype().clone();
+            Ok(ChunkedArray::try_new(chunks, dtype)
+                .map_err(vortex_error)?
+                .into_array())
+        }
+    }
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -1163,6 +1262,15 @@ mod tests {
         assert_eq!(report.certification_level, "ingest_certified");
         assert!(report.preparation_included);
         assert!(!report.query_timing_starts_after_preparation);
+        assert_eq!(report.array_build_provider_kind, "shardloom_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "shardloom_scalar_rows_to_vortex_struct"
+        );
+        assert_eq!(report.array_build_strategy, "scalar_rows_to_vortex_struct");
+        assert_eq!(report.array_build_input_layout, "materialized_rows");
+        assert_eq!(report.array_build_record_batch_count, 0);
+        assert!(!report.manual_scalar_copy_avoided);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }
@@ -1253,6 +1361,21 @@ mod tests {
         );
         assert!(report.upstream_vortex_write_called);
         assert!(report.upstream_vortex_scan_called);
+        assert_eq!(report.array_build_provider_kind, "vortex_array_kernel");
+        assert_eq!(
+            report.array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch)"
+        );
+        assert_eq!(
+            report.array_build_strategy,
+            "vortex_from_arrow_record_batch"
+        );
+        assert_eq!(
+            report.array_build_input_layout,
+            "arrow_record_batch_columnar_source_state"
+        );
+        assert_eq!(report.array_build_record_batch_count, 1);
+        assert!(report.manual_scalar_copy_avoided);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }

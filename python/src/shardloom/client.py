@@ -216,6 +216,47 @@ class PreparedVortexArtifacts:
         return self.prepare.field_int("source_state_record_batch_count", 0) or 0
 
     @property
+    def vortex_array_build_provider_kind(self) -> str | None:
+        """Return the Vortex array-build provider kind, when emitted."""
+
+        return self.prepare.field("vortex_array_build_provider_kind")
+
+    @property
+    def vortex_array_build_provider_surface(self) -> str | None:
+        """Return the Vortex array-build provider API surface, when emitted."""
+
+        return self.prepare.field("vortex_array_build_provider_surface")
+
+    @property
+    def vortex_array_build_strategy(self) -> str | None:
+        """Return the Vortex array-build strategy, when emitted."""
+
+        return self.prepare.field("vortex_array_build_strategy")
+
+    @property
+    def vortex_array_build_input_layout(self) -> str | None:
+        """Return the Vortex array-build input layout, when emitted."""
+
+        return self.prepare.field("vortex_array_build_input_layout")
+
+    @property
+    def vortex_array_build_record_batch_count(self) -> int:
+        """Return the number of record batches handed to the Vortex provider."""
+
+        return self.prepare.field_int("vortex_array_build_record_batch_count", 0) or 0
+
+    @property
+    def vortex_array_build_manual_scalar_copy_avoided(self) -> bool:
+        """Whether the Vortex array build avoided the manual scalar-copy path."""
+
+        return (
+            self.prepare.field_bool(
+                "vortex_array_build_manual_scalar_copy_avoided", False
+            )
+            is True
+        )
+
+    @property
     def cleanup_policy(self) -> str:
         """Return the caller-visible cleanup policy for prepared artifacts."""
 
@@ -473,6 +514,47 @@ class VortexIngestSmokeReport:
         """Return Vortex array-build time in milliseconds."""
 
         return self.envelope.field_int("vortex_array_build_millis", 0) or 0
+
+    @property
+    def vortex_array_build_provider_kind(self) -> str | None:
+        """Return the Vortex array-build provider kind."""
+
+        return self.envelope.field("vortex_array_build_provider_kind")
+
+    @property
+    def vortex_array_build_provider_surface(self) -> str | None:
+        """Return the Vortex array-build provider API surface."""
+
+        return self.envelope.field("vortex_array_build_provider_surface")
+
+    @property
+    def vortex_array_build_strategy(self) -> str | None:
+        """Return the Vortex array-build strategy."""
+
+        return self.envelope.field("vortex_array_build_strategy")
+
+    @property
+    def vortex_array_build_input_layout(self) -> str | None:
+        """Return the Vortex array-build input layout."""
+
+        return self.envelope.field("vortex_array_build_input_layout")
+
+    @property
+    def vortex_array_build_record_batch_count(self) -> int:
+        """Return the number of record batches handed to the Vortex provider."""
+
+        return self.envelope.field_int("vortex_array_build_record_batch_count", 0) or 0
+
+    @property
+    def vortex_array_build_manual_scalar_copy_avoided(self) -> bool:
+        """Whether the Vortex array build avoided the manual scalar-copy path."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_array_build_manual_scalar_copy_avoided", False
+            )
+            is True
+        )
 
     @property
     def source_io_performed(self) -> bool:
