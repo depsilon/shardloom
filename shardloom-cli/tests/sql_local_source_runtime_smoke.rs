@@ -978,6 +978,115 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
 }
 
 #[test]
+fn sql_local_source_smoke_executes_generic_expression_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-generic-expression-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,amount,tax\n1,8,2\n2,15,5\n3,21,4\n4,12,\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,(amount + tax) * 2 AS gross,ABS(amount - tax) AS spread,ROUND((amount + tax) / 2.0) AS midpoint FROM '{}' WHERE amount >= 10 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_source_column",
+        "amount+tax,amount+tax,amount+tax"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_output_column",
+        "gross,spread,midpoint"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_operator_family",
+        "numeric_binary,numeric_abs+numeric_binary,numeric_binary+numeric_rounding"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_binary_operator_count",
+        "5"
+    )));
+    assert!(stdout.contains(&field("projected_columns", "id,gross,spread,midpoint")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"gross\\\":40,\\\"spread\\\":10,\\\"midpoint\\\":10.0}\\n{\\\"id\\\":3,\\\"gross\\\":50,\\\"spread\\\":17,\\\"midpoint\\\":13.0}\\n{\\\"id\\\":4,\\\"gross\\\":null,\\\"spread\\\":null,\\\"midpoint\\\":null}\\n\""
+    ));
+
+    let division_by_zero_statement = format!(
+        "SELECT id,(amount + tax) / 0 AS gross FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let division_by_zero = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &division_by_zero_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!division_by_zero.status.success());
+    let division_by_zero_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&division_by_zero.stdout),
+        String::from_utf8_lossy(&division_by_zero.stderr)
+    );
+    assert!(
+        division_by_zero_output
+            .contains("generic numeric expression projection division by zero is not admitted")
+    );
+    assert!(division_by_zero_output.contains("external_engine_invoked=false"));
+
+    let blocked_statement = format!(
+        "SELECT id,(amount + missing_tax) * 2 AS gross FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(blocked_output.contains(
+        "generic expression projection source column \\\"missing_tax\\\" is not present"
+    ));
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_numeric_abs_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-numeric-abs-projection", "csv");
     fs::write(&source_path, "id,amount\n1,-5\n2,3\n3,-4\n4,\n").expect("write source csv");

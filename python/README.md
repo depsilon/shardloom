@@ -456,6 +456,10 @@ CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avr
 projection/filter/limit workflows. The current slice accepts deterministic `lit(...)` values,
 direct bool/int/float literals, scoped numeric arithmetic expressions shaped as
 `sl.col("amount") + 5`, `-`, `*`, or `/` with an int/finite-float literal, scoped
+generalized numeric expression-tree projections such as
+`(sl.col("amount") + sl.col("tax")) * 2`, `sl.abs(sl.col("amount") - sl.col("tax"))`,
+and `sl.round((sl.col("amount") + sl.col("tax")) / 2.0)` over admitted numeric local
+columns and finite numeric literals, scoped
 `sl.col("amount").abs()` / `sl.abs(sl.col("amount"))` numeric absolute-value projections, scoped
 `sl.col("amount").floor()` / `.ceil()` / `.round()` or `sl.floor(...)` / `sl.ceil(...)` /
 `sl.round(...)` numeric rounding projections, plus scoped UTF-8
@@ -476,7 +480,8 @@ conditional projections such as
 `literal_projection_*` evidence; cast projections emit `cast_projection_*` evidence; numeric
 arithmetic projections emit `numeric_arithmetic_projection_*` evidence; numeric absolute-value
 projections emit `numeric_abs_projection_*` evidence; numeric rounding projections emit
-`numeric_rounding_projection_*` evidence; string transform
+`numeric_rounding_projection_*` evidence; generalized numeric expression-tree projections emit
+`generic_expression_projection_*` evidence; string transform
 projections emit `string_transform_projection_*` evidence; string length projections emit
 `string_length_projection_*` evidence; date/time extract projections emit
 `date_extract_projection_*` and `timestamp_extract_projection_*` evidence; date arithmetic
@@ -485,10 +490,11 @@ projections emit `date_arithmetic_projection_*` evidence; null coalesce projecti
 conditional projections emit
 `conditional_projection_*` evidence. Mixed `int64`/`float64` arithmetic promotes to `float64`
 only when the `int64` operand is exactly representable as `float64`; lossy mixed coercions,
-`COALESCE(..., NULL)`, `NULLIF(..., NULL)`, non-null source/fallback dtype mismatches, and non-null
-source/sentinel dtype mismatches block deterministically before fallback. `CASE WHEN` projections
-currently admit one branch, admitted predicate leaves, non-NULL literal branches, and matching
-branch dtypes only. Unsupported computed-column expressions still block before fallback.
+generic expression missing-source-column and division-by-zero cases, `COALESCE(..., NULL)`,
+`NULLIF(..., NULL)`, non-null source/fallback dtype mismatches, and non-null source/sentinel dtype
+mismatches block deterministically before fallback. `CASE WHEN` projections currently admit one
+branch, admitted predicate leaves, non-NULL literal branches, and matching branch dtypes only.
+Unsupported computed-column expressions still block before fallback.
 CSV, local flat
 JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,

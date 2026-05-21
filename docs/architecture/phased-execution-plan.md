@@ -361,6 +361,12 @@ or documentation updates alone are insufficient.
     `CEIL(column) AS column`, and `ROUND(column) AS column` are runtime-admitted with
     `numeric_rounding_projection_*` evidence, ShardLoom-native null propagation, deterministic
     duplicate-output-name/source-column/type/unsupported-shape blockers, and no external fallback.
+    Scoped generalized numeric expression-tree projections over admitted local-source numeric
+    columns and finite numeric literals, including parenthesized `+` / `-` / `*` / `/` trees and
+    nested `ABS` / `FLOOR` / `CEIL` / `ROUND` calls, are runtime-admitted with
+    `generic_expression_projection_*` evidence, ShardLoom-native null propagation, deterministic
+    source-column/division-by-zero/unsupported-shape blockers, and no external fallback. This is
+    expression-tree coverage for local computed projections, not arbitrary SQL expression parity.
     Scoped UTF-8
     transform projections of the form `LOWER(column) AS column`, `UPPER(column) AS column`, and
     `TRIM(column) AS column` are runtime-admitted with `string_transform_projection_*` evidence,

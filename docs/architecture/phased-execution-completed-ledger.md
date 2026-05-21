@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python generic numeric expression projection runtime
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-generic-expression-projections` / #876.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - SQL local-source computed projection runtime
+    - Python query-builder computed-column surface.
+  - Scope:
+    - Promoted scoped parenthesized and chained numeric expression-tree projections to runtime-admitted local-source SQL projections.
+    - Lowered admitted `+`, `-`, `*`, `/`, nested `ABS`, `FLOOR`, `CEIL`, `ROUND`, and numeric `CAST(... AS int64|float64)` expressions into ShardLoom-native expression evaluation.
+    - Added Python column-to-column/chained numeric computed projections such as `(sl.col("amount") + sl.col("tax")) * 2`.
+    - Preserved existing simple `column (+|-|*|/) numeric-literal` projection evidence and kept joins, unsupported shapes, missing columns, and literal division by zero blocked deterministically.
+  - Evidence:
+    - `generic_expression_projection_runtime_execution=true`, `generic_expression_projection_source_column`, `generic_expression_projection_output_column`, `generic_expression_projection_operator_family`, `generic_expression_projection_binary_operator_count`, inline JSONL result rows including null propagation, `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust parser and CLI smoke tests for generic numeric expression projections.
+    - Existing numeric arithmetic projection Rust and Python query-builder regression tests.
+    - `python -m compileall -q python/src python/tests`, `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test -p shardloom-cli --all-targets`, Python query-builder unittest suite, full workspace Rust tests, and `git diff --check`.
+  - Claim boundary:
+    - Scoped local SQL/Python generic numeric projection fixture smoke only. This is not arbitrary SQL expression parity, broad DataFrame expression parity, production SQL support, encoded-native operator completeness, claim-grade compute, or performance evidence.
+  - Fallback boundary:
+    - Generic numeric projection expressions are parsed, planned, evaluated, and evidenced by ShardLoom-native local-source runtime code. External engines remain baseline/oracle-only and are not invoked.
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python `IS NOT TRUE/FALSE` boolean predicate runtime
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-boolean-is-not-4d` / #875.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - SQL local-source Boolean predicate runtime evidence
+    - Python query-builder predicate helpers.
+  - Scope:
+    - Promoted scoped SQL `IS NOT TRUE` and `IS NOT FALSE` Boolean truth predicates from deterministic blockers to runtime-admitted local-source predicates.
+    - Preserved SQL three-valued semantics where `IS NOT TRUE` matches false and null, and `IS NOT FALSE` matches true and null.
+    - Added `is_not_true` and `is_not_false` Boolean predicate evidence operators plus `boolean_predicate_null_semantics=sql_boolean_is_not_true_false_null_matches`.
+    - Added Python `sl.col(...).is_not_true()` and `.is_not_false()` helpers and typed query-builder report coverage.
+    - Updated compute-flow docs, Python README, active 4D plan posture, Use Case Atlas metadata, and generated website assets.
+  - Evidence:
+    - `predicate_operator_family=boolean_predicate`, `filter_runtime_execution=true`, `boolean_predicate_runtime_execution=true`, `boolean_predicate_operator=is_not_true|is_not_false`, `boolean_predicate_source_column`, `boolean_predicate_null_semantics=sql_boolean_is_not_true_false_null_matches`, selected row counts, inline JSONL result rows, `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust CLI smoke for `WHERE active IS NOT TRUE` and `WHERE active IS NOT FALSE`.
+    - Existing Boolean truthiness and `NOT (active IS TRUE)` focused Rust smokes.
+    - Focused Python query-builder tests for the new helpers and predicate formatting.
+    - Use Case Atlas checks, website sync/build/postbuild/readiness/static validation, Python compileall, cargo fmt, clippy, full workspace tests, and `git diff --check`.
+  - Claim boundary:
+    - Scoped local SQL/Python Boolean predicate fixture smoke only. This is not broad SQL/DataFrame parity, arbitrary predicate-tree completeness, production SQL support, claim-grade compute, or performance evidence.
+  - Fallback boundary:
+    - Boolean truth predicates are parsed, planned, evaluated, and evidenced by ShardLoom-native local-source runtime code. External engines remain baseline/oracle-only and are not invoked.
 - [x] Session label: GAR-RUNTIME-IMPL-5J benchmark coverage dashboard and claim-grade closeout
   visibility
   - Date: 2026-05-21
