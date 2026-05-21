@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc/read_avro/read_orc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal with_column(...), count, scalar aggregate with aliases, multi-key group_by aggregate with aliases, single-key top-N, and one scoped local-source inner equi-join bridge over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar structured writes are admitted. No nested JSON, JSONPath, broader structured type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, production SQL, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc/read_avro/read_orc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal with_column(...), count, scalar aggregate with aliases, multi-key group_by aggregate with aliases, single-key top-N, and scoped single- or multi-key local-source inner equi-join bridge over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar structured writes are admitted. No nested JSON, JSONPath, broader structured type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, production SQL, object-store/table source, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Python local CSV/JSON/JSONL/Parquet query-builder projection, preview/head/take,
 
 ## Claim Boundary
 
-Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc/read_avro/read_orc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal with_column(...), count, scalar aggregate with aliases, multi-key group_by aggregate with aliases, single-key top-N, and one scoped local-source inner equi-join bridge over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar structured writes are admitted. No nested JSON, JSONPath, broader structured type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, production SQL, object-store/table source, external fallback, or performance claim.
+Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc/read_avro/read_orc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal with_column(...), count, scalar aggregate with aliases, multi-key group_by aggregate with aliases, single-key top-N, and scoped single- or multi-key local-source inner equi-join bridge over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar structured writes are admitted. No nested JSON, JSONPath, broader structured type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, non-literal with_column, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, production SQL, object-store/table source, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -78,6 +78,10 @@ The Python query-builder runtime admits local CSV, flat JSON/JSONL/NDJSON, and f
 - `join_type`
 - `join_left_key`
 - `join_right_key`
+- `join_left_keys`
+- `join_right_keys`
+- `join_key_arity`
+- `join_multi_key_runtime_execution`
 - `output_format`
 - `output_io_performed=true`
 - `output_native_io_certificate_status`

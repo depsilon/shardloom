@@ -2290,6 +2290,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "join_type", "value": "inner_equi"},
                         {"key": "join_left_key", "value": "f.customer_id"},
                         {"key": "join_right_key", "value": "d.customer_id"},
+                        {"key": "join_left_keys", "value": "f.customer_id"},
+                        {"key": "join_right_keys", "value": "d.customer_id"},
+                        {"key": "join_key_arity", "value": "1"},
+                        {"key": "join_multi_key_runtime_execution", "value": "false"},
                         {"key": "join_matched_row_count", "value": "3"},
                         {"key": "join_rows_output", "value": "1"},
                         {"key": "join_memory_estimate_bytes", "value": "2240"},
@@ -2313,6 +2317,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.join_type, "inner_equi")
         self.assertEqual(report.join_left_key, "f.customer_id")
         self.assertEqual(report.join_right_key, "d.customer_id")
+        self.assertEqual(report.join_left_keys, ("f.customer_id",))
+        self.assertEqual(report.join_right_keys, ("d.customer_id",))
+        self.assertEqual(report.join_key_arity, 1)
+        self.assertFalse(report.join_multi_key_runtime_execution)
         self.assertEqual(report.join_matched_row_count, 3)
         self.assertEqual(report.join_rows_output, 1)
         self.assertEqual(report.join_memory_estimate_bytes, 2240)
@@ -2349,6 +2357,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "join_type", "value": "inner_equi"},
                         {"key": "join_left_key", "value": "f.customer_id"},
                         {"key": "join_right_key", "value": "d.customer_id"},
+                        {"key": "join_left_keys", "value": "f.customer_id"},
+                        {"key": "join_right_keys", "value": "d.customer_id"},
+                        {"key": "join_key_arity", "value": "1"},
+                        {"key": "join_multi_key_runtime_execution", "value": "false"},
                         {"key": "join_matched_row_count", "value": "3"},
                         {"key": "join_rows_output", "value": "1"},
                         {"key": "join_memory_estimate_bytes", "value": "2240"},
@@ -2376,8 +2388,82 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.join_type, "inner_equi")
         self.assertEqual(report.join_left_key, "f.customer_id")
         self.assertEqual(report.join_right_key, "d.customer_id")
+        self.assertEqual(report.join_left_keys, ("f.customer_id",))
+        self.assertEqual(report.join_right_keys, ("d.customer_id",))
+        self.assertEqual(report.join_key_arity, 1)
+        self.assertFalse(report.join_multi_key_runtime_execution)
         self.assertEqual(report.join_matched_row_count, 3)
         self.assertEqual(report.join_rows_output, 1)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_multi_key_join_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source join",
+                    "human_text": "sql local source join",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":2,\\"d.segment\\":\\"enterprise\\"}\\n{\\"f.id\\":3,\\"d.segment\\":\\"consumer\\"}\\n{\\"f.id\\":5,\\"d.segment\\":\\"startup\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_inner_equi_join_filter_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "inner_equi"},
+                        {"key": "join_left_key", "value": "f.customer_id,f.region"},
+                        {"key": "join_right_key", "value": "d.customer_id,d.region"},
+                        {"key": "join_left_keys", "value": "f.customer_id,f.region"},
+                        {"key": "join_right_keys", "value": "d.customer_id,d.region"},
+                        {"key": "join_key_arity", "value": "2"},
+                        {"key": "join_multi_key_runtime_execution", "value": "true"},
+                        {"key": "join_matched_row_count", "value": "3"},
+                        {"key": "join_rows_output", "value": "3"},
+                        {"key": "join_memory_estimate_bytes", "value": "4032"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), on=("customer_id", "region"))
+            .select("f.id", "d.segment")
+            .filter("f.amount >= 10")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_type, "inner_equi")
+        self.assertEqual(report.join_left_key, "f.customer_id,f.region")
+        self.assertEqual(report.join_right_key, "d.customer_id,d.region")
+        self.assertEqual(report.join_left_keys, ("f.customer_id", "f.region"))
+        self.assertEqual(report.join_right_keys, ("d.customer_id", "d.region"))
+        self.assertEqual(report.join_key_arity, 2)
+        self.assertTrue(report.join_multi_key_runtime_execution)
+        self.assertEqual(report.join_matched_row_count, 3)
+        self.assertEqual(report.join_rows_output, 3)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
@@ -5970,7 +6056,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.sql_bind("select * from events"),
             ctx.sql_plan("select * from events"),
             ctx.sql_execute("select * from events"),
-            workflow.join("dim.csv", on=("id", "other_id")),
+            workflow.join("dim.csv", on=("id", "other_id"), how="left"),
             workflow.aggregate("sum(amount)"),
             workflow.window("row_number() over (partition by id)"),
             workflow.schema_contract({"id": "int64"}),

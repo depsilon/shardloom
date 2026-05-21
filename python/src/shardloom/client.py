@@ -1789,6 +1789,30 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field("join_right_key")
 
     @property
+    def join_left_keys(self) -> tuple[str, ...]:
+        """Return all left join keys emitted by the smoke."""
+
+        return _csv_values(self.envelope.field("join_left_keys"))
+
+    @property
+    def join_right_keys(self) -> tuple[str, ...]:
+        """Return all right join keys emitted by the smoke."""
+
+        return _csv_values(self.envelope.field("join_right_keys"))
+
+    @property
+    def join_key_arity(self) -> int:
+        """Return the number of equi-join key pairs emitted by the smoke."""
+
+        return self.envelope.field_int("join_key_arity", 0) or 0
+
+    @property
+    def join_multi_key_runtime_execution(self) -> bool:
+        """Whether this smoke executed a multi-key inner equi-join path."""
+
+        return self.envelope.field_bool("join_multi_key_runtime_execution", False) is True
+
+    @property
     def join_matched_row_count(self) -> int:
         """Return the number of matched join rows before filtering."""
 

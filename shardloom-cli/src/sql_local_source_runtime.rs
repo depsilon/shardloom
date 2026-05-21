@@ -3,7 +3,7 @@
 //! This module intentionally admits one small SQL shape over local
 //! CSV/JSONL/JSON and feature-gated local Parquet/Arrow IPC/Avro/ORC:
 //! `SELECT <columns> FROM <local.csv|local.jsonl|local.json|local.parquet|local.arrow|local.ipc|local.avro|local.orc> [WHERE <scoped predicate>] [ORDER BY <column> ASC|DESC] LIMIT <n>`
-//! plus one explicit local inner equi-join shape.
+//! plus explicit local single- and multi-key inner equi-join shapes.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
 //! `Polars`, `pandas`, object stores, catalogs, or Vortex query-engine
@@ -355,8 +355,13 @@ struct ParsedOrderBy {
 struct ParsedJoin {
     right_source_path: PathBuf,
     right_alias: String,
-    left_key: QualifiedColumn,
-    right_key: QualifiedColumn,
+    key_pairs: Vec<ParsedJoinKeyPair>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedJoinKeyPair {
+    left: QualifiedColumn,
+    right: QualifiedColumn,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2509,16 +2514,15 @@ fn evaluate_join_output(
     let mut selected_row_count = 0usize;
     let mut output_rows = Vec::new();
     for left_row in &left_source.rows {
-        let Some(key_value) = left_row.get(&join.left_key.column) else {
-            return Err(unsupported_sql_error(&format!(
-                "JOIN left key column {:?} is not present in the left source row",
-                join.left_key.column
-            )));
-        };
-        if matches!(key_value, ScalarValue::Null) {
+        let Some(key_parts) = join_key_parts(
+            left_row,
+            join.key_pairs.iter().map(|pair| &pair.left),
+            "left",
+        )?
+        else {
             continue;
-        }
-        if let Some(right_matches) = right_rows_by_key.get(&key_value.summary()) {
+        };
+        if let Some(right_matches) = right_rows_by_key.get(&key_parts) {
             for right_row in right_matches {
                 if joined_row_count >= MAX_JOIN_CANDIDATE_ROWS {
                     return Err(unsupported_sql_error(&format!(
@@ -2557,24 +2561,44 @@ fn evaluate_join_output(
 fn build_join_right_rows_by_key<'a>(
     join: &ParsedJoin,
     right_source: &'a CsvSourceData,
-) -> Result<BTreeMap<String, Vec<&'a ExpressionInputRow>>, ShardLoomError> {
-    let mut right_rows_by_key: BTreeMap<String, Vec<&ExpressionInputRow>> = BTreeMap::new();
+) -> Result<BTreeMap<Vec<String>, Vec<&'a ExpressionInputRow>>, ShardLoomError> {
+    let mut right_rows_by_key: BTreeMap<Vec<String>, Vec<&ExpressionInputRow>> = BTreeMap::new();
     for right_row in &right_source.rows {
-        let Some(key_value) = right_row.get(&join.right_key.column) else {
-            return Err(unsupported_sql_error(&format!(
-                "JOIN right key column {:?} is not present in the right source row",
-                join.right_key.column
-            )));
-        };
-        if matches!(key_value, ScalarValue::Null) {
+        let Some(key_parts) = join_key_parts(
+            right_row,
+            join.key_pairs.iter().map(|pair| &pair.right),
+            "right",
+        )?
+        else {
             continue;
-        }
+        };
         right_rows_by_key
-            .entry(key_value.summary())
+            .entry(key_parts)
             .or_default()
             .push(right_row);
     }
     Ok(right_rows_by_key)
+}
+
+fn join_key_parts<'a>(
+    row: &ExpressionInputRow,
+    columns: impl IntoIterator<Item = &'a QualifiedColumn>,
+    side: &str,
+) -> Result<Option<Vec<String>>, ShardLoomError> {
+    let mut parts = Vec::new();
+    for column in columns {
+        let Some(key_value) = row.get(&column.column) else {
+            return Err(unsupported_sql_error(&format!(
+                "JOIN {side} key column {:?} is not present in the {side} source row",
+                column.column
+            )));
+        };
+        if matches!(key_value, ScalarValue::Null) {
+            return Ok(None);
+        }
+        parts.push(key_value.summary());
+    }
+    Ok(Some(parts))
 }
 
 fn evaluate_join_candidate(
@@ -4055,28 +4079,39 @@ fn bind_join_sql_local_source(
             "JOIN smoke currently admits projection/filter/limit only; aggregate, group-by, and order-by joins remain blocked",
         ));
     }
-    if join.left_key.alias != *left_alias || join.right_key.alias != join.right_alias {
-        return Err(unsupported_sql_error(
-            "JOIN ON must compare the left alias to the right alias in this scoped smoke",
-        ));
-    }
-    if !left_header
-        .iter()
-        .any(|column| column == &join.left_key.column)
-    {
-        return Err(unsupported_sql_error(&format!(
-            "JOIN left key column {:?} is not present in the left source header",
-            join.left_key.column
-        )));
-    }
-    if !right_header
-        .iter()
-        .any(|column| column == &join.right_key.column)
-    {
-        return Err(unsupported_sql_error(&format!(
-            "JOIN right key column {:?} is not present in the right source header",
-            join.right_key.column
-        )));
+    let mut left_key_columns = BTreeSet::new();
+    let mut right_key_columns = BTreeSet::new();
+    for key_pair in &join.key_pairs {
+        if key_pair.left.alias != *left_alias || key_pair.right.alias != join.right_alias {
+            return Err(unsupported_sql_error(
+                "JOIN ON must compare the left alias to the right alias in this scoped smoke",
+            ));
+        }
+        if !left_key_columns.insert(key_pair.left.column.clone())
+            || !right_key_columns.insert(key_pair.right.column.clone())
+        {
+            return Err(unsupported_sql_error(
+                "JOIN smoke requires unique key columns on each side",
+            ));
+        }
+        if !left_header
+            .iter()
+            .any(|column| column == &key_pair.left.column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "JOIN left key column {:?} is not present in the left source header",
+                key_pair.left.column
+            )));
+        }
+        if !right_header
+            .iter()
+            .any(|column| column == &key_pair.right.column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "JOIN right key column {:?} is not present in the right source header",
+                key_pair.right.column
+            )));
+        }
     }
     for projection in &parsed.projections {
         bind_qualified_column(
@@ -5154,6 +5189,32 @@ impl ParsedOrderBy {
 impl QualifiedColumn {
     fn to_ref(&self) -> String {
         qualified_column_name(&self.alias, &self.column)
+    }
+}
+
+impl ParsedJoin {
+    fn key_arity(&self) -> usize {
+        self.key_pairs.len()
+    }
+
+    fn is_multi_key(&self) -> bool {
+        self.key_arity() > 1
+    }
+
+    fn left_key_refs(&self) -> String {
+        self.key_pairs
+            .iter()
+            .map(|pair| pair.left.to_ref())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn right_key_refs(&self) -> String {
+        self.key_pairs
+            .iter()
+            .map(|pair| pair.right.to_ref())
+            .collect::<Vec<_>>()
+            .join(",")
     }
 }
 
@@ -7974,14 +8035,44 @@ impl SqlLocalSourceReport {
                 self.parsed
                     .join
                     .as_ref()
-                    .map_or_else(String::new, |join| join.left_key.to_ref()),
+                    .map_or_else(String::new, ParsedJoin::left_key_refs),
             ),
             (
                 "join_right_key".to_string(),
                 self.parsed
                     .join
                     .as_ref()
-                    .map_or_else(String::new, |join| join.right_key.to_ref()),
+                    .map_or_else(String::new, ParsedJoin::right_key_refs),
+            ),
+            (
+                "join_left_keys".to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .map_or_else(String::new, ParsedJoin::left_key_refs),
+            ),
+            (
+                "join_right_keys".to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .map_or_else(String::new, ParsedJoin::right_key_refs),
+            ),
+            (
+                "join_key_arity".to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .map_or(0, ParsedJoin::key_arity)
+                    .to_string(),
+            ),
+            (
+                "join_multi_key_runtime_execution".to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .is_some_and(ParsedJoin::is_multi_key)
+                    .to_string(),
             ),
             (
                 "join_matched_row_count".to_string(),
@@ -11548,10 +11639,13 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
             "JOIN smoke requires distinct left and right aliases",
         ));
     }
-    let (left_key, right_key) = parse_join_on(on_raw)?;
-    if left_key.alias != left_alias || right_key.alias != right_alias {
+    let key_pairs = parse_join_on(on_raw)?;
+    if key_pairs
+        .iter()
+        .any(|pair| pair.left.alias != left_alias || pair.right.alias != right_alias)
+    {
         return Err(unsupported_sql_error(
-            "JOIN ON must be ordered as <left_alias>.<column> = <right_alias>.<column>",
+            "JOIN ON predicates must be ordered as <left_alias>.<column> = <right_alias>.<column>",
         ));
     }
     Ok(ParsedSourceClause {
@@ -11560,8 +11654,7 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
         join: Some(ParsedJoin {
             right_source_path,
             right_alias,
-            left_key,
-            right_key,
+            key_pairs,
         }),
     })
 }
@@ -11582,20 +11675,45 @@ fn parse_aliased_source(raw: &str, side: &str) -> Result<(PathBuf, String), Shar
     Ok((parse_source_path(path_raw)?, alias.clone()))
 }
 
-fn parse_join_on(raw: &str) -> Result<(QualifiedColumn, QualifiedColumn), ShardLoomError> {
+fn parse_join_on(raw: &str) -> Result<Vec<ParsedJoinKeyPair>, ShardLoomError> {
     let tokens = split_whitespace_outside_quotes(raw)?;
-    match tokens.as_slice() {
-        [left, op, right] if op == "=" => Ok((
-            parse_qualified_column_ref(left)?,
-            parse_qualified_column_ref(right)?,
-        )),
-        [_, op, _] if op != "=" => Err(unsupported_sql_error(
-            "JOIN smoke admits equi-join ON predicates only",
-        )),
-        _ => Err(unsupported_sql_error(
+    if tokens.len() < 3 {
+        return Err(unsupported_sql_error(
             "JOIN smoke ON clause must be <left_alias>.<column> = <right_alias>.<column>",
-        )),
+        ));
     }
+    let mut key_pairs = Vec::new();
+    let mut index = 0;
+    loop {
+        if index + 2 >= tokens.len() {
+            return Err(unsupported_sql_error(
+                "JOIN smoke ON clause must be one or more equi-join predicates joined by AND",
+            ));
+        }
+        let left = &tokens[index];
+        let op = &tokens[index + 1];
+        let right = &tokens[index + 2];
+        if op != "=" {
+            return Err(unsupported_sql_error(
+                "JOIN smoke admits equi-join ON predicates only",
+            ));
+        }
+        key_pairs.push(ParsedJoinKeyPair {
+            left: parse_qualified_column_ref(left)?,
+            right: parse_qualified_column_ref(right)?,
+        });
+        index += 3;
+        if index == tokens.len() {
+            break;
+        }
+        if !tokens[index].eq_ignore_ascii_case("and") {
+            return Err(unsupported_sql_error(
+                "JOIN smoke ON clause must be one or more equi-join predicates joined by AND",
+            ));
+        }
+        index += 1;
+    }
+    Ok(key_pairs)
 }
 
 fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
@@ -14904,8 +15022,10 @@ mod tests {
         let join = parsed.join.as_ref().expect("join parsed");
         assert_eq!(join.right_source_path, PathBuf::from("target/dim.csv"));
         assert_eq!(join.right_alias, "d");
-        assert_eq!(join.left_key.to_ref(), "f.customer_id");
-        assert_eq!(join.right_key.to_ref(), "d.customer_id");
+        assert_eq!(join.left_key_refs(), "f.customer_id");
+        assert_eq!(join.right_key_refs(), "d.customer_id");
+        assert_eq!(join.key_arity(), 1);
+        assert!(!join.is_multi_key());
         assert_eq!(
             parsed.statement_kind(),
             "local_source_inner_equi_join_filter_limit"
@@ -14918,6 +15038,24 @@ mod tests {
                 value: ScalarValue::Int64(10)
             } if column == "f.amount"
         ));
+    }
+
+    #[test]
+    fn parses_scoped_multi_key_inner_equi_join_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT f.id,d.segment FROM 'target/fact.csv' AS f JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 3",
+        )
+        .expect("multi-key join statement parses");
+
+        let join = parsed.join.as_ref().expect("join parsed");
+        assert_eq!(join.left_key_refs(), "f.customer_id,f.region");
+        assert_eq!(join.right_key_refs(), "d.customer_id,d.region");
+        assert_eq!(join.key_arity(), 2);
+        assert!(join.is_multi_key());
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_inner_equi_join_filter_limit"
+        );
     }
 
     #[test]

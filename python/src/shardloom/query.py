@@ -1588,8 +1588,10 @@ class LazyFrame:
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped local-source inner equi-join workflow when admitted."""
 
-        columns = ",".join(_normalize_columns((on,)))
-        normalized_columns = tuple(column for column in columns.split(",") if column)
+        normalized_columns = tuple(
+            _normalize_output_column_name(column) for column in _normalize_columns((on,))
+        )
+        columns = ",".join(normalized_columns)
         normalized_how = how.strip().lower()
         right_uri: str
         right_summary: str
@@ -1610,13 +1612,12 @@ class LazyFrame:
             and right_source_local
             and not right_operations
             and normalized_how in {"inner", "inner_equi", "inner-equi"}
-            and len(normalized_columns) == 1
+            and normalized_columns
         ):
-            key = normalized_columns[0]
             return self._append(
                 WorkflowOperation(
                     "join",
-                    (right_uri, key, key, "inner", "f", "d"),
+                    (right_uri, columns, columns, "inner", "f", "d"),
                 )
             )
         return self._unsupported_operation("join", target, check=check)
@@ -1983,13 +1984,21 @@ class LazyFrame:
             ):
                 return None
             right_uri, left_key, right_key, _how, left_alias, right_alias = join_info
+            left_keys = tuple(column for column in left_key.split(",") if column)
+            right_keys = tuple(column for column in right_key.split(",") if column)
+            if len(left_keys) != len(right_keys) or not left_keys:
+                return None
+            on_clause = " AND ".join(
+                f"{left_alias}.{left_column} = {right_alias}.{right_column}"
+                for left_column, right_column in zip(left_keys, right_keys)
+            )
             select_clause = ",".join(projection_list)
             source_uri = _quote_sql_local_source_path(self.source.uri)
             right_source_uri = _quote_sql_local_source_path(right_uri)
             return (
                 f"SELECT {select_clause} FROM {source_uri} AS {left_alias} "
                 f"INNER JOIN {right_source_uri} AS {right_alias} "
-                f"ON {left_alias}.{left_key} = {right_alias}.{right_key}"
+                f"ON {on_clause}"
                 f"{_optional_sql_where_clause(predicate)} LIMIT {limit}"
             )
         if projection_list is not None:
