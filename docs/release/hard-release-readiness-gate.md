@@ -31,6 +31,7 @@ The gate aggregates:
 - clean Conda environment install proof
 - release security gate report
 - contribution governance intake report
+- golden local runtime workflow validator report
 - package metadata, license, repository, and homepage metadata
 - package-channel readiness matrix and channel-specific install/smoke/provenance/rollback proof
 - per-claim evidence attachment matrix for release, package, performance, Spark-displacement,
@@ -61,6 +62,7 @@ python scripts\check_release_security_gate.py
 python scripts\check_release_architecture_tracker.py --allow-blocked
 python scripts\check_contribution_governance.py
 python scripts\check_package_channel_readiness.py --require-local-evidence
+python scripts\check_golden_workflows.py
 python scripts\final_release_rehearsal.py --allow-blocked
 ```
 
@@ -138,6 +140,44 @@ external_engine_invoked=false
 
 This is a governance drift check only. It does not activate CLA/DCO automation, publish packages,
 transfer maintainer governance, or satisfy public release/package approval.
+
+The local golden workflow validator uses schema
+`shardloom.golden_workflow_validation_report.v1`:
+
+```powershell
+python scripts\check_golden_workflows.py
+```
+
+It writes:
+
+```text
+target/golden-workflow-report.json
+target/golden-workflows
+```
+
+The validator builds the CLI with `vortex-write,vortex-local-primitives`, then executes local
+CSV-to-`vortex_ingest`, prepared Vortex primitive replay, JSONL/CSV fanout, generated-source local
+Vortex output/replay, and fixture-certified count/project/filter-project primitive workflows. It
+also checks the docs and website `runs-today` matrix rows for those surfaces. It intentionally
+reports:
+
+```text
+golden_workflow_validator_status=passed
+workflow_count=3
+stage_count>=9
+support_matrix_status=passed
+runtime_support_claim=local_technical_preview_workflow_proof_only
+production_claim_allowed=false
+performance_claim_allowed=false
+public_release_claim_allowed=false
+public_package_claim_allowed=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+This is a local technical-preview runtime proof only. It does not authorize production workflow,
+object-store/lakehouse/Foundry, package-publication, distributed-runtime, or performance-superiority
+claims.
 
 Benchmark rows also pass through the fail-closed constitution validator:
 

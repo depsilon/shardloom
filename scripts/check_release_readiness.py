@@ -43,6 +43,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/contribution-governance-report.json"),
     )
     parser.add_argument(
+        "--golden-workflow-report",
+        type=Path,
+        default=Path("target/golden-workflow-report.json"),
+    )
+    parser.add_argument(
         "--validation-evidence",
         type=Path,
         default=Path("target/release-validation-evidence.json"),
@@ -106,6 +111,7 @@ def main() -> int:
     dry_run_path = resolve(repo_root, args.release_dry_run_transcript)
     security_gate_path = resolve(repo_root, args.security_gate_report)
     contribution_governance_path = resolve(repo_root, args.contribution_governance_report)
+    golden_workflow_path = resolve(repo_root, args.golden_workflow_report)
     validation_evidence_path = resolve(repo_root, args.validation_evidence)
     package_channel_matrix_path = resolve(repo_root, args.package_channel_matrix)
     package_channel_report_path = resolve(repo_root, args.package_channel_report)
@@ -210,6 +216,72 @@ def main() -> int:
             "contribution_governance_intake_gate",
             str(args.contribution_governance_report).replace("\\", "/"),
             contribution_blockers,
+        )
+    )
+
+    golden_workflow = load_json(golden_workflow_path)
+    golden_workflow_blockers: list[str] = []
+    if golden_workflow is None:
+        golden_workflow_blockers.append("missing golden workflow report")
+    else:
+        if (
+            golden_workflow.get("schema_version")
+            != "shardloom.golden_workflow_validation_report.v1"
+        ):
+            golden_workflow_blockers.append(
+                "golden workflow schema_version="
+                + str(golden_workflow.get("schema_version", "missing"))
+            )
+        if golden_workflow.get("status") != "passed":
+            golden_workflow_blockers.extend(
+                golden_workflow.get("blockers", ["golden workflow validator failed"])
+            )
+        if golden_workflow.get("workflow_count") != 3:
+            golden_workflow_blockers.append(
+                "golden workflow workflow_count="
+                + str(golden_workflow.get("workflow_count", "missing"))
+            )
+        stage_count = golden_workflow.get("stage_count")
+        if not isinstance(stage_count, int) or stage_count < 9:
+            golden_workflow_blockers.append(
+                "golden workflow stage_count="
+                + str(golden_workflow.get("stage_count", "missing"))
+            )
+        if golden_workflow.get("support_matrix_status") != "passed":
+            golden_workflow_blockers.append(
+                "golden workflow support_matrix_status="
+                + str(golden_workflow.get("support_matrix_status", "missing"))
+            )
+        required_workflows = {
+            "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+            "generated_source_to_local_vortex_output_replay_fidelity",
+            "prepared_native_vortex_count_filter_project_execution_certificates",
+        }
+        observed_workflows = set(golden_workflow.get("workflow_ids", []))
+        missing_workflows = sorted(required_workflows - observed_workflows)
+        if missing_workflows:
+            golden_workflow_blockers.append(
+                "golden workflow missing workflow ids: " + ",".join(missing_workflows)
+            )
+        for field in [
+            "production_claim_allowed",
+            "performance_claim_allowed",
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "package_publication_performed",
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if golden_workflow.get(field) is not False:
+                golden_workflow_blockers.append(f"golden workflow {field} must be false")
+    checks.append(
+        check(
+            "golden_workflow_validator",
+            str(args.golden_workflow_report).replace("\\", "/"),
+            golden_workflow_blockers,
         )
     )
 
@@ -544,6 +616,7 @@ def main() -> int:
         "python scripts/check_release_security_gate.py",
         "python scripts/check_release_architecture_tracker.py --allow-blocked",
         "python scripts/check_package_channel_readiness.py --require-local-evidence",
+        "python scripts/check_golden_workflows.py",
         "python scripts/check_benchmark_constitution.py",
         "python scripts/final_release_rehearsal.py --allow-blocked",
     ]
@@ -581,6 +654,7 @@ def main() -> int:
         "contribution_governance_report_ref": str(args.contribution_governance_report).replace(
             "\\", "/"
         ),
+        "golden_workflow_report_ref": str(args.golden_workflow_report).replace("\\", "/"),
         "per_claim_evidence_matrix_ref": str(args.per_claim_evidence_matrix).replace("\\", "/"),
         "architecture_tracker_report_ref": str(args.architecture_tracker_report).replace("\\", "/"),
         "final_release_rehearsal_report_ref": str(args.final_release_rehearsal_report).replace("\\", "/"),
