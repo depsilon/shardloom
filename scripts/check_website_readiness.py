@@ -94,6 +94,7 @@ REMOVED_WEBSITE_SURFACES: list[str] = []
 RUNTIME_SUFFIXES = (".html", ".js", ".css", ".xml", ".txt")
 RUNTIME_NAMES = {"_headers", "_redirects"}
 FORBIDDEN_RUNTIME_HOSTS = {"raw.githubusercontent.com"}
+FORBIDDEN_RUNTIME_SNIPPETS = {"docs/architecture/phased-execution-plan.md"}
 URL_RE = re.compile(r"https?://[^\s\"'<>)]+")
 STATUS_CHIP_RE = re.compile(r'<span class="status-chip[^"]*">([^<]+)</span>')
 
@@ -391,6 +392,9 @@ def main() -> int:
         text = path.read_text(encoding="utf-8", errors="ignore")
         for host in sorted(forbidden_runtime_hosts(text)):
             blockers.append(f"runtime file references forbidden host {host}: {relative}")
+        for snippet in sorted(FORBIDDEN_RUNTIME_SNIPPETS):
+            if snippet in text:
+                blockers.append(f"runtime file references active phase plan queue: {relative}")
         if "pagefind" in text.lower() and "pagefind/" not in relative:
             # Starlight's local Pagefind bundle is an approved static-search asset.
             continue
