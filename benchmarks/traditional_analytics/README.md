@@ -511,6 +511,21 @@ both are present and emit
 `source_state_reuse_status=per_batch_date_null_metric_state_reused` plus family-specific
 `source_state_date_null_metric_*` fields such as
 `source_state_date_null_metric_reuse_status`; this is scoped residual-native reuse evidence only.
+
+For local compatibility inputs, `traditional-analytics-prepare-batch-run` combines the certified
+prepare step and prepared/native batch step in one CLI process:
+
+```powershell
+shardloom traditional-analytics-prepare-batch-run "selective filter,filter + projection + limit" fact.csv dim.csv --workspace target\prepare-batch --input-format csv --evidence-level certified --format json
+```
+
+The command emits the normal prepared/native batch fields plus `prepare_batch_*` fields for the
+preparation command, preparation scenario, timing split, Vortex artifact paths/digests, prepared
+artifact reuse, provider attribution, and no-fallback/claim-boundary evidence. Preparation remains
+outside child query timing, and the route is still scoped local evidence only: it is not a hidden
+fast mode, persistent cache, performance claim, SQL/DataFrame support, object-store/lakehouse
+support, package-readiness claim, or Spark-displacement claim.
+
 GAR-PERF-1B adds the complete source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md`. Batch evidence now also emits
 `source_state_coverage_schema_version`,

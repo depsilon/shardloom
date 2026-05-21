@@ -16,6 +16,87 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F1 in-process compatibility prepare plus prepared batch
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-25-20260521` / #914.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest
+      attribution`.
+    - Current compute-engine bottleneck review: UniversalIngress/adapter preparation should avoid
+      repeated cold compatibility work before prepared/native Vortex scenarios.
+  - Vortex-first provider check:
+    - Subject area: local compatibility input preparation feeding prepared/native Vortex batch
+      execution.
+    - Upstream Vortex concept checked: Vortex artifact preparation and existing local Vortex scan
+      provider surface already admitted by the traditional analytics prepared/native path.
+    - Decision: reuse the existing ShardLoom-certified `compatibility_import_certified` preparation
+      route and existing prepared/native Vortex batch provider, then wrap the combined route with
+      explicit evidence rather than adding a new parallel execution engine or hidden cache.
+    - Residual handling: child scenario residual work remains ShardLoom-native where existing
+      prepared/native rows report it; unsupported work still fails closed.
+    - Materialization/decode boundary: preparation timing remains separate from child query timing;
+      `prepare_batch_preparation_included_in_batch_timing=false`.
+    - Evidence added: `prepare_batch_*` fields for route, timing, prepared artifact reuse,
+      provider attribution, Vortex artifact refs/digests, Native I/O certificate status, no-fallback
+      status, and claim boundary.
+    - Gates still blocked: persistent/global cache, object-store/table/lakehouse runtime,
+      SQL/DataFrame production support, package readiness, performance/superiority claims, and
+      Spark-displacement claims.
+  - Scope:
+    - Added `TraditionalAnalyticsPreparedBatchRequest`,
+      `TraditionalAnalyticsPreparedBatchReport`, and
+      `run_traditional_analytics_prepared_batch_benchmark(...)`.
+    - Added `traditional-analytics-prepare-batch-run`, which requires caller-owned `--workspace`,
+      prepares fact/dimension/optional CDC compatibility inputs once, then executes
+      `traditional-analytics-vortex-batch-run` in `prepared_vortex` mode inside the same process.
+    - Added Python `ShardLoomClient.traditional_analytics_prepare_batch_run(...)`.
+    - Registered the new command in command family, command registry, evidence-schema examples,
+      Python wrapper scope, and runs-today CLI/Python support rows.
+    - Regenerated runs-today support matrix artifacts for docs and website data.
+    - Cleaned the active phase-plan entry so completed implementation detail lives in this ledger
+      and the plan keeps the remaining UniversalIngress/adapter bottleneck work.
+  - CLI smoke artifact:
+    - Ran the new command against local CSV fixtures under
+      `target\prepare-batch-cli-smoke`.
+    - Observed `status=success`, `selected_execution_modes=prepared_vortex,prepared_vortex`,
+      `prepare_batch_runtime_status=single_process_compatibility_prepare_then_prepared_batch_supported`,
+      `prepare_batch_preparation_included_in_batch_timing=false`,
+      `prepare_batch_query_timing_starts_after_preparation=true`,
+      `prepare_batch_prepared_state_reused=true`,
+      `prepare_batch_prepared_artifact_reuse_count=1`,
+      `source_state_reuse_status=per_batch_selective_filter_state_reused`,
+      `prepare_batch_fallback_attempted=false`,
+      `prepare_batch_external_engine_invoked=false`, and
+      `prepare_batch_claim_gate_status=not_claim_grade`.
+  - Verification:
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo fmt --all -- --check`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex prepared_batch_run_prepares_once_inside_process --lib --features vortex-traditional-analytics-benchmark -- --nocapture`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test python_wrapper_snapshots`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test capability_discovery_snapshots runs_today_exposes_generated_current_support_matrix -- --nocapture`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test capability_discovery_snapshots wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors -- --nocapture`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli classifies_representative_priority_39_families --bin shardloom`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-cli --test evidence_schema_registry_snapshots`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_traditional_analytics_prepare_batch_run_dispatches_combined_route python.tests.test_cli_client.ShardLoomClientTests.test_prepare_and_run_traditional_analytics_vortex_batch_reuses_artifacts`
+    - `python scripts\export_runs_today_support_matrix.py --check`
+    - `python -m py_compile scripts\export_runs_today_support_matrix.py scripts\check_website_readiness.py scripts\check_golden_workflows.py`
+    - `cargo run -q -p shardloom-cli --features vortex-traditional-analytics-benchmark -- traditional-analytics-prepare-batch-run "selective filter,filter + projection + limit" target\prepare-batch-cli-smoke\fact.csv target\prepare-batch-cli-smoke\dim.csv --workspace target\prepare-batch-cli-smoke\workspace --input-format csv --evidence-level certified --format json`
+    - `python -m compileall -q python/src python/tests benchmarks/traditional_analytics scripts`
+    - `python -m unittest discover -s python\tests`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_golden_workflows.py`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy --workspace --all-targets -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-vortex --lib --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo clippy -p shardloom-cli --features vortex-traditional-analytics-benchmark -- -D warnings`
+    - `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local compatibility prepare-once plus prepared/native batch evidence only. This is not
+      a hidden fast mode, persistent cache, performance claim, production claim, SQL/DataFrame
+      support, object-store/lakehouse support, Foundry support, package readiness, or
+      Spark-displacement claim.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F1 Vortex RecordBatch provider array-build path
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-24-20260521` / #913.

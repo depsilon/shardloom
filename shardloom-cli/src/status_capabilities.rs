@@ -4692,7 +4692,7 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
     RunsTodaySupportRow {
         id: "cli_prepared_vortex_batch_benchmark",
         family: "cli_command",
-        surface: "traditional-analytics-vortex-batch-run,traditional-analytics-vortex-run",
+        surface: "traditional-analytics-vortex-batch-run,traditional-analytics-vortex-run,traditional-analytics-prepare-batch-run",
         support_state: "executable",
         feature_gate: "default",
         evidence_refs: "traditional_benchmark_harness,benchmark_runtime_tests,prepared_vortex_batch_python_tests",
@@ -4756,7 +4756,7 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
     RunsTodaySupportRow {
         id: "python_prepared_vortex_batch",
         family: "python_api",
-        surface: "PreparedVortexArtifacts.run_batch,ShardLoomClient.traditional_analytics_vortex_batch_run",
+        surface: "PreparedVortexArtifacts.run_batch,ShardLoomClient.traditional_analytics_vortex_batch_run,ShardLoomClient.traditional_analytics_prepare_batch_run",
         support_state: "executable",
         feature_gate: "default",
         evidence_refs: "python.tests.test_cli_client,traditional_benchmark_harness",

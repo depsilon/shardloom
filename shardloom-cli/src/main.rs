@@ -1221,6 +1221,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("traditional-analytics-vortex-batch-run") => {
             benchmark_runtime::handle_traditional_analytics_vortex_batch_run(args, format)
         }
+        Some("traditional-analytics-prepare-batch-run") => {
+            benchmark_runtime::handle_traditional_analytics_prepare_batch_run(args, format)
+        }
         Some("vortex-count") => vortex_primitive_execution::handle_vortex_count(args, format),
         Some("vortex-count-benchmark") => {
             benchmark_runtime::handle_vortex_count_benchmark(args, format)

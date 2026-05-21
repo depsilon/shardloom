@@ -516,13 +516,15 @@ pub use output_payload::{
 
 // Benchmark-only surfaces. External engines remain comparison-only and never fallback.
 pub use traditional_analytics::{
-    TraditionalAnalyticsInputFormat, TraditionalAnalyticsReport, TraditionalAnalyticsRequest,
-    TraditionalAnalyticsResourcePolicy, TraditionalAnalyticsScenario,
+    TraditionalAnalyticsInputFormat, TraditionalAnalyticsPreparedBatchReport,
+    TraditionalAnalyticsPreparedBatchRequest, TraditionalAnalyticsReport,
+    TraditionalAnalyticsRequest, TraditionalAnalyticsResourcePolicy, TraditionalAnalyticsScenario,
     TraditionalAnalyticsVortexBatchReport, TraditionalAnalyticsVortexBatchRequest,
     TraditionalAnalyticsVortexReport, TraditionalAnalyticsVortexRequest,
     TraditionalDirectTransientReport, TraditionalRuntimeEvidenceLevel,
-    run_traditional_analytics_benchmark, run_traditional_analytics_vortex_batch_benchmark,
-    run_traditional_analytics_vortex_benchmark, run_traditional_direct_transient_csv_smoke,
+    run_traditional_analytics_benchmark, run_traditional_analytics_prepared_batch_benchmark,
+    run_traditional_analytics_vortex_batch_benchmark, run_traditional_analytics_vortex_benchmark,
+    run_traditional_direct_transient_csv_smoke,
 };
 #[cfg(feature = "universal-format-io")]
 pub use universal_format_io::{

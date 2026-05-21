@@ -441,63 +441,24 @@ or documentation updates alone are insufficient.
   - Source: review of `compatibility_import_certified` bottlenecks, `traditional-analytics-run`,
     `shardloom-cli/src/vortex_ingest.rs`, benchmark timing evidence,
     `GAR-RUNTIME-IMPL-4F`, `GAR-RUNTIME-IMPL-4K`, and `GAR-RUNTIME-IMPL-4M`.
-  - Current state: `compatibility_import_certified` is preserved as the certified cold
-    ingest/stage route. The attribution foundation now exposes SourceState/PreparedState IDs and
-    digests, route timing scope, certification level, source stat/read/parse, source-to-columnar,
-    Vortex array build/write/digest/reopen-verify/scan, operator timing scope, and total runtime
-    fields in the traditional benchmark row contract. The feature-gated `vortex_ingest` helper
-    creates a scoped local `VortexPreparedState` and now computes artifact digests from in-memory
-    bytes instead of rereading the file solely for digest evidence. It also enforces
-    certification-depth policy for the prepare-once route: `ingest_minimal` records local artifact
-    bytes/digest and writer row-count evidence without reopen verification, `ingest_certified`
-    remains the default reopen/scan row-count proof, and `ingest_full_replay` fails closed until a
-    downstream output/result replay workflow supplies the required evidence. It remains
-    intentionally narrow, flat/local-only, and not a claim-grade or broad writer path. The
-    feature-gated columnar SourceState route now admits upstream Vortex
-    `ArrayRef::from_arrow(RecordBatch)` as the array-build provider for non-empty flat
-    Parquet/Arrow IPC/Avro/ORC batches, avoiding the prior manual Arrow-to-scalar-Vec copy before
-    the local `VortexPreparedState` write while preserving deterministic validation and no-fallback
-    evidence. The traditional benchmark compatibility-import writer now uses the same admitted
-    Vortex provider surface for fact/dimension/CDC table array construction and emits matching
-    provider attribution in benchmark rows.
-  - Next slice outcome: continue the optimization path by promoting prepare-once reuse across
-    repeated certified workflows and keeping benchmark/website interpretation aligned.
-  - Checkpoint A7 research note: the current slow path still normalizes local CSV/JSON and
-    feature-gated Parquet/Arrow IPC/Avro/ORC readers into scalar row maps for direct-transient SQL
-    execution, but the structured-format path now pushes required-column projection into the local
-    readers before that scalar boundary, and the `vortex_ingest` prepare-once path preserves those
-    structured inputs as Arrow `RecordBatch` columnar SourceState until Vortex artifact creation.
-    The `vortex_ingest` array-build report distinguishes `shardloom_kernel` scalar-row construction
-    from `vortex_array_kernel` / `ArrayRef::from_arrow(RecordBatch)` construction through
-    `vortex_array_build_provider_kind`, `vortex_array_build_provider_surface`,
-    `vortex_array_build_strategy`, `vortex_array_build_input_layout`,
-    `vortex_array_build_record_batch_count`, and
-    `vortex_array_build_manual_scalar_copy_avoided`.
-    Arrow RS reader docs expose RecordBatch streaming with batch sizing, projection APIs, and
-    Parquet projection/filter/metadata reuse; local crate APIs confirm Parquet `ProjectionMask`,
-    Arrow IPC/Avro projection indices, and ORC named-root projection.
-    Vortex Scan API docs describe Source/Sink/Split pushdown and compressed scan boundaries while
-    noting the full API is still under active development. The next optimization slice should
-    therefore connect columnar SourceState preservation to prepared-state reuse and benchmark
-    telemetry, not a hidden Arrow-default execution model or external-engine fallback.
-  - Runtime telemetry update: traditional compatibility-import rows now split structured
-    source-to-columnar timing from Vortex array build timing. Parquet/Arrow IPC/Avro/ORC rows emit
-    `source_state_materialization_layout`, `source_state_parse_normalization`,
-    `source_state_columnar_preserved`, and `source_state_record_batch_count`, and the benchmark
-    harness validates these fields for successful structured compatibility-import rows. Prepared/
-    native batch rows also emit stable `source_state_digest`, `source_state_digest_algorithm`,
-    `source_state_digest_scope`, and per-family `source_state_family_digests` so scoped SourceState
-    reuse can be correlated across benchmark rows without treating the digest as a persistent cache
-    key or performance claim. The benchmark row exposes the direct batch digest as
-    `batch_source_state_digest` to avoid colliding with the universal SourceState contract digest.
-    Python now exposes the prepared/native batch CLI, CDC-aware compatibility preparation,
-    prepared-artifact SourceState/PreparedState accessors, and a
-    `prepare_and_run_traditional_analytics_vortex_batch(...)` helper that prepares compatibility
-    inputs once and then runs the scoped prepared Vortex batch runner without reimporting the source
-    for every scenario.
-  - Runtime enablement: certified ingest/stage execution remains supported, while repeated
-    workflows can certify or prepare once and then run `prepared_vortex` from
-    `VortexPreparedState` without reinterpreting compatibility cold timing as query speed.
+  - Current state: `compatibility_import_certified` is the certified cold ingest/stage route,
+    feature-gated `vortex_ingest` creates scoped local `VortexPreparedState` artifacts, and local
+    prepared/native benchmark rows can reuse those artifacts without treating preparation time as
+    warm-query timing. The active CLI/Python surface includes
+    `traditional-analytics-prepare-batch-run` and
+    `ShardLoomClient.traditional_analytics_prepare_batch_run(...)`, which prepare local
+    compatibility inputs once and run a prepared Vortex scenario batch in the same process with
+    explicit preparation, query, reuse, no-fallback, and claim-boundary evidence.
+  - Remaining gap: direct-transient local CSV/JSON and feature-gated Parquet/Arrow IPC/Avro/ORC
+    paths still cross scalar row-map normalization for some workflows. The prepare-once route is
+    local/scoped evidence only; it is not a persistent cache, object-store/table workflow,
+    SQL/DataFrame production runtime, performance claim, or package-readiness claim.
+  - Next slice outcome: keep reducing the UniversalIngress/adapter bottleneck by carrying
+    columnar SourceState into more prepared-state and benchmark paths, while preserving
+    certification-depth policy and claim-safe cold/warm timing separation.
+  - Runtime enablement: certified ingest/stage execution remains supported, and repeated local
+    benchmark/workflow commands can certify or prepare once and then run `prepared_vortex` from
+    `VortexPreparedState`.
   - User-visible surface: benchmark rows, CLI JSON evidence, Python typed reports, website
     benchmark interpretation, compute-flow docs.
   - Implementation scope: `traditional-analytics-run`, `vortex_ingest` evidence, benchmark harness

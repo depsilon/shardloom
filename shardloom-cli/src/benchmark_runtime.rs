@@ -707,6 +707,212 @@ pub(crate) fn handle_traditional_analytics_vortex_batch_run(
     ExitCode::SUCCESS
 }
 
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_traditional_analytics_prepare_batch_run(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    const USAGE: &str = "usage: shardloom traditional-analytics-prepare-batch-run <scenario_csv> <fact_input> <dim_input> --workspace <dir> [--input-format auto|csv|jsonl|parquet|arrow-ipc|avro|orc] [--cdc-delta <path>] [--result-workspace <dir>] [--write-result-vortex] [--evidence-level minimal_runtime|certified|full_replay] [--memory-gb <cap>] [--max-parallelism <cap>]";
+    let Some(scenario_list) = args.next() else {
+        eprintln!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    let Some(fact_input) = args.next() else {
+        eprintln!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    let Some(dim_input) = args.next() else {
+        eprintln!("{USAGE}");
+        return ExitCode::from(2);
+    };
+    let mut workspace_dir: Option<PathBuf> = None;
+    let mut input_format: Option<shardloom_vortex::TraditionalAnalyticsInputFormat> = None;
+    let mut cdc_delta_input: Option<PathBuf> = None;
+    let mut result_workspace_dir: Option<PathBuf> = None;
+    let mut requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel> = None;
+    let mut write_result_vortex = false;
+    let mut memory_gb: Option<u32> = None;
+    let mut max_parallelism: Option<usize> = None;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--workspace" => {
+                let Some(value) = args.next() else {
+                    eprintln!("{USAGE}");
+                    return ExitCode::from(2);
+                };
+                workspace_dir = Some(PathBuf::from(value));
+            }
+            "--input-format" => {
+                let Some(value) = args.next() else {
+                    eprintln!("{USAGE}");
+                    return ExitCode::from(2);
+                };
+                if value != "auto" {
+                    match shardloom_vortex::TraditionalAnalyticsInputFormat::parse(&value) {
+                        Ok(parsed) => input_format = Some(parsed),
+                        Err(error) => {
+                            return emit_error(
+                                "traditional-analytics-prepare-batch-run",
+                                format,
+                                "traditional analytics prepare/batch run failed",
+                                &error,
+                            );
+                        }
+                    }
+                }
+            }
+            "--cdc-delta" => {
+                let Some(value) = args.next() else {
+                    eprintln!("{USAGE}");
+                    return ExitCode::from(2);
+                };
+                cdc_delta_input = Some(PathBuf::from(value));
+            }
+            "--result-workspace" => {
+                let Some(value) = args.next() else {
+                    eprintln!("{USAGE}");
+                    return ExitCode::from(2);
+                };
+                result_workspace_dir = Some(PathBuf::from(value));
+            }
+            "--write-result-vortex" => {
+                write_result_vortex = true;
+            }
+            "--evidence-level" => {
+                let Some(value) = args.next() else {
+                    eprintln!("{USAGE}");
+                    return ExitCode::from(2);
+                };
+                match TraditionalRuntimeEvidenceLevel::parse(&value) {
+                    Ok(level) => requested_evidence_level = Some(level),
+                    Err(error) => {
+                        return emit_error(
+                            "traditional-analytics-prepare-batch-run",
+                            format,
+                            "traditional analytics prepare/batch run failed",
+                            &error,
+                        );
+                    }
+                }
+            }
+            "--memory-gb" => {
+                let Some(value) = args.next() else {
+                    eprintln!("{USAGE}");
+                    return ExitCode::from(2);
+                };
+                match value.parse::<u32>() {
+                    Ok(parsed) if parsed > 0 => memory_gb = Some(parsed),
+                    _ => {
+                        return emit_error(
+                            "traditional-analytics-prepare-batch-run",
+                            format,
+                            "traditional analytics prepare/batch run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-prepare-batch-run invalid --memory-gb value: {value}"
+                            )),
+                        );
+                    }
+                }
+            }
+            "--max-parallelism" => {
+                let Some(value) = args.next() else {
+                    eprintln!("{USAGE}");
+                    return ExitCode::from(2);
+                };
+                match value.parse::<usize>() {
+                    Ok(parsed) if parsed > 0 => max_parallelism = Some(parsed),
+                    _ => {
+                        return emit_error(
+                            "traditional-analytics-prepare-batch-run",
+                            format,
+                            "traditional analytics prepare/batch run failed",
+                            &ShardLoomError::InvalidOperation(format!(
+                                "traditional-analytics-prepare-batch-run invalid --max-parallelism value: {value}"
+                            )),
+                        );
+                    }
+                }
+            }
+            extra => {
+                return emit_error(
+                    "traditional-analytics-prepare-batch-run",
+                    format,
+                    "traditional analytics prepare/batch run failed",
+                    &cli_unknown_arg_error("traditional-analytics-prepare-batch-run", extra),
+                );
+            }
+        }
+    }
+
+    let Some(workspace_dir) = workspace_dir else {
+        return emit_error(
+            "traditional-analytics-prepare-batch-run",
+            format,
+            "traditional analytics prepare/batch run failed",
+            &ShardLoomError::InvalidOperation(
+                "traditional-analytics-prepare-batch-run requires --workspace for caller-owned prepared artifacts; fallback execution was not attempted".to_string(),
+            ),
+        );
+    };
+    let scenarios = match parse_traditional_analytics_scenario_csv(&scenario_list) {
+        Ok(scenarios) => scenarios,
+        Err(error) => {
+            return emit_error(
+                "traditional-analytics-prepare-batch-run",
+                format,
+                "traditional analytics prepare/batch run failed",
+                &error,
+            );
+        }
+    };
+    let fact_path = PathBuf::from(fact_input);
+    let dim_path = PathBuf::from(dim_input);
+    let input_format = input_format.unwrap_or_else(|| {
+        shardloom_vortex::TraditionalAnalyticsInputFormat::infer_from_paths(&fact_path, &dim_path)
+    });
+    let mut request = shardloom_vortex::TraditionalAnalyticsPreparedBatchRequest::new(
+        scenarios,
+        fact_path,
+        dim_path,
+        workspace_dir,
+    )
+    .with_input_format(input_format)
+    .with_cdc_delta_input(cdc_delta_input)
+    .with_result_workspace_dir(result_workspace_dir)
+    .with_result_vortex_write(write_result_vortex)
+    .with_resource_policy(
+        shardloom_vortex::TraditionalAnalyticsResourcePolicy::from_hints(
+            memory_gb,
+            max_parallelism,
+        ),
+    );
+    if let Some(evidence_level) = requested_evidence_level {
+        request = request.with_evidence_level(evidence_level);
+    }
+    let report = match shardloom_vortex::run_traditional_analytics_prepared_batch_benchmark(request)
+    {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "traditional-analytics-prepare-batch-run",
+                format,
+                "traditional analytics prepare/batch run failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        "traditional-analytics-prepare-batch-run",
+        format,
+        CommandStatus::Success,
+        "traditional analytics prepare-once batch smoke".to_string(),
+        report.to_human_text(),
+        report.diagnostics(),
+        report.fields(),
+    );
+    ExitCode::SUCCESS
+}
+
 fn parse_traditional_analytics_scenario_csv(
     value: &str,
 ) -> shardloom_core::Result<Vec<shardloom_vortex::TraditionalAnalyticsScenario>> {

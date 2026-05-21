@@ -55,6 +55,8 @@ const TRADITIONAL_RUNTIME_EVIDENCE_LEVEL_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.runtime_evidence_level.v1";
 const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
+const TRADITIONAL_PREPARE_AND_BATCH_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepare_and_batch.v1";
 const FUSED_PIPELINE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.fused_pipeline.v1";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 const TRADITIONAL_FACT_SCHEMA_SUMMARY: &str = "fact(id:u64,group_key:u32,dim_key:u32,value:u32,metric:f64,flag:u8,category:utf8,event_date:utf8,nullable_metric_00:utf8,nested_payload:utf8,raw_event_time:utf8,dirty_numeric:utf8,dirty_flag:utf8)";
@@ -803,6 +805,81 @@ impl TraditionalAnalyticsVortexBatchRequest {
     #[must_use]
     pub const fn with_result_vortex_write(mut self, value: bool) -> Self {
         self.write_result_vortex = value;
+        self
+    }
+}
+
+/// Request that prepares compatibility inputs once, then executes a
+/// prepared-Vortex traditional analytics batch inside the same process.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraditionalAnalyticsPreparedBatchRequest {
+    pub scenarios: Vec<TraditionalAnalyticsScenario>,
+    pub fact_input: PathBuf,
+    pub dim_input: PathBuf,
+    pub workspace_dir: PathBuf,
+    pub input_format: TraditionalAnalyticsInputFormat,
+    pub cdc_delta_input: Option<PathBuf>,
+    pub requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
+    pub result_workspace_dir: Option<PathBuf>,
+    pub write_result_vortex: bool,
+    pub resource_policy: TraditionalAnalyticsResourcePolicy,
+}
+
+impl TraditionalAnalyticsPreparedBatchRequest {
+    #[must_use]
+    pub fn new(
+        scenarios: Vec<TraditionalAnalyticsScenario>,
+        fact_input: PathBuf,
+        dim_input: PathBuf,
+        workspace_dir: PathBuf,
+    ) -> Self {
+        Self {
+            scenarios,
+            fact_input,
+            dim_input,
+            workspace_dir,
+            input_format: TraditionalAnalyticsInputFormat::Csv,
+            cdc_delta_input: None,
+            requested_evidence_level: None,
+            result_workspace_dir: None,
+            write_result_vortex: false,
+            resource_policy: TraditionalAnalyticsResourcePolicy::default(),
+        }
+    }
+
+    #[must_use]
+    pub const fn with_input_format(mut self, value: TraditionalAnalyticsInputFormat) -> Self {
+        self.input_format = value;
+        self
+    }
+
+    #[must_use]
+    pub fn with_cdc_delta_input(mut self, value: Option<PathBuf>) -> Self {
+        self.cdc_delta_input = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_evidence_level(mut self, value: TraditionalRuntimeEvidenceLevel) -> Self {
+        self.requested_evidence_level = Some(value);
+        self
+    }
+
+    #[must_use]
+    pub fn with_result_workspace_dir(mut self, value: Option<PathBuf>) -> Self {
+        self.result_workspace_dir = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_result_vortex_write(mut self, value: bool) -> Self {
+        self.write_result_vortex = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_resource_policy(mut self, value: TraditionalAnalyticsResourcePolicy) -> Self {
+        self.resource_policy = value;
         self
     }
 }
@@ -4133,6 +4210,220 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub all_native_io_certificates_certified: bool,
     pub all_result_sink_replays_verified: bool,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+/// Report for the scoped single-process compatibility prepare plus prepared
+/// Vortex batch route.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraditionalAnalyticsPreparedBatchReport {
+    pub preparation_scenario: TraditionalAnalyticsScenario,
+    pub prepare_report: TraditionalAnalyticsReport,
+    pub batch_report: TraditionalAnalyticsVortexBatchReport,
+}
+
+impl TraditionalAnalyticsPreparedBatchReport {
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "ShardLoom compatibility prepare-once plus prepared Vortex batch\nprepared scenario: {}\nscenarios: {}\nprep micros: {}\nbatch scenario compute micros: {}\nfallback execution: disabled\nclaim boundary: scoped single-process local prepare/batch route only",
+            self.preparation_scenario.as_str(),
+            self.batch_report.scenario_order().join(","),
+            self.prepare_report.total_runtime_micros,
+            self.batch_report.total_scenario_compute_micros
+        )
+    }
+
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        let mut fields = self.batch_report.fields();
+        fields.extend([
+            (
+                "prepare_batch_schema_version".to_string(),
+                TRADITIONAL_PREPARE_AND_BATCH_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_runtime_status".to_string(),
+                "single_process_compatibility_prepare_then_prepared_batch_supported".to_string(),
+            ),
+            (
+                "prepare_batch_route".to_string(),
+                "compatibility_import_certified_to_prepared_vortex_batch".to_string(),
+            ),
+            (
+                "prepare_batch_preparation_command".to_string(),
+                "traditional-analytics-run".to_string(),
+            ),
+            (
+                "prepare_batch_batch_command".to_string(),
+                "traditional-analytics-vortex-batch-run".to_string(),
+            ),
+            (
+                "prepare_batch_preparation_scenario".to_string(),
+                self.preparation_scenario.as_str().to_string(),
+            ),
+            (
+                "prepare_batch_preparation_input_format".to_string(),
+                self.prepare_report.input_format.as_str().to_string(),
+            ),
+            (
+                "prepare_batch_preparation_timing_scope".to_string(),
+                self.prepare_report.timing_scope.clone(),
+            ),
+            (
+                "prepare_batch_preparation_micros".to_string(),
+                self.prepare_report.total_runtime_micros.to_string(),
+            ),
+            (
+                "prepare_batch_source_to_columnar_micros".to_string(),
+                self.prepare_report.source_to_columnar_micros.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_array_build_micros".to_string(),
+                self.prepare_report.vortex_array_build_micros.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_write_micros".to_string(),
+                self.prepare_report.vortex_write_micros.to_string(),
+            ),
+            (
+                "prepare_batch_vortex_reopen_verify_micros".to_string(),
+                self.prepare_report.vortex_reopen_verify_micros.to_string(),
+            ),
+            (
+                "prepare_batch_preparation_included_in_batch_timing".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_query_timing_starts_after_preparation".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_created".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_reused".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_state_reuse_hit".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "prepare_batch_prepared_artifact_reuse_count".to_string(),
+                self.batch_report
+                    .session_evidence
+                    .prepared_artifact_reuse_count
+                    .to_string(),
+            ),
+            (
+                "prepare_batch_source_state_columnar_preserved".to_string(),
+                self.prepare_report
+                    .source_state_columnar_preserved
+                    .to_string(),
+            ),
+            (
+                "prepare_batch_source_state_record_batch_count".to_string(),
+                self.prepare_report
+                    .source_state_record_batch_count
+                    .to_string(),
+            ),
+            (
+                "prepare_batch_vortex_array_build_provider_kind".to_string(),
+                self.prepare_report.vortex_array_build_provider_kind.clone(),
+            ),
+            (
+                "prepare_batch_vortex_array_build_provider_surface".to_string(),
+                self.prepare_report
+                    .vortex_array_build_provider_surface
+                    .clone(),
+            ),
+            (
+                "prepare_batch_vortex_array_build_strategy".to_string(),
+                self.prepare_report.vortex_array_build_strategy.clone(),
+            ),
+            (
+                "prepare_batch_vortex_array_build_input_layout".to_string(),
+                self.prepare_report
+                    .vortex_array_build_input_layout
+                    .clone(),
+            ),
+            (
+                "prepare_batch_vortex_array_build_record_batch_count".to_string(),
+                self.prepare_report
+                    .vortex_array_build_record_batch_count
+                    .to_string(),
+            ),
+            (
+                "prepare_batch_vortex_array_build_manual_scalar_copy_avoided".to_string(),
+                self.prepare_report
+                    .vortex_array_build_manual_scalar_copy_avoided
+                    .to_string(),
+            ),
+            (
+                "prepare_batch_fact_vortex_path".to_string(),
+                self.prepare_report.fact_vortex_path.display().to_string(),
+            ),
+            (
+                "prepare_batch_dim_vortex_path".to_string(),
+                self.prepare_report.dim_vortex_path.display().to_string(),
+            ),
+            (
+                "prepare_batch_cdc_delta_vortex_path".to_string(),
+                self.prepare_report
+                    .cdc_delta_vortex_path
+                    .as_ref()
+                    .map_or_else(String::new, |path| path.display().to_string()),
+            ),
+            (
+                "prepare_batch_fact_vortex_digest".to_string(),
+                self.prepare_report.fact_vortex_digest.clone(),
+            ),
+            (
+                "prepare_batch_dim_vortex_digest".to_string(),
+                self.prepare_report.dim_vortex_digest.clone(),
+            ),
+            (
+                "prepare_batch_cdc_delta_vortex_digest".to_string(),
+                self.prepare_report
+                    .cdc_delta_vortex_digest
+                    .clone()
+                    .unwrap_or_default(),
+            ),
+            (
+                "prepare_batch_source_native_io_certificate_status".to_string(),
+                self.prepare_report.native_io_certificate.status().to_string(),
+            ),
+            (
+                "prepare_batch_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_claim_gate_status".to_string(),
+                "not_claim_grade".to_string(),
+            ),
+            (
+                "prepare_batch_claim_boundary".to_string(),
+                "Scoped local compatibility prepare-once plus prepared/native batch evidence only; not a hidden fast mode, persistent cache, performance claim, production claim, SQL/DataFrame support, object-store/lakehouse support, Foundry support, package readiness, or Spark-displacement claim".to_string(),
+            ),
+        ]);
+        fields
+    }
+
+    #[must_use]
+    pub fn diagnostics(&self) -> Vec<Diagnostic> {
+        self.prepare_report
+            .diagnostics
+            .iter()
+            .chain(self.batch_report.diagnostics.iter())
+            .cloned()
+            .collect()
+    }
 }
 
 impl TraditionalAnalyticsVortexBatchReport {
@@ -7943,6 +8234,28 @@ pub fn run_traditional_analytics_vortex_batch_benchmark(
     }
 }
 
+/// Prepares local compatibility inputs once through the certified ingest/stage
+/// route, then runs a prepared/native Vortex batch in the same process.
+///
+/// # Errors
+/// Returns an error when the feature gate is disabled, preparation fails, the
+/// batch request is invalid, or any prepared/native child scenario fails.
+pub fn run_traditional_analytics_prepared_batch_benchmark(
+    request: TraditionalAnalyticsPreparedBatchRequest,
+) -> Result<TraditionalAnalyticsPreparedBatchReport> {
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    {
+        run_traditional_analytics_prepared_batch_benchmark_enabled(request)
+    }
+    #[cfg(not(feature = "vortex-traditional-analytics-benchmark"))]
+    {
+        std::mem::drop(request);
+        Err(ShardLoomError::InvalidOperation(
+            "traditional analytics prepared batch benchmark requires feature `vortex-traditional-analytics-benchmark`; fallback execution was not attempted".to_string(),
+        ))
+    }
+}
+
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone)]
 struct TraditionalFactRow {
@@ -9894,6 +10207,82 @@ fn traditional_coverage_row_ref(
         input_format.as_str(),
         scenario.as_str().replace(['/', ' '], "-")
     )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_lines)]
+fn run_traditional_analytics_prepared_batch_benchmark_enabled(
+    request: TraditionalAnalyticsPreparedBatchRequest,
+) -> Result<TraditionalAnalyticsPreparedBatchReport> {
+    let TraditionalAnalyticsPreparedBatchRequest {
+        scenarios,
+        fact_input,
+        dim_input,
+        workspace_dir,
+        input_format,
+        cdc_delta_input,
+        requested_evidence_level,
+        result_workspace_dir,
+        write_result_vortex,
+        resource_policy,
+    } = request;
+    if scenarios.is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "traditional analytics prepare/batch run requires at least one scenario; fallback execution was not attempted".to_string(),
+        ));
+    }
+    if scenarios.contains(&TraditionalAnalyticsScenario::SmallChangeOverLargeBase)
+        && cdc_delta_input.is_none()
+    {
+        return Err(ShardLoomError::InvalidOperation(
+            "traditional analytics prepare/batch run scenario small change over large base requires --cdc-delta so the CDC Vortex artifact is explicit; fallback execution was not attempted".to_string(),
+        ));
+    }
+    if write_result_vortex && result_workspace_dir.is_none() {
+        return Err(ShardLoomError::InvalidOperation(
+            "traditional analytics prepare/batch run --write-result-vortex requires --result-workspace for caller-owned result artifacts; fallback execution was not attempted".to_string(),
+        ));
+    }
+
+    let preparation_scenario = if cdc_delta_input.is_some() {
+        TraditionalAnalyticsScenario::SmallChangeOverLargeBase
+    } else {
+        TraditionalAnalyticsScenario::CsvFileIngest
+    };
+    let prepare_report = run_traditional_analytics_benchmark_enabled(
+        TraditionalAnalyticsRequest::new(
+            preparation_scenario,
+            fact_input,
+            dim_input,
+            workspace_dir,
+        )
+        .with_input_format(input_format)
+        .with_cdc_delta_csv(cdc_delta_input)
+        .with_requested_execution_mode(ShardLoomExecutionMode::CompatibilityImportCertified)
+        .with_resource_policy(resource_policy),
+    )?;
+
+    let batch_request = TraditionalAnalyticsVortexBatchRequest::new(
+        scenarios,
+        prepare_report.fact_vortex_path.clone(),
+        prepare_report.dim_vortex_path.clone(),
+    )
+    .with_cdc_delta_vortex(prepare_report.cdc_delta_vortex_path.clone())
+    .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+    .with_result_workspace_dir(result_workspace_dir)
+    .with_result_vortex_write(write_result_vortex);
+    let batch_request = if let Some(evidence_level) = requested_evidence_level {
+        batch_request.with_evidence_level(evidence_level)
+    } else {
+        batch_request
+    };
+    let batch_report = run_traditional_analytics_vortex_batch_benchmark_enabled(batch_request)?;
+
+    Ok(TraditionalAnalyticsPreparedBatchReport {
+        preparation_scenario,
+        prepare_report,
+        batch_report,
+    })
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -17889,6 +18278,97 @@ mod tests {
             &fields,
             "scenario_group-by-aggregation_external_engine_invoked",
             "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn prepared_batch_run_prepares_once_inside_process() {
+        let root = traditional_analytics_test_root("prepared-batch-once");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+
+        let report = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                vec![
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                    TraditionalAnalyticsScenario::FilterProjectionLimit,
+                ],
+                fact_csv,
+                dim_csv,
+                root.join("prepare-workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::Certified),
+        )
+        .unwrap();
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.preparation_scenario,
+            TraditionalAnalyticsScenario::CsvFileIngest
+        );
+        assert_eq!(
+            report.batch_report.requested_execution_mode,
+            ShardLoomExecutionMode::PreparedVortex
+        );
+        assert_eq!(report.batch_report.reports.len(), 2);
+        assert!(report.prepare_report.fact_vortex_path.exists());
+        assert!(report.prepare_report.dim_vortex_path.exists());
+        assert_field_eq(
+            &fields,
+            "prepare_batch_schema_version",
+            TRADITIONAL_PREPARE_AND_BATCH_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_runtime_status",
+            "single_process_compatibility_prepare_then_prepared_batch_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_route",
+            "compatibility_import_certified_to_prepared_vortex_batch",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_preparation_scenario",
+            "csv/file ingest",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_preparation_included_in_batch_timing",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_query_timing_starts_after_preparation",
+            "true",
+        );
+        assert_field_eq(&fields, "prepare_batch_prepared_state_reused", "true");
+        assert_field_eq(&fields, "prepare_batch_prepared_state_reuse_hit", "true");
+        assert_field_eq(&fields, "prepare_batch_prepared_artifact_reuse_count", "1");
+        assert_field_eq(&fields, "requested_execution_mode", "prepared_vortex");
+        assert_field_eq(
+            &fields,
+            "selected_execution_modes",
+            "prepared_vortex,prepared_vortex",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_reuse_status",
+            "per_batch_selective_filter_state_reused",
+        );
+        assert_field_eq(&fields, "source_state_reused", "true");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+        assert_field_eq(&fields, "prepare_batch_fallback_attempted", "false");
+        assert_field_eq(&fields, "prepare_batch_external_engine_invoked", "false");
+        assert_field_eq(
+            &fields,
+            "prepare_batch_claim_gate_status",
+            "not_claim_grade",
         );
 
         let _ = std::fs::remove_dir_all(root);

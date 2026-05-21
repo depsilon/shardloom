@@ -7107,6 +7107,48 @@ class ShardLoomClient:
             args.extend(["--evidence-level", evidence_level])
         return self.run(args, check=check)
 
+    def traditional_analytics_prepare_batch_run(
+        self,
+        scenarios: str | Sequence[str],
+        fact_input: str | os.PathLike[str],
+        dim_input: str | os.PathLike[str],
+        *,
+        workspace: str | os.PathLike[str],
+        input_format: str | None = None,
+        cdc_delta_input: str | os.PathLike[str] | None = None,
+        result_workspace: str | os.PathLike[str] | None = None,
+        write_result_vortex: bool = False,
+        evidence_level: str | None = None,
+        memory_gb: int | None = None,
+        max_parallelism: int | None = None,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Prepare compatibility inputs once, then run a prepared Vortex batch in one CLI process."""
+
+        args = [
+            "traditional-analytics-prepare-batch-run",
+            _scenario_csv_arg(scenarios),
+            str(fact_input),
+            str(dim_input),
+            "--workspace",
+            str(workspace),
+        ]
+        if input_format is not None:
+            args.extend(["--input-format", input_format])
+        if cdc_delta_input is not None:
+            args.extend(["--cdc-delta", str(cdc_delta_input)])
+        if result_workspace is not None:
+            args.extend(["--result-workspace", str(result_workspace)])
+        if write_result_vortex:
+            args.append("--write-result-vortex")
+        if evidence_level is not None:
+            args.extend(["--evidence-level", evidence_level])
+        if memory_gb is not None:
+            args.extend(["--memory-gb", str(memory_gb)])
+        if max_parallelism is not None:
+            args.extend(["--max-parallelism", str(max_parallelism)])
+        return self.run(args, check=check)
+
     def prepare_traditional_analytics_vortex_artifacts(
         self,
         fact_input: str | os.PathLike[str],

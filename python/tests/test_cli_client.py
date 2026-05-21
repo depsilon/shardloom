@@ -5246,6 +5246,84 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.command, "traditional-analytics-vortex-batch-run")
         self.assertEqual(result.field("source_state_digest"), "fnv1a64:batch")
 
+    def test_traditional_analytics_prepare_batch_run_dispatches_combined_route(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-prepare-batch-run",
+                    "selective filter,filter + projection + limit",
+                    "fact.csv",
+                    "dim.csv",
+                    "--workspace",
+                    "prepare-work",
+                    "--input-format",
+                    "csv",
+                    "--cdc-delta",
+                    "cdc.csv",
+                    "--result-workspace",
+                    "batch-work",
+                    "--write-result-vortex",
+                    "--evidence-level",
+                    "full_replay",
+                    "--memory-gb",
+                    "2",
+                    "--max-parallelism",
+                    "4",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "traditional-analytics-prepare-batch-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "schema_version", "value": "shardloom.traditional_analytics.vortex_batch.v1"},
+                        {"key": "prepare_batch_schema_version", "value": "shardloom.traditional_analytics.prepare_and_batch.v1"},
+                        {"key": "prepare_batch_preparation_included_in_batch_timing", "value": "false"},
+                        {"key": "scenario_order", "value": "selective-filter,filter---projection---limit"},
+                        {"key": "source_state_digest", "value": "fnv1a64:batch"},
+                        {"key": "source_state_reuse_status", "value": "per_batch_selective_filter_state_reused"},
+                        {"key": "source_state_reused", "value": "true"},
+                        {"key": "selected_evidence_level", "value": "full_replay"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).traditional_analytics_prepare_batch_run(
+            ["selective filter", "filter + projection + limit"],
+            "fact.csv",
+            "dim.csv",
+            workspace="prepare-work",
+            input_format="csv",
+            cdc_delta_input="cdc.csv",
+            result_workspace="batch-work",
+            write_result_vortex=True,
+            evidence_level="full_replay",
+            memory_gb=2,
+            max_parallelism=4,
+        )
+
+        self.assertEqual(result.command, "traditional-analytics-prepare-batch-run")
+        self.assertEqual(
+            result.field("prepare_batch_schema_version"),
+            "shardloom.traditional_analytics.prepare_and_batch.v1",
+        )
+        self.assertEqual(
+            result.field("source_state_reuse_status"),
+            "per_batch_selective_filter_state_reused",
+        )
+        self.assertFalse(result.fallback.attempted)
+
     def test_prepare_and_run_traditional_analytics_vortex_batch_reuses_artifacts(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
