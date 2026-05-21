@@ -109,6 +109,13 @@ impl LocalSourceReadPlan {
             "full_columns"
         }
     }
+
+    #[cfg(feature = "universal-format-io")]
+    fn required_columns_vec(&self) -> Option<Vec<String>> {
+        self.required_columns
+            .as_ref()
+            .map(|columns| columns.iter().cloned().collect())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1049,6 +1056,65 @@ impl LocalSourceFormat {
             Self::Orc => "ORC",
         }
     }
+
+    fn projection_pushdown_status(
+        self,
+        read_plan: &LocalSourceReadPlan,
+    ) -> LocalSourceProjectionPushdownStatus {
+        if read_plan.required_columns.is_none() {
+            return LocalSourceProjectionPushdownStatus::NotRequestedFullRead;
+        }
+        match self {
+            Self::Csv | Self::Json | Self::JsonLines => {
+                LocalSourceProjectionPushdownStatus::TextParserColumnPruning
+            }
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
+                LocalSourceProjectionPushdownStatus::ReaderLevelProjection
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LocalSourceProjectionPushdownStatus {
+    NotRequestedFullRead,
+    TextParserColumnPruning,
+    ReaderLevelProjection,
+}
+
+impl LocalSourceProjectionPushdownStatus {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::NotRequestedFullRead => "not_requested_full_read",
+            Self::TextParserColumnPruning => "local_text_parser_column_pruning",
+            Self::ReaderLevelProjection => "reader_level_projection",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct LocalSourceReadContent {
+    header: Vec<String>,
+    rows: Vec<ExpressionInputRow>,
+    reader_projection_columns: Option<Vec<String>>,
+}
+
+impl LocalSourceReadContent {
+    fn new(
+        header: Vec<String>,
+        rows: Vec<ExpressionInputRow>,
+        reader_projection_columns: Option<Vec<String>>,
+    ) -> Self {
+        Self {
+            header,
+            rows,
+            reader_projection_columns,
+        }
+    }
+
+    fn text(header: Vec<String>, rows: Vec<ExpressionInputRow>) -> Self {
+        Self::new(header, rows, None)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1058,6 +1124,8 @@ struct CsvSourceData {
     rows: Vec<ExpressionInputRow>,
     read_plan: LocalSourceReadPlan,
     materialized_columns: Vec<String>,
+    reader_projection_columns: Vec<String>,
+    projection_pushdown_status: LocalSourceProjectionPushdownStatus,
     source_bytes: u64,
     source_digest: String,
     read_millis: u128,
@@ -1070,6 +1138,14 @@ impl CsvSourceData {
             "none".to_string()
         } else {
             self.materialized_columns.join(",")
+        }
+    }
+
+    fn reader_projection_columns_field(&self) -> String {
+        if self.reader_projection_columns.is_empty() {
+            "none".to_string()
+        } else {
+            self.reader_projection_columns.join(",")
         }
     }
 
@@ -1109,14 +1185,16 @@ impl CsvSourceData {
 
     fn source_state_digest(&self, source_schema_digest: &str) -> String {
         fnv64_digest(&format!(
-            "{}|{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}",
             self.source_format.as_str(),
             self.source_digest,
             source_schema_digest,
             self.rows.len(),
             self.source_bytes,
             self.read_plan.requested_columns(),
-            self.materialized_columns_field()
+            self.materialized_columns_field(),
+            self.reader_projection_columns_field(),
+            self.projection_pushdown_status.as_str()
         ))
     }
 }
@@ -1671,6 +1749,10 @@ impl VortexIngestReport {
                 self.source.read_plan.requested_columns(),
             ),
             (
+                "source_state_projection_pushdown_status".to_string(),
+                self.source.projection_pushdown_status.as_str().to_string(),
+            ),
+            (
                 "source_state_materialization_layout".to_string(),
                 CsvSourceData::materialization_layout().to_string(),
             ),
@@ -1685,6 +1767,14 @@ impl VortexIngestReport {
             (
                 "source_state_materialized_columns".to_string(),
                 self.source.materialized_columns_field(),
+            ),
+            (
+                "source_state_reader_projection_column_count".to_string(),
+                self.source.reader_projection_columns.len().to_string(),
+            ),
+            (
+                "source_state_reader_projection_columns".to_string(),
+                self.source.reader_projection_columns_field(),
             ),
             (
                 "source_state_pruned_column_count".to_string(),
@@ -9697,6 +9787,10 @@ impl SqlLocalSourceReport {
                 self.source.read_plan.requested_columns(),
             ),
             (
+                "source_state_projection_pushdown_status".to_string(),
+                self.source.projection_pushdown_status.as_str().to_string(),
+            ),
+            (
                 "source_state_materialization_layout".to_string(),
                 CsvSourceData::materialization_layout().to_string(),
             ),
@@ -9711,6 +9805,14 @@ impl SqlLocalSourceReport {
             (
                 "source_state_materialized_columns".to_string(),
                 self.source.materialized_columns_field(),
+            ),
+            (
+                "source_state_reader_projection_column_count".to_string(),
+                self.source.reader_projection_columns.len().to_string(),
+            ),
+            (
+                "source_state_reader_projection_columns".to_string(),
+                self.source.reader_projection_columns_field(),
             ),
             (
                 "source_state_pruned_column_count".to_string(),
@@ -11449,32 +11551,45 @@ fn read_local_source_with_plan(
     })?;
     let source_digest = fnv64_digest_bytes(&bytes);
     let parse_start = Instant::now();
-    let (header, mut rows) = match source_format {
+    let content = match source_format {
         LocalSourceFormat::Csv => {
             let content = decode_local_text_source(path, source_format, bytes)?;
-            parse_csv_source_content_with_plan(&content, read_plan)?
+            let (header, rows) = parse_csv_source_content_with_plan(&content, read_plan)?;
+            LocalSourceReadContent::text(header, rows)
         }
         LocalSourceFormat::Json => {
             let content = decode_local_text_source(path, source_format, bytes)?;
-            parse_json_source_content_with_plan(&content, read_plan)?
+            let (header, rows) = parse_json_source_content_with_plan(&content, read_plan)?;
+            LocalSourceReadContent::text(header, rows)
         }
         LocalSourceFormat::JsonLines => {
             let content = decode_local_text_source(path, source_format, bytes)?;
-            parse_jsonl_source_content_with_plan(&content, read_plan)?
+            let (header, rows) = parse_jsonl_source_content_with_plan(&content, read_plan)?;
+            LocalSourceReadContent::text(header, rows)
         }
-        LocalSourceFormat::Parquet => read_parquet_source_content(path)?,
-        LocalSourceFormat::ArrowIpc => read_arrow_ipc_source_content(path)?,
-        LocalSourceFormat::Avro => read_avro_source_content(path)?,
-        LocalSourceFormat::Orc => read_orc_source_content(path)?,
+        LocalSourceFormat::Parquet => read_parquet_source_content(path, read_plan)?,
+        LocalSourceFormat::ArrowIpc => read_arrow_ipc_source_content(path, read_plan)?,
+        LocalSourceFormat::Avro => read_avro_source_content(path, read_plan)?,
+        LocalSourceFormat::Orc => read_orc_source_content(path, read_plan)?,
     };
+    let LocalSourceReadContent {
+        header,
+        mut rows,
+        reader_projection_columns,
+    } = content;
     prune_rows_to_read_plan(&mut rows, read_plan);
     let materialized_columns = read_plan.materialized_columns(&header);
+    let reader_projection_columns =
+        reader_projection_columns.unwrap_or_else(|| materialized_columns.clone());
+    let projection_pushdown_status = source_format.projection_pushdown_status(read_plan);
     Ok(CsvSourceData {
         source_format,
         header,
         rows,
         read_plan: read_plan.clone(),
         materialized_columns,
+        reader_projection_columns,
+        projection_pushdown_status,
         source_bytes,
         source_digest,
         read_millis,
@@ -11508,18 +11623,32 @@ fn prune_rows_to_read_plan(rows: &mut [ExpressionInputRow], read_plan: &LocalSou
 #[cfg(feature = "universal-format-io")]
 fn read_parquet_source_content(
     path: &Path,
-) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
-    let table = shardloom_vortex::read_flat_parquet_source(path, MAX_INPUT_ROWS)?;
+    read_plan: &LocalSourceReadPlan,
+) -> Result<LocalSourceReadContent, ShardLoomError> {
+    let table = if let Some(required_columns) = read_plan.required_columns_vec() {
+        shardloom_vortex::read_flat_parquet_source_with_projection(
+            path,
+            MAX_INPUT_ROWS,
+            &required_columns,
+        )?
+    } else {
+        shardloom_vortex::read_flat_parquet_source(path, MAX_INPUT_ROWS)?
+    };
     for column in &table.header {
         validate_sql_identifier(column)?;
     }
-    Ok((table.header, table.rows))
+    Ok(LocalSourceReadContent::new(
+        table.header,
+        table.rows,
+        Some(table.reader_projection_columns),
+    ))
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn read_parquet_source_content(
     _path: &Path,
-) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    _read_plan: &LocalSourceReadPlan,
+) -> Result<LocalSourceReadContent, ShardLoomError> {
     Err(unsupported_sql_error(
         "local Parquet source runtime requires building shardloom-cli with --features universal-format-io; default builds expose Parquet as a deterministic blocked adapter",
     ))
@@ -11528,18 +11657,32 @@ fn read_parquet_source_content(
 #[cfg(feature = "universal-format-io")]
 fn read_arrow_ipc_source_content(
     path: &Path,
-) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
-    let table = shardloom_vortex::read_flat_arrow_ipc_source(path, MAX_INPUT_ROWS)?;
+    read_plan: &LocalSourceReadPlan,
+) -> Result<LocalSourceReadContent, ShardLoomError> {
+    let table = if let Some(required_columns) = read_plan.required_columns_vec() {
+        shardloom_vortex::read_flat_arrow_ipc_source_with_projection(
+            path,
+            MAX_INPUT_ROWS,
+            &required_columns,
+        )?
+    } else {
+        shardloom_vortex::read_flat_arrow_ipc_source(path, MAX_INPUT_ROWS)?
+    };
     for column in &table.header {
         validate_sql_identifier(column)?;
     }
-    Ok((table.header, table.rows))
+    Ok(LocalSourceReadContent::new(
+        table.header,
+        table.rows,
+        Some(table.reader_projection_columns),
+    ))
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn read_arrow_ipc_source_content(
     _path: &Path,
-) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    _read_plan: &LocalSourceReadPlan,
+) -> Result<LocalSourceReadContent, ShardLoomError> {
     Err(unsupported_sql_error(
         "local Arrow IPC source runtime requires building shardloom-cli with --features universal-format-io; default builds expose Arrow IPC as a deterministic blocked adapter",
     ))
@@ -11548,18 +11691,32 @@ fn read_arrow_ipc_source_content(
 #[cfg(feature = "universal-format-io")]
 fn read_avro_source_content(
     path: &Path,
-) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
-    let table = shardloom_vortex::read_flat_avro_source(path, MAX_INPUT_ROWS)?;
+    read_plan: &LocalSourceReadPlan,
+) -> Result<LocalSourceReadContent, ShardLoomError> {
+    let table = if let Some(required_columns) = read_plan.required_columns_vec() {
+        shardloom_vortex::read_flat_avro_source_with_projection(
+            path,
+            MAX_INPUT_ROWS,
+            &required_columns,
+        )?
+    } else {
+        shardloom_vortex::read_flat_avro_source(path, MAX_INPUT_ROWS)?
+    };
     for column in &table.header {
         validate_sql_identifier(column)?;
     }
-    Ok((table.header, table.rows))
+    Ok(LocalSourceReadContent::new(
+        table.header,
+        table.rows,
+        Some(table.reader_projection_columns),
+    ))
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn read_avro_source_content(
     _path: &Path,
-) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    _read_plan: &LocalSourceReadPlan,
+) -> Result<LocalSourceReadContent, ShardLoomError> {
     Err(unsupported_sql_error(
         "local Avro source runtime requires building shardloom-cli with --features universal-format-io; default builds expose Avro as a deterministic blocked adapter",
     ))
@@ -11568,18 +11725,32 @@ fn read_avro_source_content(
 #[cfg(feature = "universal-format-io")]
 fn read_orc_source_content(
     path: &Path,
-) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
-    let table = shardloom_vortex::read_flat_orc_source(path, MAX_INPUT_ROWS)?;
+    read_plan: &LocalSourceReadPlan,
+) -> Result<LocalSourceReadContent, ShardLoomError> {
+    let table = if let Some(required_columns) = read_plan.required_columns_vec() {
+        shardloom_vortex::read_flat_orc_source_with_projection(
+            path,
+            MAX_INPUT_ROWS,
+            &required_columns,
+        )?
+    } else {
+        shardloom_vortex::read_flat_orc_source(path, MAX_INPUT_ROWS)?
+    };
     for column in &table.header {
         validate_sql_identifier(column)?;
     }
-    Ok((table.header, table.rows))
+    Ok(LocalSourceReadContent::new(
+        table.header,
+        table.rows,
+        Some(table.reader_projection_columns),
+    ))
 }
 
 #[cfg(not(feature = "universal-format-io"))]
 fn read_orc_source_content(
     _path: &Path,
-) -> Result<(Vec<String>, Vec<ExpressionInputRow>), ShardLoomError> {
+    _read_plan: &LocalSourceReadPlan,
+) -> Result<LocalSourceReadContent, ShardLoomError> {
     Err(unsupported_sql_error(
         "local ORC source runtime requires building shardloom-cli with --features universal-format-io; default builds expose ORC as a deterministic blocked adapter",
     ))
