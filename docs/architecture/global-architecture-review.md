@@ -571,9 +571,15 @@ plan before coding.
 - [x] GAR-RUNTIME-IMPL-5B/5C scoped local-source join aggregates admit scalar and grouped
   aggregates over the existing single-/multi-key inner equi-join runtime, emit
   `join_aggregate_runtime_execution`, `join_aggregate_operator_family`, and
-  `join_aggregate_group_count` evidence, and keep computed join projections, join ordering, outer
-  join families, expression joins, and broad SQL/DataFrame joins deterministic blockers with no
-  fallback/external engine invocation.
+  `join_aggregate_group_count` evidence, and keep outer join families, expression joins, and broad
+  SQL/DataFrame joins deterministic blockers with no fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-5B/5C scoped local-source joined computed projection/top-N runtime admits
+  computed projections over qualified joined rows and single-key numeric `ORDER BY ... LIMIT ...`
+  for non-aggregate joined projection rows, emits `join_computed_projection_runtime_execution`,
+  `join_order_by_top_n_runtime_execution`, and `join_projection_operator_family` evidence, and
+  keeps aggregate join ordering, outer join families, expression joins, multi-key/null/collation
+  ordering, and broad SQL/DataFrame joins deterministic blockers with no fallback/external engine
+  invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 

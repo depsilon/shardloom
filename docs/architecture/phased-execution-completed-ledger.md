@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped SQL/Python joined computed projection/top-N runtime
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-join-projection-topn` / #884.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`.
+  - Scope:
+    - Promoted scoped computed projections over qualified joined rows for the existing single- and
+      multi-key local-source inner equi-join runtime.
+    - Reused the ordinary ShardLoom-native projection expression evaluator for qualified joined
+      rows so raw projections, generic numeric expression projections, string-function
+      projections, literal/cast/null/date/time projection families, and deterministic projection
+      diagnostics share the same runtime path.
+    - Promoted scoped single-key numeric `ORDER BY ... LIMIT ...` over non-aggregate joined
+      projection rows, with selected joined rows sorted before result projection.
+    - Preserved deterministic blockers for aggregate join ordering, outer/semi/anti/cross joins,
+      expression joins, multi-key/null/collation ordering, source formats outside the admitted
+      local adapter universe, and broad SQL/DataFrame joins.
+    - Added Python query-builder lowering for joined `.with_column(...).sort(...).limit(...)`
+      workflows plus typed report accessors for joined computed-projection/top-N evidence.
+  - Evidence:
+    - Joined computed projection/top-N rows emit ordinary `join_*`, `order_by_*`, `top_n_*`,
+      `generic_expression_projection_*`, `string_function_projection_*`, and output/evidence
+      fields plus `join_computed_projection_runtime_execution=true`,
+      `join_order_by_top_n_runtime_execution=true`, `join_projection_operator_family`, scoped
+      execution certificate refs, `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests::parses_scoped_join_computed_projection_topn_statement -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke join_order_by_topn -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke join_computed_projection -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke unsupported_join_shapes -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_join_topn_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_join_computed_projection_topn_invokes_sql_smoke`
+    - `python -m compileall -q python\src python\tests scripts examples`
+    - `python -m unittest discover -s python\tests`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_runtime_promotion_evidence.py`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local SQL/Python joined projection-row fixture smoke only. This is not broad
+      SQL/DataFrame join parity, aggregate join ordering, multi-key/null/collation ordering,
+      outer/semi/anti/cross/expression joins, object-store/table joins, encoded-native join
+      execution, claim-grade compute, or performance evidence.
+  - Fallback boundary:
+    - Joined computed projections and joined top-N are parsed, bound, filtered, sorted, projected,
+      rendered, and evidenced by ShardLoom-native local-source runtime code. External engines
+      remain baseline/oracle-only and are not invoked.
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped SQL/Python local-source join-aggregate runtime
   - Date: 2026-05-21
   - Branch/PR: `runtime-join-aggregate-local-sources` / #883.

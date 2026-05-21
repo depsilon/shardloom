@@ -1944,6 +1944,8 @@ class LazyFrame:
             return False
         saw_projection = False
         for operation in self.operations:
+            if operation.kind == "join":
+                continue
             if operation.kind == "select":
                 saw_projection = True
                 if column_name in operation.values:
@@ -2009,8 +2011,6 @@ class LazyFrame:
         if group_by_list is not None and aggregate_list is None:
             return None
         if join_info is not None:
-            if literal_columns or sort_key is not None:
-                return None
             right_uri, left_key, right_key, _how, left_alias, right_alias = join_info
             left_keys = tuple(column for column in left_key.split(",") if column)
             right_keys = tuple(column for column in right_key.split(",") if column)
@@ -2021,7 +2021,7 @@ class LazyFrame:
                 for left_column, right_column in zip(left_keys, right_keys)
             )
             if aggregate_list is not None:
-                if projection_list is not None:
+                if projection_list is not None or literal_columns or sort_key is not None:
                     return None
                 if group_by_list is not None:
                     select_clause = ",".join((*group_by_list, *aggregate_list))
@@ -2032,15 +2032,23 @@ class LazyFrame:
             else:
                 if projection_list is None or group_by_list is not None:
                     return None
-                select_clause = ",".join(projection_list)
+                select_values = list(projection_list)
+                select_values.extend(
+                    f"{literal} AS {column}" for column, literal in literal_columns
+                )
+                select_clause = ",".join(select_values)
                 group_by_clause = ""
+            order_by_clause = ""
+            if sort_key is not None:
+                direction, column = sort_key
+                order_by_clause = f" ORDER BY {column} {direction.upper()}"
             source_uri = _quote_sql_local_source_path(self.source.uri)
             right_source_uri = _quote_sql_local_source_path(right_uri)
             return (
                 f"SELECT {select_clause} FROM {source_uri} AS {left_alias} "
                 f"INNER JOIN {right_source_uri} AS {right_alias} "
                 f"ON {on_clause}"
-                f"{_optional_sql_where_clause(predicate)}{group_by_clause} LIMIT {limit}"
+                f"{_optional_sql_where_clause(predicate)}{group_by_clause}{order_by_clause} LIMIT {limit}"
             )
         if projection_list is not None:
             if aggregate_list is not None or group_by_list is not None:

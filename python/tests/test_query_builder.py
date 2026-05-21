@@ -2483,6 +2483,82 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_join_topn_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source join topn",
+                    "human_text": "sql local source join topn",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":5,\\"d.segment\\":\\"startup\\"}\\n{\\"f.id\\":3,\\"d.segment\\":\\"consumer\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_inner_equi_join_order_by_topn_filter_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_key_arity", "value": "2"},
+                        {"key": "join_multi_key_runtime_execution", "value": "true"},
+                        {"key": "join_matched_row_count", "value": "3"},
+                        {"key": "join_rows_output", "value": "2"},
+                        {"key": "join_computed_projection_runtime_execution", "value": "false"},
+                        {"key": "join_order_by_top_n_runtime_execution", "value": "true"},
+                        {"key": "join_projection_operator_family", "value": "raw_projection_topn"},
+                        {"key": "order_by_runtime_execution", "value": "true"},
+                        {"key": "top_n_runtime_execution", "value": "true"},
+                        {"key": "sort_keys", "value": "f.amount"},
+                        {"key": "sort_direction", "value": "desc"},
+                        {"key": "top_n_limit", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), on=("customer_id", "region"))
+            .select("f.id", "d.segment")
+            .filter("f.amount >= 10")
+            .sort("f.amount", descending=True)
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_key_arity, 2)
+        self.assertTrue(report.join_multi_key_runtime_execution)
+        self.assertEqual(report.join_matched_row_count, 3)
+        self.assertEqual(report.join_rows_output, 2)
+        self.assertFalse(report.join_computed_projection_runtime_execution)
+        self.assertTrue(report.join_order_by_top_n_runtime_execution)
+        self.assertEqual(report.join_projection_operator_family, "raw_projection_topn")
+        self.assertTrue(report.order_by_runtime_execution)
+        self.assertTrue(report.top_n_runtime_execution)
+        self.assertEqual(report.sort_keys, ("f.amount",))
+        self.assertEqual(report.sort_direction, "desc")
+        self.assertEqual(report.top_n_limit, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_multi_key_join_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -2549,6 +2625,110 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.join_multi_key_runtime_execution)
         self.assertEqual(report.join_matched_row_count, 3)
         self.assertEqual(report.join_rows_output, 3)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_join_computed_projection_topn_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment,f.amount + d.discount AS adjusted,CONCAT(d.segment, '-', f.region) AS segment_region FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 3",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source join computed topn",
+                    "human_text": "sql local source join computed topn",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":5,\\"d.segment\\":\\"startup\\",\\"adjusted\\":28,\\"segment_region\\":\\"startup-eu\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_inner_equi_join_computed_projection_order_by_topn_filter_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_key_arity", "value": "2"},
+                        {"key": "join_multi_key_runtime_execution", "value": "true"},
+                        {"key": "join_matched_row_count", "value": "5"},
+                        {"key": "join_rows_output", "value": "3"},
+                        {"key": "join_computed_projection_runtime_execution", "value": "true"},
+                        {"key": "join_order_by_top_n_runtime_execution", "value": "true"},
+                        {"key": "join_projection_operator_family", "value": "computed_projection_topn"},
+                        {"key": "generic_expression_projection_runtime_execution", "value": "true"},
+                        {"key": "generic_expression_projection_source_column", "value": "d.discount+f.amount"},
+                        {"key": "generic_expression_projection_output_column", "value": "adjusted"},
+                        {"key": "string_function_projection_runtime_execution", "value": "true"},
+                        {"key": "string_function_projection_source_column", "value": "d.segment+f.region"},
+                        {"key": "string_function_projection_output_column", "value": "segment_region"},
+                        {"key": "order_by_runtime_execution", "value": "true"},
+                        {"key": "top_n_runtime_execution", "value": "true"},
+                        {"key": "sort_keys", "value": "f.amount"},
+                        {"key": "sort_direction", "value": "desc"},
+                        {"key": "top_n_limit", "value": "3"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), on=("customer_id", "region"))
+            .select("f.id", "d.segment")
+            .with_column("adjusted", sl.col("f.amount") + sl.col("d.discount"))
+            .with_column(
+                "segment_region",
+                sl.concat(sl.col("d.segment"), "-", sl.col("f.region")),
+            )
+            .filter("f.amount >= 10")
+            .sort("f.amount", descending=True)
+            .limit(3)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_key_arity, 2)
+        self.assertTrue(report.join_multi_key_runtime_execution)
+        self.assertEqual(report.join_matched_row_count, 5)
+        self.assertEqual(report.join_rows_output, 3)
+        self.assertTrue(report.join_computed_projection_runtime_execution)
+        self.assertTrue(report.join_order_by_top_n_runtime_execution)
+        self.assertEqual(report.join_projection_operator_family, "computed_projection_topn")
+        self.assertTrue(report.generic_expression_projection_runtime_execution)
+        self.assertEqual(
+            report.generic_expression_projection_source_columns,
+            ("d.discount+f.amount",),
+        )
+        self.assertEqual(report.generic_expression_projection_output_columns, ("adjusted",))
+        self.assertTrue(report.string_function_projection_runtime_execution)
+        self.assertEqual(
+            report.string_function_projection_source_columns,
+            ("d.segment+f.region",),
+        )
+        self.assertEqual(
+            report.string_function_projection_output_columns,
+            ("segment_region",),
+        )
+        self.assertTrue(report.order_by_runtime_execution)
+        self.assertTrue(report.top_n_runtime_execution)
+        self.assertEqual(report.sort_keys, ("f.amount",))
+        self.assertEqual(report.sort_direction, "desc")
+        self.assertEqual(report.top_n_limit, 3)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
