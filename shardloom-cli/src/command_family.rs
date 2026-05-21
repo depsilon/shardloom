@@ -114,7 +114,8 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
 fn is_status_capabilities_command(command: &str) -> bool {
     matches!(
         command,
-        "status"
+        "command-metadata"
+            | "status"
             | "runs-today"
             | "capabilities"
             | "compute-capability-matrix"
@@ -313,6 +314,7 @@ fn is_workflow_planning_command(command: &str) -> bool {
     matches!(
         command,
         "schema-plan"
+            | "manifest-plan"
             | "workflow-unsupported-plan"
             | "generated-source-user-rows-smoke"
             | "generated-source-range-smoke"
@@ -389,6 +391,10 @@ mod tests {
     fn classifies_representative_priority_39_families() {
         assert_eq!(
             classify_command("status"),
+            CommandFamily::StatusCapabilities
+        );
+        assert_eq!(
+            classify_command("command-metadata"),
             CommandFamily::StatusCapabilities
         );
         assert_eq!(
@@ -514,6 +520,10 @@ mod tests {
         assert_eq!(classify_command("serve"), CommandFamily::RestApiPlanning);
         assert_eq!(
             classify_command("workflow-unsupported-plan"),
+            CommandFamily::WorkflowPlanning
+        );
+        assert_eq!(
+            classify_command("manifest-plan"),
             CommandFamily::WorkflowPlanning
         );
         assert_eq!(

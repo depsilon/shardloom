@@ -15,6 +15,7 @@ from shardloom import (
     context as shardloom_context,
     session as shardloom_session,
     ClaimGateCloseoutReport,
+    CommandMetadataReport,
     ComputeCapabilityMatrix,
     CompatibilitySourceSmokeReport,
     CapabilityPosture,
@@ -225,6 +226,76 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(blocked[0].row_id, "claim_performance_superiority")
         self.assertEqual(blocked[0].surface, ("performance_superiority", "spark_replacement"))
         self.assertEqual(matrix.rows_by_family("claim_state"), blocked)
+
+    def test_command_metadata_returns_typed_registry_report(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["command-metadata", "vortex-ingest-smoke", "--format", "json"], sys.argv
+                fields = [
+                    ["command_registry_schema_version", "shardloom.command_registry.v1"],
+                    ["registered_command_count", "3"],
+                    ["command_registry_support_state_vocabulary", "executable,feature_gated,diagnostic_only,report_only,blocked,future"],
+                    ["registered_commands", "command-metadata,status,vortex-ingest-smoke"],
+                    ["registered_command_families", "command-metadata=status_capabilities,status=status_capabilities,vortex-ingest-smoke=prepared_source_backed_execution"],
+                    ["registered_command_support_states", "command-metadata=executable,status=executable,vortex-ingest-smoke=executable"],
+                    ["registered_command_side_effect_levels", "command-metadata=side_effect_free_metadata_or_report,status=side_effect_free_metadata_or_report,vortex-ingest-smoke=local_runtime_or_local_artifact_effect_possible"],
+                    ["selected_command", "vortex-ingest-smoke"],
+                    ["selected_command_family", "prepared_source_backed_execution"],
+                    ["selected_command_support_state", "executable"],
+                    ["selected_command_side_effect_level", "local_runtime_or_local_artifact_effect_possible"],
+                    ["selected_command_usage_fragment", "vortex-ingest-smoke <local-source-path> <target.vortex>"],
+                    ["fallback_attempted", "false"],
+                    ["external_engine_invoked", "false"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "command-metadata",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+
+        report = ShardLoomClient(binary=binary).command_metadata("vortex-ingest-smoke")
+
+        self.assertIsInstance(report, CommandMetadataReport)
+        self.assertEqual(report.schema_version, "shardloom.command_registry.v1")
+        self.assertEqual(report.registered_command_count, 3)
+        self.assertEqual(
+            report.support_state_vocabulary,
+            (
+                "executable",
+                "feature_gated",
+                "diagnostic_only",
+                "report_only",
+                "blocked",
+                "future",
+            ),
+        )
+        self.assertEqual(
+            report.registered_commands,
+            ("command-metadata", "status", "vortex-ingest-smoke"),
+        )
+        self.assertEqual(report.selected_command, "vortex-ingest-smoke")
+        self.assertEqual(
+            report.selected_command_family,
+            "prepared_source_backed_execution",
+        )
+        self.assertEqual(report.family_for("command-metadata"), "status_capabilities")
+        self.assertEqual(report.support_state_for("vortex-ingest-smoke"), "executable")
+        self.assertEqual(
+            report.side_effect_level_for("vortex-ingest-smoke"),
+            "local_runtime_or_local_artifact_effect_possible",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_typed_envelope_payloads_are_preserved(self) -> None:
         binary = self.fake_cli(

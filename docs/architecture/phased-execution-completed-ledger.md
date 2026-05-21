@@ -16,9 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-P1-1A typed command registry, generated usage, and Python metadata
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-16-20260521` / #905.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - RFC 0010, RFC 0012, typed command-result envelope, and capability discovery guidance.
+    - `REVIEW-P1-1 typed command registry and generated command metadata`.
+  - Scope:
+    - Added a side-effect-free CLI command registry as the single inventory for registered commands,
+      command-family metadata, support-state metadata, side-effect-level metadata, usage fragments,
+      claim boundaries, and no-fallback boundaries.
+    - Replaced the monolithic hand-assembled CLI usage string with registry-generated usage.
+    - Added the `command-metadata` CLI surface for all-command and selected-command metadata in text
+      and JSON output.
+    - Added registry drift tests that require every registered command to be unique, classified into
+      a typed command family, and represented by a non-empty usage fragment.
+    - Classified `manifest-plan` under workflow planning so the registry cannot silently carry an
+      untyped command.
+    - Added Python `ShardLoomClient.command_metadata()` plus `CommandMetadataReport` typed accessors
+      for registry schema version, registered commands, families, support states, side-effect
+      levels, selected-command metadata, fallback status, and external-engine status.
+  - User-visible evidence:
+    - `shardloom command-metadata --format json` emits registry-level command metadata without
+      executing runtime work.
+    - `shardloom command-metadata vortex-ingest-smoke --format json` exposes selected-command
+      family, support state, side-effect level, usage fragment, claim boundary, and fallback
+      boundary.
+    - Python callers can inspect the same metadata through `CommandMetadataReport` instead of
+      scraping raw JSON fields.
+  - Verification:
+    - `cargo fmt --all`
+    - `cargo test -p shardloom-cli command_registry -- --nocapture`
+    - `cargo test -p shardloom-cli command_metadata -- --nocapture`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_command_metadata_returns_typed_registry_report`
+  - Remaining non-goals:
+    - Registry-generated capability rows, generated docs/status snippets, and command-specific help
+      backfill remain in `REVIEW-P1-1`.
+    - No command behavior, runtime support, package publication, public API stability claim, or
+      performance claim is authorized by this metadata surface.
+  - Claim boundary:
+    - This is command discoverability and drift-prevention metadata only. Runtime support and public
+      claims remain governed by `runs-today`, `capabilities`, execution certificates, release gates,
+      and benchmark evidence.
+  - Fallback boundary:
+    - `command-metadata` is side-effect-free and reports `fallback_attempted=false` and
+      `external_engine_invoked=false`; it must never invoke external execution engines.
+
 - [x] Session label: REVIEW-P0-3 enforced workspace path safety for local output writers
   - Date: 2026-05-21
-  - Branch/PR: `compute-engine-runtime-next-15-20260521` / pending.
+  - Branch/PR: `compute-engine-runtime-next-15-20260521` / #904.
   - Source:
     - 2026-05-21 structured repository review action sequence.
     - RFC 0019, RFC 0024, release security gate, local-output writer safety surfaces.
