@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# Python local CSV/JSON/JSONL/Parquet query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, and top-N smoke
+# Python local CSV/JSON/JSONL/Parquet query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, join-aggregate, and top-N smoke
 
 ## Quick Answer
 
@@ -8,15 +8,15 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc/read_avro/read_orc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal and admitted string-function with_column(...), count, scalar aggregate with aliases, multi-key group_by aggregate with aliases, single-key top-N, and scoped single- or multi-key local-source inner equi-join bridge over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, CONCAT/SUBSTR/REPLACE, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar structured writes are admitted. No nested JSON, JSONPath, broader structured type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, production SQL, object-store/table source, external fallback, or performance claim.
+- **Claim boundary:** Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc/read_avro/read_orc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal and admitted string-function with_column(...), count, scalar aggregate with aliases, multi-key group_by aggregate with aliases, single-key top-N, scoped single- or multi-key local-source inner equi-join bridge, and scalar/grouped join aggregates over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, CONCAT/SUBSTR/REPLACE, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar structured writes are admitted. No nested JSON, JSONPath, broader structured type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, production SQL, object-store/table source, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
-Python local CSV/JSON/JSONL/Parquet query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, and top-N smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
+Python local CSV/JSON/JSONL/Parquet query-builder projection, preview/head/take, literal-column, count, aggregate, group-by, join, join-aggregate, and top-N smoke has a scoped local path. Treat it as technical-preview evidence with the listed claim boundary.
 
 ## Claim Boundary
 
-Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc/read_avro/read_orc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal and admitted string-function with_column(...), count, scalar aggregate with aliases, multi-key group_by aggregate with aliases, single-key top-N, and scoped single- or multi-key local-source inner equi-join bridge over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, CONCAT/SUBSTR/REPLACE, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar structured writes are admitted. No nested JSON, JSONPath, broader structured type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, production SQL, object-store/table source, external fallback, or performance claim.
+Scoped Python read_csv/read_json/read_parquet/read_arrow_ipc/read_avro/read_orc local-source smokes cover projection, optional-filter, limit, preview/head/take, literal and admitted string-function with_column(...), count, scalar aggregate with aliases, multi-key group_by aggregate with aliases, single-key top-N, scoped single- or multi-key local-source inner equi-join bridge, and scalar/grouped join aggregates over admitted local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC. Filters support scoped comparison, between, cast, date literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 lower/upper/trim transforms, CONCAT/SUBSTR/REPLACE, and balanced parentheses. Local JSONL, scoped CSV, and feature-gated flat scalar structured writes are admitted. No nested JSON, JSONPath, broader structured type/nesting/output coverage, pandas/Polars backend, broad DataFrame runtime, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, production SQL, object-store/table source, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,11 +26,11 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,label,amount`n1,alpha
 
 ## Blocker
 
-The Python query-builder runtime admits local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC through the SQL local-source smoke for the documented projection/filter/limit, preview/head/take, literal and scoped string-function computed columns, aggregate aliases, group-by, top-N, and scoped local-source join shapes. Default binaries block Parquet, Arrow IPC, Avro, and ORC until built with --features universal-format-io. Nested JSON, JSONPath, broader structured type/nesting coverage, generalized with_column expressions, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness, broader grouped aggregate generality, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
+The Python query-builder runtime admits local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC through the SQL local-source smoke for the documented projection/filter/limit, preview/head/take, literal and scoped string-function computed columns, aggregate aliases, group-by, top-N, and scoped local-source join/join-aggregate shapes. Default binaries block Parquet, Arrow IPC, Avro, and ORC until built with --features universal-format-io. Nested JSON, JSONPath, broader structured type/nesting coverage, generalized with_column expressions, timestamp/timezone completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness, broader grouped aggregate generality, generalized ordering/null/collation support, windows, schema/data-quality helpers, object stores, tables, pandas/Polars execution, and production DataFrame parity require later runtime slices.
 
 ## Internal Flow
 
-`local_csv, local_json, local_jsonl, local_ndjson, local_parquet_feature_gated -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, local_jsonl_output, local_csv_output, feature_gated_local_parquet_output, literal_projection_result, string_function_projection_result, row_count_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
+`local_csv, local_json, local_jsonl, local_ndjson, local_parquet_feature_gated -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, local_jsonl_output, local_csv_output, feature_gated_local_parquet_output, literal_projection_result, string_function_projection_result, row_count_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, join_aggregate_result, typed_python_report, evidence_summary, claim_summary, sql_local_source_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -92,6 +92,9 @@ The Python query-builder runtime admits local CSV, flat JSON/JSONL/NDJSON, and f
 - `join_right_keys`
 - `join_key_arity`
 - `join_multi_key_runtime_execution`
+- `join_aggregate_runtime_execution`
+- `join_aggregate_operator_family`
+- `join_aggregate_group_count`
 - `output_format`
 - `output_io_performed=true`
 - `output_native_io_certificate_status`
@@ -104,7 +107,7 @@ The Python query-builder runtime admits local CSV, flat JSON/JSONL/NDJSON, and f
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV, flat JSON/JSONL, or feature-gated flat scalar Parquet source evidence, source_format/source_adapter/source_state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, string transform and scoped string-function fields when requested, date extract/arithmetic fields when requested, literal-projection fields when requested, bounded IN evidence when requested, local JSONL/CSV or feature-gated flat scalar Parquet output evidence, count/scalar/grouped/top-N/join fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV, flat JSON/JSONL, or feature-gated flat scalar Parquet source evidence, source_format/source_adapter/source_state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, string transform and scoped string-function fields when requested, date extract/arithmetic fields when requested, literal-projection fields when requested, bounded IN evidence when requested, local JSONL/CSV or feature-gated flat scalar Parquet output evidence, count/scalar/grouped/top-N/join/join-aggregate fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

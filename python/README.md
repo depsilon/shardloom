@@ -518,7 +518,9 @@ JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are 
 aggregate aliases such as `agg(rows="count(*)", total="sum(amount)")`. A single-key
 numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric sort
-keys. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL/CSV file
+keys. Local-source joins also admit scalar and grouped aggregates when the workflow keeps the
+same explicit aliases, qualified join-side columns, optional pre-aggregate filter, and bounded
+`limit(...)`. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL/CSV file
 by default, and local-source workflows can use `write(..., output_format="csv")`
 or `write_csv(...)` for the scoped local CSV sink. They can also use
 `write_parquet(...)` or `write(..., output_format="parquet")` for the scoped
@@ -788,6 +790,7 @@ projection/optional-filter/limit, scalar aggregate, multi-key grouped aggregate,
 preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
 ABS, scoped numeric rounding, and scoped UTF-8 string length `with_column`,
 single-key numeric top-N, and scoped single- or multi-key local-source inner equi-join shapes.
+Scoped scalar/grouped join aggregates over those same join shapes lower through the same runtime.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 general expression-backed `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON,
@@ -802,7 +805,9 @@ other local-source smokes. Use `join(..., on="key")` or
 `join(..., on=("customer_id", "region"))` for matching same-named key columns on both sides,
 qualified projection columns such as
 `f.id` and `d.segment`, a qualified predicate such as `f.amount >= 10`, and an
-explicit `limit(...)`. Broad DataFrame joins remain blocked: outer/semi/anti/cross
+explicit `limit(...)`. A joined workflow can end in `agg(...).limit(...)` or
+`group_by(...).agg(...).limit(...)` for the admitted scalar/grouped join-aggregate subset. Broad
+DataFrame joins remain blocked: outer/semi/anti/cross
 joins, expression joins,
 unqualified join predicates, nested/complex structured data, and
 object-store/table joins still return deterministic unsupported diagnostics or
@@ -824,8 +829,8 @@ print(claim.public_performance_claim_allowed)
 ```
 
 The lower-level `client.sql_local_source_smoke(...)` helper can also call the
-scoped local CSV scalar, grouped aggregate, order/top-N, and explicit inner
-equi-join smokes directly. Direct client calls are only a typed wrapper around
+scoped local CSV scalar, grouped aggregate, order/top-N, explicit inner
+equi-join, and join-aggregate smokes directly. Direct client calls are only a typed wrapper around
 the CLI fixture-smoke evidence:
 
 ```python
@@ -868,6 +873,17 @@ print(join.join_type)
 print(join.join_left_keys, join.join_right_keys)
 print(join.join_key_arity, join.join_multi_key_runtime_execution)
 print(join.join_matched_row_count, join.join_rows_output)
+
+join_grouped = client.sql_local_source_smoke(
+    "SELECT d.segment,count(*) AS rows,sum(f.amount) AS total_amount "
+    "FROM 'target/sql-local-source-join-fact.csv' AS f "
+    "INNER JOIN 'target/sql-local-source-join-dim.csv' AS d "
+    "ON f.customer_id = d.customer_id AND f.region = d.region "
+    "WHERE f.amount >= 10 GROUP BY d.segment LIMIT 10",
+)
+print(join_grouped.join_aggregate_runtime_execution)
+print(join_grouped.join_aggregate_operator_family)
+print(join_grouped.join_aggregate_group_count)
 ```
 
 That path is still fixture-smoke evidence only. Broader grouped aggregate generality,

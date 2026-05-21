@@ -560,8 +560,9 @@ or documentation updates alone are insufficient.
     `.parquet`/Arrow IPC/Avro/ORC
     projection/optional-filter/limit,
     preview/select-star, scalar aggregate/optional-filter/limit with aliases, multi-key group-by
-    aggregate/optional-filter/limit, single-key numeric top-N workflows, and scoped single- or
-    multi-key local-source inner equi-join bridges into that runtime path.
+    aggregate/optional-filter/limit, single-key numeric top-N workflows, scoped single- or
+    multi-key local-source inner equi-join bridges, and scalar/grouped join aggregates into that
+    runtime path.
     Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC
     source certificate refs, execution certificate refs, materialization boundaries, pushdown status,
@@ -1049,7 +1050,8 @@ docs/website parity, and a completed-ledger entry.
   - Source: `GAR-RUNTIME-IMPL-4B`, `GAR-RUNTIME-IMPL-4C`, `GAR-RUNTIME-IMPL-4D`, RFC 0032.
   - Current state: scoped local CSV/flat JSONL SQL smoke paths exist for
     projection/optional-filter/limit, preview/select-star, scalar and grouped aggregates with
-    optional filters and output aliases, top-N, and explicit single- or multi-key inner equi-join
+    optional filters and output aliases, top-N, explicit single- or multi-key inner equi-join, and
+    scoped scalar/grouped join-aggregate
     shapes; richer expressions, casts, dates, strings, windows, subqueries, catalogs,
     Python/DataFrame joins, expression/outer/semi/anti/cross joins, and broad planner behavior
     remain incomplete or blocked.
@@ -1081,7 +1083,8 @@ docs/website parity, and a completed-ledger entry.
     Use Case Atlas.
   - Current state: Python wrapper and selected query-builder methods exist. The local CSV/flat
     JSONL query builder now covers projection/filter/limit, preview, scalar aggregate, multi-key
-    group-by, single-key top-N, scoped single- or multi-key local-source inner equi-join, explicit-projection literal
+    group-by, single-key top-N, scoped single- or multi-key local-source inner equi-join,
+    scalar/grouped join aggregate, explicit-projection literal
     `with_column(...)`, and `count()` workflows, but complete end-to-end generated/local/Vortex workflows and
     unsupported-method diagnostics are not yet ordinary user-grade coverage.
   - Next slice outcome: make one import path support generated, local file, and prepared/native
@@ -1117,7 +1120,8 @@ docs/website parity, and a completed-ledger entry.
     feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
     projection/optional-filter/limit,
     preview/select-star, scalar-aggregate/optional-filter/limit with aliases, multi-key group-by
-    aggregate/optional-filter/limit, and single-key numeric top-N workflows, and local-source
+    aggregate/optional-filter/limit, single-key numeric top-N workflows, scalar/grouped join
+    aggregates, and local-source
     evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC rows. Nested JSON/JSONPath, broader
     Parquet/Arrow IPC/Avro/ORC type/nesting coverage,

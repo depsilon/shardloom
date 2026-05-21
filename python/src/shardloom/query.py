@@ -2009,13 +2009,7 @@ class LazyFrame:
         if group_by_list is not None and aggregate_list is None:
             return None
         if join_info is not None:
-            if (
-                projection_list is None
-                or aggregate_list is not None
-                or group_by_list is not None
-                or literal_columns
-                or sort_key is not None
-            ):
+            if literal_columns or sort_key is not None:
                 return None
             right_uri, left_key, right_key, _how, left_alias, right_alias = join_info
             left_keys = tuple(column for column in left_key.split(",") if column)
@@ -2026,14 +2020,27 @@ class LazyFrame:
                 f"{left_alias}.{left_column} = {right_alias}.{right_column}"
                 for left_column, right_column in zip(left_keys, right_keys)
             )
-            select_clause = ",".join(projection_list)
+            if aggregate_list is not None:
+                if projection_list is not None:
+                    return None
+                if group_by_list is not None:
+                    select_clause = ",".join((*group_by_list, *aggregate_list))
+                    group_by_clause = f" GROUP BY {','.join(group_by_list)}"
+                else:
+                    select_clause = ",".join(aggregate_list)
+                    group_by_clause = ""
+            else:
+                if projection_list is None or group_by_list is not None:
+                    return None
+                select_clause = ",".join(projection_list)
+                group_by_clause = ""
             source_uri = _quote_sql_local_source_path(self.source.uri)
             right_source_uri = _quote_sql_local_source_path(right_uri)
             return (
                 f"SELECT {select_clause} FROM {source_uri} AS {left_alias} "
                 f"INNER JOIN {right_source_uri} AS {right_alias} "
                 f"ON {on_clause}"
-                f"{_optional_sql_where_clause(predicate)} LIMIT {limit}"
+                f"{_optional_sql_where_clause(predicate)}{group_by_clause} LIMIT {limit}"
             )
         if projection_list is not None:
             if aggregate_list is not None or group_by_list is not None:

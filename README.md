@@ -46,8 +46,8 @@ Current runtime support is intentionally scoped and evidence-gated:
 - Python and CLI front doors for selected local CSV, JSONL/NDJSON, flat JSON, generated-source, and
   feature-gated Parquet/Arrow IPC/Avro/ORC and Vortex smokes;
 - scoped SQL local-source execution for projection, filter, limit, scalar aggregates, multi-key
-  group-by, single-key top-N, selected casts/date/string/IN predicates, and scoped single- or
-  multi-key local-source inner equi-join shapes;
+  group-by, single-key top-N, selected casts/date/string/IN predicates, scoped single- or
+  multi-key local-source inner equi-join shapes, and scoped scalar/grouped join aggregates;
 - source-free generated local outputs through user rows, ranges, sequences, calendars, SQL `VALUES`,
   literal `SELECT`, and `generate_series`/`range` smokes, including feature-gated local Vortex
   output;

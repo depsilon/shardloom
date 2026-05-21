@@ -385,6 +385,15 @@ joined = (
     .limit(10)
     .collect()
 )
+joined_grouped = (
+    ctx.read_csv("target/sql-local-source-join-fact.csv")
+    .join(ctx.read_csv("target/sql-local-source-join-dim.csv"), on=("customer_id", "region"))
+    .filter("f.amount >= 10")
+    .group_by("d.segment")
+    .agg(rows="count(*)", total_amount="sum(f.amount)")
+    .limit(10)
+    .collect()
+)
 
 print(collected.result_rows)
 print(predicate_builder.result_rows)
@@ -408,6 +417,7 @@ print(topn.result_rows)
 print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
 print(joined.result_rows)
 print(joined.join_runtime_execution, joined.join_type)
+print(joined_grouped.join_aggregate_runtime_execution, joined_grouped.join_aggregate_operator_family)
 print(joined.evidence_summary.command)
 print(joined.claim_summary.public_performance_claim_allowed)
 '@ | python -
@@ -422,14 +432,15 @@ convenience wrapper over the same `COUNT(*)` smoke; one-column
 `group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke; single-key numeric
 `sort(...).limit(...)` lowers to the scoped top-N smoke; local-source
 `join(..., on="key")` or `join(..., on=("customer_id", "region"))` with qualified
-projection/filter columns lowers to the scoped inner equi-join smoke; and explicit-projection
+projection/filter columns lowers to the scoped inner equi-join smoke; scalar/grouped aggregates
+over those scoped joined rows lower to the scoped join-aggregate smoke; and explicit-projection
 literal `with_column(...)` lowers to scoped literal projection.
 `where(...)` is a familiar alias for `filter(...)`. `sl.col(...)` is a Python predicate helper for
 admitted comparison, inclusive `between(...)`, null, string `LIKE`, bounded `IN`, cast/date,
 Date32 extract/day arithmetic, and logical predicates; it lowers into ShardLoom's existing local SQL
 runtime rather than a Python engine. It is not a pandas/Polars backend, broad DataFrame runtime,
 non-literal `with_column`, generalized grouped aggregate,
-ordering, or join runtime, object-store/table path, production SQL support, or performance claim.
+ordering, or broad join runtime, object-store/table path, production SQL support, or performance claim.
 Runtime reports also expose `result_rows` / `first_result_row` plus `evidence_summary` and
 `claim_summary` helpers so users can inspect bounded rows, the output sink, no-fallback fields,
 external-engine boundary, and claim gate without parsing raw JSONL or scraping raw JSON.
