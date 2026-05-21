@@ -5753,6 +5753,39 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertEqual(result.field("scope"), "traditional-analytics")
 
+    def test_benchmark_constitution_helper(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "benchmark-constitution",
+                    "foundation",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "benchmark-constitution",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "scope", "value": "foundation"},
+                        {"key": "benchmark_constitution_status", "value": "missing_evidence"},
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).benchmark_constitution("foundation")
+
+        self.assertEqual(result.field("scope"), "foundation")
+        self.assertEqual(result.field("benchmark_constitution_status"), "missing_evidence")
+
     def test_workflow_readiness_smoke_dispatches_no_write_planning_bundle(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

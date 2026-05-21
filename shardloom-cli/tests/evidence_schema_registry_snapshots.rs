@@ -20,8 +20,8 @@ fn evidence_schema_registry_global_output_is_typed_and_claim_safe() {
         "evidence_schema_registry_command",
         "shardloom evidence-schema [surface] --format json"
     )));
-    assert!(output.contains(&field("evidence_schema_registry_surface_count", "7")));
-    assert!(output.contains(&field("evidence_schema_registry_field_count", "238")));
+    assert!(output.contains(&field("evidence_schema_registry_surface_count", "8")));
+    assert!(output.contains(&field("evidence_schema_registry_field_count", "265")));
     assert!(output.contains(&field(
         "evidence_schema_registry_claim_gate_status",
         "metadata_only_not_claim_grade"
@@ -41,6 +41,14 @@ fn evidence_schema_registry_global_output_is_typed_and_claim_safe() {
     assert!(output.contains(&field(
         "evidence_schema_field_compute_flow_evidence_computed_result_vortex_bytes_dtype",
         "integer"
+    )));
+    assert!(output.contains(&field(
+        "evidence_schema_surface_benchmark_constitution_report_command_examples",
+        "benchmark-constitution"
+    )));
+    assert!(output.contains(&field(
+        "evidence_schema_surface_benchmark_constitution_report_field_count",
+        "27"
     )));
 }
 

@@ -7,11 +7,12 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    BenchmarkClaimEvidenceReport, BenchmarkPlan, CommandStatus,
+    BenchmarkClaimEvidenceReport, BenchmarkConstitutionValidationReport,
+    BenchmarkConstitutionValidationRow, BenchmarkPlan, CommandStatus,
     ComparativeRerunManagedPlatformGateReport, ComparativeRerunManagedPlatformGateRow,
     OutputFormat, ShardLoomError, SparkDisplacementBenchmarkEvidenceMatrixReport,
     SparkDisplacementBenchmarkEvidenceRow, plan_benchmark_claim_evidence,
-    plan_comparative_rerun_managed_platform_gate,
+    plan_benchmark_constitution_validation, plan_comparative_rerun_managed_platform_gate,
     plan_spark_displacement_benchmark_evidence_matrix,
 };
 
@@ -102,6 +103,54 @@ pub(crate) fn handle_benchmark_claim_evidence_plan(
     }
 }
 
+pub(crate) fn handle_benchmark_constitution(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let scope = args.next();
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "benchmark-constitution",
+            format,
+            "benchmark constitution validation failed",
+            &ShardLoomError::InvalidOperation(format!(
+                "unknown extra benchmark-constitution argument: {extra}"
+            )),
+        );
+    }
+    let plan = match benchmark_plan_for_scope(scope.as_deref()) {
+        Ok(plan) => plan,
+        Err(error) => {
+            return emit_error(
+                "benchmark-constitution",
+                format,
+                "benchmark constitution validation failed",
+                &error,
+            );
+        }
+    };
+    let scope_label = scope.unwrap_or_else(|| "foundation".to_string());
+    let report = plan_benchmark_constitution_validation(scope_label, &plan);
+    emit(
+        "benchmark-constitution",
+        format,
+        if report.has_errors() {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        "benchmark constitution validation".to_string(),
+        report.to_human_text(),
+        report.diagnostics.clone(),
+        benchmark_constitution_fields(&report),
+    );
+    if report.has_errors() {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
 pub(crate) fn benchmark_plan_fields(plan: &BenchmarkPlan) -> Vec<(String, String)> {
     let mut fields = Vec::new();
     append_benchmark_plan_overview_fields(&mut fields, plan);
@@ -109,6 +158,246 @@ pub(crate) fn benchmark_plan_fields(plan: &BenchmarkPlan) -> Vec<(String, String
     append_benchmark_plan_metric_fields(&mut fields, plan);
     append_benchmark_plan_claim_fields(&mut fields, plan);
     fields
+}
+
+#[allow(clippy::too_many_lines)]
+pub(crate) fn benchmark_constitution_fields(
+    report: &BenchmarkConstitutionValidationReport,
+) -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(&mut fields, "mode", "benchmark_constitution");
+    push_field(&mut fields, "schema_version", report.schema_version);
+    push_field(&mut fields, "report_id", report.report_id);
+    push_field(
+        &mut fields,
+        "benchmark_constitution_schema_version",
+        report.schema_version,
+    );
+    push_field(
+        &mut fields,
+        "benchmark_constitution_report_id",
+        report.report_id,
+    );
+    push_field(&mut fields, "scope", &report.scope);
+    push_field(
+        &mut fields,
+        "benchmark_constitution_status",
+        report.status.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "benchmark_constitution_support_status",
+        report.support_status,
+    );
+    push_field(
+        &mut fields,
+        "benchmark_constitution_claim_gate_status",
+        report.claim_gate_status.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "benchmark_constitution_claim_boundary",
+        report.claim_boundary,
+    );
+    push_field(
+        &mut fields,
+        "benchmark_constitution_required_field_order",
+        &report.required_field_order.join(","),
+    );
+    push_field(
+        &mut fields,
+        "benchmark_constitution_missing_field_order",
+        &report.missing_field_order.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "benchmark_constitution_required_field_count",
+        report.required_field_order.len(),
+    );
+    push_count_field(
+        &mut fields,
+        "benchmark_constitution_missing_field_count",
+        report.missing_field_order.len(),
+    );
+    push_count_field(
+        &mut fields,
+        "benchmark_constitution_row_count",
+        report.row_count,
+    );
+    push_count_field(
+        &mut fields,
+        "benchmark_constitution_complete_row_count",
+        report.complete_row_count,
+    );
+    push_count_field(
+        &mut fields,
+        "benchmark_constitution_claim_ready_row_count",
+        report.claim_ready_row_count,
+    );
+    push_count_field(
+        &mut fields,
+        "benchmark_constitution_blocked_row_count",
+        report.blocked_row_count,
+    );
+    push_count_field(
+        &mut fields,
+        "benchmark_constitution_shardloom_row_count",
+        report.shardloom_row_count,
+    );
+    push_count_field(
+        &mut fields,
+        "benchmark_constitution_external_baseline_row_count",
+        report.external_baseline_row_count,
+    );
+    push_field(
+        &mut fields,
+        "benchmark_constitution_row_order",
+        &report
+            .rows
+            .iter()
+            .map(|row| row.row_id.as_str())
+            .collect::<Vec<_>>()
+            .join("|"),
+    );
+    append_benchmark_constitution_boolean_fields(&mut fields, report);
+    for row in &report.rows {
+        append_benchmark_constitution_row_fields(&mut fields, row);
+    }
+    push_count_field(
+        &mut fields,
+        "benchmark_constitution_diagnostic_count",
+        report.diagnostics.len(),
+    );
+    fields
+}
+
+fn append_benchmark_constitution_boolean_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &BenchmarkConstitutionValidationReport,
+) {
+    for (key, value) in [
+        (
+            "benchmark_constitution_dataset_source_admission_present",
+            report.dataset_source_admission_present,
+        ),
+        (
+            "benchmark_constitution_preparation_route_present",
+            report.preparation_route_present,
+        ),
+        (
+            "benchmark_constitution_execution_route_present",
+            report.execution_route_present,
+        ),
+        (
+            "benchmark_constitution_output_route_present",
+            report.output_route_present,
+        ),
+        (
+            "benchmark_constitution_correctness_proof_present",
+            report.correctness_proof_present,
+        ),
+        (
+            "benchmark_constitution_hardware_build_metadata_present",
+            report.hardware_build_metadata_present,
+        ),
+        (
+            "benchmark_constitution_cold_warm_state_declared",
+            report.cold_warm_state_declared,
+        ),
+        (
+            "benchmark_constitution_stage_timings_present",
+            report.stage_timings_present,
+        ),
+        (
+            "benchmark_constitution_cost_unit_fields_present",
+            report.cost_unit_fields_present,
+        ),
+        (
+            "benchmark_constitution_no_fallback_proof_present",
+            report.no_fallback_proof_present,
+        ),
+        (
+            "benchmark_constitution_external_baselines_comparison_only",
+            report.external_baselines_comparison_only,
+        ),
+        (
+            "benchmark_constitution_benchmark_execution_performed",
+            report.benchmark_execution_performed,
+        ),
+        (
+            "benchmark_constitution_external_engine_execution",
+            report.external_engine_execution,
+        ),
+        (
+            "benchmark_constitution_performance_claim_allowed",
+            report.performance_claim_allowed,
+        ),
+        (
+            "benchmark_constitution_superiority_claim_allowed",
+            report.superiority_claim_allowed,
+        ),
+        (
+            "benchmark_constitution_fallback_attempted",
+            report.fallback_attempted,
+        ),
+        (
+            "benchmark_constitution_external_engine_invoked",
+            report.external_engine_invoked,
+        ),
+        (
+            "benchmark_constitution_side_effect_free",
+            report.side_effect_free(),
+        ),
+    ] {
+        push_bool_field(fields, key, value);
+    }
+}
+
+fn append_benchmark_constitution_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &BenchmarkConstitutionValidationRow,
+) {
+    let prefix = format!("benchmark_constitution_row_{}", field_fragment(&row.row_id));
+    for (suffix, value) in [
+        ("row_id", row.row_id.as_str()),
+        ("scenario_name", row.scenario_name.as_str()),
+        ("engine", row.engine.as_str()),
+        ("row_classification", row.row_classification),
+        ("status", row.status.as_str()),
+    ] {
+        push_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    push_field(
+        fields,
+        &format!("{prefix}_missing_field_order"),
+        &row.missing_field_order.join(","),
+    );
+    for (suffix, value) in [
+        (
+            "dataset_source_admission_present",
+            row.dataset_source_admission_present,
+        ),
+        ("preparation_route_present", row.preparation_route_present),
+        ("execution_route_present", row.execution_route_present),
+        ("output_route_present", row.output_route_present),
+        ("correctness_proof_present", row.correctness_proof_present),
+        (
+            "hardware_build_metadata_present",
+            row.hardware_build_metadata_present,
+        ),
+        ("cold_warm_state_declared", row.cold_warm_state_declared),
+        ("stage_timings_present", row.stage_timings_present),
+        ("cost_unit_fields_present", row.cost_unit_fields_present),
+        ("no_fallback_proof_present", row.no_fallback_proof_present),
+        (
+            "external_baseline_boundary_present",
+            row.external_baseline_boundary_present,
+        ),
+        ("fallback_attempted", row.fallback_attempted),
+        ("external_engine_invoked", row.external_engine_invoked),
+    ] {
+        push_bool_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
 }
 
 #[allow(clippy::too_many_lines)]
@@ -1010,4 +1299,19 @@ fn push_count_field(fields: &mut Vec<(String, String)>, key: &str, value: usize)
 
 fn push_bool_field(fields: &mut Vec<(String, String)>, key: &str, value: bool) {
     push_field(fields, key, &value.to_string());
+}
+
+fn field_fragment(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string()
 }

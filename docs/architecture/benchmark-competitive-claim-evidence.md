@@ -15,6 +15,7 @@ agents can inspect before accepting any claim.
 
 ```text
 shardloom benchmark-claim-evidence-plan [foundation|traditional-analytics]
+shardloom benchmark-constitution [foundation|traditional-analytics]
 ```
 
 The command is report-only. It performs no query execution, no benchmark
@@ -39,6 +40,12 @@ The current foundation and traditional-analytics reports intentionally remain
 `needs_evidence` because they have planned scenarios and required metrics, but
 do not yet have complete correctness evidence, measured benchmark result rows,
 external comparison rows, or reproducible run metadata.
+
+`benchmark-constitution` adds the fail-closed row validator for this evidence. It requires
+benchmark result identity, source admission, preparation route, execution route, output route,
+correctness proof, hardware/build metadata, cold/warm cache state, stage timings, cost/unit fields
+where available, no-fallback proof, and external-baseline boundary markers before any row can be
+treated as claim-grade.
 
 ## Claim Rules
 

@@ -35,6 +35,11 @@ REQUIRED_MANIFEST_FIELDS = {
     "environment",
     "claim_boundary",
     "performance_claim_allowed",
+    "benchmark_constitution_schema_version",
+    "benchmark_constitution_validator",
+    "benchmark_constitution_required_field_order",
+    "benchmark_constitution_claim_gate_status",
+    "benchmark_constitution_performance_claim_allowed",
     "artifact_paths",
 }
 
@@ -149,6 +154,13 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
         )
     if manifest.get("performance_claim_allowed") is not False:
         blockers.append("performance_claim_allowed must be false")
+    if (
+        manifest.get("benchmark_constitution_schema_version")
+        != "shardloom.benchmark_constitution_validation.v1"
+    ):
+        blockers.append("benchmark_constitution_schema_version mismatch")
+    if manifest.get("benchmark_constitution_performance_claim_allowed") is not False:
+        blockers.append("benchmark_constitution_performance_claim_allowed must be false")
     profile = manifest.get("benchmark_profile")
     if profile not in PROFILES:
         blockers.append(f"unknown benchmark_profile: {profile}")

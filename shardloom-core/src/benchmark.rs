@@ -1023,6 +1023,285 @@ impl BenchmarkEvidenceBundle {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkConstitutionValidationStatus {
+    ReadyForClaimReview,
+    MissingEvidence,
+    UnsafeFallbackPolicy,
+}
+
+impl BenchmarkConstitutionValidationStatus {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::ReadyForClaimReview => "ready_for_claim_review",
+            Self::MissingEvidence => "missing_evidence",
+            Self::UnsafeFallbackPolicy => "unsafe_fallback_policy",
+        }
+    }
+
+    #[must_use]
+    pub const fn is_error(&self) -> bool {
+        matches!(self, Self::UnsafeFallbackPolicy)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct BenchmarkConstitutionValidationRow {
+    pub row_id: String,
+    pub scenario_name: String,
+    pub engine: BaselineEngine,
+    pub row_classification: &'static str,
+    pub status: BenchmarkConstitutionValidationStatus,
+    pub missing_field_order: Vec<String>,
+    pub dataset_source_admission_present: bool,
+    pub preparation_route_present: bool,
+    pub execution_route_present: bool,
+    pub output_route_present: bool,
+    pub correctness_proof_present: bool,
+    pub hardware_build_metadata_present: bool,
+    pub cold_warm_state_declared: bool,
+    pub stage_timings_present: bool,
+    pub cost_unit_fields_present: bool,
+    pub no_fallback_proof_present: bool,
+    pub external_baseline_boundary_present: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl BenchmarkConstitutionValidationRow {
+    #[must_use]
+    pub fn claim_bearing(&self) -> bool {
+        matches!(
+            self.status,
+            BenchmarkConstitutionValidationStatus::ReadyForClaimReview
+        )
+    }
+
+    #[must_use]
+    pub fn complete(&self) -> bool {
+        self.missing_field_order.is_empty()
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct BenchmarkConstitutionValidationReport {
+    pub schema_version: &'static str,
+    pub report_id: &'static str,
+    pub scope: String,
+    pub status: BenchmarkConstitutionValidationStatus,
+    pub support_status: &'static str,
+    pub claim_gate_status: BenchmarkClaimStatus,
+    pub claim_boundary: &'static str,
+    pub required_field_order: Vec<&'static str>,
+    pub missing_field_order: Vec<String>,
+    pub row_count: usize,
+    pub complete_row_count: usize,
+    pub claim_ready_row_count: usize,
+    pub blocked_row_count: usize,
+    pub shardloom_row_count: usize,
+    pub external_baseline_row_count: usize,
+    pub dataset_source_admission_present: bool,
+    pub preparation_route_present: bool,
+    pub execution_route_present: bool,
+    pub output_route_present: bool,
+    pub correctness_proof_present: bool,
+    pub hardware_build_metadata_present: bool,
+    pub cold_warm_state_declared: bool,
+    pub stage_timings_present: bool,
+    pub cost_unit_fields_present: bool,
+    pub no_fallback_proof_present: bool,
+    pub external_baselines_comparison_only: bool,
+    pub benchmark_execution_performed: bool,
+    pub external_engine_execution: bool,
+    pub performance_claim_allowed: bool,
+    pub superiority_claim_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub rows: Vec<BenchmarkConstitutionValidationRow>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+impl BenchmarkConstitutionValidationReport {
+    #[must_use]
+    pub fn required_field_order() -> Vec<&'static str> {
+        vec![
+            "benchmark_result_row",
+            "dataset_source_admission",
+            "preparation_route",
+            "execution_route",
+            "output_route",
+            "correctness_proof",
+            "hardware_profile",
+            "build_profile",
+            "cold_warm_state",
+            "stage_timings",
+            "cost_unit_fields",
+            "no_fallback_proof",
+            "external_baseline_boundary",
+        ]
+    }
+
+    #[must_use]
+    pub fn from_parts(
+        scope: impl Into<String>,
+        plan: &BenchmarkPlan,
+        run_manifest: &BenchmarkRunManifest,
+        comparison_report: &BenchmarkComparisonReport,
+    ) -> Self {
+        let bundle =
+            BenchmarkEvidenceBundle::from_reports(run_manifest.clone(), comparison_report.clone());
+        let rows = benchmark_constitution_rows(plan, run_manifest, comparison_report);
+        let missing_field_order = aggregate_benchmark_constitution_missing_fields(&rows);
+        let fallback_attempted =
+            run_manifest.fallback.attempted() || comparison_report.fallback.attempted();
+        let external_engine_invoked = false;
+        let no_fallback_proof_present = !fallback_attempted
+            && plan.baselines_are_fallback_free()
+            && rows
+                .iter()
+                .all(|row| row.no_fallback_proof_present && !row.fallback_attempted);
+        let status = if fallback_attempted || !plan.baselines_are_fallback_free() {
+            BenchmarkConstitutionValidationStatus::UnsafeFallbackPolicy
+        } else if missing_field_order.is_empty() && bundle.can_publish_performance_claim() {
+            BenchmarkConstitutionValidationStatus::ReadyForClaimReview
+        } else {
+            BenchmarkConstitutionValidationStatus::MissingEvidence
+        };
+        let support_status = if matches!(
+            status,
+            BenchmarkConstitutionValidationStatus::ReadyForClaimReview
+        ) {
+            "claim_review_ready"
+        } else {
+            "blocked"
+        };
+        let complete_row_count = rows.iter().filter(|row| row.complete()).count();
+        let claim_ready_row_count = rows.iter().filter(|row| row.claim_bearing()).count();
+        let blocked_row_count = rows.len().saturating_sub(complete_row_count);
+        let shardloom_row_count = rows
+            .iter()
+            .filter(|row| row.engine == BaselineEngine::ShardLoom)
+            .count();
+        let external_baseline_row_count = rows.len().saturating_sub(shardloom_row_count);
+        let external_baselines_comparison_only = rows
+            .iter()
+            .filter(|row| row.engine != BaselineEngine::ShardLoom)
+            .all(|row| row.external_baseline_boundary_present && !row.fallback_attempted);
+        let performance_claim_allowed = bundle.can_publish_performance_claim();
+        let mut diagnostics = bundle.diagnostics;
+        if !missing_field_order.is_empty() {
+            diagnostics.push(Diagnostic::not_implemented(
+                "benchmark constitution row validation",
+                "Benchmark rows are missing claim-grade constitution fields for source admission, routes, correctness, environment, timing, cost, or no-fallback proof.",
+                "Populate the benchmark manifest/result rows through an approved benchmark harness before treating any benchmark row as claim-grade evidence.",
+            ));
+        }
+        if fallback_attempted || !plan.baselines_are_fallback_free() {
+            diagnostics.push(Diagnostic::not_implemented(
+                "benchmark constitution no-fallback proof",
+                "Benchmark evidence cannot satisfy claim-grade review when fallback execution was attempted or a baseline is treated as fallback-capable.",
+                "Keep external engines as baselines/oracles only and record fallback_attempted=false for every ShardLoom benchmark row.",
+            ));
+        }
+
+        Self {
+            schema_version: "shardloom.benchmark_constitution_validation.v1",
+            report_id: "review-p1-3.benchmark_constitution_validation",
+            scope: scope.into(),
+            status,
+            support_status,
+            claim_gate_status: bundle.claim_gate.status,
+            claim_boundary: "benchmark constitution validation only; not a performance, superiority, replacement, package, or production claim",
+            required_field_order: Self::required_field_order(),
+            missing_field_order,
+            row_count: rows.len(),
+            complete_row_count,
+            claim_ready_row_count,
+            blocked_row_count,
+            shardloom_row_count,
+            external_baseline_row_count,
+            dataset_source_admission_present: rows
+                .iter()
+                .all(|row| row.dataset_source_admission_present),
+            preparation_route_present: rows.iter().all(|row| row.preparation_route_present),
+            execution_route_present: rows.iter().all(|row| row.execution_route_present),
+            output_route_present: rows.iter().all(|row| row.output_route_present),
+            correctness_proof_present: rows.iter().all(|row| row.correctness_proof_present),
+            hardware_build_metadata_present: rows
+                .iter()
+                .all(|row| row.hardware_build_metadata_present),
+            cold_warm_state_declared: rows.iter().all(|row| row.cold_warm_state_declared),
+            stage_timings_present: rows.iter().all(|row| row.stage_timings_present),
+            cost_unit_fields_present: rows.iter().all(|row| row.cost_unit_fields_present),
+            no_fallback_proof_present,
+            external_baselines_comparison_only,
+            benchmark_execution_performed: false,
+            external_engine_execution: false,
+            performance_claim_allowed: matches!(
+                status,
+                BenchmarkConstitutionValidationStatus::ReadyForClaimReview
+            ) && performance_claim_allowed,
+            superiority_claim_allowed: false,
+            fallback_attempted,
+            external_engine_invoked,
+            rows,
+            diagnostics,
+        }
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.status.is_error()
+    }
+
+    #[must_use]
+    pub const fn side_effect_free(&self) -> bool {
+        !self.benchmark_execution_performed
+            && !self.external_engine_execution
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "benchmark_constitution(status={}, scope={}, rows={}, complete_rows={}, missing_fields={}, claim_gate={}, performance_claim_allowed={}, fallback_execution=disabled)",
+            self.status.as_str(),
+            self.scope,
+            self.row_count,
+            self.complete_row_count,
+            self.missing_field_order.len(),
+            self.claim_gate_status.as_str(),
+            self.performance_claim_allowed,
+        )
+    }
+}
+
+#[must_use]
+pub fn plan_benchmark_constitution_validation(
+    scope: impl Into<String>,
+    plan: &BenchmarkPlan,
+) -> BenchmarkConstitutionValidationReport {
+    let run_manifest = BenchmarkRunManifest::from_plan(plan);
+    let comparison_report = BenchmarkComparisonReport::from_plan(plan);
+    benchmark_constitution_validation_from_parts(scope, plan, &run_manifest, &comparison_report)
+}
+
+#[must_use]
+pub fn benchmark_constitution_validation_from_parts(
+    scope: impl Into<String>,
+    plan: &BenchmarkPlan,
+    run_manifest: &BenchmarkRunManifest,
+    comparison_report: &BenchmarkComparisonReport,
+) -> BenchmarkConstitutionValidationReport {
+    BenchmarkConstitutionValidationReport::from_parts(scope, plan, run_manifest, comparison_report)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BenchmarkClaimEvidenceStatus {
     ReadyForClaimReview,
     NeedsEvidence,
@@ -1850,6 +2129,200 @@ pub fn benchmark_claim_evidence_from_parts(
     }
 }
 
+fn benchmark_constitution_rows(
+    plan: &BenchmarkPlan,
+    run_manifest: &BenchmarkRunManifest,
+    comparison_report: &BenchmarkComparisonReport,
+) -> Vec<BenchmarkConstitutionValidationRow> {
+    let mut rows = Vec::new();
+    for scenario in &plan.scenarios {
+        let dataset_source_admission_present = run_manifest
+            .dataset_profiles
+            .iter()
+            .find(|profile| profile.scenario_name == scenario.name)
+            .is_some_and(BenchmarkDatasetProfile::is_complete);
+        for engine in &scenario.baselines {
+            let result = comparison_report
+                .results
+                .iter()
+                .find(|result| result.scenario_name == scenario.name && result.engine == *engine);
+            rows.push(benchmark_constitution_row(
+                scenario,
+                *engine,
+                result,
+                run_manifest,
+                comparison_report,
+                dataset_source_admission_present,
+            ));
+        }
+    }
+    rows
+}
+
+fn benchmark_constitution_row(
+    scenario: &BenchmarkScenario,
+    engine: BaselineEngine,
+    result: Option<&BenchmarkResult>,
+    run_manifest: &BenchmarkRunManifest,
+    comparison_report: &BenchmarkComparisonReport,
+    dataset_source_admission_present: bool,
+) -> BenchmarkConstitutionValidationRow {
+    let result_present = result.is_some();
+    let preparation_route_present = non_empty_option(scenario.storage_format.as_deref())
+        && non_empty_option(scenario.query_or_operation.as_deref());
+    let execution_route_present = result_present
+        && scenario.correctness_validation != CorrectnessValidationMode::NotYetDefined
+        && !scenario.baselines.is_empty();
+    let output_route_present = result.is_some_and(benchmark_result_has_output_route_metric);
+    let correctness_proof_present = comparison_report.correctness_evidence.is_present()
+        && scenario.correctness_validation != CorrectnessValidationMode::NotYetDefined;
+    let hardware_build_metadata_present =
+        non_empty_option(run_manifest.hardware_profile.as_deref())
+            && non_empty_option(run_manifest.operating_system_profile.as_deref())
+            && non_empty_option(run_manifest.runtime_configuration.as_deref())
+            && run_manifest.has_engine_version(engine);
+    let cold_warm_state_declared = run_manifest.cache_state.is_declared();
+    let stage_timings_present = result.is_some_and(benchmark_result_has_stage_timing_metric);
+    let cost_unit_fields_present = !scenario.requires_metric(BenchmarkMetric::CostProxy)
+        || result.is_some_and(|result| result.has_known_metric(BenchmarkMetric::CostProxy));
+    let fallback_attempted = run_manifest.fallback.attempted()
+        || result.is_some_and(|result| result.fallback.attempted());
+    let no_fallback_proof_present = !fallback_attempted && !engine.is_fallback_allowed();
+    let external_baseline_boundary_present = engine == BaselineEngine::ShardLoom
+        || (!engine.is_fallback_allowed() && no_fallback_proof_present);
+    let external_engine_invoked = false;
+    let missing_field_order = benchmark_constitution_missing_fields(
+        result_present,
+        dataset_source_admission_present,
+        preparation_route_present,
+        execution_route_present,
+        output_route_present,
+        correctness_proof_present,
+        hardware_build_metadata_present,
+        cold_warm_state_declared,
+        stage_timings_present,
+        cost_unit_fields_present,
+        no_fallback_proof_present,
+        external_baseline_boundary_present,
+    );
+    let status = if fallback_attempted || external_engine_invoked {
+        BenchmarkConstitutionValidationStatus::UnsafeFallbackPolicy
+    } else if missing_field_order.is_empty() {
+        BenchmarkConstitutionValidationStatus::ReadyForClaimReview
+    } else {
+        BenchmarkConstitutionValidationStatus::MissingEvidence
+    };
+
+    BenchmarkConstitutionValidationRow {
+        row_id: format!("{}::{}", scenario.name, engine.as_str()),
+        scenario_name: scenario.name.clone(),
+        engine,
+        row_classification: if engine == BaselineEngine::ShardLoom {
+            "shardloom_execution_evidence"
+        } else {
+            "external_baseline_only"
+        },
+        status,
+        missing_field_order,
+        dataset_source_admission_present,
+        preparation_route_present,
+        execution_route_present,
+        output_route_present,
+        correctness_proof_present,
+        hardware_build_metadata_present,
+        cold_warm_state_declared,
+        stage_timings_present,
+        cost_unit_fields_present,
+        no_fallback_proof_present,
+        external_baseline_boundary_present,
+        fallback_attempted,
+        external_engine_invoked,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::fn_params_excessive_bools)]
+fn benchmark_constitution_missing_fields(
+    result_present: bool,
+    dataset_source_admission_present: bool,
+    preparation_route_present: bool,
+    execution_route_present: bool,
+    output_route_present: bool,
+    correctness_proof_present: bool,
+    hardware_build_metadata_present: bool,
+    cold_warm_state_declared: bool,
+    stage_timings_present: bool,
+    cost_unit_fields_present: bool,
+    no_fallback_proof_present: bool,
+    external_baseline_boundary_present: bool,
+) -> Vec<String> {
+    let mut missing = Vec::new();
+    for (field, present) in [
+        ("benchmark_result_row", result_present),
+        ("dataset_source_admission", dataset_source_admission_present),
+        ("preparation_route", preparation_route_present),
+        ("execution_route", execution_route_present),
+        ("output_route", output_route_present),
+        ("correctness_proof", correctness_proof_present),
+        ("hardware_profile", hardware_build_metadata_present),
+        ("build_profile", hardware_build_metadata_present),
+        ("cold_warm_state", cold_warm_state_declared),
+        ("stage_timings", stage_timings_present),
+        ("cost_unit_fields", cost_unit_fields_present),
+        ("no_fallback_proof", no_fallback_proof_present),
+        (
+            "external_baseline_boundary",
+            external_baseline_boundary_present,
+        ),
+    ] {
+        if !present {
+            missing.push(field.to_string());
+        }
+    }
+    missing
+}
+
+fn aggregate_benchmark_constitution_missing_fields(
+    rows: &[BenchmarkConstitutionValidationRow],
+) -> Vec<String> {
+    let mut missing = Vec::new();
+    for required in BenchmarkConstitutionValidationReport::required_field_order() {
+        if rows.iter().any(|row| {
+            row.missing_field_order
+                .iter()
+                .any(|field| field == required)
+        }) {
+            missing.push(required.to_string());
+        }
+    }
+    missing
+}
+
+fn benchmark_result_has_stage_timing_metric(result: &BenchmarkResult) -> bool {
+    [
+        BenchmarkMetric::StartupLatencyMillis,
+        BenchmarkMetric::WallTimeMillis,
+        BenchmarkMetric::QueryRuntimeMillis,
+        BenchmarkMetric::WriteCommitLatencyMillis,
+        BenchmarkMetric::CpuTimeMillis,
+    ]
+    .iter()
+    .any(|metric| result.has_known_metric(*metric))
+}
+
+fn benchmark_result_has_output_route_metric(result: &BenchmarkResult) -> bool {
+    [
+        BenchmarkMetric::RowsMaterialized,
+        BenchmarkMetric::RowsMaterializationAvoided,
+        BenchmarkMetric::BytesWritten,
+        BenchmarkMetric::OutputFiles,
+        BenchmarkMetric::OutputBytes,
+        BenchmarkMetric::WriteCommitLatencyMillis,
+    ]
+    .iter()
+    .any(|metric| result.has_known_metric(*metric))
+}
+
 struct BenchmarkClaimBlockedSurfaceContext<'a> {
     plan: &'a BenchmarkPlan,
     run_manifest: &'a BenchmarkRunManifest,
@@ -2533,6 +3006,7 @@ mod tests {
         scenario.dataset_name = Some("fixture".to_string());
         scenario.dataset_scale = Some("tiny".to_string());
         scenario.storage_format = Some("vortex".to_string());
+        scenario.query_or_operation = Some("metadata_count".to_string());
         scenario.correctness_validation = CorrectnessValidationMode::ExpectedOutput;
         scenario.add_baseline(BaselineEngine::ShardLoom);
         scenario.add_required_metric(metric);
@@ -2848,6 +3322,133 @@ mod tests {
                 .to_human_text()
                 .contains("fallback_execution=disabled")
         );
+    }
+
+    #[test]
+    fn benchmark_constitution_validation_blocks_default_report_without_rows() {
+        let plan = BenchmarkPlan::default_foundation_plan();
+        let report = plan_benchmark_constitution_validation("foundation", &plan);
+
+        assert_eq!(
+            report.schema_version,
+            "shardloom.benchmark_constitution_validation.v1"
+        );
+        assert_eq!(
+            report.report_id,
+            "review-p1-3.benchmark_constitution_validation"
+        );
+        assert_eq!(
+            report.status,
+            BenchmarkConstitutionValidationStatus::MissingEvidence
+        );
+        assert_eq!(report.support_status, "blocked");
+        assert_eq!(report.row_count, 14);
+        assert_eq!(report.complete_row_count, 0);
+        assert_eq!(report.claim_ready_row_count, 0);
+        assert_eq!(report.shardloom_row_count, 7);
+        assert_eq!(report.external_baseline_row_count, 7);
+        assert!(
+            report
+                .required_field_order
+                .contains(&"dataset_source_admission")
+        );
+        assert!(
+            report
+                .missing_field_order
+                .contains(&"benchmark_result_row".to_string())
+        );
+        assert!(
+            report
+                .missing_field_order
+                .contains(&"correctness_proof".to_string())
+        );
+        assert!(
+            report
+                .missing_field_order
+                .contains(&"hardware_profile".to_string())
+        );
+        assert!(!report.performance_claim_allowed);
+        assert!(!report.superiority_claim_allowed);
+        assert!(report.external_baselines_comparison_only);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(report.side_effect_free());
+        assert!(
+            report
+                .to_human_text()
+                .contains("fallback_execution=disabled")
+        );
+    }
+
+    #[test]
+    fn benchmark_constitution_validation_allows_complete_structural_rows() {
+        let mut plan = ready_plan("encoded count", BenchmarkMetric::WallTimeMillis);
+        plan.scenarios[0].add_required_metric(BenchmarkMetric::RowsMaterialized);
+        let manifest = reproducible_manifest(&plan);
+        let mut result =
+            BenchmarkResult::new("encoded count", BaselineEngine::ShardLoom).expect("result");
+        result.add_metric(BenchmarkMetric::WallTimeMillis, MetricValue::U64(10));
+        result.add_metric(BenchmarkMetric::RowsMaterialized, MetricValue::U64(1));
+        let comparison = BenchmarkComparisonReport::from_plan_and_results(
+            &plan,
+            vec![result],
+            BenchmarkEvidenceState::Present,
+        );
+
+        let report =
+            benchmark_constitution_validation_from_parts("complete", &plan, &manifest, &comparison);
+
+        assert_eq!(
+            report.status,
+            BenchmarkConstitutionValidationStatus::ReadyForClaimReview
+        );
+        assert_eq!(
+            report.claim_gate_status,
+            BenchmarkClaimStatus::ReadyToPublish
+        );
+        assert!(report.missing_field_order.is_empty());
+        assert_eq!(report.complete_row_count, 1);
+        assert_eq!(report.claim_ready_row_count, 1);
+        assert!(report.dataset_source_admission_present);
+        assert!(report.preparation_route_present);
+        assert!(report.execution_route_present);
+        assert!(report.output_route_present);
+        assert!(report.correctness_proof_present);
+        assert!(report.hardware_build_metadata_present);
+        assert!(report.cold_warm_state_declared);
+        assert!(report.stage_timings_present);
+        assert!(report.cost_unit_fields_present);
+        assert!(report.no_fallback_proof_present);
+        assert!(report.performance_claim_allowed);
+        assert!(!report.superiority_claim_allowed);
+        assert!(report.side_effect_free());
+    }
+
+    #[test]
+    fn benchmark_constitution_validation_rejects_fallback_attempts() {
+        let plan = ready_plan("encoded count", BenchmarkMetric::WallTimeMillis);
+        let manifest = reproducible_manifest(&plan);
+        let mut result =
+            BenchmarkResult::new("encoded count", BaselineEngine::ShardLoom).expect("result");
+        result.add_metric(BenchmarkMetric::WallTimeMillis, MetricValue::U64(10));
+        result.fallback = BenchmarkFallbackState::Attempted;
+        let comparison = BenchmarkComparisonReport::from_plan_and_results(
+            &plan,
+            vec![result],
+            BenchmarkEvidenceState::Present,
+        );
+
+        let report =
+            benchmark_constitution_validation_from_parts("fallback", &plan, &manifest, &comparison);
+
+        assert_eq!(
+            report.status,
+            BenchmarkConstitutionValidationStatus::UnsafeFallbackPolicy
+        );
+        assert!(report.has_errors());
+        assert!(report.fallback_attempted);
+        assert!(!report.no_fallback_proof_present);
+        assert!(!report.performance_claim_allowed);
     }
 
     #[test]

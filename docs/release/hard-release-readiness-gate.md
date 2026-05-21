@@ -101,6 +101,18 @@ package metadata/license proof, package-channel proof, SBOM/checksum/provenance 
 no-fallback dependency audit, and release notes or known-unsupported-path evidence before public
 claims are allowed.
 
+Benchmark rows also pass through the fail-closed constitution validator:
+
+```powershell
+python scripts\check_benchmark_constitution.py
+```
+
+The release gate checks `shardloom.benchmark_constitution_validation.v1` manifest fields and keeps
+`benchmark_constitution_performance_claim_allowed=false` until claim-bearing rows include source
+admission, preparation/execution/output routes, correctness proof, hardware/build metadata,
+cold/warm attribution, stage timings, cost/unit fields where available, no-fallback proof, and
+external-baseline boundary evidence.
+
 The package-channel matrix uses schema `shardloom.package_channel_readiness_matrix.v1`:
 
 ```powershell

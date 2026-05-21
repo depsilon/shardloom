@@ -968,6 +968,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("doctor") => diagnostics::handle_doctor(format),
         Some("explain") => diagnostics::handle_explain(args, format),
         Some("benchmark-plan") => benchmark_planning::handle_benchmark_plan(args, format),
+        Some("benchmark-constitution") => {
+            benchmark_planning::handle_benchmark_constitution(args, format)
+        }
         Some("benchmark-claim-evidence-plan") => {
             benchmark_planning::handle_benchmark_claim_evidence_plan(args, format)
         }
@@ -5057,6 +5060,12 @@ mod tests {
     }
 
     #[test]
+    fn benchmark_constitution_returns_success() {
+        let code = run(vec!["benchmark-constitution".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn benchmark_claim_evidence_traditional_plan_returns_success() {
         let code = run(vec![
             "benchmark-claim-evidence-plan".to_string(),
@@ -5300,6 +5309,7 @@ mod tests {
         assert!(usage.contains("|vortex-encoded-read-metadata-probe|"));
         assert!(usage.contains("|vortex-output-payload-artifact-write|"));
         assert!(usage.contains("|vortex-native-count-payload-write|"));
+        assert!(usage.contains("|benchmark-constitution [foundation|traditional-analytics]"));
         assert!(usage.contains("|benchmark-claim-evidence-plan"));
         assert!(usage.contains("|dynamic-work-shaping-plan"));
         assert!(usage.contains("|vortex-local-commit-execute|"));

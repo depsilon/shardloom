@@ -107,6 +107,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "doctor",
     "explain",
     "benchmark-plan",
+    "benchmark-constitution",
     "benchmark-claim-evidence-plan",
     "manifest-plan",
     "layout-health-plan",
@@ -827,7 +828,7 @@ fn command_usage_fragment(command: &str) -> String {
         "dynamic-work-shaping-plan" => {
             format!("{command} [balanced|memory-pressure|object-store-throttled|small-tasks]")
         }
-        "benchmark-claim-evidence-plan" => {
+        "benchmark-constitution" | "benchmark-claim-evidence-plan" => {
             format!("{command} [foundation|traditional-analytics]")
         }
         "table-compat-plan" => {
@@ -957,7 +958,13 @@ fn command_support_state(command: &str) -> &'static str {
 fn command_side_effect_level(command: &str) -> &'static str {
     if matches!(
         command,
-        "help" | "command-metadata" | "evidence-schema" | "status" | "runs-today" | "capabilities"
+        "help"
+            | "command-metadata"
+            | "evidence-schema"
+            | "status"
+            | "runs-today"
+            | "capabilities"
+            | "benchmark-constitution"
     ) || command.ends_with("-plan")
         || command.ends_with("-gate")
         || command.ends_with("-matrix")

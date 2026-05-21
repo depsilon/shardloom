@@ -48,6 +48,7 @@ const manifestAny = manifest as any;
     <div class="metric"><strong>{metrics.availableLanes}/{metrics.expectedLanes}</strong><span>available lanes</span></div>
     <div class="metric"><strong>{metrics.claimGrade}</strong><span>claim-grade ShardLoom rows</span></div>
     <div class="metric"><strong>{metrics.sourceStateRows}</strong><span>source-state rows</span></div>
+    <div class="metric"><strong>{manifestAny.benchmark_constitution_claim_gate_status ?? "not reported"}</strong><span>constitution gate</span></div>
   </div>
 </section>
 
@@ -71,7 +72,29 @@ const manifestAny = manifest as any;
     <p class="table-note">
       Current artifact profile: <strong>{manifestAny.benchmark_profile}</strong>. Spark lanes are visible here as
       <code>full_local_plus_spark</code> lanes even when the committed artifact was generated without the JVM/Spark profile.
-      Performance claim allowed: <strong>{String(manifestAny.performance_claim_allowed)}</strong>. Claim boundary: {manifestAny.claim_boundary}.
+      Performance claim allowed: <strong>{String(manifestAny.performance_claim_allowed)}</strong>. Benchmark constitution claim gate:
+      <strong>{String(manifestAny.benchmark_constitution_claim_gate_status ?? "not reported")}</strong>. Claim boundary: {manifestAny.claim_boundary}.
+    </p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Benchmark constitution</p>
+    <h2>Rows need route, correctness, environment, and no-fallback proof before claims.</h2>
+    <p class="narrow">The manifest names the row validator and the field set required before any benchmark row can become claim-grade. Current static artifacts remain interpretation evidence, not public performance claims.</p>
+  </div>
+  <div class="artifact-panel">
+    <dl class="definition-list">
+      <div><dt>Schema</dt><dd>{manifestAny.benchmark_constitution_schema_version ?? "not reported"}</dd></div>
+      <div><dt>Validator</dt><dd>{manifestAny.benchmark_constitution_validator ?? "not reported"}</dd></div>
+      <div><dt>Claim gate</dt><dd>{manifestAny.benchmark_constitution_claim_gate_status ?? "not reported"}</dd></div>
+      <div><dt>Performance claim allowed</dt><dd>{String(manifestAny.benchmark_constitution_performance_claim_allowed ?? false)}</dd></div>
+    </dl>
+    <p class="table-note">
+      Required row fields: {Array.isArray(manifestAny.benchmark_constitution_required_field_order)
+        ? manifestAny.benchmark_constitution_required_field_order.join(", ")
+        : "not reported"}.
     </p>
   </div>
 </section>

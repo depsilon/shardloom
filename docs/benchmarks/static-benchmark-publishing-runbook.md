@@ -86,6 +86,7 @@ python website\build_static_pages.py `
   --benchmark-manifest website\assets\benchmarks\latest\manifest.json
 python scripts\check_benchmark_artifact_completeness.py `
   --manifest website\assets\benchmarks\latest\manifest.json
+python scripts\check_benchmark_constitution.py
 python scripts\check_website_readiness.py
 node website\validate_static_assets.js
 git diff --check
@@ -113,6 +114,11 @@ The manifest must include:
 - `lane_versions`
 - `lane_availability_reasons`
 - `environment`
+- `benchmark_constitution_schema_version`
+- `benchmark_constitution_validator`
+- `benchmark_constitution_required_field_order`
+- `benchmark_constitution_claim_gate_status`
+- `benchmark_constitution_performance_claim_allowed=false`
 - `claim_boundary`
 - `performance_claim_allowed=false`
 - `artifact_paths`

@@ -6,13 +6,14 @@ Source: `shardloom-cli/src/evidence_schema_registry.rs`
 
 Report id: `review-p1-2.evidence_field_schema_registry`
 
-Surface count: 7
+Surface count: 8
 
-Field count: 238
+Field count: 265
 
 Surface order: execution_mode_selection_report, compute_flow_evidence,
 execution_certificate_report, native_io_report, benchmark_plan_report,
-benchmark_claim_evidence_report, compute_capability_matrix_report
+benchmark_constitution_report, benchmark_claim_evidence_report,
+compute_capability_matrix_report
 
 Schema command: `shardloom evidence-schema [surface] --format json`
 

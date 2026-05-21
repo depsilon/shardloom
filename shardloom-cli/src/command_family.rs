@@ -240,6 +240,7 @@ fn is_benchmark_command(command: &str) -> bool {
     matches!(
         command,
         "benchmark-plan"
+            | "benchmark-constitution"
             | "traditional-analytics-run"
             | "traditional-analytics-vortex-run"
             | "traditional-analytics-vortex-batch-run"
