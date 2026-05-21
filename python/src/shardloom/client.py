@@ -565,6 +565,54 @@ class SqlLocalSourceSmokeReport:
         return rows[0] if rows else None
 
     @property
+    def source_state_id(self) -> str | None:
+        """Return the local SourceState identifier emitted by the smoke."""
+
+        value = self.envelope.field("source_state_id")
+        if value in {None, "", "not_applicable", "none"}:
+            return None
+        return value
+
+    @property
+    def source_state_digest(self) -> str | None:
+        """Return the local SourceState digest emitted by the smoke."""
+
+        value = self.envelope.field("source_state_digest")
+        if value in {None, "", "not_applicable", "none"}:
+            return None
+        return value
+
+    @property
+    def source_state_contract_schema_version(self) -> str | None:
+        """Return the local SourceState contract schema version."""
+
+        return self.envelope.field("source_state_contract_schema_version")
+
+    @property
+    def source_state_read_plan(self) -> str | None:
+        """Return the local SourceState read-plan status."""
+
+        return self.envelope.field("source_state_read_plan")
+
+    @property
+    def source_state_projection_pushdown_status(self) -> str | None:
+        """Return reader projection pushdown status for the local SourceState."""
+
+        return self.envelope.field("source_state_projection_pushdown_status")
+
+    @property
+    def source_state_materialized_columns(self) -> tuple[str, ...]:
+        """Return SourceState columns materialized by the local runtime."""
+
+        return _csv_values(self.envelope.field("source_state_materialized_columns"))
+
+    @property
+    def source_state_reader_projection_columns(self) -> tuple[str, ...]:
+        """Return columns requested from the local reader before scalar materialization."""
+
+        return _csv_values(self.envelope.field("source_state_reader_projection_columns"))
+
+    @property
     def output_path(self) -> str | None:
         """Return the local output path when the smoke wrote one."""
 

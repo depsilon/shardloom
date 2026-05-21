@@ -366,8 +366,12 @@ BATCH_RUNNER_ADMISSION_FIELDS = (
     "source_state_coverage_not_needed_scenario_count",
     "source_state_coverage_blocked_scenario_count",
     "source_state_coverage_unsupported_scenario_count",
+    "batch_source_state_digest",
     "source_state_digest_status",
     "source_state_digest_reason",
+    "source_state_digest_algorithm",
+    "source_state_digest_scope",
+    "source_state_family_digests",
     "source_state_prepare_micros",
     "source_state_prepare_timing_scope",
     "source_state_family_count",
@@ -3271,11 +3275,23 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "source_state_coverage_unsupported_scenario_count": batch_fields.get(
                     "source_state_coverage_unsupported_scenario_count", "unknown"
                 ),
+                "batch_source_state_digest": batch_fields.get(
+                    "source_state_digest", "unknown"
+                ),
                 "source_state_digest_status": batch_fields.get(
                     "source_state_digest_status", "unknown"
                 ),
                 "source_state_digest_reason": batch_fields.get(
                     "source_state_digest_reason", "unknown"
+                ),
+                "source_state_digest_algorithm": batch_fields.get(
+                    "source_state_digest_algorithm", "unknown"
+                ),
+                "source_state_digest_scope": batch_fields.get(
+                    "source_state_digest_scope", "unknown"
+                ),
+                "source_state_family_digests": batch_fields.get(
+                    "source_state_family_digests", "unknown"
                 ),
                 "source_state_reused": batch_fields.get(
                     "source_state_reused", "unknown"
@@ -3540,11 +3556,28 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             )
         if fields.get("source_state_coverage_all_requested_scenarios_classified") != "true":
             raise RuntimeError("ShardLoom batch did not classify all requested source-state rows")
-        if fields.get("source_state_digest_status") != "not_emitted_scoped_in_memory_source_state":
+        if (
+            fields.get("source_state_digest_status")
+            != "emitted_scoped_in_memory_source_state_digest"
+        ):
             raise RuntimeError(
                 "ShardLoom batch source-state digest boundary was unexpected: "
                 + str(fields.get("source_state_digest_status", "missing"))
             )
+        if not str(fields.get("source_state_digest", "")).startswith("fnv1a64:"):
+            raise RuntimeError("ShardLoom batch did not emit a stable SourceState digest")
+        if fields.get("source_state_digest_algorithm") != "fnv1a64":
+            raise RuntimeError(
+                "ShardLoom batch SourceState digest algorithm was unexpected: "
+                + str(fields.get("source_state_digest_algorithm", "missing"))
+            )
+        if fields.get("source_state_digest_scope") != "prepared_native_batch_source_state":
+            raise RuntimeError(
+                "ShardLoom batch SourceState digest scope was unexpected: "
+                + str(fields.get("source_state_digest_scope", "missing"))
+            )
+        if "source_state_family_digests" not in fields:
+            raise RuntimeError("ShardLoom batch omitted source-state family digests")
         if fields.get("source_state_fallback_attempted") != "false":
             raise RuntimeError("ShardLoom batch source-state reported fallback attempts")
         if fields.get("source_state_external_engine_invoked") != "false":

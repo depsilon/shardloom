@@ -1118,6 +1118,13 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "output_format", "value": "jsonl"}},
                             {{"key": "output_path", "value": str(output_path)}},
                             {{"key": "output_plan_digest", "value": f"sha256:output-plan-{{count}}"}},
+                            {{"key": "source_state_id", "value": f"sql-source-state-{{count}}"}},
+                            {{"key": "source_state_digest", "value": f"fnv64:sql-source-{{count}}"}},
+                            {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
+                            {{"key": "source_state_read_plan", "value": "projected_source_state"}},
+                            {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
+                            {{"key": "source_state_materialized_columns", "value": "id"}},
+                            {{"key": "source_state_reader_projection_columns", "value": "id"}},
                             {{"key": "result_replay_verified", "value": "true"}},
                             {{"key": "output_replay_status", "value": "verified_local_file_digest"}},
                             {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
@@ -1142,6 +1149,32 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertEqual(second.output_plan_digest, "sha256:output-plan-1")
             self.assertTrue(second.output_plan_reuse_hit)
             self.assertTrue(second.result_replay_reuse_hit)
+            self.assertEqual(second.source_state_id, "sql-source-state-1")
+            self.assertEqual(second.source_state_digest, "fnv64:sql-source-1")
+            self.assertEqual(
+                second.source_state_contract_schema_version,
+                "shardloom.local_source_state.v1",
+            )
+            self.assertEqual(second.source_state_read_plan, "projected_source_state")
+            self.assertEqual(
+                second.source_state_projection_pushdown_status,
+                "reader_projection_applied",
+            )
+            self.assertEqual(second.source_state_materialized_columns, ("id",))
+            self.assertEqual(second.source_state_reader_projection_columns, ("id",))
+            self.assertEqual(
+                second.evidence()["source_state_id"], "sql-source-state-1"
+            )
+            self.assertEqual(
+                second.evidence()["source_state_digest"], "fnv64:sql-source-1"
+            )
+            self.assertEqual(
+                second.evidence()["source_state_read_plan"], "projected_source_state"
+            )
+            self.assertEqual(
+                second.evidence()["source_state_projection_pushdown_status"],
+                "reader_projection_applied",
+            )
             self.assertFalse(second.fallback_attempted)
             self.assertFalse(second.external_engine_invoked)
             self.assertEqual(count_path.read_text(encoding="utf-8"), "1")

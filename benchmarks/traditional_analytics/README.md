@@ -519,8 +519,11 @@ GAR-PERF-1B adds the complete source-state coverage matrix at
 per-child `scenario_<slug>_source_state_coverage_*` fields. Coverage statuses are
 `source-state-reused`, `source-state-not-needed`, `blocked-with-reason`, and
 `unsupported-with-reason`. Rows also report
-`source_state_digest_status=not_emitted_scoped_in_memory_source_state` because the current batch
-source states are scoped in-process derived state. GAR-IOREUSE-1A adds a separate universal
+`source_state_digest_status=emitted_scoped_in_memory_source_state_digest`,
+`source_state_digest_algorithm=fnv1a64`, `source_state_digest_scope`, and
+`source_state_family_digests` for the scoped in-process derived source states. Benchmark rows expose
+the direct batch digest as `batch_source_state_digest` so it does not collide with the universal
+SourceState digest. GAR-IOREUSE-1A adds a separate universal
 SourceState identity/digest contract at the benchmark row level; it does not replace the
 family-specific batch source-state fields or turn scoped reuse into output support, Vortex-native
 execution, or a performance claim.

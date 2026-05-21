@@ -184,6 +184,48 @@ class SessionSqlResult:
         return self.reuse_hit
 
     @property
+    def source_state_id(self) -> str | None:
+        """Return the CLI SourceState id for this result when available."""
+
+        return self.report.source_state_id
+
+    @property
+    def source_state_digest(self) -> str | None:
+        """Return the CLI SourceState digest for this result when available."""
+
+        return self.report.source_state_digest
+
+    @property
+    def source_state_contract_schema_version(self) -> str | None:
+        """Return the CLI SourceState contract schema version when available."""
+
+        return self.report.source_state_contract_schema_version
+
+    @property
+    def source_state_read_plan(self) -> str | None:
+        """Return the local SourceState read-plan status when available."""
+
+        return self.report.source_state_read_plan
+
+    @property
+    def source_state_projection_pushdown_status(self) -> str | None:
+        """Return the reader projection pushdown status when available."""
+
+        return self.report.source_state_projection_pushdown_status
+
+    @property
+    def source_state_materialized_columns(self) -> tuple[str, ...]:
+        """Return local SourceState materialized columns."""
+
+        return self.report.source_state_materialized_columns
+
+    @property
+    def source_state_reader_projection_columns(self) -> tuple[str, ...]:
+        """Return local SourceState reader projection columns."""
+
+        return self.report.source_state_reader_projection_columns
+
+    @property
     def output_plan_reuse_hit(self) -> bool:
         """Whether this session reused output/result evidence for this result."""
 
@@ -227,6 +269,13 @@ class SessionSqlResult:
             "session_state_scope": self.session_state_scope,
             "operation": self.operation,
             "source_state_reuse_hit": self.source_state_reuse_hit,
+            "source_state_id": self.source_state_id,
+            "source_state_digest": self.source_state_digest,
+            "source_state_contract_schema_version": self.source_state_contract_schema_version,
+            "source_state_read_plan": self.source_state_read_plan,
+            "source_state_projection_pushdown_status": self.source_state_projection_pushdown_status,
+            "source_state_materialized_columns": self.source_state_materialized_columns,
+            "source_state_reader_projection_columns": self.source_state_reader_projection_columns,
             "output_plan_reuse_hit": self.output_plan_reuse_hit,
             "result_replay_reuse_hit": self.result_replay_reuse_hit,
             "reuse_reason": self.reuse_reason,

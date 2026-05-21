@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F1/4L prepared/native SourceState reuse digest telemetry
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-5-20260521` / #894.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest
+      attribution`.
+    - `GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse
+      runtime`.
+    - User-requested follow-through on the UniversalIngress/adapter bottleneck and reuse telemetry
+      after the 8-item sweep.
+  - Scope:
+    - Added a stable prepared/native batch `source_state_digest` over source artifact digests,
+      requested execution mode, and SourceState family reuse posture.
+    - Added per-family `source_state_family_digests`, plus digest algorithm/scope/status/reason
+      fields, to make batch SourceState reuse identity visible without creating a persistent cache
+      or performance claim.
+    - Added the benchmark-row `batch_source_state_digest` alias so the scoped batch digest stays
+      distinct from the existing universal SourceState contract `source_state_digest`.
+    - Exposed SQL local-source SourceState id, digest, contract schema, read-plan,
+      projection-pushdown status, materialized columns, and reader projection columns through
+      Python `SqlLocalSourceSmokeReport` and `SessionSqlResult.evidence()`.
+    - Updated the source-state coverage matrix, benchmark docs, compute-flow reference, and phase
+      plan so docs no longer describe the batch SourceState digest boundary as not emitted.
+  - Evidence:
+    - Prepared/native batch evidence now emits `source_state_digest_status=
+      emitted_scoped_in_memory_source_state_digest`, `source_state_digest_algorithm=fnv1a64`,
+      `source_state_digest_scope=prepared_native_batch_source_state`, and
+      `source_state_family_digests`.
+    - The traditional benchmark harness validates the new digest status, algorithm, scope, family
+      digest payload, and `batch_source_state_digest` row field.
+    - Local benchmark smoke over `selective filter` plus `filter + projection + limit` confirms the
+      two rows share the same `batch_source_state_digest` while keeping the universal
+      `source_state_digest` separate.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-vortex prepared_native_vortex_batch_run_reuses_selective_filter_source_state --features vortex-traditional-analytics-benchmark -- --nocapture`
+    - `cargo test -p shardloom-vortex prepared_native_vortex_batch --features vortex-traditional-analytics-benchmark -- --nocapture`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_session_reuses_local_query_output_when_fingerprints_match`
+    - `python -m compileall -q python\src python\tests scripts examples benchmarks\traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness source_state_reuse_coverage_matrix_classifies_every_traditional_family -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vortex --formats csv --scenario "selective filter" --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --shardloom-native-iterations 1 --output target\shardloom-benchmark-evidence\source-state-reuse-digest-smoke.json --markdown-output target\shardloom-benchmark-evidence\source-state-reuse-digest-smoke.md`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is scoped prepared/native batch SourceState identity and Python session evidence only.
+      It does not claim a persistent SourceState cache, object-store/table reuse, production
+      SQL/DataFrame support, package readiness, encoded-native coverage, or performance
+      superiority.
+  - Fallback boundary:
+    - The digest and session evidence are ShardLoom-owned telemetry over already-admitted local
+      runtime paths. Rows preserve `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5G scoped SQL/Python `COUNT(DISTINCT)` aggregate runtime
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-4-20260521` / #893.

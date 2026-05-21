@@ -36,17 +36,24 @@ The batch evidence emits:
 - `scenario_<slug>_source_state_coverage_status`
 - `scenario_<slug>_source_state_coverage_family`
 - `scenario_<slug>_source_state_coverage_reason`
-- `source_state_digest_status=not_emitted_scoped_in_memory_source_state`
+- `source_state_digest` in the direct batch report; benchmark rows also expose
+  `batch_source_state_digest` so the scoped batch digest does not collide with the universal
+  SourceState row contract digest.
+- `source_state_digest_status=emitted_scoped_in_memory_source_state_digest`
+- `source_state_digest_algorithm=fnv1a64`
+- `source_state_digest_scope=prepared_native_batch_source_state`
+- `source_state_family_digests`
 - `source_state_digest_reason`
 - `source_state_fallback_attempted=false`
 - `source_state_external_engine_invoked=false`
 
-The current scoped source-state families are in-memory derived runtime state. They intentionally
-keep `source_state_digest_status=not_emitted_scoped_in_memory_source_state`. `GAR-IOREUSE-1A` adds
-a separate universal, format-neutral SourceState benchmark row contract with local source IDs,
-digests, source-format/location/fingerprint/schema fields, parse/decode plan digest, reuse
-hit/reason, no-fallback fields, and claim boundaries. Invalidation and cross-format prepared/output
-reuse remain follow-up work.
+The current scoped source-state families are in-memory derived runtime state. Batch rows emit a
+stable evidence digest over source artifact digests, requested execution mode, and family reuse
+posture; the digest is a reuse/coverage identity only, not a persistent cache key or performance
+claim. `GAR-IOREUSE-1A` adds a separate universal, format-neutral SourceState benchmark row
+contract with local source IDs, digests, source-format/location/fingerprint/schema fields,
+parse/decode plan digest, reuse hit/reason, no-fallback fields, and claim boundaries. Invalidation
+and cross-format prepared/output reuse remain follow-up work.
 
 ## Coverage Matrix
 
