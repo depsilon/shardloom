@@ -1131,9 +1131,13 @@ operator compute, result-sink write if enabled, and evidence rendering.
 
 The certified route must expose exclusive attribution fields where the current runtime can isolate
 them. `compatibility_to_vortex_import_millis` is scoped as
-`source_read_parse_plus_vortex_array_build_plus_vortex_write` until the import path is further
-split into batch-native adapters. If the current streaming loop cannot isolate Vortex scan from
-operator work, rows must keep `operator_compute_millis` present and disclose the limitation through
+`source_read_parse_including_columnar_decode_plus_vortex_array_build_plus_vortex_write`: structured
+Parquet/Arrow IPC/Avro/ORC adapters report `source_to_columnar_millis`,
+`source_state_materialization_layout`, `source_state_parse_normalization`,
+`source_state_columnar_preserved`, and `source_state_record_batch_count` before the current
+traditional row normalization and Vortex array-build boundary. If the current streaming loop cannot
+isolate Vortex scan from operator work, rows must keep `operator_compute_millis` present and
+disclose the limitation through
 `operator_compute_timing_scope=included_in_vortex_scan_millis_for_current_streaming_loop`.
 
 Evidence posture:

@@ -694,9 +694,8 @@ or documentation updates alone are insufficient.
     remains the default reopen/scan row-count proof, and `ingest_full_replay` fails closed until a
     downstream output/result replay workflow supplies the required evidence. It remains
     intentionally narrow, flat-scalar, local-only, and not a claim-grade or broad writer path.
-  - Next slice outcome: finish the optimization path by splitting deeper source-to-columnar ingest
-    work where feasible, promoting prepare-once reuse across repeated certified workflows, and
-    keeping benchmark/website interpretation aligned.
+  - Next slice outcome: continue the optimization path by promoting prepare-once reuse across
+    repeated certified workflows and keeping benchmark/website interpretation aligned.
   - Checkpoint A7 research note: the current slow path still normalizes local CSV/JSON and
     feature-gated Parquet/Arrow IPC/Avro/ORC readers into scalar row maps for direct-transient SQL
     execution, but the structured-format path now pushes required-column projection into the local
@@ -709,6 +708,11 @@ or documentation updates alone are insufficient.
     noting the full API is still under active development. The next optimization slice should
     therefore connect columnar SourceState preservation to prepared-state reuse and benchmark
     telemetry, not a hidden Arrow-default execution model or external-engine fallback.
+  - Runtime telemetry update: traditional compatibility-import rows now split structured
+    source-to-columnar timing from Vortex array build timing. Parquet/Arrow IPC/Avro/ORC rows emit
+    `source_state_materialization_layout`, `source_state_parse_normalization`,
+    `source_state_columnar_preserved`, and `source_state_record_batch_count`, and the benchmark
+    harness validates these fields for successful structured compatibility-import rows.
   - Runtime enablement: certified ingest/stage execution remains supported, while repeated
     workflows can certify or prepare once and then run `prepared_vortex` from
     `VortexPreparedState` without reinterpreting compatibility cold timing as query speed.
@@ -722,7 +726,9 @@ or documentation updates alone are insufficient.
     `vortex_scan_millis`, `operator_compute_millis`, `result_sink_write_millis`,
     `evidence_render_millis`, `total_runtime_millis`, `timing_scope`,
     `preparation_included`, `query_timing_starts_after_preparation`, `certification_level`,
-    `source_state_id`, `source_state_digest`, `prepared_state_id`, `prepared_state_digest`,
+    `source_state_id`, `source_state_digest`, `source_state_materialization_layout`,
+    `source_state_parse_normalization`, `source_state_columnar_preserved`,
+    `source_state_record_batch_count`, `prepared_state_id`, `prepared_state_digest`,
     `prepared_state_created`, `prepared_state_reused`, `prepared_state_reuse_hit`,
     `invalidation_reason`, `source_fingerprint_kind`, `source_content_digest`, `schema_digest`,
     `plan_digest`, `fallback_attempted=false`, `external_engine_invoked=false`, and

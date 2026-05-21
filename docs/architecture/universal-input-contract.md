@@ -54,6 +54,10 @@ not by compiling every reader by default. Active implementation status for input
     `vortex_array_build_millis` so ingest timing is not collapsed into generic scalar parse time.
     CSV/JSON/JSONL and unsupported structured shapes still use the scalar or blocked adapter
     paths; this does not create a hidden Arrow-default execution model.
+  - Traditional benchmark compatibility-import rows now use the same SourceState vocabulary for
+    structured local inputs: Parquet/Arrow IPC/Avro/ORC rows report columnar preservation, record
+    batch count, source-to-columnar timing, and the remaining traditional row-normalization boundary
+    separately from Vortex array build/write timing.
   - Production-certified adapters remain separate phases and must emit full capability, pushdown,
     fidelity, and certificate evidence.
 - Catalog/table refs

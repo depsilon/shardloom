@@ -403,6 +403,10 @@ SOURCE_STATE_CONTRACT_FIELDS = (
     "byte_size",
     "partition_columns",
     "compression",
+    "source_state_materialization_layout",
+    "source_state_parse_normalization",
+    "source_state_columnar_preserved",
+    "source_state_record_batch_count",
     "source_state_reuse_allowed",
     "source_discovery_millis",
     "schema_inference_millis",
@@ -5648,6 +5652,31 @@ def source_state_contract_metadata(
         if is_shardloom
         else "none"
     )
+    if not is_shardloom:
+        source_state_materialization_layout = "external_baseline_only"
+        source_state_parse_normalization = "external_baseline_only"
+        source_state_columnar_preserved = False
+        source_state_record_batch_count = 0
+    elif status in UNSUPPORTED_ROW_STATUSES | NON_EXECUTED_BLOCKED_ROW_STATUSES:
+        source_state_materialization_layout = "not_executed"
+        source_state_parse_normalization = "not_executed"
+        source_state_columnar_preserved = False
+        source_state_record_batch_count = 0
+    else:
+        source_state_materialization_layout = evidence.get(
+            "source_state_materialization_layout",
+            "not_reported",
+        )
+        source_state_parse_normalization = evidence.get(
+            "source_state_parse_normalization",
+            "not_reported",
+        )
+        source_state_columnar_preserved = (
+            parse_optional_bool(evidence.get("source_state_columnar_preserved")) is True
+        )
+        source_state_record_batch_count = (
+            parse_optional_int(evidence.get("source_state_record_batch_count")) or 0
+        )
     return {
         "source_state_contract_schema_version": SOURCE_STATE_CONTRACT_SCHEMA_VERSION,
         "source_state_status_vocabulary": ",".join(SOURCE_STATE_CONTRACT_STATUS_VOCABULARY),
@@ -5663,6 +5692,10 @@ def source_state_contract_metadata(
         "byte_size": byte_size,
         "partition_columns": "event_date" if scenario in {"partition pruning", "null-heavy aggregate"} else "none",
         "compression": source_state_compression(data_format),
+        "source_state_materialization_layout": source_state_materialization_layout,
+        "source_state_parse_normalization": source_state_parse_normalization,
+        "source_state_columnar_preserved": source_state_columnar_preserved,
+        "source_state_record_batch_count": source_state_record_batch_count,
         "source_state_reuse_allowed": batch_reuse_allowed,
         "source_discovery_millis": None,
         "schema_inference_millis": None,
@@ -7890,6 +7923,19 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             raise RuntimeError(
                 "SourceState reuse cannot turn compatibility-import rows into prepared/native rows"
             )
+        if (
+            result.get("selected_execution_mode") == "compatibility_import_certified"
+            and result.get("storage_format") in {"parquet", "arrow-ipc", "avro", "orc"}
+            and result.get("status") == "success"
+        ):
+            if metrics.get("source_state_columnar_preserved") is not True:
+                raise RuntimeError(
+                    "structured compatibility-import rows must preserve columnar SourceState evidence"
+                )
+            if not parse_optional_int(metrics.get("source_state_record_batch_count")):
+                raise RuntimeError(
+                    "structured compatibility-import rows must report SourceState record batches"
+                )
         missing_prepared_state_fields = [
             field for field in PREPARED_STATE_CONTRACT_FIELDS if field not in metrics
         ]
@@ -8907,6 +8953,7 @@ def format_preparation_matrix(results: list[dict[str, Any]]) -> list[dict[str, A
                 "preparation_millis": metrics.get("preparation_millis"),
                 "source_read_millis": metrics.get("source_read_millis"),
                 "compatibility_parse_millis": metrics.get("compatibility_parse_millis"),
+                "source_to_columnar_millis": metrics.get("source_to_columnar_millis"),
                 "compatibility_to_vortex_import_millis": metrics.get(
                     "compatibility_to_vortex_import_millis"
                 ),
@@ -9397,6 +9444,18 @@ def source_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "byte_size": metrics.get("byte_size"),
                 "partition_columns": metrics.get("partition_columns"),
                 "compression": metrics.get("compression"),
+                "source_state_materialization_layout": metrics.get(
+                    "source_state_materialization_layout"
+                ),
+                "source_state_parse_normalization": metrics.get(
+                    "source_state_parse_normalization"
+                ),
+                "source_state_columnar_preserved": metrics.get(
+                    "source_state_columnar_preserved"
+                ),
+                "source_state_record_batch_count": metrics.get(
+                    "source_state_record_batch_count"
+                ),
                 "source_state_reuse_allowed": metrics.get("source_state_reuse_allowed"),
                 "source_state_reuse_hit": metrics.get("source_state_reuse_hit"),
                 "source_state_reuse_reason": metrics.get("source_state_reuse_reason"),
@@ -13826,6 +13885,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "ShardLoom rows expose cli_process_wall_millis and python_harness_overhead_millis where the Python harness can measure them. Build time is reported separately and excluded from per-scenario timing.",
         "Eligible prepared/native ShardLoom rows may use persistent_runner_status=single_process_batch_runner_supported; per-scenario CLI rows keep persistent_runner_status=process_per_scenario_attributed_not_reduced, and neither status permits a hidden fast mode or performance claim.",
         "ShardLoom rows carry SourceState contract fields for local source discovery, schema identity, parse/decode planning, fingerprinting, and scoped reuse posture; SourceState is input preparation evidence and never upgrades Vortex-native, output, object-store, SQL/DataFrame, production, or performance claims.",
+        "Structured Parquet/Arrow IPC/Avro/ORC ShardLoom compatibility-import rows report columnar SourceState preservation, record-batch count, source-to-columnar timing, and the remaining row-normalization boundary separately from Vortex array build/write timing.",
         "ShardLoom prepared/native rows carry VortexPreparedState contract fields for prepared artifact refs, digests, preparation timing separation, source-state linkage, and scoped reuse posture; prepared-state evidence is not output support, encoded-native operator coverage, object-store/lakehouse support, or a performance claim.",
         "ShardLoom rows carry OutputPlan contract fields for local output planning posture; only result-sink rows with explicit local Vortex write/replay evidence can report output_plan_supported, and this is not cross-format fanout, object-store/lakehouse support, or a production sink claim.",
         "ShardLoom artifacts include an io_reuse_and_fanout matrix for required cross-format fanout cases; current rows are report-only blockers until a first-class fanout benchmark runtime writes and replays multiple local outputs.",
@@ -13973,6 +14033,7 @@ def render_format_preparation_matrix(artifact: dict[str, Any]) -> str:
                 format_metric(row["preparation_millis"], " ms"),
                 format_metric(row["source_read_millis"], " ms"),
                 format_metric(row["compatibility_parse_millis"], " ms"),
+                format_metric(row["source_to_columnar_millis"], " ms"),
                 format_metric(row["compatibility_to_vortex_import_millis"], " ms"),
                 format_metric(row["vortex_write_millis"], " ms"),
                 format_metric(row["vortex_reopen_millis"], " ms"),
@@ -14008,6 +14069,7 @@ def render_format_preparation_matrix(artifact: dict[str, Any]) -> str:
                 "n/a",
                 "n/a",
                 "n/a",
+                "n/a",
                 "not_executed",
                 "blocked",
             ]
@@ -14028,6 +14090,7 @@ def render_format_preparation_matrix(artifact: dict[str, Any]) -> str:
             "Prep",
             "Source read",
             "Parse",
+            "Source to columnar",
             "Import",
             "Vortex write",
             "Vortex reopen",
@@ -14062,6 +14125,10 @@ def render_source_state_matrix(artifact: dict[str, Any]) -> str:
                 format_bytes(row["byte_size"]),
                 str(row["partition_columns"]),
                 str(row["compression"]),
+                str(row["source_state_materialization_layout"]),
+                str(row["source_state_parse_normalization"]),
+                str(row["source_state_columnar_preserved"]),
+                str(row["source_state_record_batch_count"]),
                 str(row["source_state_reuse_allowed"]),
                 str(row["source_state_reuse_hit"]),
                 str(row["source_state_reuse_reason"]).replace("|", "\\|"),
@@ -14093,6 +14160,10 @@ def render_source_state_matrix(artifact: dict[str, Any]) -> str:
                 "n/a",
                 "none",
                 "none",
+                "none",
+                "none",
+                "false",
+                "0",
                 "false",
                 "false",
                 "no SourceState rows were emitted",
@@ -14123,6 +14194,10 @@ def render_source_state_matrix(artifact: dict[str, Any]) -> str:
             "Bytes",
             "Partitions",
             "Compression",
+            "Materialization layout",
+            "Parse normalization",
+            "Columnar preserved",
+            "Record batches",
             "Reuse allowed",
             "Reuse hit",
             "Reuse reason",
