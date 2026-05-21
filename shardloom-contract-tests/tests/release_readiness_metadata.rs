@@ -1978,7 +1978,8 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0043-B publication attestation and final release rehearsal"));
-    assert!(plan.contains("Non-runtime closeout is complete through GAR-0043-B"));
+    assert!(plan.contains("there are no active non-runtime closeout items above the runtime"));
+    assert!(plan.contains("Completed non-runtime history belongs in"));
     assert!(plan.contains("docs/release/final-release-rehearsal.md"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
@@ -5578,7 +5579,8 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("claim_gate_status=not_claim_grade"));
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(!plan.contains("- [ ] GAR-0024-A publication and API/schema stability gate"));
-    assert!(plan.contains("Non-runtime closeout is complete through GAR-0043-B"));
+    assert!(plan.contains("there are no active non-runtime closeout items above the runtime"));
+    assert!(plan.contains("Completed non-runtime history belongs in"));
     let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(
         completed_ledger.contains("GAR-0024-A publication and API/schema stability gate"),
