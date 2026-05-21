@@ -204,6 +204,14 @@ def main() -> int:
         )
     )
     blockers.extend(upstream_report_blockers(package_report, "package channel report"))
+    if package_report is not None:
+        if package_report.get("local_gate_evidence_required") is not True:
+            blockers.append("package channel report must be generated with --require-local-evidence")
+        if package_report.get("local_gate_evidence_status") != "passed":
+            blockers.append(
+                "package channel local_gate_evidence_status="
+                + str(package_report.get("local_gate_evidence_status"))
+            )
 
     artifact_missing = ref_paths_exist(repo_root, artifact_rows)
     sbom_missing = ref_paths_exist(repo_root, sbom_rows)

@@ -19,10 +19,25 @@ The hard release-readiness gate also consumes this matrix:
 python scripts\check_release_readiness.py --allow-blocked
 ```
 
+Release-readiness and CI use the stricter local evidence mode:
+
+```powershell
+python scripts\check_package_channel_readiness.py --require-local-evidence
+```
+
+That mode consumes the dependency audit report, local package smoke transcript, and local
+SBOM/checksum/provenance dry-run evidence before the package-channel report can pass. It still does
+not mark any public channel ready; channel rows remain blocked until channel-specific install,
+uninstall, clean-install, smoke, SBOM/checksum/provenance, rollback, authorization, and human
+approval evidence is attached.
+
 ## Readiness Rules
 
 - No channel may be marked ready without channel-specific install, uninstall, clean-install, smoke,
   SBOM/checksum/provenance, and rollback/yank/delete/deprecate evidence.
+- The package gate requires dependency inventory, license classification, provenance status,
+  forbidden-fallback dependency absence, package smoke transcript, SBOM refs, checksum refs,
+  rollback policy refs, and publication authorization state.
 - PyPI and TestPyPI require Trusted Publisher/OIDC posture. Long-lived upload tokens are not
   release-grade for the public package path.
 - Internal Rust crates remain unpublished. crates.io is limited to future stable public API crates
@@ -60,6 +75,16 @@ Every ready row must attach:
 - channel-specific authorization/provenance proof
 - maintainer approval
 - no-publication/no-tag/no-secret/no-fallback evidence until the approved publish step
+
+The machine-readable matrix lists these gate references under `gate_evidence_refs`:
+
+- `scripts/check_dependency_audit.py` and `target/dependency-audit-report.json`
+- `scripts/release_dry_run_proof.py` and `target/release-dry-run-proof/transcript.json`
+- `scripts/release_provenance_dry_run.py` and
+  `target/release-provenance-dry-run/supply-chain-release-evidence.json`
+- `docs/release/sbom-generation-plan.md`
+- `docs/security/supply-chain-response.md`
+- `scripts/check_package_channel_readiness.py`
 
 The current matrix is intentionally blocked. It is valid because it lists blockers and prevents
 package claims; it is not valid evidence for public package publication.

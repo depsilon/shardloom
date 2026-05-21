@@ -14,6 +14,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+from check_package_channel_readiness import (
+    validate_local_gate_evidence as validate_package_local_gate_evidence,
+)
 from check_package_channel_readiness import validate_matrix as validate_package_channel_matrix
 
 
@@ -43,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         "--package-channel-matrix",
         type=Path,
         default=Path("docs/release/package-channel-readiness-matrix.json"),
+    )
+    parser.add_argument(
+        "--package-channel-report",
+        type=Path,
+        default=Path("target/package-channel-readiness-report.json"),
     )
     parser.add_argument(
         "--per-claim-evidence-matrix",
@@ -94,6 +102,7 @@ def main() -> int:
     security_gate_path = resolve(repo_root, args.security_gate_report)
     validation_evidence_path = resolve(repo_root, args.validation_evidence)
     package_channel_matrix_path = resolve(repo_root, args.package_channel_matrix)
+    package_channel_report_path = resolve(repo_root, args.package_channel_report)
     per_claim_evidence_matrix_path = resolve(repo_root, args.per_claim_evidence_matrix)
     architecture_tracker_report_path = resolve(repo_root, args.architecture_tracker_report)
     final_release_rehearsal_report_path = resolve(repo_root, args.final_release_rehearsal_report)
@@ -173,6 +182,35 @@ def main() -> int:
 
     package_channel_matrix = load_json(package_channel_matrix_path)
     package_channel_blockers = validate_package_channel_matrix(package_channel_matrix)
+    package_local_gate_evidence = validate_package_local_gate_evidence(
+        repo_root=repo_root,
+        dependency_audit_report=load_json(repo_root / "target/dependency-audit-report.json"),
+        release_dry_run_transcript=dry_run,
+        provenance_report=load_json(
+            repo_root / "target/release-provenance-dry-run/supply-chain-release-evidence.json"
+        ),
+    )
+    package_channel_blockers.extend(package_local_gate_evidence["blockers"])
+    package_channel_report = load_json(package_channel_report_path)
+    if package_channel_report is None:
+        package_channel_blockers.append("missing package-channel readiness report")
+    else:
+        if package_channel_report.get("schema_version") != "shardloom.package_channel_readiness_report.v1":
+            package_channel_blockers.append("package-channel report schema_version mismatch")
+        if package_channel_report.get("local_gate_evidence_status") != "passed":
+            package_channel_blockers.append(
+                "package-channel local_gate_evidence_status="
+                + str(package_channel_report.get("local_gate_evidence_status"))
+            )
+        for field in [
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if package_channel_report.get(field) is not False:
+                package_channel_blockers.append(f"package-channel report {field} must be false")
     if package_channel_matrix is not None:
         if package_channel_matrix.get("public_package_release_claim_allowed") is not True:
             package_channel_blockers.append("public_package_release_claim_allowed=false")
@@ -451,7 +489,7 @@ def main() -> int:
         "python scripts/check_ci_gate_matrix.py",
         "python scripts/check_release_security_gate.py",
         "python scripts/check_release_architecture_tracker.py --allow-blocked",
-        "python scripts/check_package_channel_readiness.py",
+        "python scripts/check_package_channel_readiness.py --require-local-evidence",
         "python scripts/check_benchmark_constitution.py",
         "python scripts/final_release_rehearsal.py --allow-blocked",
     ]
@@ -485,6 +523,7 @@ def main() -> int:
         "public_release_claim_allowed": passed,
         "public_package_claim_allowed": passed,
         "package_channel_matrix_ref": str(args.package_channel_matrix).replace("\\", "/"),
+        "package_channel_report_ref": str(args.package_channel_report).replace("\\", "/"),
         "per_claim_evidence_matrix_ref": str(args.per_claim_evidence_matrix).replace("\\", "/"),
         "architecture_tracker_report_ref": str(args.architecture_tracker_report).replace("\\", "/"),
         "final_release_rehearsal_report_ref": str(args.final_release_rehearsal_report).replace("\\", "/"),

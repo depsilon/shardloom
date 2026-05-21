@@ -58,7 +58,7 @@ python scripts\release_dry_run_proof.py --rows 64 --iterations 1
 cargo run -q -p shardloom-cli -- global-architecture-gate --format json
 python scripts\check_release_security_gate.py
 python scripts\check_release_architecture_tracker.py --allow-blocked
-python scripts\check_package_channel_readiness.py
+python scripts\check_package_channel_readiness.py --require-local-evidence
 python scripts\final_release_rehearsal.py --allow-blocked
 ```
 
@@ -125,11 +125,26 @@ It writes:
 target/package-channel-readiness-report.json
 ```
 
-The matrix is valid when blocked channels are explicit, but the hard release gate remains blocked
-until each channel has channel-specific install, uninstall, clean-install, smoke, SBOM/checksum/
-provenance, rollback/yank/delete/deprecate, and authorization evidence. PyPI and TestPyPI require
-Trusted Publisher/OIDC posture. Internal Rust crates remain unpublished; crates.io is limited to
-future stable public API crates.
+The matrix is valid when blocked channels are explicit. Release-readiness runs the stricter
+package-gate mode:
+
+```powershell
+python scripts\check_package_channel_readiness.py --require-local-evidence
+```
+
+That mode also consumes `target/dependency-audit-report.json`,
+`target/release-dry-run-proof/transcript.json`, and
+`target/release-provenance-dry-run/supply-chain-release-evidence.json`, requiring dependency
+inventory, license classification, forbidden-fallback dependency absence, local package smoke,
+SBOM refs, checksum refs, provenance status, rollback policy refs, and human publication
+authorization state. The hard release gate remains blocked until each channel has
+channel-specific install, uninstall, clean-install, smoke, SBOM/checksum/provenance,
+rollback/yank/delete/deprecate, and authorization evidence. PyPI and TestPyPI require Trusted
+Publisher/OIDC posture. Internal Rust crates remain unpublished; crates.io is limited to future
+stable public API crates.
+
+Trusted Publisher/OIDC remains the required release-grade posture for PyPI and TestPyPI package
+channels.
 
 `GAR-0024-A` adds the publication/API/schema stability gate with schema
 `shardloom.publication_api_schema_stability_gate.v1`. The current gate intentionally reports:
@@ -217,8 +232,10 @@ target/final-release-rehearsal/final-release-rehearsal-report.json
 
 The local no-publication rehearsal is expected to pass once local artifact, SBOM, checksum,
 provenance, security, architecture, package-channel, unsupported-path, per-claim, and
-publication/API/schema refs are present and internally consistent. It still keeps publication and
-claim flags blocked:
+publication/API/schema refs are present and internally consistent. It requires the package-channel
+report to be generated with `--require-local-evidence` so dependency audit, package smoke, and
+SBOM/checksum/provenance evidence cannot be skipped. It still keeps publication and claim flags
+blocked:
 
 ```text
 rehearsal_status=passed

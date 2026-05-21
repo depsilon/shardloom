@@ -57,6 +57,47 @@ READY_PROOF_FIELDS = [
     "sbom_checksum_provenance_status",
 ]
 
+PACKAGE_GATE_REQUIRED_EVIDENCE = [
+    "dependency_inventory",
+    "license_classification",
+    "provenance_status",
+    "forbidden_fallback_dependency_check",
+    "package_smoke_transcript",
+    "sbom_refs",
+    "checksum_refs",
+    "rollback_policy_ref",
+    "publication_authorization_state",
+]
+
+GATE_EVIDENCE_REF_FIELDS = [
+    "dependency_audit_script",
+    "dependency_audit_report",
+    "release_dry_run_script",
+    "release_dry_run_transcript",
+    "release_provenance_script",
+    "release_provenance_report",
+    "sbom_generation_plan",
+    "rollback_policy_ref",
+    "package_channel_validator",
+]
+
+READY_REFERENCE_FIELDS = [
+    "install_transcript_ref",
+    "uninstall_transcript_ref",
+    "clean_install_transcript_ref",
+    "smoke_transcript_ref",
+    "sbom_ref",
+    "checksum_ref",
+    "provenance_ref",
+    "authorization_ref",
+]
+
+FALSE_SAFETY_FIELDS = [
+    "publication_attempted",
+    "tag_created",
+    "secrets_required",
+]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -70,6 +111,34 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=Path("target/package-channel-readiness-report.json"),
+    )
+    parser.add_argument(
+        "--dependency-audit-report",
+        type=Path,
+        default=Path("target/dependency-audit-report.json"),
+    )
+    parser.add_argument(
+        "--release-dry-run-transcript",
+        type=Path,
+        default=Path("target/release-dry-run-proof/transcript.json"),
+    )
+    parser.add_argument(
+        "--provenance-report",
+        type=Path,
+        default=Path("target/release-provenance-dry-run/supply-chain-release-evidence.json"),
+    )
+    parser.add_argument(
+        "--require-local-evidence",
+        action="store_true",
+        help=(
+            "Fail when local dependency audit, package smoke, SBOM/checksum, or provenance "
+            "reports are missing or incomplete."
+        ),
+    )
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="Run synthetic regression checks for package-gate failure cases.",
     )
     return parser.parse_args()
 
@@ -106,6 +175,22 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
         blockers.append(f"channel_count={matrix.get('channel_count')}")
     if matrix.get("required_channel_ids") != EXPECTED_CHANNEL_IDS:
         blockers.append("required_channel_ids must match the expected release-channel list")
+    if matrix.get("package_gate_required_evidence") != PACKAGE_GATE_REQUIRED_EVIDENCE:
+        blockers.append("package_gate_required_evidence must match the package-gate evidence list")
+    gate_refs = matrix.get("gate_evidence_refs")
+    if not isinstance(gate_refs, dict):
+        blockers.append("gate_evidence_refs must be an object")
+    else:
+        for field in GATE_EVIDENCE_REF_FIELDS:
+            if not _non_empty_string(gate_refs, field):
+                blockers.append(f"gate_evidence_refs missing {field}")
+    if matrix.get("publication_authorization_state") not in {
+        "human_approval_required",
+        "approved",
+    }:
+        blockers.append(
+            f"publication_authorization_state={matrix.get('publication_authorization_state')}"
+        )
     for field in ["claim_boundary", "fallback_boundary"]:
         if not _non_empty_string(matrix, field):
             blockers.append(f"missing top-level {field}")
@@ -161,6 +246,9 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
             for field in READY_PROOF_FIELDS:
                 if row.get(field) != "passed":
                     blockers.append(prefix + f"ready=true requires {field}=passed")
+            for field in READY_REFERENCE_FIELDS:
+                if not _non_empty_string(row, field):
+                    blockers.append(prefix + f"ready=true requires {field}")
             if row.get("current_blockers"):
                 blockers.append(prefix + "ready=true requires no current_blockers")
         elif row.get("status") == "ready":
@@ -204,17 +292,253 @@ def validate_matrix(matrix: dict[str, Any] | None) -> list[str]:
     return blockers
 
 
+def false_field_blockers(payload: dict[str, Any] | None, label: str, fields: list[str]) -> list[str]:
+    if payload is None:
+        return []
+    return [
+        f"{label} {field} must be false"
+        for field in fields
+        if payload.get(field) is not False
+    ]
+
+
+def ref_rows(payload: dict[str, Any] | None, key: str) -> list[dict[str, Any]]:
+    if payload is None:
+        return []
+    rows = payload.get(key, [])
+    return [row for row in rows if isinstance(row, dict)]
+
+
+def ref_paths_exist(repo_root: Path, rows: list[dict[str, Any]]) -> list[str]:
+    missing: list[str] = []
+    for row in rows:
+        path = row.get("path")
+        if not isinstance(path, str) or not path.strip():
+            missing.append("<missing path>")
+            continue
+        if not resolve(repo_root, Path(path)).exists():
+            missing.append(path)
+    return missing
+
+
+def validate_local_gate_evidence(
+    *,
+    repo_root: Path,
+    dependency_audit_report: dict[str, Any] | None,
+    release_dry_run_transcript: dict[str, Any] | None,
+    provenance_report: dict[str, Any] | None,
+) -> dict[str, Any]:
+    blockers: list[str] = []
+    dependency_fields = {
+        "cargo_deny_status": None,
+        "cargo_audit_status": None,
+        "pip_audit_status": None,
+        "license_policy_status": None,
+        "advisory_status": None,
+        "fallback_dependency_absent": None,
+    }
+    if dependency_audit_report is None:
+        blockers.append("missing dependency audit report")
+    else:
+        if dependency_audit_report.get("schema_version") != "shardloom.dependency_audit_report.v1":
+            blockers.append("dependency audit schema_version mismatch")
+        for field in [
+            "cargo_deny_status",
+            "cargo_audit_status",
+            "pip_audit_status",
+            "license_policy_status",
+        ]:
+            dependency_fields[field] = dependency_audit_report.get(field)
+            if dependency_audit_report.get(field) != "passed":
+                blockers.append(f"dependency audit {field}={dependency_audit_report.get(field)}")
+        dependency_fields["advisory_status"] = dependency_audit_report.get("advisory_status")
+        if dependency_audit_report.get("advisory_status") != "passed":
+            blockers.append(
+                f"dependency audit advisory_status={dependency_audit_report.get('advisory_status')}"
+            )
+        dependency_fields["fallback_dependency_absent"] = dependency_audit_report.get(
+            "fallback_dependency_absent"
+        )
+        if dependency_audit_report.get("fallback_dependency_absent") is not True:
+            blockers.append("dependency audit fallback_dependency_absent must be true")
+
+    smoke_fields = {
+        "proof_status": None,
+        "generated_source_user_rows_smoke_performed": None,
+        "generated_source_range_smoke_performed": None,
+        "prepared_native_benchmark_smoke_performed": None,
+        "provenance_dry_run_performed": None,
+        "sbom_checksum_manifest_generated": None,
+    }
+    if release_dry_run_transcript is None:
+        blockers.append("missing release dry-run package smoke transcript")
+    else:
+        if release_dry_run_transcript.get("schema_version") != "shardloom.release_dry_run_proof.v1":
+            blockers.append("release dry-run transcript schema_version mismatch")
+        if release_dry_run_transcript.get("proof_status") != "passed":
+            blockers.append(
+                f"release dry-run proof_status={release_dry_run_transcript.get('proof_status')}"
+            )
+        smoke_fields["proof_status"] = release_dry_run_transcript.get("proof_status")
+        for field in [
+            "generated_output_proof_distinct_from_no_dataset_smoke",
+            "generated_source_user_rows_smoke_performed",
+            "generated_source_range_smoke_performed",
+            "prepared_native_benchmark_smoke_performed",
+            "provenance_dry_run_performed",
+            "sbom_checksum_manifest_generated",
+        ]:
+            smoke_fields[field] = release_dry_run_transcript.get(field)
+            if release_dry_run_transcript.get(field) is not True:
+                blockers.append(f"release dry-run {field} must be true")
+        blockers.extend(
+            false_field_blockers(
+                release_dry_run_transcript,
+                "release dry-run",
+                [
+                    *FALSE_SAFETY_FIELDS,
+                    "external_runtime_dependencies_added",
+                    "fallback_engine_dependency_added",
+                    "public_package_release_claim_allowed",
+                ],
+            )
+        )
+
+    artifact_rows = ref_rows(provenance_report, "artifact_refs")
+    sbom_rows = ref_rows(provenance_report, "sbom_refs")
+    checksum_rows = ref_rows(provenance_report, "checksum_refs")
+    provenance_fields = {
+        "provenance_status": None,
+        "artifact_ref_count": len(artifact_rows),
+        "sbom_ref_count": len(sbom_rows),
+        "checksum_ref_count": len(checksum_rows),
+        "fallback_dependency_absent": None,
+    }
+    if provenance_report is None:
+        blockers.append("missing supply-chain release evidence report")
+    else:
+        if provenance_report.get("schema_version") != "shardloom.supply_chain_release_evidence.v1":
+            blockers.append("provenance report schema_version mismatch")
+        provenance_fields["provenance_status"] = provenance_report.get("provenance_status")
+        if provenance_report.get("provenance_status") != "dry_run_unsigned_local_evidence":
+            blockers.append(
+                "provenance status must be dry_run_unsigned_local_evidence: "
+                + str(provenance_report.get("provenance_status"))
+            )
+        provenance_fields["fallback_dependency_absent"] = provenance_report.get(
+            "fallback_dependency_absent"
+        )
+        if provenance_report.get("fallback_dependency_absent") is not True:
+            blockers.append("provenance fallback_dependency_absent must be true")
+        if not artifact_rows:
+            blockers.append("provenance report missing artifact_refs")
+        if not sbom_rows:
+            blockers.append("provenance report missing sbom_refs")
+        if not checksum_rows:
+            blockers.append("provenance report missing checksum_refs")
+        for label, rows in [
+            ("artifact_refs", artifact_rows),
+            ("sbom_refs", sbom_rows),
+            ("checksum_refs", checksum_rows),
+        ]:
+            missing = ref_paths_exist(repo_root, rows)
+            if missing:
+                blockers.append(f"provenance {label} missing files: {','.join(missing)}")
+        blockers.extend(
+            false_field_blockers(
+                provenance_report,
+                "provenance",
+                [
+                    *FALSE_SAFETY_FIELDS,
+                    "external_runtime_dependencies_added",
+                    "fallback_engine_dependency_added",
+                ],
+            )
+        )
+
+    return {
+        "status": "passed" if not blockers else "blocked",
+        "required_evidence": PACKAGE_GATE_REQUIRED_EVIDENCE,
+        "dependency_audit": dependency_fields,
+        "package_smoke": smoke_fields,
+        "provenance": provenance_fields,
+        "blockers": blockers,
+        "publication_attempted": False,
+        "tag_created": False,
+        "secrets_required": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+    }
+
+
+def self_test(matrix: dict[str, Any] | None) -> list[str]:
+    blockers: list[str] = []
+    if matrix is None:
+        return ["self-test requires a matrix fixture"]
+    synthetic = json.loads(json.dumps(matrix))
+    channels = synthetic.get("channels", [])
+    if not isinstance(channels, list) or not channels:
+        return ["self-test requires at least one channel row"]
+    first = channels[0]
+    first["ready"] = True
+    first["status"] = "ready"
+    first["clean_install_proof_status"] = "passed"
+    first["smoke_check_status"] = "passed"
+    first["sbom_checksum_provenance_status"] = "passed"
+    first["current_blockers"] = []
+    ready_blockers = validate_matrix(synthetic)
+    expected = f"{first['channel_id']}: ready=true requires install_transcript_ref"
+    if expected not in ready_blockers:
+        blockers.append("self-test did not reject a ready package channel without evidence refs")
+
+    missing_local = validate_local_gate_evidence(
+        repo_root=ROOT,
+        dependency_audit_report=None,
+        release_dry_run_transcript=None,
+        provenance_report=None,
+    )
+    for expected_missing in [
+        "missing dependency audit report",
+        "missing release dry-run package smoke transcript",
+        "missing supply-chain release evidence report",
+    ]:
+        if expected_missing not in missing_local["blockers"]:
+            blockers.append(f"self-test did not reject {expected_missing}")
+    return blockers
+
+
 def main() -> int:
     args = parse_args()
     repo_root = args.repo_root.resolve()
     matrix_path = resolve(repo_root, args.matrix)
     output_path = resolve(repo_root, args.output)
     matrix = load_json(matrix_path)
-    blockers = validate_matrix(matrix)
+    matrix_blockers = validate_matrix(matrix)
+    dependency_audit = load_json(resolve(repo_root, args.dependency_audit_report))
+    release_dry_run = load_json(resolve(repo_root, args.release_dry_run_transcript))
+    provenance = load_json(resolve(repo_root, args.provenance_report))
+    local_gate_evidence = validate_local_gate_evidence(
+        repo_root=repo_root,
+        dependency_audit_report=dependency_audit,
+        release_dry_run_transcript=release_dry_run,
+        provenance_report=provenance,
+    )
+    blockers = list(matrix_blockers)
+    if args.require_local_evidence:
+        blockers.extend(local_gate_evidence["blockers"])
+    if args.self_test:
+        blockers.extend(self_test(matrix))
     report = {
         "schema_version": REPORT_SCHEMA_VERSION,
         "matrix_ref": str(args.matrix).replace("\\", "/"),
+        "dependency_audit_report_ref": str(args.dependency_audit_report).replace("\\", "/"),
+        "release_dry_run_transcript_ref": str(args.release_dry_run_transcript).replace("\\", "/"),
+        "provenance_report_ref": str(args.provenance_report).replace("\\", "/"),
         "status": "passed" if not blockers else "failed",
+        "matrix_validation_status": "passed" if not matrix_blockers else "failed",
+        "local_gate_evidence_required": args.require_local_evidence,
+        "local_gate_evidence_status": local_gate_evidence["status"],
+        "local_gate_evidence": local_gate_evidence,
         "claim_gate_status": (matrix or {}).get("claim_gate_status", "missing"),
         "public_package_release_claim_allowed": (matrix or {}).get(
             "public_package_release_claim_allowed", False

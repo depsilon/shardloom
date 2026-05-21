@@ -5665,7 +5665,7 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("complete the review-derived action items below before new runtime"));
     assert!(!plan.contains("- [ ] REVIEW-P1-1 typed command registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-2 typed evidence schema registry"));
-    assert!(plan.contains("REVIEW-P1-4 dependency, license, provenance"));
+    assert!(!plan.contains("- [ ] REVIEW-P1-4 dependency, license, provenance"));
     assert!(plan.contains("REVIEW-RUNTIME-1 three golden workflow validator"));
     assert!(plan.contains("Completed non-runtime history belongs in"));
     let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
@@ -5681,6 +5681,10 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(
         completed_ledger.contains("REVIEW-P1-2 typed evidence schema registry"),
         "REVIEW-P1-2 should be moved from Planned to the completed ledger"
+    );
+    assert!(
+        completed_ledger.contains("REVIEW-P1-4 dependency, license, provenance"),
+        "REVIEW-P1-4 should be moved from Planned to the completed ledger"
     );
     let evidence_schema_registry = read_repo_file("shardloom-cli/src/evidence_schema_registry.rs");
     assert!(evidence_schema_registry.contains("shardloom.evidence_field_schema_registry.v1"));

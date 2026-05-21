@@ -68,6 +68,15 @@ The report is release-ready only when:
 - `fallback_dependency_absent=true`
 - external engine dependencies appear only in benchmark/dev scopes
 
+## Package-Gate Integration
+
+`scripts/check_package_channel_readiness.py --require-local-evidence` consumes
+`target/dependency-audit-report.json` before the package-channel report can pass. The package gate
+requires dependency inventory, license classification, advisory status, and
+`fallback_dependency_absent=true` alongside package smoke and SBOM/checksum/provenance evidence.
+This keeps package-channel rows blocked when any runtime dependency is unreviewed, incompatible,
+or classified as a forbidden fallback engine.
+
 ## Tool Installation
 
 ```powershell

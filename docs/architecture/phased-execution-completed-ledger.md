@@ -16,6 +16,86 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-P1-4 dependency, license, provenance, and package-gate automation
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-20-20260521` / #909.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - RFC 0024 release engineering, release security gate, package-channel readiness matrix, and
+      dependency audit release-gate docs.
+    - `REVIEW-P1-4 dependency, license, provenance, and package-gate automation`.
+  - Scope:
+    - Extended `scripts/check_package_channel_readiness.py` with a strict local package-gate mode
+      that consumes dependency audit, release dry-run package smoke, and SBOM/checksum/provenance
+      dry-run reports before the package-channel report can pass.
+    - Added package-gate evidence vocabulary to
+      `docs/release/package-channel-readiness-matrix.json`: dependency inventory, license
+      classification, provenance status, forbidden-fallback dependency check, package smoke
+      transcript, SBOM refs, checksum refs, rollback policy ref, and publication authorization
+      state.
+    - Required future ready package-channel rows to attach install, uninstall, clean-install,
+      smoke, SBOM, checksum, provenance, and authorization refs instead of relying only on status
+      words.
+    - Wired `--require-local-evidence` into the release-readiness CI lane, CI gate matrix contract,
+      release validation evidence runner, hard release-readiness aggregation, and final
+      no-publication release rehearsal.
+    - Updated release/security docs so the package gate is described as executable automation, not
+      package-publication approval.
+    - Removed `REVIEW-P1-4` from the active phased execution plan so Planned remains an unchecked
+      queue only.
+  - Automated gates now covered:
+    - Dependency/license/advisory/fallback dependency report:
+      `target/dependency-audit-report.json`.
+    - Local package smoke transcript:
+      `target/release-dry-run-proof/transcript.json`.
+    - Local SBOM/checksum/provenance dry-run report:
+      `target/release-provenance-dry-run/supply-chain-release-evidence.json`.
+    - Package-channel readiness report:
+      `target/package-channel-readiness-report.json`.
+    - Hard release-readiness report:
+      `target/hard-release-readiness-gate.json`.
+    - Final no-publication release rehearsal:
+      `target/final-release-rehearsal/final-release-rehearsal-report.json`.
+  - Channels still blocked:
+    - GitHub pre-release, TestPyPI, PyPI, Homebrew tap, Scoop, winget, conda-forge, GHCR
+      container, and future crates.io public API crates all remain `ready=false`.
+    - Public package claims remain blocked until channel-specific install, uninstall,
+      clean-install, smoke, SBOM/checksum/provenance, rollback/yank/delete/deprecate,
+      authorization, and human approval evidence is attached.
+  - Verification:
+    - `python -m py_compile scripts\check_package_channel_readiness.py scripts\check_release_readiness.py scripts\run_release_validation_evidence.py scripts\check_ci_gate_matrix.py`
+    - `python -m py_compile scripts\final_release_rehearsal.py`
+    - `python scripts\check_dependency_audit.py --release-gate --json-output target\dependency-audit-report.json`
+    - `python scripts\release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`
+    - `python scripts\check_package_channel_readiness.py --require-local-evidence --self-test`
+    - `python scripts\check_security_posture.py`
+    - `python scripts\check_release_security_gate.py`
+    - `python scripts\check_ci_gate_matrix.py`
+    - `python scripts\final_release_rehearsal.py --allow-blocked`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`
+    - `python -m unittest discover -s python\tests`
+    - `git diff --check`
+  - Remaining release blockers:
+    - Clean Conda proof remains skipped in the local CI-style dry run.
+    - Package channels remain blocked and not claim-grade.
+    - Publication/API/schema stability, per-claim evidence, architecture tracker, and broader
+      release validation evidence remain blocked until later slices attach their evidence.
+  - Remaining non-goals:
+    - No package publication, release tag, upload token, signing key, package-channel submission,
+      public package availability claim, production claim, or performance claim is authorized.
+  - Claim boundary:
+    - Automated dependency/license/provenance/package gating only.
+  - Fallback boundary:
+    - Runtime package metadata must remain free of Spark, DataFusion, DuckDB, Polars, pandas,
+      Dask, Velox, Trino, and similar external query engines as fallback dependencies.
+    - Benchmark/dev external engines remain baselines only and are not ShardLoom execution.
+    - `fallback_attempted=false` and `external_engine_invoked=false` remain required release-gate
+      fields.
+
 - [x] Session label: REVIEW-P1-3 benchmark constitution and row validator
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-19-20260521` / #908.
