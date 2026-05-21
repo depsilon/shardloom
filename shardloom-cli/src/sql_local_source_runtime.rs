@@ -8005,6 +8005,18 @@ impl SqlLocalSourceReport {
                 self.parsed.group_by.join(","),
             ),
             (
+                "group_by_key_arity".to_string(),
+                if self.parsed.is_grouped_aggregate() {
+                    self.parsed.group_by.len().to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
+                "group_by_multi_key_runtime_execution".to_string(),
+                (self.parsed.is_grouped_aggregate() && self.parsed.group_by.len() > 1).to_string(),
+            ),
+            (
                 "group_by_group_count".to_string(),
                 if self.parsed.is_grouped_aggregate() {
                     self.output_rows.len().to_string()
@@ -14189,6 +14201,25 @@ mod tests {
 
         assert_eq!(parsed.projections, vec!["region"]);
         assert_eq!(parsed.group_by, vec!["region"]);
+        assert!(parsed.order_by.is_none());
+        assert_eq!(parsed.aggregates.len(), 2);
+        assert_eq!(parsed.aggregates[0].label(), "count(*)");
+        assert_eq!(parsed.aggregates[1].label(), "sum(amount)");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_group_by_aggregate_filter_limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_multi_key_group_by_aggregate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT region,segment,count(*),sum(amount) FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region,segment LIMIT 10",
+        )
+        .expect("multi-key group-by aggregate statement parses");
+
+        assert_eq!(parsed.projections, vec!["region", "segment"]);
+        assert_eq!(parsed.group_by, vec!["region", "segment"]);
         assert!(parsed.order_by.is_none());
         assert_eq!(parsed.aggregates.len(), 2);
         assert_eq!(parsed.aggregates[0].label(), "count(*)");

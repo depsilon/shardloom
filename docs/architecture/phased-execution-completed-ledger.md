@@ -16,6 +16,28 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F scoped SQL/Python multi-key grouped aggregate runtime
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-multikey-grouped-aggregates` / #879.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
+    - SQL local-source aggregate runtime
+    - Python query-builder grouped aggregate surface.
+  - Scope:
+    - Promoted the already ShardLoom-native composite group-key evaluator into explicit runtime evidence for local-source grouped aggregates.
+    - Added `group_by_key_arity` and `group_by_multi_key_runtime_execution` report fields so single-key and multi-key grouped aggregate smokes are distinguishable.
+    - Allowed Python local-source `group_by("a", "b").agg(...).limit(...)` workflows to lower to `sql-local-source-smoke` when they otherwise match the admitted scoped aggregate shape.
+    - Kept named grouped aggregate aliases, selected-workflow grouped aggregation, joins with grouping, ordering after grouping, and broader SQL/DataFrame grouped aggregate generality deterministically unsupported.
+  - Evidence:
+    - `aggregate_runtime_execution=true`, `aggregate_operator_family=grouped_aggregate`, `group_by_runtime_execution=true`, `group_by_columns`, `group_by_key_arity`, `group_by_multi_key_runtime_execution`, `group_by_group_count`, selected/output row counts, inline JSONL result rows, format-specific execution certificate refs, `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust parser and CLI smoke tests for scoped multi-key grouped aggregates.
+    - Focused Python query-builder tests for multi-key grouped aggregate lowering and typed report accessors.
+    - Full verification gates are run before the PR is opened and merged.
+  - Claim boundary:
+    - Scoped local SQL/Python multi-key grouped aggregate fixture smoke only. This is not broad SQL/DataFrame aggregation parity, named grouped aggregate alias support, production SQL support, encoded-native aggregate completeness, claim-grade compute, or performance evidence.
+  - Fallback boundary:
+    - Multi-key grouped aggregates are parsed, planned, grouped, aggregated, rendered, and evidenced by ShardLoom-native local-source runtime code. External engines remain baseline/oracle-only and are not invoked.
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python local IN-subquery predicate runtime
   - Date: 2026-05-21
   - Branch/PR: `runtime-in-subquery-predicates` / #878.

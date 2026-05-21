@@ -513,7 +513,7 @@ CSV, local flat
 JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are admitted for scoped scalar aggregates shaped as
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
 `MIN`, and `MAX`. The convenience `count()` method lowers to the same
-`COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. One-column grouped aggregates shaped as
+`COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. Multi-key grouped aggregates shaped as
 `group_by(...).agg(...).limit(n)` with an optional filter, and a single-key
 numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric sort
@@ -783,7 +783,7 @@ print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 
 This is a fixture-smoke local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar
 Parquet/Arrow IPC/Avro/ORC bridge for the scoped
-projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
+projection/optional-filter/limit, scalar aggregate, multi-key grouped aggregate,
 preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
 ABS, scoped numeric rounding, and scoped UTF-8 string length `with_column`,
 single-key numeric top-N, and scoped local-source inner equi-join shapes.
@@ -835,11 +835,13 @@ print(report.first_result_row)
 print(report.claim_gate_status)
 
 grouped = client.sql_local_source_smoke(
-    "SELECT label,count(*),sum(amount) "
+    "SELECT region,segment,count(*),sum(amount) "
     "FROM 'target/sql-local-source-smoke.csv' "
-    "WHERE amount >= 10 GROUP BY label LIMIT 10",
+    "WHERE amount >= 10 GROUP BY region,segment LIMIT 10",
 )
 print(grouped.group_by_columns)
+print(grouped.group_by_key_arity)
+print(grouped.group_by_multi_key_runtime_execution)
 print(grouped.group_by_group_count)
 
 topn = client.sql_local_source_smoke(
@@ -862,8 +864,8 @@ print(join.join_left_key, join.join_right_key)
 print(join.join_matched_row_count, join.join_rows_output)
 ```
 
-That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
-generality, grouped aliases, multi-key sorts, null ordering, collation parity,
+That path is still fixture-smoke evidence only. Named grouped aggregate aliases,
+broader grouped aggregate generality, multi-key sorts, null ordering, collation parity,
 broader correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source inner-equi query-builder bridge, broad expression-backed input-backed `with_column`,
@@ -904,7 +906,7 @@ reports = [
     workflow.to_numpy(),
     workflow.to_python_objects(),
     workflow.with_column("event_date", "to_date(ts)"),
-    workflow.group_by("customer_id", "region").agg("sum(amount)"),
+    workflow.group_by("customer_id", "region").agg(total="sum(amount)"),
     workflow.group_by("customer_id").agg(total="sum(amount)"),
     workflow.agg("count(*)"),
     workflow.sort("event_date"),
@@ -963,7 +965,7 @@ This matrix is mostly report-only, with the scoped local CSV `collect` and
 `write` rows plus the flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
 projection/optional-filter/limit bridges marked as
 fixture-smoke-supported only for the admitted projection/optional-filter/limit,
-preview/select-star, scalar aggregate, and one-column grouped aggregate shapes described above.
+preview/select-star, scalar aggregate, and multi-key grouped aggregate shapes described above.
 It does not import DataFrame
 libraries, invoke external engines, or upgrade DataFrame/notebook support to
 claim-grade status. Other lazy source, `filter`, `select`, `limit`, and
