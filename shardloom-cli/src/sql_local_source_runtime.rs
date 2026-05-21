@@ -327,6 +327,41 @@ struct ParsedCastProjection {
     alias: String,
     column: String,
     target_dtype: LogicalDType,
+    mode: CastMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CastMode {
+    Strict,
+    Try,
+}
+
+impl CastMode {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Strict => "strict",
+            Self::Try => "try",
+        }
+    }
+
+    const fn function_label(self) -> &'static str {
+        match self {
+            Self::Strict => "CAST",
+            Self::Try => "TRY_CAST",
+        }
+    }
+
+    fn build_expression(
+        self,
+        id: ExprId,
+        expr: Expression,
+        target_dtype: LogicalDType,
+    ) -> Expression {
+        match self {
+            Self::Strict => Expression::cast(id, expr, target_dtype),
+            Self::Try => Expression::try_cast(id, expr, target_dtype),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -693,6 +728,7 @@ enum ParsedPredicate {
     CastCompare {
         column: String,
         target_dtype: LogicalDType,
+        mode: CastMode,
         op: ComparisonOp,
         value: ScalarValue,
     },
@@ -3040,7 +3076,7 @@ fn generic_expression_projection_expression(
 fn cast_projection_expression(
     projection: &ParsedCastProjection,
 ) -> Result<Expression, ShardLoomError> {
-    let cast = Expression::cast(
+    let cast = projection.mode.build_expression(
         ExprId::new(format!("project.cast.{}", projection.alias))?,
         Expression::column(
             ExprId::new(format!("project.{}", projection.column))?,
@@ -6423,6 +6459,18 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn cast_projection_modes(&self) -> String {
+        if self.cast_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.cast_projections
+                .iter()
+                .map(|projection| projection.mode.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
     fn null_coalesce_projection_source_columns(&self) -> String {
         if self.null_coalesce_projections.is_empty() {
             "not_applicable".to_string()
@@ -7195,12 +7243,7 @@ impl ParsedPredicate {
                     .to_string(),
             )),
             Self::Compare { column, op, value } => compare_expression(column, *op, value),
-            Self::CastCompare {
-                column,
-                target_dtype,
-                op,
-                value,
-            } => cast_compare_expression(column, target_dtype, *op, value),
+            Self::CastCompare { .. } => self.cast_compare_expression(),
             Self::NumericArithmeticCompare {
                 column,
                 op,
@@ -7289,6 +7332,23 @@ impl ParsedPredicate {
                 },
             )),
         }
+    }
+
+    fn cast_compare_expression(&self) -> Result<Expression, ShardLoomError> {
+        let Self::CastCompare {
+            column,
+            target_dtype,
+            mode,
+            op,
+            value,
+        } = self
+        else {
+            return Err(ShardLoomError::InvalidOperation(
+                "internal error: non-cast predicate cannot lower through cast expression"
+                    .to_string(),
+            ));
+        };
+        cast_compare_expression(column, target_dtype, *mode, *op, value)
     }
 
     fn timestamp_arithmetic_expression(&self) -> Result<Expression, ShardLoomError> {
@@ -8862,6 +8922,46 @@ impl ParsedPredicate {
         }
     }
 
+    fn cast_modes(&self) -> String {
+        let mut modes = Vec::new();
+        self.push_cast_modes(&mut modes);
+        if modes.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            modes.join(",")
+        }
+    }
+
+    fn push_cast_modes(&self, modes: &mut Vec<&'static str>) {
+        match self {
+            Self::CastCompare { mode, .. } => modes.push(mode.as_str()),
+            Self::Logical { left, right, .. } => {
+                left.push_cast_modes(modes);
+                right.push_cast_modes(modes);
+            }
+            Self::Not { inner } => inner.push_cast_modes(modes),
+            Self::All
+            | Self::Compare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
     fn uses_logical_predicate(&self) -> bool {
         matches!(self, Self::Logical { .. } | Self::Not { .. })
     }
@@ -9824,13 +9924,14 @@ fn compare_expression(
 fn cast_compare_expression(
     column: &str,
     target_dtype: &LogicalDType,
+    mode: CastMode,
     op: ComparisonOp,
     value: &ScalarValue,
 ) -> Result<Expression, ShardLoomError> {
     Ok(Expression::new(
         ExprId::new("where.cast_compare")?,
         ExpressionKind::Compare {
-            left: Box::new(Expression::cast(
+            left: Box::new(mode.build_expression(
                 ExprId::new(format!("where.cast.{column}"))?,
                 Expression::column(
                     ExprId::new(format!("where.{column}"))?,
@@ -11143,6 +11244,7 @@ impl SqlLocalSourceReport {
                 "cast_target_dtype".to_string(),
                 self.parsed.predicate.cast_target_dtypes(),
             ),
+            ("cast_mode".to_string(), self.parsed.predicate.cast_modes()),
             (
                 "literal_projection_runtime_execution".to_string(),
                 self.parsed.has_literal_projection().to_string(),
@@ -11175,6 +11277,10 @@ impl SqlLocalSourceReport {
             (
                 "cast_projection_target_dtype".to_string(),
                 self.parsed.cast_projection_target_dtypes(),
+            ),
+            (
+                "cast_projection_mode".to_string(),
+                self.parsed.cast_projection_modes(),
             ),
             (
                 "null_coalesce_projection_runtime_execution".to_string(),
@@ -13393,32 +13499,18 @@ fn parse_cast_projection(raw: &str) -> Result<Option<ParsedCastProjection>, Shar
     };
     let expression_raw = raw[..as_index].trim();
     let alias = raw[as_index + "as".len()..].trim();
-    if !expression_raw
-        .get(..5)
-        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
-    {
+    let Some((mode, inner)) = parse_cast_call_expression(expression_raw)? else {
         return Ok(None);
-    }
+    };
     if alias.is_empty() {
         return Err(unsupported_sql_error(
-            "CAST projections require an output alias",
+            "CAST/TRY_CAST projections require an output alias",
         ));
     }
     validate_sql_identifier(alias)?;
-    let close_index = matching_closing_parenthesis(expression_raw, 4)?.ok_or_else(|| {
-        unsupported_sql_error(
-            "CAST projections must be written as CAST(<column> AS <dtype>) AS <column>",
-        )
-    })?;
-    if !expression_raw[close_index + 1..].trim().is_empty() {
-        return Err(unsupported_sql_error(
-            "CAST projections must be a single CAST(<column> AS <dtype>) expression before AS",
-        ));
-    }
-    let inner = expression_raw[5..close_index].trim();
     let Some(inner_as_index) = find_keyword_outside_quotes(inner, "as") else {
         return Err(unsupported_sql_error(
-            "CAST projections must use CAST(<column> AS <dtype>) syntax",
+            "CAST/TRY_CAST projections must use CAST(<column> AS <dtype>) syntax",
         ));
     };
     let column = inner[..inner_as_index].trim();
@@ -13428,7 +13520,41 @@ fn parse_cast_projection(raw: &str) -> Result<Option<ParsedCastProjection>, Shar
         alias: alias.to_string(),
         column: column.to_string(),
         target_dtype: parse_cast_target_dtype(target_raw)?,
+        mode,
     }))
+}
+
+fn parse_cast_call_expression(raw: &str) -> Result<Option<(CastMode, &str)>, ShardLoomError> {
+    let Some((mode, open_index)) = parse_cast_function_prefix(raw) else {
+        return Ok(None);
+    };
+    let close_index = matching_closing_parenthesis(raw, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "CAST/TRY_CAST expressions must be written as CAST(<column> AS <dtype>) or TRY_CAST(<column> AS <dtype>)",
+        )
+    })?;
+    if !raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(&format!(
+            "{} expressions must be a single call",
+            mode.function_label()
+        )));
+    }
+    Ok(Some((mode, raw[open_index + 1..close_index].trim())))
+}
+
+fn parse_cast_function_prefix(raw: &str) -> Option<(CastMode, usize)> {
+    let trimmed = raw.trim();
+    for (name, mode) in [("try_cast", CastMode::Try), ("cast", CastMode::Strict)] {
+        let len = name.len();
+        if trimmed
+            .get(..len)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && trimmed.as_bytes().get(len) == Some(&b'(')
+        {
+            return Some((mode, len));
+        }
+    }
+    None
 }
 
 fn parse_null_coalesce_projection(
@@ -14281,6 +14407,7 @@ fn collect_expression_source_columns(expression: &Expression, columns: &mut BTre
         }
         ExpressionKind::Alias { expr, .. }
         | ExpressionKind::Cast { expr, .. }
+        | ExpressionKind::TryCast { expr, .. }
         | ExpressionKind::Unary { expr, .. } => collect_expression_source_columns(expr, columns),
         ExpressionKind::Binary { left, right, .. }
         | ExpressionKind::Compare { left, right, .. } => {
@@ -14331,6 +14458,7 @@ fn collect_expression_temporal_difference_source_columns(
         }
         ExpressionKind::Alias { expr, .. }
         | ExpressionKind::Cast { expr, .. }
+        | ExpressionKind::TryCast { expr, .. }
         | ExpressionKind::Unary { expr, .. } => {
             collect_expression_temporal_difference_source_columns(expr, function_name, columns);
         }
@@ -14358,6 +14486,7 @@ fn expression_has_temporal_difference(expression: &Expression) -> bool {
         }
         ExpressionKind::Alias { expr, .. }
         | ExpressionKind::Cast { expr, .. }
+        | ExpressionKind::TryCast { expr, .. }
         | ExpressionKind::Unary { expr, .. } => expression_has_temporal_difference(expr),
         ExpressionKind::Binary { left, right, .. }
         | ExpressionKind::Compare { left, right, .. } => {
@@ -14383,6 +14512,10 @@ fn collect_expression_operator_families(expression: &Expression, families: &mut 
     match &expression.kind {
         ExpressionKind::Cast { expr, .. } => {
             families.insert("cast".to_string());
+            collect_expression_operator_families(expr, families);
+        }
+        ExpressionKind::TryCast { expr, .. } => {
+            families.insert("try_cast".to_string());
             collect_expression_operator_families(expr, families);
         }
         ExpressionKind::Binary { left, op, right } => {
@@ -14434,6 +14567,7 @@ fn expression_binary_operator_count(expression: &Expression) -> usize {
         }
         ExpressionKind::Alias { expr, .. }
         | ExpressionKind::Cast { expr, .. }
+        | ExpressionKind::TryCast { expr, .. }
         | ExpressionKind::Unary { expr, .. } => expression_binary_operator_count(expr),
         ExpressionKind::Compare { left, right, .. } => {
             expression_binary_operator_count(left) + expression_binary_operator_count(right)
@@ -15698,26 +15832,23 @@ fn parse_logical_binary_predicate(
 
 fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
     let trimmed = raw.trim();
-    if !trimmed
-        .get(..5)
-        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
-    {
+    let Some((mode, open_index)) = parse_cast_function_prefix(trimmed) else {
         return Ok(None);
-    }
-    let close_index = trimmed.find(')').ok_or_else(|| {
+    };
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
         unsupported_sql_error(
-            "CAST predicates must be written as CAST(<column> AS <dtype>) <op> <literal>",
+            "CAST/TRY_CAST predicates must be written as CAST(<column> AS <dtype>) <op> <literal>",
         )
     })?;
-    let inner = trimmed[5..close_index].trim();
+    let inner = trimmed[open_index + 1..close_index].trim();
     let tail = trimmed[close_index + 1..].trim();
     if inner.is_empty() || tail.is_empty() {
         return Err(unsupported_sql_error(
-            "CAST predicates require a source column, target dtype, comparison operator, and literal",
+            "CAST/TRY_CAST predicates require a source column, target dtype, comparison operator, and literal",
         ));
     }
     let as_index = find_keyword_outside_quotes(inner, "as").ok_or_else(|| {
-        unsupported_sql_error("CAST predicates must use CAST(<column> AS <dtype>) syntax")
+        unsupported_sql_error("CAST/TRY_CAST predicates must use CAST(<column> AS <dtype>) syntax")
     })?;
     let column = inner[..as_index].trim();
     let target_raw = inner[as_index + 2..].trim();
@@ -15744,13 +15875,14 @@ fn parse_cast_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomE
         ),
         _ => {
             return Err(unsupported_sql_error(
-                "CAST predicates admit CAST(<column> AS <dtype>) <op> <literal> only",
+                "CAST/TRY_CAST predicates admit CAST(<column> AS <dtype>) <op> <literal> only",
             ));
         }
     };
     Ok(Some(ParsedPredicate::CastCompare {
         column: column.to_string(),
         target_dtype,
+        mode,
         op,
         value,
     }))
@@ -17690,18 +17822,21 @@ mod tests {
             parsed.cast_projections[0].target_dtype,
             LogicalDType::Float64
         );
+        assert_eq!(parsed.cast_projections[0].mode, CastMode::Strict);
         assert_eq!(parsed.cast_projections[1].alias, "event_day");
         assert_eq!(parsed.cast_projections[1].column, "event_date");
         assert_eq!(
             parsed.cast_projections[1].target_dtype,
             LogicalDType::Date32
         );
+        assert_eq!(parsed.cast_projections[1].mode, CastMode::Strict);
         assert_eq!(parsed.cast_projection_source_columns(), "amount,event_date");
         assert_eq!(
             parsed.cast_projection_output_columns(),
             "amount_float,event_day"
         );
         assert_eq!(parsed.cast_projection_target_dtypes(), "float64,date32");
+        assert_eq!(parsed.cast_projection_modes(), "strict,strict");
         assert_eq!(
             parsed.statement_kind(),
             "local_source_computed_projection_filter_limit"
@@ -17709,6 +17844,29 @@ mod tests {
         assert_eq!(
             parsed.execution_certificate_suffix(),
             "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_try_cast_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,TRY_CAST(raw_amount AS int64) AS amount_i64 FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("try_cast projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.cast_projections.len(), 1);
+        assert_eq!(parsed.cast_projections[0].alias, "amount_i64");
+        assert_eq!(parsed.cast_projections[0].column, "raw_amount");
+        assert_eq!(parsed.cast_projections[0].target_dtype, LogicalDType::Int64);
+        assert_eq!(parsed.cast_projections[0].mode, CastMode::Try);
+        assert_eq!(parsed.cast_projection_source_columns(), "raw_amount");
+        assert_eq!(parsed.cast_projection_output_columns(), "amount_i64");
+        assert_eq!(parsed.cast_projection_target_dtypes(), "int64");
+        assert_eq!(parsed.cast_projection_modes(), "try");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
         );
     }
 
@@ -18640,6 +18798,7 @@ mod tests {
             ParsedPredicate::CastCompare {
                 ref column,
                 target_dtype: LogicalDType::Int64,
+                mode: CastMode::Strict,
                 op: ComparisonOp::GtEq,
                 value: ScalarValue::Int64(10)
             } if column == "amount"
@@ -18647,6 +18806,30 @@ mod tests {
         assert_eq!(parsed.predicate.family(), "cast");
         assert_eq!(parsed.predicate.cast_source_columns(), "amount");
         assert_eq!(parsed.predicate.cast_target_dtypes(), "int64");
+        assert_eq!(parsed.predicate.cast_modes(), "strict");
+    }
+
+    #[test]
+    fn parses_scoped_try_cast_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,raw_amount FROM 'target/input.csv' WHERE TRY_CAST(raw_amount AS int64) >= 10 LIMIT 5",
+        )
+        .expect("try_cast predicate statement parses");
+
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::CastCompare {
+                ref column,
+                target_dtype: LogicalDType::Int64,
+                mode: CastMode::Try,
+                op: ComparisonOp::GtEq,
+                value: ScalarValue::Int64(10)
+            } if column == "raw_amount"
+        ));
+        assert_eq!(parsed.predicate.family(), "cast");
+        assert_eq!(parsed.predicate.cast_source_columns(), "raw_amount");
+        assert_eq!(parsed.predicate.cast_target_dtypes(), "int64");
+        assert_eq!(parsed.predicate.cast_modes(), "try");
     }
 
     #[test]
@@ -18661,6 +18844,7 @@ mod tests {
             ParsedPredicate::CastCompare {
                 ref column,
                 target_dtype: LogicalDType::Date32,
+                mode: CastMode::Strict,
                 op: ComparisonOp::GtEq,
                 value: ScalarValue::Date32(_)
             } if column == "event_date"
@@ -18668,6 +18852,7 @@ mod tests {
         assert!(parsed.predicate.uses_date_literal());
         assert_eq!(parsed.predicate.family(), "cast");
         assert_eq!(parsed.predicate.cast_target_dtypes(), "date32");
+        assert_eq!(parsed.predicate.cast_modes(), "strict");
     }
 
     #[test]

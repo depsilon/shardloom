@@ -1505,6 +1505,10 @@ fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
         "float64,utf8,date32,timestamp_micros"
     )));
     assert!(stdout.contains(&field(
+        "cast_projection_mode",
+        "strict,strict,strict,strict"
+    )));
+    assert!(stdout.contains(&field(
         "projected_columns",
         "id,amount_float,active_text,event_day,event_time"
     )));
@@ -1537,6 +1541,91 @@ fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
         "CAST target dtype must be one of int64, float64, utf8, boolean, date32, or timestamp_micros"
     ));
     assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_try_cast_projection_and_predicate_without_fallback() {
+    let source_path = unique_path("sql-local-source-try-cast", "csv");
+    fs::write(
+        &source_path,
+        "id,raw_amount\n\
+         1,8\n\
+         2,not_an_int\n\
+         3,15\n",
+    )
+    .expect("write source csv");
+
+    let projection_statement = format!(
+        "SELECT id,TRY_CAST(raw_amount AS int64) AS amount_i64 FROM '{}' WHERE id >= 1 LIMIT 10",
+        source_path.display()
+    );
+    let projection_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &projection_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        projection_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&projection_output.stdout),
+        String::from_utf8_lossy(&projection_output.stderr)
+    );
+    let projection_stdout = String::from_utf8(projection_output.stdout).expect("stdout is utf8");
+    assert!(projection_stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(projection_stdout.contains(&field("cast_projection_runtime_execution", "true")));
+    assert!(projection_stdout.contains(&field("cast_projection_source_column", "raw_amount")));
+    assert!(projection_stdout.contains(&field("cast_projection_output_column", "amount_i64")));
+    assert!(projection_stdout.contains(&field("cast_projection_target_dtype", "int64")));
+    assert!(projection_stdout.contains(&field("cast_projection_mode", "try")));
+    assert!(projection_stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"amount_i64\\\":8}\\n{\\\"id\\\":2,\\\"amount_i64\\\":null}\\n{\\\"id\\\":3,\\\"amount_i64\\\":15}\\n\""
+    ));
+    assert!(projection_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(projection_stdout.contains(&field("external_engine_invoked", "false")));
+
+    let predicate_statement = format!(
+        "SELECT id,raw_amount FROM '{}' WHERE TRY_CAST(raw_amount AS int64) >= 10 LIMIT 10",
+        source_path.display()
+    );
+    let predicate_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &predicate_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        predicate_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&predicate_output.stdout),
+        String::from_utf8_lossy(&predicate_output.stderr)
+    );
+    let predicate_stdout = String::from_utf8(predicate_output.stdout).expect("stdout is utf8");
+    assert!(predicate_stdout.contains(&field("predicate_operator_family", "cast")));
+    assert!(predicate_stdout.contains(&field("cast_runtime_execution", "true")));
+    assert!(predicate_stdout.contains(&field("cast_source_column", "raw_amount")));
+    assert!(predicate_stdout.contains(&field("cast_target_dtype", "int64")));
+    assert!(predicate_stdout.contains(&field("cast_mode", "try")));
+    assert!(predicate_stdout.contains(&field("selected_row_count", "1")));
+    assert!(
+        predicate_stdout
+            .contains("\"result_jsonl\",\"value\":\"{\\\"id\\\":3,\\\"raw_amount\\\":15}\\n\"")
+    );
+    assert!(predicate_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(predicate_stdout.contains(&field("external_engine_invoked", "false")));
 
     fs::remove_file(source_path).expect("remove source csv");
 }
@@ -5837,6 +5926,7 @@ fn sql_local_source_smoke_executes_cast_predicates_without_fallback() {
     assert!(stdout.contains(&field("cast_runtime_execution", "true")));
     assert!(stdout.contains(&field("cast_source_column", "amount")));
     assert!(stdout.contains(&field("cast_target_dtype", "int64")));
+    assert!(stdout.contains(&field("cast_mode", "strict")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
     assert!(stdout.contains(
         "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"amount\\\":\\\"15\\\",\\\"label\\\":\\\"mid\\\"}\\n{\\\"id\\\":3,\\\"amount\\\":\\\"21\\\",\\\"label\\\":\\\"high\\\"}\\n\""
