@@ -24,6 +24,21 @@ fn field(key: &str, value: &str) -> String {
     format!("{{\"key\":\"{key}\",\"value\":\"{value}\"}}")
 }
 
+fn run_sql_local_source_smoke_json(statement: &str) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).expect("stdout is utf8")
+}
+
 #[cfg(not(feature = "vortex-write"))]
 #[test]
 fn vortex_ingest_smoke_blocks_without_vortex_write_feature() {
@@ -1462,6 +1477,69 @@ fn sql_local_source_smoke_executes_string_length_projection_without_fallback() {
             .contains("string length projection source column \\\"missing\\\" is not present")
     );
     assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_string_function_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-string-function-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,label,segment\n1,alpha,north\n2,beta,east\n3,alpaca,north\n4,,west\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 2, 3) AS middle,REPLACE(label, 'a', '') AS scrubbed FROM '{}' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("predicate_operator_family", "string_function")));
+    assert!(stdout.contains(&field("string_function_runtime_execution", "true")));
+    assert!(stdout.contains(&field("string_function_operator", "concat")));
+    assert!(stdout.contains(&field("string_function_source_column", "label+segment")));
+    assert!(stdout.contains(&field("string_function_literal_count", "2")));
+    assert!(stdout.contains(&field("string_function_rhs_dtype", "utf8")));
+    assert!(stdout.contains(&field(
+        "string_function_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "string_function_projection_operator",
+        "concat,substr,replace"
+    )));
+    assert!(stdout.contains(&field(
+        "string_function_projection_source_column",
+        "label+segment,label,label"
+    )));
+    assert!(stdout.contains(&field(
+        "string_function_projection_output_column",
+        "label_key,middle,scrubbed"
+    )));
+    assert!(stdout.contains(&field("string_function_projection_literal_count", "1,2,2")));
+    assert!(stdout.contains(&field("projected_columns", "id,label_key,middle,scrubbed")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label_key\\\":\\\"alpha-north\\\",\\\"middle\\\":\\\"lph\\\",\\\"scrubbed\\\":\\\"lph\\\"}\\n\""
+    ));
 
     fs::remove_file(source_path).expect("remove source csv");
 }
@@ -3547,6 +3625,71 @@ fn sql_local_source_smoke_executes_string_transform_predicates_without_fallback(
     assert!(stdout.contains(
         "\"result_jsonl\",\"value\":\"{\\\"id\\\":3,\\\"label\\\":\\\" gamma \\\"}\\n\""
     ));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_string_function_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-string-function", "csv");
+    fs::write(
+        &source_path,
+        "id,label,segment\n1,alpha,north\n2,beta,east\n3,alpaca,north\n4,,west\n",
+    )
+    .expect("write source csv");
+
+    let concat_statement = format!(
+        "SELECT id,label FROM '{}' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 10",
+        source_path.display()
+    );
+    let stdout = run_sql_local_source_smoke_json(&concat_statement);
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "string_function")));
+    assert!(stdout.contains(&field("string_function_runtime_execution", "true")));
+    assert!(stdout.contains(&field("string_function_operator", "concat")));
+    assert!(stdout.contains(&field("string_function_source_column", "label+segment")));
+    assert!(stdout.contains(&field("string_function_literal_count", "2")));
+    assert!(stdout.contains(&field("string_function_rhs_dtype", "utf8")));
+    assert!(stdout.contains(&field("selected_row_count", "1")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let substr_statement = format!(
+        "SELECT id,label FROM '{}' WHERE SUBSTR(label, 2, 2) = 'et' LIMIT 10",
+        source_path.display()
+    );
+    let stdout = run_sql_local_source_smoke_json(&substr_statement);
+    assert!(stdout.contains(&field("string_function_operator", "substr")));
+    assert!(stdout.contains(&field("string_function_source_column", "label")));
+    assert!(stdout.contains(&field("string_function_literal_count", "3")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let replace_statement = format!(
+        "SELECT id,label FROM '{}' WHERE REPLACE(label, 'a', '') = 'lph' LIMIT 10",
+        source_path.display()
+    );
+    let stdout = run_sql_local_source_smoke_json(&replace_statement);
+    assert!(stdout.contains(&field("string_function_operator", "replace")));
+    assert!(stdout.contains(&field("string_function_source_column", "label")));
+    assert!(stdout.contains(&field("string_function_literal_count", "3")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
     fs::remove_file(source_path).expect("remove source csv");
 }
@@ -5860,6 +6003,71 @@ fn sql_local_source_smoke_blocks_unsupported_string_length_shapes_without_fallba
         );
         assert!(stdout.contains("no fallback execution was attempted"));
         assert!(stdout.contains("external_engine_invoked=false"));
+    }
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_unsupported_string_function_shapes_without_fallback() {
+    let source_path = unique_path("sql-local-source-string-function-blocked", "csv");
+    fs::write(&source_path, "id,label,amount\n1,alpha,10\n2,beta,20\n").expect("write source csv");
+
+    let cases = [
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE CONCAT('a', 'b') = 'ab' LIMIT 10",
+                source_path.display()
+            ),
+            "string function expressions require at least one source column argument",
+        ),
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE SUBSTR(label, 0, 2) = 'al' LIMIT 10",
+                source_path.display()
+            ),
+            "SUBSTR/SUBSTRING string function expressions require a 1-based start index >= 1",
+        ),
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE REPLACE(label, '', 'x') = 'alpha' LIMIT 10",
+                source_path.display()
+            ),
+            "REPLACE string function expressions require a non-empty search literal",
+        ),
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE CONCAT(label, amount) = 'alpha10' LIMIT 10",
+                source_path.display()
+            ),
+            "supports UTF-8/null operands only",
+        ),
+    ];
+
+    for (statement, expected_reason) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args(["sql-local-source-smoke", &statement, "--format", "json"])
+            .output()
+            .expect("sql-local-source-smoke command runs");
+        assert!(
+            !output.status.success(),
+            "statement={statement} stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(
+            stdout.contains(expected_reason),
+            "statement={statement} expected={expected_reason} stdout={stdout}"
+        );
+        assert!(
+            stdout.contains("no fallback execution was attempted")
+                || stdout.contains("ShardLoom prohibits Spark")
+        );
+        assert!(
+            stdout.contains("external_engine_invoked=false")
+                || stdout.contains("\"attempted\":false")
+        );
     }
 
     fs::remove_file(source_path).expect("remove source csv");

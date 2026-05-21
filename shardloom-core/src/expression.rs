@@ -820,6 +820,11 @@ fn eval_function_call(
             eval_string_transform(name, args, row, |value| value.trim().to_string())
         }
         "utf8_length" | "length" => eval_string_length(name, args, row),
+        "utf8_concat" | "concat" => eval_string_concat(name, args, row),
+        "utf8_substr" | "utf8_substring" | "substr" | "substring" => {
+            eval_string_substr(name, args, row)
+        }
+        "utf8_replace" | "replace" => eval_string_replace(name, args, row),
         "numeric_abs" | "abs" => eval_numeric_abs(name, args, row),
         "numeric_floor" | "floor" => eval_numeric_rounding(name, args, row, f64::floor),
         "numeric_ceil" | "ceil" | "ceiling" => eval_numeric_rounding(name, args, row, f64::ceil),
@@ -1140,6 +1145,170 @@ fn eval_string_length(
             ),
         )),
     }
+}
+
+fn eval_string_concat(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() < 2 {
+        return Err(EvalFailure::invalid(
+            "string_function",
+            format!("function {name:?} requires at least two UTF-8 arguments"),
+        ));
+    }
+    let (values, data_materialized) = eval_function_args(args, row)?;
+    if values.iter().any(ScalarValue::is_null) {
+        return Ok(
+            EvalValue::null(LogicalDType::Utf8, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    let mut output = String::new();
+    for value in values {
+        match value {
+            ScalarValue::Utf8(value) => output.push_str(&value),
+            other => {
+                return Err(EvalFailure::unsupported(
+                    "string_function",
+                    format!(
+                        "function {name:?} supports UTF-8/null operands only, got {}",
+                        other.dtype().as_str()
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(EvalValue::new(
+        ScalarValue::Utf8(output),
+        LogicalDType::Utf8,
+        NullBehavior::NullPropagating,
+    )
+    .carry_materialization(data_materialized))
+}
+
+fn eval_string_substr(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() != 3 {
+        return Err(EvalFailure::invalid(
+            "string_function",
+            format!("function {name:?} requires UTF-8, int64 start, and int64 length arguments"),
+        ));
+    }
+    let (values, data_materialized) = eval_function_args(args, row)?;
+    if values.iter().any(ScalarValue::is_null) {
+        return Ok(
+            EvalValue::null(LogicalDType::Utf8, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    let [value, start, length]: [ScalarValue; 3] =
+        values.try_into().expect("validated substring arity");
+    match (value, start, length) {
+        (ScalarValue::Utf8(value), ScalarValue::Int64(start), ScalarValue::Int64(length)) => {
+            if start < 1 {
+                return Err(EvalFailure::invalid(
+                    "string_function",
+                    format!("function {name:?} requires a 1-based start index >= 1"),
+                ));
+            }
+            if length < 0 {
+                return Err(EvalFailure::invalid(
+                    "string_function",
+                    format!("function {name:?} requires a non-negative length"),
+                ));
+            }
+            let skip = usize::try_from(start - 1).map_err(|_| {
+                EvalFailure::invalid(
+                    "string_function",
+                    "substring start index exceeds usize range",
+                )
+            })?;
+            let take = usize::try_from(length).map_err(|_| {
+                EvalFailure::invalid("string_function", "substring length exceeds usize range")
+            })?;
+            Ok(EvalValue::new(
+                ScalarValue::Utf8(value.chars().skip(skip).take(take).collect()),
+                LogicalDType::Utf8,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        (value, start, length) => Err(EvalFailure::unsupported(
+            "string_function",
+            format!(
+                "function {name:?} supports UTF-8/null, int64/null, int64/null operands only, got {}, {}, and {}",
+                value.dtype().as_str(),
+                start.dtype().as_str(),
+                length.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn eval_string_replace(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<EvalValue> {
+    if args.len() != 3 {
+        return Err(EvalFailure::invalid(
+            "string_function",
+            format!("function {name:?} requires exactly three UTF-8 arguments"),
+        ));
+    }
+    let (values, data_materialized) = eval_function_args(args, row)?;
+    if values.iter().any(ScalarValue::is_null) {
+        return Ok(
+            EvalValue::null(LogicalDType::Utf8, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    let [value, needle, replacement]: [ScalarValue; 3] =
+        values.try_into().expect("validated replace arity");
+    match (value, needle, replacement) {
+        (ScalarValue::Utf8(value), ScalarValue::Utf8(needle), ScalarValue::Utf8(replacement)) => {
+            if needle.is_empty() {
+                return Err(EvalFailure::invalid(
+                    "string_function",
+                    format!("function {name:?} requires a non-empty search pattern"),
+                ));
+            }
+            Ok(EvalValue::new(
+                ScalarValue::Utf8(value.replace(&needle, &replacement)),
+                LogicalDType::Utf8,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        (value, needle, replacement) => Err(EvalFailure::unsupported(
+            "string_function",
+            format!(
+                "function {name:?} supports UTF-8/null operands only, got {}, {}, and {}",
+                value.dtype().as_str(),
+                needle.dtype().as_str(),
+                replacement.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn eval_function_args(
+    args: &[Expression],
+    row: &ExpressionInputRow,
+) -> EvalResult<(Vec<ScalarValue>, bool)> {
+    let mut data_materialized = false;
+    let mut values = Vec::with_capacity(args.len());
+    for arg in args {
+        let value = eval_expression(arg, row)?;
+        data_materialized |= value.data_materialized;
+        values.push(value.value);
+    }
+    Ok((values, data_materialized))
 }
 
 fn eval_numeric_abs(
@@ -1656,6 +1825,8 @@ fn function_operator_family(name: &str) -> &'static str {
             "string_transform"
         }
         "utf8_length" | "length" => "string_length",
+        "utf8_concat" | "concat" | "utf8_substr" | "utf8_substring" | "substr" | "substring"
+        | "utf8_replace" | "replace" => "string_function",
         "numeric_abs" | "abs" => "numeric_abs",
         "numeric_floor" | "floor" | "numeric_ceil" | "ceil" | "ceiling" | "numeric_round"
         | "round" => "numeric_rounding",
@@ -2943,6 +3114,160 @@ mod tests {
         assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_string_functions_without_fallback() {
+        let concat = Expression::new(
+            expr_id("concat"),
+            ExpressionKind::FunctionCall {
+                name: "concat".to_string(),
+                args: vec![
+                    Expression::column(expr_id("label"), col("label")),
+                    Expression::literal(expr_id("separator"), ScalarValue::Utf8("-".to_string())),
+                    Expression::column(expr_id("segment"), col("segment")),
+                ],
+            },
+        );
+        let concat_report = evaluate_expression(
+            &concat,
+            &row(&[
+                ("label", ScalarValue::Utf8("alpha".to_string())),
+                ("segment", ScalarValue::Utf8("north".to_string())),
+            ]),
+        );
+        assert_eq!(concat_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(concat_report.operator_family, "string_function");
+        assert_eq!(
+            concat_report.value,
+            Some(ScalarValue::Utf8("alpha-north".to_string()))
+        );
+        assert_eq!(concat_report.output_dtype, Some(LogicalDType::Utf8));
+        assert_eq!(concat_report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!concat_report.fallback_attempted);
+        assert!(!concat_report.external_engine_invoked);
+
+        let substr = Expression::new(
+            expr_id("substr"),
+            ExpressionKind::FunctionCall {
+                name: "substring".to_string(),
+                args: vec![
+                    Expression::column(expr_id("label"), col("label")),
+                    Expression::literal(expr_id("start"), ScalarValue::Int64(2)),
+                    Expression::literal(expr_id("length"), ScalarValue::Int64(3)),
+                ],
+            },
+        );
+        let substr_report = evaluate_expression(
+            &substr,
+            &row(&[("label", ScalarValue::Utf8("crane".to_string()))]),
+        );
+        assert_eq!(substr_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(substr_report.operator_family, "string_function");
+        assert_eq!(
+            substr_report.value,
+            Some(ScalarValue::Utf8("ran".to_string()))
+        );
+        assert!(!substr_report.fallback_attempted);
+        assert!(!substr_report.external_engine_invoked);
+
+        let replace = Expression::new(
+            expr_id("replace"),
+            ExpressionKind::FunctionCall {
+                name: "replace".to_string(),
+                args: vec![
+                    Expression::column(expr_id("label"), col("label")),
+                    Expression::literal(expr_id("needle"), ScalarValue::Utf8(" ".to_string())),
+                    Expression::literal(expr_id("replacement"), ScalarValue::Utf8("_".to_string())),
+                ],
+            },
+        );
+        let replace_report = evaluate_expression(
+            &replace,
+            &row(&[("label", ScalarValue::Utf8("alpha beta".to_string()))]),
+        );
+        assert_eq!(replace_report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(replace_report.operator_family, "string_function");
+        assert_eq!(
+            replace_report.value,
+            Some(ScalarValue::Utf8("alpha_beta".to_string()))
+        );
+        assert!(!replace_report.fallback_attempted);
+        assert!(!replace_report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_blocks_invalid_string_functions_without_fallback() {
+        let invalid_start = Expression::new(
+            expr_id("substr-invalid"),
+            ExpressionKind::FunctionCall {
+                name: "substr".to_string(),
+                args: vec![
+                    Expression::column(expr_id("label"), col("label")),
+                    Expression::literal(expr_id("start"), ScalarValue::Int64(0)),
+                    Expression::literal(expr_id("length"), ScalarValue::Int64(3)),
+                ],
+            },
+        );
+        let invalid_start_report = evaluate_expression(
+            &invalid_start,
+            &row(&[("label", ScalarValue::Utf8("alpha".to_string()))]),
+        );
+        assert_eq!(
+            invalid_start_report.status,
+            ExpressionEvaluationStatus::InvalidInput
+        );
+        assert_eq!(invalid_start_report.operator_family, "string_function");
+        assert!(invalid_start_report.has_errors());
+        assert!(!invalid_start_report.fallback_attempted);
+        assert!(!invalid_start_report.external_engine_invoked);
+
+        let empty_replace = Expression::new(
+            expr_id("replace-empty"),
+            ExpressionKind::FunctionCall {
+                name: "replace".to_string(),
+                args: vec![
+                    Expression::column(expr_id("label"), col("label")),
+                    Expression::literal(expr_id("needle"), ScalarValue::Utf8(String::new())),
+                    Expression::literal(expr_id("replacement"), ScalarValue::Utf8("_".to_string())),
+                ],
+            },
+        );
+        let empty_replace_report = evaluate_expression(
+            &empty_replace,
+            &row(&[("label", ScalarValue::Utf8("alpha".to_string()))]),
+        );
+        assert_eq!(
+            empty_replace_report.status,
+            ExpressionEvaluationStatus::InvalidInput
+        );
+        assert_eq!(empty_replace_report.operator_family, "string_function");
+        assert!(empty_replace_report.has_errors());
+        assert!(!empty_replace_report.fallback_attempted);
+        assert!(!empty_replace_report.external_engine_invoked);
+
+        let wrong_type = Expression::new(
+            expr_id("concat-wrong-type"),
+            ExpressionKind::FunctionCall {
+                name: "concat".to_string(),
+                args: vec![
+                    Expression::column(expr_id("label"), col("label")),
+                    Expression::literal(expr_id("bad"), ScalarValue::Int64(1)),
+                ],
+            },
+        );
+        let wrong_type_report = evaluate_expression(
+            &wrong_type,
+            &row(&[("label", ScalarValue::Utf8("alpha".to_string()))]),
+        );
+        assert_eq!(
+            wrong_type_report.status,
+            ExpressionEvaluationStatus::Unsupported
+        );
+        assert_eq!(wrong_type_report.operator_family, "string_function");
+        assert!(wrong_type_report.has_errors());
+        assert!(!wrong_type_report.fallback_attempted);
+        assert!(!wrong_type_report.external_engine_invoked);
     }
 
     #[test]

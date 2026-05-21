@@ -562,6 +562,12 @@ plan before coding.
   evidence, preserve SQL three-valued `WHERE` null-filter semantics, and keep missing-column,
   oversized, correlated, joined, filtered, grouped, ordered, limited, nested, or multi-column
   subquery shapes deterministic blockers with no fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D scoped UTF-8 string functions add native `CONCAT`, `SUBSTR` /
+  `SUBSTRING`, and `REPLACE` predicate/projection execution for admitted local-source SQL/Python
+  paths, emit `string_function_*` and `string_function_projection_*` evidence, preserve
+  null-propagating UTF-8 semantics, and keep literal-only calls, invalid substring bounds, empty
+  replace search strings, non-UTF-8 operands, and unsupported shapes deterministic blockers with no
+  fallback/external engine invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 
