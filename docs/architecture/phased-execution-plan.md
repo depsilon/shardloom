@@ -549,7 +549,7 @@ or documentation updates alone are insufficient.
     query-builder can lower local flat `.json`, `.jsonl`, `.ndjson`, and feature-gated
     `.parquet`/Arrow IPC/Avro/ORC
     projection/optional-filter/limit,
-    preview/select-star, scalar aggregate/optional-filter/limit, multi-key group-by
+    preview/select-star, scalar aggregate/optional-filter/limit with aliases, multi-key group-by
     aggregate/optional-filter/limit, single-key numeric top-N workflows, and the scoped
     local-source inner equi-join bridge into that runtime path.
     Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON versus admitted
@@ -1039,7 +1039,7 @@ docs/website parity, and a completed-ledger entry.
   - Source: `GAR-RUNTIME-IMPL-4B`, `GAR-RUNTIME-IMPL-4C`, `GAR-RUNTIME-IMPL-4D`, RFC 0032.
   - Current state: scoped local CSV/flat JSONL SQL smoke paths exist for
     projection/optional-filter/limit, preview/select-star, scalar and grouped aggregates with
-    optional filters, top-N, and one explicit inner equi-join shape; richer expressions, casts,
+    optional filters and output aliases, top-N, and one explicit inner equi-join shape; richer expressions, casts,
     dates, strings, windows, subqueries, catalogs, Python/DataFrame joins, multi-key/expression/
     outer/semi/anti/cross joins, and broad planner behavior remain incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
@@ -1105,7 +1105,7 @@ docs/website parity, and a completed-ledger entry.
     smokes exist, the Python query-builder now bridges local CSV, flat JSON/JSONL/NDJSON, and
     feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
     projection/optional-filter/limit,
-    preview/select-star, scalar-aggregate/optional-filter/limit, multi-key group-by
+    preview/select-star, scalar-aggregate/optional-filter/limit with aliases, multi-key group-by
     aggregate/optional-filter/limit, and single-key numeric top-N workflows, and local-source
     evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC rows. Nested JSON/JSONPath, broader
@@ -1562,7 +1562,7 @@ runnable, documented, tested, and claim-safe.
     query-builder chains support scoped projection/optional-filter/limit, preview/select-star, explicit-projection
     literal `with_column(...)`, `where(...)`, Python `sl.col(...).between(...)` and
     `sl.col(...).not_in(...)`, `head(...)`/
-    `take(...)`, `count()`, scalar aggregate/optional-filter/limit, multi-key grouped
+    `take(...)`, `count()`, scalar aggregate/optional-filter/limit with aliases, multi-key grouped
     aggregate/optional-filter/limit, and single-key top-N collect/write workflows. Scoped local CSV
     inner equi-join, local `write_jsonl(...)`/`write_csv(...)` sink aliases, and generated-output
     helpers also exist for scoped local workflows. Engine-native range/sequence generated sources

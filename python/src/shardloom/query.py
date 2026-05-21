@@ -1651,15 +1651,20 @@ class LazyFrame:
         """Return a scalar aggregate workflow for positional expressions when admitted."""
 
         values = list(_normalize_columns(expressions)) if expressions else []
-        values.extend(
+        target_values = list(values)
+        target_values.extend(
             f"{_require_non_empty('aggregate name', name)}={_require_non_empty('aggregate expression', expression)}"
+            for name, expression in named_expressions.items()
+        )
+        values.extend(
+            _format_named_aggregate(name, expression)
             for name, expression in named_expressions.items()
         )
         if not values:
             raise ValueError("aggregate expressions must not be empty")
-        if not named_expressions and self._can_append_scalar_aggregate():
+        if self._can_append_scalar_aggregate():
             return self._append(WorkflowOperation("aggregate", tuple(values)))
-        return self._unsupported_operation("agg", ",".join(values), check=check)
+        return self._unsupported_operation("agg", ",".join(target_values), check=check)
 
     def sort(
         self,
@@ -2045,16 +2050,19 @@ class GroupedLazyFrame:
         """Return a scoped grouped aggregate workflow when admitted."""
 
         values = list(_normalize_columns(expressions)) if expressions else []
-        values.extend(
+        target_values = list(values)
+        target_values.extend(
             f"{_require_non_empty('aggregate name', name)}={_require_non_empty('aggregate expression', expression)}"
+            for name, expression in named_expressions.items()
+        )
+        values.extend(
+            _format_named_aggregate(name, expression)
             for name, expression in named_expressions.items()
         )
         if not values:
             raise ValueError("aggregate expressions must not be empty")
-        target = f"group_by:{','.join(self.columns)};agg:{','.join(values)}"
-        if not named_expressions and self.workflow._can_append_group_by_aggregate(
-            self.columns
-        ):
+        target = f"group_by:{','.join(self.columns)};agg:{','.join(target_values)}"
+        if self.workflow._can_append_group_by_aggregate(self.columns):
             return self.workflow._append_group_by_aggregate(self.columns, tuple(values))
         envelope = self.workflow.client.workflow_unsupported_plan(
             "agg",
@@ -2897,6 +2905,12 @@ def _normalize_output_column_name(value: object) -> str:
     if not _is_sql_identifier(column):
         raise ValueError("output column names admit only bare SQL identifiers")
     return column
+
+
+def _format_named_aggregate(name: object, expression: object) -> str:
+    alias = _normalize_output_column_name(name)
+    aggregate_expression = _require_non_empty("aggregate expression", expression)
+    return f"{aggregate_expression} AS {alias}"
 
 
 def _normalize_cast_dtype(value: object) -> str:

@@ -240,6 +240,7 @@ struct ParsedSqlLocalSource {
 struct ParsedAggregate {
     function: AggregateFunction,
     column: Option<String>,
+    alias: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -3633,6 +3634,7 @@ fn bind_sql_local_source(
     } else {
         validate_projection_source_columns(parsed, header)?;
     }
+    validate_aggregate_output_names(parsed)?;
     if !parsed.group_by.is_empty() && !parsed.is_grouped_aggregate() {
         return Err(unsupported_sql_error(
             "GROUP BY requires at least one aggregate function in this scoped smoke",
@@ -3711,6 +3713,30 @@ fn validate_scalar_aggregate_sources(
         ));
     }
     validate_aggregate_source_columns(parsed, header)
+}
+
+fn validate_aggregate_output_names(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
+    if !parsed.is_aggregate() {
+        return Ok(());
+    }
+    let mut output_names = BTreeSet::new();
+    if parsed.is_grouped_aggregate() {
+        for column in &parsed.group_by {
+            if !output_names.insert(column.clone()) {
+                return Err(unsupported_sql_error(
+                    "aggregate smoke requires unique output column names",
+                ));
+            }
+        }
+    }
+    for aggregate in &parsed.aggregates {
+        if !output_names.insert(aggregate.output_name()) {
+            return Err(unsupported_sql_error(
+                "aggregate smoke requires unique output column names",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn validate_aggregate_source_columns(
@@ -4549,6 +4575,37 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn has_aggregate_aliases(&self) -> bool {
+        self.aggregates
+            .iter()
+            .any(|aggregate| aggregate.alias.is_some())
+    }
+
+    fn aggregate_output_columns(&self) -> String {
+        if self.aggregates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.aggregates
+                .iter()
+                .map(ParsedAggregate::output_name)
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn aggregate_aliases(&self) -> String {
+        let aliases = self
+            .aggregates
+            .iter()
+            .filter_map(|aggregate| aggregate.alias.as_deref())
+            .collect::<Vec<_>>();
+        if aliases.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            aliases.join(",")
+        }
+    }
+
     fn cast_projection_source_columns(&self) -> String {
         if self.cast_projections.is_empty() {
             "not_applicable".to_string()
@@ -5051,6 +5108,9 @@ impl ParsedSqlLocalSource {
 
 impl ParsedAggregate {
     fn output_name(&self) -> String {
+        if let Some(alias) = self.alias.as_ref() {
+            return alias.clone();
+        }
         match (self.function, self.column.as_deref()) {
             (AggregateFunction::Count, None) => "count_all".to_string(),
             (function, Some(column)) => format!("{}_{}", function.as_str(), column),
@@ -7997,6 +8057,18 @@ impl SqlLocalSourceReport {
                     .join(","),
             ),
             (
+                "aggregate_output_columns".to_string(),
+                self.parsed.aggregate_output_columns(),
+            ),
+            (
+                "aggregate_alias_runtime_execution".to_string(),
+                (self.parsed.is_aggregate() && self.parsed.has_aggregate_aliases()).to_string(),
+            ),
+            (
+                "aggregate_aliases".to_string(),
+                self.parsed.aggregate_aliases(),
+            ),
+            (
                 "group_by_runtime_execution".to_string(),
                 self.parsed.is_grouped_aggregate().to_string(),
             ),
@@ -10145,6 +10217,8 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                 ));
             }
             projections.push("*".to_string());
+        } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
+            aggregates.push(aggregate);
         } else if let Some(generic_projection) = parse_generic_expression_projection(projection)? {
             generic_expression_projections.push(generic_projection);
         } else if let Some(arithmetic_projection) = parse_numeric_arithmetic_projection(projection)?
@@ -10174,8 +10248,6 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             date_extract_projections.push(date_projection);
         } else if let Some(timestamp_projection) = parse_timestamp_extract_projection(projection)? {
             timestamp_extract_projections.push(timestamp_projection);
-        } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
-            aggregates.push(aggregate);
         } else if let Some(literal_projection) = parse_literal_projection(projection)? {
             literal_projections.push(literal_projection);
         } else {
@@ -11311,15 +11383,18 @@ fn parse_timestamp_extract_projection(
 }
 
 fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, ShardLoomError> {
-    let Some(open_index) = raw.find('(') else {
+    let (expression_raw, alias_raw) =
+        if let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? {
+            let expression_raw = raw[..as_index].trim();
+            let alias_raw = raw[as_index + "as".len()..].trim();
+            (expression_raw, Some(alias_raw))
+        } else {
+            (raw.trim(), None)
+        };
+    let Some(open_index) = expression_raw.find('(') else {
         return Ok(None);
     };
-    if !raw.ends_with(')') {
-        return Err(unsupported_sql_error(
-            "aggregate expressions must be written as function(column) in this scoped smoke",
-        ));
-    }
-    let function_raw = raw[..open_index].trim();
+    let function_raw = expression_raw[..open_index].trim();
     let function = match function_raw.to_ascii_lowercase().as_str() {
         "count" => AggregateFunction::Count,
         "sum" => AggregateFunction::Sum,
@@ -11328,7 +11403,23 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
         "max" => AggregateFunction::Max,
         _ => return Ok(None),
     };
-    let argument = raw[open_index + 1..raw.len() - 1].trim();
+    let alias = if let Some(alias_raw) = alias_raw {
+        if alias_raw.is_empty() {
+            return Err(unsupported_sql_error(
+                "aggregate aliases must use AS <column> with a non-empty output name",
+            ));
+        }
+        validate_sql_identifier(alias_raw)?;
+        Some(alias_raw.to_string())
+    } else {
+        None
+    };
+    if !expression_raw.ends_with(')') {
+        return Err(unsupported_sql_error(
+            "aggregate expressions must be written as function(column) or function(column) AS alias in this scoped smoke",
+        ));
+    }
+    let argument = expression_raw[open_index + 1..expression_raw.len() - 1].trim();
     if argument.is_empty() {
         return Err(unsupported_sql_error(
             "aggregate expressions require a column or COUNT(*) argument",
@@ -11343,12 +11434,14 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
         return Ok(Some(ParsedAggregate {
             function,
             column: None,
+            alias,
         }));
     }
     validate_sql_identifier(argument)?;
     Ok(Some(ParsedAggregate {
         function,
         column: Some(argument.to_string()),
+        alias,
     }))
 }
 
@@ -14186,6 +14279,27 @@ mod tests {
         assert!(parsed.group_by.is_empty());
         assert!(parsed.order_by.is_none());
         assert_eq!(parsed.source_path, PathBuf::from("target/input.csv"));
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_aggregate_filter_limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_aggregate_alias_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 10 LIMIT 1",
+        )
+        .expect("aggregate alias statement parses");
+
+        assert!(parsed.projections.is_empty());
+        assert_eq!(parsed.aggregates.len(), 2);
+        assert_eq!(parsed.aggregates[0].label(), "count(*)");
+        assert_eq!(parsed.aggregates[0].output_name(), "rows");
+        assert_eq!(parsed.aggregates[0].alias.as_deref(), Some("rows"));
+        assert_eq!(parsed.aggregates[1].label(), "sum(amount)");
+        assert_eq!(parsed.aggregates[1].output_name(), "total_amount");
+        assert!(parsed.group_by.is_empty());
         assert_eq!(
             parsed.statement_kind(),
             "local_source_aggregate_filter_limit"
