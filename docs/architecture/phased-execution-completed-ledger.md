@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped SQL/Python local-source join-aggregate runtime
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-join-aggregate-local-sources` / #883.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+  - Scope:
+    - Promoted scoped scalar and grouped aggregates over existing local-source single-/multi-key
+      inner equi-join rows.
+    - Refactored aggregate evaluation to operate over selected row references so ordinary
+      local-source aggregates and qualified joined rows share the same ShardLoom-native aggregate
+      evaluator.
+    - Added join aggregate parser/binder/runtime admission for qualified aggregate source columns,
+      qualified group keys, optional `WHERE`, bounded `LIMIT`, and aggregate aliases.
+    - Preserved deterministic blockers for join ordering, computed projections with joins, outer
+      join families, expression joins, unqualified join columns, and unsupported source formats.
+    - Added Python query-builder lowering for joined `.agg(...).limit(...)` and
+      joined `.group_by(...).agg(...).limit(...)` workflows plus typed report accessors.
+  - Evidence:
+    - Join aggregate rows emit `join_aggregate_runtime_execution=true`,
+      `join_aggregate_operator_family=scalar_join_aggregate|grouped_join_aggregate`,
+      `join_aggregate_group_count`, ordinary `join_*` key/row-count evidence,
+      ordinary `aggregate_*` alias/function/output evidence, grouped `group_by_*` evidence when
+      present, inline JSONL result rows, format-specific execution certificate refs,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests::parses_scoped_join_group_by_aggregate_statement -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke aggregate_without_fallback -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_join_scalar_aggregate_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_multi_key_join_group_by_aggregate_invokes_sql_smoke`
+    - `python scripts/check_runtime_promotion_evidence.py`
+    - `python scripts/check_use_case_index.py`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `python -m unittest discover -s python/tests`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local SQL/Python scalar and grouped join-aggregate fixture smoke only. This is not
+      broad SQL/DataFrame join or aggregate parity, expression/outer/semi/anti/cross join support,
+      object-store/table joins, encoded-native join aggregation, claim-grade compute, or
+      performance evidence.
+  - Fallback boundary:
+    - Join aggregation is parsed, bound, filtered, grouped, aggregated, rendered, and evidenced by
+      ShardLoom-native local-source runtime code. External engines remain baseline/oracle-only and
+      are not invoked.
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python string-function predicate/projection runtime
   - Date: 2026-05-21
   - Branch/PR: `runtime-string-functions-4d` / #882.

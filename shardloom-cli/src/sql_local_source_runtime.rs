@@ -1837,9 +1837,11 @@ fn run_sql_local_source_smoke(
         } else {
             let selected_row_indexes = selected_row_indexes(&parsed, &source)?;
             let output_rows = if parsed.is_grouped_aggregate() {
-                evaluate_grouped_aggregate_output(&parsed, &source, &selected_row_indexes)?
+                let selected_rows = selected_input_rows(&source, &selected_row_indexes)?;
+                evaluate_grouped_aggregate_output(&parsed, &selected_rows)?
             } else if parsed.is_aggregate() {
-                evaluate_scalar_aggregate_output(&parsed, &source, &selected_row_indexes)?
+                let selected_rows = selected_input_rows(&source, &selected_row_indexes)?;
+                evaluate_scalar_aggregate_output(&parsed, &selected_rows)?
             } else {
                 let selected_row_indexes =
                     ordered_projection_row_indexes(&parsed, &source, &selected_row_indexes)?;
@@ -2011,6 +2013,20 @@ fn selected_row_indexes(
         )));
     }
     Ok(filter.selected_row_indexes)
+}
+
+fn selected_input_rows<'a>(
+    source: &'a CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<Vec<&'a ExpressionInputRow>, ShardLoomError> {
+    selected_row_indexes
+        .iter()
+        .map(|row_index| {
+            source.rows.get(*row_index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
+            })
+        })
+        .collect()
 }
 
 fn evaluate_projection_output(
@@ -2560,19 +2576,24 @@ fn evaluate_join_output(
     } else {
         Some(parsed.predicate.to_expression()?)
     };
-    let projection_expressions = parsed
-        .projections
-        .iter()
-        .map(|column| {
-            Ok(Expression::column(
-                ExprId::new(format!("join.project.{column}"))?,
-                ColumnRef::new(column.clone())?,
-            ))
-        })
-        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    let projection_expressions = if parsed.is_aggregate() {
+        Vec::new()
+    } else {
+        parsed
+            .projections
+            .iter()
+            .map(|column| {
+                Ok(Expression::column(
+                    ExprId::new(format!("join.project.{column}"))?,
+                    ColumnRef::new(column.clone())?,
+                ))
+            })
+            .collect::<Result<Vec<_>, ShardLoomError>>()?
+    };
     let mut joined_row_count = 0usize;
     let mut selected_row_count = 0usize;
     let mut output_rows = Vec::new();
+    let mut selected_join_rows = Vec::new();
     for left_row in &left_source.rows {
         let Some(key_parts) = join_key_parts(
             left_row,
@@ -2598,17 +2619,26 @@ fn evaluate_join_output(
                     &right_source.header,
                     right_row,
                 );
-                if evaluate_join_candidate(
-                    predicate_expression.as_ref(),
-                    &projection_expressions,
-                    &joined_row,
-                    parsed.limit,
-                    &mut output_rows,
-                )? {
+                if evaluate_join_predicate(predicate_expression.as_ref(), &joined_row)? {
                     selected_row_count += 1;
+                    if parsed.is_aggregate() {
+                        selected_join_rows.push(joined_row);
+                    } else if output_rows.len() < parsed.limit {
+                        output_rows.push(evaluate_join_projection(
+                            &projection_expressions,
+                            &joined_row,
+                        )?);
+                    }
                 }
             }
         }
+    }
+    if parsed.is_grouped_aggregate() {
+        let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
+        output_rows = evaluate_grouped_aggregate_output(parsed, &selected_join_row_refs)?;
+    } else if parsed.is_aggregate() {
+        let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
+        output_rows = evaluate_scalar_aggregate_output(parsed, &selected_join_row_refs)?;
     }
 
     Ok(JoinEvaluationOutput {
@@ -2661,12 +2691,9 @@ fn join_key_parts<'a>(
     Ok(Some(parts))
 }
 
-fn evaluate_join_candidate(
+fn evaluate_join_predicate(
     predicate_expression: Option<&Expression>,
-    projection_expressions: &[Expression],
     joined_row: &ExpressionInputRow,
-    output_limit: usize,
-    output_rows: &mut Vec<Vec<(String, ScalarValue)>>,
 ) -> Result<bool, ShardLoomError> {
     if let Some(predicate_expression) = predicate_expression {
         let filter = evaluate_filter(predicate_expression, std::slice::from_ref(joined_row));
@@ -2685,28 +2712,30 @@ fn evaluate_join_candidate(
             return Ok(false);
         }
     }
-    if output_rows.len() < output_limit {
-        let projection = evaluate_projection(projection_expressions, joined_row);
-        if projection.has_errors() {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "SQL local-source join projection evaluation failed: {}",
-                projection
-                    .diagnostics
-                    .first()
-                    .map_or("unknown diagnostic", |diagnostic| diagnostic
-                        .message
-                        .as_str())
-            )));
-        }
-        output_rows.push(
-            projection
-                .projected_columns
-                .into_iter()
-                .map(|column| (column.name, column.value))
-                .collect(),
-        );
-    }
     Ok(true)
+}
+
+fn evaluate_join_projection(
+    projection_expressions: &[Expression],
+    joined_row: &ExpressionInputRow,
+) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
+    let projection = evaluate_projection(projection_expressions, joined_row);
+    if projection.has_errors() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "SQL local-source join projection evaluation failed: {}",
+            projection
+                .diagnostics
+                .first()
+                .map_or("unknown diagnostic", |diagnostic| diagnostic
+                    .message
+                    .as_str())
+        )));
+    }
+    Ok(projection
+        .projected_columns
+        .into_iter()
+        .map(|column| (column.name, column.value))
+        .collect())
 }
 
 fn apply_temporal_literal_column_coercions(
@@ -3160,17 +3189,17 @@ fn qualified_join_row(
 
 fn evaluate_scalar_aggregate_output(
     parsed: &ParsedSqlLocalSource,
-    source: &CsvSourceData,
-    selected_row_indexes: &[usize],
+    rows: &[&ExpressionInputRow],
 ) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
     if parsed.limit == 0 {
         return Ok(Vec::new());
     }
+    let row_indexes = (0..rows.len()).collect::<Vec<_>>();
     let mut row = Vec::with_capacity(parsed.aggregates.len());
     for aggregate in &parsed.aggregates {
         row.push((
             aggregate.output_name(),
-            evaluate_scalar_aggregate(aggregate, source, selected_row_indexes)?,
+            evaluate_scalar_aggregate(aggregate, rows, &row_indexes)?,
         ));
     }
     Ok(vec![row])
@@ -3178,24 +3207,20 @@ fn evaluate_scalar_aggregate_output(
 
 fn evaluate_grouped_aggregate_output(
     parsed: &ParsedSqlLocalSource,
-    source: &CsvSourceData,
-    selected_row_indexes: &[usize],
+    rows: &[&ExpressionInputRow],
 ) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
     if parsed.limit == 0 {
         return Ok(Vec::new());
     }
     let mut groups: BTreeMap<String, GroupedAggregateBucket> = BTreeMap::new();
-    for row_index in selected_row_indexes {
-        let row = source.rows.get(*row_index).ok_or_else(|| {
-            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
-        })?;
+    for (row_index, row) in rows.iter().enumerate() {
         let group_values = parsed
             .group_by
             .iter()
             .map(|column| {
                 let value = row.get(column).cloned().ok_or_else(|| {
                     unsupported_sql_error(&format!(
-                        "GROUP BY column {column:?} is not present in the CSV row"
+                        "GROUP BY column {column:?} is not present in the aggregate input row"
                     ))
                 })?;
                 Ok((column.clone(), value))
@@ -3206,7 +3231,7 @@ fn evaluate_grouped_aggregate_output(
             values: group_values,
             row_indexes: Vec::new(),
         });
-        entry.row_indexes.push(*row_index);
+        entry.row_indexes.push(row_index);
     }
 
     let mut output_rows = Vec::new();
@@ -3215,7 +3240,7 @@ fn evaluate_grouped_aggregate_output(
         for aggregate in &parsed.aggregates {
             row.push((
                 aggregate.output_name(),
-                evaluate_scalar_aggregate(aggregate, source, &bucket.row_indexes)?,
+                evaluate_scalar_aggregate(aggregate, rows, &bucket.row_indexes)?,
             ));
         }
         output_rows.push(row);
@@ -3249,7 +3274,7 @@ fn join_memory_estimate_bytes(left_source: &CsvSourceData, right_source: &CsvSou
 
 fn evaluate_scalar_aggregate(
     aggregate: &ParsedAggregate,
-    source: &CsvSourceData,
+    rows: &[&ExpressionInputRow],
     selected_row_indexes: &[usize],
 ) -> Result<ScalarValue, ShardLoomError> {
     match aggregate.function {
@@ -3257,7 +3282,7 @@ fn evaluate_scalar_aggregate(
             let count = if let Some(column) = aggregate.column.as_deref() {
                 selected_row_indexes
                     .iter()
-                    .filter_map(|row_index| source.rows.get(*row_index))
+                    .filter_map(|row_index| rows.get(*row_index))
                     .filter(|row| !matches!(row.get(column), None | Some(ScalarValue::Null)))
                     .count()
             } else {
@@ -3267,20 +3292,20 @@ fn evaluate_scalar_aggregate(
                 unsupported_sql_error("COUNT result does not fit in int64 for this scoped smoke")
             })
         }
-        AggregateFunction::Sum => aggregate_numeric_sum(aggregate, source, selected_row_indexes),
-        AggregateFunction::Avg => aggregate_numeric_avg(aggregate, source, selected_row_indexes),
+        AggregateFunction::Sum => aggregate_numeric_sum(aggregate, rows, selected_row_indexes),
+        AggregateFunction::Avg => aggregate_numeric_avg(aggregate, rows, selected_row_indexes),
         AggregateFunction::Min => {
-            aggregate_numeric_min_max(aggregate, source, selected_row_indexes, MinMaxMode::Min)
+            aggregate_numeric_min_max(aggregate, rows, selected_row_indexes, MinMaxMode::Min)
         }
         AggregateFunction::Max => {
-            aggregate_numeric_min_max(aggregate, source, selected_row_indexes, MinMaxMode::Max)
+            aggregate_numeric_min_max(aggregate, rows, selected_row_indexes, MinMaxMode::Max)
         }
     }
 }
 
 fn aggregate_numeric_sum(
     aggregate: &ParsedAggregate,
-    source: &CsvSourceData,
+    rows: &[&ExpressionInputRow],
     selected_row_indexes: &[usize],
 ) -> Result<ScalarValue, ShardLoomError> {
     let column = aggregate.required_column()?;
@@ -3288,7 +3313,7 @@ fn aggregate_numeric_sum(
     let mut float_sum = 0.0_f64;
     let mut saw_float = false;
     let mut count = 0_usize;
-    for value in aggregate_numeric_values(column, source, selected_row_indexes)? {
+    for value in aggregate_numeric_values(column, rows, selected_row_indexes)? {
         count += 1;
         match value {
             NumericAggregateValue::Int(value) if !saw_float => {
@@ -3317,13 +3342,13 @@ fn aggregate_numeric_sum(
 
 fn aggregate_numeric_avg(
     aggregate: &ParsedAggregate,
-    source: &CsvSourceData,
+    rows: &[&ExpressionInputRow],
     selected_row_indexes: &[usize],
 ) -> Result<ScalarValue, ShardLoomError> {
     let column = aggregate.required_column()?;
     let mut sum = 0.0_f64;
     let mut count = 0_usize;
-    for value in aggregate_numeric_values(column, source, selected_row_indexes)? {
+    for value in aggregate_numeric_values(column, rows, selected_row_indexes)? {
         count += 1;
         sum += value.as_f64();
     }
@@ -3342,13 +3367,13 @@ enum MinMaxMode {
 
 fn aggregate_numeric_min_max(
     aggregate: &ParsedAggregate,
-    source: &CsvSourceData,
+    rows: &[&ExpressionInputRow],
     selected_row_indexes: &[usize],
     mode: MinMaxMode,
 ) -> Result<ScalarValue, ShardLoomError> {
     let column = aggregate.required_column()?;
     let mut selected: Option<NumericAggregateValue> = None;
-    for value in aggregate_numeric_values(column, source, selected_row_indexes)? {
+    for value in aggregate_numeric_values(column, rows, selected_row_indexes)? {
         let replace = selected.is_none_or(|current| match mode {
             MinMaxMode::Min => value.as_f64() < current.as_f64(),
             MinMaxMode::Max => value.as_f64() > current.as_f64(),
@@ -3384,17 +3409,17 @@ impl NumericAggregateValue {
 
 fn aggregate_numeric_values(
     column: &str,
-    source: &CsvSourceData,
+    rows: &[&ExpressionInputRow],
     selected_row_indexes: &[usize],
 ) -> Result<Vec<NumericAggregateValue>, ShardLoomError> {
     let mut values = Vec::new();
     for row_index in selected_row_indexes {
-        let row = source.rows.get(*row_index).ok_or_else(|| {
+        let row = rows.get(*row_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
         })?;
         let Some(value) = row.get(column) else {
             return Err(unsupported_sql_error(&format!(
-                "aggregate column {column:?} is not present in the CSV row"
+                "aggregate column {column:?} is not present in the aggregate input row"
             )));
         };
         match value {
@@ -4132,33 +4157,74 @@ fn bind_join_sql_local_source(
             "JOIN smoke requires a readable local right source",
         ));
     };
-    if parsed.is_aggregate()
-        || !parsed.group_by.is_empty()
-        || parsed.order_by.is_some()
-        || !parsed.literal_projections.is_empty()
-        || !parsed.cast_projections.is_empty()
-        || !parsed.null_coalesce_projections.is_empty()
-        || !parsed.conditional_projections.is_empty()
-        || !parsed.numeric_arithmetic_projections.is_empty()
-        || !parsed.numeric_abs_projections.is_empty()
-        || !parsed.numeric_rounding_projections.is_empty()
-        || !parsed.generic_expression_projections.is_empty()
-        || !parsed.date_arithmetic_projections.is_empty()
-        || !parsed.string_length_projections.is_empty()
-        || !parsed.string_transform_projections.is_empty()
-        || !parsed.string_function_projections.is_empty()
-        || !parsed.date_extract_projections.is_empty()
-        || !parsed.timestamp_extract_projections.is_empty()
-        || parsed.projections.is_empty()
-    {
+    if parsed.order_by.is_some() {
         return Err(unsupported_sql_error(
-            "JOIN smoke currently admits projection/filter/limit only; aggregate, group-by, and order-by joins remain blocked",
+            "JOIN smoke currently admits projection/filter/limit and aggregate/group-by/filter/limit only; order-by joins remain blocked",
         ));
     }
+    if parsed.has_computed_projection() {
+        return Err(unsupported_sql_error(
+            "JOIN smoke currently admits raw qualified projections and aggregate functions only; computed projections with joins remain blocked",
+        ));
+    }
+    validate_join_key_pairs(join, left_alias, left_header, right_header)?;
+    if parsed.is_grouped_aggregate() {
+        validate_join_grouped_aggregate_sources(
+            parsed,
+            left_alias,
+            left_header,
+            &join.right_alias,
+            right_header,
+        )?;
+    } else if parsed.is_aggregate() {
+        validate_join_scalar_aggregate_sources(
+            parsed,
+            left_alias,
+            left_header,
+            &join.right_alias,
+            right_header,
+        )?;
+    } else {
+        if !parsed.group_by.is_empty() {
+            return Err(unsupported_sql_error(
+                "GROUP BY requires at least one aggregate function in this scoped smoke",
+            ));
+        }
+        if parsed.projections.is_empty() {
+            return Err(unsupported_sql_error(
+                "JOIN projection smoke requires at least one qualified projection column",
+            ));
+        }
+        for projection in &parsed.projections {
+            bind_qualified_column(
+                projection,
+                left_alias,
+                left_header,
+                &join.right_alias,
+                right_header,
+            )?;
+        }
+    }
+    validate_aggregate_output_names(parsed)?;
+    bind_qualified_predicate(
+        &parsed.predicate,
+        left_alias,
+        left_header,
+        &join.right_alias,
+        right_header,
+    )
+}
+
+fn validate_join_key_pairs(
+    join: &ParsedJoin,
+    left_alias: &str,
+    left_header: &[String],
+    right_header: &[String],
+) -> Result<(), ShardLoomError> {
     let mut left_key_columns = BTreeSet::new();
     let mut right_key_columns = BTreeSet::new();
     for key_pair in &join.key_pairs {
-        if key_pair.left.alias != *left_alias || key_pair.right.alias != join.right_alias {
+        if key_pair.left.alias != left_alias || key_pair.right.alias != join.right_alias {
             return Err(unsupported_sql_error(
                 "JOIN ON must compare the left alias to the right alias in this scoped smoke",
             ));
@@ -4189,22 +4255,67 @@ fn bind_join_sql_local_source(
             )));
         }
     }
-    for projection in &parsed.projections {
-        bind_qualified_column(
-            projection,
-            left_alias,
-            left_header,
-            &join.right_alias,
-            right_header,
-        )?;
+    Ok(())
+}
+
+fn validate_join_grouped_aggregate_sources(
+    parsed: &ParsedSqlLocalSource,
+    left_alias: &str,
+    left_header: &[String],
+    right_alias: &str,
+    right_header: &[String],
+) -> Result<(), ShardLoomError> {
+    if parsed.projections != parsed.group_by {
+        return Err(unsupported_sql_error(
+            "GROUP BY smoke requires SELECT group columns to exactly match GROUP BY columns before aggregate functions",
+        ));
     }
-    bind_qualified_predicate(
-        &parsed.predicate,
+    for column in &parsed.group_by {
+        bind_qualified_column(column, left_alias, left_header, right_alias, right_header)?;
+    }
+    validate_join_aggregate_source_columns(
+        parsed,
         left_alias,
         left_header,
-        &join.right_alias,
+        right_alias,
         right_header,
     )
+}
+
+fn validate_join_scalar_aggregate_sources(
+    parsed: &ParsedSqlLocalSource,
+    left_alias: &str,
+    left_header: &[String],
+    right_alias: &str,
+    right_header: &[String],
+) -> Result<(), ShardLoomError> {
+    if !parsed.projections.is_empty() {
+        return Err(unsupported_sql_error(
+            "scalar aggregate SELECT list cannot mix aggregate functions with raw columns in this scoped smoke",
+        ));
+    }
+    validate_join_aggregate_source_columns(
+        parsed,
+        left_alias,
+        left_header,
+        right_alias,
+        right_header,
+    )
+}
+
+fn validate_join_aggregate_source_columns(
+    parsed: &ParsedSqlLocalSource,
+    left_alias: &str,
+    left_header: &[String],
+    right_alias: &str,
+    right_header: &[String],
+) -> Result<(), ShardLoomError> {
+    for aggregate in &parsed.aggregates {
+        if let Some(column) = aggregate.column.as_deref() {
+            bind_qualified_column(column, left_alias, left_header, right_alias, right_header)?;
+        }
+    }
+    Ok(())
 }
 
 fn bind_qualified_predicate(
@@ -4353,7 +4464,15 @@ impl ParsedSqlLocalSource {
     }
 
     fn statement_kind(&self) -> &'static str {
-        if self.is_join() && self.has_filter() {
+        if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
+            "local_source_inner_equi_join_group_by_aggregate_filter_limit"
+        } else if self.is_join() && self.is_grouped_aggregate() {
+            "local_source_inner_equi_join_group_by_aggregate_limit"
+        } else if self.is_join() && self.is_aggregate() && self.has_filter() {
+            "local_source_inner_equi_join_aggregate_filter_limit"
+        } else if self.is_join() && self.is_aggregate() {
+            "local_source_inner_equi_join_aggregate_limit"
+        } else if self.is_join() && self.has_filter() {
             "local_source_inner_equi_join_filter_limit"
         } else if self.is_join() {
             "local_source_inner_equi_join_limit"
@@ -4437,7 +4556,15 @@ impl ParsedSqlLocalSource {
     }
 
     fn execution_certificate_suffix(&self) -> &'static str {
-        if self.is_join() && self.has_filter() {
+        if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
+            "inner-equi-join-group-by-aggregate-filter-limit"
+        } else if self.is_join() && self.is_grouped_aggregate() {
+            "inner-equi-join-group-by-aggregate-limit"
+        } else if self.is_join() && self.is_aggregate() && self.has_filter() {
+            "inner-equi-join-aggregate-filter-limit"
+        } else if self.is_join() && self.is_aggregate() {
+            "inner-equi-join-aggregate-limit"
+        } else if self.is_join() && self.has_filter() {
             "inner-equi-join-filter-limit"
         } else if self.is_join() {
             "inner-equi-join-limit"
@@ -4521,7 +4648,15 @@ impl ParsedSqlLocalSource {
     }
 
     fn claim_gate_reason_suffix(&self) -> &'static str {
-        if self.is_join() && self.has_filter() {
+        if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
+            "inner_equi_join_group_by_aggregate_filter_limit"
+        } else if self.is_join() && self.is_grouped_aggregate() {
+            "inner_equi_join_group_by_aggregate_limit"
+        } else if self.is_join() && self.is_aggregate() && self.has_filter() {
+            "inner_equi_join_aggregate_filter_limit"
+        } else if self.is_join() && self.is_aggregate() {
+            "inner_equi_join_aggregate_limit"
+        } else if self.is_join() && self.has_filter() {
             "inner_equi_join_filter_limit"
         } else if self.is_join() {
             "inner_equi_join_limit"
@@ -4613,9 +4748,7 @@ impl ParsedSqlLocalSource {
     }
 
     fn output_columns(&self, header: &[String]) -> Vec<String> {
-        if self.is_join() {
-            self.projections.clone()
-        } else if self.is_grouped_aggregate() {
+        if self.is_grouped_aggregate() {
             self.group_by
                 .iter()
                 .cloned()
@@ -4626,6 +4759,8 @@ impl ParsedSqlLocalSource {
                 .iter()
                 .map(ParsedAggregate::output_name)
                 .collect()
+        } else if self.is_join() {
+            self.projections.clone()
         } else {
             self.projection_columns(header)
                 .into_iter()
@@ -8530,6 +8665,29 @@ impl SqlLocalSourceReport {
                     .to_string(),
             ),
             (
+                "join_aggregate_runtime_execution".to_string(),
+                (self.parsed.is_join() && self.parsed.is_aggregate()).to_string(),
+            ),
+            (
+                "join_aggregate_operator_family".to_string(),
+                if self.parsed.is_join() && self.parsed.is_grouped_aggregate() {
+                    "grouped_join_aggregate"
+                } else if self.parsed.is_join() && self.parsed.is_aggregate() {
+                    "scalar_join_aggregate"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "join_aggregate_group_count".to_string(),
+                if self.parsed.is_join() && self.parsed.is_grouped_aggregate() {
+                    self.output_rows.len().to_string()
+                } else {
+                    "0".to_string()
+                },
+            ),
+            (
                 "selected_row_count".to_string(),
                 self.selected_row_count.to_string(),
             ),
@@ -12251,7 +12409,7 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
             alias,
         }));
     }
-    validate_sql_identifier(argument)?;
+    validate_sql_column_ref(argument)?;
     Ok(Some(ParsedAggregate {
         function,
         column: Some(argument.to_string()),
@@ -12272,7 +12430,7 @@ fn parse_group_by_list(raw: Option<&str>) -> Result<Vec<String>, ShardLoomError>
     }
     let mut parsed = Vec::with_capacity(columns.len());
     for column in columns {
-        validate_sql_identifier(&column)?;
+        validate_sql_column_ref(&column)?;
         if parsed.iter().any(|existing| existing == &column) {
             return Err(unsupported_sql_error(
                 "GROUP BY duplicate columns are not admitted in this scoped smoke",
@@ -12316,7 +12474,7 @@ fn parse_order_by(raw: Option<&str>) -> Result<Option<ParsedOrderBy>, ShardLoomE
             ));
         }
     };
-    validate_sql_identifier(column)?;
+    validate_sql_column_ref(column)?;
     Ok(Some(ParsedOrderBy {
         column: column.clone(),
         direction,
@@ -15878,6 +16036,41 @@ mod tests {
         assert_eq!(
             parsed.statement_kind(),
             "local_source_inner_equi_join_filter_limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_join_group_by_aggregate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT d.segment,sum(f.amount) AS total_amount,count(*) AS rows FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 GROUP BY d.segment LIMIT 10",
+        )
+        .expect("join group-by aggregate statement parses");
+
+        assert_eq!(parsed.projections, vec!["d.segment"]);
+        assert_eq!(parsed.group_by, vec!["d.segment"]);
+        assert!(parsed.order_by.is_none());
+        assert_eq!(parsed.source_path, PathBuf::from("target/fact.csv"));
+        assert_eq!(parsed.source_alias.as_deref(), Some("f"));
+        let join = parsed.join.as_ref().expect("join parsed");
+        assert_eq!(join.right_source_path, PathBuf::from("target/dim.csv"));
+        assert_eq!(join.right_alias, "d");
+        assert_eq!(join.left_key_refs(), "f.customer_id,f.region");
+        assert_eq!(join.right_key_refs(), "d.customer_id,d.region");
+        assert_eq!(join.key_arity(), 2);
+        assert!(join.is_multi_key());
+        assert_eq!(parsed.aggregates.len(), 2);
+        assert_eq!(parsed.aggregates[0].label(), "sum(f.amount)");
+        assert_eq!(parsed.aggregates[0].output_name(), "total_amount");
+        assert_eq!(parsed.aggregates[0].column.as_deref(), Some("f.amount"));
+        assert_eq!(parsed.aggregates[1].label(), "count(*)");
+        assert_eq!(parsed.aggregates[1].output_name(), "rows");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_inner_equi_join_group_by_aggregate_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "inner-equi-join-group-by-aggregate-filter-limit"
         );
     }
 

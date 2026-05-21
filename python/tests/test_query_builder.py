@@ -2553,6 +2553,179 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_join_scalar_aggregate_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT count(*) AS rows,sum(f.amount) AS total_amount FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id WHERE d.segment = 'enterprise' LIMIT 1",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source join aggregate",
+                    "human_text": "sql local source join aggregate",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"rows\\":3,\\"total_amount\\":41}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_inner_equi_join_aggregate_filter_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "inner_equi"},
+                        {"key": "join_left_key", "value": "f.customer_id"},
+                        {"key": "join_right_key", "value": "d.customer_id"},
+                        {"key": "join_key_arity", "value": "1"},
+                        {"key": "join_multi_key_runtime_execution", "value": "false"},
+                        {"key": "join_matched_row_count", "value": "4"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "scalar_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(*),sum(f.amount)"},
+                        {"key": "aggregate_output_columns", "value": "rows,total_amount"},
+                        {"key": "aggregate_alias_runtime_execution", "value": "true"},
+                        {"key": "aggregate_aliases", "value": "rows,total_amount"},
+                        {"key": "join_aggregate_runtime_execution", "value": "true"},
+                        {"key": "join_aggregate_operator_family", "value": "scalar_join_aggregate"},
+                        {"key": "join_aggregate_group_count", "value": "0"},
+                        {"key": "selected_row_count", "value": "3"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.inner-equi-join-aggregate-filter-limit.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), on="customer_id")
+            .filter("d.segment = 'enterprise'")
+            .agg(rows="count(*)", total_amount="sum(f.amount)")
+            .limit(1)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_operator_family, "scalar_aggregate")
+        self.assertEqual(report.aggregate_functions, ("count(*)", "sum(f.amount)"))
+        self.assertEqual(report.aggregate_output_columns, ("rows", "total_amount"))
+        self.assertTrue(report.aggregate_alias_runtime_execution)
+        self.assertEqual(report.aggregate_aliases, ("rows", "total_amount"))
+        self.assertTrue(report.join_aggregate_runtime_execution)
+        self.assertEqual(report.join_aggregate_operator_family, "scalar_join_aggregate")
+        self.assertEqual(report.join_aggregate_group_count, 0)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_multi_key_join_group_by_aggregate_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT d.segment,count(*) AS rows,sum(f.amount) AS total_amount FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 GROUP BY d.segment LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source join group aggregate",
+                    "human_text": "sql local source join group aggregate",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"d.segment\\":\\"consumer\\",\\"rows\\":1,\\"total_amount\\":21}\\n{\\"d.segment\\":\\"enterprise\\",\\"rows\\":2,\\"total_amount\\":37}\\n{\\"d.segment\\":\\"startup\\",\\"rows\\":1,\\"total_amount\\":23}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_inner_equi_join_group_by_aggregate_filter_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "inner_equi"},
+                        {"key": "join_left_key", "value": "f.customer_id,f.region"},
+                        {"key": "join_right_key", "value": "d.customer_id,d.region"},
+                        {"key": "join_left_keys", "value": "f.customer_id,f.region"},
+                        {"key": "join_right_keys", "value": "d.customer_id,d.region"},
+                        {"key": "join_key_arity", "value": "2"},
+                        {"key": "join_multi_key_runtime_execution", "value": "true"},
+                        {"key": "join_matched_row_count", "value": "4"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "grouped_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(*),sum(f.amount)"},
+                        {"key": "aggregate_output_columns", "value": "rows,total_amount"},
+                        {"key": "aggregate_alias_runtime_execution", "value": "true"},
+                        {"key": "aggregate_aliases", "value": "rows,total_amount"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "group_by_columns", "value": "d.segment"},
+                        {"key": "group_by_key_arity", "value": "1"},
+                        {"key": "group_by_multi_key_runtime_execution", "value": "false"},
+                        {"key": "group_by_group_count", "value": "3"},
+                        {"key": "join_aggregate_runtime_execution", "value": "true"},
+                        {"key": "join_aggregate_operator_family", "value": "grouped_join_aggregate"},
+                        {"key": "join_aggregate_group_count", "value": "3"},
+                        {"key": "selected_row_count", "value": "4"},
+                        {"key": "output_row_count", "value": "3"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.inner-equi-join-group-by-aggregate-filter-limit.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), on=("customer_id", "region"))
+            .filter("f.amount >= 10")
+            .group_by("d.segment")
+            .agg(rows="count(*)", total_amount="sum(f.amount)")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_left_keys, ("f.customer_id", "f.region"))
+        self.assertEqual(report.join_right_keys, ("d.customer_id", "d.region"))
+        self.assertEqual(report.join_key_arity, 2)
+        self.assertTrue(report.join_multi_key_runtime_execution)
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_operator_family, "grouped_aggregate")
+        self.assertEqual(report.aggregate_functions, ("count(*)", "sum(f.amount)"))
+        self.assertEqual(report.aggregate_output_columns, ("rows", "total_amount"))
+        self.assertTrue(report.group_by_runtime_execution)
+        self.assertEqual(report.group_by_columns, ("d.segment",))
+        self.assertEqual(report.group_by_key_arity, 1)
+        self.assertFalse(report.group_by_multi_key_runtime_execution)
+        self.assertEqual(report.group_by_group_count, 3)
+        self.assertTrue(report.join_aggregate_runtime_execution)
+        self.assertEqual(report.join_aggregate_operator_family, "grouped_join_aggregate")
+        self.assertEqual(report.join_aggregate_group_count, 3)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_json_query_builder_join_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

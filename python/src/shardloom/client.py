@@ -1918,6 +1918,24 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("join_memory_estimate_bytes", 0) or 0
 
     @property
+    def join_aggregate_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted join aggregate path."""
+
+        return self.envelope.field_bool("join_aggregate_runtime_execution", False) is True
+
+    @property
+    def join_aggregate_operator_family(self) -> str | None:
+        """Return the join aggregate operator family label when present."""
+
+        return self.envelope.field("join_aggregate_operator_family")
+
+    @property
+    def join_aggregate_group_count(self) -> int:
+        """Return the number of grouped join aggregate rows emitted before the limit."""
+
+        return self.envelope.field_int("join_aggregate_group_count", 0) or 0
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether the smoke command attempted fallback execution."""
 
