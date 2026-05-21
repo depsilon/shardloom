@@ -1308,6 +1308,74 @@ struct TraditionalVortexBatchSourceState {
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TraditionalSourceStateFamilyDigestRow {
+    family: &'static str,
+    status: &'static str,
+    consumer_count: usize,
+    recompute_avoided_count: usize,
+    prepared: bool,
+}
+
+fn dimension_label_state_reuse_status_for_consumer_count(consumer_count: usize) -> &'static str {
+    match consumer_count {
+        0 => "not_applicable_no_dimension_label_state_consumers",
+        1 => "per_batch_dimension_label_state_available_single_consumer",
+        _ => "per_batch_dimension_label_state_reused",
+    }
+}
+
+fn category_metric_state_reuse_status_for_consumer_count(consumer_count: usize) -> &'static str {
+    match consumer_count {
+        0 => "not_applicable_no_category_metric_state_consumers",
+        1 => "not_prepared_single_consumer_uses_scenario_scan",
+        _ => "per_batch_category_metric_state_reused",
+    }
+}
+
+fn group_category_metric_state_reuse_status_for_consumer_count(
+    consumer_count: usize,
+) -> &'static str {
+    match consumer_count {
+        0 => "not_applicable_no_group_category_metric_state_consumers",
+        1 => "not_prepared_single_consumer_uses_scenario_scan",
+        _ => "per_batch_group_category_metric_state_reused",
+    }
+}
+
+fn ranked_metric_state_reuse_status_for_consumer_count(consumer_count: usize) -> &'static str {
+    match consumer_count {
+        0 => "not_applicable_no_ranked_metric_state_consumers",
+        1 => "not_prepared_single_consumer_uses_scenario_scan",
+        _ => "per_batch_ranked_metric_state_reused",
+    }
+}
+
+fn selective_filter_state_reuse_status_for_consumer_count(consumer_count: usize) -> &'static str {
+    match consumer_count {
+        0 => "not_applicable_no_selective_filter_state_consumers",
+        1 => "not_prepared_single_consumer_uses_scenario_scan",
+        _ => "per_batch_selective_filter_state_reused",
+    }
+}
+
+fn dirty_input_state_reuse_status_for_consumer_count(consumer_count: usize) -> &'static str {
+    match consumer_count {
+        0 => "not_applicable_no_dirty_input_state_consumers",
+        1 => "not_prepared_single_consumer_uses_scenario_scan",
+        _ => "per_batch_dirty_input_state_reused",
+    }
+}
+
+fn date_null_metric_state_reuse_status_for_consumer_count(consumer_count: usize) -> &'static str {
+    match consumer_count {
+        0 => "not_applicable_no_date_null_metric_state_consumers",
+        1 => "not_prepared_single_consumer_uses_scenario_scan",
+        _ => "per_batch_date_null_metric_state_reused",
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 impl TraditionalVortexBatchSourceState {
     fn from_paths(
         fact_vortex: &std::path::Path,
@@ -1456,6 +1524,172 @@ impl TraditionalVortexBatchSourceState {
             + self.dirty_input_state_recompute_avoided_count()
             + self.date_null_metric_state_recompute_avoided_count()
     }
+
+    fn dimension_label_state_reuse_status(&self) -> &'static str {
+        dimension_label_state_reuse_status_for_consumer_count(
+            self.dimension_label_state_consumer_count,
+        )
+    }
+
+    fn category_metric_state_reuse_status(&self) -> &'static str {
+        category_metric_state_reuse_status_for_consumer_count(
+            self.category_metric_state_consumer_count,
+        )
+    }
+
+    fn group_category_metric_state_reuse_status(&self) -> &'static str {
+        group_category_metric_state_reuse_status_for_consumer_count(
+            self.group_category_metric_state_consumer_count,
+        )
+    }
+
+    fn ranked_metric_state_reuse_status(&self) -> &'static str {
+        ranked_metric_state_reuse_status_for_consumer_count(self.ranked_metric_state_consumer_count)
+    }
+
+    fn selective_filter_state_reuse_status(&self) -> &'static str {
+        selective_filter_state_reuse_status_for_consumer_count(
+            self.selective_filter_state_consumer_count,
+        )
+    }
+
+    fn dirty_input_state_reuse_status(&self) -> &'static str {
+        dirty_input_state_reuse_status_for_consumer_count(self.dirty_input_state_consumer_count)
+    }
+
+    fn date_null_metric_state_reuse_status(&self) -> &'static str {
+        date_null_metric_state_reuse_status_for_consumer_count(
+            self.date_null_metric_state_consumer_count,
+        )
+    }
+
+    fn source_state_digest(&self, requested_execution_mode: ShardLoomExecutionMode) -> String {
+        let mut digest = Fnv1a64::new();
+        digest.update(b"traditional_vortex_batch_source_state.v1");
+        digest.update(requested_execution_mode.as_str().as_bytes());
+        self.update_source_snapshot_digest(&mut digest);
+        for row in self.source_state_family_digest_rows() {
+            digest.update(row.family.as_bytes());
+            digest.update(row.status.as_bytes());
+            digest.update(row.consumer_count.to_string().as_bytes());
+            digest.update(row.recompute_avoided_count.to_string().as_bytes());
+            let prepared_status = if row.prepared {
+                "prepared"
+            } else {
+                "not_prepared"
+            };
+            digest.update(prepared_status.as_bytes());
+        }
+        format!(
+            "{}:{:016x}",
+            OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
+            digest.finish()
+        )
+    }
+
+    fn source_state_family_digests(&self) -> String {
+        self.source_state_family_digest_rows()
+            .into_iter()
+            .map(|row| format!("{}:{}", row.family, self.source_state_family_digest(row)))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn source_state_family_digest(&self, row: TraditionalSourceStateFamilyDigestRow) -> String {
+        let mut digest = Fnv1a64::new();
+        digest.update(b"traditional_vortex_batch_source_state_family.v1");
+        digest.update(row.family.as_bytes());
+        digest.update(row.status.as_bytes());
+        digest.update(row.consumer_count.to_string().as_bytes());
+        digest.update(row.recompute_avoided_count.to_string().as_bytes());
+        let prepared_status = if row.prepared {
+            "prepared"
+        } else {
+            "not_prepared"
+        };
+        digest.update(prepared_status.as_bytes());
+        self.update_source_snapshot_digest(&mut digest);
+        format!(
+            "{}:{:016x}",
+            OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
+            digest.finish()
+        )
+    }
+
+    fn update_source_snapshot_digest(&self, digest: &mut Fnv1a64) {
+        digest.update(self.source_snapshot.fact_vortex_digest.as_bytes());
+        digest.update(self.source_snapshot.dim_vortex_digest.as_bytes());
+        if let Some(cdc_delta_digest) = self.source_snapshot.cdc_delta_vortex_digest.as_deref() {
+            digest.update(cdc_delta_digest.as_bytes());
+        }
+        digest.update(
+            self.source_snapshot
+                .fact_vortex_bytes
+                .to_string()
+                .as_bytes(),
+        );
+        digest.update(self.source_snapshot.dim_vortex_bytes.to_string().as_bytes());
+        digest.update(
+            self.source_snapshot
+                .cdc_delta_vortex_bytes
+                .to_string()
+                .as_bytes(),
+        );
+    }
+
+    fn source_state_family_digest_rows(&self) -> Vec<TraditionalSourceStateFamilyDigestRow> {
+        vec![
+            TraditionalSourceStateFamilyDigestRow {
+                family: "dimension_label",
+                status: self.dimension_label_state_reuse_status(),
+                consumer_count: self.dimension_label_state_consumer_count,
+                recompute_avoided_count: self.dimension_label_state_recompute_avoided_count(),
+                prepared: self.dimension_label_state.is_some(),
+            },
+            TraditionalSourceStateFamilyDigestRow {
+                family: "category_metric",
+                status: self.category_metric_state_reuse_status(),
+                consumer_count: self.category_metric_state_consumer_count,
+                recompute_avoided_count: self.category_metric_state_recompute_avoided_count(),
+                prepared: self.category_metric_state.is_some(),
+            },
+            TraditionalSourceStateFamilyDigestRow {
+                family: "group_category_metric",
+                status: self.group_category_metric_state_reuse_status(),
+                consumer_count: self.group_category_metric_state_consumer_count,
+                recompute_avoided_count: self.group_category_metric_state_recompute_avoided_count(),
+                prepared: self.group_category_metric_state.is_some(),
+            },
+            TraditionalSourceStateFamilyDigestRow {
+                family: "ranked_metric",
+                status: self.ranked_metric_state_reuse_status(),
+                consumer_count: self.ranked_metric_state_consumer_count,
+                recompute_avoided_count: self.ranked_metric_state_recompute_avoided_count(),
+                prepared: self.ranked_metric_state.is_some(),
+            },
+            TraditionalSourceStateFamilyDigestRow {
+                family: "selective_filter",
+                status: self.selective_filter_state_reuse_status(),
+                consumer_count: self.selective_filter_state_consumer_count,
+                recompute_avoided_count: self.selective_filter_state_recompute_avoided_count(),
+                prepared: self.selective_filter_state.is_some(),
+            },
+            TraditionalSourceStateFamilyDigestRow {
+                family: "dirty_input",
+                status: self.dirty_input_state_reuse_status(),
+                consumer_count: self.dirty_input_state_consumer_count,
+                recompute_avoided_count: self.dirty_input_state_recompute_avoided_count(),
+                prepared: self.dirty_input_state.is_some(),
+            },
+            TraditionalSourceStateFamilyDigestRow {
+                family: "date_null_metric",
+                status: self.date_null_metric_state_reuse_status(),
+                consumer_count: self.date_null_metric_state_consumer_count,
+                recompute_avoided_count: self.date_null_metric_state_recompute_avoided_count(),
+                prepared: self.date_null_metric_state.is_some(),
+            },
+        ]
+    }
 }
 
 /// Evidence emitted by the scoped prepared/native batch session.
@@ -1466,6 +1700,7 @@ pub struct TraditionalPreparedNativeSessionEvidence {
     pub session_open_status: String,
     pub session_close_status: String,
     pub session_drop_status: String,
+    pub source_state_digest: String,
     pub scenario_count: usize,
     pub prepared_artifact_registry_entry_count: usize,
     pub prepared_artifact_cache_hit_count: usize,
@@ -1637,7 +1872,7 @@ impl TraditionalPreparedNativeSessionEvidence {
             ),
             (
                 "source_state_digest".to_string(),
-                "not_emitted_scoped_in_memory_source_state".to_string(),
+                self.source_state_digest.clone(),
             ),
             (
                 "output_digest".to_string(),
@@ -1706,6 +1941,7 @@ struct TraditionalPreparedNativeSession {
     source_state: TraditionalVortexBatchSourceState,
     scenario_count: usize,
     prepared_artifact_registry_entry_count: usize,
+    requested_execution_mode: ShardLoomExecutionMode,
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -1733,6 +1969,7 @@ impl TraditionalPreparedNativeSession {
             source_state,
             scenario_count: scenarios.len(),
             prepared_artifact_registry_entry_count: 2 + usize::from(cdc_delta_vortex.is_some()),
+            requested_execution_mode,
         })
     }
 
@@ -1748,6 +1985,9 @@ impl TraditionalPreparedNativeSession {
 
     fn close(self) -> TraditionalPreparedNativeSessionEvidence {
         let reusable_scenario_count = self.scenario_count.saturating_sub(1);
+        let source_state_digest = self
+            .source_state
+            .source_state_digest(self.requested_execution_mode);
         TraditionalPreparedNativeSessionEvidence {
             session_id: self.session_id,
             session_state_scope: "prepared_native_traditional_analytics_local_artifacts"
@@ -1755,6 +1995,7 @@ impl TraditionalPreparedNativeSession {
             session_open_status: "opened".to_string(),
             session_close_status: "closed".to_string(),
             session_drop_status: "explicit_close_completed".to_string(),
+            source_state_digest,
             scenario_count: self.scenario_count,
             prepared_artifact_registry_entry_count: self.prepared_artifact_registry_entry_count,
             prepared_artifact_cache_hit_count: reusable_scenario_count,
@@ -3767,6 +4008,8 @@ pub struct TraditionalAnalyticsVortexBatchReport {
     pub result_sink_requested: bool,
     pub session_evidence: TraditionalPreparedNativeSessionEvidence,
     pub source_state_prepare_micros: u64,
+    pub source_state_digest: String,
+    pub source_state_family_digests: String,
     pub dimension_label_state_consumer_count: usize,
     pub dimension_label_state_recompute_avoided_count: usize,
     pub category_metric_state_consumer_count: usize,
@@ -3903,7 +4146,7 @@ impl TraditionalAnalyticsVortexBatchReport {
             ),
             (
                 "evidence_level_source_state_digest".to_string(),
-                "not_emitted_scoped_in_memory_source_state".to_string(),
+                self.source_state_digest.clone(),
             ),
             (
                 "evidence_level_output_digest".to_string(),
@@ -4036,13 +4279,29 @@ impl TraditionalAnalyticsVortexBatchReport {
                     .to_string(),
             ),
             (
+                "source_state_digest".to_string(),
+                self.source_state_digest.clone(),
+            ),
+            (
                 "source_state_digest_status".to_string(),
-                "not_emitted_scoped_in_memory_source_state".to_string(),
+                "emitted_scoped_in_memory_source_state_digest".to_string(),
             ),
             (
                 "source_state_digest_reason".to_string(),
-                "current source-state families are scoped in-process derived states; universal SourceState digest is planned under GAR-IOREUSE-1A"
+                "stable digest computed from source artifact digests, requested execution mode, and prepared/native source-state family reuse status; evidence only, not a persistent cache or performance claim"
                     .to_string(),
+            ),
+            (
+                "source_state_digest_algorithm".to_string(),
+                OUTPUT_ARTIFACT_DIGEST_ALGORITHM.to_string(),
+            ),
+            (
+                "source_state_digest_scope".to_string(),
+                "prepared_native_batch_source_state".to_string(),
+            ),
+            (
+                "source_state_family_digests".to_string(),
+                self.source_state_family_digests.clone(),
             ),
             (
                 "source_state_reused".to_string(),
@@ -4460,59 +4719,41 @@ impl TraditionalAnalyticsVortexBatchReport {
     }
 
     fn dimension_label_state_reuse_status(&self) -> &'static str {
-        match self.dimension_label_state_consumer_count {
-            0 => "not_applicable_no_dimension_label_state_consumers",
-            1 => "per_batch_dimension_label_state_available_single_consumer",
-            _ => "per_batch_dimension_label_state_reused",
-        }
+        dimension_label_state_reuse_status_for_consumer_count(
+            self.dimension_label_state_consumer_count,
+        )
     }
 
     fn category_metric_state_reuse_status(&self) -> &'static str {
-        match self.category_metric_state_consumer_count {
-            0 => "not_applicable_no_category_metric_state_consumers",
-            1 => "not_prepared_single_consumer_uses_scenario_scan",
-            _ => "per_batch_category_metric_state_reused",
-        }
+        category_metric_state_reuse_status_for_consumer_count(
+            self.category_metric_state_consumer_count,
+        )
     }
 
     fn group_category_metric_state_reuse_status(&self) -> &'static str {
-        match self.group_category_metric_state_consumer_count {
-            0 => "not_applicable_no_group_category_metric_state_consumers",
-            1 => "not_prepared_single_consumer_uses_scenario_scan",
-            _ => "per_batch_group_category_metric_state_reused",
-        }
+        group_category_metric_state_reuse_status_for_consumer_count(
+            self.group_category_metric_state_consumer_count,
+        )
     }
 
     fn ranked_metric_state_reuse_status(&self) -> &'static str {
-        match self.ranked_metric_state_consumer_count {
-            0 => "not_applicable_no_ranked_metric_state_consumers",
-            1 => "not_prepared_single_consumer_uses_scenario_scan",
-            _ => "per_batch_ranked_metric_state_reused",
-        }
+        ranked_metric_state_reuse_status_for_consumer_count(self.ranked_metric_state_consumer_count)
     }
 
     fn selective_filter_state_reuse_status(&self) -> &'static str {
-        match self.selective_filter_state_consumer_count {
-            0 => "not_applicable_no_selective_filter_state_consumers",
-            1 => "not_prepared_single_consumer_uses_scenario_scan",
-            _ => "per_batch_selective_filter_state_reused",
-        }
+        selective_filter_state_reuse_status_for_consumer_count(
+            self.selective_filter_state_consumer_count,
+        )
     }
 
     fn dirty_input_state_reuse_status(&self) -> &'static str {
-        match self.dirty_input_state_consumer_count {
-            0 => "not_applicable_no_dirty_input_state_consumers",
-            1 => "not_prepared_single_consumer_uses_scenario_scan",
-            _ => "per_batch_dirty_input_state_reused",
-        }
+        dirty_input_state_reuse_status_for_consumer_count(self.dirty_input_state_consumer_count)
     }
 
     fn date_null_metric_state_reuse_status(&self) -> &'static str {
-        match self.date_null_metric_state_consumer_count {
-            0 => "not_applicable_no_date_null_metric_state_consumers",
-            1 => "not_prepared_single_consumer_uses_scenario_scan",
-            _ => "per_batch_date_null_metric_state_reused",
-        }
+        date_null_metric_state_reuse_status_for_consumer_count(
+            self.date_null_metric_state_consumer_count,
+        )
     }
 
     fn source_state_coverage_matrix(&self) -> String {
@@ -9616,6 +9857,10 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
     let date_null_metric_state_recompute_avoided_count = session
         .source_state
         .date_null_metric_state_recompute_avoided_count();
+    let source_state_digest = session
+        .source_state
+        .source_state_digest(requested_execution_mode);
+    let source_state_family_digests = session.source_state.source_state_family_digests();
 
     let mut reports = Vec::with_capacity(scenarios.len());
     for (index, scenario) in scenarios.into_iter().enumerate() {
@@ -9685,6 +9930,8 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         result_sink_requested: write_result_vortex,
         session_evidence,
         source_state_prepare_micros,
+        source_state_digest,
+        source_state_family_digests,
         dimension_label_state_consumer_count,
         dimension_label_state_recompute_avoided_count,
         category_metric_state_consumer_count,
@@ -17728,7 +17975,28 @@ mod tests {
         assert_field_eq(
             &fields,
             "source_state_digest_status",
-            "not_emitted_scoped_in_memory_source_state",
+            "emitted_scoped_in_memory_source_state_digest",
+        );
+        assert!(
+            fields
+                .get("source_state_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert_field_eq(&fields, "source_state_digest_algorithm", "fnv1a64");
+        assert_field_eq(
+            &fields,
+            "source_state_digest_scope",
+            "prepared_native_batch_source_state",
+        );
+        let source_state_family_digests = fields
+            .get("source_state_family_digests")
+            .expect("source_state_family_digests field");
+        assert!(source_state_family_digests.contains("selective_filter:fnv1a64:"));
+        assert!(source_state_family_digests.contains("dimension_label:fnv1a64:"));
+        assert_field_eq(
+            &fields,
+            "evidence_level_source_state_digest",
+            fields.get("source_state_digest").unwrap(),
         );
         assert_field_eq(
             &fields,

@@ -196,8 +196,11 @@ envelope, no-fallback evidence, and the relevant runtime gates.
 fields classify requested scenario rows as `source-state-reused`,
 `source-state-not-needed`, `blocked-with-reason`, or
 `unsupported-with-reason`. The rows also make the current digest boundary
-explicit with `source_state_digest_status=not_emitted_scoped_in_memory_source_state`; those fields
-remain the scoped in-process batch source-state coverage matrix.
+explicit with `source_state_digest_status=emitted_scoped_in_memory_source_state_digest`,
+`source_state_digest_algorithm=fnv1a64`, `source_state_digest_scope`, and
+`source_state_family_digests`; benchmark rows expose the direct scoped batch digest as
+`batch_source_state_digest` to avoid colliding with the universal SourceState row digest. Those
+fields remain the scoped in-process batch source-state coverage matrix.
 
 `GAR-IOREUSE-1A` adds a separate universal SourceState row contract to the benchmark artifact. Rows
 now carry `source_state_contract_schema_version=shardloom.traditional_analytics.source_state.v1`,

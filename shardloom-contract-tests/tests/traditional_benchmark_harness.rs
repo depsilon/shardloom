@@ -450,7 +450,11 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"source_state_coverage_status_vocabulary\"",
         "\"source_state_coverage_all_requested_scenarios_classified\"",
         "\"source_state_coverage_matrix\"",
+        "\"batch_source_state_digest\"",
         "\"source_state_digest_status\"",
+        "\"source_state_digest_algorithm\"",
+        "\"source_state_digest_scope\"",
+        "\"source_state_family_digests\"",
         "\"source_state_family_count\"",
         "\"source_state_dimension_label_reuse_status\"",
         "\"source_state_category_metric_reuse_status\"",
@@ -1426,7 +1430,7 @@ fn source_state_reuse_coverage_matrix_classifies_every_traditional_family() {
         "source_state_coverage_status_vocabulary",
         "source_state_coverage_all_requested_scenarios_classified=true",
         "scenario_<slug>_source_state_coverage_status",
-        "source_state_digest_status=not_emitted_scoped_in_memory_source_state",
+        "source_state_digest_status=emitted_scoped_in_memory_source_state_digest",
         "source-state-reused",
         "source-state-not-needed",
         "blocked-with-reason",
@@ -1476,7 +1480,10 @@ fn source_state_reuse_coverage_matrix_classifies_every_traditional_family() {
         "blocked-with-reason",
         "unsupported-with-reason",
         "source_state_digest_status",
-        "not_emitted_scoped_in_memory_source_state",
+        "emitted_scoped_in_memory_source_state_digest",
+        "source_state_digest_algorithm",
+        "source_state_digest_scope",
+        "source_state_family_digests",
     ] {
         assert!(
             rust_source.contains(required_text),
@@ -1487,7 +1494,7 @@ fn source_state_reuse_coverage_matrix_classifies_every_traditional_family() {
     for doc in [&compute_flow, &benchmark_catalog, &local_benchmark, &readme] {
         assert!(doc.contains("docs/architecture/source-state-reuse-coverage-matrix.md"));
         assert!(doc.contains("source_state_coverage"));
-        assert!(doc.contains("not_emitted_scoped_in_memory_source_state"));
+        assert!(doc.contains("emitted_scoped_in_memory_source_state_digest"));
     }
 
     assert!(

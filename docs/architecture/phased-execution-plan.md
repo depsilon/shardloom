@@ -723,7 +723,12 @@ or documentation updates alone are insufficient.
     source-to-columnar timing from Vortex array build timing. Parquet/Arrow IPC/Avro/ORC rows emit
     `source_state_materialization_layout`, `source_state_parse_normalization`,
     `source_state_columnar_preserved`, and `source_state_record_batch_count`, and the benchmark
-    harness validates these fields for successful structured compatibility-import rows.
+    harness validates these fields for successful structured compatibility-import rows. Prepared/
+    native batch rows also emit stable `source_state_digest`, `source_state_digest_algorithm`,
+    `source_state_digest_scope`, and per-family `source_state_family_digests` so scoped SourceState
+    reuse can be correlated across benchmark rows without treating the digest as a persistent cache
+    key or performance claim. The benchmark row exposes the direct batch digest as
+    `batch_source_state_digest` to avoid colliding with the universal SourceState contract digest.
   - Runtime enablement: certified ingest/stage execution remains supported, while repeated
     workflows can certify or prepare once and then run `prepared_vortex` from
     `VortexPreparedState` without reinterpreting compatibility cold timing as query speed.
@@ -932,9 +937,10 @@ or documentation updates alone are insufficient.
   - Current state: scoped batch/session evidence exists, and Python now exposes a caller-owned
     `ShardLoomSession` for local `vortex_ingest` prepared-state reuse plus admitted local
     query-builder collect/write/fanout result reuse when source, output, and prepared-artifact
-    fingerprints still match. Broader CLI batch/session reuse, cross-workflow OutputPlan reuse,
-    schema/dictionary cache reuse, buffer pools, object-store/table reuse, and non-local workflows
-    are still planned.
+    fingerprints still match. Session SQL results surface SourceState id/digest, read-plan,
+    projection-pushdown, and materialized/reader projection columns from the local source runtime.
+    Broader CLI batch/session reuse, cross-workflow OutputPlan reuse, schema/dictionary cache reuse,
+    buffer pools, object-store/table reuse, and non-local workflows are still planned.
   - Next slice outcome: extend the scoped in-process `ShardLoomSession` from prepared-state reuse
     into admitted SourceState, VortexPreparedState, schema/dictionary state, and OutputPlan reuse
     where fingerprints remain valid.
@@ -1365,7 +1371,10 @@ docs/website parity, and a completed-ledger entry.
   - Source: `GAR-RUNTIME-IMPL-4L`, `GAR-PERF-2B`, `GAR-PERF-2F`, `GAR-PERF-2G`,
     `GAR-IOREUSE-1`.
   - Current state: optimizer traces, source-state reuse, and batch/session evidence exist in scoped
-    forms; ordinary workflows do not yet have a reusable session/cache lifecycle.
+    forms. Prepared/native benchmark batches emit evidence-only SourceState digests and per-family
+    reuse digests, while Python local sessions expose SourceState identity/read-plan evidence for
+    admitted query/output reuse. Ordinary workflows do not yet have a reusable session/cache
+    lifecycle.
   - Next slice outcome: implement a scoped in-process session with optimizer trace, SourceState/
     VortexPreparedState/OutputPlan reuse, invalidation, and buffer reuse evidence.
   - Runtime enablement: scoped optimizer/session/cache runtime that safely reuses work across
