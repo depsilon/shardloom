@@ -16,6 +16,85 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-RUNTIME-2 admitted-semantics fixture matrix and property/differential execution
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-23-20260521` / #912.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - RFC 0015, RFC 0021, correctness differential harness, semantic conformance suite, and SQL
+      local-source expression runtime smokes.
+  - Scope:
+    - Added `docs/status/admitted-semantics-matrix.json` with schema
+      `shardloom.admitted_semantics_fixture_matrix.v1`.
+    - Added `scripts/check_admitted_semantics_matrix.py`, which emits
+      `shardloom.admitted_semantics_matrix_report.v1` at
+      `target/admitted-semantics-matrix-report.json` and stores full validator artifacts under
+      `target/admitted-semantics-matrix`.
+    - Executes scoped SQL local-source fixtures and compares ShardLoom output against decoded
+      reference JSONL, including one deterministic seeded property lane.
+    - Verifies deterministic unsupported diagnostics for division-by-zero numeric arithmetic and
+      unsupported decimal cast targets.
+    - Checks the `semantic-conformance-suite` report and the no-query/no-execution
+      `correctness-harness-plan` boundary so the executable validator does not blur with the
+      report-only CG-5 aggregate.
+    - Wired the validator into `.github/workflows/ci.yml`, `scripts/check_ci_gate_matrix.py`,
+      `scripts/check_release_readiness.py`, `scripts/run_release_validation_evidence.py`,
+      `scripts/final_release_rehearsal.py`, `docs/release/ci-gate-matrix.md`,
+      `docs/release/hard-release-readiness-gate.md`, and
+      `docs/release/final-release-rehearsal.md`.
+    - Added `docs/status/admitted-semantics-matrix.md` as the concise user-facing validator
+      boundary and removed `REVIEW-RUNTIME-2` from the active phased execution plan.
+  - Covered fixture rows:
+    - `numeric_generic_property_seed_20260521`
+    - `try_cast_projection_null_on_invalid`
+    - `string_transform_length_utf8`
+    - `temporal_extract_utc_date32_timestamp`
+    - `null_coalesce_nullif`
+    - `predicate_projection_three_valued`
+    - `unsupported_numeric_division_by_zero`
+    - `unsupported_cast_decimal128`
+  - Covered operator families:
+    - `generic_expression,numeric_binary,numeric_abs`
+    - `cast,try_cast`
+    - `string_transform,string_length`
+    - `date_extract,timestamp_extract,cast`
+    - `null_coalesce,nullif`
+    - `predicate_projection,comparison,null_predicate,boolean_predicate`
+    - deterministic unsupported diagnostics for `numeric_arithmetic` and `cast`
+  - Artifacts and evidence:
+    - `target/admitted-semantics-matrix-report.json`
+    - `target/admitted-semantics-matrix`
+    - `admitted_semantics_validator_status=passed`
+    - `matrix_status=passed`
+    - `matrix_row_count=8`
+    - `executable_fixture_count=6`
+    - `unsupported_diagnostic_count=2`
+    - `property_lane_count=1`
+    - `property_seed_order=20260521`
+    - `property_execution_performed=true`
+    - `decoded_reference_differential_execution_performed=true`
+    - `semantic_conformance_suite_status=passed`
+    - `correctness_harness_boundary_status=passed`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+  - Unsupported-path boundaries:
+    - No ANSI SQL parity claim.
+    - No production semantic parity claim.
+    - No broad SQL/DataFrame runtime claim.
+    - No external-oracle execution.
+    - No arbitrary UDF support.
+    - No benchmark or performance superiority claim.
+  - Remaining matrix gaps:
+    - Decimal precision and scale semantics.
+    - Timezone database and non-UTC timestamp policy.
+    - Binary and nested/list equality semantics.
+    - Join/window semantic certification.
+    - External-oracle result artifact population.
+    - General fuzz execution beyond the deterministic seeded property lane.
+  - Verification:
+    - `python scripts\check_admitted_semantics_matrix.py`
+    - Release/readiness and full workspace verification are recorded on the PR before merge.
+
 - [x] Session label: REVIEW-RUNTIME-1 three golden workflow validator
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-22-20260521` / #911.
@@ -82,8 +161,9 @@ phase plan first.
     - Additional release/readiness and full workspace verification are recorded on the PR before
       merge.
   - Remaining blockers:
-    - Broader admitted semantics fixture/property/differential coverage remains tracked by
-      `REVIEW-RUNTIME-2`.
+    - Broader admitted semantics fixture/property/differential coverage moved into the completed
+      `REVIEW-RUNTIME-2` validator slice above; residual semantic parity gaps remain in
+      `GAR-RUNTIME-IMPL-4D`.
 
 - [x] Session label: REVIEW-P2-1 contribution governance intake automation
   - Date: 2026-05-21

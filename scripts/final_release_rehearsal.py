@@ -53,6 +53,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/golden-workflow-report.json"),
     )
     parser.add_argument(
+        "--admitted-semantics-report",
+        type=Path,
+        default=Path("target/admitted-semantics-matrix-report.json"),
+    )
+    parser.add_argument(
         "--architecture-tracker-report",
         type=Path,
         default=Path("target/release-architecture-tracker-report.json"),
@@ -173,6 +178,7 @@ def main() -> int:
     security_report_path = resolve(repo_root, args.release_security_report)
     contribution_report_path = resolve(repo_root, args.contribution_governance_report)
     golden_workflow_report_path = resolve(repo_root, args.golden_workflow_report)
+    admitted_semantics_report_path = resolve(repo_root, args.admitted_semantics_report)
     architecture_report_path = resolve(repo_root, args.architecture_tracker_report)
     package_report_path = resolve(repo_root, args.package_channel_report)
 
@@ -181,6 +187,7 @@ def main() -> int:
     security_report = load_json(security_report_path)
     contribution_report = load_json(contribution_report_path)
     golden_workflow_report = load_json(golden_workflow_report_path)
+    admitted_semantics_report = load_json(admitted_semantics_report_path)
     architecture_report = load_json(architecture_report_path)
     package_report = load_json(package_report_path)
     package_matrix = load_json(repo_root / "docs/release/package-channel-readiness-matrix.json")
@@ -208,6 +215,8 @@ def main() -> int:
         blockers.append("missing contribution governance report")
     if golden_workflow_report is None:
         blockers.append("missing golden workflow report")
+    if admitted_semantics_report is None:
+        blockers.append("missing admitted semantics matrix report")
     if architecture_report is None:
         blockers.append("missing release architecture tracker report")
     if package_report is None:
@@ -243,6 +252,30 @@ def main() -> int:
             blockers.append(
                 "golden workflow support_matrix_status="
                 + str(golden_workflow_report.get("support_matrix_status"))
+            )
+    blockers.extend(
+        upstream_report_blockers(
+            admitted_semantics_report,
+            "admitted semantics",
+            status_fields=("status", "admitted_semantics_validator_status"),
+        )
+    )
+    if admitted_semantics_report is not None:
+        if admitted_semantics_report.get("schema_version") != "shardloom.admitted_semantics_matrix_report.v1":
+            blockers.append(
+                "admitted semantics schema_version="
+                + str(admitted_semantics_report.get("schema_version"))
+            )
+        if admitted_semantics_report.get("matrix_status") != "passed":
+            blockers.append(
+                "admitted semantics matrix_status="
+                + str(admitted_semantics_report.get("matrix_status"))
+            )
+        if admitted_semantics_report.get("property_execution_performed") is not True:
+            blockers.append("admitted semantics property_execution_performed missing")
+        if admitted_semantics_report.get("decoded_reference_differential_execution_performed") is not True:
+            blockers.append(
+                "admitted semantics decoded_reference_differential_execution_performed missing"
             )
     blockers.extend(
         upstream_report_blockers(
@@ -330,6 +363,25 @@ def main() -> int:
     )
     blockers.extend(
         false_field_blockers(
+            admitted_semantics_report,
+            "admitted semantics",
+            [
+                "production_claim_allowed",
+                "ansi_sql_claim_allowed",
+                "performance_claim_allowed",
+                "public_release_claim_allowed",
+                "public_package_claim_allowed",
+                "package_publication_performed",
+                "publication_attempted",
+                "tag_created",
+                "secrets_required",
+                "fallback_attempted",
+                "external_engine_invoked",
+            ],
+        )
+    )
+    blockers.extend(
+        false_field_blockers(
             architecture_report,
             "architecture tracker",
             ["publication_attempted", "tag_created", "secrets_required", "fallback_attempted", "external_engine_invoked"],
@@ -397,6 +449,7 @@ def main() -> int:
         "release_security_report_ref": rel(repo_root, security_report_path),
         "contribution_governance_report_ref": rel(repo_root, contribution_report_path),
         "golden_workflow_report_ref": rel(repo_root, golden_workflow_report_path),
+        "admitted_semantics_report_ref": rel(repo_root, admitted_semantics_report_path),
         "release_architecture_tracker_report_ref": rel(repo_root, architecture_report_path),
         "package_channel_report_ref": rel(repo_root, package_report_path),
         "known_unsupported_paths_ref": "docs/release/known-unsupported-paths.md",

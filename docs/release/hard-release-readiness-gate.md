@@ -32,6 +32,7 @@ The gate aggregates:
 - release security gate report
 - contribution governance intake report
 - golden local runtime workflow validator report
+- admitted semantics fixture matrix validator report
 - package metadata, license, repository, and homepage metadata
 - package-channel readiness matrix and channel-specific install/smoke/provenance/rollback proof
 - per-claim evidence attachment matrix for release, package, performance, Spark-displacement,
@@ -63,6 +64,7 @@ python scripts\check_release_architecture_tracker.py --allow-blocked
 python scripts\check_contribution_governance.py
 python scripts\check_package_channel_readiness.py --require-local-evidence
 python scripts\check_golden_workflows.py
+python scripts\check_admitted_semantics_matrix.py
 python scripts\final_release_rehearsal.py --allow-blocked
 ```
 
@@ -178,6 +180,44 @@ external_engine_invoked=false
 This is a local technical-preview runtime proof only. It does not authorize production workflow,
 object-store/lakehouse/Foundry, package-publication, distributed-runtime, or performance-superiority
 claims.
+
+The admitted semantics matrix validator uses schema
+`shardloom.admitted_semantics_matrix_report.v1`:
+
+```powershell
+python scripts\check_admitted_semantics_matrix.py
+```
+
+It writes:
+
+```text
+target/admitted-semantics-matrix-report.json
+target/admitted-semantics-matrix
+```
+
+The validator checks `docs/status/admitted-semantics-matrix.json`, executes scoped SQL
+local-source fixtures, compares ShardLoom output against decoded reference JSONL, runs the first
+deterministic seeded property lane, verifies unsupported diagnostics, checks semantic conformance
+and the non-executing correctness-harness boundary, and intentionally reports:
+
+```text
+admitted_semantics_validator_status=passed
+matrix_status=passed
+executable_fixture_count=6
+unsupported_diagnostic_count=2
+property_execution_performed=true
+decoded_reference_differential_execution_performed=true
+semantic_conformance_suite_status=passed
+correctness_harness_boundary_status=passed
+production_claim_allowed=false
+ansi_sql_claim_allowed=false
+performance_claim_allowed=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+This is admitted-expression correctness evidence only. It does not authorize ANSI SQL parity,
+production semantic parity, external-oracle execution, package publication, or performance claims.
 
 Benchmark rows also pass through the fail-closed constitution validator:
 

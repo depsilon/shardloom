@@ -48,6 +48,7 @@ The rehearsal aggregates local release evidence refs:
 - release security gate report
 - contribution governance report
 - golden local runtime workflow report
+- admitted semantics matrix report
 - release architecture tracker report
 - package-channel readiness report
 - known unsupported paths
@@ -71,6 +72,7 @@ attestation_ref_count
 final_attestation_status=not_signed_local_rehearsal
 contribution_governance_report_ref
 golden_workflow_report_ref
+admitted_semantics_report_ref
 publication_attempted=false
 tag_created=false
 secrets_required=false

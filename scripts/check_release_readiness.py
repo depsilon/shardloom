@@ -48,6 +48,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/golden-workflow-report.json"),
     )
     parser.add_argument(
+        "--admitted-semantics-report",
+        type=Path,
+        default=Path("target/admitted-semantics-matrix-report.json"),
+    )
+    parser.add_argument(
         "--validation-evidence",
         type=Path,
         default=Path("target/release-validation-evidence.json"),
@@ -112,6 +117,7 @@ def main() -> int:
     security_gate_path = resolve(repo_root, args.security_gate_report)
     contribution_governance_path = resolve(repo_root, args.contribution_governance_report)
     golden_workflow_path = resolve(repo_root, args.golden_workflow_report)
+    admitted_semantics_path = resolve(repo_root, args.admitted_semantics_report)
     validation_evidence_path = resolve(repo_root, args.validation_evidence)
     package_channel_matrix_path = resolve(repo_root, args.package_channel_matrix)
     package_channel_report_path = resolve(repo_root, args.package_channel_report)
@@ -282,6 +288,77 @@ def main() -> int:
             "golden_workflow_validator",
             str(args.golden_workflow_report).replace("\\", "/"),
             golden_workflow_blockers,
+        )
+    )
+
+    admitted_semantics = load_json(admitted_semantics_path)
+    admitted_semantics_blockers: list[str] = []
+    if admitted_semantics is None:
+        admitted_semantics_blockers.append("missing admitted semantics matrix report")
+    else:
+        if (
+            admitted_semantics.get("schema_version")
+            != "shardloom.admitted_semantics_matrix_report.v1"
+        ):
+            admitted_semantics_blockers.append(
+                "admitted semantics schema_version="
+                + str(admitted_semantics.get("schema_version", "missing"))
+            )
+        if admitted_semantics.get("status") != "passed":
+            admitted_semantics_blockers.extend(
+                admitted_semantics.get("blockers", ["admitted semantics validator failed"])
+            )
+        if admitted_semantics.get("matrix_status") != "passed":
+            admitted_semantics_blockers.append(
+                "admitted semantics matrix_status="
+                + str(admitted_semantics.get("matrix_status", "missing"))
+            )
+        if admitted_semantics.get("property_execution_performed") is not True:
+            admitted_semantics_blockers.append("admitted semantics property_execution_performed missing")
+        if admitted_semantics.get("decoded_reference_differential_execution_performed") is not True:
+            admitted_semantics_blockers.append(
+                "admitted semantics decoded_reference_differential_execution_performed missing"
+            )
+        if admitted_semantics.get("executable_fixture_count") != 6:
+            admitted_semantics_blockers.append(
+                "admitted semantics executable_fixture_count="
+                + str(admitted_semantics.get("executable_fixture_count", "missing"))
+            )
+        if admitted_semantics.get("unsupported_diagnostic_count") != 2:
+            admitted_semantics_blockers.append(
+                "admitted semantics unsupported_diagnostic_count="
+                + str(admitted_semantics.get("unsupported_diagnostic_count", "missing"))
+            )
+        if admitted_semantics.get("semantic_conformance_suite_status") != "passed":
+            admitted_semantics_blockers.append(
+                "admitted semantics semantic_conformance_suite_status="
+                + str(admitted_semantics.get("semantic_conformance_suite_status", "missing"))
+            )
+        if admitted_semantics.get("correctness_harness_boundary_status") != "passed":
+            admitted_semantics_blockers.append(
+                "admitted semantics correctness_harness_boundary_status="
+                + str(admitted_semantics.get("correctness_harness_boundary_status", "missing"))
+            )
+        for field in [
+            "production_claim_allowed",
+            "ansi_sql_claim_allowed",
+            "performance_claim_allowed",
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "package_publication_performed",
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if admitted_semantics.get(field) is not False:
+                admitted_semantics_blockers.append(f"admitted semantics {field} must be false")
+    checks.append(
+        check(
+            "admitted_semantics_matrix_validator",
+            str(args.admitted_semantics_report).replace("\\", "/"),
+            admitted_semantics_blockers,
         )
     )
 
@@ -617,6 +694,7 @@ def main() -> int:
         "python scripts/check_release_architecture_tracker.py --allow-blocked",
         "python scripts/check_package_channel_readiness.py --require-local-evidence",
         "python scripts/check_golden_workflows.py",
+        "python scripts/check_admitted_semantics_matrix.py",
         "python scripts/check_benchmark_constitution.py",
         "python scripts/final_release_rehearsal.py --allow-blocked",
     ]
@@ -655,6 +733,7 @@ def main() -> int:
             "\\", "/"
         ),
         "golden_workflow_report_ref": str(args.golden_workflow_report).replace("\\", "/"),
+        "admitted_semantics_report_ref": str(args.admitted_semantics_report).replace("\\", "/"),
         "per_claim_evidence_matrix_ref": str(args.per_claim_evidence_matrix).replace("\\", "/"),
         "architecture_tracker_report_ref": str(args.architecture_tracker_report).replace("\\", "/"),
         "final_release_rehearsal_report_ref": str(args.final_release_rehearsal_report).replace("\\", "/"),
