@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: REVIEW-RUNTIME-2 admitted-semantics fixture matrix and property/differential execution
   - Date: 2026-05-21
-  - Branch/PR: `compute-engine-runtime-next-23-20260521` / pending.
+  - Branch/PR: `compute-engine-runtime-next-23-20260521` / #912.
   - Source:
     - 2026-05-21 structured repository review action sequence.
     - RFC 0015, RFC 0021, correctness differential harness, semantic conformance suite, and SQL
