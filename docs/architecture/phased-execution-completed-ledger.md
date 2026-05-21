@@ -16,6 +16,107 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D conditional projection source-column branches
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-6-20260521` / #895.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - User request to keep completed plan sections in this ledger and push that cleanup with the
+      current runtime batch.
+  - Scope:
+    - Broadened scoped local SQL `CASE WHEN <admitted predicate> THEN ... ELSE ... END AS column`
+      projections from literal-only branches to `<literal-or-column>` branches.
+    - Added Python `sl.case_when(...)` lowering for `ColumnExpression` branches such as
+      `sl.col("preferred_label")` / `sl.col("fallback_label")` while keeping explicit `NULL`
+      branch blockers.
+    - Added source-column branch binding, required-column tracking, `conditional_projection_*`
+      evidence updates, and runtime expression lowering through ShardLoom-owned `case_when`.
+    - Added deterministic blockers for branch source-column misses, mixed THEN/ELSE dtypes after
+      source binding, all-null branch columns without stable dtype inference, and JOIN
+      source-column branch shapes that remain outside this scoped slice.
+    - Cleaned the live phased execution plan by moving the completed 8-item sweep checklist and
+      detailed completed 4D runtime-family history into this ledger.
+  - Evidence:
+    - SQL smoke now returns `label_choice` from source-column branches while preserving the existing
+      literal-string and Date32 conditional projection rows.
+    - `conditional_projection_source_column` includes predicate plus branch source columns; THEN
+      and ELSE dtype evidence resolves source-column branches to the inferred runtime dtype.
+    - Mixed source-branch dtypes and all-null source-branch columns fail before execution with
+      `external_engine_invoked=false`.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli conditional_projection -- --nocapture`
+    - `cargo test -p shardloom-cli parses_scoped_conditional_projection -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_conditional_projection_without_fallback -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_conditional_invokes_sql_smoke`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `python -m compileall -q python\src python\tests scripts examples benchmarks\traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This admits scoped local-source single-branch `CASE WHEN` projections over literal and
+      source-column branches only. It does not claim arbitrary SQL CASE parity, nested CASE,
+      branch expression families, JOIN branch support, timezone completeness, production
+      SQL/DataFrame support, or performance superiority.
+  - Fallback boundary:
+    - Parsing, binding, dtype inference, expression lowering, and execution remain ShardLoom-owned.
+      Unsupported branches fail explicitly with no fallback and `external_engine_invoked=false`.
+
+- [x] Session label: 2026-05-21 compute-engine release sweep checklist and live-plan cleanup
+  - Date: 2026-05-21
+  - Branch/PR: sweep implementation across #886 through #891; live-plan cleanup in
+    `compute-engine-runtime-next-6-20260521` / #895.
+  - Source:
+    - User-requested 8-item sweep before returning to the runtime queue.
+    - Follow-up request to keep completed content and completed phase sections in this ledger
+      instead of the live phased execution plan.
+  - Completed checklist:
+    - [x] 1. PR #880+ Codex comment review: #880-#890 are merged. Historical GitHub threads on
+          #882/#883/#884 remain unresolved in the closed PR UI, but their findings were implemented
+          in merged PR #886: string-function type validation, aggregate-before-join Python lowering
+          rejection, and joined computed-projection SELECT order preservation. The remaining
+          actionable #889 thread is handled by #891 through fail-closed public columnar SourceState
+          batch-shape and row-count validation before indexed column access.
+    - [x] 2. Documentation/architecture cleanup: active phase-plan citation leakage was removed
+          from public/use-case/status/Field Guide surfaces; ongoing status points to architecture
+          contracts or this completed ledger.
+    - [x] 3. Modularization review: the sweep isolated the highest-risk concentration in
+          `sql_local_source_runtime.rs`, `universal_format_io.rs`, and Python query lowering; #891
+          moved repeated columnar projection lookup into one validated `shardloom-vortex`
+          SourceState shape before Arrow-to-Vortex conversion.
+    - [x] 4. Optimization pass review: the current bottleneck remains compatibility adapter
+          materialization. The closed slices push Parquet/Arrow IPC/Avro/ORC column selection into
+          reader APIs before scalar-row conversion, preserve Arrow `RecordBatch` SourceState for
+          `vortex_ingest`, and avoid repeated per-column projection scans in the public writer.
+    - [x] 5. Website/docs cohesion review: the Astro/Starlight `/docs` placeholder was replaced
+          with a branded public Docs page, legacy `docs.html` output stayed available, readiness
+          checks cover the page, and runtime website validation blocks active phase-plan queue
+          references from public output.
+    - [x] 6. Benchmark/telemetry review: benchmark environment smoke validation passed in the
+          sweep; a comparative rerun attempt timed out before artifact production; #891 reran
+          benchmark smoke/contract checks and kept full comparative refresh gated until a clean
+          longer run can complete.
+    - [x] 7. Universal ingest/adapter bottleneck research: Arrow RS and Vortex surfaces were
+          reviewed; the selected implementation is format-neutral SourceState projection evidence,
+          reader-level projection where supported, columnar SourceState preservation through
+          `vortex_ingest` where scalar rows are not required, and fail-closed batch-shape validation
+          before indexed Arrow column access.
+    - [x] 8. Parallel-path consolidation review: local SQL/Python/ingest paths continue to share the
+          same admitted local input universe and SourceState evidence instead of creating CSV-only or
+          format-specific bypasses.
+  - Live-plan cleanup:
+    - Removed the completed 8-item sweep section from
+      `docs/architecture/phased-execution-plan.md`; this ledger is now the provenance surface for
+      that completed coordination work.
+    - Condensed the long `GAR-RUNTIME-IMPL-4D` completed runtime-family inventory in the live plan
+      into a compact current-state/remaining-gap summary. Detailed completed 4D session evidence
+      remains in this ledger, while the live plan keeps only unchecked actionable work.
+  - Verification:
+    - Covered by #886 through #891 validation for the sweep implementation.
+    - Current cleanup batch verification is recorded in the active session entry above this block
+      once the current PR is opened and merged.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F1/4L prepared/native SourceState reuse digest telemetry
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-5-20260521` / #894.

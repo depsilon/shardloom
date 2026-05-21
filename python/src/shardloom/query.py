@@ -2204,10 +2204,10 @@ def col(name: object) -> ColumnExpression:
 def case_when(predicate: object, then_value: object, else_value: object) -> ColumnExpression:
     """Return a scoped single-branch `CASE WHEN` computed-column expression."""
 
-    then_literal = _sql_literal(then_value)
-    else_literal = _sql_literal(else_value)
+    then_branch = _sql_case_branch(then_value)
+    else_branch = _sql_case_branch(else_value)
     return ColumnExpression(
-        f"CASE WHEN {_predicate_sql(predicate)} THEN {then_literal} ELSE {else_literal} END"
+        f"CASE WHEN {_predicate_sql(predicate)} THEN {then_branch} ELSE {else_branch} END"
     )
 
 
@@ -3431,7 +3431,7 @@ def _sql_conditional_projection_expression(expression: object) -> str:
     end_index = upper.rfind(end_marker)
     if not (0 <= when_index < then_index < else_index < end_index):
         raise ValueError(
-            "CASE with_column expressions must use CASE WHEN <predicate> THEN <literal> ELSE <literal> END"
+            "CASE with_column expressions must use CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END"
         )
     if upper[:when_index].strip() != "CASE" or upper[end_index + len(end_marker) :].strip():
         raise ValueError(
@@ -3441,10 +3441,21 @@ def _sql_conditional_projection_expression(expression: object) -> str:
     then_literal = text[then_index + len(then_marker) : else_index].strip()
     else_literal = text[else_index + len(else_marker) : end_index].strip()
     if not then_literal or not else_literal:
-        raise ValueError("CASE with_column expressions require THEN and ELSE literals")
+        raise ValueError("CASE with_column expressions require THEN and ELSE branches")
     if then_literal.upper() == "NULL" or else_literal.upper() == "NULL":
         raise ValueError("CASE with_column expressions require non-NULL branch literals")
     return f"CASE WHEN {predicate} THEN {then_literal} ELSE {else_literal} END"
+
+
+def _sql_case_branch(value: object) -> str:
+    if isinstance(value, ColumnExpression):
+        text = value.sql.strip()
+        if not text:
+            raise ValueError("CASE branch column expression must not be empty")
+        return text
+    if value is None:
+        raise ValueError("CASE branch literals must be non-NULL")
+    return _sql_literal(value)
 
 
 def _sql_date_arithmetic_projection_expression(expression: object) -> str:
