@@ -48,6 +48,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/contribution-governance-report.json"),
     )
     parser.add_argument(
+        "--golden-workflow-report",
+        type=Path,
+        default=Path("target/golden-workflow-report.json"),
+    )
+    parser.add_argument(
         "--architecture-tracker-report",
         type=Path,
         default=Path("target/release-architecture-tracker-report.json"),
@@ -167,6 +172,7 @@ def main() -> int:
     provenance_report_path = resolve(repo_root, args.provenance_report)
     security_report_path = resolve(repo_root, args.release_security_report)
     contribution_report_path = resolve(repo_root, args.contribution_governance_report)
+    golden_workflow_report_path = resolve(repo_root, args.golden_workflow_report)
     architecture_report_path = resolve(repo_root, args.architecture_tracker_report)
     package_report_path = resolve(repo_root, args.package_channel_report)
 
@@ -174,6 +180,7 @@ def main() -> int:
     provenance = load_json(provenance_report_path)
     security_report = load_json(security_report_path)
     contribution_report = load_json(contribution_report_path)
+    golden_workflow_report = load_json(golden_workflow_report_path)
     architecture_report = load_json(architecture_report_path)
     package_report = load_json(package_report_path)
     package_matrix = load_json(repo_root / "docs/release/package-channel-readiness-matrix.json")
@@ -199,6 +206,8 @@ def main() -> int:
         blockers.append("missing release security gate report")
     if contribution_report is None:
         blockers.append("missing contribution governance report")
+    if golden_workflow_report is None:
+        blockers.append("missing golden workflow report")
     if architecture_report is None:
         blockers.append("missing release architecture tracker report")
     if package_report is None:
@@ -206,6 +215,35 @@ def main() -> int:
     blockers.extend(provenance_status_blockers(provenance))
     blockers.extend(upstream_report_blockers(security_report, "release security"))
     blockers.extend(upstream_report_blockers(contribution_report, "contribution governance"))
+    blockers.extend(
+        upstream_report_blockers(
+            golden_workflow_report,
+            "golden workflow",
+            status_fields=("status", "golden_workflow_validator_status"),
+        )
+    )
+    if golden_workflow_report is not None:
+        if golden_workflow_report.get("schema_version") != "shardloom.golden_workflow_validation_report.v1":
+            blockers.append(
+                "golden workflow schema_version="
+                + str(golden_workflow_report.get("schema_version"))
+            )
+        if golden_workflow_report.get("workflow_count") != 3:
+            blockers.append(
+                "golden workflow workflow_count="
+                + str(golden_workflow_report.get("workflow_count"))
+            )
+        stage_count = golden_workflow_report.get("stage_count")
+        if not isinstance(stage_count, int) or stage_count < 9:
+            blockers.append(
+                "golden workflow stage_count="
+                + str(golden_workflow_report.get("stage_count"))
+            )
+        if golden_workflow_report.get("support_matrix_status") != "passed":
+            blockers.append(
+                "golden workflow support_matrix_status="
+                + str(golden_workflow_report.get("support_matrix_status"))
+            )
     blockers.extend(
         upstream_report_blockers(
             architecture_report,
@@ -264,6 +302,24 @@ def main() -> int:
             [
                 "public_release_claim_allowed",
                 "public_package_claim_allowed",
+                "publication_attempted",
+                "tag_created",
+                "secrets_required",
+                "fallback_attempted",
+                "external_engine_invoked",
+            ],
+        )
+    )
+    blockers.extend(
+        false_field_blockers(
+            golden_workflow_report,
+            "golden workflow",
+            [
+                "production_claim_allowed",
+                "performance_claim_allowed",
+                "public_release_claim_allowed",
+                "public_package_claim_allowed",
+                "package_publication_performed",
                 "publication_attempted",
                 "tag_created",
                 "secrets_required",
@@ -340,6 +396,7 @@ def main() -> int:
         "release_provenance_report_ref": rel(repo_root, provenance_report_path),
         "release_security_report_ref": rel(repo_root, security_report_path),
         "contribution_governance_report_ref": rel(repo_root, contribution_report_path),
+        "golden_workflow_report_ref": rel(repo_root, golden_workflow_report_path),
         "release_architecture_tracker_report_ref": rel(repo_root, architecture_report_path),
         "package_channel_report_ref": rel(repo_root, package_report_path),
         "known_unsupported_paths_ref": "docs/release/known-unsupported-paths.md",

@@ -255,36 +255,6 @@ Runtime completion rule:
 
 #### Review-Derived Runtime Validators
 
-- [ ] REVIEW-RUNTIME-1 three golden workflow validator
-  - Source: 2026-05-21 structured repository review action sequence; Use Case Atlas, workflow
-    recipe library, prepared/native Vortex evidence, generated-source output evidence.
-  - Current state: scoped local workflows exist across direct transient local SQL/Python,
-    generated-source output, compatibility import, prepared Vortex batch, and native/prepared
-    evidence surfaces, but there is no single validator proving three end-to-end user workflows
-    remain runnable and claim-safe together.
-  - Next slice outcome: add a golden workflow validator covering:
-    `local CSV/JSONL -> vortex_ingest -> prepared query -> JSONL/CSV output`,
-    `generated source -> local Vortex output -> replay/fidelity evidence`, and
-    `prepared/native Vortex count/filter/project -> execution certificate`.
-  - Runtime enablement: release/usability validator for the highest-value runnable local workflows.
-  - User-visible surface: CLI/Python smoke matrix, workflow recipes, release readiness, website
-    "what runs today" support rows.
-  - Implementation scope: validator script or contract test, fixture inputs, expected outputs,
-    Python wrapper calls, CLI command calls, evidence summaries, workflow recipe links.
-  - Evidence required: source route, preparation route, execution route, output route, row counts,
-    correctness digest, output artifact refs, execution certificate refs, Native I/O evidence,
-    `fallback_attempted=false`, `external_engine_invoked=false`, and claim-gate status.
-  - Acceptance: the validator fails if any golden workflow stops running, loses evidence fields,
-    invokes an external engine, or overstates support.
-  - Verification: golden workflow validator, Python workflow tests, CLI smoke tests, release
-    readiness metadata, website/status readiness, `cargo test --workspace --all-targets`.
-  - Non-goals: no production workflow claim, object-store/lakehouse/Foundry production support,
-    package publication, distributed runtime, or performance superiority claim.
-  - Claim boundary: local technical-preview workflow proof only.
-  - Fallback boundary: each workflow must fail closed on fallback/external-engine evidence.
-  - Ledger rule: ledger entry must include workflow commands, artifacts, and unsupported-path
-    boundaries.
-
 - [ ] REVIEW-RUNTIME-2 admitted-semantics fixture matrix and property/differential execution
   - Source: 2026-05-21 structured repository review action sequence; RFC 0015, RFC 0021,
     correctness differential harness, expression runtime smokes.

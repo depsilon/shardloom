@@ -47,6 +47,7 @@ The rehearsal aggregates local release evidence refs:
 - SBOM refs
 - release security gate report
 - contribution governance report
+- golden local runtime workflow report
 - release architecture tracker report
 - package-channel readiness report
 - known unsupported paths
@@ -69,6 +70,7 @@ checksum_ref_count
 attestation_ref_count
 final_attestation_status=not_signed_local_rehearsal
 contribution_governance_report_ref
+golden_workflow_report_ref
 publication_attempted=false
 tag_created=false
 secrets_required=false
@@ -88,8 +90,8 @@ attestations remain maintainer-approved release actions, not autonomous Codex ac
 
 The current expected state for the local no-publication rehearsal is passed when all local
 artifact, SBOM, checksum, provenance, security, architecture, package-channel, unsupported-path,
-contribution-governance, per-claim, and publication/API/schema refs are present and internally
-consistent:
+contribution-governance, golden-workflow, per-claim, and publication/API/schema refs are present
+and internally consistent:
 
 ```text
 status=passed

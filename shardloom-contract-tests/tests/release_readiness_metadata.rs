@@ -2212,6 +2212,121 @@ fn contribution_governance_gate_is_wired_into_release_readiness() {
 }
 
 #[test]
+fn golden_workflow_validator_is_wired_into_release_readiness() {
+    let script = read_repo_file("scripts/check_golden_workflows.py");
+    for required in [
+        "shardloom.golden_workflow_validation_report.v1",
+        "vortex-write,vortex-local-primitives",
+        "local_csv_jsonl_to_vortex_ingest_prepared_query_jsonl_csv_output",
+        "generated_source_to_local_vortex_output_replay_fidelity",
+        "prepared_native_vortex_count_filter_project_execution_certificates",
+        "vortex-ingest-smoke",
+        "sql-local-source-smoke",
+        "generated-source-user-rows-smoke",
+        "vortex-count-where",
+        "vortex-project",
+        "vortex-filter-project",
+        "ctx.prepare_vortex",
+        "target/golden-workflow-report.json",
+        "target/golden-workflows",
+        "support_matrix_status",
+        "production_claim_allowed",
+        "performance_claim_allowed",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ] {
+        assert!(
+            script.contains(required),
+            "missing golden workflow script marker {required}"
+        );
+    }
+
+    let status_doc = read_repo_file("docs/status/golden-workflow-validator.md");
+    for required in [
+        "shardloom.golden_workflow_validation_report.v1",
+        "python scripts\\check_golden_workflows.py",
+        "workflow_count=3",
+        "stage_count>=9",
+        "support_matrix_status=passed",
+        "local_primitive_execution_certificate_status=certified",
+        "local_primitive_native_io_certificate_status=certified",
+        "result_replay_verified=true",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "no broad generated SQL",
+        "no package publication",
+    ] {
+        assert!(
+            status_doc.contains(required),
+            "missing golden workflow status doc marker {required}"
+        );
+    }
+
+    let ci_workflow = read_repo_file(".github/workflows/ci.yml");
+    assert!(ci_workflow.contains("Golden workflow validator"));
+    assert!(ci_workflow.contains("python scripts/check_golden_workflows.py"));
+    assert!(ci_workflow.contains("target/golden-workflow-report.json"));
+    assert!(ci_workflow.contains("target/golden-workflows"));
+
+    let ci_doc = read_repo_file("docs/release/ci-gate-matrix.md");
+    assert!(ci_doc.contains("python scripts/check_golden_workflows.py"));
+    assert!(ci_doc.contains("target/golden-workflow-report.json"));
+    assert!(ci_doc.contains("golden workflow validator"));
+
+    let ci_script = read_repo_file("scripts/check_ci_gate_matrix.py");
+    assert!(ci_script.contains("python scripts/check_golden_workflows.py"));
+    assert!(ci_script.contains("target/golden-workflow-report.json"));
+    assert!(ci_script.contains("target/golden-workflows"));
+    assert!(ci_script.contains("golden workflow validator"));
+
+    let release_readiness = read_repo_file("scripts/check_release_readiness.py");
+    for required in [
+        "--golden-workflow-report",
+        "target/golden-workflow-report.json",
+        "golden_workflow_validator",
+        "shardloom.golden_workflow_validation_report.v1",
+        "workflow_count",
+        "stage_count",
+        "support_matrix_status",
+        "python scripts/check_golden_workflows.py",
+        "golden_workflow_report_ref",
+    ] {
+        assert!(
+            release_readiness.contains(required),
+            "missing golden release-readiness marker {required}"
+        );
+    }
+
+    let validation = read_repo_file("scripts/run_release_validation_evidence.py");
+    assert!(validation.contains("golden_workflow_validator"));
+    assert!(validation.contains("scripts/check_golden_workflows.py"));
+
+    let final_rehearsal = read_repo_file("scripts/final_release_rehearsal.py");
+    assert!(final_rehearsal.contains("--golden-workflow-report"));
+    assert!(final_rehearsal.contains("golden_workflow_report_ref"));
+    assert!(final_rehearsal.contains("golden workflow"));
+
+    let hard_gate = read_repo_file("docs/release/hard-release-readiness-gate.md");
+    assert!(hard_gate.contains("shardloom.golden_workflow_validation_report.v1"));
+    assert!(hard_gate.contains("target/golden-workflow-report.json"));
+    assert!(
+        hard_gate.contains("runtime_support_claim=local_technical_preview_workflow_proof_only")
+    );
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] REVIEW-RUNTIME-1 three golden workflow validator"));
+    assert!(plan.contains("REVIEW-RUNTIME-2 admitted-semantics fixture matrix"));
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("REVIEW-RUNTIME-1 three golden workflow validator"));
+    assert!(completed.contains("shardloom.golden_workflow_validation_report.v1"));
+    assert!(completed.contains("Workflow commands"));
+    assert!(completed.contains("Artifacts and evidence"));
+    assert!(completed.contains("Unsupported-path boundaries"));
+    assert!(completed.contains("fallback_attempted=false"));
+    assert!(completed.contains("external_engine_invoked=false"));
+}
+
+#[test]
 fn cg5_cg6_stateful_reuse_evidence_expansion_remains_fail_closed() {
     let core = read_repo_file("shardloom-core/src/correctness.rs");
     for required in [
@@ -5778,7 +5893,7 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(!plan.contains("- [ ] REVIEW-P1-1 typed command registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-2 typed evidence schema registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-4 dependency, license, provenance"));
-    assert!(plan.contains("REVIEW-RUNTIME-1 three golden workflow validator"));
+    assert!(plan.contains("REVIEW-RUNTIME-2 admitted-semantics fixture matrix"));
     assert!(plan.contains("Completed non-runtime history belongs in"));
     let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(

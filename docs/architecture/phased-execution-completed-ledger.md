@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-RUNTIME-1 three golden workflow validator
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-22-20260521` / #911.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - Use Case Atlas, workflow recipe library, prepared/native Vortex evidence, generated-source
+      output evidence, and current-support website/status rows.
+  - Scope:
+    - Added `scripts/check_golden_workflows.py`, which emits
+      `shardloom.golden_workflow_validation_report.v1` at
+      `target/golden-workflow-report.json` and persists full CLI/Python stage envelopes under
+      `target/golden-workflows`.
+    - Validates three high-value local workflows together:
+      local CSV/JSONL to `vortex_ingest` to prepared query to JSONL/CSV output; generated source
+      to local Vortex output and replay/fidelity evidence; prepared/native Vortex count/project/
+      filter-project with execution certificates.
+    - Builds the CLI with `vortex-write,vortex-local-primitives`, runs feature-gated Vortex
+      write/read paths, runs a Python `ctx.prepare_vortex(...)` smoke against the same binary, and
+      checks docs/website `runs-today` rows for the covered surfaces.
+    - Wired the validator into `.github/workflows/ci.yml`, `scripts/check_ci_gate_matrix.py`,
+      `scripts/check_release_readiness.py`, `scripts/run_release_validation_evidence.py`,
+      `scripts/final_release_rehearsal.py`, `docs/release/ci-gate-matrix.md`,
+      `docs/release/hard-release-readiness-gate.md`, and
+      `docs/release/final-release-rehearsal.md`.
+    - Added `docs/status/golden-workflow-validator.md` as the concise user-facing runtime proof
+      boundary and removed `REVIEW-RUNTIME-1` from the active phased execution plan.
+  - Workflow commands:
+    - `python scripts\check_golden_workflows.py`
+    - `cargo build -q -p shardloom-cli --features vortex-write,vortex-local-primitives`
+    - `shardloom vortex-ingest-smoke <local-csv> <local.vortex> --allow-overwrite --format json`
+    - `shardloom vortex-filter-project <local.vortex> gte:amount:10 label --execute-local-primitive 1 2 --format json`
+    - `shardloom sql-local-source-smoke <statement> --fanout-output jsonl=<out.jsonl> --fanout-output csv=<out.csv> --format json`
+    - `ctx.prepare_vortex(<local-csv>, <local.vortex>, allow_overwrite=True)`
+    - `shardloom generated-source-user-rows-smoke <generated.vortex> <schema> <rows> --output-format vortex --allow-overwrite --format json`
+    - `shardloom vortex-count-where <local_primitive_struct_five.vortex> gte:value:3 --execute-local-primitive 1 2 --format json`
+    - `shardloom vortex-project <local_primitive_struct_five.vortex> metric --execute-local-primitive 1 2 --format json`
+    - `shardloom vortex-filter-project <local_primitive_struct_five.vortex> gte:value:3 metric --execute-local-primitive 1 2 --format json`
+  - Artifacts and evidence:
+    - `target/golden-workflow-report.json`
+    - `target/golden-workflows`
+    - `golden_workflow_validator_status=passed`
+    - `workflow_count=3`
+    - `stage_count>=9`
+    - `support_matrix_status=passed`
+    - `source_route`, `preparation_route`, `execution_route`, `output_route`, `row_counts`,
+      and `artifact_refs` per workflow.
+    - `output_native_io_certificate_status=certified_local_fanout_sinks`
+    - `output_native_io_certificate_status=certified_local_vortex_sink`
+    - `local_primitive_execution_certificate_status=certified`
+    - `local_primitive_native_io_certificate_status=certified`
+    - `result_replay_verified=true`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+  - Unsupported-path boundaries:
+    - No production workflow claim.
+    - No object-store/lakehouse/Foundry production support.
+    - No package publication.
+    - No distributed runtime claim.
+    - No performance superiority claim.
+    - Ad hoc ingested/generated Vortex replay has Native I/O evidence; fixture execution
+      certificates remain limited to checked-in primitive fixtures.
+  - Verification:
+    - `python scripts\check_golden_workflows.py --skip-build`
+    - Additional release/readiness and full workspace verification are recorded on the PR before
+      merge.
+  - Remaining blockers:
+    - Broader admitted semantics fixture/property/differential coverage remains tracked by
+      `REVIEW-RUNTIME-2`.
+
 - [x] Session label: REVIEW-P2-1 contribution governance intake automation
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-21-20260521` / #910.
