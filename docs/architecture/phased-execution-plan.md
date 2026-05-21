@@ -588,14 +588,21 @@ or documentation updates alone are insufficient.
     Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC
     source certificate refs, execution certificate refs, materialization boundaries, pushdown status,
-    adapter status, route status, and claim reasons are source-format-aware. Nested/general JSON,
-    broader Parquet/Arrow IPC/Avro/ORC type/nesting and output coverage does not all have ordinary
-    user-facing SourceState runtime parity.
+    adapter status, route status, and claim reasons are source-format-aware. Direct transient SQL
+    reads now derive a local SourceState read plan from parsed projections, predicates, aggregates,
+    group-by, top-N, computed projections, and IN-subquery source columns; reports emit
+    `shardloom.local_source_state.v1`, local adapter-registry version, requested/materialized
+    columns, pruning status, parse-normalization family, and scalar-row materialization layout.
+    Nested/general JSON, broader Parquet/Arrow IPC/Avro/ORC type/nesting and output coverage does
+    not all have ordinary user-facing SourceState runtime parity.
   - Next slice outcome: continue promoting remaining local input and operator combinations one at
     a time into UniversalIngress/InputAdapter registry coverage with SourceState evidence,
     `vortex_ingest_status`, certified route status, and deterministic blockers for unsupported
-    formats/features. Recent join slices should keep using the same local-source admission
-    universe instead of creating CSV-only islands unless a format has a deterministic blocker.
+    formats/features. The next optimization step should move feature-gated Parquet/Arrow IPC/Avro/
+    ORC adapters from post-conversion pruning toward reader-level projection and then preserve a
+    columnar SourceState until scalar rows are required. Recent join slices should keep using the
+    same local-source admission universe instead of creating CSV-only islands unless a format has a
+    deterministic blocker.
   - Runtime enablement: admitted local input adapters that create reusable SourceState evidence for
     actual user reads and can feed `vortex_ingest` into `VortexPreparedState` when preparation is
     admitted.

@@ -391,6 +391,7 @@ fn write_orc_smoke_source(path: &std::path::Path) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback() {
     let source_path = unique_path("sql-local-source", "csv");
     fs::write(
@@ -441,6 +442,23 @@ fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback(
     assert!(stdout.contains(&field("sql_runtime_execution", "true")));
     assert!(stdout.contains(&field("source_io_performed", "true")));
     assert!(stdout.contains(&field("source_format", "csv")));
+    assert!(stdout.contains(&field(
+        "source_state_contract_schema_version",
+        "shardloom.local_source_state.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "local_input_adapter_registry_version",
+        "shardloom.local_input_adapter_registry.v1"
+    )));
+    assert!(stdout.contains(&field("source_state_read_plan", "required_columns")));
+    assert!(stdout.contains(&field("source_state_requested_columns", "amount,id,label")));
+    assert!(stdout.contains(&field("source_state_materialized_column_count", "3")));
+    assert!(stdout.contains(&field(
+        "source_state_materialized_columns",
+        "id,label,amount"
+    )));
+    assert!(stdout.contains(&field("source_state_pruned_column_count", "1")));
+    assert!(stdout.contains(&field("source_state_column_pruning_applied", "true")));
     assert!(stdout.contains(&field("input_row_count", "4")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
     assert!(stdout.contains(&field("limit", "1")));
