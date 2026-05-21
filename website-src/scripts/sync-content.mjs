@@ -185,8 +185,9 @@ const statusRows = readJson("status-rows.json");
 cleanGenerated(path.join(docsRoot, "field-guide"));
 cleanGenerated(useCaseRoot);
 cleanGenerated(statusRoot);
+const starlightDocsIndex = path.join(docsRoot, "docs.mdx");
+if (fs.existsSync(starlightDocsIndex)) fs.rmSync(starlightDocsIndex);
 write(path.join(docsRoot, "field-guide", "index.mdx"), fieldGuideIndex(fieldGuide));
-write(path.join(docsRoot, "docs.mdx"), docsIndex());
 
 for (const term of fieldGuide) {
   write(path.join(docsRoot, "field-guide", `${term.slug}.mdx`), termPage(term));

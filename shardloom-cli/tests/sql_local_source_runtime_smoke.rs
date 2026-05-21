@@ -1793,6 +1793,116 @@ fn sql_local_source_smoke_executes_timestamp_arithmetic_projection_without_fallb
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
+fn sql_local_source_smoke_executes_temporal_difference_generic_expressions_without_fallback() {
+    let source_path = unique_path("sql-local-source-temporal-difference", "csv");
+    fs::write(
+        &source_path,
+        "id,start_date,end_date,start_ts,end_ts\n\
+         1,2026-05-19,2026-05-20,2026-05-19T12:00:00Z,2026-05-19T12:01:30Z\n\
+         2,2026-05-19,2026-05-21,2026-05-19T12:00:00Z,2026-05-19T12:03:05Z\n\
+         3,2026-05-19,2026-05-23,,2026-05-19T12:05:00Z\n\
+         4,2026-05-20,2026-05-24,2026-05-19T12:00:10Z,2026-05-19T12:10:10Z\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,DATE_DIFF_DAYS(CAST(end_date AS date32), start_date) AS age_days,TIMESTAMP_DIFF_SECONDS(CAST(end_ts AS timestamp_micros), start_ts) AS elapsed_seconds FROM '{}' WHERE DATE_DIFF_DAYS(end_date, start_date) >= 2 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("predicate_operator_family", "generic_expression")));
+    assert!(stdout.contains(&field(
+        "generic_expression_predicate_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_predicate_source_column",
+        "end_date+start_date"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_predicate_operator_family",
+        "temporal_difference"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_predicate_binary_operator_count",
+        "0"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_predicate_comparison_operator",
+        "gte"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_source_column",
+        "end_date+start_date,end_ts+start_ts"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_output_column",
+        "age_days,elapsed_seconds"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_operator_family",
+        "cast+temporal_difference,cast+temporal_difference"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_binary_operator_count",
+        "0"
+    )));
+    assert!(stdout.contains(&field("projected_columns", "id,age_days,elapsed_seconds")));
+    assert!(stdout.contains(&field("selected_row_count", "3")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"age_days\\\":2,\\\"elapsed_seconds\\\":185}\\n{\\\"id\\\":3,\\\"age_days\\\":4,\\\"elapsed_seconds\\\":null}\\n{\\\"id\\\":4,\\\"age_days\\\":4,\\\"elapsed_seconds\\\":600}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,DATE_DIFF_DAYS(start_date) AS bad_delta FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(
+        blocked_output.contains("temporal difference expressions require exactly two arguments")
+    );
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_null_coalesce_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-null-coalesce-projection", "csv");
     fs::write(
@@ -5888,7 +5998,7 @@ fn sql_local_source_smoke_executes_join_computed_projection_topn_without_fallbac
     .expect("write dim csv");
 
     let statement = format!(
-        "SELECT f.id,d.segment,f.amount + d.discount AS adjusted,CONCAT(d.segment,'-',f.region) AS segment_region FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 3",
+        "SELECT f.id,CONCAT(d.segment,'-',f.region) AS segment_region,d.segment,f.amount + d.discount AS adjusted FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 3",
         fact_path.display(),
         dim_path.display()
     );
@@ -5904,13 +6014,13 @@ fn sql_local_source_smoke_executes_join_computed_projection_topn_without_fallbac
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains(
-        "\\\"f.id\\\":5,\\\"d.segment\\\":\\\"startup\\\",\\\"adjusted\\\":28,\\\"segment_region\\\":\\\"startup-eu\\\""
+        "\\\"f.id\\\":5,\\\"segment_region\\\":\\\"startup-eu\\\",\\\"d.segment\\\":\\\"startup\\\",\\\"adjusted\\\":28"
     ));
     assert!(stdout.contains(
-        "\\\"f.id\\\":3,\\\"d.segment\\\":\\\"consumer\\\",\\\"adjusted\\\":24,\\\"segment_region\\\":\\\"consumer-eu\\\""
+        "\\\"f.id\\\":3,\\\"segment_region\\\":\\\"consumer-eu\\\",\\\"d.segment\\\":\\\"consumer\\\",\\\"adjusted\\\":24"
     ));
     assert!(stdout.contains(
-        "\\\"f.id\\\":2,\\\"d.segment\\\":\\\"enterprise\\\",\\\"adjusted\\\":17,\\\"segment_region\\\":\\\"enterprise-na\\\""
+        "\\\"f.id\\\":2,\\\"segment_region\\\":\\\"enterprise-na\\\",\\\"d.segment\\\":\\\"enterprise\\\",\\\"adjusted\\\":17"
     ));
     assert!(stdout.contains(&field(
         "sql_statement_kind",
@@ -5935,7 +6045,7 @@ fn sql_local_source_smoke_executes_join_computed_projection_topn_without_fallbac
     assert!(stdout.contains(&field("top_n_limit", "3")));
     assert!(stdout.contains(&field(
         "projected_columns",
-        "f.id,d.segment,adjusted,segment_region"
+        "f.id,segment_region,d.segment,adjusted"
     )));
     assert!(stdout.contains(&field(
         "generic_expression_projection_runtime_execution",

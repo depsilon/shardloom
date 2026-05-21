@@ -574,6 +574,12 @@ plan before coding.
   `timestamp_arithmetic_projection_*` evidence, preserves null-propagating timestamp-micros
   semantics, and keeps invalid second counts, non-timestamp operands, and unsupported interval
   shapes deterministic blockers with no fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D scoped temporal-difference expressions add native
+  `DATE_DIFF_DAYS` and `TIMESTAMP_DIFF_SECONDS` predicate/projection execution through the generic
+  expression evidence path for admitted local-source SQL/Python paths, preserve null-propagating
+  Date32/UTC timestamp delta semantics, coerce admitted ISO/UTC timestamp source strings, and keep
+  arity/type/unsupported interval or timezone shapes deterministic blockers with no fallback/
+  external engine invocation.
 - [x] GAR-RUNTIME-IMPL-5B/5C scoped local-source join aggregates admit scalar and grouped
   aggregates over the existing single-/multi-key inner equi-join runtime, emit
   `join_aggregate_runtime_execution`, `join_aggregate_operator_family`, and

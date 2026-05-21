@@ -790,6 +790,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "TIMESTAMP_SUB_SECONDS(CAST(event_ts AS timestamp_micros), 45) < TIMESTAMP '2026-05-19T12:34:30Z'",
         )
         self.assertEqual(
+            str(sl.col("end_date").date_diff_days(sl.col("start_date")) >= 2),
+            "DATE_DIFF_DAYS(end_date, start_date) >= 2",
+        )
+        self.assertEqual(
+            str(
+                sl.col("event_end")
+                .cast("timestamp")
+                .timestamp_diff_seconds(sl.col("event_ts").cast("timestamp"))
+                >= 120
+            ),
+            "TIMESTAMP_DIFF_SECONDS(CAST(event_end AS timestamp_micros), CAST(event_ts AS timestamp_micros)) >= 120",
+        )
+        self.assertEqual(
             str(sl.col("event_dt").date_year() == 2026),
             "DATE_YEAR(event_dt) = 2026",
         )
@@ -882,6 +895,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.col("event_ts").timestamp_add_seconds("1 minute")
         with self.assertRaises(ValueError):
             sl.col("event_ts").timestamp_add_seconds(31_622_400_001)
+        with self.assertRaises(TypeError):
+            sl.col("event_dt").date_diff_days(
+                datetime(2026, 5, 19, 12, 0, tzinfo=timezone.utc)
+            )
+        with self.assertRaises(TypeError):
+            sl.col("event_ts").timestamp_diff_seconds(date(2026, 5, 19))
         with self.assertRaises(ValueError):
             sl.col("amount") + True
         with self.assertRaises(TypeError):
@@ -2500,6 +2519,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_rejects_aggregate_before_join_lowering(self) -> None:
+        ctx = ShardLoomContext(ShardLoomClient(binary=["definitely-missing-shardloom"]))
+
+        aggregate_first = ctx.read_csv("target/fact.csv").agg(rows="count(*)")
+        self.assertIsInstance(aggregate_first, LazyFrame)
+        joined = aggregate_first.join(ctx.read_csv("target/dim.csv"), on="customer_id")
+        self.assertIsInstance(joined, LazyFrame)
+
+        self.assertIsNone(joined._sql_local_source_statement())
+
     def test_local_csv_query_builder_join_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -4024,6 +4053,105 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             report.timestamp_arithmetic_projection_output_columns,
             ("shifted_ts", "prior_ts"),
         )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_with_column_temporal_difference_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,DATE_DIFF_DAYS(CAST(end_date AS date32), start_date) AS age_days,TIMESTAMP_DIFF_SECONDS(CAST(event_end AS timestamp_micros), CAST(event_ts AS timestamp_micros)) AS elapsed_seconds FROM 'target/input.csv' WHERE DATE_DIFF_DAYS(end_date, start_date) >= 2 LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source temporal difference projection",
+                    "human_text": "sql local source temporal difference projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"age_days\\":2,\\"elapsed_seconds\\":185}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "generic_expression_predicate_runtime_execution", "value": "true"},
+                        {"key": "generic_expression_predicate_source_column", "value": "end_date+start_date"},
+                        {"key": "generic_expression_predicate_operator_family", "value": "temporal_difference"},
+                        {"key": "generic_expression_predicate_binary_operator_count", "value": "0"},
+                        {"key": "generic_expression_predicate_comparison_operator", "value": "gte"},
+                        {"key": "generic_expression_projection_runtime_execution", "value": "true"},
+                        {"key": "generic_expression_projection_source_column", "value": "end_date+start_date,event_end+event_ts"},
+                        {"key": "generic_expression_projection_output_column", "value": "age_days,elapsed_seconds"},
+                        {"key": "generic_expression_projection_operator_family", "value": "cast+temporal_difference,cast+temporal_difference"},
+                        {"key": "generic_expression_projection_binary_operator_count", "value": "0"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column(
+                "age_days",
+                sl.col("end_date").cast("date32").date_diff_days(sl.col("start_date")),
+            )
+            .with_column(
+                "elapsed_seconds",
+                sl.col("event_end")
+                .cast("timestamp")
+                .timestamp_diff_seconds(sl.col("event_ts").cast("timestamp")),
+            )
+            .filter(sl.col("end_date").date_diff_days(sl.col("start_date")) >= 2)
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.generic_expression_predicate_runtime_execution)
+        self.assertEqual(
+            report.generic_expression_predicate_source_columns,
+            ("end_date+start_date",),
+        )
+        self.assertEqual(
+            report.generic_expression_predicate_operator_families,
+            ("temporal_difference",),
+        )
+        self.assertEqual(report.generic_expression_predicate_binary_operator_count, 0)
+        self.assertEqual(
+            report.generic_expression_predicate_comparison_operators,
+            ("gte",),
+        )
+        self.assertTrue(report.generic_expression_projection_runtime_execution)
+        self.assertEqual(
+            report.generic_expression_projection_source_columns,
+            ("end_date+start_date", "event_end+event_ts"),
+        )
+        self.assertEqual(
+            report.generic_expression_projection_output_columns,
+            ("age_days", "elapsed_seconds"),
+        )
+        self.assertEqual(
+            report.generic_expression_projection_operator_families,
+            ("cast+temporal_difference", "cast+temporal_difference"),
+        )
+        self.assertEqual(report.generic_expression_projection_binary_operator_count, 0)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

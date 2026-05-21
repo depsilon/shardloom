@@ -40,7 +40,7 @@
   ],
   "references": [
     "docs/architecture/object-store-request-planner.md",
-    "docs/architecture/phased-execution-plan.md",
+    "docs/architecture/universal-input-contract.md",
     "docs/architecture/vortex-public-api-inventory.md",
     "python/README.md"
   ],

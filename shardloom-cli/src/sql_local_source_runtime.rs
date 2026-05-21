@@ -211,6 +211,7 @@ impl SqlLocalSourceOutputFormat {
 
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedSqlLocalSource {
+    projection_order: Vec<ParsedProjectionOutput>,
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
     cast_projections: Vec<ParsedCastProjection>,
@@ -373,6 +374,41 @@ struct ParsedTimestampExtractProjection {
     op: TimestampExtractOp,
 }
 
+trait ProjectionAlias {
+    fn alias(&self) -> &str;
+}
+
+macro_rules! impl_projection_alias {
+    ($($projection:ty),+ $(,)?) => {
+        $(
+            impl ProjectionAlias for $projection {
+                fn alias(&self) -> &str {
+                    &self.alias
+                }
+            }
+        )+
+    };
+}
+
+impl_projection_alias!(
+    ParsedLiteralProjection,
+    ParsedCastProjection,
+    ParsedNullCoalesceProjection,
+    ParsedNullIfProjection,
+    ParsedConditionalProjection,
+    ParsedNumericArithmeticProjection,
+    ParsedNumericAbsProjection,
+    ParsedNumericRoundingProjection,
+    ParsedGenericExpressionProjection,
+    ParsedDateArithmeticProjection,
+    ParsedTimestampArithmeticProjection,
+    ParsedStringLengthProjection,
+    ParsedStringTransformProjection,
+    ParsedStringFunctionProjection,
+    ParsedDateExtractProjection,
+    ParsedTimestampExtractProjection,
+);
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParsedOrderBy {
     column: String,
@@ -474,6 +510,7 @@ impl SortValue {
 
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedProjectionList {
+    projection_order: Vec<ParsedProjectionOutput>,
     projections: Vec<String>,
     literal_projections: Vec<ParsedLiteralProjection>,
     cast_projections: Vec<ParsedCastProjection>,
@@ -492,6 +529,27 @@ struct ParsedProjectionList {
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
     aggregates: Vec<ParsedAggregate>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ParsedProjectionOutput {
+    Raw(String),
+    Literal(String),
+    Cast(String),
+    NullCoalesce(String),
+    NullIf(String),
+    Conditional(String),
+    NumericArithmetic(String),
+    NumericAbs(String),
+    NumericRounding(String),
+    GenericExpression(String),
+    DateArithmetic(String),
+    TimestampArithmetic(String),
+    StringLength(String),
+    StringTransform(String),
+    StringFunction(String),
+    DateExtract(String),
+    TimestampExtract(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2109,126 +2167,172 @@ fn projection_expressions(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
 ) -> Result<Vec<Expression>, ShardLoomError> {
-    let mut expressions = raw_projection_expressions(parsed, source)?;
-    expressions.extend(computed_projection_expressions(parsed)?);
-    Ok(expressions)
+    ordered_projection_expressions(parsed, &source.header, "project")
 }
 
-fn raw_projection_expressions(
+fn ordered_projection_expressions(
     parsed: &ParsedSqlLocalSource,
-    source: &CsvSourceData,
-) -> Result<Vec<Expression>, ShardLoomError> {
-    parsed
-        .projection_columns(&source.header)
-        .iter()
-        .map(|column| {
-            Ok(Expression::column(
-                ExprId::new(format!("project.{column}"))?,
-                ColumnRef::new(column.clone())?,
-            ))
-        })
-        .collect::<Result<Vec<_>, ShardLoomError>>()
-}
-
-fn computed_projection_expressions(
-    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+    raw_expr_prefix: &str,
 ) -> Result<Vec<Expression>, ShardLoomError> {
     let mut expressions = Vec::new();
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.literal_projections,
-        literal_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.cast_projections,
-        cast_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.null_coalesce_projections,
-        null_coalesce_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.nullif_projections,
-        nullif_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.conditional_projections,
-        conditional_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.numeric_arithmetic_projections,
-        numeric_arithmetic_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.numeric_abs_projections,
-        numeric_abs_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.numeric_rounding_projections,
-        numeric_rounding_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.generic_expression_projections,
-        generic_expression_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.date_arithmetic_projections,
-        date_arithmetic_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.timestamp_arithmetic_projections,
-        timestamp_arithmetic_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.string_length_projections,
-        string_length_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.string_transform_projections,
-        string_transform_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.string_function_projections,
-        string_function_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.date_extract_projections,
-        date_extract_projection_expression,
-    )?;
-    append_projection_expressions(
-        &mut expressions,
-        &parsed.timestamp_extract_projections,
-        timestamp_extract_projection_expression,
-    )?;
+    for output in &parsed.projection_order {
+        append_ordered_projection_expression(
+            &mut expressions,
+            parsed,
+            output,
+            header,
+            raw_expr_prefix,
+        )?;
+    }
     Ok(expressions)
 }
 
-fn append_projection_expressions<T>(
+#[allow(clippy::too_many_lines)]
+fn append_ordered_projection_expression(
     expressions: &mut Vec<Expression>,
-    projections: &[T],
-    mapper: fn(&T) -> Result<Expression, ShardLoomError>,
+    parsed: &ParsedSqlLocalSource,
+    output: &ParsedProjectionOutput,
+    header: &[String],
+    raw_expr_prefix: &str,
 ) -> Result<(), ShardLoomError> {
-    expressions.extend(
-        projections
-            .iter()
-            .map(mapper)
-            .collect::<Result<Vec<_>, ShardLoomError>>()?,
-    );
+    match output {
+        ParsedProjectionOutput::Raw(column) if column == "*" => {
+            if header.is_empty() {
+                return Err(unsupported_sql_error(
+                    "SELECT * is not admitted for scoped join projections",
+                ));
+            }
+            for column in header {
+                expressions.push(Expression::column(
+                    ExprId::new(format!("{raw_expr_prefix}.{column}"))?,
+                    ColumnRef::new(column.clone())?,
+                ));
+            }
+        }
+        ParsedProjectionOutput::Raw(column) => {
+            expressions.push(Expression::column(
+                ExprId::new(format!("{raw_expr_prefix}.{column}"))?,
+                ColumnRef::new(column.clone())?,
+            ));
+        }
+        ParsedProjectionOutput::Literal(alias) => expressions.push(literal_projection_expression(
+            find_projection_by_alias(&parsed.literal_projections, alias, "literal projection")?,
+        )?),
+        ParsedProjectionOutput::Cast(alias) => expressions.push(cast_projection_expression(
+            find_projection_by_alias(&parsed.cast_projections, alias, "cast projection")?,
+        )?),
+        ParsedProjectionOutput::NullCoalesce(alias) => expressions.push(
+            null_coalesce_projection_expression(find_projection_by_alias(
+                &parsed.null_coalesce_projections,
+                alias,
+                "null coalesce projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::NullIf(alias) => expressions.push(nullif_projection_expression(
+            find_projection_by_alias(&parsed.nullif_projections, alias, "nullif projection")?,
+        )?),
+        ParsedProjectionOutput::Conditional(alias) => expressions.push(
+            conditional_projection_expression(find_projection_by_alias(
+                &parsed.conditional_projections,
+                alias,
+                "conditional projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::NumericArithmetic(alias) => expressions.push(
+            numeric_arithmetic_projection_expression(find_projection_by_alias(
+                &parsed.numeric_arithmetic_projections,
+                alias,
+                "numeric arithmetic projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::NumericAbs(alias) => expressions.push(
+            numeric_abs_projection_expression(find_projection_by_alias(
+                &parsed.numeric_abs_projections,
+                alias,
+                "numeric abs projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::NumericRounding(alias) => expressions.push(
+            numeric_rounding_projection_expression(find_projection_by_alias(
+                &parsed.numeric_rounding_projections,
+                alias,
+                "numeric rounding projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::GenericExpression(alias) => expressions.push(
+            generic_expression_projection_expression(find_projection_by_alias(
+                &parsed.generic_expression_projections,
+                alias,
+                "generic expression projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::DateArithmetic(alias) => expressions.push(
+            date_arithmetic_projection_expression(find_projection_by_alias(
+                &parsed.date_arithmetic_projections,
+                alias,
+                "date arithmetic projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::TimestampArithmetic(alias) => expressions.push(
+            timestamp_arithmetic_projection_expression(find_projection_by_alias(
+                &parsed.timestamp_arithmetic_projections,
+                alias,
+                "timestamp arithmetic projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::StringLength(alias) => expressions.push(
+            string_length_projection_expression(find_projection_by_alias(
+                &parsed.string_length_projections,
+                alias,
+                "string length projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::StringTransform(alias) => expressions.push(
+            string_transform_projection_expression(find_projection_by_alias(
+                &parsed.string_transform_projections,
+                alias,
+                "string transform projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::StringFunction(alias) => expressions.push(
+            string_function_projection_expression(find_projection_by_alias(
+                &parsed.string_function_projections,
+                alias,
+                "string function projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::DateExtract(alias) => expressions.push(
+            date_extract_projection_expression(find_projection_by_alias(
+                &parsed.date_extract_projections,
+                alias,
+                "date extract projection",
+            )?)?,
+        ),
+        ParsedProjectionOutput::TimestampExtract(alias) => expressions.push(
+            timestamp_extract_projection_expression(find_projection_by_alias(
+                &parsed.timestamp_extract_projections,
+                alias,
+                "timestamp extract projection",
+            )?)?,
+        ),
+    }
     Ok(())
+}
+
+fn find_projection_by_alias<'a, T: ProjectionAlias>(
+    projections: &'a [T],
+    alias: &str,
+    family: &str,
+) -> Result<&'a T, ShardLoomError> {
+    projections
+        .iter()
+        .find(|projection| projection.alias() == alias)
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "projection order references missing {family} alias {alias:?}"
+            ))
+        })
 }
 
 fn generic_expression_projection_expression(
@@ -2726,18 +2830,7 @@ fn evaluate_join_output(
 fn join_projection_expressions(
     parsed: &ParsedSqlLocalSource,
 ) -> Result<Vec<Expression>, ShardLoomError> {
-    let mut expressions = parsed
-        .projections
-        .iter()
-        .map(|column| {
-            Ok(Expression::column(
-                ExprId::new(format!("join.project.{column}"))?,
-                ColumnRef::new(column.clone())?,
-            ))
-        })
-        .collect::<Result<Vec<_>, ShardLoomError>>()?;
-    expressions.extend(computed_projection_expressions(parsed)?);
-    Ok(expressions)
+    ordered_projection_expressions(parsed, &[], "join.project")
 }
 
 fn ordered_join_row_indexes(
@@ -2881,6 +2974,7 @@ fn apply_temporal_literal_column_coercions(
     apply_date_arithmetic_projection_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_timestamp_arithmetic_projection_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_date_extract_projection_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_temporal_difference_projection_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_timestamp_literal_predicate_coercions(
         &parsed.predicate,
         parsed,
@@ -2888,7 +2982,8 @@ fn apply_temporal_literal_column_coercions(
         right_source.as_deref_mut(),
     )?;
     apply_conditional_projection_timestamp_coercions(parsed, source, right_source.as_deref_mut())?;
-    apply_timestamp_extract_projection_coercions(parsed, source, right_source)
+    apply_timestamp_extract_projection_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_temporal_difference_predicate_coercions(&parsed.predicate, parsed, source, right_source)
 }
 
 fn apply_conditional_projection_date_coercions(
@@ -3117,6 +3212,114 @@ fn apply_timestamp_extract_projection_coercions(
             right_source.as_deref_mut(),
             &projection.column,
         )?;
+    }
+    Ok(())
+}
+
+fn apply_temporal_difference_projection_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.generic_expression_projections {
+        apply_temporal_difference_expression_coercions(
+            parsed,
+            source,
+            right_source.as_deref_mut(),
+            &projection.expression,
+            true,
+        )?;
+    }
+    Ok(())
+}
+
+fn apply_temporal_difference_predicate_coercions(
+    predicate: &ParsedPredicate,
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
+    match predicate {
+        ParsedPredicate::GenericExpressionCompare { left, right, .. } => {
+            apply_temporal_difference_expression_coercions(
+                parsed,
+                source,
+                right_source.as_deref_mut(),
+                left,
+                false,
+            )?;
+            apply_temporal_difference_expression_coercions(
+                parsed,
+                source,
+                right_source,
+                right,
+                false,
+            )
+        }
+        ParsedPredicate::Logical { left, right, .. } => {
+            apply_temporal_difference_predicate_coercions(
+                left,
+                parsed,
+                source,
+                right_source.as_deref_mut(),
+            )?;
+            apply_temporal_difference_predicate_coercions(right, parsed, source, right_source)
+        }
+        ParsedPredicate::Not { inner } => {
+            apply_temporal_difference_predicate_coercions(inner, parsed, source, right_source)
+        }
+        ParsedPredicate::All
+        | ParsedPredicate::Compare { .. }
+        | ParsedPredicate::CastCompare { .. }
+        | ParsedPredicate::NumericArithmeticCompare { .. }
+        | ParsedPredicate::NumericAbsCompare { .. }
+        | ParsedPredicate::NumericRoundingCompare { .. }
+        | ParsedPredicate::DateArithmeticCompare { .. }
+        | ParsedPredicate::TimestampArithmeticCompare { .. }
+        | ParsedPredicate::DateExtractCompare { .. }
+        | ParsedPredicate::TimestampExtractCompare { .. }
+        | ParsedPredicate::StringLengthCompare { .. }
+        | ParsedPredicate::StringTransformCompare { .. }
+        | ParsedPredicate::StringFunctionCompare { .. }
+        | ParsedPredicate::BooleanPredicate { .. }
+        | ParsedPredicate::IsNull { .. }
+        | ParsedPredicate::IsNotNull { .. }
+        | ParsedPredicate::InList { .. }
+        | ParsedPredicate::InSubquery { .. }
+        | ParsedPredicate::StringMatch { .. } => Ok(()),
+    }
+}
+
+fn apply_temporal_difference_expression_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+    expression: &Expression,
+    projection_context: bool,
+) -> Result<(), ShardLoomError> {
+    for column in expression_temporal_difference_date_source_columns(expression) {
+        if projection_context {
+            coerce_projection_column_to_date32(
+                parsed,
+                source,
+                right_source.as_deref_mut(),
+                &column,
+            )?;
+        } else {
+            coerce_date_literal_column(&column, parsed, source, right_source.as_deref_mut())?;
+        }
+    }
+    for column in expression_temporal_difference_timestamp_source_columns(expression) {
+        if projection_context {
+            coerce_projection_column_to_timestamp_micros(
+                parsed,
+                source,
+                right_source.as_deref_mut(),
+                &column,
+            )?;
+        } else {
+            coerce_timestamp_literal_column(&column, parsed, source, right_source.as_deref_mut())?;
+        }
     }
     Ok(())
 }
@@ -4099,7 +4302,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -5226,90 +5429,39 @@ impl ParsedSqlLocalSource {
                 .map(ParsedAggregate::output_name)
                 .collect()
         } else {
-            self.projection_columns(header)
-                .into_iter()
-                .chain(
-                    self.literal_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.cast_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.null_coalesce_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.nullif_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.conditional_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.numeric_arithmetic_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.numeric_abs_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.numeric_rounding_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.generic_expression_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.date_arithmetic_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.timestamp_arithmetic_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.string_length_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.string_transform_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.string_function_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.date_extract_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .chain(
-                    self.timestamp_extract_projections
-                        .iter()
-                        .map(|projection| projection.alias.clone()),
-                )
-                .collect()
+            self.projection_output_columns(header)
         }
+    }
+
+    fn projection_output_columns(&self, header: &[String]) -> Vec<String> {
+        let mut output_columns = Vec::new();
+        for output in &self.projection_order {
+            match output {
+                ParsedProjectionOutput::Raw(column) if column == "*" => {
+                    output_columns.extend(header.iter().cloned());
+                }
+                ParsedProjectionOutput::Raw(column)
+                | ParsedProjectionOutput::Literal(column)
+                | ParsedProjectionOutput::Cast(column)
+                | ParsedProjectionOutput::NullCoalesce(column)
+                | ParsedProjectionOutput::NullIf(column)
+                | ParsedProjectionOutput::Conditional(column)
+                | ParsedProjectionOutput::NumericArithmetic(column)
+                | ParsedProjectionOutput::NumericAbs(column)
+                | ParsedProjectionOutput::NumericRounding(column)
+                | ParsedProjectionOutput::GenericExpression(column)
+                | ParsedProjectionOutput::DateArithmetic(column)
+                | ParsedProjectionOutput::TimestampArithmetic(column)
+                | ParsedProjectionOutput::StringLength(column)
+                | ParsedProjectionOutput::StringTransform(column)
+                | ParsedProjectionOutput::StringFunction(column)
+                | ParsedProjectionOutput::DateExtract(column)
+                | ParsedProjectionOutput::TimestampExtract(column) => {
+                    output_columns.push(column.clone());
+                }
+            }
+        }
+        output_columns
     }
 
     fn has_aggregate_aliases(&self) -> bool {
@@ -11706,6 +11858,7 @@ fn parsed_sql_local_source_from_parts(
     limit: usize,
 ) -> ParsedSqlLocalSource {
     ParsedSqlLocalSource {
+        projection_order: projection_list.projection_order,
         projections: projection_list.projections,
         literal_projections: projection_list.literal_projections,
         cast_projections: projection_list.cast_projections,
@@ -11752,11 +11905,13 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
     Ok(statement.to_string())
 }
 
+#[allow(clippy::too_many_lines)]
 fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomError> {
     let entries = split_sql_csv(raw)?;
     if entries.is_empty() {
         return Err(unsupported_sql_error("SELECT list must not be empty"));
     }
+    let mut projection_order = Vec::with_capacity(entries.len());
     let mut projections = Vec::with_capacity(entries.len());
     let mut literal_projections = Vec::new();
     let mut cast_projections = Vec::new();
@@ -11784,52 +11939,101 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                     "SELECT * cannot be mixed with explicit columns in this scoped smoke",
                 ));
             }
+            projection_order.push(ParsedProjectionOutput::Raw("*".to_string()));
             projections.push("*".to_string());
         } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
             aggregates.push(aggregate);
         } else if let Some(generic_projection) = parse_generic_expression_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::GenericExpression(
+                generic_projection.alias.clone(),
+            ));
             generic_expression_projections.push(generic_projection);
         } else if let Some(arithmetic_projection) = parse_numeric_arithmetic_projection(projection)?
         {
+            projection_order.push(ParsedProjectionOutput::NumericArithmetic(
+                arithmetic_projection.alias.clone(),
+            ));
             numeric_arithmetic_projections.push(arithmetic_projection);
         } else if let Some(abs_projection) = parse_numeric_abs_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::NumericAbs(
+                abs_projection.alias.clone(),
+            ));
             numeric_abs_projections.push(abs_projection);
         } else if let Some(rounding_projection) = parse_numeric_rounding_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::NumericRounding(
+                rounding_projection.alias.clone(),
+            ));
             numeric_rounding_projections.push(rounding_projection);
         } else if let Some(cast_projection) = parse_cast_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::Cast(cast_projection.alias.clone()));
             cast_projections.push(cast_projection);
         } else if let Some(null_coalesce_projection) = parse_null_coalesce_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::NullCoalesce(
+                null_coalesce_projection.alias.clone(),
+            ));
             null_coalesce_projections.push(null_coalesce_projection);
         } else if let Some(nullif_projection) = parse_nullif_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::NullIf(
+                nullif_projection.alias.clone(),
+            ));
             nullif_projections.push(nullif_projection);
         } else if let Some(conditional_projection) = parse_conditional_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::Conditional(
+                conditional_projection.alias.clone(),
+            ));
             conditional_projections.push(conditional_projection);
         } else if let Some(date_arithmetic_projection) =
             parse_date_arithmetic_projection(projection)?
         {
+            projection_order.push(ParsedProjectionOutput::DateArithmetic(
+                date_arithmetic_projection.alias.clone(),
+            ));
             date_arithmetic_projections.push(date_arithmetic_projection);
         } else if let Some(timestamp_arithmetic_projection) =
             parse_timestamp_arithmetic_projection(projection)?
         {
+            projection_order.push(ParsedProjectionOutput::TimestampArithmetic(
+                timestamp_arithmetic_projection.alias.clone(),
+            ));
             timestamp_arithmetic_projections.push(timestamp_arithmetic_projection);
         } else if let Some(length_projection) = parse_string_length_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::StringLength(
+                length_projection.alias.clone(),
+            ));
             string_length_projections.push(length_projection);
         } else if let Some(transform_projection) = parse_string_transform_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::StringTransform(
+                transform_projection.alias.clone(),
+            ));
             string_transform_projections.push(transform_projection);
         } else if let Some(function_projection) = parse_string_function_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::StringFunction(
+                function_projection.alias.clone(),
+            ));
             string_function_projections.push(function_projection);
         } else if let Some(date_projection) = parse_date_extract_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::DateExtract(
+                date_projection.alias.clone(),
+            ));
             date_extract_projections.push(date_projection);
         } else if let Some(timestamp_projection) = parse_timestamp_extract_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::TimestampExtract(
+                timestamp_projection.alias.clone(),
+            ));
             timestamp_extract_projections.push(timestamp_projection);
         } else if let Some(literal_projection) = parse_literal_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::Literal(
+                literal_projection.alias.clone(),
+            ));
             literal_projections.push(literal_projection);
         } else {
             validate_sql_column_ref(projection)?;
+            projection_order.push(ParsedProjectionOutput::Raw(projection.to_string()));
             projections.push(projection.to_string());
         }
     }
     Ok(ParsedProjectionList {
+        projection_order,
         projections,
         literal_projections,
         cast_projections,
@@ -12238,8 +12442,10 @@ fn parse_generic_expression_projection(
     if expression_raw.is_empty() || alias.is_empty() {
         return Ok(None);
     }
+    let contains_temporal_difference =
+        expression_contains_temporal_difference_call(expression_raw)?;
     if is_simple_numeric_arithmetic_projection_shape(expression_raw)?
-        || !expression_contains_numeric_operator(expression_raw)?
+        || (!expression_contains_numeric_operator(expression_raw)? && !contains_temporal_difference)
     {
         return Ok(None);
     }
@@ -12254,7 +12460,7 @@ fn parse_generic_expression_projection(
     }
     let operator_families = expression_operator_families(&expression);
     let binary_operator_count = expression_binary_operator_count(&expression);
-    if binary_operator_count == 0 {
+    if binary_operator_count == 0 && !expression_has_temporal_difference(&expression) {
         return Ok(None);
     }
     Ok(Some(ParsedGenericExpressionProjection {
@@ -12295,6 +12501,9 @@ fn parse_numeric_scalar_expression(
         return numeric_binary_expression(trimmed, id_prefix, index, op);
     }
     if let Some(expression) = parse_numeric_cast_expression(trimmed, id_prefix)? {
+        return Ok(expression);
+    }
+    if let Some(expression) = parse_temporal_difference_function_expression(trimmed, id_prefix)? {
         return Ok(expression);
     }
     if let Some(expression) = parse_numeric_function_expression(trimmed, id_prefix)? {
@@ -12400,6 +12609,152 @@ fn parse_numeric_cast_expression(
         ExprId::new(format!("{id_prefix}.cast"))?,
         parse_numeric_scalar_expression(source_raw, &format!("{id_prefix}.cast.source"))?,
         target_dtype,
+    )))
+}
+
+fn expression_contains_temporal_difference_call(raw: &str) -> Result<bool, ShardLoomError> {
+    let trimmed = trim_enclosing_scalar_expression_parentheses(raw)?;
+    Ok(temporal_difference_function_prefix(trimmed).is_some())
+}
+
+fn temporal_difference_function_prefix(raw: &str) -> Option<(&'static str, LogicalDType)> {
+    for (name, dtype) in [
+        ("date_diff_days", LogicalDType::Date32),
+        ("timestamp_diff_seconds", LogicalDType::TimestampMicros),
+    ] {
+        let len = name.len();
+        if raw
+            .get(..len)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && raw.as_bytes().get(len) == Some(&b'(')
+        {
+            return Some((name, dtype));
+        }
+    }
+    None
+}
+
+fn parse_temporal_difference_function_expression(
+    raw: &str,
+    id_prefix: &str,
+) -> Result<Option<Expression>, ShardLoomError> {
+    let Some((function_name, target_dtype)) = temporal_difference_function_prefix(raw) else {
+        return Ok(None);
+    };
+    let open_index = function_name.len();
+    let close_index = matching_closing_parenthesis(raw, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "temporal difference expressions must use DATE_DIFF_DAYS(left, right) or TIMESTAMP_DIFF_SECONDS(left, right)",
+        )
+    })?;
+    if !raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "temporal difference expressions must be a single function expression",
+        ));
+    }
+    let args = split_sql_csv(raw[open_index + 1..close_index].trim())?;
+    let [left_raw, right_raw] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "temporal difference expressions require exactly two arguments",
+        ));
+    };
+    let left = parse_temporal_difference_arg_expression(
+        left_raw,
+        &format!("{id_prefix}.{function_name}.left"),
+        &target_dtype,
+    )?;
+    let right = parse_temporal_difference_arg_expression(
+        right_raw,
+        &format!("{id_prefix}.{function_name}.right"),
+        &target_dtype,
+    )?;
+    Ok(Some(Expression::new(
+        ExprId::new(format!("{id_prefix}.{function_name}"))?,
+        ExpressionKind::FunctionCall {
+            name: function_name.to_string(),
+            args: vec![left, right],
+        },
+    )))
+}
+
+fn parse_temporal_difference_arg_expression(
+    raw: &str,
+    id_prefix: &str,
+    target_dtype: &LogicalDType,
+) -> Result<Expression, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err(unsupported_sql_error(
+            "temporal difference arguments must not be empty",
+        ));
+    }
+    if let Some(expression) = parse_temporal_difference_cast_arg(trimmed, id_prefix, target_dtype)?
+    {
+        return Ok(expression);
+    }
+    if let Ok(value) = parse_projection_literal_value(trimmed) {
+        if matches!(value, ScalarValue::Null) || &value.dtype() == target_dtype {
+            return Ok(Expression::literal(
+                ExprId::new(format!("{id_prefix}.literal"))?,
+                value,
+            ));
+        }
+        return Err(unsupported_sql_error(&format!(
+            "temporal difference literals for {} arguments must match the function dtype, got {}",
+            target_dtype.as_str(),
+            value.dtype().as_str()
+        )));
+    }
+    validate_sql_column_ref(trimmed)?;
+    Ok(Expression::column(
+        ExprId::new(format!("{id_prefix}.{trimmed}"))?,
+        ColumnRef::new(trimmed.to_string())?,
+    ))
+}
+
+fn parse_temporal_difference_cast_arg(
+    raw: &str,
+    id_prefix: &str,
+    target_dtype: &LogicalDType,
+) -> Result<Option<Expression>, ShardLoomError> {
+    if !raw
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
+    {
+        return Ok(None);
+    }
+    let close_index = matching_closing_parenthesis(raw, 4)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "temporal difference CAST arguments must use CAST(<column> AS date32|timestamp_micros)",
+        )
+    })?;
+    if !raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "temporal difference CAST arguments must be a single CAST expression",
+        ));
+    }
+    let inner = raw[5..close_index].trim();
+    let as_index = find_keyword_outside_quotes(inner, "as").ok_or_else(|| {
+        unsupported_sql_error("temporal difference CAST arguments must use CAST(<column> AS dtype)")
+    })?;
+    let column = inner[..as_index].trim();
+    let target_raw = inner[as_index + "as".len()..].trim();
+    validate_sql_column_ref(column)?;
+    let parsed_target = parse_cast_target_dtype(target_raw)?;
+    if parsed_target != *target_dtype {
+        return Err(unsupported_sql_error(&format!(
+            "temporal difference CAST arguments must target {}, got {}",
+            target_dtype.as_str(),
+            parsed_target.as_str()
+        )));
+    }
+    Ok(Some(Expression::cast(
+        ExprId::new(format!("{id_prefix}.cast"))?,
+        Expression::column(
+            ExprId::new(format!("{id_prefix}.{column}"))?,
+            ColumnRef::new(column.to_string())?,
+        ),
+        parsed_target,
     )))
 }
 
@@ -12600,6 +12955,83 @@ fn collect_expression_source_columns(expression: &Expression, columns: &mut BTre
     }
 }
 
+fn expression_temporal_difference_date_source_columns(expression: &Expression) -> Vec<String> {
+    expression_temporal_difference_source_columns(expression, "date_diff_days")
+}
+
+fn expression_temporal_difference_timestamp_source_columns(expression: &Expression) -> Vec<String> {
+    expression_temporal_difference_source_columns(expression, "timestamp_diff_seconds")
+}
+
+fn expression_temporal_difference_source_columns(
+    expression: &Expression,
+    function_name: &str,
+) -> Vec<String> {
+    let mut columns = BTreeSet::new();
+    collect_expression_temporal_difference_source_columns(expression, function_name, &mut columns);
+    columns.into_iter().collect()
+}
+
+fn collect_expression_temporal_difference_source_columns(
+    expression: &Expression,
+    function_name: &str,
+    columns: &mut BTreeSet<String>,
+) {
+    match &expression.kind {
+        ExpressionKind::FunctionCall { name, args } if name.eq_ignore_ascii_case(function_name) => {
+            for arg in args {
+                collect_expression_source_columns(arg, columns);
+            }
+        }
+        ExpressionKind::FunctionCall { args, .. } => {
+            for arg in args {
+                collect_expression_temporal_difference_source_columns(arg, function_name, columns);
+            }
+        }
+        ExpressionKind::Alias { expr, .. }
+        | ExpressionKind::Cast { expr, .. }
+        | ExpressionKind::Unary { expr, .. } => {
+            collect_expression_temporal_difference_source_columns(expr, function_name, columns);
+        }
+        ExpressionKind::Binary { left, right, .. }
+        | ExpressionKind::Compare { left, right, .. } => {
+            collect_expression_temporal_difference_source_columns(left, function_name, columns);
+            collect_expression_temporal_difference_source_columns(right, function_name, columns);
+        }
+        ExpressionKind::Literal(_)
+        | ExpressionKind::Column(_)
+        | ExpressionKind::Unsupported { .. } => {}
+    }
+}
+
+fn expression_has_temporal_difference(expression: &Expression) -> bool {
+    match &expression.kind {
+        ExpressionKind::FunctionCall { name, .. }
+            if name.eq_ignore_ascii_case("date_diff_days")
+                || name.eq_ignore_ascii_case("timestamp_diff_seconds") =>
+        {
+            true
+        }
+        ExpressionKind::FunctionCall { args, .. } => {
+            args.iter().any(expression_has_temporal_difference)
+        }
+        ExpressionKind::Alias { expr, .. }
+        | ExpressionKind::Cast { expr, .. }
+        | ExpressionKind::Unary { expr, .. } => expression_has_temporal_difference(expr),
+        ExpressionKind::Binary { left, right, .. }
+        | ExpressionKind::Compare { left, right, .. } => {
+            expression_has_temporal_difference(left) || expression_has_temporal_difference(right)
+        }
+        ExpressionKind::Literal(_)
+        | ExpressionKind::Column(_)
+        | ExpressionKind::Unsupported { .. } => false,
+    }
+}
+
+fn expression_pair_has_temporal_difference(left: &Expression, right: &Expression) -> bool {
+    expression_has_temporal_difference(left) || expression_has_temporal_difference(right)
+}
+
 fn expression_operator_families(expression: &Expression) -> Vec<String> {
     let mut families = BTreeSet::new();
     collect_expression_operator_families(expression, &mut families);
@@ -12649,6 +13081,7 @@ fn generic_function_operator_family(name: &str) -> &'static str {
         "abs" | "numeric_abs" => "numeric_abs",
         "floor" | "ceil" | "ceiling" | "round" | "numeric_floor" | "numeric_ceil"
         | "numeric_round" => "numeric_rounding",
+        "date_diff_days" | "timestamp_diff_seconds" => "temporal_difference",
         _ => "function",
     }
 }
@@ -13664,7 +14097,7 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees or temporal differences <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -14410,8 +14843,11 @@ fn parse_generic_expression_predicate(
             "generic numeric expression predicates require expressions on both sides of a comparison operator",
         ));
     }
+    let contains_temporal_difference = expression_contains_temporal_difference_call(left_raw)?
+        || expression_contains_temporal_difference_call(right_raw)?;
     if !expression_contains_numeric_operator(left_raw)?
         && !expression_contains_numeric_operator(right_raw)?
+        && !contains_temporal_difference
     {
         return Ok(None);
     }
@@ -14426,7 +14862,7 @@ fn parse_generic_expression_predicate(
     let operator_families = expression_pair_operator_families(&left, &right);
     let binary_operator_count =
         expression_binary_operator_count(&left) + expression_binary_operator_count(&right);
-    if binary_operator_count == 0 {
+    if binary_operator_count == 0 && !expression_pair_has_temporal_difference(&left, &right) {
         return Ok(None);
     }
     Ok(Some(ParsedPredicate::GenericExpressionCompare {
@@ -15705,6 +16141,52 @@ mod tests {
             parsed.execution_certificate_suffix(),
             "computed-projection-filter-limit"
         );
+    }
+
+    #[test]
+    fn parses_temporal_difference_generic_expression_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,DATE_DIFF_DAYS(CAST(end_date AS date32), start_date) AS age_days,TIMESTAMP_DIFF_SECONDS(CAST(end_ts AS timestamp_micros), start_ts) AS elapsed_seconds FROM 'target/input.csv' WHERE DATE_DIFF_DAYS(end_date, DATE '2026-05-19') >= 2 LIMIT 5",
+        )
+        .expect("temporal difference generic expression statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.generic_expression_projections.len(), 2);
+        assert_eq!(
+            parsed.generic_expression_projection_output_columns(),
+            "age_days,elapsed_seconds"
+        );
+        assert_eq!(
+            parsed.generic_expression_projection_source_columns(),
+            "end_date+start_date,end_ts+start_ts"
+        );
+        assert_eq!(
+            parsed.generic_expression_projection_operator_families(),
+            "cast+temporal_difference,cast+temporal_difference"
+        );
+        assert_eq!(
+            parsed.generic_expression_projection_binary_operator_count(),
+            0
+        );
+        assert_eq!(parsed.predicate.family(), "generic_expression");
+        assert!(parsed.predicate.uses_generic_expression());
+        assert_eq!(
+            parsed.predicate.generic_expression_source_columns(),
+            "end_date"
+        );
+        assert_eq!(
+            parsed.predicate.generic_expression_operator_families(),
+            "temporal_difference"
+        );
+        assert_eq!(
+            parsed.predicate.generic_expression_binary_operator_count(),
+            0
+        );
+        assert_eq!(
+            parsed.predicate.generic_expression_comparison_operator(),
+            "gte"
+        );
+        assert_eq!(parsed.predicate.columns(), vec!["end_date"]);
     }
 
     #[test]

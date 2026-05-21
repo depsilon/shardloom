@@ -24,6 +24,8 @@ const requiredFiles = [
   "compute-engine-flow/index.html",
   "status.html",
   "status/index.html",
+  "docs.html",
+  "docs/index.html",
   "404.html",
   "robots.txt",
   "sitemap.xml",
@@ -129,6 +131,7 @@ const htmlFiles = [
   "compute-engine-flow.html",
   "compute-engine-flow/index.html",
   "status.html",
+  "docs.html",
   "404.html",
 ];
 for (const file of htmlFiles) {
@@ -257,6 +260,17 @@ for (const required of [
   "Package / release",
 ]) {
   assert(status.includes(required), `status page missing ${required}`);
+}
+
+const docs = read("docs.html");
+for (const required of [
+  "Source docs, routed for evidence.",
+  "Start local proof",
+  "Open Field Guide",
+  "Completed execution ledger",
+  "claim_gate_status",
+]) {
+  assert(docs.includes(required), `docs page missing ${required}`);
 }
 
 const redirects = read("_redirects");

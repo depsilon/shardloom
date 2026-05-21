@@ -27,6 +27,7 @@ for (const route of [
   "architecture",
   "compute-engine-flow",
   "status",
+  "docs",
 ]) {
   copyLegacyHtml(route);
 }

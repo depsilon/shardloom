@@ -1185,7 +1185,7 @@ fn compute_engine_flow_reference_anchors_execution_modes_and_claim_gates() {
         "Unsupported work must return deterministic unsupported diagnostics",
         "scoped local CSV smoke",
         "Actionable implementation work must be represented in",
-        "docs/architecture/phased-execution-plan.md",
+        "active phase queue",
         "docs/architecture/compute-engine-flow-overhaul-review.md",
     ] {
         assert!(

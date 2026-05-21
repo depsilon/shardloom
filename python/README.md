@@ -422,6 +422,8 @@ Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
 `TIMESTAMP_YEAR(...)` / `TIMESTAMP_MONTH(...)` / `TIMESTAMP_DAY(...)` /
 `TIMESTAMP_HOUR(...)` / `TIMESTAMP_MINUTE(...)` / `TIMESTAMP_SECOND(...)`,
 Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
+scoped temporal-difference expressions with `DATE_DIFF_DAYS(...)` and
+`TIMESTAMP_DIFF_SECONDS(...)` compared against numeric literals,
 scoped numeric arithmetic predicates such as `<column> + 5 >= 20` and
 `<column> * 2.0 > 1.0`,
 bounded `IN (...)` / `NOT IN (...)`, scoped local
@@ -449,8 +451,8 @@ multi-column subqueries blocked. Typed reports expose `in_predicate_runtime_exec
 `generic_expression_predicate_source_columns`,
 `generic_expression_predicate_operator_families`,
 `generic_expression_predicate_binary_operator_count`, and
-`generic_expression_predicate_comparison_operators` when generalized numeric expression-tree
-predicates are used, plus
+`generic_expression_predicate_comparison_operators` when generalized numeric expression-tree or
+temporal-difference predicates are used, plus
 `string_length_runtime_execution`, `string_length_source_column`, and `string_length_rhs_dtype`
 when UTF-8 length predicates are used.
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
@@ -462,7 +464,8 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
 `timestamp_hour()`, `timestamp_minute()`, `timestamp_second()`,
-`timestamp_add_seconds(seconds)`, and `timestamp_sub_seconds(seconds)` comparisons, and the scoped
+`timestamp_add_seconds(seconds)`, `timestamp_sub_seconds(seconds)`,
+`date_diff_days(other)`, and `timestamp_diff_seconds(other)` comparisons, and the scoped
 UTF-8 `length()` helper, numeric `abs()` / `floor()` / `ceil()` / `round()` helpers, and numeric `+`, `-`, `*`, and `/` operators for arithmetic predicates, including scoped generalized numeric expression-tree filters such as `(sl.col("amount") + sl.col("tax")) * 2 >= 40`, into the same
 ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed computed `with_column(...)` is also admitted after an explicit `select(...)` for local
@@ -486,7 +489,10 @@ projections, and scoped Date32/UTC timestamp extract projections such as
 projections such as `sl.col("event_date").cast("date32").date_add_days(7)` or
 `.date_sub_days(1)`, scoped UTC timestamp second arithmetic projections such as
 `sl.col("event_ts").cast("timestamp_micros").timestamp_add_seconds(60)` or
-`.timestamp_sub_seconds(45)`, and scoped null-cleanup projections such as
+`.timestamp_sub_seconds(45)`, scoped temporal-difference projections such as
+`sl.col("end_date").cast("date32").date_diff_days(sl.col("start_date"))` or
+`sl.col("end_ts").cast("timestamp_micros").timestamp_diff_seconds(sl.col("start_ts"))`, and
+scoped null-cleanup projections such as
 `sl.col("label").fill_null("unknown")` or
 `sl.col("event_date").cast("date32").fill_null(date(2026, 1, 1))`, scoped null-sentinel
 cleanup projections such as `sl.col("label").null_if("missing")` or
@@ -496,9 +502,9 @@ conditional projections such as
 `literal_projection_*` evidence; cast projections emit `cast_projection_*` evidence; numeric
 arithmetic projections emit `numeric_arithmetic_projection_*` evidence; numeric absolute-value
 projections emit `numeric_abs_projection_*` evidence; numeric rounding projections emit
-`numeric_rounding_projection_*` evidence; generalized numeric expression-tree projections emit
-`generic_expression_projection_*` evidence; generalized numeric expression-tree predicates emit
-`generic_expression_predicate_*` evidence; string transform
+`numeric_rounding_projection_*` evidence; generalized numeric expression-tree and
+temporal-difference projections emit `generic_expression_projection_*` evidence; generalized
+numeric expression-tree and temporal-difference predicates emit `generic_expression_predicate_*` evidence; string transform
 projections emit `string_transform_projection_*` evidence; string length projections emit
 `string_length_projection_*` evidence; date/time extract projections emit
 `date_extract_projection_*` and `timestamp_extract_projection_*` evidence; date arithmetic
