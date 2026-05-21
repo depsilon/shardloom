@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTF-8 LEFT/RIGHT string-function runtime
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-10-20260521` / #899.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - User request to keep completed phased-plan content in this ledger and push cleanup with the
+      current runtime batch.
+  - Scope:
+    - Added native core expression evaluation for `left`/`right` and `utf8_left`/`utf8_right`
+      function names with UTF-8 character counts, null propagation, explicit non-negative count
+      validation, and no external execution.
+    - Extended scoped SQL local-source string function parsing, predicate lowering, projection
+      lowering, evidence operators, and unsupported diagnostics for `LEFT(<column>, <count>)` and
+      `RIGHT(<column>, <count>)`.
+    - Added Python `ColumnExpression.left(...)`, `ColumnExpression.right(...)`, and exported
+      top-level `sl.left(...)` / `sl.right(...)` helpers so query-builder workflows lower to the
+      same SQL local-source runtime path.
+    - Cleaned the live phased execution plan by removing empty completed non-runtime/website
+      placeholder sections from Planned; detailed completed non-runtime and website history remains
+      in this ledger.
+  - Evidence:
+    - Local SQL can now project and filter with `LEFT`/`RIGHT` together with existing
+      `CONCAT`/`SUBSTR`/`REPLACE` string functions and returns result JSONL through the existing
+      `direct_compatibility_transient` local-source smoke path.
+    - Predicate and projection evidence reports `string_function_operator=left|right`,
+      source-column groups, literal counts, output columns, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - Unsupported negative counts, wrong arity, source-free string function projections, and
+      non-UTF-8 operands fail deterministically before any fallback path.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core expression_semantics_evaluates_string_functions_without_fallback --lib -- --nocapture`
+    - `cargo test -p shardloom-core expression_semantics_evaluates_string_left_right_without_fallback --lib -- --nocapture`
+    - `cargo test -p shardloom-cli parses_scoped_string_function_projection_and_predicate_statement -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_string_function_projection_without_fallback -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_string_function_predicates_without_fallback -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_unsupported_string_function_shapes_without_fallback -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_lowers_to_sql_filter_predicates python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_string_function_invokes_sql_smoke`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `python -m unittest discover -s python\tests`
+    - `python -m compileall -q python\src python\tests scripts examples benchmarks\traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This admits scoped UTF-8 `LEFT`/`RIGHT` string function support for local SQL/Python
+      workflows only. It does not claim broad SQL string-function parity, regex/collation/locale
+      support, ANSI SQL parity, production SQL/DataFrame support, or performance superiority.
+  - Fallback boundary:
+    - Evaluation remains ShardLoom-native through the existing expression evaluator and local-source
+      smoke runtime. No pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray, database, managed
+      platform, or Vortex query-engine integration is used as fallback.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F1 Python prepare-once prepared/native batch workflow
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-9-20260521` / #898.
