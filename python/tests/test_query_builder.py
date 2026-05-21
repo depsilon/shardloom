@@ -5480,6 +5480,101 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             source.limit(-1)
 
+    def test_range_filter_with_column_limit_invokes_generated_source_sql_smoke(self) -> None:
+        statement = (
+            "SELECT value AS id, CASE WHEN value >= 5 THEN 1 ELSE 0 END AS bucket "
+            "FROM range(1, 8, 1) WHERE value >= 3 LIMIT 2"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-sql-smoke",
+                    "target/range-query.jsonl",
+                    {statement!r},
+                    "--output-format",
+                    "jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-sql-smoke",
+                    "status": "success",
+                    "summary": "generated sql",
+                    "human_text": "generated sql",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "output_path", "value": "target/range-query.jsonl"}},
+                        {{"key": "generated_source_kind", "value": "sql_generate_series_range"}},
+                        {{"key": "generated_source_row_count", "value": "2"}},
+                        {{"key": "generated_source_range_start", "value": "1"}},
+                        {{"key": "generated_source_range_end", "value": "8"}},
+                        {{"key": "generated_source_range_step", "value": "1"}},
+                        {{"key": "generated_source_range_column", "value": "value"}},
+                        {{"key": "generated_source_sql_generator_function", "value": "range"}},
+                        {{"key": "generated_source_range_end_inclusive", "value": "false"}},
+                        {{"key": "sql_source_free_filter_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_filter_source_column", "value": "value"}},
+                        {{"key": "sql_source_free_filter_predicate", "value": "value>=3"}},
+                        {{"key": "sql_source_free_filter_selected_row_count", "value": "5"}},
+                        {{"key": "sql_source_free_limit_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_limit_count", "value": "2"}},
+                        {{"key": "sql_source_free_projection_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_projection_source_column", "value": "value"}},
+                        {{"key": "sql_source_free_projection_columns", "value": "id,bucket"}},
+                        {{"key": "sql_source_free_projection_expressions", "value": "value,case(value>=5?1:0)"}},
+                        {{"key": "generated_source_created", "value": "true"}},
+                        {{"key": "generated_source_certificate_status", "value": "present"}},
+                        {{"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.range(1, 8, column="id")
+            .filter(sl.col("id") >= 3)
+            .with_column("bucket", sl.case_when(sl.col("id") >= 5, 1, 0))
+            .limit(2)
+            .write("target/range-query.jsonl", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.generated_source_kind, "sql_generate_series_range")
+        self.assertEqual(report.generated_source_row_count, 2)
+        self.assertEqual(report.generated_source_range_start, 1)
+        self.assertEqual(report.generated_source_range_end, 8)
+        self.assertEqual(report.generated_source_range_step, 1)
+        self.assertEqual(report.generated_source_range_column, "value")
+        self.assertEqual(report.generated_source_sql_generator_function, "range")
+        self.assertFalse(report.generated_source_range_end_inclusive)
+        self.assertTrue(report.sql_source_free_filter_runtime_execution)
+        self.assertEqual(report.sql_source_free_filter_source_column, "value")
+        self.assertEqual(report.sql_source_free_filter_predicate, "value>=3")
+        self.assertEqual(report.sql_source_free_filter_selected_row_count, 5)
+        self.assertTrue(report.sql_source_free_limit_runtime_execution)
+        self.assertEqual(report.sql_source_free_limit_count, 2)
+        self.assertTrue(report.sql_source_free_projection_runtime_execution)
+        self.assertEqual(report.sql_source_free_projection_source_column, "value")
+        self.assertEqual(report.sql_source_free_projection_columns, ("id", "bucket"))
+        self.assertEqual(
+            report.sql_source_free_projection_expressions,
+            ("value", "case(value>=5?1:0)"),
+        )
+        self.assertEqual(report.output_path, "target/range-query.jsonl")
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_range_validates_scoped_generated_source_inputs(self) -> None:
         with self.assertRaises(TypeError):
             sl.range(True, 10, binary=["definitely-missing-shardloom"])
@@ -5740,6 +5835,66 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_context_sql_generate_series_filter_limit_write_invokes_generated_source_sql_smoke(
+        self,
+    ) -> None:
+        statement = "SELECT value AS id FROM range(1, 8) WHERE value >= 3 LIMIT 2"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-sql-smoke",
+                    "target/sql-range-filter-limit.jsonl",
+                    {statement!r},
+                    "--output-format",
+                    "jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-sql-smoke",
+                    "status": "success",
+                    "summary": "generated sql",
+                    "human_text": "generated sql",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "output_path", "value": "target/sql-range-filter-limit.jsonl"}},
+                        {{"key": "generated_source_kind", "value": "sql_generate_series_range"}},
+                        {{"key": "generated_source_row_count", "value": "2"}},
+                        {{"key": "sql_source_free_filter_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_filter_source_column", "value": "value"}},
+                        {{"key": "sql_source_free_filter_predicate", "value": "value>=3"}},
+                        {{"key": "sql_source_free_filter_selected_row_count", "value": "5"}},
+                        {{"key": "sql_source_free_limit_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_limit_count", "value": "2"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = ctx.sql(statement, check=False)
+        report = workflow.write("target/sql-range-filter-limit.jsonl", allow_overwrite=True)
+
+        self.assertIsInstance(workflow, sl.SqlWorkflow)
+        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.generated_source_kind, "sql_generate_series_range")
+        self.assertTrue(report.sql_source_free_filter_runtime_execution)
+        self.assertEqual(report.sql_source_free_filter_predicate, "value>=3")
+        self.assertTrue(report.sql_source_free_limit_runtime_execution)
+        self.assertEqual(report.sql_source_free_limit_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_generated_source_write_csv_helpers_invoke_generated_source_smokes(self) -> None:
         binary = self.fake_cli(

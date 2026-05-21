@@ -373,22 +373,25 @@ or documentation updates alone are insufficient.
     `certified_local_vortex_sink`; default builds return a deterministic Vortex sink blocker.
     Python range/sequence builders also support `limit(...)`, `head(...)`, and `take(...)` by
     adjusting generator bounds before invoking the same engine-native range/sequence smoke. Scoped
-    source-free SQL `generate_series`/`range` projections now admit direct range-column output,
-    int64 literals, range-column `+`/`-`/`*` int64 arithmetic, and single-branch
-    `CASE WHEN <range-column> <comparison> <int64> THEN <int64> ELSE <int64> END` projections with
-    `sql_source_free_projection_*` evidence and deterministic blockers for unsupported predicates
-    or non-int64 branches.
+    source-free SQL `generate_series`/`range` runtime now admits direct range-column output, int64
+    literals, range-column `+`/`-`/`*` int64 arithmetic, single-branch int64 CASE projections, and
+    optional `WHERE <range-column> <comparison> <int64>` / `LIMIT <count>` clauses with
+    `sql_source_free_projection_*`, `sql_source_free_filter_*`, and `sql_source_free_limit_*`
+    evidence. The Python `ctx.range(...).filter(...).with_column(...).limit(...).write(...)`
+    workflow lowers to that same generated-source SQL runtime while preserving the caller-facing
+    range column alias.
     Remaining gaps are broader SQL source-free projection beyond that admitted range-generator
-    projection subset, arbitrary SQL table functions, broad DataFrame expression-backed
-    projection/`with_column`, object-store/Foundry generated-output paths, broader
-    structured-format fidelity, and claim-grade output coverage.
+    subset, arbitrary SQL table functions, broad DataFrame expression-backed projection/
+    `with_column`, object-store/Foundry generated-output paths, broader structured-format fidelity,
+    and claim-grade output coverage.
   - Next slice outcome: implement broader generator/expression coverage and claim-grade
     replay/fidelity evidence where admitted.
   - Runtime enablement: end-user generated-source execution that writes local output and emits a
     GeneratedSourceCertificate.
   - User-visible surface: Python `ctx.range`, `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`,
-    generated-source `write_vortex(...)`, `ctx.sql(...).write(...)`, SQL `VALUES`, SQL
-    `generate_series`/`range`, generated-output recipes.
+    generated-source `write_vortex(...)`, fluent `ctx.range(...)` filter/with-column/limit writes,
+    `ctx.sql(...).write(...)`, SQL `VALUES`, SQL `generate_series`/`range`, generated-output
+    recipes.
   - Implementation scope: generator nodes, schema inference, deterministic seed/row-count handling,
     output writer bridge, report/certificate fields.
   - Evidence required: `input_dataset_count=0`, `source_io_performed=false`,
@@ -916,14 +919,17 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5A generated-source end-user runtime builders
   - Source: `GAR-RUNTIME-IMPL-4E`, `GAR-GEN-1`, `GAR-COMPAT-1B`, Use Case Atlas generated-source
     rows.
-  - Current state: no-dataset smoke remains separate. Scoped local JSONL/CSV generated-output runtime
-    now covers `ctx.from_rows`, generated-row `.select(...)`/literal `.with_column(...)`,
-    `ctx.literal_table`, `ctx.calendar`, `ctx.range`, `ctx.sequence`, SQL `VALUES`, and SQL literal
-    `SELECT`, plus scoped SQL `SELECT *` and value-column/int64 arithmetic projections from
-    `generate_series/range(...)`. Broad DataFrame
-    expression-backed source-free output, broader source-free projection, broader output formats
-    beyond JSONL/CSV, object-store sinks, and Foundry generated-output runtime remain incomplete or
-    blocked.
+  - Current state: no-dataset smoke remains separate. Scoped local generated-output runtime now
+    covers `ctx.from_rows`, generated-row `.select(...)`/literal `.with_column(...)`,
+    `ctx.literal_table`, `ctx.calendar`, `ctx.range`, `ctx.sequence`, SQL `VALUES`, SQL literal
+    `SELECT`, scoped SQL `SELECT *`, value-column/int64 arithmetic and CASE projections from
+    `generate_series/range(...)`, and optional source-free SQL range `WHERE`/`LIMIT`. Python also
+    exposes a fluent `ctx.range(...)` filter/with-column/limit/write path that lowers to the same
+    generated-source SQL runtime. JSONL/CSV are the default local sinks; flat scalar
+    Parquet/Arrow IPC/Avro/ORC and Vortex sinks are feature-gated local smokes with deterministic
+    blockers in default builds. Broad DataFrame expression-backed source-free output, arbitrary
+    source-free projection, object-store sinks, Foundry generated-output runtime, and claim-grade
+    structured-format fidelity remain incomplete or blocked.
   - Next slice outcome: promote one coherent local generated-source workflow set across CLI,
     Python, and SQL/DataFrame admission, writing local output with generated-source evidence.
   - Runtime enablement: ordinary end-user generated-source workflows that execute locally and write

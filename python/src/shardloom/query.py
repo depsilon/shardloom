@@ -792,6 +792,30 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
     client: ShardLoomClient
     source_kind: str = "range"
 
+    def filter(self, predicate: object) -> "GeneratedRangeQuerySource":
+        """Return a scoped generated-range SQL query with one filter predicate."""
+
+        return self._query().filter(predicate)
+
+    def where(self, predicate: object) -> "GeneratedRangeQuerySource":
+        """Alias for `filter(...)` using familiar SQL/DataFrame naming."""
+
+        return self.filter(predicate)
+
+    def select(self, *columns: object) -> "GeneratedRangeQuerySource":
+        """Return a scoped generated-range SQL query with a source-column projection."""
+
+        return self._query().select(*columns)
+
+    def with_column(
+        self,
+        name: object,
+        expression: object,
+    ) -> "GeneratedRangeQuerySource":
+        """Return a scoped generated-range SQL query with one computed int64 column."""
+
+        return self._query().with_column(name, expression)
+
     def limit(self, count: int) -> "GeneratedRangeSource":
         """Limit an engine-native range/sequence before writing local output."""
 
@@ -884,6 +908,181 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
             allow_overwrite=allow_overwrite,
             check=check,
         )
+
+    def _query(self) -> "GeneratedRangeQuerySource":
+        return GeneratedRangeQuerySource(
+            start=self.start,
+            end=self.end,
+            step=self.step,
+            column=self.column,
+            client=self.client,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
+    """Scoped SQL query over a source-free range generator."""
+
+    start: int
+    end: int
+    step: int
+    column: str
+    client: ShardLoomClient
+    predicate: str | None = None
+    select_items: tuple[str, ...] = ()
+    limit_count: int | None = None
+
+    def filter(self, predicate: object) -> "GeneratedRangeQuerySource":
+        """Return this generated-range query with a scoped filter predicate."""
+
+        if self.predicate is not None:
+            raise ValueError("generated range queries admit one filter predicate")
+        return GeneratedRangeQuerySource(
+            start=self.start,
+            end=self.end,
+            step=self.step,
+            column=self.column,
+            client=self.client,
+            predicate=_sql_generated_range_expression_sql(predicate, self.column),
+            select_items=self.select_items,
+            limit_count=self.limit_count,
+        )
+
+    def where(self, predicate: object) -> "GeneratedRangeQuerySource":
+        """Alias for `filter(...)` using familiar SQL/DataFrame naming."""
+
+        return self.filter(predicate)
+
+    def select(self, *columns: object) -> "GeneratedRangeQuerySource":
+        """Return this generated-range query with a source-column projection."""
+
+        return GeneratedRangeQuerySource(
+            start=self.start,
+            end=self.end,
+            step=self.step,
+            column=self.column,
+            client=self.client,
+            predicate=self.predicate,
+            select_items=_normalize_generated_range_select_items(columns, self.column),
+            limit_count=self.limit_count,
+        )
+
+    def with_column(
+        self,
+        name: object,
+        expression: object,
+    ) -> "GeneratedRangeQuerySource":
+        """Append one scoped generated-range computed int64 projection."""
+
+        column_name = _normalize_output_column_name(name)
+        select_items = self.select_items or _default_generated_range_select_items(
+            self.column
+        )
+        if column_name in _generated_range_select_aliases(select_items):
+            raise ValueError("generated range projection aliases must be unique")
+        expression_sql = _sql_generated_range_projection_expression(
+            expression,
+            self.column,
+        )
+        return GeneratedRangeQuerySource(
+            start=self.start,
+            end=self.end,
+            step=self.step,
+            column=self.column,
+            client=self.client,
+            predicate=self.predicate,
+            select_items=select_items + (f"{expression_sql} AS {column_name}",),
+            limit_count=self.limit_count,
+        )
+
+    def limit(self, count: int) -> "GeneratedRangeQuerySource":
+        """Return this generated-range query with a SQL LIMIT clause."""
+
+        return GeneratedRangeQuerySource(
+            start=self.start,
+            end=self.end,
+            step=self.step,
+            column=self.column,
+            client=self.client,
+            predicate=self.predicate,
+            select_items=self.select_items,
+            limit_count=_normalize_non_negative_int("generated range SQL limit", count),
+        )
+
+    def head(self, limit: int = 5) -> "GeneratedRangeQuerySource":
+        """Alias for `limit(...)` using familiar DataFrame preview naming."""
+
+        return self.limit(limit)
+
+    def take(self, count: int) -> "GeneratedRangeQuerySource":
+        """Alias for `limit(...)` using familiar DataFrame preview naming."""
+
+        return self.limit(count)
+
+    def write(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        output_format: str = "jsonl",
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Write the admitted generated-range SQL query to a local output sink."""
+
+        return self.client.generated_source_sql_smoke(
+            target_uri,
+            self._statement(),
+            output_format=output_format,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_jsonl(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="jsonl")`."""
+
+        return self.write(
+            target_uri,
+            output_format="jsonl",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def write_csv(
+        self,
+        target_uri: str | os.PathLike[str],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Alias for `write(..., output_format="csv")`."""
+
+        return self.write(
+            target_uri,
+            output_format="csv",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def _statement(self) -> str:
+        select_items = self.select_items or _default_generated_range_select_items(
+            self.column
+        )
+        statement = (
+            f"SELECT {', '.join(select_items)} "
+            f"FROM range({self.start}, {self.end}, {self.step})"
+        )
+        if self.predicate is not None:
+            statement = f"{statement} WHERE {self.predicate}"
+        if self.limit_count is not None:
+            statement = f"{statement} LIMIT {self.limit_count}"
+        return statement
+
 
 @dataclass(frozen=True, slots=True)
 class GeneratedSqlSource(_GeneratedStructuredOutputMixin):
@@ -2826,6 +3025,99 @@ def _normalize_generated_select_columns(columns: tuple[object, ...]) -> tuple[st
     return normalized
 
 
+def _default_generated_range_select_items(public_column: str) -> tuple[str, ...]:
+    alias = _normalize_output_column_name(public_column)
+    return (f"value AS {alias}",)
+
+
+def _normalize_generated_range_select_items(
+    columns: tuple[object, ...],
+    public_column: str,
+) -> tuple[str, ...]:
+    if len(columns) == 1 and _is_non_string_sequence(columns[0]):
+        values = tuple(columns[0])
+    else:
+        values = columns
+    if not values:
+        raise ValueError("generated range projection must include the range column")
+    if len(values) != 1:
+        raise ValueError("generated range select currently admits only the range column once")
+    raw = values[0].sql if isinstance(values[0], ColumnExpression) else str(values[0])
+    column = _rewrite_generated_range_column_sql(raw, public_column)
+    if _normalize_expression_column(column) != "value":
+        raise ValueError("generated range select currently admits only the range column")
+    return _default_generated_range_select_items(public_column)
+
+
+def _generated_range_select_aliases(select_items: tuple[str, ...]) -> tuple[str, ...]:
+    aliases: list[str] = []
+    for item in select_items:
+        upper = item.upper()
+        marker = " AS "
+        marker_index = upper.rfind(marker)
+        if marker_index >= 0:
+            aliases.append(item[marker_index + len(marker) :].strip())
+        else:
+            aliases.append(item.strip())
+    return tuple(aliases)
+
+
+def _sql_generated_range_expression_sql(expression: object, public_column: str) -> str:
+    return _rewrite_generated_range_column_sql(_predicate_sql(expression), public_column)
+
+
+def _sql_generated_range_projection_expression(
+    expression: object,
+    public_column: str,
+) -> str:
+    if isinstance(expression, ColumnExpression):
+        return _rewrite_generated_range_column_sql(expression.sql, public_column)
+    try:
+        literal = _generated_literal_expression(expression)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "generated range computed columns admit shardloom column expressions "
+            "or int64 literal expressions only"
+        ) from exc
+    if isinstance(literal, bool) or not isinstance(literal, int):
+        raise ValueError("generated range computed-column literals must be int64 values")
+    return str(literal)
+
+
+def _rewrite_generated_range_column_sql(raw: str, public_column: str) -> str:
+    text = _require_non_empty("generated range SQL expression", raw)
+    public = _normalize_output_column_name(public_column)
+    if public == "value":
+        return text
+    rewritten: list[str] = []
+    in_quote = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char == "'":
+            rewritten.append(char)
+            if in_quote and index + 1 < len(text) and text[index + 1] == "'":
+                rewritten.append(text[index + 1])
+                index += 2
+                continue
+            in_quote = not in_quote
+            index += 1
+            continue
+        if not in_quote and (char == "_" or char.isalpha()):
+            end = index + 1
+            while end < len(text) and _is_identifier_char(text[end]):
+                end += 1
+            token = text[index:end]
+            rewritten.append("value" if token == public else token)
+            index = end
+            continue
+        rewritten.append(char)
+        index += 1
+    if in_quote:
+        raise ValueError("generated range SQL expression has an unclosed string literal")
+    return "".join(rewritten)
+
+
 def _generated_literal_expression(expression: object) -> object:
     if isinstance(expression, str):
         text = expression.strip()
@@ -3848,6 +4140,16 @@ def _is_source_free_sql_generator_statement(statement: str) -> bool:
     if from_position is None:
         return False
     source_ref = select_body[from_position + len("from") :].strip().lower()
+    clause_positions = tuple(
+        position
+        for position in (
+            _find_sql_keyword_outside_quotes(source_ref, "where"),
+            _find_sql_keyword_outside_quotes(source_ref, "limit"),
+        )
+        if position is not None
+    )
+    if clause_positions:
+        source_ref = source_ref[: min(clause_positions)].strip()
     return (
         source_ref.startswith("generate_series(")
         or source_ref.startswith("generate_series (")

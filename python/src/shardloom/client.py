@@ -509,6 +509,54 @@ class GeneratedSourceWriteReport:
         return self.envelope.field_bool("generated_source_range_end_inclusive")
 
     @property
+    def sql_source_free_filter_runtime_execution(self) -> bool:
+        """Whether scoped SQL source-free filtering executed in the smoke command."""
+
+        return (
+            self.envelope.field_bool(
+                "sql_source_free_filter_runtime_execution",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def sql_source_free_filter_source_column(self) -> str | None:
+        """Return the generated SQL filter source column when present."""
+
+        return self.envelope.field("sql_source_free_filter_source_column")
+
+    @property
+    def sql_source_free_filter_predicate(self) -> str | None:
+        """Return the generated SQL filter predicate evidence label when present."""
+
+        return self.envelope.field("sql_source_free_filter_predicate")
+
+    @property
+    def sql_source_free_filter_selected_row_count(self) -> int | None:
+        """Return the generated SQL filter row count before LIMIT when present."""
+
+        return self.envelope.field_int("sql_source_free_filter_selected_row_count")
+
+    @property
+    def sql_source_free_limit_runtime_execution(self) -> bool:
+        """Whether scoped SQL source-free LIMIT executed in the smoke command."""
+
+        return (
+            self.envelope.field_bool(
+                "sql_source_free_limit_runtime_execution",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def sql_source_free_limit_count(self) -> int | None:
+        """Return the generated SQL LIMIT count when present."""
+
+        return self.envelope.field_int("sql_source_free_limit_count")
+
+    @property
     def sql_source_free_projection_runtime_execution(self) -> bool:
         """Whether scoped SQL source-free projection executed in the smoke command."""
 
