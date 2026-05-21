@@ -75,14 +75,17 @@ pub use architecture_spine::{
 pub use benchmark::{
     BaselineEngine, BenchmarkCacheState, BenchmarkClaimEvidenceReport,
     BenchmarkClaimEvidenceStatus, BenchmarkClaimGate, BenchmarkClaimStatus,
-    BenchmarkComparisonReport, BenchmarkComparisonStatus, BenchmarkDatasetProfile,
-    BenchmarkEngineVersion, BenchmarkEvidenceBundle, BenchmarkEvidenceState,
-    BenchmarkFallbackState, BenchmarkMetric, BenchmarkMetricGap, BenchmarkPlan,
-    BenchmarkReproducibilityStatus, BenchmarkResult, BenchmarkResultGap, BenchmarkRunManifest,
-    BenchmarkScenario, ComparativeRerunManagedPlatformGateReport,
+    BenchmarkComparisonReport, BenchmarkComparisonStatus, BenchmarkConstitutionValidationReport,
+    BenchmarkConstitutionValidationRow, BenchmarkConstitutionValidationStatus,
+    BenchmarkDatasetProfile, BenchmarkEngineVersion, BenchmarkEvidenceBundle,
+    BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric, BenchmarkMetricGap,
+    BenchmarkPlan, BenchmarkReproducibilityStatus, BenchmarkResult, BenchmarkResultGap,
+    BenchmarkRunManifest, BenchmarkScenario, ComparativeRerunManagedPlatformGateReport,
     ComparativeRerunManagedPlatformGateRow, CorrectnessValidationMode, MetricValue,
     SparkDisplacementBenchmarkEvidenceMatrixReport, SparkDisplacementBenchmarkEvidenceRow,
-    WorkloadClass, plan_benchmark_claim_evidence, plan_comparative_rerun_managed_platform_gate,
+    WorkloadClass, benchmark_claim_evidence_from_parts,
+    benchmark_constitution_validation_from_parts, plan_benchmark_claim_evidence,
+    plan_benchmark_constitution_validation, plan_comparative_rerun_managed_platform_gate,
     plan_spark_displacement_benchmark_evidence_matrix,
 };
 pub use benchmark_suite::{

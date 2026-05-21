@@ -834,6 +834,17 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fragments: &["\"artifact_kind\":\"benchmark_plan_report\""],
         },
         EnvelopeCase {
+            name: "benchmark constitution validator success",
+            args: &["benchmark-constitution", "foundation", "--format", "json"],
+            command: "benchmark-constitution",
+            status: "success",
+            family: "benchmarks",
+            success: true,
+            allow_stderr: false,
+            fields: &[("benchmark_constitution_status", "missing_evidence")],
+            fragments: &["\"artifact_kind\":\"benchmark_constitution_report\""],
+        },
+        EnvelopeCase {
             name: "foundry optional harness success",
             args: &["universal-harness-plan", "--format", "json"],
             command: "universal-harness-plan",

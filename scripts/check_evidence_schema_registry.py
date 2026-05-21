@@ -17,6 +17,7 @@ SURFACE_IDS = (
     "execution_certificate_report",
     "native_io_report",
     "benchmark_plan_report",
+    "benchmark_constitution_report",
     "benchmark_claim_evidence_report",
     "compute_capability_matrix_report",
 )
@@ -53,8 +54,8 @@ def main() -> int:
         REGISTRY_COMMAND,
         "fallback_attempted=false",
         "external_engine_invoked=false",
-        "Surface count: 7",
-        "Field count: 238",
+        "Surface count: 8",
+        "Field count: 265",
     ]:
         if required not in docs:
             blockers.append(f"docs missing {required}")

@@ -399,6 +399,47 @@ def main() -> int:
         typed_blockers.append("missing evidence schema registry validator script")
     checks.append(check("typed_envelope_compatibility", "shardloom-cli/tests/typed_envelope_contract_snapshots.rs", typed_blockers))
 
+    benchmark_constitution_script = repo_root / "scripts/check_benchmark_constitution.py"
+    benchmark_constitution_doc = repo_root / "docs/architecture/benchmark-constitution.md"
+    benchmark_constitution_source = repo_root / "shardloom-core/src/benchmark.rs"
+    benchmark_manifest = load_json(repo_root / "website/assets/benchmarks/latest/manifest.json")
+    benchmark_constitution_blockers: list[str] = []
+    if not benchmark_constitution_script.exists():
+        benchmark_constitution_blockers.append("missing benchmark constitution validator script")
+    if "shardloom.benchmark_constitution_validation.v1" not in read_text(benchmark_constitution_doc):
+        benchmark_constitution_blockers.append("missing benchmark constitution architecture doc")
+    for required in [
+        "BenchmarkConstitutionValidationReport",
+        "BenchmarkConstitutionValidationRow",
+        "plan_benchmark_constitution_validation",
+        "benchmark_constitution_validation_from_parts",
+    ]:
+        if required not in read_text(benchmark_constitution_source):
+            benchmark_constitution_blockers.append(f"missing benchmark constitution source marker: {required}")
+    if benchmark_manifest is None:
+        benchmark_constitution_blockers.append("missing website benchmark manifest")
+    else:
+        for required in [
+            "benchmark_constitution_schema_version",
+            "benchmark_constitution_validator",
+            "benchmark_constitution_required_field_order",
+            "benchmark_constitution_claim_gate_status",
+            "benchmark_constitution_performance_claim_allowed",
+        ]:
+            if required not in benchmark_manifest:
+                benchmark_constitution_blockers.append(f"benchmark manifest missing {required}")
+        if benchmark_manifest.get("benchmark_constitution_schema_version") != "shardloom.benchmark_constitution_validation.v1":
+            benchmark_constitution_blockers.append("benchmark manifest constitution schema mismatch")
+        if benchmark_manifest.get("benchmark_constitution_performance_claim_allowed") is not False:
+            benchmark_constitution_blockers.append("benchmark constitution performance claim must be false")
+    checks.append(
+        check(
+            "benchmark_constitution_validator",
+            "scripts/check_benchmark_constitution.py",
+            benchmark_constitution_blockers,
+        )
+    )
+
     validation_commands = [
         "cargo fmt --all -- --check",
         "cargo clippy --workspace --all-targets -- -D warnings",
@@ -411,6 +452,7 @@ def main() -> int:
         "python scripts/check_release_security_gate.py",
         "python scripts/check_release_architecture_tracker.py --allow-blocked",
         "python scripts/check_package_channel_readiness.py",
+        "python scripts/check_benchmark_constitution.py",
         "python scripts/final_release_rehearsal.py --allow-blocked",
     ]
     validation_blockers = []

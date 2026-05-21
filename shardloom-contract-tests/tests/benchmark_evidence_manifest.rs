@@ -1,9 +1,11 @@
 use shardloom_core::{
     BaselineEngine, BenchmarkCacheState, BenchmarkClaimGate, BenchmarkClaimStatus,
-    BenchmarkComparisonReport, BenchmarkComparisonStatus, BenchmarkEngineVersion,
-    BenchmarkEvidenceBundle, BenchmarkEvidenceState, BenchmarkFallbackState, BenchmarkMetric,
-    BenchmarkPlan, BenchmarkReproducibilityStatus, BenchmarkResult, BenchmarkRunManifest,
-    BenchmarkScenario, CorrectnessValidationMode, MetricValue, WorkloadClass,
+    BenchmarkComparisonReport, BenchmarkComparisonStatus, BenchmarkConstitutionValidationStatus,
+    BenchmarkEngineVersion, BenchmarkEvidenceBundle, BenchmarkEvidenceState,
+    BenchmarkFallbackState, BenchmarkMetric, BenchmarkPlan, BenchmarkReproducibilityStatus,
+    BenchmarkResult, BenchmarkRunManifest, BenchmarkScenario, CorrectnessValidationMode,
+    MetricValue, WorkloadClass, benchmark_constitution_validation_from_parts,
+    plan_benchmark_constitution_validation,
 };
 
 #[test]
@@ -338,6 +340,90 @@ fn benchmark_run_manifest_requires_environment_dataset_versions_and_steps() {
             .to_human_text()
             .contains("reproducibility status: reproducible")
     );
+}
+
+#[test]
+fn benchmark_constitution_validator_rejects_missing_claim_grade_fields() {
+    let plan = BenchmarkPlan::default_foundation_plan();
+    let report = plan_benchmark_constitution_validation("foundation", &plan);
+
+    assert_eq!(
+        report.status,
+        BenchmarkConstitutionValidationStatus::MissingEvidence
+    );
+    assert_eq!(
+        report.claim_gate_status,
+        BenchmarkClaimStatus::EvidenceMissing
+    );
+    assert_eq!(report.row_count, plan.expected_result_count());
+    assert_eq!(report.complete_row_count, 0);
+    for required in [
+        "benchmark_result_row",
+        "dataset_source_admission",
+        "preparation_route",
+        "execution_route",
+        "output_route",
+        "correctness_proof",
+        "hardware_profile",
+        "build_profile",
+        "cold_warm_state",
+        "stage_timings",
+    ] {
+        assert!(
+            report.missing_field_order.contains(&required.to_string()),
+            "constitution validator did not report missing {required}"
+        );
+    }
+    assert!(report.external_baselines_comparison_only);
+    assert!(!report.performance_claim_allowed);
+    assert!(!report.superiority_claim_allowed);
+    assert!(!report.fallback_attempted);
+    assert!(!report.external_engine_invoked);
+}
+
+#[test]
+fn benchmark_constitution_validator_accepts_complete_synthetic_row() {
+    let mut plan = one_scenario_benchmark_plan();
+    plan.scenarios[0].dataset_name = Some("metadata-footer-u64".to_string());
+    plan.scenarios[0].dataset_scale = Some("20k_rows".to_string());
+    plan.scenarios[0].storage_format = Some("vortex".to_string());
+    plan.scenarios[0].query_or_operation = Some("count".to_string());
+    plan.scenarios[0].add_required_metric(BenchmarkMetric::WallTimeMillis);
+    plan.scenarios[0].add_required_metric(BenchmarkMetric::RowsMaterialized);
+    let mut manifest = complete_run_manifest(&plan);
+    manifest.add_engine_version(
+        BenchmarkEngineVersion::new(BaselineEngine::ShardLoom, "0.1.0").expect("valid"),
+    );
+    manifest.add_engine_version(
+        BenchmarkEngineVersion::new(BaselineEngine::DataFusion, "comparison-only").expect("valid"),
+    );
+    manifest.refresh_against_plan(&plan);
+    let mut shardloom =
+        BenchmarkResult::new("metadata count", BaselineEngine::ShardLoom).expect("valid");
+    shardloom.add_metric(BenchmarkMetric::WallTimeMillis, MetricValue::U64(10));
+    shardloom.add_metric(BenchmarkMetric::RowsMaterialized, MetricValue::U64(1));
+    let mut datafusion =
+        BenchmarkResult::new("metadata count", BaselineEngine::DataFusion).expect("valid");
+    datafusion.add_metric(BenchmarkMetric::WallTimeMillis, MetricValue::U64(20));
+    datafusion.add_metric(BenchmarkMetric::RowsMaterialized, MetricValue::U64(1));
+    let comparison = BenchmarkComparisonReport::from_plan_and_results(
+        &plan,
+        vec![shardloom, datafusion],
+        BenchmarkEvidenceState::Present,
+    );
+
+    let report =
+        benchmark_constitution_validation_from_parts("complete", &plan, &manifest, &comparison);
+
+    assert_eq!(
+        report.status,
+        BenchmarkConstitutionValidationStatus::ReadyForClaimReview
+    );
+    assert!(report.missing_field_order.is_empty());
+    assert_eq!(report.complete_row_count, 2);
+    assert!(report.performance_claim_allowed);
+    assert!(report.external_baselines_comparison_only);
+    assert!(report.no_fallback_proof_present);
 }
 
 #[test]

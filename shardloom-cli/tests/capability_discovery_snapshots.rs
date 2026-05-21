@@ -286,12 +286,13 @@ const EVIDENCE_SCHEMA_REGISTRY_FIELD_KEYS: [&str; 18] = [
     "evidence_schema_registry_external_engine_invoked",
 ];
 
-const EVIDENCE_SCHEMA_SURFACE_IDS: [&str; 7] = [
+const EVIDENCE_SCHEMA_SURFACE_IDS: [&str; 8] = [
     "execution_mode_selection_report",
     "compute_flow_evidence",
     "execution_certificate_report",
     "native_io_report",
     "benchmark_plan_report",
+    "benchmark_constitution_report",
     "benchmark_claim_evidence_report",
     "compute_capability_matrix_report",
 ];
@@ -1267,6 +1268,7 @@ fn evidence_schema_payload_field_ids(surface_id: &str) -> Vec<String> {
         "execution_certificate_report" => "EXECUTION_CERTIFICATE_REPORT_PAYLOAD_KEYS",
         "native_io_report" => "NATIVE_IO_REPORT_PAYLOAD_KEYS",
         "benchmark_plan_report" => "BENCHMARK_PLAN_REPORT_PAYLOAD_KEYS",
+        "benchmark_constitution_report" => "BENCHMARK_CONSTITUTION_REPORT_PAYLOAD_KEYS",
         "benchmark_claim_evidence_report" => "BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS",
         "compute_capability_matrix_report" => "COMPUTE_CAPABILITY_MATRIX_REPORT_PAYLOAD_KEYS",
         _ => panic!("unknown evidence schema surface {surface_id}"),
@@ -3432,7 +3434,7 @@ fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
     )));
     assert!(output.contains(&string_field_pair(
         "evidence_schema_registry_surface_count",
-        "7"
+        "8"
     )));
     assert!(output.contains(&field_pair(
         "evidence_schema_registry_fallback_attempted",

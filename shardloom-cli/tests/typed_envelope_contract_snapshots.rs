@@ -193,6 +193,22 @@ fn benchmark_claim_evidence_fixture_routes_inline_report_payload() {
     assert!(output.contains("\"artifact_id\":\"cg6.benchmark_claim_evidence.aggregate\""));
 }
 
+#[test]
+fn benchmark_constitution_fixture_routes_inline_report_payload() {
+    let output = run_command(&["benchmark-constitution", "--format", "json"], true);
+
+    assert_common_typed_slots(&output, "benchmark-constitution", "success");
+    assert!(output.contains(&field("command_family", "benchmarks")));
+    assert!(output.contains(&field("mode", "benchmark_constitution")));
+    assert!(output.contains(&field("benchmark_constitution_status", "missing_evidence")));
+    assert!(output.contains(&field(
+        "benchmark_constitution_performance_claim_allowed",
+        "false"
+    )));
+    assert!(output.contains("\"artifact_kind\":\"benchmark_constitution_report\""));
+    assert!(output.contains("\"artifact_id\":\"review-p1-3.benchmark_constitution_validation\""));
+}
+
 #[cfg(feature = "vortex-local-primitives")]
 #[test]
 fn certified_runtime_execution_fixture_routes_inline_certificates() {

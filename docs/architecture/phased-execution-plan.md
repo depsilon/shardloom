@@ -236,34 +236,6 @@ Current non-runtime sequence: complete the review-derived action items below bef
 expansion unless the user explicitly reprioritizes. Completed non-runtime history belongs in
 `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] REVIEW-P1-3 benchmark constitution and row validator
-  - Source: 2026-05-21 structured repository review action sequence; benchmark catalog,
-    comparative rerun gate, benchmark claim evidence.
-  - Current state: benchmark docs and evidence surfaces separate cold/prepared timing and avoid
-    superiority claims, but each benchmark row is not yet fail-closed against a single constitution
-    covering source admission, preparation route, execution route, output route, correctness proof,
-    hardware/build metadata, cost/unit fields, and no-fallback proof.
-  - Next slice outcome: add a benchmark constitution document plus a validator that rejects
-    claim-bearing benchmark rows missing route, correctness, hardware/build, output, and
-    no-fallback evidence.
-  - User-visible surface: benchmark reports, benchmark manifest, release readiness, website/status
-    benchmark interpretation, claim evidence matrix.
-  - Implementation scope: benchmark metadata schema, validation script, contract tests, benchmark
-    docs, release-readiness integration.
-  - Evidence required: workload id, dataset/source admission, preparation route, execution route,
-    output route, cold/warm state, correctness validation mode, hardware profile, build profile,
-    stage timings, cost/unit fields where available, and no-fallback fields.
-  - Acceptance: benchmark rows cannot support performance or replacement claims unless the
-    validator passes and correctness/no-fallback evidence is attached.
-  - Verification: benchmark manifest validator, traditional benchmark harness contract test,
-    release-readiness metadata, `python scripts/check_release_readiness.py`, `git diff --check`.
-  - Non-goals: no new superiority claim, external benchmark publication, managed-platform claim, or
-    package release.
-  - Claim boundary: benchmark evidence structure only.
-  - Fallback boundary: external engines remain baselines/oracles only and must never be encoded as
-    ShardLoom execution fallback.
-  - Ledger rule: ledger entry must include validator command and remaining benchmark evidence gaps.
-
 - [ ] REVIEW-P1-4 dependency, license, provenance, and package-gate automation
   - Source: 2026-05-21 structured repository review action sequence; RFC 0024, release security
     gate, package-channel readiness matrix, dependency audit docs.

@@ -1104,6 +1104,7 @@ impl PythonWrapperFoundationReport {
                 "sizing-feedback-plan",
                 "benchmark-plan",
                 "benchmark-claim-evidence-plan",
+                "benchmark-constitution",
             ],
             required_client_behaviors: vec![
                 "invoke_shardloom_with_format_json",

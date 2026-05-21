@@ -439,6 +439,7 @@ p {
   color: var(--navy);
   font-size: 1.72rem;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .metric span {
@@ -476,7 +477,8 @@ p {
 
 .badge {
   display: inline-flex;
-  width: max-content;
+  width: fit-content;
+  max-width: 100%;
   margin-bottom: 14px;
   border: 1px solid rgba(6, 169, 214, 0.28);
   border-radius: 999px;
@@ -485,6 +487,8 @@ p {
   padding: 3px 9px;
   font-size: 0.74rem;
   font-weight: 760;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .boundary-list {
@@ -697,7 +701,7 @@ p {
 
 .route-dashboard {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
 }
 
@@ -745,8 +749,36 @@ p {
   color: var(--navy);
 }
 
+.definition-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.definition-list div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.42fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.definition-list dt {
+  color: var(--quiet);
+  font-size: 0.82rem;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
+.definition-list dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
 .mini-strip {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
 .mini-strip .metric {
@@ -755,7 +787,7 @@ p {
 }
 
 .mini-strip .metric strong {
-  font-size: 1.35rem;
+  font-size: 1.2rem;
 }
 
 .atlas-shell {

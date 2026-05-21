@@ -82,6 +82,15 @@ pub(crate) const EVIDENCE_SCHEMA_SURFACES: &[EvidenceSchemaSurfaceSpec] = &[
         required_no_fallback_fields: "fallback_execution_allowed",
     },
     EvidenceSchemaSurfaceSpec {
+        surface_id: "benchmark_constitution_report",
+        artifact_kind: "benchmark_constitution_report",
+        command_examples: "benchmark-constitution",
+        support_state: "schema_declared",
+        claim_boundary: "benchmark_constitution_validator_only_not_claim_grade_without_rows",
+        python_accessor_mapping: "OutputEnvelope.artifacts[benchmark_constitution_report]",
+        required_no_fallback_fields: "benchmark_constitution_fallback_attempted,benchmark_constitution_external_engine_invoked",
+    },
+    EvidenceSchemaSurfaceSpec {
         surface_id: "benchmark_claim_evidence_report",
         artifact_kind: "benchmark_claim_evidence_report",
         command_examples: "benchmark-claim-evidence-plan",

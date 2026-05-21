@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-P1-3 benchmark constitution and row validator
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-19-20260521` / #908.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - Benchmark catalog, comparative rerun gate, and benchmark claim-evidence posture.
+    - `REVIEW-P1-3 benchmark constitution and row validator`.
+  - Scope:
+    - Added `BenchmarkConstitutionValidationReport`, per-row validation rows, status vocabulary,
+      and side-effect-free helpers in `shardloom-core` to validate benchmark rows against a
+      single constitution before any claim review.
+    - Added `shardloom benchmark-constitution [foundation|traditional-analytics] --format json`
+      as a typed, side-effect-free CLI report and exposed it through command metadata, command
+      family classification, typed-envelope routing, evidence-schema registry, and Python client
+      accessors.
+    - Added `scripts/check_benchmark_constitution.py` and wired benchmark constitution checks into
+      benchmark artifact completeness and hard release readiness.
+    - Extended benchmark manifests with `shardloom.benchmark_constitution_validation.v1`
+      metadata, required field order, validator reference, and explicit
+      `benchmark_constitution_performance_claim_allowed=false`.
+    - Updated the website benchmark dashboard, benchmark docs, release docs, static publishing
+      runbook, and evidence-schema status snippets so benchmark interpretation is claim-gated
+      rather than leaderboard-like.
+    - Removed `REVIEW-P1-3` from the active phased execution plan so Planned remains an unchecked
+      work queue only.
+  - User-visible evidence:
+    - `shardloom benchmark-constitution --format json` reports required row fields, missing-field
+      order, ShardLoom versus external-baseline row counts, no-fallback proof status, and blocked
+      performance/superiority claim fields without executing benchmarks.
+    - `python scripts/check_benchmark_constitution.py --self-test` validates current promoted
+      benchmark artifacts and proves a synthetic overclaiming row is rejected.
+    - Website benchmark manifests and dashboard copy now expose the constitution schema, validator,
+      claim gate, and required field order.
+  - Remaining benchmark evidence gaps:
+    - Current promoted benchmark artifacts still lack complete build-profile and cold/warm
+      attribution on many non-claim rows; those gaps are reported but do not authorize public
+      performance claims.
+    - Cost/unit economics remain required for future claim-bearing rows and are not inferred from
+      current smoke evidence.
+    - Managed-platform and external-engine comparative reruns remain baseline/oracle evidence only;
+      no fallback execution or managed benchmark publication is authorized.
+  - Verification:
+    - `cargo fmt --all`
+    - `cargo test -p shardloom-core benchmark_constitution --lib -- --nocapture`
+    - `cargo test -p shardloom-cli --test benchmark_constitution_snapshots -- --nocapture`
+    - `cargo test -p shardloom-contract-tests --test benchmark_evidence_manifest benchmark_constitution -- --nocapture`
+    - `cargo test -p shardloom-cli --test evidence_schema_registry_snapshots -- --nocapture`
+    - `cargo test -p shardloom-cli --test typed_envelope_contract_snapshots -- --nocapture`
+    - `cargo test -p shardloom-cli command_registry -- --nocapture`
+    - `cargo test -p shardloom-cli python_wrapper -- --nocapture`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots -- --nocapture`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock -- --nocapture`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_benchmark_constitution_helper`
+    - `python scripts\check_benchmark_constitution.py --self-test`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_evidence_schema_registry.py`
+  - Remaining non-goals:
+    - No public performance, superiority, Spark-displacement, managed-platform, package-release,
+      production SQL/DataFrame, object-store/lakehouse, or Foundry claim is authorized.
+  - Claim boundary:
+    - Benchmark evidence structure and claim-gate validation only.
+  - Fallback boundary:
+    - External engines remain baselines/oracles only; the validator requires ShardLoom benchmark
+      evidence to keep `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: REVIEW-P1-2 typed evidence schema registry and contract validation
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-18-20260521` / #907.

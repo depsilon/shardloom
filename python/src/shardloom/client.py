@@ -7240,6 +7240,16 @@ class ShardLoomClient:
             args.append(scope)
         return self.run(args, check=check)
 
+    def benchmark_constitution(
+        self, scope: str | None = None, *, check: bool = True
+    ) -> OutputEnvelope:
+        """Return benchmark constitution validation for the optional scope."""
+
+        args = ["benchmark-constitution"]
+        if scope is not None:
+            args.append(scope)
+        return self.run(args, check=check)
+
     def benchmark_claim_evidence_plan(
         self, scope: str | None = None, *, check: bool = True
     ) -> OutputEnvelope:

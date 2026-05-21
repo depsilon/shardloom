@@ -390,6 +390,36 @@ const BENCHMARK_PLAN_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "fallback_execution_allowed",
 ];
 
+const BENCHMARK_CONSTITUTION_REPORT_PAYLOAD_KEYS: &[&str] = &[
+    "mode",
+    "schema_version",
+    "report_id",
+    "scope",
+    "benchmark_constitution_schema_version",
+    "benchmark_constitution_report_id",
+    "benchmark_constitution_status",
+    "benchmark_constitution_support_status",
+    "benchmark_constitution_claim_gate_status",
+    "benchmark_constitution_required_field_order",
+    "benchmark_constitution_missing_field_order",
+    "benchmark_constitution_row_count",
+    "benchmark_constitution_complete_row_count",
+    "benchmark_constitution_blocked_row_count",
+    "benchmark_constitution_dataset_source_admission_present",
+    "benchmark_constitution_preparation_route_present",
+    "benchmark_constitution_execution_route_present",
+    "benchmark_constitution_output_route_present",
+    "benchmark_constitution_correctness_proof_present",
+    "benchmark_constitution_hardware_build_metadata_present",
+    "benchmark_constitution_stage_timings_present",
+    "benchmark_constitution_cost_unit_fields_present",
+    "benchmark_constitution_no_fallback_proof_present",
+    "benchmark_constitution_external_baselines_comparison_only",
+    "benchmark_constitution_performance_claim_allowed",
+    "benchmark_constitution_fallback_attempted",
+    "benchmark_constitution_external_engine_invoked",
+];
+
 const BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "mode",
     "schema_version",
@@ -865,6 +895,12 @@ fn inline_report_payload_spec(command: &str) -> Option<InlineReportPayloadSpec> 
             status_key: "claim_gate_status",
             payload_keys: BENCHMARK_PLAN_REPORT_PAYLOAD_KEYS,
         }),
+        "benchmark-constitution" => Some(InlineReportPayloadSpec {
+            artifact_id_fallback: "benchmark-constitution.report",
+            artifact_kind: "benchmark_constitution_report",
+            status_key: "benchmark_constitution_status",
+            payload_keys: BENCHMARK_CONSTITUTION_REPORT_PAYLOAD_KEYS,
+        }),
         "benchmark-claim-evidence-plan" => Some(InlineReportPayloadSpec {
             artifact_id_fallback: "benchmark-claim-evidence-plan.report",
             artifact_kind: "benchmark_claim_evidence_report",
@@ -920,6 +956,7 @@ pub(crate) fn typed_envelope_artifact_payload_keys(
         "execution_certificate_report" => Some(EXECUTION_CERTIFICATE_REPORT_PAYLOAD_KEYS),
         "native_io_report" => Some(NATIVE_IO_REPORT_PAYLOAD_KEYS),
         "benchmark_plan_report" => Some(BENCHMARK_PLAN_REPORT_PAYLOAD_KEYS),
+        "benchmark_constitution_report" => Some(BENCHMARK_CONSTITUTION_REPORT_PAYLOAD_KEYS),
         "benchmark_claim_evidence_report" => Some(BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS),
         "compute_capability_matrix_report" => Some(COMPUTE_CAPABILITY_MATRIX_REPORT_PAYLOAD_KEYS),
         "semantic_conformance_report" => Some(SEMANTIC_CONFORMANCE_REPORT_PAYLOAD_KEYS),

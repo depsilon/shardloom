@@ -747,6 +747,15 @@ resource_policy
 claim_level
 ```
 
+`shardloom.benchmark_constitution_validation.v1` is now the executable validator surface for that
+requirement. `shardloom benchmark-constitution [foundation|traditional-analytics] --format json`
+projects the current plan/manifest/comparison posture, and
+`python scripts/check_benchmark_constitution.py` rejects any claim-bearing artifact row missing
+result identity, source admission, preparation route, execution route, output route, correctness
+proof, hardware/build metadata, cold/warm cache state, stage timings, cost/unit fields where
+available, no-fallback proof, or external-baseline boundary fields. The validator is evidence-only:
+it does not run benchmarks, invoke external engines, or upgrade `performance_claim_allowed`.
+
 ## Baseline Policy
 
 Local optional baselines are plugin contracts, not runtime dependencies:
