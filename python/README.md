@@ -200,6 +200,34 @@ path is a local fixture smoke for `UniversalIngress -> SourceState -> vortex_ing
 VortexPreparedState`; it is not broad Vortex writer support, object-store/table output support,
 production SQL/DataFrame support, or a performance claim.
 
+Traditional analytics compatibility inputs can also use a single-process prepare/batch route
+through `ShardLoomClient.traditional_analytics_prepare_batch_run(...)`. The helper invokes
+`traditional-analytics-prepare-batch-run`, prepares the local fact/dimension inputs once into
+prepared Vortex artifacts, then runs a prepared/native scenario batch while preserving
+`prepare_batch_*`, source-state reuse, fallback, and claim-boundary fields:
+
+```python
+from shardloom import ShardLoomClient
+
+client = ShardLoomClient.from_repo()
+result = client.traditional_analytics_prepare_batch_run(
+    ["selective filter", "filter + projection + limit"],
+    "fact.csv",
+    "dim.csv",
+    workspace="target/prepare-batch",
+    input_format="csv",
+    evidence_level="certified",
+)
+
+print(result.field("prepare_batch_preparation_included_in_batch_timing"))
+print(result.field("source_state_reuse_status"))
+print(result.fallback.attempted)
+```
+
+This is a scoped local runtime route for avoiding repeated compatibility preparation inside a batch.
+It is not a native Python binding, persistent cache, object-store/table runtime, package-readiness
+claim, or performance claim.
+
 Engine intent is explicit. `engine="auto"` selects the current bounded snapshot
 batch path when allowed; `live` selects the CG-22 in-memory fixture path for
 bounded/unbounded change streams; `hybrid` selects the CG-22 declared Vortex-base

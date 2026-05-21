@@ -48,7 +48,7 @@ pub(crate) const EVIDENCE_SCHEMA_SURFACES: &[EvidenceSchemaSurfaceSpec] = &[
     EvidenceSchemaSurfaceSpec {
         surface_id: "compute_flow_evidence",
         artifact_kind: "compute_flow_evidence",
-        command_examples: "traditional-analytics-run,traditional-analytics-vortex-run,traditional-analytics-vortex-batch-run",
+        command_examples: "traditional-analytics-run,traditional-analytics-vortex-run,traditional-analytics-vortex-batch-run,traditional-analytics-prepare-batch-run",
         support_state: "schema_declared",
         claim_boundary: "compute_flow_evidence_only_not_performance_claim",
         python_accessor_mapping: "TraditionalAnalyticsRun.compute_flow_evidence_fields",

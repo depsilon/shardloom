@@ -244,6 +244,7 @@ fn is_benchmark_command(command: &str) -> bool {
             | "traditional-analytics-run"
             | "traditional-analytics-vortex-run"
             | "traditional-analytics-vortex-batch-run"
+            | "traditional-analytics-prepare-batch-run"
             | "vortex-count-benchmark"
     )
 }
@@ -475,6 +476,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("traditional-analytics-vortex-batch-run"),
+            CommandFamily::Benchmarks
+        );
+        assert_eq!(
+            classify_command("traditional-analytics-prepare-batch-run"),
             CommandFamily::Benchmarks
         );
         assert_eq!(
