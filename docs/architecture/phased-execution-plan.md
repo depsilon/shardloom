@@ -300,7 +300,7 @@ that must be worked before any full-runtime readiness claim. Each item below mus
 runtime behavior, deterministic runtime admission/blockers, or runtime-claim validation; planning
 or documentation updates alone are insufficient.
 
-- [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families
+- [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families
   - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics,
     `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: expression support exists in scoped smoke paths; scoped UTF-8 prefix, contains,
@@ -328,6 +328,12 @@ or documentation updates alone are insufficient.
     non-integer comparison shapes. Scoped Date32 day arithmetic through `DATE_ADD_DAYS(column, days)`
     / `DATE_SUB_DAYS(column, days)` predicates is runtime-admitted with `date_arithmetic_*`
     evidence and deterministic blockers for invalid day counts or unsupported non-Date32 shapes.
+    Scoped UTC timestamp second arithmetic through
+    `TIMESTAMP_ADD_SECONDS(column, seconds)` / `TIMESTAMP_SUB_SECONDS(column, seconds)` predicates
+    is runtime-admitted with `timestamp_arithmetic_*` evidence, source-column coercion from
+    admitted UTC timestamp strings, ShardLoom-native null propagation, and deterministic blockers
+    for invalid second counts or unsupported non-timestamp shapes. This is UTC timestamp-micros
+    second arithmetic only, not timezone-database interval completeness.
     Scoped UTF-8 `LOWER(column)`, `UPPER(column)`, and `TRIM(column)` transform predicates are
     runtime-admitted with `string_transform_*` evidence and deterministic blockers for non-UTF-8
     or unsupported expression shapes; this is not locale/collation completeness. Scoped
@@ -406,6 +412,14 @@ or documentation updates alone are insufficient.
     `date_arithmetic_projection_*` evidence, source-column coercion from admitted ISO Date32
     strings, ShardLoom-native null propagation, and deterministic invalid-day/source-column/
     duplicate-output-name/unsupported-shape blockers. Scoped
+    UTC timestamp second arithmetic projections through
+    `TIMESTAMP_ADD_SECONDS(column, seconds) AS column` and
+    `TIMESTAMP_SUB_SECONDS(column, seconds) AS column`, including scoped
+    `CAST(column AS timestamp_micros)` arguments, are runtime-admitted over local-source
+    projection/filter/limit rows with `timestamp_arithmetic_projection_*` evidence,
+    source-column coercion from admitted UTC timestamp strings, ShardLoom-native null propagation,
+    and deterministic invalid-second/source-column/duplicate-output-name/unsupported-shape
+    blockers. Scoped
     cast projections of the form `CAST(column AS dtype) AS column` for `int64`, `float64`, `utf8`,
     `boolean`, `date32`, and `timestamp_micros` are runtime-admitted over local-source
     projection/filter/limit rows with `cast_projection_*` evidence, ShardLoom-native null

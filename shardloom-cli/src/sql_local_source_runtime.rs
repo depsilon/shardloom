@@ -49,6 +49,7 @@ const MAX_LIMIT_ROWS: usize = 10_000;
 const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
 const MAX_IN_LIST_VALUES: usize = 32;
 const MAX_DATE_ARITHMETIC_DAYS: i32 = 366_000;
+const MAX_TIMESTAMP_ARITHMETIC_SECONDS: i64 = (MAX_DATE_ARITHMETIC_DAYS as i64) * 86_400;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SqlLocalSourceRequest {
@@ -221,6 +222,7 @@ struct ParsedSqlLocalSource {
     numeric_rounding_projections: Vec<ParsedNumericRoundingProjection>,
     generic_expression_projections: Vec<ParsedGenericExpressionProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
+    timestamp_arithmetic_projections: Vec<ParsedTimestampArithmeticProjection>,
     string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     string_function_projections: Vec<ParsedStringFunctionProjection>,
@@ -317,6 +319,14 @@ struct ParsedDateArithmeticProjection {
     column: String,
     op: DateArithmeticOp,
     day_count: i32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedTimestampArithmeticProjection {
+    alias: String,
+    column: String,
+    op: TimestampArithmeticOp,
+    second_count: i64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -475,6 +485,7 @@ struct ParsedProjectionList {
     numeric_rounding_projections: Vec<ParsedNumericRoundingProjection>,
     generic_expression_projections: Vec<ParsedGenericExpressionProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
+    timestamp_arithmetic_projections: Vec<ParsedTimestampArithmeticProjection>,
     string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
     string_function_projections: Vec<ParsedStringFunctionProjection>,
@@ -536,6 +547,13 @@ enum ParsedPredicate {
         column: String,
         op: DateArithmeticOp,
         day_count: i32,
+        comparison: ComparisonOp,
+        value: ScalarValue,
+    },
+    TimestampArithmeticCompare {
+        column: String,
+        op: TimestampArithmeticOp,
+        second_count: i64,
         comparison: ComparisonOp,
         value: ScalarValue,
     },
@@ -670,6 +688,12 @@ enum DateArithmeticOp {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TimestampArithmeticOp {
+    AddSeconds,
+    SubSeconds,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DateExtractOp {
     Year,
     Month,
@@ -698,6 +722,22 @@ impl DateArithmeticOp {
         match self {
             Self::AddDays => "date_add_days",
             Self::SubDays => "date_sub_days",
+        }
+    }
+}
+
+impl TimestampArithmeticOp {
+    const fn function_name(self) -> &'static str {
+        match self {
+            Self::AddSeconds => "timestamp_add_seconds",
+            Self::SubSeconds => "timestamp_sub_seconds",
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::AddSeconds => "timestamp_add_seconds",
+            Self::SubSeconds => "timestamp_sub_seconds",
         }
     }
 }
@@ -1978,6 +2018,7 @@ fn materialize_in_subquery_predicates(
         | ParsedPredicate::NumericRoundingCompare { .. }
         | ParsedPredicate::GenericExpressionCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
+        | ParsedPredicate::TimestampArithmeticCompare { .. }
         | ParsedPredicate::DateExtractCompare { .. }
         | ParsedPredicate::StringLengthCompare { .. }
         | ParsedPredicate::TimestampExtractCompare { .. }
@@ -2145,6 +2186,11 @@ fn computed_projection_expressions(
     )?;
     append_projection_expressions(
         &mut expressions,
+        &parsed.timestamp_arithmetic_projections,
+        timestamp_arithmetic_projection_expression,
+    )?;
+    append_projection_expressions(
+        &mut expressions,
         &parsed.string_length_projections,
         string_length_projection_expression,
     )?;
@@ -2232,6 +2278,37 @@ fn date_arithmetic_projection_expression(
                 Expression::literal(
                     ExprId::new(format!("project.date_arithmetic.days.{}", projection.alias))?,
                     ScalarValue::Int64(i64::from(projection.day_count)),
+                ),
+            ],
+        },
+    );
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(arithmetic),
+            alias: projection.alias.clone(),
+        },
+    ))
+}
+
+fn timestamp_arithmetic_projection_expression(
+    projection: &ParsedTimestampArithmeticProjection,
+) -> Result<Expression, ShardLoomError> {
+    let arithmetic = Expression::new(
+        ExprId::new(format!("project.timestamp_arithmetic.{}", projection.alias))?,
+        ExpressionKind::FunctionCall {
+            name: projection.op.function_name().to_string(),
+            args: vec![
+                Expression::column(
+                    ExprId::new(format!("project.{}", projection.column))?,
+                    ColumnRef::new(projection.column.clone())?,
+                ),
+                Expression::literal(
+                    ExprId::new(format!(
+                        "project.timestamp_arithmetic.seconds.{}",
+                        projection.alias
+                    ))?,
+                    ScalarValue::Int64(projection.second_count),
                 ),
             ],
         },
@@ -2802,6 +2879,7 @@ fn apply_temporal_literal_column_coercions(
     apply_null_coalesce_projection_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_nullif_projection_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_date_arithmetic_projection_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_timestamp_arithmetic_projection_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_date_extract_projection_coercions(parsed, source, right_source.as_deref_mut())?;
     apply_timestamp_literal_predicate_coercions(
         &parsed.predicate,
@@ -2995,6 +3073,22 @@ fn apply_date_arithmetic_projection_coercions(
     Ok(())
 }
 
+fn apply_timestamp_arithmetic_projection_coercions(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.timestamp_arithmetic_projections {
+        coerce_projection_column_to_timestamp_micros(
+            parsed,
+            source,
+            right_source.as_deref_mut(),
+            &projection.column,
+        )?;
+    }
+    Ok(())
+}
+
 fn apply_date_extract_projection_coercions(
     parsed: &ParsedSqlLocalSource,
     source: &mut CsvSourceData,
@@ -3074,6 +3168,7 @@ fn apply_date_literal_predicate_coercions(
         | ParsedPredicate::NumericRoundingCompare { .. }
         | ParsedPredicate::GenericExpressionCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
+        | ParsedPredicate::TimestampArithmeticCompare { .. }
         | ParsedPredicate::StringLengthCompare { .. }
         | ParsedPredicate::TimestampExtractCompare { .. }
         | ParsedPredicate::StringTransformCompare { .. }
@@ -3095,6 +3190,11 @@ fn apply_timestamp_literal_predicate_coercions(
 ) -> Result<(), ShardLoomError> {
     match predicate {
         ParsedPredicate::Compare {
+            column,
+            value: ScalarValue::TimestampMicros(_),
+            ..
+        }
+        | ParsedPredicate::TimestampArithmeticCompare {
             column,
             value: ScalarValue::TimestampMicros(_),
             ..
@@ -3134,6 +3234,7 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::NumericRoundingCompare { .. }
         | ParsedPredicate::GenericExpressionCompare { .. }
         | ParsedPredicate::DateArithmeticCompare { .. }
+        | ParsedPredicate::TimestampArithmeticCompare { .. }
         | ParsedPredicate::DateExtractCompare { .. }
         | ParsedPredicate::StringLengthCompare { .. }
         | ParsedPredicate::StringTransformCompare { .. }
@@ -4186,6 +4287,14 @@ fn validate_text_time_projection_source_columns(
             "local source header",
         )?;
     }
+    for projection in &parsed.timestamp_arithmetic_projections {
+        require_header_column(
+            header,
+            &projection.column,
+            "timestamp arithmetic projection source column",
+            "local source header",
+        )?;
+    }
     for projection in &parsed.string_length_projections {
         require_header_column(
             header,
@@ -4320,6 +4429,9 @@ fn validate_text_time_output_names<'a>(
     output_names: &mut BTreeSet<&'a str>,
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.date_arithmetic_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    for projection in &parsed.timestamp_arithmetic_projections {
         require_unique_projection_output_name(output_names, &projection.alias)?;
     }
     for projection in &parsed.string_length_projections {
@@ -4737,6 +4849,10 @@ impl ParsedSqlLocalSource {
         !self.date_arithmetic_projections.is_empty()
     }
 
+    fn has_timestamp_arithmetic_projection(&self) -> bool {
+        !self.timestamp_arithmetic_projections.is_empty()
+    }
+
     fn has_string_length_projection(&self) -> bool {
         !self.string_length_projections.is_empty()
     }
@@ -4768,6 +4884,7 @@ impl ParsedSqlLocalSource {
             || self.has_numeric_rounding_projection()
             || self.has_generic_expression_projection()
             || self.has_date_arithmetic_projection()
+            || self.has_timestamp_arithmetic_projection()
             || self.has_string_length_projection()
             || self.has_string_transform_projection()
             || self.has_string_function_projection()
@@ -4856,6 +4973,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_date_arithmetic_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_timestamp_arithmetic_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_timestamp_arithmetic_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_string_length_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
@@ -4951,6 +5072,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_date_arithmetic_projection() {
             "computed-projection-limit"
+        } else if self.has_timestamp_arithmetic_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_timestamp_arithmetic_projection() {
+            "computed-projection-limit"
         } else if self.has_string_length_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_string_length_projection() {
@@ -5044,6 +5169,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_date_arithmetic_projection() {
+            "computed_projection_limit"
+        } else if self.has_timestamp_arithmetic_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_timestamp_arithmetic_projection() {
             "computed_projection_limit"
         } else if self.has_string_length_projection() && self.has_filter() {
             "computed_projection_filter_limit"
@@ -5146,6 +5275,11 @@ impl ParsedSqlLocalSource {
                 )
                 .chain(
                     self.date_arithmetic_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
+                    self.timestamp_arithmetic_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
                 )
@@ -5576,6 +5710,54 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn timestamp_arithmetic_projection_operators(&self) -> String {
+        if self.timestamp_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.timestamp_arithmetic_projections
+                .iter()
+                .map(|projection| projection.op.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn timestamp_arithmetic_projection_source_columns(&self) -> String {
+        if self.timestamp_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.timestamp_arithmetic_projections
+                .iter()
+                .map(|projection| projection.column.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn timestamp_arithmetic_projection_seconds(&self) -> String {
+        if self.timestamp_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.timestamp_arithmetic_projections
+                .iter()
+                .map(|projection| projection.second_count.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn timestamp_arithmetic_projection_output_columns(&self) -> String {
+        if self.timestamp_arithmetic_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.timestamp_arithmetic_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
     fn string_length_projection_source_columns(&self) -> String {
         if self.string_length_projections.is_empty() {
             "not_applicable".to_string()
@@ -5863,6 +6045,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { column, .. }
             | Self::NumericRoundingCompare { column, .. }
             | Self::DateArithmeticCompare { column, .. }
+            | Self::TimestampArithmeticCompare { column, .. }
             | Self::DateExtractCompare { column, .. }
             | Self::StringLengthCompare { column, .. }
             | Self::TimestampExtractCompare { column, .. }
@@ -5929,6 +6112,7 @@ impl ParsedPredicate {
                 comparison,
                 value,
             } => date_arithmetic_compare_expression(column, *op, *day_count, *comparison, value),
+            Self::TimestampArithmeticCompare { .. } => self.timestamp_arithmetic_expression(),
             Self::DateExtractCompare {
                 column,
                 op,
@@ -5987,6 +6171,23 @@ impl ParsedPredicate {
         }
     }
 
+    fn timestamp_arithmetic_expression(&self) -> Result<Expression, ShardLoomError> {
+        let Self::TimestampArithmeticCompare {
+            column,
+            op,
+            second_count,
+            comparison,
+            value,
+        } = self
+        else {
+            return Err(ShardLoomError::InvalidOperation(
+                "internal error: non-timestamp-arithmetic predicate lowered through timestamp arithmetic path"
+                    .to_string(),
+            ));
+        };
+        timestamp_arithmetic_compare_expression(column, *op, *second_count, *comparison, value)
+    }
+
     fn family(&self) -> &'static str {
         match self {
             Self::All => "none",
@@ -5997,6 +6198,7 @@ impl ParsedPredicate {
             Self::NumericRoundingCompare { .. } => "numeric_rounding",
             Self::GenericExpressionCompare { .. } => "generic_expression",
             Self::DateArithmeticCompare { .. } => "date_arithmetic",
+            Self::TimestampArithmeticCompare { .. } => "timestamp_arithmetic",
             Self::DateExtractCompare { .. } => "date_extract",
             Self::StringLengthCompare { .. } => "string_length",
             Self::TimestampExtractCompare { .. } => "timestamp_extract",
@@ -6026,6 +6228,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6065,6 +6268,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6103,6 +6307,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6130,6 +6335,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6188,6 +6394,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6227,6 +6434,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6271,6 +6479,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6300,6 +6509,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6339,6 +6549,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6367,6 +6578,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6406,6 +6618,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6445,6 +6658,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6473,6 +6687,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -6512,6 +6727,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -6553,6 +6769,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -6581,6 +6798,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6620,6 +6838,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6661,6 +6880,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6702,6 +6922,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6743,6 +6964,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6770,6 +6992,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6809,6 +7032,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6848,6 +7072,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6889,6 +7114,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6917,6 +7143,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6956,6 +7183,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -6997,6 +7225,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7025,6 +7254,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7064,6 +7294,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7103,6 +7334,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7144,6 +7376,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7172,6 +7405,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7213,6 +7447,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7256,6 +7491,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7288,6 +7524,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7329,6 +7566,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7376,6 +7614,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7400,6 +7639,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7435,6 +7675,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7476,6 +7717,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7506,6 +7748,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7534,6 +7777,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7561,6 +7805,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7589,6 +7834,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7624,6 +7870,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7651,6 +7898,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7683,6 +7931,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7711,6 +7960,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7750,6 +8000,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7795,6 +8046,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7839,6 +8091,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -7867,6 +8120,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::StringFunctionCompare { .. }
@@ -7906,6 +8160,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::StringFunctionCompare { .. }
@@ -7945,6 +8200,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::StringFunctionCompare { .. }
@@ -7967,6 +8223,10 @@ impl ParsedPredicate {
             | Self::CastCompare {
                 value: ScalarValue::TimestampMicros(_),
                 ..
+            }
+            | Self::TimestampArithmeticCompare {
+                value: ScalarValue::TimestampMicros(_),
+                ..
             } => true,
             Self::InList { values, .. } => values
                 .iter()
@@ -7979,7 +8239,8 @@ impl ParsedPredicate {
                 left.uses_timestamp_literal() || right.uses_timestamp_literal()
             }
             Self::Not { inner } => inner.uses_timestamp_literal(),
-            Self::All
+            Self::TimestampArithmeticCompare { .. }
+            | Self::All
             | Self::Compare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
@@ -8014,6 +8275,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -8053,6 +8315,7 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::StringTransformCompare { .. }
@@ -8092,8 +8355,160 @@ impl ParsedPredicate {
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
             | Self::DateArithmeticCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn uses_timestamp_arithmetic(&self) -> bool {
+        match self {
+            Self::TimestampArithmeticCompare { .. } => true,
+            Self::Logical { left, right, .. } => {
+                left.uses_timestamp_arithmetic() || right.uses_timestamp_arithmetic()
+            }
+            Self::Not { inner } => inner.uses_timestamp_arithmetic(),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => false,
+        }
+    }
+
+    fn timestamp_arithmetic_operator(&self) -> String {
+        let mut operators = Vec::new();
+        self.push_timestamp_arithmetic_operators(&mut operators);
+        if operators.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            operators.join(",")
+        }
+    }
+
+    fn push_timestamp_arithmetic_operators(&self, operators: &mut Vec<&'static str>) {
+        match self {
+            Self::TimestampArithmeticCompare { op, .. } => operators.push(op.as_str()),
+            Self::Logical { left, right, .. } => {
+                left.push_timestamp_arithmetic_operators(operators);
+                right.push_timestamp_arithmetic_operators(operators);
+            }
+            Self::Not { inner } => inner.push_timestamp_arithmetic_operators(operators),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn timestamp_arithmetic_seconds(&self) -> String {
+        let mut values = Vec::new();
+        self.push_timestamp_arithmetic_seconds(&mut values);
+        if values.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            values.join(",")
+        }
+    }
+
+    fn push_timestamp_arithmetic_seconds(&self, values: &mut Vec<String>) {
+        match self {
+            Self::TimestampArithmeticCompare { second_count, .. } => {
+                values.push(second_count.to_string());
+            }
+            Self::Logical { left, right, .. } => {
+                left.push_timestamp_arithmetic_seconds(values);
+                right.push_timestamp_arithmetic_seconds(values);
+            }
+            Self::Not { inner } => inner.push_timestamp_arithmetic_seconds(values),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::InSubquery { .. }
+            | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn timestamp_arithmetic_source_columns(&self) -> String {
+        let mut columns = Vec::new();
+        self.push_timestamp_arithmetic_source_columns(&mut columns);
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn push_timestamp_arithmetic_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
+        match self {
+            Self::TimestampArithmeticCompare { column, .. } => columns.push(column),
+            Self::Logical { left, right, .. } => {
+                left.push_timestamp_arithmetic_source_columns(columns);
+                right.push_timestamp_arithmetic_source_columns(columns);
+            }
+            Self::Not { inner } => inner.push_timestamp_arithmetic_source_columns(columns),
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::GenericExpressionCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
             | Self::StringTransformCompare { .. }
             | Self::StringFunctionCompare { .. }
             | Self::BooleanPredicate { .. }
@@ -8119,6 +8534,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -8158,6 +8574,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -8197,6 +8614,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -8236,6 +8654,7 @@ impl ParsedPredicate {
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
             | Self::GenericExpressionCompare { .. }
+            | Self::TimestampArithmeticCompare { .. }
             | Self::DateExtractCompare { .. }
             | Self::StringLengthCompare { .. }
             | Self::TimestampExtractCompare { .. }
@@ -8593,6 +9012,41 @@ fn date_arithmetic_compare_expression(
             op: comparison,
             right: Box::new(Expression::literal(
                 ExprId::new("where.date_arithmetic.literal")?,
+                value.clone(),
+            )),
+        },
+    ))
+}
+
+fn timestamp_arithmetic_compare_expression(
+    column: &str,
+    op: TimestampArithmeticOp,
+    second_count: i64,
+    comparison: ComparisonOp,
+    value: &ScalarValue,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.timestamp_arithmetic_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::new(
+                ExprId::new(format!("where.timestamp_arithmetic.{column}"))?,
+                ExpressionKind::FunctionCall {
+                    name: op.function_name().to_string(),
+                    args: vec![
+                        Expression::column(
+                            ExprId::new(format!("where.{column}"))?,
+                            ColumnRef::new(column.to_string())?,
+                        ),
+                        Expression::literal(
+                            ExprId::new("where.timestamp_arithmetic.seconds")?,
+                            ScalarValue::Int64(second_count),
+                        ),
+                    ],
+                },
+            )),
+            op: comparison,
+            right: Box::new(Expression::literal(
+                ExprId::new("where.timestamp_arithmetic.literal")?,
                 value.clone(),
             )),
         },
@@ -9457,6 +9911,25 @@ impl SqlLocalSourceReport {
                 self.parsed.predicate.date_arithmetic_source_columns(),
             ),
             (
+                "timestamp_arithmetic_runtime_execution".to_string(),
+                self.parsed
+                    .predicate
+                    .uses_timestamp_arithmetic()
+                    .to_string(),
+            ),
+            (
+                "timestamp_arithmetic_operator".to_string(),
+                self.parsed.predicate.timestamp_arithmetic_operator(),
+            ),
+            (
+                "timestamp_arithmetic_seconds".to_string(),
+                self.parsed.predicate.timestamp_arithmetic_seconds(),
+            ),
+            (
+                "timestamp_arithmetic_source_column".to_string(),
+                self.parsed.predicate.timestamp_arithmetic_source_columns(),
+            ),
+            (
                 "cast_runtime_execution".to_string(),
                 self.parsed.predicate.uses_cast().to_string(),
             ),
@@ -9647,6 +10120,28 @@ impl SqlLocalSourceReport {
             (
                 "date_arithmetic_projection_output_column".to_string(),
                 self.parsed.date_arithmetic_projection_output_columns(),
+            ),
+            (
+                "timestamp_arithmetic_projection_runtime_execution".to_string(),
+                self.parsed
+                    .has_timestamp_arithmetic_projection()
+                    .to_string(),
+            ),
+            (
+                "timestamp_arithmetic_projection_operator".to_string(),
+                self.parsed.timestamp_arithmetic_projection_operators(),
+            ),
+            (
+                "timestamp_arithmetic_projection_seconds".to_string(),
+                self.parsed.timestamp_arithmetic_projection_seconds(),
+            ),
+            (
+                "timestamp_arithmetic_projection_source_column".to_string(),
+                self.parsed.timestamp_arithmetic_projection_source_columns(),
+            ),
+            (
+                "timestamp_arithmetic_projection_output_column".to_string(),
+                self.parsed.timestamp_arithmetic_projection_output_columns(),
             ),
             (
                 "string_length_projection_runtime_execution".to_string(),
@@ -11222,6 +11717,7 @@ fn parsed_sql_local_source_from_parts(
         numeric_rounding_projections: projection_list.numeric_rounding_projections,
         generic_expression_projections: projection_list.generic_expression_projections,
         date_arithmetic_projections: projection_list.date_arithmetic_projections,
+        timestamp_arithmetic_projections: projection_list.timestamp_arithmetic_projections,
         string_length_projections: projection_list.string_length_projections,
         string_transform_projections: projection_list.string_transform_projections,
         string_function_projections: projection_list.string_function_projections,
@@ -11272,6 +11768,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut numeric_rounding_projections = Vec::new();
     let mut generic_expression_projections = Vec::new();
     let mut date_arithmetic_projections = Vec::new();
+    let mut timestamp_arithmetic_projections = Vec::new();
     let mut string_length_projections = Vec::new();
     let mut string_transform_projections = Vec::new();
     let mut string_function_projections = Vec::new();
@@ -11311,6 +11808,10 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             parse_date_arithmetic_projection(projection)?
         {
             date_arithmetic_projections.push(date_arithmetic_projection);
+        } else if let Some(timestamp_arithmetic_projection) =
+            parse_timestamp_arithmetic_projection(projection)?
+        {
+            timestamp_arithmetic_projections.push(timestamp_arithmetic_projection);
         } else if let Some(length_projection) = parse_string_length_projection(projection)? {
             string_length_projections.push(length_projection);
         } else if let Some(transform_projection) = parse_string_transform_projection(projection)? {
@@ -11340,6 +11841,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         numeric_rounding_projections,
         generic_expression_projections,
         date_arithmetic_projections,
+        timestamp_arithmetic_projections,
         string_length_projections,
         string_transform_projections,
         string_function_projections,
@@ -12277,6 +12779,59 @@ fn parse_date_arithmetic_projection(
     }))
 }
 
+fn parse_timestamp_arithmetic_projection(
+    raw: &str,
+) -> Result<Option<ParsedTimestampArithmeticProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    let Some((function_name, op)) = [
+        ("timestamp_add_seconds", TimestampArithmeticOp::AddSeconds),
+        ("timestamp_sub_seconds", TimestampArithmeticOp::SubSeconds),
+    ]
+    .into_iter()
+    .find(|(name, _)| {
+        expression_raw
+            .get(..name.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && expression_raw.as_bytes().get(name.len()) == Some(&b'(')
+    }) else {
+        return Ok(None);
+    };
+    if alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "timestamp arithmetic projections require an output alias",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let open_index = function_name.len();
+    let close_index = matching_closing_parenthesis(expression_raw, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "timestamp arithmetic projections must use TIMESTAMP_ADD_SECONDS(<column>, <seconds>) AS <column> or TIMESTAMP_SUB_SECONDS(<column>, <seconds>) AS <column>",
+        )
+    })?;
+    if !expression_raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "timestamp arithmetic projections must be a single TIMESTAMP_ADD_SECONDS/TIMESTAMP_SUB_SECONDS expression before AS",
+        ));
+    }
+    let inner = expression_raw[open_index + 1..close_index].trim();
+    let args = split_sql_csv(inner)?;
+    let [column_raw, second_count_raw] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "timestamp arithmetic projections require exactly two arguments: <column>, <seconds>",
+        ));
+    };
+    Ok(Some(ParsedTimestampArithmeticProjection {
+        alias: alias.to_string(),
+        column: parse_timestamp_arithmetic_column_arg(column_raw)?,
+        op,
+        second_count: parse_timestamp_arithmetic_seconds(second_count_raw)?,
+    }))
+}
+
 fn parse_string_transform_projection(
     raw: &str,
 ) -> Result<Option<ParsedStringTransformProjection>, ShardLoomError> {
@@ -12991,6 +13546,9 @@ fn parse_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
     if let Some(predicate) = parse_date_arithmetic_predicate(raw)? {
         return Ok(predicate);
     }
+    if let Some(predicate) = parse_timestamp_arithmetic_predicate(raw)? {
+        return Ok(predicate);
+    }
     if let Some(predicate) = parse_cast_predicate(raw)? {
         return Ok(predicate);
     }
@@ -13106,7 +13664,7 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -13420,6 +13978,65 @@ fn parse_date_arithmetic_predicate(raw: &str) -> Result<Option<ParsedPredicate>,
     }))
 }
 
+fn parse_timestamp_arithmetic_predicate(
+    raw: &str,
+) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let trimmed = raw.trim();
+    let Some((function_name, op)) = [
+        ("timestamp_add_seconds", TimestampArithmeticOp::AddSeconds),
+        ("timestamp_sub_seconds", TimestampArithmeticOp::SubSeconds),
+    ]
+    .into_iter()
+    .find(|(name, _)| {
+        trimmed
+            .get(..name.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && trimmed.as_bytes().get(name.len()) == Some(&b'(')
+    }) else {
+        return Ok(None);
+    };
+
+    let open_index = function_name.len();
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "timestamp arithmetic predicates must use TIMESTAMP_ADD_SECONDS(<column>, <seconds>) or TIMESTAMP_SUB_SECONDS(<column>, <seconds>)",
+        )
+    })?;
+    let inner = trimmed[open_index + 1..close_index].trim();
+    let tail = trimmed[close_index + 1..].trim();
+    if inner.is_empty() || tail.is_empty() {
+        return Err(unsupported_sql_error(
+            "timestamp arithmetic predicates require a source column, second count, comparison operator, and TIMESTAMP literal",
+        ));
+    }
+    let args = split_sql_csv(inner)?;
+    let [column_raw, second_count_raw] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "timestamp arithmetic predicates require exactly two arguments: <column>, <seconds>",
+        ));
+    };
+    let column = parse_timestamp_arithmetic_column_arg(column_raw)?;
+    let second_count = parse_timestamp_arithmetic_seconds(second_count_raw)?;
+    let tokens = split_whitespace_outside_quotes(tail)?;
+    let [op_raw, timestamp_keyword, literal_raw] = tokens.as_slice() else {
+        return Err(unsupported_sql_error(
+            "timestamp arithmetic predicates admit TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal> or TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>",
+        ));
+    };
+    if !timestamp_keyword.eq_ignore_ascii_case("timestamp") {
+        return Err(unsupported_sql_error(
+            "timestamp arithmetic predicates compare against TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z' literals only",
+        ));
+    }
+    Ok(Some(ParsedPredicate::TimestampArithmeticCompare {
+        column,
+        op,
+        second_count,
+        comparison: parse_comparison_op(op_raw)?,
+        value: parse_sql_timestamp_literal(literal_raw)?,
+    }))
+}
+
 fn parse_date_extract_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
     let trimmed = raw.trim();
     let Some((function_name, op)) = [
@@ -13552,6 +14169,45 @@ fn parse_timestamp_extract_column_arg(raw: &str) -> Result<String, ShardLoomErro
     Ok(column.to_string())
 }
 
+fn parse_timestamp_arithmetic_column_arg(raw: &str) -> Result<String, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
+    {
+        validate_sql_column_ref(trimmed)?;
+        return Ok(trimmed.to_string());
+    }
+    let close_index = matching_closing_parenthesis(trimmed, 4)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "timestamp arithmetic CAST arguments must use CAST(<column> AS timestamp_micros)",
+        )
+    })?;
+    if !trimmed[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "timestamp arithmetic CAST arguments must be a single CAST(<column> AS timestamp_micros) expression",
+        ));
+    }
+    let inner = trimmed[5..close_index].trim();
+    let as_index = find_keyword_outside_quotes(inner, "as").ok_or_else(|| {
+        unsupported_sql_error(
+            "timestamp arithmetic CAST arguments must use CAST(<column> AS timestamp_micros)",
+        )
+    })?;
+    let column = inner[..as_index].trim();
+    let target_raw = inner[as_index + 2..].trim();
+    validate_sql_column_ref(column)?;
+    if !matches!(
+        parse_cast_target_dtype(target_raw)?,
+        LogicalDType::TimestampMicros
+    ) {
+        return Err(unsupported_sql_error(
+            "timestamp arithmetic CAST arguments support timestamp_micros target dtype only",
+        ));
+    }
+    Ok(column.to_string())
+}
+
 fn parse_date_extract_literal(raw: &str) -> Result<ScalarValue, ShardLoomError> {
     match parse_sql_literal(raw.trim())? {
         ScalarValue::Int64(value) => Ok(ScalarValue::Int64(value)),
@@ -13612,6 +14268,33 @@ fn parse_date_arithmetic_days(raw: &str) -> Result<i32, ShardLoomError> {
     if i64::from(value).abs() > i64::from(MAX_DATE_ARITHMETIC_DAYS) {
         return Err(unsupported_sql_error(&format!(
             "date arithmetic day count admits absolute values <= {MAX_DATE_ARITHMETIC_DAYS}"
+        )));
+    }
+    Ok(value)
+}
+
+fn parse_timestamp_arithmetic_seconds(raw: &str) -> Result<i64, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty()
+        || !trimmed
+            .chars()
+            .enumerate()
+            .all(|(index, ch)| ch.is_ascii_digit() || (index == 0 && matches!(ch, '+' | '-')))
+        || matches!(trimmed, "+" | "-")
+    {
+        return Err(unsupported_sql_error(
+            "timestamp arithmetic second count must be a signed integer literal",
+        ));
+    }
+    let value = trimmed.parse::<i64>().map_err(|_| {
+        unsupported_sql_error("timestamp arithmetic second count must fit in signed 64-bit seconds")
+    })?;
+    if value
+        .checked_abs()
+        .is_none_or(|abs| abs > MAX_TIMESTAMP_ARITHMETIC_SECONDS)
+    {
+        return Err(unsupported_sql_error(&format!(
+            "timestamp arithmetic second count admits absolute values <= {MAX_TIMESTAMP_ARITHMETIC_SECONDS}"
         )));
     }
     Ok(value)
@@ -15157,6 +15840,78 @@ mod tests {
         assert_eq!(
             parsed.date_arithmetic_projection_output_columns(),
             "next_week,prior_day"
+        );
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_timestamp_arithmetic_projection_and_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,TIMESTAMP_ADD_SECONDS(CAST(event_ts AS timestamp_micros), 90) AS shifted_ts,TIMESTAMP_SUB_SECONDS(event_ts, 45) AS prior_ts FROM 'target/input.csv' WHERE TIMESTAMP_ADD_SECONDS(event_ts, 60) >= TIMESTAMP '2026-05-19T12:35:45Z' LIMIT 5",
+        )
+        .expect("timestamp arithmetic projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.timestamp_arithmetic_projections.len(), 2);
+        assert_eq!(
+            parsed.timestamp_arithmetic_projections[0].alias,
+            "shifted_ts"
+        );
+        assert_eq!(
+            parsed.timestamp_arithmetic_projections[0].column,
+            "event_ts"
+        );
+        assert_eq!(
+            parsed.timestamp_arithmetic_projections[0].op,
+            TimestampArithmeticOp::AddSeconds
+        );
+        assert_eq!(parsed.timestamp_arithmetic_projections[0].second_count, 90);
+        assert_eq!(parsed.timestamp_arithmetic_projections[1].alias, "prior_ts");
+        assert_eq!(
+            parsed.timestamp_arithmetic_projections[1].op,
+            TimestampArithmeticOp::SubSeconds
+        );
+        assert_eq!(
+            parsed.timestamp_arithmetic_projection_operators(),
+            "timestamp_add_seconds,timestamp_sub_seconds"
+        );
+        assert_eq!(
+            parsed.timestamp_arithmetic_projection_source_columns(),
+            "event_ts,event_ts"
+        );
+        assert_eq!(parsed.timestamp_arithmetic_projection_seconds(), "90,45");
+        assert_eq!(
+            parsed.timestamp_arithmetic_projection_output_columns(),
+            "shifted_ts,prior_ts"
+        );
+        assert!(matches!(
+            parsed.predicate,
+            ParsedPredicate::TimestampArithmeticCompare {
+                ref column,
+                op: TimestampArithmeticOp::AddSeconds,
+                second_count: 60,
+                comparison: ComparisonOp::GtEq,
+                value: ScalarValue::TimestampMicros(_),
+            } if column == "event_ts"
+        ));
+        assert_eq!(parsed.predicate.family(), "timestamp_arithmetic");
+        assert!(parsed.predicate.uses_timestamp_literal());
+        assert!(parsed.predicate.uses_timestamp_arithmetic());
+        assert_eq!(
+            parsed.predicate.timestamp_arithmetic_operator(),
+            "timestamp_add_seconds"
+        );
+        assert_eq!(parsed.predicate.timestamp_arithmetic_seconds(), "60");
+        assert_eq!(
+            parsed.predicate.timestamp_arithmetic_source_columns(),
+            "event_ts"
         );
         assert_eq!(
             parsed.statement_kind(),

@@ -66,6 +66,15 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `date_arithmetic_operator`
 - `date_arithmetic_days`
 - `date_arithmetic_source_column`
+- `timestamp_arithmetic_runtime_execution`
+- `timestamp_arithmetic_operator`
+- `timestamp_arithmetic_seconds`
+- `timestamp_arithmetic_source_column`
+- `timestamp_arithmetic_projection_runtime_execution`
+- `timestamp_arithmetic_projection_operator`
+- `timestamp_arithmetic_projection_seconds`
+- `timestamp_arithmetic_projection_source_column`
+- `timestamp_arithmetic_projection_output_column`
 - `in_predicate_runtime_execution`
 - `in_list_value_count`
 - `aggregate_runtime_execution`
@@ -111,7 +120,7 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 
 ## Expected Output Or Evidence
 
-A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL/CSV or feature-gated flat scalar Parquet output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, string transform and scoped string-function fields when requested, date extract/arithmetic fields when requested, IN evidence when requested, scalar/grouped/top-N/join/join-computed-top-N/join-aggregate fields when requested, left/right source refs for join rows, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL/CSV or feature-gated flat scalar Parquet output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, string transform, timestamp arithmetic, and scoped string-function fields when requested, date extract/arithmetic and timestamp arithmetic fields when requested, IN evidence when requested, scalar/grouped/top-N/join/join-computed-top-N/join-aggregate fields when requested, left/right source refs for join rows, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

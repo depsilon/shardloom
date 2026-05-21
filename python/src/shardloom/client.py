@@ -795,6 +795,39 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def timestamp_arithmetic_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted UTC timestamp arithmetic predicate."""
+
+        return self.envelope.field_bool("timestamp_arithmetic_runtime_execution", False) is True
+
+    @property
+    def timestamp_arithmetic_operator(self) -> tuple[str, ...]:
+        """Return UTC timestamp arithmetic operators emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_arithmetic_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def timestamp_arithmetic_seconds(self) -> tuple[str, ...]:
+        """Return UTC timestamp arithmetic second offsets emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_arithmetic_seconds", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def timestamp_arithmetic_source_columns(self) -> tuple[str, ...]:
+        """Return UTC timestamp arithmetic source columns emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_arithmetic_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def string_predicate_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted string predicate leaf."""
 
@@ -1405,6 +1438,53 @@ class SqlLocalSourceSmokeReport:
         """Return Date32 day arithmetic projection output columns emitted by the smoke."""
 
         value = self.envelope.field("date_arithmetic_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def timestamp_arithmetic_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted UTC timestamp arithmetic projection."""
+
+        return (
+            self.envelope.field_bool(
+                "timestamp_arithmetic_projection_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def timestamp_arithmetic_projection_operator(self) -> tuple[str, ...]:
+        """Return UTC timestamp arithmetic projection operators emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_arithmetic_projection_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def timestamp_arithmetic_projection_seconds(self) -> tuple[str, ...]:
+        """Return UTC timestamp arithmetic projection second counts emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_arithmetic_projection_seconds", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def timestamp_arithmetic_projection_source_columns(self) -> tuple[str, ...]:
+        """Return UTC timestamp arithmetic projection source columns emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_arithmetic_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def timestamp_arithmetic_projection_output_columns(self) -> tuple[str, ...]:
+        """Return UTC timestamp arithmetic projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("timestamp_arithmetic_projection_output_column", "")
         if not value or value == "not_applicable":
             return ()
         return tuple(part for part in value.split(",") if part)

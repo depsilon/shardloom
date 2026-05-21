@@ -461,7 +461,8 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `is_true()`, `is_false()`, `is_not_true()`, `is_not_false()`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
-`timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons, and the scoped
+`timestamp_hour()`, `timestamp_minute()`, `timestamp_second()`,
+`timestamp_add_seconds(seconds)`, and `timestamp_sub_seconds(seconds)` comparisons, and the scoped
 UTF-8 `length()` helper, numeric `abs()` / `floor()` / `ceil()` / `round()` helpers, and numeric `+`, `-`, `*`, and `/` operators for arithmetic predicates, including scoped generalized numeric expression-tree filters such as `(sl.col("amount") + sl.col("tax")) * 2 >= 40`, into the same
 ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed computed `with_column(...)` is also admitted after an explicit `select(...)` for local
@@ -483,7 +484,9 @@ projections, and scoped Date32/UTC timestamp extract projections such as
 `sl.col("event_date").cast("date32").date_year()` or
 `sl.col("event_ts").cast("timestamp_micros").timestamp_hour()`, plus scoped Date32 day arithmetic
 projections such as `sl.col("event_date").cast("date32").date_add_days(7)` or
-`.date_sub_days(1)`, and scoped null-cleanup projections such as
+`.date_sub_days(1)`, scoped UTC timestamp second arithmetic projections such as
+`sl.col("event_ts").cast("timestamp_micros").timestamp_add_seconds(60)` or
+`.timestamp_sub_seconds(45)`, and scoped null-cleanup projections such as
 `sl.col("label").fill_null("unknown")` or
 `sl.col("event_date").cast("date32").fill_null(date(2026, 1, 1))`, scoped null-sentinel
 cleanup projections such as `sl.col("label").null_if("missing")` or
@@ -499,7 +502,8 @@ projections emit `numeric_abs_projection_*` evidence; numeric rounding projectio
 projections emit `string_transform_projection_*` evidence; string length projections emit
 `string_length_projection_*` evidence; date/time extract projections emit
 `date_extract_projection_*` and `timestamp_extract_projection_*` evidence; date arithmetic
-projections emit `date_arithmetic_projection_*` evidence; null coalesce projections emit
+projections emit `date_arithmetic_projection_*` evidence; UTC timestamp arithmetic predicates and
+projections emit `timestamp_arithmetic_*` and `timestamp_arithmetic_projection_*` evidence; null coalesce projections emit
 `null_coalesce_projection_*` evidence; nullif projections emit `nullif_projection_*` evidence;
 conditional projections emit
 `conditional_projection_*` evidence. Mixed `int64`/`float64` arithmetic promotes to `float64`

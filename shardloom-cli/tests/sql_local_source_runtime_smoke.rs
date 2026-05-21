@@ -1698,6 +1698,101 @@ fn sql_local_source_smoke_executes_date_arithmetic_projection_without_fallback()
 }
 
 #[test]
+fn sql_local_source_smoke_executes_timestamp_arithmetic_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-timestamp-arithmetic-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,event_ts\n\
+         1,2026-05-19T12:34:00Z\n\
+         2,2026-05-19T12:34:45Z\n\
+         3,\n\
+         4,2026-05-19T12:35:00Z\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,TIMESTAMP_ADD_SECONDS(CAST(event_ts AS timestamp_micros), 90) AS shifted_ts,TIMESTAMP_SUB_SECONDS(event_ts, 45) AS prior_ts FROM '{}' WHERE TIMESTAMP_ADD_SECONDS(event_ts, 60) >= TIMESTAMP '2026-05-19T12:35:45Z' LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("predicate_operator_family", "timestamp_arithmetic")));
+    assert!(stdout.contains(&field("timestamp_literal_runtime_execution", "true")));
+    assert!(stdout.contains(&field("timestamp_arithmetic_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "timestamp_arithmetic_operator",
+        "timestamp_add_seconds"
+    )));
+    assert!(stdout.contains(&field("timestamp_arithmetic_seconds", "60")));
+    assert!(stdout.contains(&field("timestamp_arithmetic_source_column", "event_ts")));
+    assert!(stdout.contains(&field(
+        "timestamp_arithmetic_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "timestamp_arithmetic_projection_operator",
+        "timestamp_add_seconds,timestamp_sub_seconds"
+    )));
+    assert!(stdout.contains(&field("timestamp_arithmetic_projection_seconds", "90,45")));
+    assert!(stdout.contains(&field(
+        "timestamp_arithmetic_projection_source_column",
+        "event_ts,event_ts"
+    )));
+    assert!(stdout.contains(&field(
+        "timestamp_arithmetic_projection_output_column",
+        "shifted_ts,prior_ts"
+    )));
+    assert!(stdout.contains(&field("projected_columns", "id,shifted_ts,prior_ts")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"shifted_ts\\\":\\\"2026-05-19T12:36:15Z\\\",\\\"prior_ts\\\":\\\"2026-05-19T12:34:00Z\\\"}\\n{\\\"id\\\":4,\\\"shifted_ts\\\":\\\"2026-05-19T12:36:30Z\\\",\\\"prior_ts\\\":\\\"2026-05-19T12:34:15Z\\\"}\\n\""
+    ));
+
+    let blocked_statement = format!(
+        "SELECT id,TIMESTAMP_ADD_SECONDS(event_ts, 31622400001) AS too_far FROM '{}' LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(
+        blocked_output
+            .contains("timestamp arithmetic second count admits absolute values <= 31622400000")
+    );
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_null_coalesce_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-null-coalesce-projection", "csv");
     fs::write(

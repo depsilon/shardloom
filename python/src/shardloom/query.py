@@ -389,6 +389,22 @@ class ColumnExpression:
         normalized_days = _normalize_date_arithmetic_days(days)
         return ColumnExpression(f"DATE_SUB_DAYS({self.sql}, {normalized_days})")
 
+    def timestamp_add_seconds(self, seconds: object) -> "ColumnExpression":
+        """Return a scoped UTC timestamp second-add expression for predicates."""
+
+        normalized_seconds = _normalize_timestamp_arithmetic_seconds(seconds)
+        return ColumnExpression(
+            f"TIMESTAMP_ADD_SECONDS({self.sql}, {normalized_seconds})"
+        )
+
+    def timestamp_sub_seconds(self, seconds: object) -> "ColumnExpression":
+        """Return a scoped UTC timestamp second-subtract expression for predicates."""
+
+        normalized_seconds = _normalize_timestamp_arithmetic_seconds(seconds)
+        return ColumnExpression(
+            f"TIMESTAMP_SUB_SECONDS({self.sql}, {normalized_seconds})"
+        )
+
     def date_year(self) -> "ColumnExpression":
         """Return a scoped Date32 year-extract expression for date predicates."""
 
@@ -3040,6 +3056,28 @@ def _normalize_date_arithmetic_days(value: object) -> int:
     return days
 
 
+def _normalize_timestamp_arithmetic_seconds(value: object) -> int:
+    if isinstance(value, bool):
+        raise ValueError("timestamp arithmetic seconds must be a signed integer literal")
+    if isinstance(value, int):
+        seconds = value
+    else:
+        text = _require_non_empty("timestamp arithmetic seconds", value)
+        if text in {"+", "-"} or not all(
+            ch.isdigit() or (index == 0 and ch in {"+", "-"})
+            for index, ch in enumerate(text)
+        ):
+            raise ValueError(
+                "timestamp arithmetic seconds must be a signed integer literal"
+            )
+        seconds = int(text)
+    if builtins.abs(seconds) > 31_622_400_000:
+        raise ValueError(
+            "timestamp arithmetic seconds admits absolute values <= 31622400000"
+        )
+    return seconds
+
+
 def _sql_string_literal(value: object) -> str:
     text = _require_non_empty("string literal", value)
     return "'" + text.replace("'", "''") + "'"
@@ -3235,6 +3273,7 @@ def _sql_computed_projection_expression(expression: object) -> str:
         _sql_numeric_rounding_projection_expression,
         _sql_generic_expression_projection_expression,
         _sql_date_arithmetic_projection_expression,
+        _sql_timestamp_arithmetic_projection_expression,
         _sql_string_length_projection_expression,
         _sql_string_transform_projection_expression,
         _sql_string_function_projection_expression,
@@ -3363,6 +3402,30 @@ def _sql_date_arithmetic_projection_expression(expression: object) -> str:
     column = _normalize_temporal_extract_column(args[0], "date32")
     days = _normalize_date_arithmetic_days(args[1])
     return f"{function}({column}, {days})"
+
+
+def _sql_timestamp_arithmetic_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits TIMESTAMP_ADD_SECONDS/TIMESTAMP_SUB_SECONDS expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"TIMESTAMP_ADD_SECONDS", "TIMESTAMP_SUB_SECONDS"}:
+        raise ValueError(
+            "computed with_column currently admits TIMESTAMP_ADD_SECONDS/TIMESTAMP_SUB_SECONDS expressions"
+        )
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if len(args) != 2:
+        raise ValueError(
+            "timestamp arithmetic with_column expressions require exactly two arguments"
+        )
+    column = _normalize_temporal_extract_column(args[0], "timestamp_micros")
+    seconds = _normalize_timestamp_arithmetic_seconds(args[1])
+    return f"{function}({column}, {seconds})"
 
 
 def _sql_string_transform_projection_expression(expression: object) -> str:
