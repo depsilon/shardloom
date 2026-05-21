@@ -1941,6 +1941,42 @@ class SqlLocalSourceSmokeReport:
         return _csv_values(value)
 
     @property
+    def distinct_aggregate_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted DISTINCT aggregate."""
+
+        return (
+            self.envelope.field_bool("distinct_aggregate_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def distinct_aggregate_functions(self) -> tuple[str, ...]:
+        """Return DISTINCT aggregate function labels emitted by the smoke."""
+
+        value = self.envelope.field("distinct_aggregate_function")
+        if value == "not_applicable":
+            return ()
+        return _csv_values(value)
+
+    @property
+    def distinct_aggregate_columns(self) -> tuple[str, ...]:
+        """Return DISTINCT aggregate source columns emitted by the smoke."""
+
+        value = self.envelope.field("distinct_aggregate_column")
+        if value == "not_applicable":
+            return ()
+        return _csv_values(value)
+
+    @property
+    def distinct_aggregate_null_semantics(self) -> str | None:
+        """Return DISTINCT aggregate null-semantics evidence."""
+
+        value = self.envelope.field("distinct_aggregate_null_semantics")
+        if value == "not_applicable":
+            return None
+        return value
+
+    @property
     def group_by_runtime_execution(self) -> bool:
         """Whether this smoke executed the admitted grouped aggregate path."""
 

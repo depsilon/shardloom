@@ -2211,6 +2211,16 @@ def case_when(predicate: object, then_value: object, else_value: object) -> Colu
     )
 
 
+def count_distinct(column_expression: object) -> str:
+    """Return a scoped `count(DISTINCT column)` aggregate expression."""
+
+    if isinstance(column_expression, ColumnExpression):
+        column_sql = column_expression.sql
+    else:
+        column_sql = _normalize_expression_column(column_expression)
+    return f"count(DISTINCT {column_sql})"
+
+
 def null_if(column_expression: object, value: object) -> ColumnExpression:
     """Return a scoped `NULLIF(column, literal)` computed-column expression."""
 
