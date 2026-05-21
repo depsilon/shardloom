@@ -1669,6 +1669,30 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def aggregate_output_columns(self) -> tuple[str, ...]:
+        """Return aggregate output column names emitted by the smoke."""
+
+        value = self.envelope.field("aggregate_output_columns")
+        if value == "not_applicable":
+            return ()
+        return _csv_values(value)
+
+    @property
+    def aggregate_alias_runtime_execution(self) -> bool:
+        """Whether this smoke executed aggregate output aliases."""
+
+        return self.envelope.field_bool("aggregate_alias_runtime_execution", False) is True
+
+    @property
+    def aggregate_aliases(self) -> tuple[str, ...]:
+        """Return explicit aggregate aliases emitted by the smoke."""
+
+        value = self.envelope.field("aggregate_aliases")
+        if value == "not_applicable":
+            return ()
+        return _csv_values(value)
+
+    @property
     def group_by_runtime_execution(self) -> bool:
         """Whether this smoke executed the admitted grouped aggregate path."""
 

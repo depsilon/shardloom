@@ -514,7 +514,8 @@ JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are 
 `aggregate(...).limit(1)` with an optional filter for `COUNT`, `SUM`, `AVG`,
 `MIN`, and `MAX`. The convenience `count()` method lowers to the same
 `COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. Multi-key grouped aggregates shaped as
-`group_by(...).agg(...).limit(n)` with an optional filter, and a single-key
+`group_by(...).agg(...).limit(n)` with an optional filter are supported, including named
+aggregate aliases such as `agg(rows="count(*)", total="sum(amount)")`. A single-key
 numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric sort
 keys. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL/CSV file
@@ -835,13 +836,15 @@ print(report.first_result_row)
 print(report.claim_gate_status)
 
 grouped = client.sql_local_source_smoke(
-    "SELECT region,segment,count(*),sum(amount) "
+    "SELECT region,segment,count(*) AS rows,sum(amount) AS total_amount "
     "FROM 'target/sql-local-source-smoke.csv' "
     "WHERE amount >= 10 GROUP BY region,segment LIMIT 10",
 )
 print(grouped.group_by_columns)
 print(grouped.group_by_key_arity)
 print(grouped.group_by_multi_key_runtime_execution)
+print(grouped.aggregate_output_columns)
+print(grouped.aggregate_aliases)
 print(grouped.group_by_group_count)
 
 topn = client.sql_local_source_smoke(
@@ -864,8 +867,8 @@ print(join.join_left_key, join.join_right_key)
 print(join.join_matched_row_count, join.join_rows_output)
 ```
 
-That path is still fixture-smoke evidence only. Named grouped aggregate aliases,
-broader grouped aggregate generality, multi-key sorts, null ordering, collation parity,
+That path is still fixture-smoke evidence only. Broader grouped aggregate generality,
+multi-key sorts, null ordering, collation parity,
 broader correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source inner-equi query-builder bridge, broad expression-backed input-backed `with_column`,
@@ -895,6 +898,7 @@ import shardloom as sl
 
 ctx = sl.context()
 workflow = ctx.read_csv("events.csv").filter("amount > 0")
+selected_workflow = workflow.select("customer_id", "amount")
 
 reports = [
     sl.from_pandas(object()),
@@ -906,9 +910,9 @@ reports = [
     workflow.to_numpy(),
     workflow.to_python_objects(),
     workflow.with_column("event_date", "to_date(ts)"),
-    workflow.group_by("customer_id", "region").agg(total="sum(amount)"),
-    workflow.group_by("customer_id").agg(total="sum(amount)"),
-    workflow.agg("count(*)"),
+    selected_workflow.group_by("customer_id", "region").agg(total="sum(amount)"),
+    selected_workflow.group_by("customer_id").agg(total="sum(amount)"),
+    selected_workflow.agg("count(*)"),
     workflow.sort("event_date"),
     workflow.schema(),
     workflow.describe_schema(),

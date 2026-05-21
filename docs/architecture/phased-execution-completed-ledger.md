@@ -16,6 +16,29 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F scoped SQL/Python aggregate alias runtime
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-aggregate-aliases` / #880.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
+    - SQL local-source aggregate runtime
+    - Python query-builder grouped/scalar aggregate surface.
+  - Scope:
+    - Promoted scoped aggregate `AS` output aliases for scalar and grouped local-source aggregates.
+    - Added deterministic aggregate output-name validation so duplicate aliases and group-key/aggregate-name collisions fail before result rendering.
+    - Added Python named aggregate lowering for `agg(rows="count(*)", total="sum(amount)")` on scalar and grouped local-source workflows.
+    - Added typed report accessors for aggregate output columns, explicit aliases, and alias runtime execution.
+  - Evidence:
+    - `aggregate_runtime_execution=true`, `aggregate_operator_family=scalar_aggregate|grouped_aggregate`, `aggregate_functions`, `aggregate_output_columns`, `aggregate_alias_runtime_execution`, `aggregate_aliases`, `projected_columns`, grouped key evidence when present, selected/output row counts, inline JSONL result rows using aliased keys, format-specific execution certificate refs, `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust parser and CLI smoke tests for scalar and multi-key grouped aggregate aliases.
+    - Focused Rust blocker test for duplicate aggregate output names and group-key alias collisions.
+    - Focused Python query-builder tests for named scalar and named multi-key grouped aggregate lowering.
+    - Full verification gates are run before the PR is opened and merged.
+  - Claim boundary:
+    - Scoped local SQL/Python aggregate alias fixture smoke only. This is not broad SQL/DataFrame aggregation parity, expression aggregate support, production SQL support, encoded-native aggregate completeness, claim-grade compute, or performance evidence.
+  - Fallback boundary:
+    - Aggregate aliases are parsed, bound, validated, evaluated, rendered, and evidenced by ShardLoom-native local-source runtime code. External engines remain baseline/oracle-only and are not invoked.
 - [x] Session label: GAR-RUNTIME-IMPL-4F scoped SQL/Python multi-key grouped aggregate runtime
   - Date: 2026-05-21
   - Branch/PR: `runtime-multikey-grouped-aggregates` / #879.

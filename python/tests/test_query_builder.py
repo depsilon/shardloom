@@ -1790,6 +1790,71 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_named_scalar_aggregate_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 10 LIMIT 1",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"rows\\":2,\\"total_amount\\":36}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_aggregate_filter_limit"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "scalar_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(*),sum(amount)"},
+                        {"key": "aggregate_output_columns", "value": "rows,total_amount"},
+                        {"key": "aggregate_alias_runtime_execution", "value": "true"},
+                        {"key": "aggregate_aliases", "value": "rows,total_amount"},
+                        {"key": "projected_columns", "value": "rows,total_amount"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.aggregate-filter-limit.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        aggregate_workflow = ctx.read_csv("target/input.csv").filter(
+            "amount >= 10"
+        ).agg(rows="count(*)", total_amount="sum(amount)")
+        self.assertIsInstance(aggregate_workflow, sl.LazyFrame)
+        report = aggregate_workflow.limit(1).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.result_jsonl, '{"rows":2,"total_amount":36}\n')
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_operator_family, "scalar_aggregate")
+        self.assertEqual(report.aggregate_functions, ("count(*)", "sum(amount)"))
+        self.assertEqual(report.aggregate_output_columns, ("rows", "total_amount"))
+        self.assertTrue(report.aggregate_alias_runtime_execution)
+        self.assertEqual(report.aggregate_aliases, ("rows", "total_amount"))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_count_invokes_scalar_aggregate_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -1987,6 +2052,88 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.aggregate_runtime_execution)
         self.assertEqual(report.aggregate_operator_family, "grouped_aggregate")
         self.assertEqual(report.aggregate_functions, ("count(*)", "sum(amount)"))
+        self.assertTrue(report.group_by_runtime_execution)
+        self.assertEqual(report.group_by_columns, ("region", "segment"))
+        self.assertEqual(report.group_by_key_arity, 2)
+        self.assertTrue(report.group_by_multi_key_runtime_execution)
+        self.assertEqual(report.group_by_group_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_named_multi_key_group_by_aggregate_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT region,segment,count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 10 GROUP BY region,segment LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"region\\":\\"east\\",\\"segment\\":\\"retail\\",\\"rows\\":2,\\"total_amount\\":36}\\n{\\"region\\":\\"west\\",\\"segment\\":\\"enterprise\\",\\"rows\\":1,\\"total_amount\\":18}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_group_by_aggregate_filter_limit"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "grouped_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(*),sum(amount)"},
+                        {"key": "aggregate_output_columns", "value": "rows,total_amount"},
+                        {"key": "aggregate_alias_runtime_execution", "value": "true"},
+                        {"key": "aggregate_aliases", "value": "rows,total_amount"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "group_by_columns", "value": "region,segment"},
+                        {"key": "group_by_key_arity", "value": "2"},
+                        {"key": "group_by_multi_key_runtime_execution", "value": "true"},
+                        {"key": "group_by_group_count", "value": "2"},
+                        {"key": "projected_columns", "value": "region,segment,rows,total_amount"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "3"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.group-by-aggregate-filter-limit.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        grouped_workflow = (
+            ctx.read_csv("target/input.csv")
+            .filter("amount >= 10")
+            .group_by("region", "segment")
+            .agg(rows="count(*)", total_amount="sum(amount)")
+        )
+        self.assertIsInstance(grouped_workflow, sl.LazyFrame)
+        report = grouped_workflow.limit(10).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.result_jsonl,
+            '{"region":"east","segment":"retail","rows":2,"total_amount":36}\n'
+            '{"region":"west","segment":"enterprise","rows":1,"total_amount":18}\n',
+        )
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_operator_family, "grouped_aggregate")
+        self.assertEqual(report.aggregate_functions, ("count(*)", "sum(amount)"))
+        self.assertEqual(report.aggregate_output_columns, ("rows", "total_amount"))
+        self.assertTrue(report.aggregate_alias_runtime_execution)
+        self.assertEqual(report.aggregate_aliases, ("rows", "total_amount"))
         self.assertTrue(report.group_by_runtime_execution)
         self.assertEqual(report.group_by_columns, ("region", "segment"))
         self.assertEqual(report.group_by_key_arity, 2)

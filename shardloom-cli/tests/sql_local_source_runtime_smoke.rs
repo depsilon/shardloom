@@ -3004,6 +3004,11 @@ fn sql_local_source_smoke_executes_scalar_aggregates_without_fallback() {
         "count(*),sum(amount),avg(amount),min(amount),max(amount)"
     )));
     assert!(stdout.contains(&field(
+        "aggregate_output_columns",
+        "count_all,sum_amount,avg_amount,min_amount,max_amount"
+    )));
+    assert!(stdout.contains(&field("aggregate_alias_runtime_execution", "false")));
+    assert!(stdout.contains(&field(
         "projected_columns",
         "count_all,sum_amount,avg_amount,min_amount,max_amount"
     )));
@@ -3011,6 +3016,65 @@ fn sql_local_source_smoke_executes_scalar_aggregates_without_fallback() {
     assert!(stdout.contains(&field("output_row_count", "1")));
     assert!(stdout.contains(
         "\"result_jsonl\",\"value\":\"{\\\"count_all\\\":2,\\\"sum_amount\\\":36,\\\"avg_amount\\\":18.0,\\\"min_amount\\\":15,\\\"max_amount\\\":21}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.aggregate-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_aggregate_aliases_without_fallback() {
+    let source_path = unique_path("sql-local-source-aggregate-alias", "csv");
+    fs::write(
+        &source_path,
+        "id,region,amount\n1,east,10\n2,west,5\n3,east,21\n4,west,\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT count(*) AS rows,sum(amount) AS total_amount,avg(amount) AS mean_amount FROM '{}' WHERE amount >= 10 LIMIT 1",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_aggregate_filter_limit"
+    )));
+    assert!(stdout.contains(&field("aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("aggregate_operator_family", "scalar_aggregate")));
+    assert!(stdout.contains(&field(
+        "aggregate_functions",
+        "count(*),sum(amount),avg(amount)"
+    )));
+    assert!(stdout.contains(&field(
+        "aggregate_output_columns",
+        "rows,total_amount,mean_amount"
+    )));
+    assert!(stdout.contains(&field("aggregate_alias_runtime_execution", "true")));
+    assert!(stdout.contains(&field("aggregate_aliases", "rows,total_amount,mean_amount")));
+    assert!(stdout.contains(&field("projected_columns", "rows,total_amount,mean_amount")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(&field("output_row_count", "1")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"rows\\\":2,\\\"total_amount\\\":31,\\\"mean_amount\\\":15.5}\\n\""
     ));
     assert!(stdout.contains(&field(
         "execution_certificate_ref",
@@ -3124,6 +3188,7 @@ id,region,segment,amount
     assert!(stdout.contains(&field("group_by_multi_key_runtime_execution", "true")));
     assert!(stdout.contains(&field("group_by_group_count", "4")));
     assert!(stdout.contains(&field("aggregate_functions", "count(*),sum(amount)")));
+    assert!(stdout.contains(&field("aggregate_output_columns", "count_all,sum_amount")));
     assert!(stdout.contains(&field(
         "projected_columns",
         "region,segment,count_all,sum_amount"
@@ -3140,6 +3205,139 @@ id,region,segment,amount
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_group_by_aggregate_aliases_without_fallback() {
+    let source_path = unique_path("sql-local-source-group-by-aggregate-alias", "csv");
+    fs::write(
+        &source_path,
+        "\
+id,region,segment,amount
+1,east,retail,10
+2,east,retail,12
+3,east,enterprise,7
+4,west,retail,5
+5,west,enterprise,
+6,west,enterprise,3
+",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT region,segment,count(*) AS rows,sum(amount) AS total_amount FROM '{}' WHERE amount >= 0 GROUP BY region,segment LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_group_by_aggregate_filter_limit"
+    )));
+    assert!(stdout.contains(&field("aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("aggregate_operator_family", "grouped_aggregate")));
+    assert!(stdout.contains(&field("aggregate_functions", "count(*),sum(amount)")));
+    assert!(stdout.contains(&field("aggregate_output_columns", "rows,total_amount")));
+    assert!(stdout.contains(&field("aggregate_alias_runtime_execution", "true")));
+    assert!(stdout.contains(&field("aggregate_aliases", "rows,total_amount")));
+    assert!(stdout.contains(&field("group_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("group_by_columns", "region,segment")));
+    assert!(stdout.contains(&field("group_by_key_arity", "2")));
+    assert!(stdout.contains(&field("group_by_multi_key_runtime_execution", "true")));
+    assert!(stdout.contains(&field("group_by_group_count", "4")));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "region,segment,rows,total_amount"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "5")));
+    assert!(stdout.contains(&field("output_row_count", "4")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"region\\\":\\\"east\\\",\\\"segment\\\":\\\"enterprise\\\",\\\"rows\\\":1,\\\"total_amount\\\":7}\\n{\\\"region\\\":\\\"east\\\",\\\"segment\\\":\\\"retail\\\",\\\"rows\\\":2,\\\"total_amount\\\":22}\\n{\\\"region\\\":\\\"west\\\",\\\"segment\\\":\\\"enterprise\\\",\\\"rows\\\":1,\\\"total_amount\\\":3}\\n{\\\"region\\\":\\\"west\\\",\\\"segment\\\":\\\"retail\\\",\\\"rows\\\":1,\\\"total_amount\\\":5}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.group-by-aggregate-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_duplicate_aggregate_output_names_without_fallback() {
+    let source_path = unique_path("sql-local-source-aggregate-duplicate-output", "csv");
+    fs::write(&source_path, "id,region,amount\n1,east,10\n2,west,5\n").expect("write source csv");
+
+    let duplicate_alias_statement = format!(
+        "SELECT count(*) AS metric,sum(amount) AS metric FROM '{}' LIMIT 1",
+        source_path.display()
+    );
+    let duplicate_alias_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &duplicate_alias_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !duplicate_alias_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&duplicate_alias_output.stdout),
+        String::from_utf8_lossy(&duplicate_alias_output.stderr)
+    );
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&duplicate_alias_output.stdout),
+        String::from_utf8_lossy(&duplicate_alias_output.stderr)
+    );
+    assert!(blocked_output.contains("aggregate smoke requires unique output column names"));
+    assert!(blocked_output.contains("\"fallback\":{\"attempted\":false"));
+
+    let group_column_alias_statement = format!(
+        "SELECT region,count(*) AS region FROM '{}' GROUP BY region LIMIT 10",
+        source_path.display()
+    );
+    let group_column_alias_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &group_column_alias_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !group_column_alias_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&group_column_alias_output.stdout),
+        String::from_utf8_lossy(&group_column_alias_output.stderr)
+    );
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&group_column_alias_output.stdout),
+        String::from_utf8_lossy(&group_column_alias_output.stderr)
+    );
+    assert!(blocked_output.contains("aggregate smoke requires unique output column names"));
+    assert!(blocked_output.contains("\"fallback\":{\"attempted\":false"));
 
     fs::remove_file(source_path).expect("remove source csv");
 }
