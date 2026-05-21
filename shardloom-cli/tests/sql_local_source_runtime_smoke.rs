@@ -210,6 +210,27 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
     assert!(stdout.contains(&field("preparation_included_in_timing", "true")));
     assert!(stdout.contains(&field("query_timing_starts_after_preparation", "false")));
     assert!(stdout.contains("\"key\":\"vortex_digest_millis\""));
+    assert!(stdout.contains(&field(
+        "vortex_array_build_provider_kind",
+        "shardloom_kernel"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_array_build_provider_surface",
+        "shardloom_scalar_rows_to_vortex_struct"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_array_build_strategy",
+        "scalar_rows_to_vortex_struct"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_array_build_input_layout",
+        "materialized_rows"
+    )));
+    assert!(stdout.contains(&field("vortex_array_build_record_batch_count", "0")));
+    assert!(stdout.contains(&field(
+        "vortex_array_build_manual_scalar_copy_avoided",
+        "false"
+    )));
     assert!(stdout.contains(&field("input_row_count", "2")));
     assert!(stdout.contains(&field("writer_row_count", "2")));
     assert!(stdout.contains(&field("reopen_row_count", "2")));
@@ -407,6 +428,27 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_parquet() {
     assert!(stdout.contains(&field("compatibility_parse_millis", "0")));
     assert!(stdout.contains("\"key\":\"source_to_columnar_millis\""));
     assert!(stdout.contains("\"key\":\"vortex_array_build_millis\""));
+    assert!(stdout.contains(&field(
+        "vortex_array_build_provider_kind",
+        "vortex_array_kernel"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_array_build_provider_surface",
+        "ArrayRef::from_arrow(RecordBatch)"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_array_build_strategy",
+        "vortex_from_arrow_record_batch"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_array_build_input_layout",
+        "arrow_record_batch_columnar_source_state"
+    )));
+    assert!(stdout.contains(&field("vortex_array_build_record_batch_count", "1")));
+    assert!(stdout.contains(&field(
+        "vortex_array_build_manual_scalar_copy_avoided",
+        "true"
+    )));
     assert!(stdout.contains(&field("input_row_count", "3")));
     assert!(stdout.contains(&field("writer_row_count", "3")));
     assert!(stdout.contains(&field("reopen_row_count", "3")));

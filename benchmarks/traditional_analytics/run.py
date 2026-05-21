@@ -452,6 +452,12 @@ PREPARED_STATE_CONTRACT_FIELDS = (
     "prepared_state_reuse_reason",
     "preparation_included_in_timing",
     "vortex_prepare_millis",
+    "vortex_array_build_provider_kind",
+    "vortex_array_build_provider_surface",
+    "vortex_array_build_strategy",
+    "vortex_array_build_input_layout",
+    "vortex_array_build_record_batch_count",
+    "vortex_array_build_manual_scalar_copy_avoided",
     "prepared_state_materialization_decode_boundary_ref",
     "prepared_state_native_io_certificate_status",
     "prepared_state_fallback_attempted",
@@ -5874,6 +5880,38 @@ def prepared_state_contract_metadata(
             "preparation_included_in_timing", False
         ),
         "vortex_prepare_millis": metrics.get("preparation_millis"),
+        "vortex_array_build_provider_kind": first_meaningful_field(
+            metrics.get("vortex_array_build_provider_kind"),
+            evidence.get("vortex_array_build_provider_kind"),
+            "not_applicable",
+        ),
+        "vortex_array_build_provider_surface": first_meaningful_field(
+            metrics.get("vortex_array_build_provider_surface"),
+            evidence.get("vortex_array_build_provider_surface"),
+            "not_applicable",
+        ),
+        "vortex_array_build_strategy": first_meaningful_field(
+            metrics.get("vortex_array_build_strategy"),
+            evidence.get("vortex_array_build_strategy"),
+            "not_applicable",
+        ),
+        "vortex_array_build_input_layout": first_meaningful_field(
+            metrics.get("vortex_array_build_input_layout"),
+            evidence.get("vortex_array_build_input_layout"),
+            "not_applicable",
+        ),
+        "vortex_array_build_record_batch_count": (
+            metrics.get("vortex_array_build_record_batch_count")
+            if metrics.get("vortex_array_build_record_batch_count") is not None
+            else parse_optional_int(evidence.get("vortex_array_build_record_batch_count")) or 0
+        ),
+        "vortex_array_build_manual_scalar_copy_avoided": (
+            metrics.get("vortex_array_build_manual_scalar_copy_avoided")
+            if metrics.get("vortex_array_build_manual_scalar_copy_avoided") is not None
+            else parse_optional_bool(
+                evidence.get("vortex_array_build_manual_scalar_copy_avoided")
+            )
+        ),
         "prepared_state_materialization_decode_boundary_ref": MATERIALIZATION_POLICY_REF,
         "prepared_state_native_io_certificate_status": first_meaningful_field(
             evidence.get("source_native_io_certificate_status"),
@@ -7968,6 +8006,34 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             if not parse_optional_int(metrics.get("source_state_record_batch_count")):
                 raise RuntimeError(
                     "structured compatibility-import rows must report SourceState record batches"
+                )
+        if (
+            result.get("selected_execution_mode") == "compatibility_import_certified"
+            and result.get("status") == "success"
+        ):
+            if metrics.get("vortex_array_build_provider_kind") != "vortex_array_kernel":
+                raise RuntimeError(
+                    "compatibility-import rows must report the Vortex array-build provider kind"
+                )
+            if (
+                metrics.get("vortex_array_build_provider_surface")
+                != "ArrayRef::from_arrow(RecordBatch)"
+            ):
+                raise RuntimeError(
+                    "compatibility-import rows must report the Vortex RecordBatch provider surface"
+                )
+            if metrics.get("vortex_array_build_strategy") != "vortex_from_arrow_record_batch":
+                raise RuntimeError(
+                    "compatibility-import rows must report the Vortex RecordBatch build strategy"
+                )
+            if (
+                parse_optional_bool(
+                    metrics.get("vortex_array_build_manual_scalar_copy_avoided")
+                )
+                is not True
+            ):
+                raise RuntimeError(
+                    "compatibility-import rows must prove Vortex array-build scalar-copy avoidance"
                 )
         missing_prepared_state_fields = [
             field for field in PREPARED_STATE_CONTRACT_FIELDS if field not in metrics
@@ -10968,6 +11034,12 @@ def successful_result_from_iterations(
     compatibility_to_vortex_import_millis = None
     compatibility_to_vortex_import_timing_scope = None
     vortex_array_build_millis = None
+    vortex_array_build_provider_kind = None
+    vortex_array_build_provider_surface = None
+    vortex_array_build_strategy = None
+    vortex_array_build_input_layout = None
+    vortex_array_build_record_batch_count = None
+    vortex_array_build_manual_scalar_copy_avoided = None
     vortex_write_millis = None
     vortex_digest_millis = None
     vortex_reopen_verify_millis = None
@@ -11023,6 +11095,16 @@ def successful_result_from_iterations(
             "compatibility_to_vortex_import_timing_scope"
         )
         vortex_array_build_millis = mean_evidence_micros("vortex_array_build_micros")
+        vortex_array_build_provider_kind = evidence.get("vortex_array_build_provider_kind")
+        vortex_array_build_provider_surface = evidence.get("vortex_array_build_provider_surface")
+        vortex_array_build_strategy = evidence.get("vortex_array_build_strategy")
+        vortex_array_build_input_layout = evidence.get("vortex_array_build_input_layout")
+        vortex_array_build_record_batch_count = parse_optional_int(
+            evidence.get("vortex_array_build_record_batch_count")
+        )
+        vortex_array_build_manual_scalar_copy_avoided = parse_optional_bool(
+            evidence.get("vortex_array_build_manual_scalar_copy_avoided")
+        )
         vortex_write_millis = mean_evidence_micros("vortex_write_micros")
         vortex_digest_millis = mean_evidence_micros("vortex_digest_micros")
         vortex_reopen_verify_millis = mean_evidence_micros("vortex_reopen_verify_micros")
@@ -11133,6 +11215,12 @@ def successful_result_from_iterations(
         "compatibility_to_vortex_import_millis": compatibility_to_vortex_import_millis,
         "compatibility_to_vortex_import_timing_scope": compatibility_to_vortex_import_timing_scope,
         "vortex_array_build_millis": vortex_array_build_millis,
+        "vortex_array_build_provider_kind": vortex_array_build_provider_kind,
+        "vortex_array_build_provider_surface": vortex_array_build_provider_surface,
+        "vortex_array_build_strategy": vortex_array_build_strategy,
+        "vortex_array_build_input_layout": vortex_array_build_input_layout,
+        "vortex_array_build_record_batch_count": vortex_array_build_record_batch_count,
+        "vortex_array_build_manual_scalar_copy_avoided": vortex_array_build_manual_scalar_copy_avoided,
         "vortex_write_millis": vortex_write_millis,
         "vortex_digest_millis": vortex_digest_millis,
         "vortex_reopen_verify_millis": vortex_reopen_verify_millis,
@@ -14270,6 +14358,12 @@ def render_prepared_state_matrix(artifact: dict[str, Any]) -> str:
                 str(row["prepared_state_reuse_reason"]).replace("|", "\\|"),
                 str(row["preparation_included_in_timing"]),
                 format_metric(row["vortex_prepare_millis"], " ms"),
+                str(row["vortex_array_build_provider_kind"]),
+                str(row["vortex_array_build_provider_surface"]).replace("|", "\\|"),
+                str(row["vortex_array_build_strategy"]),
+                str(row["vortex_array_build_input_layout"]),
+                str(row["vortex_array_build_record_batch_count"]),
+                str(row["vortex_array_build_manual_scalar_copy_avoided"]),
                 str(row["prepared_state_native_io_certificate_status"]),
                 str(row["prepared_state_materialization_decode_boundary_ref"]),
                 str(row["prepared_state_claim_gate_status"]),
@@ -14298,6 +14392,12 @@ def render_prepared_state_matrix(artifact: dict[str, Any]) -> str:
                 "no VortexPreparedState rows were emitted",
                 "false",
                 "n/a",
+                "not_applicable",
+                "not_applicable",
+                "not_applicable",
+                "not_applicable",
+                "0",
+                "false",
                 "none",
                 "none",
                 "not_claim_grade",
@@ -14325,6 +14425,12 @@ def render_prepared_state_matrix(artifact: dict[str, Any]) -> str:
             "Reuse reason",
             "Prep in timing",
             "Vortex prepare",
+            "Array provider",
+            "Array provider surface",
+            "Array strategy",
+            "Array input layout",
+            "Array batches",
+            "Scalar copy avoided",
             "Source Native I/O",
             "Materialization policy",
             "Claim gate",

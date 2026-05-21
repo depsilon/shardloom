@@ -49,6 +49,13 @@ phase note. They are not active queue state and do not override `phased-executio
   field-mask and predicate-ordering blockers, execution/Native I/O refs, and
   `fallback_attempted=false`. This classifies the fixture path only; generalized Source/Split,
   object-store, table/catalog, split serialization, and residual execution remain blocked.
+- Arrow RecordBatch provider admission: the feature-gated local `vortex_ingest` columnar
+  SourceState path uses upstream Vortex `ArrayRef::from_arrow(RecordBatch)` for non-empty flat
+  Parquet/Arrow IPC/Avro/ORC batches. The traditional benchmark compatibility-import writer uses
+  the same provider surface for scoped local fact/dimension/CDC table artifact creation. The CLI
+  and benchmark reports expose provider kind/surface/strategy, input layout, record-batch count,
+  and scalar-copy-avoidance evidence. This is scoped prepare-once artifact creation only; it is not
+  Arrow-default execution, broad structured-format support, or a performance claim.
 - Segment extraction admission framing: `vortex-api-inventory` now exposes
   `shardloom.vortex_segment_extraction_admission.v1` for the `sparse_patch_fill` layout family.
   The report records the Vortex sparse layout concepts checked and keeps sparse segment extraction
@@ -260,11 +267,21 @@ Required blockers before any 0.71 item becomes executable:
 - Risks: write semantics and metadata fidelity unknown.
 
 ### Arrow interoperability APIs
-- Public API names discovered: not confirmed yet.
-- Use now: no.
-- Stability: not confirmed yet.
-- Adapter support: unsupported for default path.
-- Risks: decode-to-Arrow drift as implicit fallback.
+- Public API names discovered: `vortex::array::ArrayRef::from_arrow(RecordBatch)` through
+  `vortex::array::arrow::FromArrowArray`, plus `vortex::array::arrays::ChunkedArray::try_new` for
+  multi-batch composition.
+- Use now: yes, only behind `vortex-write` plus `universal-format-io` for local
+  `vortex_ingest` array-build provider admission from already-preserved flat Arrow
+  `RecordBatch` SourceState, and behind `vortex-traditional-analytics-benchmark` for scoped local
+  benchmark compatibility-import artifact creation.
+- Stability: acceptable only for this narrow provider path under Vortex `0.71`; revalidate before
+  broadening to nested, nullable, object-store, table/catalog, or execution surfaces.
+- Adapter support: scoped local prepare-once artifact creation for flat Parquet/Arrow IPC/Avro/ORC
+  SourceState batches. Default builds and unsupported structured shapes remain blocked or scalar
+  paths with explicit diagnostics.
+- Risks: Arrow conversion must stay an admitted provider for artifact preparation only. It must not
+  become a hidden default execution model, decoded row fallback, or substitute for encoded-native
+  execution evidence.
 
 ## Adapter mapping plan
 - Vortex DType -> `shardloom_core::LogicalDType`

@@ -48,10 +48,16 @@ not by compiling every reader by default. Active implementation status for input
     local-source smoke and reports deterministic sink blockers in default builds.
   - When `vortex-ingest-smoke` is built with both `vortex-write` and `universal-format-io`, flat
     scalar Parquet/Arrow IPC/Avro/ORC inputs preserve an Arrow `RecordBatch` columnar SourceState
-    through the prepare-once boundary and convert directly into the scoped local
-    `VortexPreparedState` writer. Reports emit `source_state_columnar_preserved`,
-    `source_state_record_batch_count`, `source_to_columnar_millis`, and
-    `vortex_array_build_millis` so ingest timing is not collapsed into generic scalar parse time.
+    through the prepare-once boundary and use upstream Vortex
+    `ArrayRef::from_arrow(RecordBatch)` as the admitted array-build provider for non-empty flat
+    batches before the scoped local `VortexPreparedState` writer. Reports emit
+    `source_state_columnar_preserved`, `source_state_record_batch_count`,
+    `source_to_columnar_millis`, `vortex_array_build_millis`,
+    `vortex_array_build_provider_kind`, `vortex_array_build_provider_surface`,
+    `vortex_array_build_strategy`, `vortex_array_build_input_layout`,
+    `vortex_array_build_record_batch_count`, and
+    `vortex_array_build_manual_scalar_copy_avoided` so ingest timing and provider attribution are
+    not collapsed into generic scalar parse time.
     CSV/JSON/JSONL and unsupported structured shapes still use the scalar or blocked adapter
     paths; this does not create a hidden Arrow-default execution model.
   - Traditional benchmark compatibility-import rows now use the same SourceState vocabulary for

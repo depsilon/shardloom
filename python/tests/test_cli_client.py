@@ -1183,6 +1183,12 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "source_state_record_batch_count", "value": "1"},
                         {"key": "source_to_columnar_millis", "value": "4"},
                         {"key": "vortex_array_build_millis", "value": "3"},
+                        {"key": "vortex_array_build_provider_kind", "value": "vortex_array_kernel"},
+                        {"key": "vortex_array_build_provider_surface", "value": "ArrayRef::from_arrow(RecordBatch)"},
+                        {"key": "vortex_array_build_strategy", "value": "vortex_from_arrow_record_batch"},
+                        {"key": "vortex_array_build_input_layout", "value": "arrow_record_batch_columnar_source_state"},
+                        {"key": "vortex_array_build_record_batch_count", "value": "1"},
+                        {"key": "vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
                         {"key": "source_io_performed", "value": "true"},
                         {"key": "prepared_state_created", "value": "true"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
@@ -1228,6 +1234,21 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.source_state_record_batch_count, 1)
         self.assertEqual(result.source_to_columnar_millis, 4)
         self.assertEqual(result.vortex_array_build_millis, 3)
+        self.assertEqual(result.vortex_array_build_provider_kind, "vortex_array_kernel")
+        self.assertEqual(
+            result.vortex_array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch)",
+        )
+        self.assertEqual(
+            result.vortex_array_build_strategy,
+            "vortex_from_arrow_record_batch",
+        )
+        self.assertEqual(
+            result.vortex_array_build_input_layout,
+            "arrow_record_batch_columnar_source_state",
+        )
+        self.assertEqual(result.vortex_array_build_record_batch_count, 1)
+        self.assertTrue(result.vortex_array_build_manual_scalar_copy_avoided)
         self.assertTrue(result.source_io_performed)
         self.assertTrue(result.prepared_state_created)
         self.assertFalse(result.fallback_attempted)
@@ -5121,6 +5142,12 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "source_state_digest", "value": "fnv1a64:source"},
                         {"key": "source_state_columnar_preserved", "value": "true"},
                         {"key": "source_state_record_batch_count", "value": "2"},
+                        {"key": "vortex_array_build_provider_kind", "value": "vortex_array_kernel"},
+                        {"key": "vortex_array_build_provider_surface", "value": "ArrayRef::from_arrow(RecordBatch)"},
+                        {"key": "vortex_array_build_strategy", "value": "vortex_from_arrow_record_batch"},
+                        {"key": "vortex_array_build_input_layout", "value": "traditional_arrow_record_batch"},
+                        {"key": "vortex_array_build_record_batch_count", "value": "2"},
+                        {"key": "vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
                         {"key": "prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
                         {"key": "prepared_artifact_reuse_eligible", "value": "true"}
                     ],
@@ -5144,6 +5171,21 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(artifacts.source_state_digest, "fnv1a64:source")
         self.assertTrue(artifacts.source_state_columnar_preserved)
         self.assertEqual(artifacts.source_state_record_batch_count, 2)
+        self.assertEqual(artifacts.vortex_array_build_provider_kind, "vortex_array_kernel")
+        self.assertEqual(
+            artifacts.vortex_array_build_provider_surface,
+            "ArrayRef::from_arrow(RecordBatch)",
+        )
+        self.assertEqual(
+            artifacts.vortex_array_build_strategy,
+            "vortex_from_arrow_record_batch",
+        )
+        self.assertEqual(
+            artifacts.vortex_array_build_input_layout,
+            "traditional_arrow_record_batch",
+        )
+        self.assertEqual(artifacts.vortex_array_build_record_batch_count, 2)
+        self.assertTrue(artifacts.vortex_array_build_manual_scalar_copy_avoided)
         self.assertEqual(artifacts.cleanup_policy, "caller_owned_workspace_cleanup")
         self.assertTrue(artifacts.reuse_eligible)
 

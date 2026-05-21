@@ -526,6 +526,12 @@ source_to_columnar_millis
 compatibility_to_vortex_import_millis
 compatibility_to_vortex_import_timing_scope
 vortex_array_build_millis
+vortex_array_build_provider_kind
+vortex_array_build_provider_surface
+vortex_array_build_strategy
+vortex_array_build_input_layout
+vortex_array_build_record_batch_count
+vortex_array_build_manual_scalar_copy_avoided
 vortex_write_millis
 vortex_digest_millis
 vortex_reopen_millis
@@ -1138,9 +1144,14 @@ them. `compatibility_to_vortex_import_millis` is scoped as
 Parquet/Arrow IPC/Avro/ORC adapters report `source_to_columnar_millis`,
 `source_state_materialization_layout`, `source_state_parse_normalization`,
 `source_state_columnar_preserved`, and `source_state_record_batch_count` before the current
-traditional row normalization and Vortex array-build boundary. If the current streaming loop cannot
-isolate Vortex scan from operator work, rows must keep `operator_compute_millis` present and
-disclose the limitation through
+traditional row normalization and Vortex array-build boundary. Current certified import rows also
+report `vortex_array_build_provider_kind`, `vortex_array_build_provider_surface`,
+`vortex_array_build_strategy`, `vortex_array_build_input_layout`,
+`vortex_array_build_record_batch_count`, and
+`vortex_array_build_manual_scalar_copy_avoided` so users can distinguish ShardLoom scalar-row
+construction from the admitted Vortex `ArrayRef::from_arrow(RecordBatch)` provider. If the current
+streaming loop cannot isolate Vortex scan from operator work, rows must keep
+`operator_compute_millis` present and disclose the limitation through
 `operator_compute_timing_scope=included_in_vortex_scan_millis_for_current_streaming_loop`.
 
 Evidence posture:
@@ -1529,6 +1540,12 @@ total_runtime_millis
   compatibility_to_vortex_import_millis
   compatibility_to_vortex_import_timing_scope
   vortex_array_build_millis
+  vortex_array_build_provider_kind
+  vortex_array_build_provider_surface
+  vortex_array_build_strategy
+  vortex_array_build_input_layout
+  vortex_array_build_record_batch_count
+  vortex_array_build_manual_scalar_copy_avoided
   vortex_write_millis
   vortex_digest_millis
   vortex_reopen_millis
