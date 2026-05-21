@@ -9,7 +9,11 @@
 use std::path::PathBuf;
 
 #[cfg(feature = "vortex-write")]
-use std::{collections::BTreeSet, path::Path, time::Instant};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+    time::Instant,
+};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
@@ -289,10 +293,11 @@ pub fn write_flat_columnar_vortex_prepared_state(
         ));
     }
 
-    validate_flat_columns(&request.source.materialized_columns)?;
+    let source_shape = validate_flat_columnar_source_shape(&request.source)?;
     prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
     let array_build_start = Instant::now();
-    let (array, column_families) = flat_columnar_source_to_vortex_struct(&request.source)?;
+    let (array, column_families) =
+        flat_columnar_source_to_vortex_struct(&request.source, &source_shape)?;
     let array_build_micros = array_build_start.elapsed().as_micros();
     let row_count = usize_to_u64(request.source.row_count)?;
     finalize_vortex_prepared_state_write(
@@ -304,6 +309,19 @@ pub fn write_flat_columnar_vortex_prepared_state(
         array_build_micros,
         request.certification_level,
     )
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ColumnarProjectedColumn {
+    column: String,
+    reader_index: usize,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FlatColumnarSourceShape {
+    projected_columns: Vec<ColumnarProjectedColumn>,
 }
 
 #[cfg(feature = "vortex-write")]
@@ -327,6 +345,85 @@ fn prepare_vortex_target(target_path: &Path, allow_overwrite: bool) -> Result<()
         })?;
     }
     Ok(())
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn validate_flat_columnar_source_shape(
+    source: &FlatLocalColumnarSource,
+) -> Result<FlatColumnarSourceShape> {
+    validate_flat_columns(&source.materialized_columns)?;
+    validate_flat_columns(&source.reader_projection_columns)?;
+
+    let reader_positions = source
+        .reader_projection_columns
+        .iter()
+        .enumerate()
+        .map(|(index, column)| (column.as_str(), index))
+        .collect::<BTreeMap<_, _>>();
+    let projected_columns = source
+        .materialized_columns
+        .iter()
+        .map(|column| {
+            let reader_index = reader_positions.get(column.as_str()).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(format!(
+                    "local vortex_ingest columnar SourceState is missing projected column '{column}'; no fallback execution was attempted"
+                ))
+            })?;
+            Ok(ColumnarProjectedColumn {
+                column: column.clone(),
+                reader_index: *reader_index,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let mut row_count = 0usize;
+    for (batch_index, batch) in source.batches.iter().enumerate() {
+        let expected_column_count = source.reader_projection_columns.len();
+        if batch.num_columns() != expected_column_count {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local vortex_ingest columnar SourceState batch {} has {} projected columns, expected {}; no fallback execution was attempted",
+                batch_index + 1,
+                batch.num_columns(),
+                expected_column_count
+            )));
+        }
+        let schema = batch.schema();
+        if schema.fields().len() != expected_column_count {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local vortex_ingest columnar SourceState batch {} schema has {} projected fields, expected {}; no fallback execution was attempted",
+                batch_index + 1,
+                schema.fields().len(),
+                expected_column_count
+            )));
+        }
+        for (column_index, expected_column) in source.reader_projection_columns.iter().enumerate() {
+            let actual_column = schema.field(column_index).name();
+            if actual_column != expected_column {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local vortex_ingest columnar SourceState batch {} projected field {} is '{}', expected '{}'; no fallback execution was attempted",
+                    batch_index + 1,
+                    column_index + 1,
+                    actual_column,
+                    expected_column
+                )));
+            }
+        }
+        row_count = row_count.checked_add(batch.num_rows()).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "local vortex_ingest columnar SourceState row count overflowed usize; no fallback execution was attempted"
+                    .to_string(),
+            )
+        })?;
+    }
+
+    if row_count != source.row_count {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest columnar SourceState row count is {}, expected {}; no fallback execution was attempted",
+            row_count, source.row_count
+        )));
+    }
+
+    Ok(FlatColumnarSourceShape { projected_columns })
 }
 
 #[cfg(feature = "vortex-write")]
@@ -500,29 +597,22 @@ fn scalar_family(value: &ScalarValue) -> Option<&'static str> {
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn flat_columnar_source_to_vortex_struct(
     source: &FlatLocalColumnarSource,
+    source_shape: &FlatColumnarSourceShape,
 ) -> Result<(vortex::array::ArrayRef, Vec<(String, String)>)> {
     use vortex::array::IntoArray as _;
     use vortex::array::arrays::StructArray;
     use vortex::array::dtype::FieldNames;
     use vortex::array::validity::Validity;
 
-    let column_families = columnar_column_families(source)?;
+    let column_families = columnar_column_families(source, source_shape)?;
     let fields = column_families
         .iter()
-        .map(|(column, family)| {
-            let column_index = source
-                .reader_projection_columns
-                .iter()
-                .position(|candidate| candidate == column)
-                .ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "local vortex_ingest columnar SourceState is missing projected column '{column}'; no fallback execution was attempted"
-                    ))
-                })?;
+        .zip(&source_shape.projected_columns)
+        .map(|((column, family), projected_column)| {
             let arrays = source
                 .batches
                 .iter()
-                .map(|batch| batch.column(column_index).clone())
+                .map(|batch| batch.column(projected_column.reader_index).clone())
                 .collect::<Vec<_>>();
             columnar_column_to_vortex_array(column, family, &arrays)
         })
@@ -545,36 +635,34 @@ fn flat_columnar_source_to_vortex_struct(
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
-fn columnar_column_families(source: &FlatLocalColumnarSource) -> Result<Vec<(String, String)>> {
-    source
-        .materialized_columns
+fn columnar_column_families(
+    source: &FlatLocalColumnarSource,
+    source_shape: &FlatColumnarSourceShape,
+) -> Result<Vec<(String, String)>> {
+    source_shape
+        .projected_columns
         .iter()
-        .map(|column| {
-            let column_index = source
-                .reader_projection_columns
-                .iter()
-                .position(|candidate| candidate == column)
-                .ok_or_else(|| {
-                    ShardLoomError::InvalidOperation(format!(
-                        "local vortex_ingest columnar SourceState is missing projected column '{column}'; no fallback execution was attempted"
-                    ))
-                })?;
+        .map(|projected_column| {
             let mut family = None;
             for batch in &source.batches {
-                let array = batch.column(column_index);
-                reject_columnar_nulls(column, array.as_ref())?;
-                let candidate = arrow_column_family(column, array.as_ref())?;
+                let array = batch.column(projected_column.reader_index);
+                reject_columnar_nulls(&projected_column.column, array.as_ref())?;
+                let candidate = arrow_column_family(&projected_column.column, array.as_ref())?;
                 if let Some(existing) = family {
                     if existing != candidate {
                         return Err(ShardLoomError::InvalidOperation(format!(
-                            "local vortex_ingest column '{column}' mixes columnar families {existing} and {candidate}; no fallback execution was attempted"
+                            "local vortex_ingest column '{}' mixes columnar families {existing} and {candidate}; no fallback execution was attempted",
+                            projected_column.column
                         )));
                     }
                 } else {
                     family = Some(candidate);
                 }
             }
-            Ok((column.clone(), family.unwrap_or("utf8").to_string()))
+            Ok((
+                projected_column.column.clone(),
+                family.unwrap_or("utf8").to_string(),
+            ))
         })
         .collect()
 }
@@ -668,7 +756,7 @@ fn columnar_column_to_vortex_array(
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn columnar_int64_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<i64>> {
-    let mut values = Vec::new();
+    let mut values = Vec::with_capacity(columnar_array_len(arrays));
     for array in arrays {
         if let Some(array) = array.as_any().downcast_ref::<Int8Array>() {
             values.extend((0..array.len()).map(|index| i64::from(array.value(index))));
@@ -687,7 +775,7 @@ fn columnar_int64_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<i
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn columnar_uint64_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<u64>> {
-    let mut values = Vec::new();
+    let mut values = Vec::with_capacity(columnar_array_len(arrays));
     for array in arrays {
         if let Some(array) = array.as_any().downcast_ref::<UInt8Array>() {
             values.extend((0..array.len()).map(|index| u64::from(array.value(index))));
@@ -706,7 +794,7 @@ fn columnar_uint64_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn columnar_float64_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<f64>> {
-    let mut values = Vec::new();
+    let mut values = Vec::with_capacity(columnar_array_len(arrays));
     for array in arrays {
         if let Some(array) = array.as_any().downcast_ref::<Float32Array>() {
             for index in 0..array.len() {
@@ -737,7 +825,7 @@ fn columnar_float64_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn columnar_utf8_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<String>> {
-    let mut values = Vec::new();
+    let mut values = Vec::with_capacity(columnar_array_len(arrays));
     for array in arrays {
         if let Some(array) = array.as_any().downcast_ref::<StringArray>() {
             values.extend((0..array.len()).map(|index| array.value(index).to_string()));
@@ -754,7 +842,7 @@ fn columnar_utf8_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<St
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn columnar_date32_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<i32>> {
-    let mut values = Vec::new();
+    let mut values = Vec::with_capacity(columnar_array_len(arrays));
     for array in arrays {
         if let Some(array) = array.as_any().downcast_ref::<Date32Array>() {
             values.extend((0..array.len()).map(|index| array.value(index)));
@@ -767,7 +855,7 @@ fn columnar_date32_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn columnar_timestamp_micros_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<i64>> {
-    let mut values = Vec::new();
+    let mut values = Vec::with_capacity(columnar_array_len(arrays));
     for array in arrays {
         if let Some(array) = array.as_any().downcast_ref::<TimestampMicrosecondArray>() {
             values.extend((0..array.len()).map(|index| array.value(index)));
@@ -780,6 +868,11 @@ fn columnar_timestamp_micros_values(column: &str, arrays: &[ArrowArrayRef]) -> R
         }
     }
     Ok(values)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_array_len(arrays: &[ArrowArrayRef]) -> usize {
+    arrays.iter().map(arrow_array::Array::len).sum()
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -1166,6 +1259,110 @@ mod tests {
         assert!(report.upstream_vortex_scan_called);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_source_rejects_short_batches_before_column_access() {
+        use std::sync::Arc;
+
+        use arrow_array::{Int64Array, RecordBatch, StringArray};
+        use arrow_schema::{DataType, Field, Schema};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-short-batch-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("label", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2])),
+                Arc::new(StringArray::from(vec!["alpha", "beta"])),
+            ],
+        )
+        .expect("record batch");
+        let columns = vec!["id".to_string(), "label".to_string(), "metric".to_string()];
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 2,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let error = write_flat_columnar_vortex_prepared_state(request)
+            .expect_err("short batch must be rejected before column access");
+
+        assert!(
+            error
+                .to_string()
+                .contains("columnar SourceState batch 1 has 2 projected columns, expected 3")
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("no fallback execution was attempted")
+        );
+        assert!(!path.exists());
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_source_rejects_row_count_mismatch() {
+        use std::sync::Arc;
+
+        use arrow_array::{Int64Array, RecordBatch, StringArray};
+        use arrow_schema::{DataType, Field, Schema};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-row-count-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "label".to_string()];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("label", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2])),
+                Arc::new(StringArray::from(vec!["alpha", "beta"])),
+            ],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 3,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let error = write_flat_columnar_vortex_prepared_state(request)
+            .expect_err("row count mismatch must be rejected");
+
+        assert!(
+            error
+                .to_string()
+                .contains("columnar SourceState row count is 2, expected 3")
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("no fallback execution was attempted")
+        );
+        assert!(!path.exists());
     }
 
     #[test]

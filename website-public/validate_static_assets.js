@@ -46,6 +46,7 @@ const requiredFiles = [
 
 const forbiddenRuntimeText = [
   "raw.githubusercontent.com",
+  "docs/architecture/phased-execution-plan.md",
 ];
 const statusVocabulary = new Set([
   "runtime_supported",

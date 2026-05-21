@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: 2026-05-21 compute-engine checklist follow-up and columnar SourceState guard
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-checklist-runtime-sweep-20260521` / #891.
+  - Source:
+    - User-requested 8-item sweep closeout before returning to runtime phase work.
+    - PR #889 unresolved Codex review thread on guarding public columnar SourceState batch indexing.
+    - Website/docs review finding that public Docs should function as a cohesive ShardLoom entry
+      point and must not cite the active phase-plan queue as product proof.
+  - Scope:
+    - Reviewed PR #880 through #890 thread state. Historical #882/#883/#884 UI threads are already
+      fixed by #886; the remaining actionable #889 item is closed in this slice.
+    - Added one validated columnar SourceState shape for `write_flat_columnar_vortex_prepared_state`
+      so materialized columns, reader projection columns, batch schema names, batch column counts,
+      and total row count are checked before indexed Arrow column access.
+    - Reused that validated shape for Arrow-to-Vortex conversion, removing repeated per-column
+      projection scans and pre-sizing value vectors for the conversion hot path.
+    - Refined the Astro `/docs` page into a local public docs hub, added ShardLoom logo treatment
+      to Starlight docs, regenerated static website artifacts, and added website validation that
+      fails if public runtime output references `docs/architecture/phased-execution-plan.md`.
+    - Re-ran benchmark environment, one CSV comparative smoke, and one CSV/Parquet SourceState
+      smoke after the latest runtime updates.
+  - Evidence:
+    - Invalid public `FlatLocalColumnarSource` batches now fail closed before `RecordBatch::column`
+      indexing when projected column count, schema names, or row counts drift.
+    - Parquet benchmark SourceState smoke still reports `source_state_columnar_preserved=true` and
+      `source_state_record_batch_count=2`.
+    - Public website runtime validation blocks active phase-plan queue references; completed
+      provenance stays in this ledger.
+    - External research check: Arrow RS `RecordBatch`/`RecordBatchReader` docs confirm indexed
+      column access and schema/column-count inspection as the relevant guard surface; Vortex docs
+      confirm `StructArray::try_new` length/field-array expectations and `write_options().write`
+      as the native Vortex file write boundary.
+  - Verification:
+    - `cargo test -p shardloom-vortex --features "vortex-write universal-format-io" local_flat_columnar_source_ --lib -- --nocapture`
+    - `cargo clippy -p shardloom-vortex --features "vortex-write universal-format-io" --lib -- -D warnings`
+    - `cargo test -p shardloom-cli --features "vortex-write universal-format-io" --test sql_local_source_runtime_smoke vortex_ingest_smoke_preserves_columnar_source_state_for_parquet -- --nocapture`
+    - `node website-src\scripts\sync-content.mjs` using bundled Node.
+    - `node website-src\node_modules\astro\bin\astro.mjs build` from `website-src`, plus
+      `node website-src\scripts\postbuild-static.mjs`, using bundled Node.
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js` using bundled Node.
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_benchmark_environment.py --profile smoke`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom,pandas --formats csv --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --shardloom-native-iterations 1 --skip-shardloom-native --output target\codex-benchmark-artifacts\checklist-runtime-sweep-comparative-smoke.json --markdown-output target\codex-benchmark-artifacts\checklist-runtime-sweep-comparative-smoke.md`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv,parquet --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --shardloom-native-iterations 1 --skip-shardloom-native --output target\codex-benchmark-artifacts\checklist-runtime-sweep-source-state-smoke.json --markdown-output target\codex-benchmark-artifacts\checklist-runtime-sweep-source-state-smoke.md`
+    - `python -m compileall -q python\src python\tests scripts examples benchmarks\traditional_analytics website-src`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `cargo fmt --all -- --check`
+    - `git diff --check`
+  - Claim boundary:
+    - This is a runtime safety, adapter optimization, docs/website cohesion, and benchmark-smoke
+      evidence slice. It does not create broad structured-format support, object-store/table
+      support, production SQL/DataFrame support, public package readiness, or performance/
+      superiority claims.
+  - Fallback boundary:
+    - The code path uses feature-gated local Arrow compatibility adapters and upstream Vortex write/
+      reopen APIs only. External engines remain baseline/oracle-only; ShardLoom rows preserve
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F1 traditional benchmark columnar SourceState telemetry
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-20260521` / #890.

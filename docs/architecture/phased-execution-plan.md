@@ -160,36 +160,41 @@ the ledger.
 
 ## 2026-05-21 Compute Engine Release Sweep Checklist
 
-Status: current sweep items are addressed through PRs #886/#887/#888. Detailed evidence belongs in
-the completed ledger, but this compact
-checklist stays near the top because it was the user-requested coordination surface for returning
-to the runtime queue.
+Status: current sweep items are addressed through PRs #886 through #891, including the follow-up
+slice that closes the remaining PR #889 columnar SourceState guard. Detailed evidence belongs in
+the completed ledger, but this compact checklist stays near the top because it was the
+user-requested coordination surface for returning to the runtime queue.
 
-- [x] 1. PR #880+ Codex comment review: #880-#887 are merged. Historical GitHub threads on
+- [x] 1. PR #880+ Codex comment review: #880-#890 are merged. Historical GitHub threads on
       #882/#883/#884 remain unresolved in the closed PR UI, but their findings were implemented in
       merged PR #886: string-function type validation, aggregate-before-join Python lowering
-      rejection, and joined computed-projection SELECT order preservation.
+      rejection, and joined computed-projection SELECT order preservation. The remaining actionable
+      #889 thread is handled by #891: the public columnar SourceState writer
+      now validates projected batch shape and row counts before indexed column access.
 - [x] 2. Documentation/architecture cleanup: active phase-plan citation leakage was removed from
       public/use-case/status/Field Guide surfaces; ongoing status now points to architecture
       contracts or the completed ledger.
 - [x] 3. Modularization review: the sweep isolated the highest-risk concentration in
       `sql_local_source_runtime.rs`, `universal_format_io.rs`, and Python query lowering; this
-      active slice moves repeated structured-format projection handling into reusable
-      `shardloom-vortex` reader helpers.
+      follow-up moves repeated columnar projection lookup into one validated `shardloom-vortex`
+      SourceState shape before Arrow-to-Vortex conversion.
 - [x] 4. Optimization pass review: the current bottleneck is compatibility adapter
-      materialization. This active slice pushes Parquet/Arrow IPC/Avro/ORC column selection into
-      reader APIs before scalar-row conversion.
+      materialization. The closed slices push Parquet/Arrow IPC/Avro/ORC column selection into
+      reader APIs before scalar-row conversion, preserve Arrow `RecordBatch` SourceState for
+      `vortex_ingest`, and avoid repeated per-column projection scans in the public writer.
 - [x] 5. Website/docs cohesion review: the Astro/Starlight `/docs` placeholder was replaced with a
-      branded public Docs page, legacy `docs.html` output stayed available, and readiness checks
-      cover the page.
+      branded public Docs page, legacy `docs.html` output stayed available, readiness checks cover
+      the page, and runtime website validation now blocks active phase-plan queue references from
+      public output.
 - [x] 6. Benchmark/telemetry review: benchmark environment smoke validation passed in the sweep;
       the previous comparative rerun attempt timed out before artifact production. The current
       slice reran benchmark smoke/contract checks and keeps full comparative refresh gated until a
       clean longer run can complete.
 - [x] 7. Universal ingest/adapter bottleneck research: Arrow RS and Vortex surfaces were reviewed;
-      the selected next implementation is format-neutral SourceState projection evidence,
-      reader-level projection where supported, and columnar SourceState preservation through
-      `vortex_ingest` where scalar rows are not required.
+      the selected implementation is format-neutral SourceState projection evidence, reader-level
+      projection where supported, columnar SourceState preservation through `vortex_ingest` where
+      scalar rows are not required, and fail-closed batch-shape validation before indexed Arrow
+      column access.
 - [x] 8. Parallel-path consolidation review: local SQL/Python/ingest paths continue to share the
       same admitted local input universe and SourceState evidence instead of creating CSV-only or
       format-specific bypasses.

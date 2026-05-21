@@ -20,6 +20,23 @@
 }
 
 .site-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
   color: #071a52;
   font-weight: 800;
+}
+
+.site-title::before {
+  content: "";
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  background: url("/assets/logo/shardloom-favicon.png") center / contain no-repeat;
+  object-fit: contain;
+}
+
+.header {
+  border-bottom-color: #dbe5ec;
+  background: rgba(255, 255, 255, 0.94);
 }
