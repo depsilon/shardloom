@@ -1307,7 +1307,12 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage
   - Source: `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4J`, RFC 0015, RFC 0016, RFC 0021.
   - Current state: selected residual-native operators exist; broad type/null/string/date/decimal,
-    join/window/top-k, fused, and encoded-kernel coverage remains incomplete.
+    join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Scoped
+    `COUNT(DISTINCT column)` is runtime-admitted for local scalar and grouped aggregate rows with
+    `distinct_aggregate_*` evidence, SQL `NULL`-ignoring distinct-count semantics, Python
+    `sl.count_distinct(...)` aggregate lowering, deterministic blockers for unsupported
+    `DISTINCT` aggregate shapes such as `SUM(DISTINCT ...)` or `COUNT(DISTINCT *)`, and no external
+    fallback.
   - Next slice outcome: promote operator families one at a time with decoded-reference correctness,
     unsupported diagnostics, and encoded-kernel admission where available.
   - Runtime enablement: ShardLoom-native operator/function execution coverage with deterministic

@@ -313,6 +313,7 @@ struct ParsedAggregate {
     function: AggregateFunction,
     column: Option<String>,
     alias: Option<String>,
+    distinct: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -4498,7 +4499,9 @@ fn evaluate_scalar_aggregate(
 ) -> Result<ScalarValue, ShardLoomError> {
     match aggregate.function {
         AggregateFunction::Count => {
-            let count = if let Some(column) = aggregate.column.as_deref() {
+            let count = if aggregate.distinct {
+                aggregate_count_distinct(aggregate, rows, selected_row_indexes)?
+            } else if let Some(column) = aggregate.column.as_deref() {
                 selected_row_indexes
                     .iter()
                     .filter_map(|row_index| rows.get(*row_index))
@@ -4519,6 +4522,51 @@ fn evaluate_scalar_aggregate(
         AggregateFunction::Max => {
             aggregate_numeric_min_max(aggregate, rows, selected_row_indexes, MinMaxMode::Max)
         }
+    }
+}
+
+fn aggregate_count_distinct(
+    aggregate: &ParsedAggregate,
+    rows: &[&ExpressionInputRow],
+    selected_row_indexes: &[usize],
+) -> Result<usize, ShardLoomError> {
+    let column = aggregate.required_column()?;
+    let mut distinct_values = BTreeSet::new();
+    for row_index in selected_row_indexes {
+        let row = rows.get(*row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
+        })?;
+        let Some(value) = row.get(column) else {
+            return Err(unsupported_sql_error(&format!(
+                "aggregate column {column:?} is not present in the aggregate input row"
+            )));
+        };
+        if value.is_null() {
+            continue;
+        }
+        distinct_values.insert(scalar_distinct_key(value));
+    }
+    Ok(distinct_values.len())
+}
+
+fn scalar_distinct_key(value: &ScalarValue) -> String {
+    match value {
+        ScalarValue::Null => "null".to_string(),
+        ScalarValue::Boolean(value) => format!("bool:{value}"),
+        ScalarValue::Int64(value) => format!("i64:{value}"),
+        ScalarValue::UInt64(value) => format!("u64:{value}"),
+        ScalarValue::Float64(value) if *value == 0.0 => "f64:0".to_string(),
+        ScalarValue::Float64(value) => format!("f64:{:016x}", value.to_bits()),
+        ScalarValue::Utf8(value) => format!("utf8:{value}"),
+        ScalarValue::Binary(value) => {
+            let mut out = String::from("binary:");
+            for byte in value {
+                let _ = write!(out, "{byte:02x}");
+            }
+            out
+        }
+        ScalarValue::Date32(value) => format!("date32:{value}"),
+        ScalarValue::TimestampMicros(value) => format!("ts_micros:{value}"),
     }
 }
 
@@ -6202,6 +6250,10 @@ impl ParsedSqlLocalSource {
             .any(|aggregate| aggregate.alias.is_some())
     }
 
+    fn has_distinct_aggregate(&self) -> bool {
+        self.aggregates.iter().any(|aggregate| aggregate.distinct)
+    }
+
     fn aggregate_output_columns(&self) -> String {
         if self.aggregates.is_empty() {
             "not_applicable".to_string()
@@ -6224,6 +6276,42 @@ impl ParsedSqlLocalSource {
             "not_applicable".to_string()
         } else {
             aliases.join(",")
+        }
+    }
+
+    fn distinct_aggregate_functions(&self) -> String {
+        let functions = self
+            .aggregates
+            .iter()
+            .filter(|aggregate| aggregate.distinct)
+            .map(ParsedAggregate::label)
+            .collect::<Vec<_>>();
+        if functions.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            functions.join(",")
+        }
+    }
+
+    fn distinct_aggregate_columns(&self) -> String {
+        let columns = self
+            .aggregates
+            .iter()
+            .filter(|aggregate| aggregate.distinct)
+            .filter_map(|aggregate| aggregate.column.as_deref())
+            .collect::<Vec<_>>();
+        if columns.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn distinct_aggregate_null_semantics(&self) -> String {
+        if self.has_distinct_aggregate() {
+            "sql_count_distinct_ignores_nulls".to_string()
+        } else {
+            "not_applicable".to_string()
         }
     }
 
@@ -6876,18 +6964,24 @@ impl ParsedAggregate {
         if let Some(alias) = self.alias.as_ref() {
             return alias.clone();
         }
-        match (self.function, self.column.as_deref()) {
-            (AggregateFunction::Count, None) => "count_all".to_string(),
-            (function, Some(column)) => format!("{}_{}", function.as_str(), column),
-            (function, None) => function.as_str().to_string(),
+        match (self.function, self.column.as_deref(), self.distinct) {
+            (AggregateFunction::Count, None, _) => "count_all".to_string(),
+            (function, Some(column), true) => {
+                format!("{}_distinct_{}", function.as_str(), column)
+            }
+            (function, Some(column), false) => format!("{}_{}", function.as_str(), column),
+            (function, None, _) => function.as_str().to_string(),
         }
     }
 
     fn label(&self) -> String {
-        match (self.function, self.column.as_deref()) {
-            (AggregateFunction::Count, None) => "count(*)".to_string(),
-            (function, Some(column)) => format!("{}({column})", function.as_str()),
-            (function, None) => format!("{}()", function.as_str()),
+        match (self.function, self.column.as_deref(), self.distinct) {
+            (AggregateFunction::Count, None, _) => "count(*)".to_string(),
+            (function, Some(column), true) => {
+                format!("{}(DISTINCT {column})", function.as_str())
+            }
+            (function, Some(column), false) => format!("{}({column})", function.as_str()),
+            (function, None, _) => format!("{}()", function.as_str()),
         }
     }
 
@@ -10548,6 +10642,22 @@ impl SqlLocalSourceReport {
             (
                 "aggregate_aliases".to_string(),
                 self.parsed.aggregate_aliases(),
+            ),
+            (
+                "distinct_aggregate_runtime_execution".to_string(),
+                (self.parsed.is_aggregate() && self.parsed.has_distinct_aggregate()).to_string(),
+            ),
+            (
+                "distinct_aggregate_function".to_string(),
+                self.parsed.distinct_aggregate_functions(),
+            ),
+            (
+                "distinct_aggregate_column".to_string(),
+                self.parsed.distinct_aggregate_columns(),
+            ),
+            (
+                "distinct_aggregate_null_semantics".to_string(),
+                self.parsed.distinct_aggregate_null_semantics(),
             ),
             (
                 "group_by_runtime_execution".to_string(),
@@ -14777,7 +14887,29 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
             "aggregate expressions require a column or COUNT(*) argument",
         ));
     }
+    let (distinct, argument) = if let Some(argument) = strip_leading_keyword(argument, "distinct")?
+    {
+        if function != AggregateFunction::Count {
+            return Err(unsupported_sql_error(
+                "DISTINCT aggregate runtime currently admits COUNT(DISTINCT <column>) only",
+            ));
+        }
+        let argument = argument.trim();
+        if argument.is_empty() {
+            return Err(unsupported_sql_error(
+                "COUNT(DISTINCT ...) requires one source column",
+            ));
+        }
+        (true, argument)
+    } else {
+        (false, argument)
+    };
     if argument == "*" {
+        if distinct {
+            return Err(unsupported_sql_error(
+                "COUNT(DISTINCT *) is not admitted; use COUNT(DISTINCT <column>)",
+            ));
+        }
         if function != AggregateFunction::Count {
             return Err(unsupported_sql_error(
                 "only COUNT(*) is admitted in this scoped aggregate smoke",
@@ -14787,6 +14919,7 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
             function,
             column: None,
             alias,
+            distinct,
         }));
     }
     validate_sql_column_ref(argument)?;
@@ -14794,6 +14927,7 @@ fn parse_aggregate_projection(raw: &str) -> Result<Option<ParsedAggregate>, Shar
         function,
         column: Some(argument.to_string()),
         alias,
+        distinct,
     }))
 }
 
@@ -16586,6 +16720,29 @@ fn split_whitespace_outside_quotes(raw: &str) -> Result<Vec<String>, ShardLoomEr
     Ok(values)
 }
 
+fn strip_leading_keyword<'a>(
+    raw: &'a str,
+    keyword: &str,
+) -> Result<Option<&'a str>, ShardLoomError> {
+    let trimmed = raw.trim_start();
+    if trimmed.len() < keyword.len() {
+        return Ok(None);
+    }
+    if !trimmed[..keyword.len()].eq_ignore_ascii_case(keyword) {
+        return Ok(None);
+    }
+    if !keyword_boundary(trimmed, 0, keyword.len()) {
+        return Ok(None);
+    }
+    let tail = &trimmed[keyword.len()..];
+    if tail.trim_start().starts_with('(') {
+        return Err(unsupported_sql_error(&format!(
+            "{keyword} must be followed by a scoped expression, not another parenthesized expression"
+        )));
+    }
+    Ok(Some(tail))
+}
+
 fn parse_sql_string_literal(raw: &str) -> Result<String, ShardLoomError> {
     if !raw.starts_with('\'') || !raw.ends_with('\'') || raw.len() < 2 {
         return Err(unsupported_sql_error(
@@ -18079,6 +18236,59 @@ mod tests {
         assert_eq!(
             parsed.statement_kind(),
             "local_source_aggregate_filter_limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_count_distinct_aggregate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT region,count(DISTINCT customer_id) AS unique_customers,count(*) AS rows FROM 'target/input.csv' WHERE amount >= 10 GROUP BY region LIMIT 10",
+        )
+        .expect("count distinct aggregate statement parses");
+
+        assert_eq!(parsed.projections, vec!["region"]);
+        assert_eq!(parsed.group_by, vec!["region"]);
+        assert_eq!(parsed.aggregates.len(), 2);
+        assert_eq!(parsed.aggregates[0].label(), "count(DISTINCT customer_id)");
+        assert_eq!(parsed.aggregates[0].output_name(), "unique_customers");
+        assert!(parsed.aggregates[0].distinct);
+        assert_eq!(
+            parsed.distinct_aggregate_functions(),
+            "count(DISTINCT customer_id)"
+        );
+        assert_eq!(parsed.distinct_aggregate_columns(), "customer_id");
+        assert_eq!(
+            parsed.distinct_aggregate_null_semantics(),
+            "sql_count_distinct_ignores_nulls"
+        );
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_group_by_aggregate_filter_limit"
+        );
+    }
+
+    #[test]
+    fn count_distinct_unsupported_shapes_are_blocked() {
+        let sum_distinct = parse_sql_local_source_statement(
+            "SELECT sum(DISTINCT amount) FROM 'target/input.csv' LIMIT 1",
+        )
+        .expect_err("SUM DISTINCT is blocked");
+        assert!(
+            sum_distinct
+                .to_string()
+                .contains("COUNT(DISTINCT <column>) only"),
+            "{sum_distinct}"
+        );
+
+        let count_distinct_star = parse_sql_local_source_statement(
+            "SELECT count(DISTINCT *) FROM 'target/input.csv' LIMIT 1",
+        )
+        .expect_err("COUNT DISTINCT star is blocked");
+        assert!(
+            count_distinct_star
+                .to_string()
+                .contains("COUNT(DISTINCT *) is not admitted"),
+            "{count_distinct_star}"
         );
     }
 

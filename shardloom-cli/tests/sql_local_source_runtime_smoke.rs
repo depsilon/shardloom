@@ -3663,6 +3663,129 @@ fn sql_local_source_smoke_executes_aggregate_aliases_without_fallback() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
+fn sql_local_source_smoke_executes_count_distinct_aggregates_without_fallback() {
+    let source_path = unique_path("sql-local-source-count-distinct", "csv");
+    fs::write(
+        &source_path,
+        "id,region,customer_id,amount\n\
+         1,east,c1,10\n\
+         2,east,c1,12\n\
+         3,east,c2,14\n\
+         4,east,,16\n\
+         5,west,c3,7\n\
+         6,west,c4,8\n\
+         7,west,c3,9\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT region,count(DISTINCT customer_id) AS unique_customers,count(*) AS rows FROM '{}' WHERE amount >= 8 GROUP BY region LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_group_by_aggregate_filter_limit"
+    )));
+    assert!(stdout.contains(&field("aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("aggregate_operator_family", "grouped_aggregate")));
+    assert!(stdout.contains(&field(
+        "aggregate_functions",
+        "count(DISTINCT customer_id),count(*)"
+    )));
+    assert!(stdout.contains(&field("aggregate_output_columns", "unique_customers,rows")));
+    assert!(stdout.contains(&field("distinct_aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "distinct_aggregate_function",
+        "count(DISTINCT customer_id)"
+    )));
+    assert!(stdout.contains(&field("distinct_aggregate_column", "customer_id")));
+    assert!(stdout.contains(&field(
+        "distinct_aggregate_null_semantics",
+        "sql_count_distinct_ignores_nulls"
+    )));
+    assert!(stdout.contains(&field("group_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("group_by_columns", "region")));
+    assert!(stdout.contains(&field("group_by_group_count", "2")));
+    assert!(stdout.contains(&field("projected_columns", "region,unique_customers,rows")));
+    assert!(stdout.contains(&field("selected_row_count", "6")));
+    assert!(stdout.contains(&field("output_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"region\\\":\\\"east\\\",\\\"unique_customers\\\":2,\\\"rows\\\":4}\\n{\\\"region\\\":\\\"west\\\",\\\"unique_customers\\\":2,\\\"rows\\\":2}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let scalar_statement = format!(
+        "SELECT count(DISTINCT customer_id) AS unique_customers FROM '{}' WHERE amount >= 8 LIMIT 1",
+        source_path.display()
+    );
+    let scalar = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &scalar_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        scalar.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&scalar.stdout),
+        String::from_utf8_lossy(&scalar.stderr)
+    );
+    let scalar_stdout = String::from_utf8(scalar.stdout).expect("stdout is utf8");
+    assert!(scalar_stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_aggregate_filter_limit"
+    )));
+    assert!(scalar_stdout.contains(&field("aggregate_operator_family", "scalar_aggregate")));
+    assert!(scalar_stdout.contains(&field("distinct_aggregate_runtime_execution", "true")));
+    assert!(
+        scalar_stdout.contains("\"result_jsonl\",\"value\":\"{\\\"unique_customers\\\":4}\\n\"")
+    );
+    assert!(scalar_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(scalar_stdout.contains(&field("external_engine_invoked", "false")));
+
+    let blocked_statement = format!(
+        "SELECT sum(DISTINCT amount) FROM '{}' LIMIT 1",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(blocked_output.contains("COUNT(DISTINCT <column>) only"));
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_group_by_aggregates_without_fallback() {
     let source_path = unique_path("sql-local-source-group-by", "csv");
     fs::write(

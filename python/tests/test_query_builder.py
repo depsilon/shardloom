@@ -2174,6 +2174,97 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_count_distinct_aggregate_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT region,count(DISTINCT customer_id) AS unique_customers,count(*) AS rows FROM 'target/input.csv' WHERE amount >= 8 GROUP BY region LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source count distinct",
+                    "human_text": "sql local source count distinct",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"region\\":\\"east\\",\\"unique_customers\\":2,\\"rows\\":4}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_group_by_aggregate_filter_limit"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "grouped_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(DISTINCT customer_id),count(*)"},
+                        {"key": "aggregate_output_columns", "value": "unique_customers,rows"},
+                        {"key": "distinct_aggregate_runtime_execution", "value": "true"},
+                        {"key": "distinct_aggregate_function", "value": "count(DISTINCT customer_id)"},
+                        {"key": "distinct_aggregate_column", "value": "customer_id"},
+                        {"key": "distinct_aggregate_null_semantics", "value": "sql_count_distinct_ignores_nulls"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "group_by_columns", "value": "region"},
+                        {"key": "group_by_key_arity", "value": "1"},
+                        {"key": "group_by_group_count", "value": "1"},
+                        {"key": "projected_columns", "value": "region,unique_customers,rows"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "selected_row_count", "value": "4"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        grouped_workflow = (
+            ctx.read_csv("target/input.csv")
+            .filter(sl.col("amount") >= 8)
+            .group_by("region")
+            .agg(unique_customers=sl.count_distinct("customer_id"), rows="count(*)")
+        )
+        self.assertIsInstance(grouped_workflow, sl.LazyFrame)
+        report = grouped_workflow.limit(10).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.result_jsonl,
+            '{"region":"east","unique_customers":2,"rows":4}\n',
+        )
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_operator_family, "grouped_aggregate")
+        self.assertEqual(
+            report.aggregate_functions,
+            ("count(DISTINCT customer_id)", "count(*)"),
+        )
+        self.assertEqual(report.aggregate_output_columns, ("unique_customers", "rows"))
+        self.assertTrue(report.distinct_aggregate_runtime_execution)
+        self.assertEqual(
+            report.distinct_aggregate_functions,
+            ("count(DISTINCT customer_id)",),
+        )
+        self.assertEqual(report.distinct_aggregate_columns, ("customer_id",))
+        self.assertEqual(
+            report.distinct_aggregate_null_semantics,
+            "sql_count_distinct_ignores_nulls",
+        )
+        self.assertTrue(report.group_by_runtime_execution)
+        self.assertEqual(report.group_by_columns, ("region",))
+        self.assertEqual(report.group_by_key_arity, 1)
+        self.assertEqual(report.group_by_group_count, 1)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_multi_key_group_by_aggregate_invokes_sql_smoke(
         self,
     ) -> None:

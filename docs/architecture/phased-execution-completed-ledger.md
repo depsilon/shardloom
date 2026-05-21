@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5G scoped SQL/Python `COUNT(DISTINCT)` aggregate runtime
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-4-20260521` / #893.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage`.
+    - Benchmark/use-case pressure around `distinct count` and high-cardinality group/distinct
+      runtime coverage.
+  - Scope:
+    - Added scoped SQL `COUNT(DISTINCT <column>)` parsing for local scalar and grouped aggregate
+      rows while keeping `SUM(DISTINCT ...)`, `AVG(DISTINCT ...)`, `MIN/MAX(DISTINCT ...)`, and
+      `COUNT(DISTINCT *)` deterministic blockers.
+    - Added ShardLoom-owned distinct-count evaluation that ignores `NULL` values and counts
+      canonical scalar keys without invoking an external engine.
+    - Added `distinct_aggregate_*` evidence fields for runtime execution, function label, source
+      column, and null-semantics.
+    - Added Python `sl.count_distinct(...)` aggregate lowering plus client accessors for the
+      distinct-aggregate evidence fields.
+  - Evidence:
+    - SQL smoke verifies scalar and grouped `count(DISTINCT customer_id) AS unique_customers` with
+      duplicate and null customer ids, plus `count(*)` in the grouped aggregate row.
+    - Python query-builder smoke verifies `.group_by(...).agg(unique_customers=sl.count_distinct(...))`
+      lowers to the same SQL local-source runtime path.
+    - Unsupported distinct aggregate shapes fail before execution with
+      `external_engine_invoked=false`.
+    - Local benchmark smoke reran the `distinct count` scenario for `shardloom,pandas` on CSV with
+      1,000 rows and one iteration. The ShardLoom row succeeded as `not_claim_grade` runtime
+      evidence with top-level `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `operator_execution_class=materialized_temporary`; this was not a claim-grade publication.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli count_distinct -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_count_distinct_aggregates_without_fallback -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_count_distinct_aggregate_invokes_sql_smoke`
+    - `python -m compileall -q python\src python\tests scripts examples benchmarks\traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python scripts\check_benchmark_environment.py --profile smoke --allow-missing-required --json-output target\shardloom-benchmark-evidence\count-distinct-env-smoke.json`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom,pandas --formats csv --scenario "distinct count" --rows 1000 --iterations 1 --output target\shardloom-benchmark-evidence\count-distinct-local-smoke.json --markdown-output target\shardloom-benchmark-evidence\count-distinct-local-smoke.md`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This admits scoped exact `COUNT(DISTINCT <column>)` for local scalar/grouped aggregate smokes.
+      It does not claim approximate distinct sketches, arbitrary DISTINCT aggregates, encoded-native
+      distinct kernels, ANSI aggregate parity, or performance superiority.
+  - Fallback boundary:
+    - Distinct-count parsing and evaluation remain ShardLoom-owned. Rows preserve
+      `fallback_attempted=false` and `external_engine_invoked=false`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python predicate projection runtime
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-3-20260521` / #892.
