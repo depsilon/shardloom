@@ -38,6 +38,7 @@ const requiredFiles = [
   "assets/logo/shardloom-logo-trim.png",
   "assets/data/compute-engine-flow-reference.md",
   "assets/data/benchmark-evidence.json",
+  "assets/data/runs-today-support-matrix.json",
   "assets/data/use-case-index.json",
   "assets/benchmarks/latest/manifest.json",
   "assets/benchmarks/latest/benchmark-results.json",
@@ -58,6 +59,10 @@ const statusVocabulary = new Set([
   "blocked",
   "unsupported",
   "not_planned",
+  "executable",
+  "feature_gated",
+  "diagnostic_only",
+  "future",
 ]);
 
 function assert(condition, message) {
@@ -253,6 +258,10 @@ for (const required of [
 const status = read("status.html");
 for (const required of [
   "Support status stays visible.",
+  "Generated current-support matrix",
+  "claim performance superiority",
+  "feature_gated",
+  "diagnostic_only",
   "Local CSV",
   "Local JSONL / NDJSON",
   "S3 / GCS / ADLS",
@@ -284,5 +293,23 @@ assert(manifest.performance_claim_allowed === false, "benchmark manifest must bl
 assert(Array.isArray(manifest.expected_lanes), "benchmark manifest must expose expected_lanes");
 assert(Array.isArray(manifest.available_lanes), "benchmark manifest must expose available_lanes");
 assert(Array.isArray(manifest.missing_lanes), "benchmark manifest must expose missing_lanes");
+
+const runsToday = JSON.parse(read("assets/data/runs-today-support-matrix.json"));
+assert(
+  runsToday.schema_version === "shardloom.runs_today_support_matrix.v1",
+  "runs-today matrix schema must remain stable",
+);
+assert(
+  Array.isArray(runsToday.rows) && runsToday.rows.length >= 20,
+  "runs-today matrix must expose support rows",
+);
+assert(
+  runsToday.all_rows_no_fallback_no_external_engine === true,
+  "runs-today matrix must keep no-fallback proof",
+);
+assert(
+  runsToday.performance_claim_allowed === false,
+  "runs-today matrix must block performance claims",
+);
 
 console.log("website static asset validation passed");

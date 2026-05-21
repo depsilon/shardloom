@@ -2576,6 +2576,93 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
     assert_database_warehouse_matrix_fields(&output);
 }
 
+#[test]
+fn runs_today_exposes_generated_current_support_matrix() {
+    let output = run_runs_today();
+
+    for (key, value) in [
+        (
+            "runs_today_schema_version",
+            "shardloom.runs_today_support_matrix.v1",
+        ),
+        ("runs_today_matrix_id", "review-p0-1.current-support"),
+        (
+            "runs_today_support_state_vocabulary",
+            "executable,feature_gated,diagnostic_only,report_only,blocked,future",
+        ),
+        (
+            "runs_today_family_order",
+            "cli_command,python_api,input_format,output_format,execution_mode,claim_state",
+        ),
+        ("runs_today_row_count", "27"),
+        ("runs_today_executable_row_count", "13"),
+        ("runs_today_feature_gated_row_count", "4"),
+        ("runs_today_diagnostic_only_row_count", "3"),
+        ("runs_today_report_only_row_count", "1"),
+        ("runs_today_blocked_row_count", "5"),
+        ("runs_today_future_row_count", "1"),
+        ("runs_today_cli_command_row_count", "5"),
+        ("runs_today_python_api_row_count", "4"),
+        ("runs_today_input_format_row_count", "4"),
+        ("runs_today_output_format_row_count", "3"),
+        ("runs_today_execution_mode_row_count", "6"),
+        ("runs_today_claim_state_row_count", "5"),
+    ] {
+        assert!(
+            output.contains(&string_field_pair(key, value)),
+            "missing runs-today field {key}={value}"
+        );
+    }
+
+    for key in [
+        "fallback_execution_allowed",
+        "fallback_attempted",
+        "external_engine_invoked",
+        "runs_today_runtime_expansion_allowed",
+        "runs_today_package_publication_allowed",
+        "runs_today_performance_claim_allowed",
+    ] {
+        assert!(
+            output.contains(&field_pair(key, false)),
+            "missing false {key}"
+        );
+    }
+    for key in [
+        "side_effect_free",
+        "runtime_discovery_side_effect_free",
+        "runs_today_all_rows_fallback_attempted_false",
+        "runs_today_all_rows_external_engine_invoked_false",
+        "runs_today_all_rows_no_fallback_no_external_engine",
+    ] {
+        assert!(
+            output.contains(&field_pair(key, true)),
+            "missing true {key}"
+        );
+    }
+    for (row, support_state) in [
+        ("cli_sql_local_source_smoke", "executable"),
+        ("cli_vortex_ingest_smoke", "feature_gated"),
+        ("python_status_capabilities", "diagnostic_only"),
+        ("input_object_store_cloud", "blocked"),
+        ("execution_report_only_surfaces", "report_only"),
+        ("execution_live_hybrid_remote_distributed", "future"),
+        ("claim_performance_superiority", "blocked"),
+    ] {
+        assert!(output.contains(&string_field_pair(
+            &format!("runs_today_row_{row}_support_state"),
+            support_state
+        )));
+        assert!(output.contains(&field_pair(
+            &format!("runs_today_row_{row}_fallback_attempted"),
+            false
+        )));
+        assert!(output.contains(&field_pair(
+            &format!("runs_today_row_{row}_external_engine_invoked"),
+            false
+        )));
+    }
+}
+
 fn assert_generated_output_compatibility_fields(output: &str) {
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_generated_output_contract_schema_version",
@@ -4006,6 +4093,27 @@ fn run_capabilities_scope(scope: &str) -> String {
     assert!(
         output.stderr.is_empty(),
         "scope={scope} stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    String::from_utf8(output.stdout).expect("stdout is utf8")
+}
+
+fn run_runs_today() -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["runs-today", "--format", "json"])
+        .output()
+        .expect("shardloom binary executes");
+
+    assert!(
+        output.status.success(),
+        "runs-today stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "runs-today stderr={}",
         String::from_utf8_lossy(&output.stderr)
     );
 

@@ -4580,6 +4580,733 @@ fn predicate_dtype_coverage_row_order() -> String {
         .join(",")
 }
 
+#[derive(Debug, Clone, Copy)]
+#[allow(clippy::struct_excessive_bools)]
+struct RunsTodaySupportRow {
+    id: &'static str,
+    family: &'static str,
+    surface: &'static str,
+    support_state: &'static str,
+    feature_gate: &'static str,
+    evidence_refs: &'static str,
+    blocker_id: &'static str,
+    claim_gate_status: &'static str,
+    claim_boundary: &'static str,
+    runtime_execution: bool,
+    data_read: bool,
+    write_io: bool,
+    fallback_attempted: bool,
+    external_engine_invoked: bool,
+}
+
+const RUNS_TODAY_COMMAND: &str = "runs-today";
+const RUNS_TODAY_SCHEMA_VERSION: &str = "shardloom.runs_today_support_matrix.v1";
+const RUNS_TODAY_MATRIX_ID: &str = "review-p0-1.current-support";
+const RUNS_TODAY_DOCS_REF: &str = "docs/status/runs-today-support-matrix.json";
+const RUNS_TODAY_WEBSITE_DATA_REF: &str =
+    "website-public/assets/data/runs-today-support-matrix.json";
+const RUNS_TODAY_SUPPORT_STATE_VOCABULARY: [&str; 6] = [
+    "executable",
+    "feature_gated",
+    "diagnostic_only",
+    "report_only",
+    "blocked",
+    "future",
+];
+const RUNS_TODAY_FAMILIES: [&str; 6] = [
+    "cli_command",
+    "python_api",
+    "input_format",
+    "output_format",
+    "execution_mode",
+    "claim_state",
+];
+
+const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
+    RunsTodaySupportRow {
+        id: "cli_status_capability_reports",
+        family: "cli_command",
+        surface: "status,capabilities,compute-capability-matrix,global-architecture-gate,semantic-conformance-suite",
+        support_state: "diagnostic_only",
+        feature_gate: "default",
+        evidence_refs: "capability_discovery_snapshots,typed_envelope_compatibility_lock,release_readiness_metadata",
+        blocker_id: "none",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "side-effect-free discovery only; does not execute datasets or authorize support claims",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "cli_sql_local_source_smoke",
+        family: "cli_command",
+        surface: "sql-local-source-smoke",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "sql_local_source_runtime_smoke,sql_parser_tests,python_query_builder_tests",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped local flat-source SQL smoke execution only, not broad SQL/DataFrame support",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "cli_vortex_ingest_smoke",
+        family: "cli_command",
+        surface: "vortex-ingest-smoke",
+        support_state: "feature_gated",
+        feature_gate: "vortex-write",
+        evidence_refs: "sql_local_source_runtime_smoke,vortex_ingest_evidence_fields",
+        blocker_id: "feature.vortex_write_required_for_default_build",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "local compatibility ingest to Vortex artifact only when feature enabled; no table/object-store claim",
+        runtime_execution: true,
+        data_read: true,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "cli_generated_source_smokes",
+        family: "cli_command",
+        surface: "generated-source-user-rows-smoke,generated-source-range-smoke,generated-source-sequence-smoke,generated-source-sql-smoke",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "generated_source_runtime_tests,generated_source_certificate_contract",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "source-free/generated local output smokes only; not a broad SQL generator or platform sink",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "cli_prepared_vortex_batch_benchmark",
+        family: "cli_command",
+        surface: "traditional-analytics-vortex-batch-run,traditional-analytics-vortex-run",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "traditional_benchmark_harness,benchmark_runtime_tests,prepared_vortex_batch_python_tests",
+        blocker_id: "none",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "local prepared-route evidence and benchmark rows only; no performance-superiority claim",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "python_status_capabilities",
+        family: "python_api",
+        surface: "ShardLoomClient.status,ShardLoomClient.capabilities,ShardLoomContext.capabilities",
+        support_state: "diagnostic_only",
+        feature_gate: "default",
+        evidence_refs: "python.tests.test_cli_client,python.tests.test_quickstart_proof",
+        blocker_id: "none",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "thin CLI JSON protocol discovery only; not a native binding",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "python_local_query_builder",
+        family: "python_api",
+        surface: "read_csv,read_json,read_vortex,sql,from_rows,LazyFrame.collect",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "python.tests.test_query_builder,sql_local_source_runtime_smoke",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped local query-builder lowering to admitted CLI smokes only",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "python_generated_source_helpers",
+        family: "python_api",
+        surface: "range,sequence,from_rows,sql_literal_select,sql_values,GeneratedSqlSource",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "python.tests.test_query_builder,generated_source_runtime_tests",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "local generated-source helper execution only; no source connector expansion",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "python_prepared_vortex_batch",
+        family: "python_api",
+        surface: "PreparedVortexArtifacts.run_batch,ShardLoomClient.traditional_analytics_vortex_batch_run",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "python.tests.test_cli_client,traditional_benchmark_harness",
+        blocker_id: "none",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "local prepared Vortex batch workflow only; not a package or production API claim",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "input_csv_json_jsonl_ndjson",
+        family: "input_format",
+        surface: "csv,json,jsonl,ndjson",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "sql_local_source_runtime_smoke,python_query_builder_tests,universal_compatibility_scoreboard",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "flat local source fixture coverage only; not production connector coverage",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "input_vortex_local",
+        family: "input_format",
+        surface: "vortex",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "vortex_count_tests,vortex_filter_project_tests,prepared_vortex_batch_tests",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped local Vortex input primitives and prepared-route workflows only",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "input_parquet_arrow_avro_orc",
+        family: "input_format",
+        surface: "parquet,arrow_ipc,avro,orc",
+        support_state: "feature_gated",
+        feature_gate: "universal-format-io",
+        evidence_refs: "feature_gated_sql_local_source_tests,universal_compatibility_scoreboard",
+        blocker_id: "feature.universal_format_io_required_for_default_build",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "local flat-scalar feature-gated adapters only; broad/nested/production format support remains blocked",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "input_object_store_cloud",
+        family: "input_format",
+        surface: "s3,gcs,adls,http_range",
+        support_state: "blocked",
+        feature_gate: "not_enabled",
+        evidence_refs: "object_store_request_plan,object_store_boundary_use_cases,capability_discovery_snapshots",
+        blocker_id: "review-p0-3.object_store_runtime_and_path_safety_required",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "cloud object-store runtime and credentialed network reads are blocked",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "output_inline_jsonl_csv",
+        family: "output_format",
+        surface: "inline_jsonl,csv",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "sql_local_source_runtime_smoke,generated_source_runtime_tests,fanout_replay_tests",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "local fixture result output only; not production sink or transaction support",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "output_vortex_local",
+        family: "output_format",
+        surface: "vortex",
+        support_state: "feature_gated",
+        feature_gate: "vortex-write",
+        evidence_refs: "generated_source_runtime_tests,sql_local_source_vortex_output_tests,vortex_output_commit_tests",
+        blocker_id: "feature.vortex_write_required_for_default_build",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "local Vortex artifact writes only when feature enabled; no object-store/table commit claim",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "output_parquet_arrow_avro_orc",
+        family: "output_format",
+        surface: "parquet,arrow_ipc,avro,orc",
+        support_state: "feature_gated",
+        feature_gate: "universal-format-io",
+        evidence_refs: "generated_source_runtime_tests,sql_local_source_runtime_smoke",
+        blocker_id: "feature.universal_format_io_required_for_default_build",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "local flat-scalar compatibility exports only when feature enabled",
+        runtime_execution: true,
+        data_read: false,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "execution_direct_compatibility_transient",
+        family: "execution_mode",
+        surface: "direct_compatibility_transient",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "sql_local_source_runtime_smoke,python_query_builder_tests",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped local source-backed execution only",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "execution_compatibility_import_certified",
+        family: "execution_mode",
+        surface: "compatibility_import_certified",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "traditional_benchmark_harness,workload_certification_dossier",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "certified local cold-route fixture evidence only",
+        runtime_execution: true,
+        data_read: true,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "execution_prepared_vortex",
+        family: "execution_mode",
+        surface: "prepared_vortex",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "prepared_source_reuse_tests,traditional_analytics_vortex_batch_run,python_prepared_batch_tests",
+        blocker_id: "none",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "prepared local Vortex reuse route only; not broad Vortex-native operator completeness",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "execution_native_vortex_scoped",
+        family: "execution_mode",
+        surface: "native_vortex",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "vortex_count_tests,vortex_filter_project_tests,vortex_query_trace_tests",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "scoped local count/filter/project primitive coverage only",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "execution_report_only_surfaces",
+        family: "execution_mode",
+        surface: "runtime-plan,scan-plan,engine-capability-matrix,workflow-unsupported-plan",
+        support_state: "report_only",
+        feature_gate: "default",
+        evidence_refs: "typed_envelope_compatibility_lock,capability_discovery_snapshots",
+        blocker_id: "runtime.evidence_required_before_execution_admission",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "architecture/planning reports only; these commands do not execute workloads",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "execution_live_hybrid_remote_distributed",
+        family: "execution_mode",
+        surface: "live,hybrid,remote,distributed",
+        support_state: "future",
+        feature_gate: "not_enabled",
+        evidence_refs: "engine_capability_matrix,rest_api_contract_plan,object_store_runtime_gate",
+        blocker_id: "cg22.cg23.object_store_runtime_evidence_required",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "future execution fabric; no remote/distributed runtime claim",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "claim_current_state_discoverability",
+        family: "claim_state",
+        surface: "what_runs_today",
+        support_state: "diagnostic_only",
+        feature_gate: "default",
+        evidence_refs: "runs_today_cli_snapshot,runs_today_python_helper,website_readiness",
+        blocker_id: "none",
+        claim_gate_status: "claim_safe_discovery",
+        claim_boundary: "current-state discoverability only; not runtime expansion",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "claim_production_readiness",
+        family: "claim_state",
+        surface: "production_readiness",
+        support_state: "blocked",
+        feature_gate: "not_enabled",
+        evidence_refs: "release_readiness_matrix,package_channel_readiness_matrix,global_architecture_gate",
+        blocker_id: "release.production_readiness_gate_required",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "no production-readiness claim is allowed",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "claim_performance_superiority",
+        family: "claim_state",
+        surface: "performance_superiority,spark_replacement",
+        support_state: "blocked",
+        feature_gate: "not_enabled",
+        evidence_refs: "benchmark_claim_evidence_plan,benchmark_constitution_required",
+        blocker_id: "cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "no faster-than or replacement claim is allowed",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "claim_package_publication",
+        family: "claim_state",
+        surface: "pypi,crates_io,oci,package_install",
+        support_state: "blocked",
+        feature_gate: "not_enabled",
+        evidence_refs: "package_channel_readiness_matrix,release_plan,python_wrapper_plan",
+        blocker_id: "release.package_publication_gate_required",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "no public package publication or install-channel claim is allowed",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "claim_object_store_lakehouse_foundry_production",
+        family: "claim_state",
+        surface: "object_store,lakehouse,foundry,rest_api",
+        support_state: "blocked",
+        feature_gate: "not_enabled",
+        evidence_refs: "object_store_request_plan,table_compat_plan,foundry_readiness,rest_api_contract_plan",
+        blocker_id: "platform.production_integration_evidence_required",
+        claim_gate_status: "not_claim_grade",
+        claim_boundary: "integration/platform production support remains blocked or report-only",
+        runtime_execution: false,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+];
+
+pub(crate) fn handle_runs_today(format: OutputFormat) -> ExitCode {
+    emit(
+        RUNS_TODAY_COMMAND,
+        format,
+        CommandStatus::Success,
+        "current support matrix".to_string(),
+        runs_today_human_text(),
+        vec![],
+        runs_today_fields(),
+    );
+    ExitCode::SUCCESS
+}
+
+fn runs_today_human_text() -> String {
+    format!(
+        "runs_today rows={} executable={} feature_gated={} diagnostic_only={} report_only={} blocked={} future={} fallback_execution=disabled external_engine_invoked=false",
+        RUNS_TODAY_SUPPORT_ROWS.len(),
+        runs_today_count_by_support_state("executable"),
+        runs_today_count_by_support_state("feature_gated"),
+        runs_today_count_by_support_state("diagnostic_only"),
+        runs_today_count_by_support_state("report_only"),
+        runs_today_count_by_support_state("blocked"),
+        runs_today_count_by_support_state("future"),
+    )
+}
+
+#[allow(clippy::too_many_lines)]
+fn runs_today_fields() -> Vec<(String, String)> {
+    let mut fields = Vec::new();
+    push_field(
+        &mut fields,
+        "runs_today_schema_version",
+        RUNS_TODAY_SCHEMA_VERSION,
+    );
+    push_field(&mut fields, "runs_today_matrix_id", RUNS_TODAY_MATRIX_ID);
+    push_field(&mut fields, "runs_today_docs_ref", RUNS_TODAY_DOCS_REF);
+    push_field(
+        &mut fields,
+        "runs_today_website_data_ref",
+        RUNS_TODAY_WEBSITE_DATA_REF,
+    );
+    push_field(
+        &mut fields,
+        "runs_today_support_state_vocabulary",
+        &RUNS_TODAY_SUPPORT_STATE_VOCABULARY.join(","),
+    );
+    push_field(
+        &mut fields,
+        "runs_today_family_order",
+        &RUNS_TODAY_FAMILIES.join(","),
+    );
+    push_count_field(
+        &mut fields,
+        "runs_today_row_count",
+        RUNS_TODAY_SUPPORT_ROWS.len(),
+    );
+    push_field(&mut fields, "runs_today_row_order", &runs_today_row_order());
+    for state in RUNS_TODAY_SUPPORT_STATE_VOCABULARY {
+        push_count_field(
+            &mut fields,
+            &format!("runs_today_{state}_row_count"),
+            runs_today_count_by_support_state(state),
+        );
+        push_field(
+            &mut fields,
+            &format!("runs_today_{state}_row_order"),
+            &runs_today_row_order_by_support_state(state),
+        );
+    }
+    for family in RUNS_TODAY_FAMILIES {
+        push_count_field(
+            &mut fields,
+            &format!("runs_today_{family}_row_count"),
+            runs_today_count_by_family(family),
+        );
+        push_field(
+            &mut fields,
+            &format!("runs_today_{family}_row_order"),
+            &runs_today_row_order_by_family(family),
+        );
+    }
+    push_field(
+        &mut fields,
+        "runs_today_blocker_ids",
+        &runs_today_blocker_ids(),
+    );
+    push_field(
+        &mut fields,
+        "runs_today_evidence_refs",
+        &runs_today_evidence_refs(),
+    );
+    push_bool_field(&mut fields, "fallback_execution_allowed", false);
+    push_bool_field(&mut fields, "fallback_attempted", false);
+    push_bool_field(&mut fields, "external_engine_invoked", false);
+    push_bool_field(&mut fields, "side_effect_free", true);
+    push_bool_field(&mut fields, "runtime_discovery_side_effect_free", true);
+    push_bool_field(
+        &mut fields,
+        "runs_today_all_rows_fallback_attempted_false",
+        runs_today_all_rows_fallback_attempted_false(),
+    );
+    push_bool_field(
+        &mut fields,
+        "runs_today_all_rows_external_engine_invoked_false",
+        runs_today_all_rows_external_engine_invoked_false(),
+    );
+    push_bool_field(
+        &mut fields,
+        "runs_today_all_rows_no_fallback_no_external_engine",
+        runs_today_all_rows_fallback_attempted_false()
+            && runs_today_all_rows_external_engine_invoked_false(),
+    );
+    push_bool_field(&mut fields, "runs_today_runtime_expansion_allowed", false);
+    push_bool_field(&mut fields, "runs_today_package_publication_allowed", false);
+    push_bool_field(&mut fields, "runs_today_performance_claim_allowed", false);
+    push_field(
+        &mut fields,
+        "runs_today_claim_gate_status",
+        "not_claim_grade",
+    );
+    push_field(
+        &mut fields,
+        "runs_today_claim_boundary",
+        "current-state discoverability only; this matrix does not expand runtime support or authorize production, package, performance, object-store, lakehouse, Foundry, REST, or Spark-replacement claims",
+    );
+    for row in RUNS_TODAY_SUPPORT_ROWS {
+        let prefix = format!("runs_today_row_{}_", row.id);
+        push_field(&mut fields, &format!("{prefix}family"), row.family);
+        push_field(&mut fields, &format!("{prefix}surface"), row.surface);
+        push_field(
+            &mut fields,
+            &format!("{prefix}support_state"),
+            row.support_state,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}feature_gate"),
+            row.feature_gate,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}evidence_refs"),
+            row.evidence_refs,
+        );
+        push_field(&mut fields, &format!("{prefix}blocker_id"), row.blocker_id);
+        push_field(
+            &mut fields,
+            &format!("{prefix}claim_gate_status"),
+            row.claim_gate_status,
+        );
+        push_field(
+            &mut fields,
+            &format!("{prefix}claim_boundary"),
+            row.claim_boundary,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}runtime_execution"),
+            row.runtime_execution,
+        );
+        push_bool_field(&mut fields, &format!("{prefix}data_read"), row.data_read);
+        push_bool_field(&mut fields, &format!("{prefix}write_io"), row.write_io);
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}fallback_attempted"),
+            row.fallback_attempted,
+        );
+        push_bool_field(
+            &mut fields,
+            &format!("{prefix}external_engine_invoked"),
+            row.external_engine_invoked,
+        );
+    }
+    fields
+}
+
+fn runs_today_row_order() -> String {
+    RUNS_TODAY_SUPPORT_ROWS
+        .iter()
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn runs_today_row_order_by_support_state(support_state: &str) -> String {
+    RUNS_TODAY_SUPPORT_ROWS
+        .iter()
+        .filter(|row| row.support_state == support_state)
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn runs_today_row_order_by_family(family: &str) -> String {
+    RUNS_TODAY_SUPPORT_ROWS
+        .iter()
+        .filter(|row| row.family == family)
+        .map(|row| row.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn runs_today_count_by_support_state(support_state: &str) -> usize {
+    RUNS_TODAY_SUPPORT_ROWS
+        .iter()
+        .filter(|row| row.support_state == support_state)
+        .count()
+}
+
+fn runs_today_count_by_family(family: &str) -> usize {
+    RUNS_TODAY_SUPPORT_ROWS
+        .iter()
+        .filter(|row| row.family == family)
+        .count()
+}
+
+fn runs_today_blocker_ids() -> String {
+    let mut blocker_ids = Vec::new();
+    for row in RUNS_TODAY_SUPPORT_ROWS {
+        if row.blocker_id != "none" && !blocker_ids.contains(&row.blocker_id) {
+            blocker_ids.push(row.blocker_id);
+        }
+    }
+    blocker_ids.join(",")
+}
+
+fn runs_today_evidence_refs() -> String {
+    let mut refs = Vec::new();
+    for row in RUNS_TODAY_SUPPORT_ROWS {
+        for evidence_ref in row.evidence_refs.split(',') {
+            if !refs.contains(&evidence_ref) {
+                refs.push(evidence_ref);
+            }
+        }
+    }
+    refs.join(",")
+}
+
+fn runs_today_all_rows_fallback_attempted_false() -> bool {
+    RUNS_TODAY_SUPPORT_ROWS
+        .iter()
+        .all(|row| !row.fallback_attempted)
+}
+
+fn runs_today_all_rows_external_engine_invoked_false() -> bool {
+    RUNS_TODAY_SUPPORT_ROWS
+        .iter()
+        .all(|row| !row.external_engine_invoked)
+}
+
 fn push_field(fields: &mut Vec<(String, String)>, key: &str, value: &str) {
     fields.push((key.to_string(), value.to_string()));
 }

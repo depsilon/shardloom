@@ -1,12 +1,19 @@
 import fieldGuide from "../data/field-guide.json";
+import runsTodaySupportMatrix from "../data/runs-today-support-matrix.json";
 import statusRows from "../data/status-rows.json";
 import useCaseIndex from "../data/use-case-index.json";
 import benchmarkEvidence from "../data/benchmark-evidence.json";
 import benchmarkManifest from "../data/benchmark-manifest.json";
 
 export type FieldGuideTerm = (typeof fieldGuide)[number];
+export type RunsTodaySupportMatrix = typeof runsTodaySupportMatrix;
+export type RunsTodaySupportRow = RunsTodaySupportMatrix["rows"][number];
 export type StatusRow = (typeof statusRows)[number];
 export type UseCase = (typeof useCaseIndex.use_cases)[number];
+type BenchmarkRow = Record<string, unknown> & {
+  engine?: unknown;
+  claim_gate_status?: unknown;
+};
 
 export const siteNav = [
   ["Home", "/", "home"],
@@ -21,6 +28,8 @@ export const siteNav = [
 ] as const;
 
 export const fieldGuideTerms = fieldGuide;
+export const runsTodayMatrix = runsTodaySupportMatrix;
+export const runsTodayRows = runsTodaySupportMatrix.rows;
 export const publicStatusRows = statusRows;
 export const useCases = useCaseIndex.use_cases;
 export const capabilityFamilies = useCaseIndex.capability_families;
@@ -42,6 +51,10 @@ export function siteStatus(value: string): string {
     runtime_supported: "runtime_supported",
     fixture_smoke_only: "fixture_smoke_only",
     not_planned: "not_planned",
+    executable: "executable",
+    feature_gated: "feature_gated",
+    diagnostic_only: "diagnostic_only",
+    future: "future",
   };
   return labels[value] ?? value;
 }
@@ -53,9 +66,9 @@ export function formatList(values: unknown, fallback = "not reported"): string {
 }
 
 export function routeMetrics() {
-  const rows = Array.isArray((benchmark as any).rows) ? (benchmark as any).rows : [];
-  const batchRows = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
-  const publishedRows = Array.isArray((benchmark as any).published_benchmark_rows)
+  const rows: BenchmarkRow[] = Array.isArray((benchmark as any).rows) ? (benchmark as any).rows : [];
+  const batchRows: BenchmarkRow[] = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
+  const publishedRows: BenchmarkRow[] = Array.isArray((benchmark as any).published_benchmark_rows)
     ? (benchmark as any).published_benchmark_rows
     : [];
   const allRows = [...rows, ...batchRows, ...publishedRows];

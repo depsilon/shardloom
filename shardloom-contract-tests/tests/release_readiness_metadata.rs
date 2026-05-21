@@ -1979,7 +1979,7 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-0043-B publication attestation and final release rehearsal"));
     assert!(plan.contains("complete the review-derived action items below before new runtime"));
-    assert!(plan.contains("REVIEW-P0-1 generated current-support matrix"));
+    assert!(!plan.contains("- [ ] REVIEW-P0-1 generated current-support matrix"));
     assert!(plan.contains("REVIEW-P0-2 release-grade CI gate matrix"));
     assert!(plan.contains("REVIEW-P0-3 enforced workspace path safety"));
     assert!(plan.contains("Completed non-runtime history belongs in"));
@@ -1987,6 +1987,10 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "REVIEW-P0-1 generated current-support matrix and runs-today surface",
+        "shardloom.runs_today_support_matrix.v1",
+        "docs/status/runs-today-support-matrix.json",
+        "executable,feature_gated,diagnostic_only,report_only,blocked,future",
         "GAR-0043-B publication attestation and final release rehearsal",
         "shardloom.final_release_rehearsal_report.v1",
         "shardloom.local_publication_attestation_plan.v1",
