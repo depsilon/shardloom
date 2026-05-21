@@ -114,7 +114,8 @@ pub(crate) fn classify_command(command: &str) -> CommandFamily {
 fn is_status_capabilities_command(command: &str) -> bool {
     matches!(
         command,
-        "command-metadata"
+        "help"
+            | "command-metadata"
             | "status"
             | "runs-today"
             | "capabilities"
@@ -393,6 +394,7 @@ mod tests {
             classify_command("status"),
             CommandFamily::StatusCapabilities
         );
+        assert_eq!(classify_command("help"), CommandFamily::StatusCapabilities);
         assert_eq!(
             classify_command("command-metadata"),
             CommandFamily::StatusCapabilities

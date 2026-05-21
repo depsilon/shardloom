@@ -3482,6 +3482,38 @@ class CommandMetadataReport:
         )
 
     @property
+    def registered_command_feature_gate_statuses(self) -> Mapping[str, str]:
+        """Return command name to feature-gate status mappings."""
+
+        return _csv_key_value_map(
+            self.envelope.field("registered_command_feature_gate_statuses")
+        )
+
+    @property
+    def registered_command_input_contracts(self) -> Mapping[str, str]:
+        """Return command name to registry input-contract mappings."""
+
+        return _csv_key_value_map(
+            self.envelope.field("registered_command_input_contracts")
+        )
+
+    @property
+    def registered_command_output_contracts(self) -> Mapping[str, str]:
+        """Return command name to registry output-contract mappings."""
+
+        return _csv_key_value_map(
+            self.envelope.field("registered_command_output_contracts")
+        )
+
+    @property
+    def registered_command_owning_phase_items(self) -> Mapping[str, str]:
+        """Return command name to owning phase or gate mappings."""
+
+        return _csv_key_value_map(
+            self.envelope.field("registered_command_owning_phase_items")
+        )
+
+    @property
     def selected_command(self) -> str | None:
         """Return the selected command, when the CLI request targeted one command."""
 
@@ -3512,6 +3544,40 @@ class CommandMetadataReport:
         return self.envelope.field("selected_command_usage_fragment")
 
     @property
+    def selected_command_feature_gate_status(self) -> str | None:
+        """Return the selected command feature-gate status, when present."""
+
+        return self.envelope.field("selected_command_feature_gate_status")
+
+    @property
+    def selected_command_input_contract(self) -> str | None:
+        """Return the selected command input contract, when present."""
+
+        return self.envelope.field("selected_command_input_contract")
+
+    @property
+    def selected_command_output_contract(self) -> str | None:
+        """Return the selected command output contract, when present."""
+
+        return self.envelope.field("selected_command_output_contract")
+
+    @property
+    def selected_command_evidence_fields(self) -> tuple[str, ...]:
+        """Return the selected command evidence fields, when present."""
+
+        return _csv_values(
+            (self.envelope.field("selected_command_evidence_fields") or "").replace(
+                "|", ","
+            )
+        )
+
+    @property
+    def selected_command_owning_phase_item(self) -> str | None:
+        """Return the selected command owning phase or gate, when present."""
+
+        return self.envelope.field("selected_command_owning_phase_item")
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether command metadata attempted fallback execution."""
 
@@ -3540,6 +3606,26 @@ class CommandMetadataReport:
         """Return the registered side-effect level for a command."""
 
         return self.registered_command_side_effect_levels[command]
+
+    def feature_gate_status_for(self, command: str) -> str:
+        """Return the registered feature-gate status for a command."""
+
+        return self.registered_command_feature_gate_statuses[command]
+
+    def input_contract_for(self, command: str) -> str:
+        """Return the registered input contract for a command."""
+
+        return self.registered_command_input_contracts[command]
+
+    def output_contract_for(self, command: str) -> str:
+        """Return the registered output contract for a command."""
+
+        return self.registered_command_output_contracts[command]
+
+    def owning_phase_item_for(self, command: str) -> str:
+        """Return the registered owning phase or gate for a command."""
+
+        return self.registered_command_owning_phase_items[command]
 
 
 @dataclass(frozen=True, slots=True)

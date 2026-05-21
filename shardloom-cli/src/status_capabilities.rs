@@ -31,6 +31,7 @@ use shardloom_vortex::{
 use crate::{
     cli_output::{emit, emit_error},
     cli_unknown_arg_error,
+    command_registry::append_command_registry_capability_fields,
     engine_runtime_planning::append_streaming_capability_matrix_summary_fields,
     evidence_certificates::append_best_default_certification_gate_fields,
     extension_planning::{
@@ -9773,6 +9774,7 @@ fn world_class_surface_fields(
         append_generated_source_evidence_alignment_fields(&mut fields);
     }
     if scope == CapabilityDiscoveryScope::ApiSurfaces {
+        append_command_registry_capability_fields(&mut fields);
         append_wrapper_connector_registry_fields(&mut fields);
     }
     if scope == CapabilityDiscoveryScope::Observability {

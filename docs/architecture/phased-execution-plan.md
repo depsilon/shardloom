@@ -236,33 +236,6 @@ Current non-runtime sequence: complete the review-derived action items below bef
 expansion unless the user explicitly reprioritizes. Completed non-runtime history belongs in
 `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] REVIEW-P1-1 typed command registry generated capability/docs backfill
-  - Source: 2026-05-21 structured repository review action sequence; RFC 0010, RFC 0012,
-    typed command-result envelope, capability discovery.
-  - Current state: the CLI has a typed command registry for usage rendering, command family/support
-    state/side-effect metadata, a `command-metadata` JSON surface, and Python typed command metadata.
-    Remaining drift points are capability rows, command-specific help, and generated docs/status
-    snippets that still need to be produced from the registry instead of separate hand-maintained
-    tables.
-  - Next slice outcome: backfill registry-generated capability rows, docs/status snippets,
-    command-specific help fragments, and agent-facing command metadata from the same registry source.
-  - User-visible surface: command-specific help, capability JSON, generated docs, Python wrapper
-    command metadata.
-  - Implementation scope: registry-to-capability projection, docs/status generator or validator,
-    command-specific help renderer, snapshots.
-  - Evidence required: command id, support state, input/output contract, feature gates, side-effect
-    level, evidence fields, claim boundary, fallback boundary, and owning phase item.
-  - Acceptance: adding or changing a command updates one registry entry and generated tests catch
-    command-specific help, capability, and docs drift.
-  - Verification: CLI help snapshots, command metadata JSON snapshots, Python wrapper scope tests,
-    capability discovery snapshots, release-readiness metadata, `git diff --check`.
-  - Non-goals: no command behavior expansion, public API stability claim, package publication, or
-    broad remote/API listener implementation.
-  - Claim boundary: command discoverability and metadata consolidation only.
-  - Fallback boundary: command metadata must explicitly distinguish executable, diagnostic-only,
-    report-only, blocked, and future commands without implying fallback execution.
-  - Ledger rule: ledger entry must name generated outputs and removed hand-maintained drift points.
-
 - [ ] REVIEW-P1-2 typed evidence schema registry and contract generation
   - Source: 2026-05-21 structured repository review action sequence; typed envelope migration,
     diagnostics/capabilities, execution certificates.
