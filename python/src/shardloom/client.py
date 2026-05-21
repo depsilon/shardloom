@@ -3629,6 +3629,168 @@ class CommandMetadataReport:
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceSchemaRegistryReport:
+    """Typed view over the side-effect-free evidence field schema registry."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def schema_version(self) -> str:
+        """Return the evidence field registry schema version."""
+
+        return _required_field(
+            self.envelope, "evidence_schema_registry_schema_version"
+        )
+
+    @property
+    def surface_count(self) -> int:
+        """Return the number of registered evidence surfaces."""
+
+        return (
+            self.envelope.field_int("evidence_schema_registry_surface_count", 0)
+            or 0
+        )
+
+    @property
+    def field_count(self) -> int:
+        """Return the total registered evidence field count."""
+
+        return (
+            self.envelope.field_int("evidence_schema_registry_field_count", 0) or 0
+        )
+
+    @property
+    def surface_order(self) -> tuple[str, ...]:
+        """Return registered evidence surfaces in deterministic order."""
+
+        return _csv_values(
+            self.envelope.field("evidence_schema_registry_surface_order")
+        )
+
+    @property
+    def dtype_vocabulary(self) -> tuple[str, ...]:
+        """Return the registry dtype vocabulary."""
+
+        return _csv_values(
+            self.envelope.field("evidence_schema_registry_dtype_vocabulary")
+        )
+
+    @property
+    def cardinality_vocabulary(self) -> tuple[str, ...]:
+        """Return the registry cardinality vocabulary."""
+
+        return _csv_values(
+            self.envelope.field("evidence_schema_registry_cardinality_vocabulary")
+        )
+
+    @property
+    def selected_surface(self) -> str | None:
+        """Return the selected evidence surface, when one was requested."""
+
+        return self.envelope.field("selected_surface")
+
+    @property
+    def selected_surface_field_order(self) -> tuple[str, ...]:
+        """Return the selected surface field order, when present."""
+
+        return _csv_values(self.envelope.field("selected_surface_field_order"))
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether evidence schema rendering attempted fallback execution."""
+
+        return (
+            self.envelope.fallback.attempted
+            or self.envelope.field_bool(
+                "evidence_schema_registry_fallback_attempted", False
+            )
+            is True
+        )
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether evidence schema rendering invoked an external execution engine."""
+
+        return (
+            _envelope_external_engine_invoked(self.envelope)
+            or self.envelope.field_bool(
+                "evidence_schema_registry_external_engine_invoked", False
+            )
+            is True
+        )
+
+    def field_order_for(self, surface_id: str) -> tuple[str, ...]:
+        """Return the declared field order for a surface."""
+
+        return _csv_values(
+            self.envelope.field(
+                f"evidence_schema_surface_{surface_id}_field_order"
+            )
+        )
+
+    def python_accessor_mapping_for(self, surface_id: str) -> str:
+        """Return the declared Python accessor mapping for a surface."""
+
+        return _required_field(
+            self.envelope,
+            f"evidence_schema_surface_{surface_id}_python_accessor_mapping",
+        )
+
+    def required_no_fallback_fields_for(self, surface_id: str) -> tuple[str, ...]:
+        """Return no-fallback fields required by the surface contract."""
+
+        return _csv_values(
+            self.envelope.field(
+                f"evidence_schema_surface_{surface_id}_required_no_fallback_fields"
+            )
+        )
+
+    def dtype_for(self, surface_id: str, field_key: str) -> str:
+        """Return the declared dtype for one evidence field."""
+
+        return _required_field(
+            self.envelope, f"{self._field_prefix(surface_id, field_key)}_dtype"
+        )
+
+    def cardinality_for(self, surface_id: str, field_key: str) -> str:
+        """Return the declared cardinality for one evidence field."""
+
+        return _required_field(
+            self.envelope,
+            f"{self._field_prefix(surface_id, field_key)}_cardinality",
+        )
+
+    def no_fallback_semantics_for(self, surface_id: str, field_key: str) -> str:
+        """Return the declared no-fallback semantics for one evidence field."""
+
+        return _required_field(
+            self.envelope,
+            f"{self._field_prefix(surface_id, field_key)}_no_fallback_semantics",
+        )
+
+    def support_state_for(self, surface_id: str, field_key: str) -> str:
+        """Return the declared support state for one evidence field."""
+
+        return _required_field(
+            self.envelope,
+            f"{self._field_prefix(surface_id, field_key)}_support_state",
+        )
+
+    def python_accessor_for(self, surface_id: str, field_key: str) -> str:
+        """Return the declared Python accessor mapping for one evidence field."""
+
+        return _required_field(
+            self.envelope,
+            f"{self._field_prefix(surface_id, field_key)}_python_accessor_mapping",
+        )
+
+    @staticmethod
+    def _field_prefix(surface_id: str, field_key: str) -> str:
+        field_id = field_key.replace("-", "_")
+        return f"evidence_schema_field_{surface_id}_{field_id}"
+
+
+@dataclass(frozen=True, slots=True)
 class RunsTodaySupportRow:
     """One current-support row from the `runs-today` matrix."""
 
@@ -6169,6 +6331,16 @@ class ShardLoomClient:
         if command is not None:
             args.append(command)
         return CommandMetadataReport(self.run(args, check=check))
+
+    def evidence_schema(
+        self, surface: str | None = None, *, check: bool = True
+    ) -> EvidenceSchemaRegistryReport:
+        """Return side-effect-free evidence field schema registry metadata."""
+
+        args = ["evidence-schema"]
+        if surface is not None:
+            args.append(surface)
+        return EvidenceSchemaRegistryReport(self.run(args, check=check))
 
     def api_compat_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the CLI/API JSON compatibility plan envelope."""

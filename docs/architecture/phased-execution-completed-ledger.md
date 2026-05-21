@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-P1-2 typed evidence schema registry and contract validation
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-18-20260521` / #907.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - Typed command-result envelope, diagnostics/capabilities, and execution-certificate guidance.
+    - `REVIEW-P1-2 typed evidence schema registry and contract generation`.
+  - Scope:
+    - Added `evidence-schema [surface]` as a side-effect-free CLI schema surface for high-value
+      typed-envelope evidence artifacts.
+    - Registered field key, dtype, cardinality, owning artifact/commands, support state, claim
+      boundary, no-fallback semantics, deprecation policy, and Python accessor mapping for:
+      `execution_mode_selection_report`, `compute_flow_evidence`,
+      `execution_certificate_report`, `native_io_report`, `benchmark_plan_report`,
+      `benchmark_claim_evidence_report`, and `compute_capability_matrix_report`.
+    - Projected the same generated evidence-schema rows into
+      `shardloom capabilities api-surfaces --format json`.
+    - Added Python `ShardLoomClient.evidence_schema()` and `EvidenceSchemaRegistryReport` typed
+      accessors for schema version, surface/field order, dtype, cardinality, no-fallback semantics,
+      required no-fallback fields, and Python accessor mappings.
+    - Added `docs/status/evidence-field-schema-registry.md` plus
+      `scripts/check_evidence_schema_registry.py` so docs/source/Python anchors are validated.
+    - Removed `REVIEW-P1-2` from the active phased execution plan so the plan remains an unchecked
+      queue only.
+  - User-visible evidence:
+    - `shardloom evidence-schema --format json` emits the registry summary with seven surfaces and
+      238 typed evidence fields.
+    - `shardloom evidence-schema execution_mode_selection_report --format json` emits selected
+      surface field order and per-field schema rows.
+    - `shardloom capabilities api-surfaces --format json` includes generated
+      `evidence_schema_registry_*`, `evidence_schema_surface_*`, and `evidence_schema_field_*`
+      fields.
+  - Drift guards:
+    - Rust registry tests require every surface to be backed by typed-envelope payload keys and to
+      include required no-fallback fields.
+    - Capability snapshot tests derive expected evidence-schema row keys from typed-envelope payload
+      constants.
+    - Python wrapper tests assert typed access to registry fields and selected-surface field
+      contracts.
+    - Release-readiness checks require the registry source, docs/status snippet, and validator
+      script.
+  - Covered schema families:
+    - Execution mode selection, compute-flow evidence, execution certificate, Native I/O report,
+      benchmark plan, benchmark claim evidence, and compute capability matrix.
+  - Remaining string-key-only families:
+    - Lower-priority inline artifacts such as semantic conformance, universal harness, claim-gate
+      closeout, input/source report subsets, streaming plan subsets, and local primitive
+      certificate subset payloads remain governed by typed-envelope payload constants but are not
+      yet projected into the evidence-schema registry.
+  - Verification:
+    - `cargo fmt --all`
+    - `cargo test -p shardloom-cli evidence_schema -- --nocapture`
+    - `cargo test -p shardloom-cli --test evidence_schema_registry_snapshots -- --nocapture`
+    - `cargo test -p shardloom-cli capability_discovery_json_field_keys_are_stable --test capability_discovery_snapshots -- --nocapture`
+    - `cargo test -p shardloom-cli wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors --test capability_discovery_snapshots -- --nocapture`
+    - `cargo test -p shardloom-cli api_surfaces_capability_fixture_routes_registry_into_typed_slots --test typed_envelope_contract_snapshots -- --nocapture`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_evidence_schema_returns_typed_registry_report`
+    - `python -m unittest discover -s python\tests`
+    - `python scripts\check_evidence_schema_registry.py`
+  - Remaining non-goals:
+    - No wire-format breaking change, public API stability claim, package publication, performance
+      claim, or new runtime behavior is authorized by this registry.
+  - Claim boundary:
+    - Schema consistency and drift prevention only.
+  - Fallback boundary:
+    - Evidence-schema rendering and capability projection are side-effect-free and report
+      `fallback_attempted=false` and `external_engine_invoked=false`; they must never invoke
+      fallback execution or external query engines.
+
 - [x] Session label: REVIEW-P1-1B typed command registry capability/docs/help backfill
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-17-20260521` / #906.

@@ -26,6 +26,7 @@ from shardloom import (
     ETLWorkflowCapabilityMatrix,
     GeneratedSourceApiAdmissionMatrix,
     EngineCapabilityMatrix,
+    EvidenceSchemaRegistryReport,
     EvidenceAwareOptimizerTraceReport,
     ExecutionResultEnvelopeView,
     GeneratedSourceCertificateContract,
@@ -336,6 +337,124 @@ class ShardLoomClientTests(unittest.TestCase):
             "GAR-RUNTIME-IMPL-4",
         )
         self.assertIn("fallback_attempted", report.selected_command_evidence_fields)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_evidence_schema_returns_typed_registry_report(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["evidence-schema", "execution_mode_selection_report", "--format", "json"], sys.argv
+                fields = [
+                    ["evidence_schema_registry_schema_version", "shardloom.evidence_field_schema_registry.v1"],
+                    ["evidence_schema_registry_surface_count", "1"],
+                    ["evidence_schema_registry_field_count", "3"],
+                    ["evidence_schema_registry_surface_order", "execution_mode_selection_report"],
+                    ["evidence_schema_registry_dtype_vocabulary", "string,boolean,integer"],
+                    ["evidence_schema_registry_cardinality_vocabulary", "scalar,list_or_csv"],
+                    ["evidence_schema_registry_fallback_attempted", "false"],
+                    ["evidence_schema_registry_external_engine_invoked", "false"],
+                    ["selected_surface", "execution_mode_selection_report"],
+                    ["selected_surface_field_order", "selected_execution_mode,fallback_attempted,required_future_evidence"],
+                    ["evidence_schema_surface_execution_mode_selection_report_field_order", "selected_execution_mode,fallback_attempted,required_future_evidence"],
+                    ["evidence_schema_surface_execution_mode_selection_report_python_accessor_mapping", "TraditionalAnalyticsRun.execution_mode_selection_fields"],
+                    ["evidence_schema_surface_execution_mode_selection_report_required_no_fallback_fields", "fallback_attempted,external_engine_invoked"],
+                    ["evidence_schema_field_execution_mode_selection_report_selected_execution_mode_dtype", "string"],
+                    ["evidence_schema_field_execution_mode_selection_report_selected_execution_mode_cardinality", "scalar"],
+                    ["evidence_schema_field_execution_mode_selection_report_selected_execution_mode_support_state", "schema_declared"],
+                    ["evidence_schema_field_execution_mode_selection_report_selected_execution_mode_no_fallback_semantics", "inherits_surface_no_fallback_boundary"],
+                    ["evidence_schema_field_execution_mode_selection_report_selected_execution_mode_python_accessor_mapping", "TraditionalAnalyticsRun.execution_mode_selection_fields"],
+                    ["evidence_schema_field_execution_mode_selection_report_fallback_attempted_dtype", "boolean"],
+                    ["evidence_schema_field_execution_mode_selection_report_fallback_attempted_cardinality", "scalar"],
+                    ["evidence_schema_field_execution_mode_selection_report_fallback_attempted_no_fallback_semantics", "must_remain_false"],
+                    ["evidence_schema_field_execution_mode_selection_report_fallback_attempted_support_state", "schema_declared"],
+                    ["evidence_schema_field_execution_mode_selection_report_fallback_attempted_python_accessor_mapping", "TraditionalAnalyticsRun.execution_mode_selection_fields"],
+                    ["evidence_schema_field_execution_mode_selection_report_required_future_evidence_dtype", "string"],
+                    ["evidence_schema_field_execution_mode_selection_report_required_future_evidence_cardinality", "list_or_csv"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "evidence-schema",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+
+        report = ShardLoomClient(binary=binary).evidence_schema(
+            "execution_mode_selection_report"
+        )
+
+        self.assertIsInstance(report, EvidenceSchemaRegistryReport)
+        self.assertEqual(
+            report.schema_version, "shardloom.evidence_field_schema_registry.v1"
+        )
+        self.assertEqual(report.surface_count, 1)
+        self.assertEqual(report.field_count, 3)
+        self.assertEqual(report.surface_order, ("execution_mode_selection_report",))
+        self.assertEqual(report.selected_surface, "execution_mode_selection_report")
+        self.assertEqual(
+            report.selected_surface_field_order,
+            (
+                "selected_execution_mode",
+                "fallback_attempted",
+                "required_future_evidence",
+            ),
+        )
+        self.assertEqual(
+            report.field_order_for("execution_mode_selection_report"),
+            (
+                "selected_execution_mode",
+                "fallback_attempted",
+                "required_future_evidence",
+            ),
+        )
+        self.assertEqual(
+            report.python_accessor_mapping_for("execution_mode_selection_report"),
+            "TraditionalAnalyticsRun.execution_mode_selection_fields",
+        )
+        self.assertEqual(
+            report.required_no_fallback_fields_for(
+                "execution_mode_selection_report"
+            ),
+            ("fallback_attempted", "external_engine_invoked"),
+        )
+        self.assertEqual(
+            report.dtype_for(
+                "execution_mode_selection_report", "fallback_attempted"
+            ),
+            "boolean",
+        )
+        self.assertEqual(
+            report.cardinality_for(
+                "execution_mode_selection_report", "required_future_evidence"
+            ),
+            "list_or_csv",
+        )
+        self.assertEqual(
+            report.no_fallback_semantics_for(
+                "execution_mode_selection_report", "fallback_attempted"
+            ),
+            "must_remain_false",
+        )
+        self.assertEqual(
+            report.support_state_for(
+                "execution_mode_selection_report", "selected_execution_mode"
+            ),
+            "schema_declared",
+        )
+        self.assertEqual(
+            report.python_accessor_for(
+                "execution_mode_selection_report", "selected_execution_mode"
+            ),
+            "TraditionalAnalyticsRun.execution_mode_selection_fields",
+        )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 

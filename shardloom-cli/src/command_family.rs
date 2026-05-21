@@ -116,6 +116,7 @@ fn is_status_capabilities_command(command: &str) -> bool {
         command,
         "help"
             | "command-metadata"
+            | "evidence-schema"
             | "status"
             | "runs-today"
             | "capabilities"

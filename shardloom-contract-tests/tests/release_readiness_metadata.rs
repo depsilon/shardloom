@@ -5664,6 +5664,7 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(!plan.contains("- [ ] GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("complete the review-derived action items below before new runtime"));
     assert!(!plan.contains("- [ ] REVIEW-P1-1 typed command registry"));
+    assert!(!plan.contains("- [ ] REVIEW-P1-2 typed evidence schema registry"));
     assert!(plan.contains("REVIEW-P1-4 dependency, license, provenance"));
     assert!(plan.contains("REVIEW-RUNTIME-1 three golden workflow validator"));
     assert!(plan.contains("Completed non-runtime history belongs in"));
@@ -5677,6 +5678,21 @@ fn security_rfc_and_p80_completion_are_traceable() {
             && completed_ledger.contains("REVIEW-P1-1B typed command registry"),
         "REVIEW-P1-1 should be moved from Planned to the completed ledger"
     );
+    assert!(
+        completed_ledger.contains("REVIEW-P1-2 typed evidence schema registry"),
+        "REVIEW-P1-2 should be moved from Planned to the completed ledger"
+    );
+    let evidence_schema_registry = read_repo_file("shardloom-cli/src/evidence_schema_registry.rs");
+    assert!(evidence_schema_registry.contains("shardloom.evidence_field_schema_registry.v1"));
+    assert!(evidence_schema_registry.contains("typed_envelope_artifact_payload_keys"));
+    assert!(evidence_schema_registry.contains("append_evidence_schema_registry_capability_fields"));
+    assert!(evidence_schema_registry.contains("must_remain_false"));
+    let evidence_schema_doc = read_repo_file("docs/status/evidence-field-schema-registry.md");
+    assert!(evidence_schema_doc.contains("shardloom evidence-schema [surface] --format json"));
+    assert!(evidence_schema_doc.contains("fallback_attempted=false"));
+    assert!(evidence_schema_doc.contains("external_engine_invoked=false"));
+    let release_readiness_script = read_repo_file("scripts/check_release_readiness.py");
+    assert!(release_readiness_script.contains("scripts/check_evidence_schema_registry.py"));
     assert!(
         completed_ledger.contains("GAR-0043-B publication attestation and final release rehearsal"),
         "GAR-0043-B should be moved from Planned to the completed ledger"
