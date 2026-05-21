@@ -1091,6 +1091,78 @@ fn sql_smoke_writes_generate_series_projection_jsonl() {
 }
 
 #[test]
+fn sql_smoke_writes_generate_series_filter_limit_projection_jsonl() {
+    let output_path = unique_output_path("generated-sql-range-filter-limit");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "SELECT value AS id, value + 10 AS shifted, CASE WHEN value >= 5 THEN 1 ELSE 0 END AS is_high FROM range(1, 8) WHERE value >= 3 LIMIT 3",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(
+        written,
+        "{\"id\":3,\"shifted\":13,\"is_high\":0}\n{\"id\":4,\"shifted\":14,\"is_high\":0}\n{\"id\":5,\"shifted\":15,\"is_high\":1}\n"
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("sql_statement_kind", "sql_generate_series_range")));
+    assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
+    assert!(stdout.contains(&field("generated_source_range_start", "1")));
+    assert!(stdout.contains(&field("generated_source_range_end", "8")));
+    assert!(stdout.contains(&field("generated_source_range_step", "1")));
+    assert!(stdout.contains(&field("generated_source_range_column", "value")));
+    assert!(stdout.contains(&field("sql_source_free_filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sql_source_free_filter_source_column", "value")));
+    assert!(stdout.contains(&field("sql_source_free_filter_predicate", "value>=3")));
+    assert!(stdout.contains(&field("sql_source_free_filter_selected_row_count", "5")));
+    assert!(stdout.contains(&field("sql_source_free_limit_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sql_source_free_limit_count", "3")));
+    assert!(stdout.contains(&field(
+        "sql_source_free_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field("sql_source_free_projection_source_column", "value")));
+    assert!(stdout.contains(&field(
+        "sql_source_free_projection_columns",
+        "id,shifted,is_high"
+    )));
+    assert!(stdout.contains(&field(
+        "sql_source_free_projection_expressions",
+        "value,value+10,case(value>=5?1:0)"
+    )));
+    assert!(stdout.contains(&field("generated_source_row_count", "3")));
+    assert!(stdout.contains(&field("generated_source_certificate_status", "present")));
+    assert!(stdout.contains(&field(
+        "output_native_io_certificate_status",
+        "certified_local_file_sink"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
 fn sql_smoke_allows_from_in_projection_alias_identifier() {
     let output_path = unique_output_path("generated-sql-range-from-alias");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -1138,6 +1210,21 @@ fn sql_smoke_blocks_unadmitted_generate_series_forms() {
             "generated-sql-generate-series-case-unsupported-predicate",
             "SELECT CASE WHEN value BETWEEN 1 AND 2 THEN 1 ELSE 0 END AS bucket FROM range(1, 4)",
             "CASE projection predicate must use =, !=, <>, <, <=, >, or >= against an int64 literal",
+        ),
+        (
+            "generated-sql-generate-series-filter-wrong-column",
+            "SELECT * FROM range(1, 4) WHERE other >= 2",
+            "predicate must compare the range column",
+        ),
+        (
+            "generated-sql-generate-series-limit-negative",
+            "SELECT * FROM range(1, 4) LIMIT -1",
+            "LIMIT requires a single non-negative integer literal",
+        ),
+        (
+            "generated-sql-generate-series-limit-trailing-clause",
+            "SELECT * FROM range(1, 4) LIMIT 1 ORDER BY value",
+            "LIMIT requires a single non-negative integer literal",
         ),
         (
             "generated-sql-generate-series-project",

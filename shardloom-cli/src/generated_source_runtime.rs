@@ -411,6 +411,18 @@ struct GeneratedSqlRangeMetadata {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedSqlFilterMetadata {
+    source_column: String,
+    predicate: String,
+    selected_row_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedSqlLimitMetadata {
+    count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct GeneratedSqlProjectionMetadata {
     source_column: String,
     columns: Vec<String>,
@@ -432,6 +444,8 @@ struct GeneratedSqlSmokeRequest {
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
     range: Option<GeneratedSqlRangeMetadata>,
+    filter: Option<GeneratedSqlFilterMetadata>,
+    limit: Option<GeneratedSqlLimitMetadata>,
     projection: Option<GeneratedSqlProjectionMetadata>,
     allow_overwrite: bool,
 }
@@ -445,6 +459,8 @@ struct GeneratedSqlSmokeReport {
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
     range: Option<GeneratedSqlRangeMetadata>,
+    filter: Option<GeneratedSqlFilterMetadata>,
+    limit: Option<GeneratedSqlLimitMetadata>,
     projection: Option<GeneratedSqlProjectionMetadata>,
     output_bytes: u64,
     output_digest: String,
@@ -1324,6 +1340,8 @@ impl GeneratedSqlSmokeRequest {
             schema: parsed.schema,
             rows: parsed.rows,
             range: parsed.range,
+            filter: parsed.filter,
+            limit: parsed.limit,
             projection: parsed.projection,
             allow_overwrite,
         })
@@ -1498,6 +1516,38 @@ impl GeneratedSqlSmokeReport {
                 ),
             ]);
         }
+        if let Some(filter) = &self.filter {
+            fields.extend([
+                (
+                    "sql_source_free_filter_runtime_execution".to_string(),
+                    "true".to_string(),
+                ),
+                (
+                    "sql_source_free_filter_source_column".to_string(),
+                    filter.source_column.clone(),
+                ),
+                (
+                    "sql_source_free_filter_predicate".to_string(),
+                    filter.predicate.clone(),
+                ),
+                (
+                    "sql_source_free_filter_selected_row_count".to_string(),
+                    filter.selected_row_count.to_string(),
+                ),
+            ]);
+        }
+        if let Some(limit) = &self.limit {
+            fields.extend([
+                (
+                    "sql_source_free_limit_runtime_execution".to_string(),
+                    "true".to_string(),
+                ),
+                (
+                    "sql_source_free_limit_count".to_string(),
+                    limit.count.to_string(),
+                ),
+            ]);
+        }
         if let Some(projection) = &self.projection {
             fields.extend([
                 (
@@ -1634,6 +1684,8 @@ fn run_generated_sql_smoke(
         schema: request.schema.clone(),
         rows: request.rows.clone(),
         range: request.range.clone(),
+        filter: request.filter.clone(),
+        limit: request.limit.clone(),
         projection: request.projection.clone(),
         output_bytes: write_report.output_bytes,
         output_digest: write_report.output_digest,
@@ -1962,6 +2014,8 @@ struct ParsedSourceFreeSql {
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
     range: Option<GeneratedSqlRangeMetadata>,
+    filter: Option<GeneratedSqlFilterMetadata>,
+    limit: Option<GeneratedSqlLimitMetadata>,
     projection: Option<GeneratedSqlProjectionMetadata>,
 }
 
@@ -2030,6 +2084,8 @@ fn parse_sql_literal_select(statement: &str) -> Result<ParsedSourceFreeSql, Shar
         schema,
         rows: vec![GeneratedRow { values }],
         range: None,
+        filter: None,
+        limit: None,
         projection: None,
     })
 }
@@ -2103,6 +2159,8 @@ fn parse_sql_values(statement: &str) -> Result<ParsedSourceFreeSql, ShardLoomErr
         schema,
         rows,
         range: None,
+        filter: None,
+        limit: None,
         projection: None,
     })
 }
@@ -2114,19 +2172,35 @@ fn parse_sql_generate_series_range(
     let Some((select_list, source_ref)) = split_sql_select_from_clause(select_body)? else {
         return Ok(None);
     };
-    let Some(range) = parse_sql_range_function_ref(source_ref)? else {
+    let Some(range_clause) = parse_sql_range_source_clause(source_ref)? else {
         return Ok(None);
     };
+    let GeneratedSqlRangeClause {
+        range,
+        filter_predicate,
+        limit,
+    } = range_clause;
     let base_rows = generated_sql_range_rows(&range)?;
-    let (schema, rows, projection) = project_sql_range_rows(select_list, &range, &base_rows)?;
+    let (filtered_rows, filter) = filter_sql_range_rows(&range, &base_rows, filter_predicate)?;
+    let (limited_rows, limit_metadata) = limit_sql_range_rows(filtered_rows, limit)?;
+    let (schema, rows, projection) = project_sql_range_rows(select_list, &range, &limited_rows)?;
     Ok(Some(ParsedSourceFreeSql {
         statement: statement.to_string(),
         source_kind: SqlGeneratedSourceKind::GenerateSeriesRange,
         schema,
         rows,
         range: Some(range),
+        filter,
+        limit: limit_metadata,
         projection,
     }))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedSqlRangeClause {
+    range: GeneratedSqlRangeMetadata,
+    filter_predicate: Option<SqlRangeProjectionPredicate>,
+    limit: Option<usize>,
 }
 
 fn split_sql_select_from_clause(raw: &str) -> Result<Option<(&str, &str)>, ShardLoomError> {
@@ -2143,6 +2217,61 @@ fn split_sql_select_from_clause(raw: &str) -> Result<Option<(&str, &str)>, Shard
     Ok(Some((select_list, source_ref)))
 }
 
+fn parse_sql_range_source_clause(
+    raw: &str,
+) -> Result<Option<GeneratedSqlRangeClause>, ShardLoomError> {
+    let trimmed = raw.trim();
+    let clause_start = [
+        find_keyword_outside_quotes_and_parens(trimmed, "WHERE"),
+        find_keyword_outside_quotes_and_parens(trimmed, "LIMIT"),
+    ]
+    .into_iter()
+    .flatten()
+    .min();
+    let (source_ref, tail) = if let Some(index) = clause_start {
+        (trimmed[..index].trim(), trimmed[index..].trim())
+    } else {
+        (trimmed, "")
+    };
+    let Some(range) = parse_sql_range_function_ref(source_ref)? else {
+        return Ok(None);
+    };
+    let (filter_predicate, tail) = if tail.is_empty() {
+        (None, "")
+    } else if keyword_prefix(tail, "WHERE") {
+        let where_body = tail["WHERE".len()..].trim();
+        let limit_index = find_keyword_outside_quotes_and_parens(where_body, "LIMIT");
+        let (predicate_raw, limit_tail) = if let Some(index) = limit_index {
+            (where_body[..index].trim(), where_body[index..].trim())
+        } else {
+            (where_body, "")
+        };
+        (
+            Some(parse_sql_range_case_projection_predicate(
+                predicate_raw,
+                &range.column_name,
+            )?),
+            limit_tail,
+        )
+    } else {
+        (None, tail)
+    };
+    let limit = if tail.is_empty() {
+        None
+    } else if keyword_prefix(tail, "LIMIT") {
+        Some(parse_sql_range_limit(tail["LIMIT".len()..].trim())?)
+    } else {
+        return Err(unsupported_sql_error(
+            "SQL source-free range source admits only optional WHERE <range-column> <comparison> <int64> and LIMIT <count> clauses",
+        ));
+    };
+    Ok(Some(GeneratedSqlRangeClause {
+        range,
+        filter_predicate,
+        limit,
+    }))
+}
+
 fn generated_sql_range_rows(
     range: &GeneratedSqlRangeMetadata,
 ) -> Result<Vec<GeneratedRow>, ShardLoomError> {
@@ -2157,6 +2286,61 @@ fn generated_sql_range_rows(
         }
         generated_range_rows(range.start, range.end, range.step)
     }
+}
+
+fn filter_sql_range_rows(
+    range: &GeneratedSqlRangeMetadata,
+    base_rows: &[GeneratedRow],
+    predicate: Option<SqlRangeProjectionPredicate>,
+) -> Result<(Vec<GeneratedRow>, Option<GeneratedSqlFilterMetadata>), ShardLoomError> {
+    let Some(predicate) = predicate else {
+        return Ok((base_rows.to_vec(), None));
+    };
+    let mut rows = Vec::new();
+    for row in base_rows {
+        let source_value = sql_range_row_value(row)?;
+        if predicate.evaluate(source_value) {
+            rows.push(row.clone());
+        }
+    }
+    let filter = GeneratedSqlFilterMetadata {
+        source_column: range.column_name.clone(),
+        predicate: predicate.evidence_label(&range.column_name),
+        selected_row_count: rows.len(),
+    };
+    Ok((rows, Some(filter)))
+}
+
+fn limit_sql_range_rows(
+    mut rows: Vec<GeneratedRow>,
+    limit: Option<usize>,
+) -> Result<(Vec<GeneratedRow>, Option<GeneratedSqlLimitMetadata>), ShardLoomError> {
+    let Some(count) = limit else {
+        return Ok((rows, None));
+    };
+    if count > MAX_SQL_GENERATED_ROWS {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "generated-source SQL LIMIT {count} exceeds scoped smoke limit {MAX_SQL_GENERATED_ROWS}"
+        )));
+    }
+    rows.truncate(count);
+    Ok((rows, Some(GeneratedSqlLimitMetadata { count })))
+}
+
+fn sql_range_row_value(row: &GeneratedRow) -> Result<i64, ShardLoomError> {
+    row.values
+        .first()
+        .ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "SQL source-free range internal row is missing its source value".to_string(),
+            )
+        })?
+        .parse::<i64>()
+        .map_err(|_| {
+            ShardLoomError::InvalidOperation(
+                "SQL source-free range internal row has a non-int64 value".to_string(),
+            )
+        })
 }
 
 fn project_sql_range_rows(
@@ -2210,22 +2394,7 @@ fn project_sql_range_rows(
 
     let mut rows = Vec::with_capacity(base_rows.len());
     for row in base_rows {
-        let source_value = row
-            .values
-            .first()
-            .ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "SQL source-free range projection internal row is missing its source value"
-                        .to_string(),
-                )
-            })?
-            .parse::<i64>()
-            .map_err(|_| {
-                ShardLoomError::InvalidOperation(
-                    "SQL source-free range projection internal row has a non-int64 value"
-                        .to_string(),
-                )
-            })?;
+        let source_value = sql_range_row_value(row)?;
         let values = projection
             .iter()
             .map(|expression| {
@@ -2584,6 +2753,30 @@ fn parse_sql_range_i64(name: &str, raw: &str) -> Result<i64, ShardLoomError> {
         unsupported_sql_error(&format!(
             "SQL source-free range generator {name} argument is not a valid int64"
         ))
+    })
+}
+
+fn parse_sql_range_limit(raw: &str) -> Result<usize, ShardLoomError> {
+    let value = raw.trim();
+    if value.is_empty()
+        || value.starts_with('+')
+        || value.starts_with('-')
+        || value.contains('.')
+        || value.contains('e')
+        || value.contains('E')
+        || value.contains('\'')
+        || contains_outside_quotes(value, '(')
+        || contains_outside_quotes(value, ')')
+        || value.split_whitespace().count() != 1
+    {
+        return Err(unsupported_sql_error(
+            "SQL source-free range LIMIT requires a single non-negative integer literal",
+        ));
+    }
+    value.parse::<usize>().map_err(|_| {
+        unsupported_sql_error(
+            "SQL source-free range LIMIT requires a single non-negative integer literal",
+        )
     })
 }
 

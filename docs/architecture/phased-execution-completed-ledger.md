@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E/5A source-free SQL range filter/limit query workflow
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-8-20260521` / #897.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime`.
+    - `GAR-RUNTIME-IMPL-5A generated-source end-user runtime builders`.
+    - Follow-on runtime work after #896 to widen source-free generated range workflows as a larger
+      end-user slice.
+  - Scope:
+    - Added scoped engine-owned source-free SQL `generate_series`/`range` `WHERE` and `LIMIT`
+      runtime for the admitted range-generator path.
+    - Admitted one `WHERE <range-column> <comparison> <int64>` predicate and one non-negative
+      integer `LIMIT <count>` clause, executed after generator row creation and before projection.
+    - Added `sql_source_free_filter_*` and `sql_source_free_limit_*` evidence fields while
+      preserving existing generated-source, projection, output certificate, and no-fallback
+      evidence.
+    - Added deterministic blockers for wrong-column filters, invalid LIMIT values, trailing
+      unsupported clauses, unsupported predicates, and unsupported projection shapes.
+    - Added Python `GeneratedRangeQuerySource` lowering for
+      `ctx.range(...).filter(...).with_column(...).limit(...).write(...)`, mapping the
+      caller-facing range column alias onto the admitted SQL generator `value` column without
+      creating a second execution path.
+    - Updated the live phased execution plan to keep only active generated-source current state and
+      move completed slice detail into this ledger.
+  - Evidence:
+    - Generated SQL range output now filters, limits, projects, and writes local JSONL rows through
+      `generated-source-sql-smoke`.
+    - `sql_source_free_filter_predicate` records labels such as `value>=3`; selected row count is
+      recorded before LIMIT, and `sql_source_free_limit_count` records the applied limit.
+    - Python typed report accessors expose the new filter/limit fields, and raw `ctx.sql(...)`
+      source-free range statements with `WHERE`/`LIMIT` route to the generated-source SQL command.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke sql_smoke_writes_generate_series_filter_limit_projection_jsonl -- --nocapture`
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke sql_smoke_blocks_unadmitted_generate_series_forms -- --nocapture`
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_range_filter_with_column_limit_invokes_generated_source_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_sql_generate_series_filter_limit_write_invokes_generated_source_sql_smoke`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `python -m compileall -q python\src python\tests scripts examples benchmarks\traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is scoped source-free SQL range-generator filter/limit and Python fluent range-query
+      coverage only. It does not claim arbitrary SQL table functions, arbitrary source-free SQL
+      expressions, broad DataFrame generated-expression parity, object-store/Foundry
+      generated-output, or performance superiority.
+  - Fallback boundary:
+    - Generator row construction, filtering, limiting, projection, output writing, and Python
+      lowering remain ShardLoom-owned. No external engine is invoked for admitted or rejected
+      generated range query paths.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E source-free SQL range CASE projections
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-7-20260521` / #896.
