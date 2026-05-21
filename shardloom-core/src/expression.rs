@@ -824,6 +824,8 @@ fn eval_function_call(
         "utf8_substr" | "utf8_substring" | "substr" | "substring" => {
             eval_string_substr(name, args, row)
         }
+        "utf8_left" | "left" => eval_string_left_right(name, args, row, false),
+        "utf8_right" | "right" => eval_string_left_right(name, args, row, true),
         "utf8_replace" | "replace" => eval_string_replace(name, args, row),
         "numeric_abs" | "abs" => eval_numeric_abs(name, args, row),
         "numeric_floor" | "floor" => eval_numeric_rounding(name, args, row, f64::floor),
@@ -1422,6 +1424,74 @@ fn eval_string_substr(
     }
 }
 
+fn eval_string_left_right(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    from_right: bool,
+) -> EvalResult<EvalValue> {
+    if args.len() != 2 {
+        return Err(EvalFailure::invalid(
+            "string_function",
+            format!("function {name:?} requires UTF-8 and int64 count arguments"),
+        ));
+    }
+    let (values, data_materialized) = eval_function_args(args, row)?;
+    if !matches!(values[0], ScalarValue::Utf8(_) | ScalarValue::Null)
+        || !matches!(values[1], ScalarValue::Int64(_) | ScalarValue::Null)
+    {
+        return Err(EvalFailure::unsupported(
+            "string_function",
+            format!(
+                "function {name:?} supports UTF-8/null and int64/null operands only, got {} and {}",
+                values[0].dtype().as_str(),
+                values[1].dtype().as_str()
+            ),
+        ));
+    }
+    if values.iter().any(ScalarValue::is_null) {
+        return Ok(
+            EvalValue::null(LogicalDType::Utf8, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    let [value, count]: [ScalarValue; 2] = values.try_into().expect("validated left/right arity");
+    match (value, count) {
+        (ScalarValue::Utf8(value), ScalarValue::Int64(count)) => {
+            if count < 0 {
+                return Err(EvalFailure::invalid(
+                    "string_function",
+                    format!("function {name:?} requires a non-negative count"),
+                ));
+            }
+            let count = usize::try_from(count).map_err(|_| {
+                EvalFailure::invalid("string_function", "string count exceeds usize range")
+            })?;
+            let output = if from_right {
+                let chars = value.chars().collect::<Vec<_>>();
+                let start = chars.len().saturating_sub(count);
+                chars[start..].iter().copied().collect()
+            } else {
+                value.chars().take(count).collect()
+            };
+            Ok(EvalValue::new(
+                ScalarValue::Utf8(output),
+                LogicalDType::Utf8,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        (value, count) => Err(EvalFailure::unsupported(
+            "string_function",
+            format!(
+                "function {name:?} supports UTF-8/null and int64/null operands only, got {} and {}",
+                value.dtype().as_str(),
+                count.dtype().as_str()
+            ),
+        )),
+    }
+}
+
 fn eval_string_replace(
     name: &str,
     args: &[Expression],
@@ -2012,7 +2082,9 @@ fn function_operator_family(name: &str) -> &'static str {
         }
         "utf8_length" | "length" => "string_length",
         "utf8_concat" | "concat" | "utf8_substr" | "utf8_substring" | "substr" | "substring"
-        | "utf8_replace" | "replace" => "string_function",
+        | "utf8_left" | "left" | "utf8_right" | "right" | "utf8_replace" | "replace" => {
+            "string_function"
+        }
         "numeric_abs" | "abs" => "numeric_abs",
         "numeric_floor" | "floor" | "numeric_ceil" | "ceil" | "ceiling" | "numeric_round"
         | "round" => "numeric_rounding",
@@ -3382,6 +3454,33 @@ mod tests {
         );
         assert!(!replace_report.fallback_attempted);
         assert!(!replace_report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_string_left_right_without_fallback() {
+        let input = row(&[("label", ScalarValue::Utf8("crane".to_string()))]);
+
+        for (function, expected) in [("left", "cra"), ("right", "ane")] {
+            let expression = Expression::new(
+                expr_id(function),
+                ExpressionKind::FunctionCall {
+                    name: function.to_string(),
+                    args: vec![
+                        Expression::column(expr_id("label"), col("label")),
+                        Expression::literal(expr_id("count"), ScalarValue::Int64(3)),
+                    ],
+                },
+            );
+            let report = evaluate_expression(&expression, &input);
+
+            assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+            assert_eq!(report.operator_family, "string_function");
+            assert_eq!(report.value, Some(ScalarValue::Utf8(expected.to_string())));
+            assert_eq!(report.output_dtype, Some(LogicalDType::Utf8));
+            assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+            assert!(!report.fallback_attempted);
+            assert!(!report.external_engine_invoked);
+        }
     }
 
     fn assert_string_function_error(

@@ -1699,7 +1699,7 @@ fn sql_local_source_smoke_executes_string_function_projection_without_fallback()
     .expect("write source csv");
 
     let statement = format!(
-        "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 2, 3) AS middle,REPLACE(label, 'a', '') AS scrubbed FROM '{}' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 10",
+        "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 2, 3) AS middle,LEFT(label, 2) AS prefix,RIGHT(label, 2) AS suffix,REPLACE(label, 'a', '') AS scrubbed FROM '{}' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 10",
         source_path.display()
     );
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -1730,23 +1730,29 @@ fn sql_local_source_smoke_executes_string_function_projection_without_fallback()
     )));
     assert!(stdout.contains(&field(
         "string_function_projection_operator",
-        "concat,substr,replace"
+        "concat,substr,left,right,replace"
     )));
     assert!(stdout.contains(&field(
         "string_function_projection_source_column",
-        "label+segment,label,label"
+        "label+segment,label,label,label,label"
     )));
     assert!(stdout.contains(&field(
         "string_function_projection_output_column",
-        "label_key,middle,scrubbed"
+        "label_key,middle,prefix,suffix,scrubbed"
     )));
-    assert!(stdout.contains(&field("string_function_projection_literal_count", "1,2,2")));
-    assert!(stdout.contains(&field("projected_columns", "id,label_key,middle,scrubbed")));
+    assert!(stdout.contains(&field(
+        "string_function_projection_literal_count",
+        "1,2,1,1,2"
+    )));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,label_key,middle,prefix,suffix,scrubbed"
+    )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
     assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
     assert!(stdout.contains(
-        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label_key\\\":\\\"alpha-north\\\",\\\"middle\\\":\\\"lph\\\",\\\"scrubbed\\\":\\\"lph\\\"}\\n\""
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label_key\\\":\\\"alpha-north\\\",\\\"middle\\\":\\\"lph\\\",\\\"prefix\\\":\\\"al\\\",\\\"suffix\\\":\\\"ha\\\",\\\"scrubbed\\\":\\\"lph\\\"}\\n\""
     ));
 
     fs::remove_file(source_path).expect("remove source csv");
@@ -4316,6 +4322,39 @@ fn sql_local_source_smoke_executes_string_function_predicates_without_fallback()
     assert!(stdout.contains(&field("string_function_operator", "substr")));
     assert!(stdout.contains(&field("string_function_source_column", "label")));
     assert!(stdout.contains(&field("string_function_literal_count", "3")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let left_statement = format!(
+        "SELECT id,label FROM '{}' WHERE LEFT(label, 2) = 'al' LIMIT 10",
+        source_path.display()
+    );
+    let stdout = run_sql_local_source_smoke_json(&left_statement);
+    assert!(stdout.contains(&field("string_function_operator", "left")));
+    assert!(stdout.contains(&field("string_function_source_column", "label")));
+    assert!(stdout.contains(&field("string_function_literal_count", "2")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"alpaca\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let right_statement = format!(
+        "SELECT id,label FROM '{}' WHERE RIGHT(label, 2) = 'ta' LIMIT 10",
+        source_path.display()
+    );
+    let stdout = run_sql_local_source_smoke_json(&right_statement);
+    assert!(stdout.contains(&field("string_function_operator", "right")));
+    assert!(stdout.contains(&field("string_function_source_column", "label")));
+    assert!(stdout.contains(&field("string_function_literal_count", "2")));
     assert!(
         stdout.contains(
             "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n\""
@@ -7138,6 +7177,20 @@ fn sql_local_source_smoke_blocks_unsupported_string_function_shapes_without_fall
                 source_path.display()
             ),
             "REPLACE string function expressions require a non-empty search literal",
+        ),
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE LEFT(label, -1) = 'a' LIMIT 10",
+                source_path.display()
+            ),
+            "LEFT/RIGHT string function expressions require a non-negative count",
+        ),
+        (
+            format!(
+                "SELECT id FROM '{}' WHERE RIGHT(label) = 'a' LIMIT 10",
+                source_path.display()
+            ),
+            "RIGHT string function expressions require exactly two arguments: <column>, <count>",
         ),
         (
             format!(

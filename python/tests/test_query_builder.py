@@ -851,6 +851,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(sl.substring(sl.col("label"), "1", 2) == "al"),
             "SUBSTR(label, 1, 2) = 'al'",
         )
+        self.assertEqual(str(sl.col("label").left(2) == "al"), "LEFT(label, 2) = 'al'")
+        self.assertEqual(
+            str(sl.right(sl.col("label"), "2") == "ha"), "RIGHT(label, 2) = 'ha'"
+        )
         self.assertEqual(
             str(sl.col("label").replace(" ", "_") == "alpha_beta"),
             "REPLACE(label, ' ', '_') = 'alpha_beta'",
@@ -911,6 +915,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.concat(sl.col("label").lower(), "x")
         with self.assertRaisesRegex(ValueError, "substring start"):
             sl.col("label").substr(0, 2)
+        with self.assertRaisesRegex(ValueError, "left count"):
+            sl.col("label").left(-1)
+        with self.assertRaisesRegex(TypeError, "right requires"):
+            sl.right("label", 2)
         with self.assertRaisesRegex(ValueError, "replace search literal"):
             sl.col("label").replace("", "x")
 
@@ -3767,7 +3775,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 1, 3) AS prefix,REPLACE(label, 'a', '') AS scrubbed FROM 'target/input.csv' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 2",
+                    "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 1, 3) AS prefix,LEFT(label, 2) AS left_edge,RIGHT(label, 2) AS right_edge,REPLACE(label, 'a', '') AS scrubbed FROM 'target/input.csv' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -3791,10 +3799,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "string_function_literal_count", "value": "2"},
                         {"key": "string_function_rhs_dtype", "value": "utf8"},
                         {"key": "string_function_projection_runtime_execution", "value": "true"},
-                        {"key": "string_function_projection_operator", "value": "concat,substr,replace"},
-                        {"key": "string_function_projection_source_column", "value": "label+segment,label,label"},
-                        {"key": "string_function_projection_output_column", "value": "label_key,prefix,scrubbed"},
-                        {"key": "string_function_projection_literal_count", "value": "1,2,2"},
+                        {"key": "string_function_projection_operator", "value": "concat,substr,left,right,replace"},
+                        {"key": "string_function_projection_source_column", "value": "label+segment,label,label,label,label"},
+                        {"key": "string_function_projection_output_column", "value": "label_key,prefix,left_edge,right_edge,scrubbed"},
+                        {"key": "string_function_projection_literal_count", "value": "1,2,1,1,2"},
                         {"key": "output_row_count", "value": "1"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
@@ -3811,6 +3819,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             .select("id")
             .with_column("label_key", sl.concat(sl.col("label"), "-", sl.col("segment")))
             .with_column("prefix", sl.col("label").substr(1, 3))
+            .with_column("left_edge", sl.left(sl.col("label"), 2))
+            .with_column("right_edge", sl.col("label").right("2"))
             .with_column("scrubbed", sl.replace(sl.col("label"), "a", ""))
             .filter(sl.concat(sl.col("label"), "-", sl.col("segment")) == "alpha-north")
             .limit(2)
@@ -3826,17 +3836,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.string_function_rhs_dtypes, ("utf8",))
         self.assertTrue(report.string_function_projection_runtime_execution)
         self.assertEqual(
-            report.string_function_projection_operator, ("concat", "substr", "replace")
+            report.string_function_projection_operator,
+            ("concat", "substr", "left", "right", "replace"),
         )
         self.assertEqual(
             report.string_function_projection_source_columns,
-            ("label+segment", "label", "label"),
+            ("label+segment", "label", "label", "label", "label"),
         )
         self.assertEqual(
             report.string_function_projection_output_columns,
-            ("label_key", "prefix", "scrubbed"),
+            ("label_key", "prefix", "left_edge", "right_edge", "scrubbed"),
         )
-        self.assertEqual(report.string_function_projection_literal_counts, (1, 2, 2))
+        self.assertEqual(report.string_function_projection_literal_counts, (1, 2, 1, 1, 2))
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

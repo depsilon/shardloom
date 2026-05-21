@@ -842,6 +842,8 @@ enum StringTransformOp {
 enum StringFunctionOp {
     Concat,
     Substr,
+    Left,
+    Right,
     Replace,
 }
 
@@ -1004,6 +1006,8 @@ impl StringFunctionOp {
         match self {
             Self::Concat => "concat",
             Self::Substr => "substr",
+            Self::Left => "left",
+            Self::Right => "right",
             Self::Replace => "replace",
         }
     }
@@ -1012,6 +1016,8 @@ impl StringFunctionOp {
         match self {
             Self::Concat => "concat",
             Self::Substr => "substr",
+            Self::Left => "left",
+            Self::Right => "right",
             Self::Replace => "replace",
         }
     }
@@ -5101,7 +5107,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -14717,7 +14723,7 @@ fn parse_string_function_call_expression(
     };
     let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
         unsupported_sql_error(
-            "string function expressions must use CONCAT(...), SUBSTR|SUBSTRING(...), or REPLACE(...)",
+            "string function expressions must use CONCAT(...), SUBSTR|SUBSTRING(...), LEFT|RIGHT(...), or REPLACE(...)",
         )
     })?;
     if !trimmed[close_index + 1..].trim().is_empty() {
@@ -14761,6 +14767,8 @@ fn parse_string_function_args(
     match op {
         StringFunctionOp::Concat => parse_concat_string_function_args(args, id_prefix),
         StringFunctionOp::Substr => parse_substr_string_function_args(args, id_prefix),
+        StringFunctionOp::Left => parse_left_right_string_function_args(args, id_prefix, "LEFT"),
+        StringFunctionOp::Right => parse_left_right_string_function_args(args, id_prefix, "RIGHT"),
         StringFunctionOp::Replace => parse_replace_string_function_args(args, id_prefix),
     }
 }
@@ -14833,6 +14841,39 @@ fn parse_substr_string_function_args(
     })
 }
 
+fn parse_left_right_string_function_args(
+    args: &[String],
+    id_prefix: &str,
+    function_name: &str,
+) -> Result<ParsedStringFunctionArgs, ShardLoomError> {
+    let [value_raw, count_raw] = args else {
+        return Err(unsupported_sql_error(&format!(
+            "{function_name} string function expressions require exactly two arguments: <column>, <count>"
+        )));
+    };
+    let (value_expression, source_column, arg_literal_count) =
+        parse_string_function_text_arg(value_raw, id_prefix, 0)?;
+    let count = parse_string_function_int_literal(count_raw, "left/right count")?;
+    if count < 0 {
+        return Err(unsupported_sql_error(
+            "LEFT/RIGHT string function expressions require a non-negative count",
+        ));
+    }
+    let mut source_columns = Vec::new();
+    push_unique_string_function_source_column(&mut source_columns, source_column);
+    Ok(ParsedStringFunctionArgs {
+        expression_args: vec![
+            value_expression,
+            Expression::literal(
+                ExprId::new(format!("{id_prefix}.count"))?,
+                ScalarValue::Int64(count),
+            ),
+        ],
+        source_columns,
+        literal_count: arg_literal_count + 1,
+    })
+}
+
 fn parse_replace_string_function_args(
     args: &[String],
     id_prefix: &str,
@@ -14875,6 +14916,8 @@ fn parse_string_function_prefix(raw: &str) -> Option<(StringFunctionOp, usize)> 
         ("concat", StringFunctionOp::Concat),
         ("substr", StringFunctionOp::Substr),
         ("substring", StringFunctionOp::Substr),
+        ("left", StringFunctionOp::Left),
+        ("right", StringFunctionOp::Right),
         ("replace", StringFunctionOp::Replace),
     ]
     .into_iter()
@@ -15456,7 +15499,7 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees or temporal differences <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, generalized numeric expression trees or temporal differences <op> numeric expression/literal, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, CONCAT/SUBSTR/SUBSTRING/LEFT/RIGHT/REPLACE string function expressions <op> <string-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, TIMESTAMP_ADD_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, TIMESTAMP_SUB_SECONDS(<column>, <seconds>) <op> TIMESTAMP <timestamp-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -18069,12 +18112,12 @@ mod tests {
     #[test]
     fn parses_scoped_string_function_projection_and_predicate_statement() {
         let parsed = parse_sql_local_source_statement(
-            "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 2, 3) AS middle,REPLACE(label, 'a', '') AS scrubbed FROM 'target/input.csv' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 5",
+            "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 2, 3) AS middle,LEFT(label, 2) AS prefix,RIGHT(label, 2) AS suffix,REPLACE(label, 'a', '') AS scrubbed FROM 'target/input.csv' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 5",
         )
         .expect("string function projection statement parses");
 
         assert_eq!(parsed.projections, vec!["id"]);
-        assert_eq!(parsed.string_function_projections.len(), 3);
+        assert_eq!(parsed.string_function_projections.len(), 5);
         assert_eq!(parsed.string_function_projections[0].alias, "label_key");
         assert_eq!(
             parsed.string_function_projections[0].op,
@@ -18092,22 +18135,35 @@ mod tests {
         assert_eq!(parsed.string_function_projections[1].literal_count, 2);
         assert_eq!(
             parsed.string_function_projections[2].op,
+            StringFunctionOp::Left
+        );
+        assert_eq!(parsed.string_function_projections[2].literal_count, 1);
+        assert_eq!(
+            parsed.string_function_projections[3].op,
+            StringFunctionOp::Right
+        );
+        assert_eq!(parsed.string_function_projections[3].literal_count, 1);
+        assert_eq!(
+            parsed.string_function_projections[4].op,
             StringFunctionOp::Replace
         );
-        assert_eq!(parsed.string_function_projections[2].literal_count, 2);
+        assert_eq!(parsed.string_function_projections[4].literal_count, 2);
         assert_eq!(
             parsed.string_function_projection_operators(),
-            "concat,substr,replace"
+            "concat,substr,left,right,replace"
         );
         assert_eq!(
             parsed.string_function_projection_source_columns(),
-            "label+segment,label,label"
+            "label+segment,label,label,label,label"
         );
         assert_eq!(
             parsed.string_function_projection_output_columns(),
-            "label_key,middle,scrubbed"
+            "label_key,middle,prefix,suffix,scrubbed"
         );
-        assert_eq!(parsed.string_function_projection_literal_counts(), "1,2,2");
+        assert_eq!(
+            parsed.string_function_projection_literal_counts(),
+            "1,2,1,1,2"
+        );
         assert!(matches!(
             parsed.predicate,
             ParsedPredicate::StringFunctionCompare {
