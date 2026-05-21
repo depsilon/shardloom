@@ -5,8 +5,16 @@ on:
     branches: ["main"]
   pull_request:
 
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  PYTHONUNBUFFERED: "1"
+
 jobs:
-  checks:
+  rust-baseline:
+    name: Rust baseline
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -18,3 +26,199 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace --all-targets
+
+  rust-feature-matrix:
+    name: Rust feature matrix (${{ matrix.lane }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: default_features
+            command: cargo check --workspace
+          - lane: all_features
+            command: cargo check --workspace --all-features
+          - lane: no_default_features
+            command: cargo check --workspace --no-default-features
+          - lane: upstream_vortex
+            command: cargo check -p shardloom-vortex --features upstream-vortex
+          - lane: vortex_file_io
+            command: cargo check -p shardloom-vortex --features vortex-file-io
+          - lane: vortex_local_primitives
+            command: cargo check -p shardloom-vortex --features vortex-local-primitives
+          - lane: vortex_encoded_read_spike
+            command: cargo check -p shardloom-vortex --features vortex-encoded-read-spike
+          - lane: packaging_deployment
+            command: cargo test -p shardloom-contract-tests --test conda_packaging_recipes
+          - lane: benchmark_extras
+            command: cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: feature-${{ matrix.lane }}
+      - name: Run feature lane
+        run: ${{ matrix.command }}
+
+  python-package:
+    name: Python and package smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Python build tooling
+        run: python -m pip install --upgrade pip build
+      - name: Python tests
+        run: python -m unittest discover -s python/tests
+      - name: Python compile check
+        run: python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics
+      - name: Python package build
+        run: python -m build python
+      - name: Local package smoke
+        run: python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-package-smoke-evidence
+          path: |
+            python/dist
+            target/release-dry-run-proof
+            target/release-provenance-dry-run
+          if-no-files-found: ignore
+          retention-days: 14
+
+  dependency-security:
+    name: Dependency and security gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install audit tooling
+        run: |
+          python -m pip install --upgrade pip build pip-audit==2.10.0
+          cargo install cargo-deny --locked --version 0.19.6
+          cargo install cargo-audit --locked --version 0.22.1
+      - name: Dependency/license/provenance audit
+        run: python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json
+      - name: Open-source security posture
+        run: python scripts/check_security_posture.py
+      - name: Supply-chain provenance dry run
+        run: python scripts/release_provenance_dry_run.py
+      - name: Release security gate
+        run: python scripts/check_release_security_gate.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-security-evidence
+          path: |
+            target/dependency-audit-report.json
+            target/security-posture-report.json
+            target/release-provenance-dry-run
+            target/release-security-gate-report.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release-readiness:
+    name: Release readiness reports
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install release tooling
+        run: |
+          python -m pip install --upgrade pip build pip-audit==2.10.0
+          cargo install cargo-deny --locked --version 0.19.6
+          cargo install cargo-audit --locked --version 0.22.1
+      - name: Dependency audit report
+        run: python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json
+      - name: Security posture report
+        run: python scripts/check_security_posture.py
+      - name: Package smoke and provenance evidence
+        run: python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda
+      - name: Release security gate
+        run: python scripts/check_release_security_gate.py
+      - name: Package-channel readiness
+        run: python scripts/check_package_channel_readiness.py
+      - name: Architecture tracker
+        run: python scripts/check_release_architecture_tracker.py --allow-blocked
+      - name: Final release rehearsal
+        run: python scripts/final_release_rehearsal.py --allow-blocked
+      - name: CI gate matrix contract
+        run: python scripts/check_ci_gate_matrix.py
+      - name: Hard release readiness gate
+        run: python scripts/check_release_readiness.py --allow-blocked
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-readiness-evidence
+          path: |
+            target/dependency-audit-report.json
+            target/security-posture-report.json
+            target/release-dry-run-proof
+            target/release-provenance-dry-run
+            target/release-security-gate-report.json
+            target/package-channel-readiness-report.json
+            target/release-architecture-tracker-report.json
+            target/final-release-rehearsal
+            target/ci-gate-matrix-report.json
+            target/hard-release-readiness-gate.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  website-docs:
+    name: Website and docs validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: website-src/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install website dependencies
+        working-directory: website-src
+        run: npm ci
+      - name: Build website
+        working-directory: website-src
+        run: npm run build
+      - name: Check website types
+        working-directory: website-src
+        run: npm run check
+      - name: Website readiness
+        run: python scripts/check_website_readiness.py
+      - name: Static asset validation
+        run: node website/validate_static_assets.js
+
+  ci-gate-matrix:
+    name: CI gate matrix contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate CI gate matrix
+        run: python scripts/check_ci_gate_matrix.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-gate-matrix-report
+          path: target/ci-gate-matrix-report.json
+          if-no-files-found: ignore
+          retention-days: 14

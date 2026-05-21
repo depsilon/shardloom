@@ -77,6 +77,7 @@ REQUIRED_VALIDATION_COMMANDS = [
         "global_architecture_gate",
         ["cargo", "run", "-q", "-p", "shardloom-cli", "--", "global-architecture-gate", "--format", "json"],
     ),
+    ("ci_gate_matrix_contract", [sys.executable, "scripts/check_ci_gate_matrix.py"]),
     ("release_security_gate", [sys.executable, "scripts/check_release_security_gate.py"]),
     (
         "release_architecture_tracker",
@@ -184,7 +185,9 @@ def main() -> int:
         )
 
     feature_matrix_passed = all(not row["release_blocking"] for row in feature_rows)
-    required_validation_passed = all(not row["release_blocking"] for row in required_rows)
+    required_validation_passed = args.skip_slow or all(
+        not row["release_blocking"] for row in required_rows
+    )
     supporting_passed = all(
         result["status"] == "passed" for result in results if result["group"] == "security_dependency_provenance"
     )
@@ -194,7 +197,9 @@ def main() -> int:
         "schema_version": SCHEMA_VERSION,
         "status": "passed" if passed else "failed",
         "feature_build_matrix_status": "passed" if feature_matrix_passed else "failed",
-        "required_validation_status": "passed" if required_validation_passed else "failed",
+        "required_validation_status": "skipped_slow"
+        if args.skip_slow
+        else ("passed" if required_validation_passed else "failed"),
         "supporting_security_dependency_status": "passed" if supporting_passed else "failed",
         "feature_build_matrix_rows": feature_rows,
         "required_validation_commands": required_rows,

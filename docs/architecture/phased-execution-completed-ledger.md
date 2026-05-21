@@ -16,6 +16,86 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-P0-2 release-grade CI gate matrix
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-14-20260521` / #903.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - RFC 0024, RFC 0041, release-readiness scripts, package-channel readiness matrix.
+    - `REVIEW-P0-2 release-grade CI gate matrix`.
+  - Scope:
+    - Expanded `.github/workflows/ci.yml` from a single Rust baseline job into a release-grade CI
+      gate matrix with separate Rust, feature-gated Rust, Python/package, dependency/security,
+      release-readiness, website/docs, and CI drift-contract lanes.
+    - Added `docs/release/ci-gate-matrix.md` as the lane/command/artifact/blocker reference.
+    - Added `scripts/check_ci_gate_matrix.py` to validate workflow/doc drift and emit
+      `target/ci-gate-matrix-report.json`.
+    - The matrix schema is `shardloom.ci_gate_matrix_report.v1`.
+    - Added the CI gate matrix contract to release validation and hard release-readiness command
+      evidence surfaces.
+    - Kept package and release publication blocked while making the blocked posture explicit in CI.
+  - CI lanes:
+    - `rust_baseline`: `cargo fmt --all -- --check`,
+      `cargo clippy --workspace --all-targets -- -D warnings`,
+      `cargo test --workspace --all-targets`.
+    - `rust_feature_matrix`: `cargo check --workspace`,
+      `cargo check --workspace --all-features`, `cargo check --workspace --no-default-features`,
+      `cargo check -p shardloom-vortex --features upstream-vortex`,
+      `cargo check -p shardloom-vortex --features vortex-file-io`,
+      `cargo check -p shardloom-vortex --features vortex-local-primitives`,
+      `cargo check -p shardloom-vortex --features vortex-encoded-read-spike`,
+      `cargo test -p shardloom-contract-tests --test conda_packaging_recipes`,
+      `cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`.
+    - `python_package_smoke`: `python -m unittest discover -s python/tests`,
+      `python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics`,
+      `python -m build python`,
+      `python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`.
+    - `dependency_security`:
+      `python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json`,
+      `python scripts/check_security_posture.py`, `python scripts/release_provenance_dry_run.py`,
+      `python scripts/check_release_security_gate.py`.
+    - `release_readiness_reports`:
+      `python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json`,
+      `python scripts/check_security_posture.py`,
+      `python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`,
+      `python scripts/check_release_security_gate.py`,
+      `python scripts/check_package_channel_readiness.py`,
+      `python scripts/check_release_architecture_tracker.py --allow-blocked`,
+      `python scripts/final_release_rehearsal.py --allow-blocked`,
+      `python scripts/check_ci_gate_matrix.py`,
+      `python scripts/check_release_readiness.py --allow-blocked`.
+    - `website_docs_validation`: `npm run build`, `npm run check`,
+      `python scripts/check_website_readiness.py`, `node website/validate_static_assets.js`.
+    - `ci_gate_matrix_contract`: `python scripts/check_ci_gate_matrix.py`.
+  - Artifact refs:
+    - `target/ci-gate-matrix-report.json`
+    - `target/dependency-audit-report.json`
+    - `target/security-posture-report.json`
+    - `target/release-dry-run-proof`
+    - `target/release-provenance-dry-run`
+    - `target/release-security-gate-report.json`
+    - `target/package-channel-readiness-report.json`
+    - `target/release-architecture-tracker-report.json`
+    - `target/final-release-rehearsal`
+    - `target/hard-release-readiness-gate.json`
+  - Remaining skipped gates:
+    - `clean_conda_release_environment`
+    - `real_publication`
+    - `release_tag_creation`
+    - `signing_key_use`
+    - `package_upload`
+  - Verification:
+    - `python scripts\check_ci_gate_matrix.py`
+    - `python scripts\check_dependency_audit.py --release-gate --json-output target\dependency-audit-release-gate-smoke.json`
+  - Claim boundary:
+    - This is CI coverage and release-gate hardening only. It does not authorize public release,
+      package publication, production readiness, performance, Spark replacement, object-store,
+      lakehouse, Foundry, broad SQL, or broad DataFrame claims.
+  - Fallback boundary:
+    - CI package/runtime smokes preserve `fallback_attempted=false` and
+      `external_engine_invoked=false`; release/security scripts fail closed if fallback or external
+      engine invocation is reported for admitted ShardLoom workflows.
+
 - [x] Session label: REVIEW-P0-1 generated current-support matrix and runs-today surface
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-13-20260521` / #902.
