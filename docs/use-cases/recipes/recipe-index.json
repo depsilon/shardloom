@@ -76,17 +76,18 @@
       "status": "smoke_supported",
       "use_case_id": "prepared-native-vortex-runtime-direction",
       "user_goal": "Inspect the current prepared/native runtime-development lane.",
-      "command": "python benchmarks\\traditional_analytics\\run.py --engines shardloom-prepared-vortex --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario \"filter + projection + limit\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-prepared-vortex-smoke.json --regenerate",
-      "expected_output": "Prepared Vortex rows separate from compatibility import rows.",
+      "command": "python benchmarks\\traditional_analytics\\run.py --engines shardloom-prepared-vortex,shardloom-prepare-batch --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario \"filter + projection + limit\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-prepared-vortex-smoke.json --regenerate",
+      "expected_output": "Prepared Vortex rows separate from single-process prepare/batch rows.",
       "evidence_fields": [
         "source_backed_scan_*",
         "source_state_*",
         "encoded_predicate_provider_*",
+        "prepare_batch_*",
         "claim_gate_status",
         "fallback_attempted=false",
         "external_engine_invoked=false"
       ],
-      "claim_boundary": "Prepared/native smoke, not performance or encoded-native proof.",
+      "claim_boundary": "Prepared/native and single-process prepare/batch smokes, not performance or encoded-native proof.",
       "references": [
         "benchmarks/traditional_analytics/README.md",
         "docs/architecture/compute-engine-flow-reference.md"

@@ -4237,6 +4237,13 @@ impl TraditionalAnalyticsPreparedBatchReport {
     #[allow(clippy::too_many_lines)]
     pub fn fields(&self) -> Vec<(String, String)> {
         let mut fields = self.batch_report.fields();
+        let prepare_fields = self.prepare_report.fields();
+        let prepare_field = |key: &str| -> String {
+            prepare_fields
+                .iter()
+                .find_map(|(field_key, value)| (field_key == key).then(|| value.clone()))
+                .unwrap_or_default()
+        };
         fields.extend([
             (
                 "prepare_batch_schema_version".to_string(),
@@ -4311,11 +4318,35 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 "true".to_string(),
             ),
             (
+                "prepare_batch_prepared_state_id".to_string(),
+                prepare_field("prepared_state_id"),
+            ),
+            (
+                "prepare_batch_prepared_state_digest".to_string(),
+                prepare_field("prepared_state_digest"),
+            ),
+            (
+                "prepare_batch_source_state_id".to_string(),
+                prepare_field("source_state_id"),
+            ),
+            (
+                "prepare_batch_source_state_digest".to_string(),
+                prepare_field("source_state_digest"),
+            ),
+            (
                 "prepare_batch_prepared_artifact_reuse_count".to_string(),
                 self.batch_report
                     .session_evidence
                     .prepared_artifact_reuse_count
                     .to_string(),
+            ),
+            (
+                "prepare_batch_prepared_artifact_cleanup_policy".to_string(),
+                prepare_field("prepared_artifact_cleanup_policy"),
+            ),
+            (
+                "prepare_batch_prepared_artifact_reuse_eligible".to_string(),
+                prepare_field("prepared_artifact_reuse_eligible"),
             ),
             (
                 "prepare_batch_source_state_columnar_preserved".to_string(),
@@ -4394,6 +4425,10 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_source_native_io_certificate_status".to_string(),
                 self.prepare_report.native_io_certificate.status().to_string(),
+            ),
+            (
+                "prepare_batch_source_native_io_certificate_id".to_string(),
+                self.prepare_report.native_io_certificate.certificate_id.clone(),
             ),
             (
                 "prepare_batch_fallback_attempted".to_string(),
@@ -18349,6 +18384,31 @@ mod tests {
         assert_field_eq(&fields, "prepare_batch_prepared_state_reused", "true");
         assert_field_eq(&fields, "prepare_batch_prepared_state_reuse_hit", "true");
         assert_field_eq(&fields, "prepare_batch_prepared_artifact_reuse_count", "1");
+        assert!(
+            fields
+                .get("prepare_batch_prepared_state_id")
+                .is_some_and(|value| value.starts_with("prepared-state://"))
+        );
+        assert!(
+            fields
+                .get("prepare_batch_source_state_id")
+                .is_some_and(|value| value.starts_with("source-state://"))
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_prepared_artifact_cleanup_policy",
+            "caller_owned_workspace_cleanup",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_prepared_artifact_reuse_eligible",
+            "true",
+        );
+        assert!(
+            fields
+                .get("prepare_batch_source_native_io_certificate_id")
+                .is_some_and(|value| !value.is_empty())
+        );
         assert_field_eq(&fields, "requested_execution_mode", "prepared_vortex");
         assert_field_eq(
             &fields,
