@@ -312,8 +312,13 @@ or documentation updates alone are insufficient.
     and `date32` are runtime-admitted for local row smoke paths, scoped bounded
     `column [NOT] IN (<literal>,...)` predicates are runtime-admitted with `in_predicate_*`
     evidence and SQL three-valued `WHERE`-filter semantics for `NULL` list values plus blockers for
-    empty, mixed DATE/non-DATE, mixed TIMESTAMP/non-TIMESTAMP, oversized, and subquery-backed lists,
-    direct SQL `column [NOT] BETWEEN <lower> AND <upper>` predicates are runtime-admitted by
+    empty, mixed DATE/non-DATE, mixed TIMESTAMP/non-TIMESTAMP, and oversized direct literal lists.
+    Scoped local `column [NOT] IN (SELECT <column> FROM '<local-source>')` predicates are
+    runtime-admitted by materializing a bounded local scalar source, preserving SQL three-valued
+    `WHERE` null-filter semantics, emitting `in_subquery_*` evidence, and blocking unsupported
+    missing-column, oversized, correlated, joined, filtered, grouped, ordered, limited, nested, or
+    multi-column subquery shapes deterministically without fallback. Direct SQL
+    `column [NOT] BETWEEN <lower> AND <upper>` predicates are runtime-admitted by
     lowering to ShardLoom-native comparison/logical predicates for scalar, `DATE`, and `TIMESTAMP`
     literal bounds with deterministic blockers for malformed bounds, and scoped
     local SQL logical `AND`/`OR`/`NOT` predicates plus balanced grouping parentheses are
@@ -418,6 +423,7 @@ or documentation updates alone are insufficient.
     Python now exposes `sl.col(...)`
     predicate helpers that lower admitted comparison, inclusive `between(...)`, null, string `LIKE`
     / `NOT LIKE`, scoped UTF-8 lower/upper/trim transforms, bounded `IN` / `NOT IN`,
+    local `IN` / `NOT IN` source-subquery helpers,
     cast/date/timestamp, Date32 extracts, Date32 day arithmetic, scoped UTC timestamp extracts,
     scoped numeric arithmetic comparison operators, scoped numeric absolute-value predicates and
     `with_column(...)`, scoped numeric rounding predicates and `with_column(...)`, scoped numeric
@@ -430,9 +436,9 @@ or documentation updates alone are insufficient.
     smoke path, plus `where(...)`
     as a familiar filter alias. User workflows still lack broad typed
     coercions, broad non-numeric expression parity beyond the scoped numeric expression trees,
-    timezone-database helpers, interval/date-time completeness, subquery-backed IN semantics,
-    arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
-    family coverage.
+    timezone-database helpers, interval/date-time completeness, broader correlated/multi-column/
+    nested subquery semantics, arbitrary predicate-tree completeness beyond the scoped admitted
+    leaves, and broader expression family coverage.
     Scoped SQL `IS NULL` and `IS NOT NULL` predicates are runtime-admitted over local CSV and
     JSONL/flat JSON sources with ShardLoom-native null semantics, `null_predicate_*` evidence,
     Python report accessors, deterministic source-column blockers, and no external fallback.
@@ -446,8 +452,8 @@ or documentation updates alone are insufficient.
     `GAR-RUNTIME-IMPL-4D` slices have been completed and moved into the completed ledger. The
     remaining work is no longer "basic expression support"; it is the explicit parity gap around
     broader non-numeric/generalized expression families, broader coercion/function coverage,
-    interval/timezone semantics, subquery-backed `IN`, arbitrary predicate-tree completeness, and
-    final SQL/Python ergonomics.
+    interval/timezone semantics, broader correlated/multi-column/nested subquery semantics,
+    arbitrary predicate-tree completeness, and final SQL/Python ergonomics.
     A future closeout PR must either implement those gaps or split each non-goal into separate
     follow-on runtime items before marking `GAR-RUNTIME-IMPL-4D` complete.
   - Next slice outcome: add one implementation PR per remaining expression family: remaining

@@ -301,12 +301,30 @@ class ColumnExpression:
         joined = ",".join(_sql_in_literal(value) for value in normalized)
         return PredicateExpression(f"{self.sql} IN ({joined})")
 
+    def isin_source(self, source: object, column: object) -> PredicateExpression:
+        """Return a scoped `IN (SELECT column FROM local-source)` predicate."""
+
+        source_column = _normalize_output_column_name(column)
+        source_ref = _sql_in_subquery_source(source)
+        return PredicateExpression(
+            f"{self.sql} IN (SELECT {source_column} FROM {source_ref})"
+        )
+
     def not_in(self, *values: object) -> PredicateExpression:
         """Return a scoped bounded `NOT IN (...)` predicate."""
 
         normalized = _normalize_in_values(values)
         joined = ",".join(_sql_in_literal(value) for value in normalized)
         return PredicateExpression(f"{self.sql} NOT IN ({joined})")
+
+    def not_in_source(self, source: object, column: object) -> PredicateExpression:
+        """Return a scoped `NOT IN (SELECT column FROM local-source)` predicate."""
+
+        source_column = _normalize_output_column_name(column)
+        source_ref = _sql_in_subquery_source(source)
+        return PredicateExpression(
+            f"{self.sql} NOT IN (SELECT {source_column} FROM {source_ref})"
+        )
 
     def between(self, lower: object, upper: object) -> PredicateExpression:
         """Return a scoped inclusive range predicate.
@@ -3411,6 +3429,12 @@ def _normalize_in_values(values: tuple[object, ...]) -> tuple[object, ...]:
     if len(normalized) > 32:
         raise ValueError("IN predicates admit at most 32 values")
     return normalized
+
+
+def _sql_in_subquery_source(source: object) -> str:
+    if isinstance(source, LazyFrame):
+        return _quote_sql_local_source_path(source.source.uri)
+    return _quote_sql_local_source_path(_require_non_empty("IN subquery source", source))
 
 
 def _is_source_free_sql_statement(statement: str) -> bool:

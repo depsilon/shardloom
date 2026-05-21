@@ -424,14 +424,20 @@ Date32 extract predicates with `DATE_YEAR(...)` / `DATE_MONTH(...)` /
 Date32 day arithmetic with `DATE_ADD_DAYS(...)` / `DATE_SUB_DAYS(...)`,
 scoped numeric arithmetic predicates such as `<column> + 5 >= 20` and
 `<column> * 2.0 > 1.0`,
-bounded `IN (...)` / `NOT IN (...)`, direct SQL `BETWEEN` / `NOT BETWEEN`, inclusive Python
-`between(...)` range predicates, UTF-8 `LENGTH(column)` comparisons against integer literals, string
-`LIKE` / `NOT LIKE`, null, logical `AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted
-leaves. `where(...)` is a familiar alias for `filter(...)`. `IN` lists admit up to 32
-literal values from one scalar family, including `DATE 'YYYY-MM-DD'` lists and `NULL`
-literals with SQL three-valued `WHERE`-filter semantics. Typed reports expose
-`in_predicate_runtime_execution`, `in_list_value_count`, `in_list_null_value_count`, and
-`in_predicate_null_semantics`, plus `numeric_arithmetic_runtime_execution`,
+bounded `IN (...)` / `NOT IN (...)`, scoped local
+`IN (SELECT <column> FROM '<local-source>')` / `NOT IN (...)` subquery predicates, direct SQL
+`BETWEEN` / `NOT BETWEEN`, inclusive Python `between(...)` range predicates, UTF-8
+`LENGTH(column)` comparisons against integer literals, string `LIKE` / `NOT LIKE`, null, logical
+`AND`/`OR`/`NOT`, and balanced grouping parentheses over already admitted leaves. `where(...)` is a
+familiar alias for `filter(...)`. `IN` lists admit up to 32 literal values from one scalar family,
+including `DATE 'YYYY-MM-DD'` lists and `NULL` literals with SQL three-valued `WHERE`-filter
+semantics. Scoped local `IN` subqueries materialize a bounded scalar column from another admitted
+local source and keep correlated, filtered, joined, grouped, ordered, limited, nested, and
+multi-column subqueries blocked. Typed reports expose `in_predicate_runtime_execution`,
+`in_list_value_count`, `in_list_null_value_count`, `in_predicate_null_semantics`,
+`in_subquery_runtime_execution`, `in_subquery_source_columns`, `in_subquery_source_formats`,
+`in_subquery_materialized_value_count`, and `in_subquery_materialized_null_value_count`, plus
+`numeric_arithmetic_runtime_execution`,
 `numeric_arithmetic_operator`, `numeric_arithmetic_source_column`, and
 `numeric_arithmetic_rhs_dtype` when arithmetic predicates are used, plus
 `numeric_abs_runtime_execution`, `numeric_abs_source_column`, and
@@ -450,7 +456,8 @@ when UTF-8 length predicates are used.
 The Python query builder also exposes a scoped `sl.col(...)` predicate helper for admitted local
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
 `not_contains()`, `startswith()`, `not_startswith()`, `endswith()`, `not_endswith()`, `like(...)`,
-`not_like(...)`, `between(...)`, bounded `isin(...)` / `not_in(...)`, `cast(dtype)`,
+`not_like(...)`, `between(...)`, bounded `isin(...)` / `not_in(...)`, local source-backed
+`isin_source(source, column)` / `not_in_source(source, column)`, `cast(dtype)`,
 `is_true()`, `is_false()`, `is_not_true()`, `is_not_false()`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
@@ -535,6 +542,12 @@ id,label,amount
 2,beta,15
 3,gamma,
 "@ | Set-Content -Encoding utf8 target\sql-local-source-smoke.csv
+@"
+id
+1
+3
+NULL
+"@ | Set-Content -Encoding utf8 target\sql-local-source-allowed.csv
 @'
 {"id":1,"label":"alpha","amount":8}
 {"id":2,"label":"beta","amount":15}
@@ -603,6 +616,14 @@ in_filtered = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
     .filter("label IN ('alpha','gamma')")
+    .limit(10)
+    .collect()
+)
+allowed_ids = ctx.read_csv("target/sql-local-source-allowed.csv")
+source_subquery_filtered = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label")
+    .filter(sl.col("id").isin_source(allowed_ids, "id"))
     .limit(10)
     .collect()
 )
@@ -694,6 +715,12 @@ print(
     in_filtered.in_list_null_value_count,
     in_filtered.in_predicate_null_semantics,
 )
+print(
+    source_subquery_filtered.in_subquery_runtime_execution,
+    source_subquery_filtered.in_subquery_source_columns,
+    source_subquery_filtered.in_subquery_materialized_value_count,
+    source_subquery_filtered.in_subquery_materialized_null_value_count,
+)
 print(json_rows.output_path, json_rows.envelope.field("source_format"))
 print(aggregate.first_result_row)
 print(aggregate.aggregate_operator_family)
@@ -728,6 +755,11 @@ sql_in_rows = ctx.sql(
     "WHERE label IN ('alpha','gamma') LIMIT 10"
 ).collect()
 
+sql_in_subquery_rows = ctx.sql(
+    "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE id IN (SELECT id FROM 'target/sql-local-source-allowed.csv') LIMIT 10"
+).collect()
+
 sql_written = ctx.sql(
     "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
     "WHERE amount >= 10 LIMIT 2"
@@ -739,6 +771,11 @@ print(
     sql_in_rows.in_list_value_count,
     sql_in_rows.in_list_null_value_count,
     sql_in_rows.in_predicate_null_semantics,
+)
+print(
+    sql_in_subquery_rows.in_subquery_runtime_execution,
+    sql_in_subquery_rows.in_subquery_source_formats,
+    sql_in_subquery_rows.in_subquery_materialized_value_count,
 )
 print(sql_written.output_path)
 print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
@@ -827,8 +864,8 @@ print(join.join_matched_row_count, join.join_rows_output)
 
 That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
 generality, grouped aliases, multi-key sorts, null ordering, collation parity,
-subquery-backed `IN` / `NOT IN`, arbitrary predicate-tree completeness beyond the admitted
-parenthesized leaves, Python/DataFrame joins beyond
+broader correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness
+beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source inner-equi query-builder bridge, broad expression-backed input-backed `with_column`,
 outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and
 production query support remain blocked until later runtime slices.

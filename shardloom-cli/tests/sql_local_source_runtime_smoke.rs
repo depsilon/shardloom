@@ -1,7 +1,7 @@
 use std::{
     fmt::Write as _,
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -3601,6 +3601,118 @@ fn sql_local_source_smoke_executes_null_aware_in_predicates_without_fallback() {
     assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
 
     fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_in_subquery_predicates_without_fallback() {
+    let source_path = unique_path("sql-local-source-in-subquery-predicate", "csv");
+    let allowed_path = unique_path("sql-local-source-in-subquery-allowed", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+    )
+    .expect("write source csv");
+    fs::write(&allowed_path, "id\n1\n3\nNULL\n").expect("write allowed csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE id IN (SELECT id FROM '{}') LIMIT 10",
+        source_path.display(),
+        allowed_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "in_subquery")));
+    assert!(stdout.contains(&field("in_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_list_value_count", "3")));
+    assert!(stdout.contains(&field("in_list_null_value_count", "1")));
+    assert!(stdout.contains(&field("in_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_source_column", "id")));
+    assert!(stdout.contains(&field("in_subquery_source_format", "csv")));
+    assert!(stdout.contains(&field("in_subquery_materialized_value_count", "3")));
+    assert!(stdout.contains(&field("in_subquery_materialized_null_value_count", "1")));
+    assert!(stdout.contains(&field(
+        "in_predicate_null_semantics",
+        "sql_three_valued_where_filter"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label\\\":\\\"alpha\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    assert_in_subquery_missing_column_blocks(&source_path, &allowed_path);
+    let oversized_path = assert_in_subquery_oversized_blocks(&source_path);
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(allowed_path).expect("remove allowed csv");
+    fs::remove_file(oversized_path).expect("remove oversized csv");
+}
+
+fn assert_in_subquery_missing_column_blocks(source_path: &Path, allowed_path: &Path) {
+    let statement = format!(
+        "SELECT id FROM '{}' WHERE id IN (SELECT missing_id FROM '{}') LIMIT 10",
+        source_path.display(),
+        allowed_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!output.status.success());
+    let error = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        error.contains("IN subquery source column \\\"missing_id\\\" is not present"),
+        "{error}"
+    );
+    assert!(error.contains("external_engine_invoked=false"));
+}
+
+fn assert_in_subquery_oversized_blocks(source_path: &Path) -> PathBuf {
+    let oversized_path = unique_path("sql-local-source-in-subquery-oversized", "csv");
+    let oversized_rows = (1..=33)
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(&oversized_path, format!("id\n{oversized_rows}\n"))
+        .expect("write oversized allowed csv");
+    let statement = format!(
+        "SELECT id FROM '{}' WHERE id IN (SELECT id FROM '{}') LIMIT 10",
+        source_path.display(),
+        oversized_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!output.status.success());
+    let error = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        error.contains("IN subquery predicates admit at most 32 materialized values"),
+        "{error}"
+    );
+    assert!(error.contains("external_engine_invoked=false"));
+    oversized_path
 }
 
 #[test]

@@ -556,6 +556,12 @@ plan before coding.
   numeric expressions or finite numeric literals, emit `generic_expression_predicate_*` evidence,
   preserve SQL `WHERE` null-filter semantics, and keep missing-column/division-by-zero and
   unsupported-shape blockers deterministic with no fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D scoped local IN-subquery predicates add
+  `column [NOT] IN (SELECT <column> FROM '<local-source>')` over bounded local scalar sources,
+  materialize the subquery set through ShardLoom-owned local readers, emit `in_subquery_*`
+  evidence, preserve SQL three-valued `WHERE` null-filter semantics, and keep missing-column,
+  oversized, correlated, joined, filtered, grouped, ordered, limited, nested, or multi-column
+  subquery shapes deterministic blockers with no fallback/external engine invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 
