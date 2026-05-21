@@ -561,8 +561,8 @@ or documentation updates alone are insufficient.
     projection/optional-filter/limit,
     preview/select-star, scalar aggregate/optional-filter/limit with aliases, multi-key group-by
     aggregate/optional-filter/limit, single-key numeric top-N workflows, scoped single- or
-    multi-key local-source inner equi-join bridges, and scalar/grouped join aggregates into that
-    runtime path.
+    multi-key local-source inner equi-join bridges, computed projections and single-key numeric
+    top-N over joined rows, and scalar/grouped join aggregates into that runtime path.
     Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC
     source certificate refs, execution certificate refs, materialization boundaries, pushdown status,
@@ -1051,9 +1051,10 @@ docs/website parity, and a completed-ledger entry.
   - Current state: scoped local CSV/flat JSONL SQL smoke paths exist for
     projection/optional-filter/limit, preview/select-star, scalar and grouped aggregates with
     optional filters and output aliases, top-N, explicit single- or multi-key inner equi-join, and
-    scoped scalar/grouped join-aggregate
-    shapes; richer expressions, casts, dates, strings, windows, subqueries, catalogs,
-    Python/DataFrame joins, expression/outer/semi/anti/cross joins, and broad planner behavior
+    scoped computed join projections, single-key numeric joined top-N, and scalar/grouped
+    join-aggregate shapes; richer expressions, casts, dates, strings, windows, subqueries,
+    catalogs, Python/DataFrame joins, expression/outer/semi/anti/cross joins, aggregate join
+    ordering, multi-key/null/collation ordering, and broad planner behavior
     remain incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
     and emits stable blockers for unsupported syntax.
@@ -1084,8 +1085,9 @@ docs/website parity, and a completed-ledger entry.
   - Current state: Python wrapper and selected query-builder methods exist. The local CSV/flat
     JSONL query builder now covers projection/filter/limit, preview, scalar aggregate, multi-key
     group-by, single-key top-N, scoped single- or multi-key local-source inner equi-join,
-    scalar/grouped join aggregate, explicit-projection literal
-    `with_column(...)`, and `count()` workflows, but complete end-to-end generated/local/Vortex workflows and
+    computed projections and single-key numeric top-N over joined rows, scalar/grouped join
+    aggregate, explicit-projection literal `with_column(...)`, and `count()` workflows, but
+    complete end-to-end generated/local/Vortex workflows and
     unsupported-method diagnostics are not yet ordinary user-grade coverage.
   - Next slice outcome: make one import path support generated, local file, and prepared/native
     Vortex workflows with select/filter/project/limit/preview/aggregate/group/order/write where
@@ -1120,8 +1122,8 @@ docs/website parity, and a completed-ledger entry.
     feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
     projection/optional-filter/limit,
     preview/select-star, scalar-aggregate/optional-filter/limit with aliases, multi-key group-by
-    aggregate/optional-filter/limit, single-key numeric top-N workflows, scalar/grouped join
-    aggregates, and local-source
+    aggregate/optional-filter/limit, single-key numeric top-N workflows, joined computed
+    projection/top-N workflows, scalar/grouped join aggregates, and local-source
     evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC rows. Nested JSON/JSONPath, broader
     Parquet/Arrow IPC/Avro/ORC type/nesting coverage,
@@ -1579,12 +1581,13 @@ runnable, documented, tested, and claim-safe.
     `sl.col(...).not_in(...)`, `head(...)`/
     `take(...)`, `count()`, scalar aggregate/optional-filter/limit with aliases, multi-key grouped
     aggregate/optional-filter/limit, and single-key top-N collect/write workflows. Scoped single- or
-    multi-key local-source inner equi-join, local `write_jsonl(...)`/`write_csv(...)` sink aliases, and generated-output
+    multi-key local-source inner equi-join, joined computed projection/top-N, local
+    `write_jsonl(...)`/`write_csv(...)` sink aliases, and generated-output
     helpers also exist for scoped local workflows. Engine-native range/sequence generated sources
     now support `limit(...)`, `head(...)`, and `take(...)` bound adjustment before local writes, with
     DataFrame capability rows separating generic `write`, JSONL, and CSV evidence requirements.
-    Broad Python DataFrame joins, non-literal `with_column` over input-backed rows, broader
-    expression projection, richer outputs, and parity-like method coverage remain
+    Broad Python DataFrame joins, broad non-literal `with_column` over input-backed rows, broader
+    expression projection beyond admitted scoped families, richer outputs, and parity-like method coverage remain
     unsupported/report-only.
   - Next slice outcome: promote DataFrame-style methods in user-value order with either runnable
     runtime or deterministic blockers: joins, `with_column`, expression projection, schema helpers,

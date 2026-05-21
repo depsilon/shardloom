@@ -1918,6 +1918,29 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("join_memory_estimate_bytes", 0) or 0
 
     @property
+    def join_computed_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed computed projections over joined rows."""
+
+        return (
+            self.envelope.field_bool(
+                "join_computed_projection_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def join_order_by_top_n_runtime_execution(self) -> bool:
+        """Whether this smoke executed top-N ordering over joined rows."""
+
+        return self.envelope.field_bool("join_order_by_top_n_runtime_execution", False) is True
+
+    @property
+    def join_projection_operator_family(self) -> str | None:
+        """Return the join projection operator-family label when present."""
+
+        return self.envelope.field("join_projection_operator_family")
+
+    @property
     def join_aggregate_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted join aggregate path."""
 

@@ -1308,7 +1308,8 @@ paths for `selective filter` and `filter + projection + limit`, plus the `sql-lo
 path for local CSV, flat JSONL/NDJSON, flat top-level `.json`, and feature-gated flat scalar
 Parquet/Arrow IPC/Avro/ORC `SELECT` projection/optional-filter/limit, scalar aggregate,
 multi-key group-by aggregate, aggregate aliases, single-key numeric `ORDER BY ... LIMIT ...` top-N
-shapes, scoped single-/multi-key inner equi-joins, scoped scalar/grouped join aggregates, and scoped
+shapes, scoped single-/multi-key inner equi-joins, scoped computed projections and single-key
+numeric top-N over joined rows, scoped scalar/grouped join aggregates, and scoped
 parenthesized logical predicates over admitted comparison, cast, date-literal, null, and string
 predicate leaves, including bounded `IN (...)` lists with non-null scalar literals and scoped
 UTF-8 string-function leaves.
@@ -1316,10 +1317,10 @@ That SQL path can render bounded inline JSONL or write local JSONL/CSV plus
 feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC output with format-specific output Native I/O
 certificate fields.
 Python `ctx.read_csv(...)` and local flat `ctx.read_json(...)` query-builder chains wrap the same
-admitted projection/scalar/multi-key grouped/top-N/join/join-aggregate runtime for local `.json`, `.jsonl`, and
+admitted projection/scalar/multi-key grouped/top-N/join/join-computed-top-N/join-aggregate runtime for local `.json`, `.jsonl`, and
 `.ndjson` files, including aggregate aliases and scoped `sl.concat(...)`, `.substr(...)`,
 `.substring(...)`, and `.replace(...)` string-function helpers. Adjacent formats, nested JSON/JSONPath,
-multi-key sorts, null ordering, collation parity, outer/expression joins, windows, broader result sinks, broad
+multi-key sorts, aggregate ordering, null ordering, collation parity, outer/expression joins, windows, broader result sinks, broad
 SQL/DataFrame access, and broader transient runtime behavior still return deterministic unsupported
 diagnostics. Balanced predicate grouping does not imply arbitrary SQL predicate-tree completeness or
 optimizer rewrite support.
@@ -1329,7 +1330,8 @@ matrix. The matrix is `not_claim_grade`, preserves `fallback_attempted=false` an
 `external_engine_invoked=false`, and cannot be used as evidence for SQL/DataFrame runtime support.
 The scoped Python query-builder terminal methods are fixture-smoke-supported only for the admitted
 local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet projection/optional-filter/limit, preview/select-star, scalar aggregate, multi-key grouped
-aggregate, aggregate aliases, single-key numeric top-N, and scoped local scalar IN-subquery shapes. Bounded `IN`
+aggregate, aggregate aliases, single-key numeric top-N, scoped joined computed-projection/top-N,
+and scoped local scalar IN-subquery shapes. Bounded `IN`
 predicates expose `in_predicate_runtime_execution` and `in_list_value_count`; scoped local
 IN-subquery predicates also expose `in_subquery_runtime_execution` and materialized source-set
 counts. Scoped string-function predicates/projections expose `string_function_*` and

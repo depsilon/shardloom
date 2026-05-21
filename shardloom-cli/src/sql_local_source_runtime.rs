@@ -1822,8 +1822,8 @@ fn run_sql_local_source_smoke(
     )?;
     materialize_in_subquery_predicates(&mut parsed.predicate)?;
     apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
-    validate_null_coalesce_projection_values(&parsed, &source)?;
-    validate_nullif_projection_values(&parsed, &source)?;
+    validate_null_coalesce_projection_values(&parsed, &source, right_source.as_ref())?;
+    validate_nullif_projection_values(&parsed, &source, right_source.as_ref())?;
 
     let compute_start = Instant::now();
     let (selected_row_count, joined_row_count, output_rows) =
@@ -2579,16 +2579,7 @@ fn evaluate_join_output(
     let projection_expressions = if parsed.is_aggregate() {
         Vec::new()
     } else {
-        parsed
-            .projections
-            .iter()
-            .map(|column| {
-                Ok(Expression::column(
-                    ExprId::new(format!("join.project.{column}"))?,
-                    ColumnRef::new(column.clone())?,
-                ))
-            })
-            .collect::<Result<Vec<_>, ShardLoomError>>()?
+        join_projection_expressions(parsed)?
     };
     let mut joined_row_count = 0usize;
     let mut selected_row_count = 0usize;
@@ -2621,14 +2612,7 @@ fn evaluate_join_output(
                 );
                 if evaluate_join_predicate(predicate_expression.as_ref(), &joined_row)? {
                     selected_row_count += 1;
-                    if parsed.is_aggregate() {
-                        selected_join_rows.push(joined_row);
-                    } else if output_rows.len() < parsed.limit {
-                        output_rows.push(evaluate_join_projection(
-                            &projection_expressions,
-                            &joined_row,
-                        )?);
-                    }
+                    selected_join_rows.push(joined_row);
                 }
             }
         }
@@ -2639,6 +2623,20 @@ fn evaluate_join_output(
     } else if parsed.is_aggregate() {
         let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
         output_rows = evaluate_scalar_aggregate_output(parsed, &selected_join_row_refs)?;
+    } else {
+        let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
+        let ordered_join_row_indexes = ordered_join_row_indexes(parsed, &selected_join_row_refs)?;
+        for row_index in ordered_join_row_indexes.into_iter().take(parsed.limit) {
+            let joined_row = selected_join_rows.get(row_index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "ordered join row index is out of bounds".to_string(),
+                )
+            })?;
+            output_rows.push(evaluate_join_projection(
+                &projection_expressions,
+                joined_row,
+            )?);
+        }
     }
 
     Ok(JoinEvaluationOutput {
@@ -2646,6 +2644,57 @@ fn evaluate_join_output(
         selected_row_count,
         output_rows,
     })
+}
+
+fn join_projection_expressions(
+    parsed: &ParsedSqlLocalSource,
+) -> Result<Vec<Expression>, ShardLoomError> {
+    let mut expressions = parsed
+        .projections
+        .iter()
+        .map(|column| {
+            Ok(Expression::column(
+                ExprId::new(format!("join.project.{column}"))?,
+                ColumnRef::new(column.clone())?,
+            ))
+        })
+        .collect::<Result<Vec<_>, ShardLoomError>>()?;
+    expressions.extend(computed_projection_expressions(parsed)?);
+    Ok(expressions)
+}
+
+fn ordered_join_row_indexes(
+    parsed: &ParsedSqlLocalSource,
+    rows: &[&ExpressionInputRow],
+) -> Result<Vec<usize>, ShardLoomError> {
+    let mut ordered = (0..rows.len()).collect::<Vec<_>>();
+    let Some(order_by) = parsed.order_by.as_ref() else {
+        return Ok(ordered);
+    };
+    let mut sort_values = Vec::with_capacity(ordered.len());
+    for row_index in &ordered {
+        let row = rows.get(*row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("selected join row index is out of bounds".to_string())
+        })?;
+        let value = row.get(&order_by.column).ok_or_else(|| {
+            unsupported_sql_error(&format!(
+                "ORDER BY join column {:?} is not present in the joined row",
+                order_by.column
+            ))
+        })?;
+        sort_values.push((*row_index, SortValue::try_from_scalar(value)?));
+    }
+    sort_values.sort_by(|(left_index, left_value), (right_index, right_value)| {
+        let ordering = left_value.cmp(right_value);
+        let ordering = match order_by.direction {
+            SortDirection::Asc => ordering,
+            SortDirection::Desc => ordering.reverse(),
+        };
+        ordering.then_with(|| left_index.cmp(right_index))
+    });
+    ordered.clear();
+    ordered.extend(sort_values.into_iter().map(|(row_index, _value)| row_index));
+    Ok(ordered)
 }
 
 fn build_join_right_rows_by_key<'a>(
@@ -2749,22 +2798,33 @@ fn apply_temporal_literal_column_coercions(
         source,
         right_source.as_deref_mut(),
     )?;
-    apply_conditional_projection_date_coercions(parsed, source)?;
-    apply_null_coalesce_projection_coercions(parsed, source)?;
-    apply_nullif_projection_coercions(parsed, source)?;
-    apply_date_arithmetic_projection_coercions(parsed, source)?;
-    apply_date_extract_projection_coercions(parsed, source)?;
-    apply_timestamp_literal_predicate_coercions(&parsed.predicate, parsed, source, right_source)?;
-    apply_conditional_projection_timestamp_coercions(parsed, source)?;
-    apply_timestamp_extract_projection_coercions(parsed, source)
+    apply_conditional_projection_date_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_null_coalesce_projection_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_nullif_projection_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_date_arithmetic_projection_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_date_extract_projection_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_timestamp_literal_predicate_coercions(
+        &parsed.predicate,
+        parsed,
+        source,
+        right_source.as_deref_mut(),
+    )?;
+    apply_conditional_projection_timestamp_coercions(parsed, source, right_source.as_deref_mut())?;
+    apply_timestamp_extract_projection_coercions(parsed, source, right_source)
 }
 
 fn apply_conditional_projection_date_coercions(
     parsed: &ParsedSqlLocalSource,
     source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.conditional_projections {
-        apply_date_literal_predicate_coercions(&projection.predicate, parsed, source, None)?;
+        apply_date_literal_predicate_coercions(
+            &projection.predicate,
+            parsed,
+            source,
+            right_source.as_deref_mut(),
+        )?;
     }
     Ok(())
 }
@@ -2772,9 +2832,15 @@ fn apply_conditional_projection_date_coercions(
 fn apply_conditional_projection_timestamp_coercions(
     parsed: &ParsedSqlLocalSource,
     source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.conditional_projections {
-        apply_timestamp_literal_predicate_coercions(&projection.predicate, parsed, source, None)?;
+        apply_timestamp_literal_predicate_coercions(
+            &projection.predicate,
+            parsed,
+            source,
+            right_source.as_deref_mut(),
+        )?;
     }
     Ok(())
 }
@@ -2782,6 +2848,7 @@ fn apply_conditional_projection_timestamp_coercions(
 fn apply_null_coalesce_projection_coercions(
     parsed: &ParsedSqlLocalSource,
     source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.null_coalesce_projections {
         let source_dtype = projection
@@ -2789,9 +2856,19 @@ fn apply_null_coalesce_projection_coercions(
             .clone()
             .unwrap_or_else(|| projection.fallback.dtype());
         match source_dtype {
-            LogicalDType::Date32 => coerce_source_column_to_date32(source, &projection.column)?,
+            LogicalDType::Date32 => coerce_projection_column_to_date32(
+                parsed,
+                source,
+                right_source.as_deref_mut(),
+                &projection.column,
+            )?,
             LogicalDType::TimestampMicros => {
-                coerce_source_column_to_timestamp_micros(source, &projection.column)?;
+                coerce_projection_column_to_timestamp_micros(
+                    parsed,
+                    source,
+                    right_source.as_deref_mut(),
+                    &projection.column,
+                )?;
             }
             LogicalDType::Boolean
             | LogicalDType::Int64
@@ -2811,11 +2888,14 @@ fn apply_null_coalesce_projection_coercions(
 fn validate_null_coalesce_projection_values(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
+    right_source: Option<&CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.null_coalesce_projections {
         let fallback_dtype = projection.fallback.dtype();
-        for row in &source.rows {
-            let Some(value) = row.get(&projection.column) else {
+        let (projection_source, source_column) =
+            projection_source_for_column(parsed, source, right_source, &projection.column)?;
+        for row in &projection_source.rows {
+            let Some(value) = row.get(&source_column) else {
                 continue;
             };
             if value.is_null() || value.dtype() == fallback_dtype {
@@ -2835,6 +2915,7 @@ fn validate_null_coalesce_projection_values(
 fn apply_nullif_projection_coercions(
     parsed: &ParsedSqlLocalSource,
     source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.nullif_projections {
         let source_dtype = projection
@@ -2842,9 +2923,19 @@ fn apply_nullif_projection_coercions(
             .clone()
             .unwrap_or_else(|| projection.sentinel.dtype());
         match source_dtype {
-            LogicalDType::Date32 => coerce_source_column_to_date32(source, &projection.column)?,
+            LogicalDType::Date32 => coerce_projection_column_to_date32(
+                parsed,
+                source,
+                right_source.as_deref_mut(),
+                &projection.column,
+            )?,
             LogicalDType::TimestampMicros => {
-                coerce_source_column_to_timestamp_micros(source, &projection.column)?;
+                coerce_projection_column_to_timestamp_micros(
+                    parsed,
+                    source,
+                    right_source.as_deref_mut(),
+                    &projection.column,
+                )?;
             }
             LogicalDType::Boolean
             | LogicalDType::Int64
@@ -2864,11 +2955,14 @@ fn apply_nullif_projection_coercions(
 fn validate_nullif_projection_values(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
+    right_source: Option<&CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.nullif_projections {
         let sentinel_dtype = projection.sentinel.dtype();
-        for row in &source.rows {
-            let Some(value) = row.get(&projection.column) else {
+        let (projection_source, source_column) =
+            projection_source_for_column(parsed, source, right_source, &projection.column)?;
+        for row in &projection_source.rows {
+            let Some(value) = row.get(&source_column) else {
                 continue;
             };
             if value.is_null() || value.dtype() == sentinel_dtype {
@@ -2888,9 +2982,15 @@ fn validate_nullif_projection_values(
 fn apply_date_arithmetic_projection_coercions(
     parsed: &ParsedSqlLocalSource,
     source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.date_arithmetic_projections {
-        coerce_source_column_to_date32(source, &projection.column)?;
+        coerce_projection_column_to_date32(
+            parsed,
+            source,
+            right_source.as_deref_mut(),
+            &projection.column,
+        )?;
     }
     Ok(())
 }
@@ -2898,9 +2998,15 @@ fn apply_date_arithmetic_projection_coercions(
 fn apply_date_extract_projection_coercions(
     parsed: &ParsedSqlLocalSource,
     source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.date_extract_projections {
-        coerce_source_column_to_date32(source, &projection.column)?;
+        coerce_projection_column_to_date32(
+            parsed,
+            source,
+            right_source.as_deref_mut(),
+            &projection.column,
+        )?;
     }
     Ok(())
 }
@@ -2908,9 +3014,15 @@ fn apply_date_extract_projection_coercions(
 fn apply_timestamp_extract_projection_coercions(
     parsed: &ParsedSqlLocalSource,
     source: &mut CsvSourceData,
+    mut right_source: Option<&mut CsvSourceData>,
 ) -> Result<(), ShardLoomError> {
     for projection in &parsed.timestamp_extract_projections {
-        coerce_source_column_to_timestamp_micros(source, &projection.column)?;
+        coerce_projection_column_to_timestamp_micros(
+            parsed,
+            source,
+            right_source.as_deref_mut(),
+            &projection.column,
+        )?;
     }
     Ok(())
 }
@@ -3032,6 +3144,108 @@ fn apply_timestamp_literal_predicate_coercions(
         | ParsedPredicate::InList { .. }
         | ParsedPredicate::InSubquery { .. }
         | ParsedPredicate::StringMatch { .. } => Ok(()),
+    }
+}
+
+fn coerce_projection_column_to_date32(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    right_source: Option<&mut CsvSourceData>,
+    column: &str,
+) -> Result<(), ShardLoomError> {
+    if parsed.is_join() {
+        coerce_join_projection_column(parsed, source, right_source, column, &LogicalDType::Date32)
+    } else {
+        coerce_source_column_to_date32(source, column)
+    }
+}
+
+fn coerce_projection_column_to_timestamp_micros(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    right_source: Option<&mut CsvSourceData>,
+    column: &str,
+) -> Result<(), ShardLoomError> {
+    if parsed.is_join() {
+        coerce_join_projection_column(
+            parsed,
+            source,
+            right_source,
+            column,
+            &LogicalDType::TimestampMicros,
+        )
+    } else {
+        coerce_source_column_to_timestamp_micros(source, column)
+    }
+}
+
+fn coerce_join_projection_column(
+    parsed: &ParsedSqlLocalSource,
+    source: &mut CsvSourceData,
+    right_source: Option<&mut CsvSourceData>,
+    column: &str,
+    target_dtype: &LogicalDType,
+) -> Result<(), ShardLoomError> {
+    let join = parsed.join.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation("join projection coercion requires a join".to_string())
+    })?;
+    let left_alias = parsed.source_alias.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "join projection coercion requires a left alias".to_string(),
+        )
+    })?;
+    let qualified = parse_qualified_column_ref(column)?;
+    let target_source = if qualified.alias == *left_alias {
+        source
+    } else if qualified.alias == join.right_alias {
+        right_source.ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "join projection coercion requires a right source".to_string(),
+            )
+        })?
+    } else {
+        return Err(unsupported_sql_error(
+            "computed JOIN projections require admitted source aliases",
+        ));
+    };
+    match target_dtype {
+        LogicalDType::Date32 => coerce_source_column_to_date32(target_source, &qualified.column),
+        LogicalDType::TimestampMicros => {
+            coerce_source_column_to_timestamp_micros(target_source, &qualified.column)
+        }
+        _ => Ok(()),
+    }
+}
+
+fn projection_source_for_column<'a>(
+    parsed: &ParsedSqlLocalSource,
+    source: &'a CsvSourceData,
+    right_source: Option<&'a CsvSourceData>,
+    column: &str,
+) -> Result<(&'a CsvSourceData, String), ShardLoomError> {
+    if let Some(join) = parsed.join.as_ref() {
+        let left_alias = parsed.source_alias.as_ref().ok_or_else(|| {
+            ShardLoomError::InvalidOperation(
+                "join projection validation requires a left alias".to_string(),
+            )
+        })?;
+        let qualified = parse_qualified_column_ref(column)?;
+        if qualified.alias == *left_alias {
+            Ok((source, qualified.column))
+        } else if qualified.alias == join.right_alias {
+            let right_source = right_source.ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "join projection validation requires a right source".to_string(),
+                )
+            })?;
+            Ok((right_source, qualified.column))
+        } else {
+            Err(unsupported_sql_error(
+                "computed JOIN projections require admitted source aliases",
+            ))
+        }
+    } else {
+        Ok((source, column.to_string()))
     }
 }
 
@@ -4157,16 +4371,19 @@ fn bind_join_sql_local_source(
             "JOIN smoke requires a readable local right source",
         ));
     };
-    if parsed.order_by.is_some() {
+    if parsed.order_by.is_some() && parsed.is_aggregate() {
         return Err(unsupported_sql_error(
-            "JOIN smoke currently admits projection/filter/limit and aggregate/group-by/filter/limit only; order-by joins remain blocked",
+            "ORDER BY joins currently admit projection rows only; aggregate and grouped join top-N remain blocked",
         ));
     }
-    if parsed.has_computed_projection() {
+    if parsed.has_computed_projection() && parsed.is_aggregate() {
         return Err(unsupported_sql_error(
-            "JOIN smoke currently admits raw qualified projections and aggregate functions only; computed projections with joins remain blocked",
+            "computed JOIN projections cannot be mixed with aggregate functions in this scoped smoke",
         ));
     }
+    let qualified_header =
+        qualified_join_header(left_alias, left_header, &join.right_alias, right_header);
+    validate_join_order_by_source(parsed, &qualified_header)?;
     validate_join_key_pairs(join, left_alias, left_header, right_header)?;
     if parsed.is_grouped_aggregate() {
         validate_join_grouped_aggregate_sources(
@@ -4195,15 +4412,21 @@ fn bind_join_sql_local_source(
                 "JOIN projection smoke requires at least one qualified projection column",
             ));
         }
-        for projection in &parsed.projections {
-            bind_qualified_column(
-                projection,
-                left_alias,
-                left_header,
-                &join.right_alias,
-                right_header,
-            )?;
+        if parsed.projections.len() == 1 && parsed.projections[0] == "*" {
+            return Err(unsupported_sql_error(
+                "JOIN projection smoke requires explicit qualified projection columns",
+            ));
         }
+        if parsed.has_computed_projection()
+            && (parsed.projections.is_empty()
+                || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
+        {
+            return Err(unsupported_sql_error(
+                "computed JOIN projection smoke requires explicit raw qualified projection columns before computed projections",
+            ));
+        }
+        validate_projection_source_columns(parsed, &qualified_header)?;
+        validate_projection_output_names(parsed)?;
     }
     validate_aggregate_output_names(parsed)?;
     bind_qualified_predicate(
@@ -4213,6 +4436,42 @@ fn bind_join_sql_local_source(
         &join.right_alias,
         right_header,
     )
+}
+
+fn qualified_join_header(
+    left_alias: &str,
+    left_header: &[String],
+    right_alias: &str,
+    right_header: &[String],
+) -> Vec<String> {
+    left_header
+        .iter()
+        .map(|column| qualified_column_name(left_alias, column))
+        .chain(
+            right_header
+                .iter()
+                .map(|column| qualified_column_name(right_alias, column)),
+        )
+        .collect()
+}
+
+fn validate_join_order_by_source(
+    parsed: &ParsedSqlLocalSource,
+    qualified_header: &[String],
+) -> Result<(), ShardLoomError> {
+    let Some(order_by) = parsed.order_by.as_ref() else {
+        return Ok(());
+    };
+    if !qualified_header
+        .iter()
+        .any(|candidate| candidate == &order_by.column)
+    {
+        return Err(unsupported_sql_error(&format!(
+            "ORDER BY join column {:?} is not present in the qualified JOIN row",
+            order_by.column
+        )));
+    }
+    Ok(())
 }
 
 fn validate_join_key_pairs(
@@ -4368,6 +4627,59 @@ fn bind_qualified_column(
     }
 }
 
+#[derive(Clone, Copy)]
+enum JoinProjectionShape {
+    ComputedTopNFilter,
+    ComputedTopN,
+    RawTopNFilter,
+    RawTopN,
+    ComputedFilter,
+    Computed,
+}
+
+impl JoinProjectionShape {
+    fn statement_kind(self) -> &'static str {
+        match self {
+            Self::ComputedTopNFilter => {
+                "local_source_inner_equi_join_computed_projection_order_by_topn_filter_limit"
+            }
+            Self::ComputedTopN => {
+                "local_source_inner_equi_join_computed_projection_order_by_topn_limit"
+            }
+            Self::RawTopNFilter => "local_source_inner_equi_join_order_by_topn_filter_limit",
+            Self::RawTopN => "local_source_inner_equi_join_order_by_topn_limit",
+            Self::ComputedFilter => "local_source_inner_equi_join_computed_projection_filter_limit",
+            Self::Computed => "local_source_inner_equi_join_computed_projection_limit",
+        }
+    }
+
+    fn execution_certificate_suffix(self) -> &'static str {
+        match self {
+            Self::ComputedTopNFilter => {
+                "inner-equi-join-computed-projection-order-by-topn-filter-limit"
+            }
+            Self::ComputedTopN => "inner-equi-join-computed-projection-order-by-topn-limit",
+            Self::RawTopNFilter => "inner-equi-join-order-by-topn-filter-limit",
+            Self::RawTopN => "inner-equi-join-order-by-topn-limit",
+            Self::ComputedFilter => "inner-equi-join-computed-projection-filter-limit",
+            Self::Computed => "inner-equi-join-computed-projection-limit",
+        }
+    }
+
+    fn claim_gate_reason_suffix(self) -> &'static str {
+        match self {
+            Self::ComputedTopNFilter => {
+                "inner_equi_join_computed_projection_order_by_topn_filter_limit"
+            }
+            Self::ComputedTopN => "inner_equi_join_computed_projection_order_by_topn_limit",
+            Self::RawTopNFilter => "inner_equi_join_order_by_topn_filter_limit",
+            Self::RawTopN => "inner_equi_join_order_by_topn_limit",
+            Self::ComputedFilter => "inner_equi_join_computed_projection_filter_limit",
+            Self::Computed => "inner_equi_join_computed_projection_limit",
+        }
+    }
+}
+
 impl ParsedSqlLocalSource {
     fn is_join(&self) -> bool {
         self.join.is_some()
@@ -4463,6 +4775,25 @@ impl ParsedSqlLocalSource {
             || self.has_timestamp_extract_projection()
     }
 
+    fn join_projection_shape(&self) -> Option<JoinProjectionShape> {
+        if !self.is_join() || self.is_aggregate() {
+            return None;
+        }
+        match (
+            self.has_computed_projection(),
+            self.order_by.is_some(),
+            self.has_filter(),
+        ) {
+            (true, true, true) => Some(JoinProjectionShape::ComputedTopNFilter),
+            (true, true, false) => Some(JoinProjectionShape::ComputedTopN),
+            (false, true, true) => Some(JoinProjectionShape::RawTopNFilter),
+            (false, true, false) => Some(JoinProjectionShape::RawTopN),
+            (true, false, true) => Some(JoinProjectionShape::ComputedFilter),
+            (true, false, false) => Some(JoinProjectionShape::Computed),
+            (false, false, _) => None,
+        }
+    }
+
     fn statement_kind(&self) -> &'static str {
         if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
             "local_source_inner_equi_join_group_by_aggregate_filter_limit"
@@ -4472,6 +4803,8 @@ impl ParsedSqlLocalSource {
             "local_source_inner_equi_join_aggregate_filter_limit"
         } else if self.is_join() && self.is_aggregate() {
             "local_source_inner_equi_join_aggregate_limit"
+        } else if let Some(shape) = self.join_projection_shape() {
+            shape.statement_kind()
         } else if self.is_join() && self.has_filter() {
             "local_source_inner_equi_join_filter_limit"
         } else if self.is_join() {
@@ -4564,6 +4897,8 @@ impl ParsedSqlLocalSource {
             "inner-equi-join-aggregate-filter-limit"
         } else if self.is_join() && self.is_aggregate() {
             "inner-equi-join-aggregate-limit"
+        } else if let Some(shape) = self.join_projection_shape() {
+            shape.execution_certificate_suffix()
         } else if self.is_join() && self.has_filter() {
             "inner-equi-join-filter-limit"
         } else if self.is_join() {
@@ -4656,6 +4991,8 @@ impl ParsedSqlLocalSource {
             "inner_equi_join_aggregate_filter_limit"
         } else if self.is_join() && self.is_aggregate() {
             "inner_equi_join_aggregate_limit"
+        } else if let Some(shape) = self.join_projection_shape() {
+            shape.claim_gate_reason_suffix()
         } else if self.is_join() && self.has_filter() {
             "inner_equi_join_filter_limit"
         } else if self.is_join() {
@@ -4759,8 +5096,6 @@ impl ParsedSqlLocalSource {
                 .iter()
                 .map(ParsedAggregate::output_name)
                 .collect()
-        } else if self.is_join() {
-            self.projections.clone()
         } else {
             self.projection_columns(header)
                 .into_iter()
@@ -8663,6 +8998,32 @@ impl SqlLocalSourceReport {
                         join_memory_estimate_bytes(&self.source, right_source)
                     })
                     .to_string(),
+            ),
+            (
+                "join_computed_projection_runtime_execution".to_string(),
+                (self.parsed.is_join() && self.parsed.has_computed_projection()).to_string(),
+            ),
+            (
+                "join_order_by_top_n_runtime_execution".to_string(),
+                (self.parsed.is_join() && self.parsed.order_by.is_some()).to_string(),
+            ),
+            (
+                "join_projection_operator_family".to_string(),
+                if self.parsed.is_join()
+                    && self.parsed.has_computed_projection()
+                    && self.parsed.order_by.is_some()
+                {
+                    "computed_projection_topn"
+                } else if self.parsed.is_join() && self.parsed.has_computed_projection() {
+                    "computed_projection"
+                } else if self.parsed.is_join() && self.parsed.order_by.is_some() {
+                    "raw_projection_topn"
+                } else if self.parsed.is_join() {
+                    "raw_projection"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
             ),
             (
                 "join_aggregate_runtime_execution".to_string(),
@@ -16036,6 +16397,45 @@ mod tests {
         assert_eq!(
             parsed.statement_kind(),
             "local_source_inner_equi_join_filter_limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_join_computed_projection_topn_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT f.id,d.segment,f.amount + d.discount AS adjusted,CONCAT(d.segment,'-',f.region) AS segment_region FROM 'target/fact.csv' AS f JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 3",
+        )
+        .expect("join computed projection top-N statement parses");
+
+        assert_eq!(parsed.projections, vec!["f.id", "d.segment"]);
+        assert_eq!(parsed.generic_expression_projections.len(), 1);
+        assert_eq!(
+            parsed.generic_expression_projections[0].source_columns,
+            vec!["d.discount", "f.amount"]
+        );
+        assert_eq!(
+            parsed.generic_expression_projection_output_columns(),
+            "adjusted"
+        );
+        assert_eq!(parsed.string_function_projections.len(), 1);
+        assert_eq!(
+            parsed.string_function_projection_source_columns(),
+            "d.segment+f.region"
+        );
+        assert_eq!(
+            parsed.string_function_projection_output_columns(),
+            "segment_region"
+        );
+        let order_by = parsed.order_by.as_ref().expect("order by parsed");
+        assert_eq!(order_by.column, "f.amount");
+        assert_eq!(order_by.direction, SortDirection::Desc);
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_inner_equi_join_computed_projection_order_by_topn_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "inner-equi-join-computed-projection-order-by-topn-filter-limit"
         );
     }
 

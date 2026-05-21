@@ -5610,6 +5610,273 @@ customer_id,region,segment
 }
 
 #[test]
+fn sql_local_source_smoke_executes_join_order_by_topn_without_fallback() {
+    let fact_path = unique_path("sql-local-source-join-topn-fact", "csv");
+    let dim_path = unique_path("sql-local-source-join-topn-dim", "csv");
+    fs::write(
+        &fact_path,
+        "\
+id,customer_id,region,amount
+1,10,east,8
+2,20,west,15
+3,20,east,21
+4,30,east,22
+5,30,west,23
+",
+    )
+    .expect("write fact csv");
+    fs::write(
+        &dim_path,
+        "\
+customer_id,region,segment
+20,west,enterprise
+20,east,consumer
+30,west,startup
+99,east,orphan
+",
+    )
+    .expect("write dim csv");
+
+    let statement = format!(
+        "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 2",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_inner_equi_join_order_by_topn_filter_limit"
+    )));
+    assert!(stdout.contains(&field("join_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_key_arity", "2")));
+    assert!(stdout.contains(&field("join_multi_key_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_matched_row_count", "3")));
+    assert!(stdout.contains(&field("selected_row_count", "3")));
+    assert!(stdout.contains(&field("join_rows_output", "2")));
+    assert!(stdout.contains(&field(
+        "join_computed_projection_runtime_execution",
+        "false"
+    )));
+    assert!(stdout.contains(&field("join_order_by_top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "join_projection_operator_family",
+        "raw_projection_topn"
+    )));
+    assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sort_keys", "f.amount")));
+    assert!(stdout.contains(&field("sort_direction", "desc")));
+    assert!(stdout.contains(&field("top_n_limit", "2")));
+    assert!(stdout.contains(&field("projected_columns", "f.id,d.segment")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"f.id\\\":5,\\\"d.segment\\\":\\\"startup\\\"}\\n{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"consumer\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.inner-equi-join-order-by-topn-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_join_computed_projection_without_fallback() {
+    let fact_path = unique_path("sql-local-source-join-computed-fact", "csv");
+    let dim_path = unique_path("sql-local-source-join-computed-dim", "csv");
+    fs::write(
+        &fact_path,
+        "id,customer_id,region,amount\n1,10,na,8\n2,20,na,15\n3,30,eu,21\n4,40,na,12\n5,50,eu,23\n",
+    )
+    .expect("write fact csv");
+    fs::write(
+        &dim_path,
+        "customer_id,region,segment,discount\n10,na,seed,1\n20,na,enterprise,2\n30,eu,consumer,3\n40,na,enterprise,4\n50,eu,startup,5\n",
+    )
+    .expect("write dim csv");
+
+    let statement = format!(
+        "SELECT f.id,d.segment,f.amount + d.discount AS adjusted FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 2",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(
+        stdout.contains("\\\"f.id\\\":2,\\\"d.segment\\\":\\\"enterprise\\\",\\\"adjusted\\\":17")
+    );
+    assert!(
+        stdout.contains("\\\"f.id\\\":3,\\\"d.segment\\\":\\\"consumer\\\",\\\"adjusted\\\":24")
+    );
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_inner_equi_join_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("join_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_key_arity", "2")));
+    assert!(stdout.contains(&field("join_matched_row_count", "5")));
+    assert!(stdout.contains(&field("selected_row_count", "4")));
+    assert!(stdout.contains(&field("join_rows_output", "2")));
+    assert!(stdout.contains(&field("join_computed_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_order_by_top_n_runtime_execution", "false")));
+    assert!(stdout.contains(&field(
+        "join_projection_operator_family",
+        "computed_projection"
+    )));
+    assert!(stdout.contains(&field("order_by_runtime_execution", "false")));
+    assert!(stdout.contains(&field("top_n_runtime_execution", "false")));
+    assert!(stdout.contains(&field("projected_columns", "f.id,d.segment,adjusted")));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_source_column",
+        "d.discount+f.amount"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_output_column",
+        "adjusted"
+    )));
+    assert!(stdout.contains(
+        "sql-local-source.csv.inner-equi-join-computed-projection-filter-limit.execution.v1"
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_join_computed_projection_topn_without_fallback() {
+    let fact_path = unique_path("sql-local-source-join-computed-topn-fact", "csv");
+    let dim_path = unique_path("sql-local-source-join-computed-topn-dim", "csv");
+    fs::write(
+        &fact_path,
+        "id,customer_id,region,amount\n1,10,na,8\n2,20,na,15\n3,30,eu,21\n4,40,na,12\n5,50,eu,23\n",
+    )
+    .expect("write fact csv");
+    fs::write(
+        &dim_path,
+        "customer_id,region,segment,discount\n10,na,seed,1\n20,na,enterprise,2\n30,eu,consumer,3\n40,na,enterprise,4\n50,eu,startup,5\n",
+    )
+    .expect("write dim csv");
+
+    let statement = format!(
+        "SELECT f.id,d.segment,f.amount + d.discount AS adjusted,CONCAT(d.segment,'-',f.region) AS segment_region FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 3",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(
+        "\\\"f.id\\\":5,\\\"d.segment\\\":\\\"startup\\\",\\\"adjusted\\\":28,\\\"segment_region\\\":\\\"startup-eu\\\""
+    ));
+    assert!(stdout.contains(
+        "\\\"f.id\\\":3,\\\"d.segment\\\":\\\"consumer\\\",\\\"adjusted\\\":24,\\\"segment_region\\\":\\\"consumer-eu\\\""
+    ));
+    assert!(stdout.contains(
+        "\\\"f.id\\\":2,\\\"d.segment\\\":\\\"enterprise\\\",\\\"adjusted\\\":17,\\\"segment_region\\\":\\\"enterprise-na\\\""
+    ));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_inner_equi_join_computed_projection_order_by_topn_filter_limit"
+    )));
+    assert!(stdout.contains(&field("join_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_key_arity", "2")));
+    assert!(stdout.contains(&field("join_multi_key_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_matched_row_count", "5")));
+    assert!(stdout.contains(&field("selected_row_count", "4")));
+    assert!(stdout.contains(&field("join_rows_output", "3")));
+    assert!(stdout.contains(&field("join_computed_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_order_by_top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "join_projection_operator_family",
+        "computed_projection_topn"
+    )));
+    assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sort_keys", "f.amount")));
+    assert!(stdout.contains(&field("sort_direction", "desc")));
+    assert!(stdout.contains(&field("top_n_limit", "3")));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "f.id,d.segment,adjusted,segment_region"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_source_column",
+        "d.discount+f.amount"
+    )));
+    assert!(stdout.contains(&field(
+        "generic_expression_projection_output_column",
+        "adjusted"
+    )));
+    assert!(stdout.contains(&field(
+        "string_function_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "string_function_projection_source_column",
+        "d.segment+f.region"
+    )));
+    assert!(stdout.contains(&field(
+        "string_function_projection_output_column",
+        "segment_region"
+    )));
+    assert!(stdout.contains(
+        "sql-local-source.csv.inner-equi-join-computed-projection-order-by-topn-filter-limit.execution.v1"
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_join_scalar_aggregate_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-scalar-aggregate-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-scalar-aggregate-dim", "csv");
@@ -5945,11 +6212,11 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
         ),
         (
             format!(
-                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 0 ORDER BY f.amount DESC LIMIT 10",
+                "SELECT count(*) AS rows FROM '{}' AS f JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 0 ORDER BY f.amount DESC LIMIT 1",
                 fact_path.display(),
                 dim_path.display()
             ),
-            "order-by joins remain blocked",
+            "ORDER BY joins currently admit projection rows only; aggregate and grouped join top-N remain blocked",
         ),
         (
             format!(

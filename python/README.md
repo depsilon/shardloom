@@ -790,7 +790,9 @@ projection/optional-filter/limit, scalar aggregate, multi-key grouped aggregate,
 preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
 ABS, scoped numeric rounding, and scoped UTF-8 string length `with_column`,
 single-key numeric top-N, and scoped single- or multi-key local-source inner equi-join shapes.
-Scoped scalar/grouped join aggregates over those same join shapes lower through the same runtime.
+Joined workflows also admit scoped computed projections over qualified columns plus single-key
+numeric top-N over joined rows. Scoped scalar/grouped join aggregates over those same join shapes
+lower through the same runtime.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 general expression-backed `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON,
@@ -805,7 +807,9 @@ other local-source smokes. Use `join(..., on="key")` or
 `join(..., on=("customer_id", "region"))` for matching same-named key columns on both sides,
 qualified projection columns such as
 `f.id` and `d.segment`, a qualified predicate such as `f.amount >= 10`, and an
-explicit `limit(...)`. A joined workflow can end in `agg(...).limit(...)` or
+explicit `limit(...)`. A joined workflow can add admitted `with_column(...)` expressions over
+qualified columns and may use `sort("f.amount", descending=True).limit(n)` for the scoped
+single-key numeric joined top-N path. A joined workflow can also end in `agg(...).limit(...)` or
 `group_by(...).agg(...).limit(...)` for the admitted scalar/grouped join-aggregate subset. Broad
 DataFrame joins remain blocked: outer/semi/anti/cross
 joins, expression joins,
@@ -874,6 +878,17 @@ print(join.join_left_keys, join.join_right_keys)
 print(join.join_key_arity, join.join_multi_key_runtime_execution)
 print(join.join_matched_row_count, join.join_rows_output)
 
+join_topn = client.sql_local_source_smoke(
+    "SELECT f.id,d.segment,f.amount + d.discount AS adjusted "
+    "FROM 'target/sql-local-source-join-fact.csv' AS f "
+    "INNER JOIN 'target/sql-local-source-join-dim.csv' AS d "
+    "ON f.customer_id = d.customer_id AND f.region = d.region "
+    "WHERE f.amount >= 10 ORDER BY f.amount DESC LIMIT 3",
+)
+print(join_topn.join_computed_projection_runtime_execution)
+print(join_topn.join_order_by_top_n_runtime_execution)
+print(join_topn.join_projection_operator_family)
+
 join_grouped = client.sql_local_source_smoke(
     "SELECT d.segment,count(*) AS rows,sum(f.amount) AS total_amount "
     "FROM 'target/sql-local-source-join-fact.csv' AS f "
@@ -887,7 +902,7 @@ print(join_grouped.join_aggregate_group_count)
 ```
 
 That path is still fixture-smoke evidence only. Broader grouped aggregate generality,
-multi-key sorts, null ordering, collation parity,
+multi-key sorts, aggregate ordering, null ordering, collation parity,
 broader correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source inner-equi query-builder bridge, broad expression-backed input-backed `with_column`,
