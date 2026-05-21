@@ -1324,8 +1324,9 @@ class LazyFrame:
                 "LazyFrame.write currently requires a local CSV, flat JSONL/NDJSON, flat JSON, feature-gated flat Parquet, feature-gated flat Arrow IPC, feature-gated flat Avro, or feature-gated flat ORC source with "
                 "select(...), optional filter(...), and limit(...) operations, "
                 "aggregate(...), optional filter(...), and limit(...) operations, or "
-                "optional filter(...), group_by(...).agg(...), and limit(...) operations, or "
-                "select(...), optional filter(...), sort(...), and limit(...) operations"
+                "optional filter(...), group_by(...).agg(...), and limit(...) operations, "
+                "select(...), optional filter(...), sort(...), and limit(...) operations, or "
+                "a scoped local-source inner equi-join with select(...), optional filter(...), and limit(...)"
             )
         return self.client.sql_local_source_smoke(
             statement,
@@ -1545,7 +1546,7 @@ class LazyFrame:
         how: str = "inner",
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
-        """Return a scoped local CSV inner equi-join workflow when admitted."""
+        """Return a scoped local-source inner equi-join workflow when admitted."""
 
         columns = ",".join(_normalize_columns((on,)))
         normalized_columns = tuple(column for column in columns.split(",") if column)
@@ -1553,23 +1554,23 @@ class LazyFrame:
         right_uri: str
         right_summary: str
         right_operations: tuple[WorkflowOperation, ...] = ()
-        right_format = "csv"
+        right_source_local = False
         if isinstance(other, LazyFrame):
-            right_format = other.source.source_format
             right_uri = other.source.uri
             right_summary = other.operation_summary
             right_operations = other.operations
+            right_source_local = _is_query_builder_local_source(other.source)
         else:
             right_uri = _require_non_empty("join right source", other)
             right_summary = right_uri
+            right_source_local = _source_format_for_local_source_ref(right_uri) is not None
         target = f"{normalized_how}:{columns}:{right_summary}"
         if (
-            self.source.source_format == "csv"
-            and right_format == "csv"
+            _is_query_builder_local_source(self.source)
+            and right_source_local
             and not right_operations
             and normalized_how in {"inner", "inner_equi", "inner-equi"}
             and len(normalized_columns) == 1
-            and _is_local_csv_source_ref(right_uri)
         ):
             key = normalized_columns[0]
             return self._append(
@@ -3367,29 +3368,43 @@ def _is_local_csv_source_ref(value: str) -> bool:
     return _is_local_source_sql_ref(value) and lower.endswith(".csv")
 
 
-def _is_local_json_source_ref(value: str) -> bool:
+def _source_format_for_local_source_ref(value: str) -> str | None:
+    if not _is_local_source_sql_ref(value):
+        return None
     lower = value.strip().lower()
-    return _is_local_source_sql_ref(value) and lower.endswith((".json", ".jsonl", ".ndjson"))
+    if lower.endswith(".csv"):
+        return "csv"
+    if lower.endswith((".json", ".jsonl", ".ndjson")):
+        return "json"
+    if lower.endswith(".parquet"):
+        return "parquet"
+    if lower.endswith((".arrow", ".ipc", ".feather")):
+        return "arrow-ipc"
+    if lower.endswith(".avro"):
+        return "avro"
+    if lower.endswith(".orc"):
+        return "orc"
+    return None
+
+
+def _is_local_json_source_ref(value: str) -> bool:
+    return _source_format_for_local_source_ref(value) == "json"
 
 
 def _is_local_parquet_source_ref(value: str) -> bool:
-    lower = value.strip().lower()
-    return _is_local_source_sql_ref(value) and lower.endswith(".parquet")
+    return _source_format_for_local_source_ref(value) == "parquet"
 
 
 def _is_local_arrow_ipc_source_ref(value: str) -> bool:
-    lower = value.strip().lower()
-    return _is_local_source_sql_ref(value) and lower.endswith((".arrow", ".ipc", ".feather"))
+    return _source_format_for_local_source_ref(value) == "arrow-ipc"
 
 
 def _is_local_avro_source_ref(value: str) -> bool:
-    lower = value.strip().lower()
-    return _is_local_source_sql_ref(value) and lower.endswith(".avro")
+    return _source_format_for_local_source_ref(value) == "avro"
 
 
 def _is_local_orc_source_ref(value: str) -> bool:
-    lower = value.strip().lower()
-    return _is_local_source_sql_ref(value) and lower.endswith(".orc")
+    return _source_format_for_local_source_ref(value) == "orc"
 
 
 def _is_query_builder_local_source(source: WorkflowSource) -> bool:

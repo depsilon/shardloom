@@ -4742,6 +4742,68 @@ fn sql_local_source_smoke_executes_inner_equi_join_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_jsonl_inner_equi_join_without_fallback() {
+    let fact_path = unique_path("sql-local-source-jsonl-join-fact", "jsonl");
+    let dim_path = unique_path("sql-local-source-jsonl-join-dim", "jsonl");
+    fs::write(
+        &fact_path,
+        "{\"id\":1,\"customer_id\":10,\"amount\":8}\n{\"id\":2,\"customer_id\":20,\"amount\":15}\n{\"id\":3,\"customer_id\":30,\"amount\":21}\n{\"id\":4,\"customer_id\":99,\"amount\":13}\n",
+    )
+    .expect("write fact jsonl");
+    fs::write(
+        &dim_path,
+        "{\"customer_id\":10,\"segment\":\"seed\"}\n{\"customer_id\":20,\"segment\":\"enterprise\"}\n{\"customer_id\":30,\"segment\":\"startup\"}\n",
+    )
+    .expect("write dim jsonl");
+
+    let statement = format!(
+        "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("source_format", "jsonl")));
+    assert!(stdout.contains(&field("right_source_format", "jsonl")));
+    assert!(stdout.contains(&field("join_source_formats", "jsonl,jsonl")));
+    assert!(stdout.contains(&field("source_adapter_id", "local_jsonl_input_adapter")));
+    assert!(stdout.contains(&field("join_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_type", "inner_equi")));
+    assert!(stdout.contains(&field("join_matched_row_count", "3")));
+    assert!(stdout.contains(&field("join_rows_output", "2")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"f.id\\\":2,\\\"d.segment\\\":\\\"enterprise\\\"}\\n{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"startup\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.jsonl.inner-equi-join-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "materialization_boundary",
+        "local_jsonl_row_materialization_to_expression_semantics"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(fact_path).expect("remove fact jsonl");
+    fs::remove_file(dim_path).expect("remove dim jsonl");
+}
+
+#[test]
 fn sql_local_source_smoke_blocks_duplicate_key_join_explosion_without_materializing() {
     let fact_path = unique_path("sql-local-source-join-explosion-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-explosion-dim", "csv");
@@ -4783,8 +4845,8 @@ fn sql_local_source_smoke_blocks_duplicate_key_join_explosion_without_materializ
 fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
     let fact_path = unique_path("sql-local-source-join-blocked-fact", "csv");
     let dim_path = unique_path("sql-local-source-join-blocked-dim", "csv");
-    let json_fact_path = unique_path("sql-local-source-join-blocked-fact", "jsonl");
-    let json_dim_path = unique_path("sql-local-source-join-blocked-dim", "jsonl");
+    let unsupported_fact_path = unique_path("sql-local-source-join-blocked-fact", "sqlite");
+    let unsupported_dim_path = unique_path("sql-local-source-join-blocked-dim", "sqlite");
     fs::write(&fact_path, "id,customer_id,amount\n1,10,8\n2,20,15\n").expect("write fact csv");
     fs::write(&dim_path, "customer_id,segment\n10,seed\n20,enterprise\n").expect("write dim csv");
 
@@ -4840,10 +4902,10 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
         (
             format!(
                 "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 0 LIMIT 10",
-                json_fact_path.display(),
-                json_dim_path.display()
+                unsupported_fact_path.display(),
+                unsupported_dim_path.display()
             ),
-            "JOIN smoke is scoped to local CSV sources",
+            "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC sources only in this slice",
         ),
     ];
 

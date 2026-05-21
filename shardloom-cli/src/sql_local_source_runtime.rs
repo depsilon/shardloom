@@ -2381,7 +2381,7 @@ fn evaluate_join_output(
     for left_row in &left_source.rows {
         let Some(key_value) = left_row.get(&join.left_key.column) else {
             return Err(unsupported_sql_error(&format!(
-                "JOIN left key column {:?} is not present in the left CSV row",
+                "JOIN left key column {:?} is not present in the left source row",
                 join.left_key.column
             )));
         };
@@ -2432,7 +2432,7 @@ fn build_join_right_rows_by_key<'a>(
     for right_row in &right_source.rows {
         let Some(key_value) = right_row.get(&join.right_key.column) else {
             return Err(unsupported_sql_error(&format!(
-                "JOIN right key column {:?} is not present in the right CSV row",
+                "JOIN right key column {:?} is not present in the right source row",
                 join.right_key.column
             )));
         };
@@ -3858,7 +3858,7 @@ fn bind_join_sql_local_source(
     };
     let Some(right_header) = right_header else {
         return Err(unsupported_sql_error(
-            "JOIN smoke requires a readable local right CSV source",
+            "JOIN smoke requires a readable local right source",
         ));
     };
     if parsed.is_aggregate()
@@ -3892,7 +3892,7 @@ fn bind_join_sql_local_source(
         .any(|column| column == &join.left_key.column)
     {
         return Err(unsupported_sql_error(&format!(
-            "JOIN left key column {:?} is not present in the left CSV header",
+            "JOIN left key column {:?} is not present in the left source header",
             join.left_key.column
         )));
     }
@@ -3901,7 +3901,7 @@ fn bind_join_sql_local_source(
         .any(|column| column == &join.right_key.column)
     {
         return Err(unsupported_sql_error(&format!(
-            "JOIN right key column {:?} is not present in the right CSV header",
+            "JOIN right key column {:?} is not present in the right source header",
             join.right_key.column
         )));
     }
@@ -3952,7 +3952,7 @@ fn bind_qualified_column(
             Ok(())
         } else {
             Err(unsupported_sql_error(&format!(
-                "qualified left column {column_ref:?} is not present in the left CSV header"
+                "qualified left column {column_ref:?} is not present in the left source header"
             )))
         }
     } else if column.alias == right_alias {
@@ -3963,7 +3963,7 @@ fn bind_qualified_column(
             Ok(())
         } else {
             Err(unsupported_sql_error(&format!(
-                "qualified right column {column_ref:?} is not present in the right CSV header"
+                "qualified right column {column_ref:?} is not present in the right source header"
             )))
         }
     } else {
@@ -7051,6 +7051,18 @@ impl SqlLocalSourceReport {
                     }),
             ),
             (
+                "join_source_formats".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or_else(String::new, |source| {
+                        format!(
+                            "{},{}",
+                            self.source.source_format.as_str(),
+                            source.source_format.as_str()
+                        )
+                    }),
+            ),
+            (
                 "right_input_row_count".to_string(),
                 self.right_source
                     .as_ref()
@@ -10067,13 +10079,8 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
     let on_raw = join_tail[on_index + "on".len()..].trim();
     let (source_path, left_alias) = parse_aliased_source(left_raw, "left")?;
     let (right_source_path, right_alias) = parse_aliased_source(right_raw, "right")?;
-    if LocalSourceFormat::from_path(&source_path)? != LocalSourceFormat::Csv
-        || LocalSourceFormat::from_path(&right_source_path)? != LocalSourceFormat::Csv
-    {
-        return Err(unsupported_sql_error(
-            "JOIN smoke is scoped to local CSV sources; JSON/JSONL/NDJSON/Parquet/Arrow IPC/Avro/ORC joins remain blocked",
-        ));
-    }
+    let _left_format = LocalSourceFormat::from_path(&source_path)?;
+    let _right_format = LocalSourceFormat::from_path(&right_source_path)?;
     if left_alias == right_alias {
         return Err(unsupported_sql_error(
             "JOIN smoke requires distinct left and right aliases",
@@ -10101,7 +10108,7 @@ fn parse_aliased_source(raw: &str, side: &str) -> Result<(PathBuf, String), Shar
     let tokens = split_whitespace_outside_quotes(raw)?;
     let [path_raw, as_keyword, alias] = tokens.as_slice() else {
         return Err(unsupported_sql_error(&format!(
-            "JOIN smoke requires {side} source syntax <local.csv> AS <alias>"
+            "JOIN smoke requires {side} source syntax <local-source> AS <alias>"
         )));
     };
     if !as_keyword.eq_ignore_ascii_case("as") {

@@ -2000,6 +2000,73 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_json_query_builder_join_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.jsonl' AS f INNER JOIN 'target/dim.jsonl' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source join",
+                    "human_text": "sql local source join",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":2,\\"d.segment\\":\\"enterprise\\"}\\n"},
+                        {"key": "source_format", "value": "jsonl"},
+                        {"key": "right_source_format", "value": "jsonl"},
+                        {"key": "join_source_formats", "value": "jsonl,jsonl"},
+                        {"key": "sql_statement_kind", "value": "local_source_inner_equi_join_filter_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "inner_equi"},
+                        {"key": "join_left_key", "value": "f.customer_id"},
+                        {"key": "join_right_key", "value": "d.customer_id"},
+                        {"key": "join_matched_row_count", "value": "3"},
+                        {"key": "join_rows_output", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_json("target/fact.jsonl")
+            .join(ctx.read_json("target/dim.jsonl"), on="customer_id")
+            .select("f.id", "d.segment")
+            .filter("f.amount >= 10")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.envelope.field("source_format"), "jsonl")
+        self.assertEqual(report.envelope.field("right_source_format"), "jsonl")
+        self.assertEqual(report.envelope.field("join_source_formats"), "jsonl,jsonl")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_type, "inner_equi")
+        self.assertEqual(report.join_left_key, "f.customer_id")
+        self.assertEqual(report.join_right_key, "d.customer_id")
+        self.assertEqual(report.join_matched_row_count, 3)
+        self.assertEqual(report.join_rows_output, 1)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_join_write_invokes_sql_smoke_output(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

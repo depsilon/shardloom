@@ -735,21 +735,24 @@ Parquet/Arrow IPC/Avro/ORC bridge for the scoped
 projection/optional-filter/limit, scalar aggregate, one-column grouped aggregate,
 preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
 ABS, scoped numeric rounding, and scoped UTF-8 string length `with_column`,
-and single-key numeric top-N shapes.
+single-key numeric top-N, and scoped local-source inner equi-join shapes.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 general expression-backed `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON,
 broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
-The Python query builder admits one local CSV inner equi-join shape through the
-same scoped SQL local-source smoke. Use `join(..., on="key")`, qualified
-projection columns such as `f.id` and `d.segment`, a qualified predicate such
-as `f.amount >= 10`, and an explicit `limit(...)`. Broad DataFrame joins remain
+The Python query builder admits one scoped local-source inner equi-join shape
+through the same scoped SQL local-source smoke. Both sides must be admitted
+local sources such as CSV or flat JSON/JSONL/NDJSON, with feature-gated flat
+scalar Parquet/Arrow IPC/Avro/ORC using the same deterministic adapter gates as
+other local-source smokes. Use `join(..., on="key")`, qualified projection
+columns such as `f.id` and `d.segment`, a qualified predicate such as
+`f.amount >= 10`, and an explicit `limit(...)`. Broad DataFrame joins remain
 blocked: outer/semi/anti/cross joins, multi-key joins, expression joins,
-unqualified join predicates, joins over non-CSV sources, and object-store/table
-joins still return deterministic unsupported diagnostics or fail closed through
-the scoped SQL binder.
+unqualified join predicates, nested/complex structured data, and
+object-store/table joins still return deterministic unsupported diagnostics or
+fail closed through the scoped SQL binder.
 
 Typed runtime reports expose `result_rows` and `first_result_row` helpers plus compact evidence and
 claim helpers so examples do not need to parse raw JSONL or scrape raw envelope fields:
@@ -812,7 +815,7 @@ That path is still fixture-smoke evidence only. Multi-key/grouped aggregate
 generality, grouped aliases, multi-key sorts, null ordering, collation parity,
 subquery-backed `IN` / `NOT IN`, arbitrary predicate-tree completeness beyond the admitted
 parenthesized leaves, Python/DataFrame joins beyond
-the scoped local CSV inner-equi query-builder bridge, broad expression-backed input-backed `with_column`,
+the scoped local-source inner-equi query-builder bridge, broad expression-backed input-backed `with_column`,
 outer/semi/anti/cross joins, multi-key or expression joins, broad SQL/DataFrame planning, and
 production query support remain blocked until later runtime slices.
 

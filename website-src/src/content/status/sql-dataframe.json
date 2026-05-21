@@ -17,7 +17,7 @@
     "runtime_execution",
     "claim_gate_status"
   ],
-  "works": "Scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC SQL/query-builder smokes exist for projection/filter/limit, aggregates, top-N, a narrow CSV join bridge, and local compatibility sink fanout.",
+  "works": "Scoped local CSV/JSON plus feature-gated Parquet/Arrow IPC SQL/query-builder smokes exist for projection/filter/limit, aggregates, top-N, a scoped local-source join bridge, and local compatibility sink fanout.",
   "blocked": "Broad SQL/DataFrame runtime parity, catalogs, subqueries, generalized joins, broad Parquet/Arrow IPC semantics, and production semantics remain blocked.",
   "references": [
     "python/README.md",

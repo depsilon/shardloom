@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F scoped local-source inner equi-join across admitted formats
+  - Date: 2026-05-20
+  - Branch/PR: `runtime-local-json-join-4f` / #872.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
+    - SQL local-source runtime smoke evidence
+    - Python query-builder join bridge.
+  - Scope:
+    - Promoted the scoped inner equi-join bridge from CSV-only admission to the same admitted
+      local-source universe used by `sql-local-source-smoke`: local CSV, flat JSON/JSONL/NDJSON,
+      and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC.
+    - Kept the join shape narrow: explicit aliases, one equality key, optional qualified
+      predicate, explicit projection, explicit `LIMIT`, and ShardLoom-owned local row evaluation.
+    - Added `join_source_formats` evidence beside existing `right_source_format`, join-key,
+      matched/scanned/output-row, memory-estimate, certificate, and no-fallback fields.
+    - Extended Python `LazyFrame.join(...)` admission so `ctx.read_json(...).join(...)` and other
+      admitted local sources lower to the same scoped SQL local-source runtime instead of returning
+      CSV-only blockers.
+    - Updated compute-flow docs, Python README, getting-started examples, Use Case Atlas metadata,
+      status rows, and generated website data.
+  - Evidence:
+    - `source_format`, `right_source_format`, `join_source_formats`,
+      `join_runtime_execution=true`, `join_type=inner_equi`, `join_left_key`, `join_right_key`,
+      `join_matched_row_count`, `join_left_rows_scanned`, `join_right_rows_scanned`,
+      `join_rows_output`, `join_memory_estimate_bytes`, format-specific
+      `execution_certificate_ref`, format-specific materialization boundary,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust CLI smokes for CSV and JSONL inner equi-joins.
+    - Focused Python query-builder tests for CSV and JSONL join lowering.
+    - Real local Python JSONL join smoke through `ctx.read_json(...).join(...).collect()`.
+    - Unsupported join-shape smoke proving unsupported source formats and non-admitted join
+      shapes still block deterministically without fallback.
+    - Use Case Atlas checks, website sync/build/readiness/static validation, Python compileall,
+      cargo fmt, clippy, full workspace tests, and `git diff --check`.
+  - Claim boundary:
+    - Scoped local-source fixture-smoke inner equi-join only. This does not admit generalized join
+      planning, outer/semi/anti/cross joins, multi-key or expression joins, nested/complex
+      structured data, object-store/table joins, SQL/DataFrame parity, production support, or
+      performance evidence.
+  - Fallback boundary:
+    - Join parsing, binding, local source reads, row materialization, hash lookup, predicate
+      evaluation, projection, and evidence emission are ShardLoom-owned. External engines remain
+      baseline/oracle-only and are not invoked.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python boolean predicate runtime
   - Date: 2026-05-20
   - Branch/PR: `runtime-boolean-predicate-4d` / #870.
