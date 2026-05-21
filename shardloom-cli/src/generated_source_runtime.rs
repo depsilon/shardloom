@@ -2255,6 +2255,27 @@ enum SqlRangeProjectionExpression {
     Add(i64),
     Subtract(i64),
     Multiply(i64),
+    Case {
+        predicate: SqlRangeProjectionPredicate,
+        then_value: i64,
+        else_value: i64,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SqlRangeProjectionPredicate {
+    operator: SqlRangeProjectionPredicateOperator,
+    rhs: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SqlRangeProjectionPredicateOperator {
+    Eq,
+    NotEq,
+    Lt,
+    LtEq,
+    Gt,
+    GtEq,
 }
 
 impl SqlRangeProjectionExpression {
@@ -2275,6 +2296,17 @@ impl SqlRangeProjectionExpression {
                     "SQL source-free range projection multiplication overflowed int64",
                 )
             }),
+            Self::Case {
+                predicate,
+                then_value,
+                else_value,
+            } => {
+                if predicate.evaluate(source_value) {
+                    Ok(then_value)
+                } else {
+                    Ok(else_value)
+                }
+            }
         }
     }
 
@@ -2285,6 +2317,46 @@ impl SqlRangeProjectionExpression {
             Self::Add(rhs) => format!("{source_column}+{rhs}"),
             Self::Subtract(rhs) => format!("{source_column}-{rhs}"),
             Self::Multiply(rhs) => format!("{source_column}*{rhs}"),
+            Self::Case {
+                predicate,
+                then_value,
+                else_value,
+            } => format!(
+                "case({}?{}:{})",
+                predicate.evidence_label(source_column),
+                then_value,
+                else_value
+            ),
+        }
+    }
+}
+
+impl SqlRangeProjectionPredicate {
+    fn evaluate(self, source_value: i64) -> bool {
+        match self.operator {
+            SqlRangeProjectionPredicateOperator::Eq => source_value == self.rhs,
+            SqlRangeProjectionPredicateOperator::NotEq => source_value != self.rhs,
+            SqlRangeProjectionPredicateOperator::Lt => source_value < self.rhs,
+            SqlRangeProjectionPredicateOperator::LtEq => source_value <= self.rhs,
+            SqlRangeProjectionPredicateOperator::Gt => source_value > self.rhs,
+            SqlRangeProjectionPredicateOperator::GtEq => source_value >= self.rhs,
+        }
+    }
+
+    fn evidence_label(self, source_column: &str) -> String {
+        format!("{}{}{}", source_column, self.operator.label(), self.rhs)
+    }
+}
+
+impl SqlRangeProjectionPredicateOperator {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Eq => "=",
+            Self::NotEq => "!=",
+            Self::Lt => "<",
+            Self::LtEq => "<=",
+            Self::Gt => ">",
+            Self::GtEq => ">=",
         }
     }
 }
@@ -2299,12 +2371,15 @@ fn parse_sql_range_projection_expression(
             "SQL source-free range projection expression must not be empty",
         ));
     }
+    if keyword_prefix(expression, "CASE") {
+        return parse_sql_range_case_projection_expression(expression, source_column);
+    }
     if contains_outside_quotes(expression, '(')
         || contains_outside_quotes(expression, ')')
         || expression.contains('\'')
     {
         return Err(unsupported_sql_error(
-            "SQL source-free range projection admits only the range column, int64 literals, and range-column +/-/* int64 expressions",
+            "SQL source-free range projection admits only the range column, int64 literals, range-column +/-/* int64 expressions, and CASE WHEN range-column comparisons with int64 branches",
         ));
     }
     if let Some(rest) = strip_sql_identifier_prefix(expression, source_column) {
@@ -2327,9 +2402,110 @@ fn parse_sql_range_projection_expression(
         .map(SqlRangeProjectionExpression::Literal)
         .map_err(|_| {
             unsupported_sql_error(
-                "SQL source-free range projection admits only the range column, int64 literals, and range-column +/-/* int64 expressions",
+                "SQL source-free range projection admits only the range column, int64 literals, range-column +/-/* int64 expressions, and CASE WHEN range-column comparisons with int64 branches",
             )
         })
+}
+
+fn parse_sql_range_case_projection_expression(
+    expression: &str,
+    source_column: &str,
+) -> Result<SqlRangeProjectionExpression, ShardLoomError> {
+    let when_index = find_keyword_outside_quotes_and_parens(expression, "WHEN").ok_or_else(|| {
+        unsupported_sql_error(
+            "SQL source-free range CASE projections must use CASE WHEN <predicate> THEN <int64> ELSE <int64> END",
+        )
+    })?;
+    if !expression[..when_index].trim().eq_ignore_ascii_case("CASE") {
+        return Err(unsupported_sql_error(
+            "SQL source-free range CASE projections must start with CASE WHEN",
+        ));
+    }
+    let then_index =
+        find_keyword_outside_quotes_and_parens(expression, "THEN").ok_or_else(|| {
+            unsupported_sql_error("SQL source-free range CASE projections require a THEN branch")
+        })?;
+    let else_index =
+        find_keyword_outside_quotes_and_parens(expression, "ELSE").ok_or_else(|| {
+            unsupported_sql_error("SQL source-free range CASE projections require an ELSE branch")
+        })?;
+    let end_index = find_keyword_outside_quotes_and_parens(expression, "END").ok_or_else(|| {
+        unsupported_sql_error("SQL source-free range CASE projections require an END marker")
+    })?;
+    if !(when_index < then_index && then_index < else_index && else_index < end_index) {
+        return Err(unsupported_sql_error(
+            "SQL source-free range CASE projections must use CASE WHEN <predicate> THEN <int64> ELSE <int64> END",
+        ));
+    }
+    if !expression[end_index + "END".len()..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL source-free range CASE projections must be a single CASE expression",
+        ));
+    }
+
+    let predicate = parse_sql_range_case_projection_predicate(
+        expression[when_index + "WHEN".len()..then_index].trim(),
+        source_column,
+    )?;
+    let then_value = parse_sql_range_i64(
+        "CASE THEN branch",
+        expression[then_index + "THEN".len()..else_index].trim(),
+    )
+    .map_err(|_| {
+        unsupported_sql_error(
+            "SQL source-free range CASE projection THEN branch must be an int64 literal",
+        )
+    })?;
+    let else_value = parse_sql_range_i64(
+        "CASE ELSE branch",
+        expression[else_index + "ELSE".len()..end_index].trim(),
+    )
+    .map_err(|_| {
+        unsupported_sql_error(
+            "SQL source-free range CASE projection ELSE branch must be an int64 literal",
+        )
+    })?;
+    Ok(SqlRangeProjectionExpression::Case {
+        predicate,
+        then_value,
+        else_value,
+    })
+}
+
+fn parse_sql_range_case_projection_predicate(
+    raw: &str,
+    source_column: &str,
+) -> Result<SqlRangeProjectionPredicate, ShardLoomError> {
+    for (token, operator) in [
+        (">=", SqlRangeProjectionPredicateOperator::GtEq),
+        ("<=", SqlRangeProjectionPredicateOperator::LtEq),
+        ("!=", SqlRangeProjectionPredicateOperator::NotEq),
+        ("<>", SqlRangeProjectionPredicateOperator::NotEq),
+        ("=", SqlRangeProjectionPredicateOperator::Eq),
+        (">", SqlRangeProjectionPredicateOperator::Gt),
+        ("<", SqlRangeProjectionPredicateOperator::Lt),
+    ] {
+        if let Some(index) = raw.find(token) {
+            let left = raw[..index].trim();
+            let right = raw[index + token.len()..].trim();
+            if !left.eq_ignore_ascii_case(source_column) {
+                return Err(unsupported_sql_error(
+                    "SQL source-free range CASE projection predicate must compare the range column to an int64 literal",
+                ));
+            }
+            return Ok(SqlRangeProjectionPredicate {
+                operator,
+                rhs: parse_sql_range_i64("CASE predicate literal", right).map_err(|_| {
+                    unsupported_sql_error(
+                        "SQL source-free range CASE projection predicate rhs must be an int64 literal",
+                    )
+                })?,
+            });
+        }
+    }
+    Err(unsupported_sql_error(
+        "SQL source-free range CASE projection predicate must use =, !=, <>, <, <=, >, or >= against an int64 literal",
+    ))
 }
 
 fn parse_sql_range_function_ref(

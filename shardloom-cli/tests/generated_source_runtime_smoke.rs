@@ -1031,7 +1031,7 @@ fn sql_smoke_writes_generate_series_projection_jsonl() {
         .args([
             "generated-source-sql-smoke",
             output_path.to_str().expect("temp path is utf8"),
-            "SELECT value AS id, value + 10 AS shifted, value * 2 AS doubled FROM range(2, 5)",
+            "SELECT value AS id, value + 10 AS shifted, value * 2 AS doubled, CASE WHEN value >= 3 THEN 1 ELSE 0 END AS is_high FROM range(2, 5)",
             "--format",
             "json",
         ])
@@ -1052,7 +1052,7 @@ fn sql_smoke_writes_generate_series_projection_jsonl() {
     let written = fs::read_to_string(&output_path).expect("output jsonl was written");
     assert_eq!(
         written,
-        "{\"id\":2,\"shifted\":12,\"doubled\":4}\n{\"id\":3,\"shifted\":13,\"doubled\":6}\n{\"id\":4,\"shifted\":14,\"doubled\":8}\n"
+        "{\"id\":2,\"shifted\":12,\"doubled\":4,\"is_high\":0}\n{\"id\":3,\"shifted\":13,\"doubled\":6,\"is_high\":1}\n{\"id\":4,\"shifted\":14,\"doubled\":8,\"is_high\":1}\n"
     );
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
@@ -1071,11 +1071,11 @@ fn sql_smoke_writes_generate_series_projection_jsonl() {
     assert!(stdout.contains(&field("sql_source_free_projection_source_column", "value")));
     assert!(stdout.contains(&field(
         "sql_source_free_projection_columns",
-        "id,shifted,doubled"
+        "id,shifted,doubled,is_high"
     )));
     assert!(stdout.contains(&field(
         "sql_source_free_projection_expressions",
-        "value,value+10,value*2"
+        "value,value+10,value*2,case(value>=3?1:0)"
     )));
     assert!(stdout.contains(&field("generated_source_row_count", "3")));
     assert!(stdout.contains(&field("generated_source_certificate_status", "present")));
@@ -1128,6 +1128,16 @@ fn sql_smoke_blocks_unadmitted_generate_series_forms() {
             "generated-sql-generate-series-one-arg",
             "SELECT * FROM generate_series(1)",
             "require start, end, and optional step",
+        ),
+        (
+            "generated-sql-generate-series-case-string-branch",
+            "SELECT CASE WHEN value >= 3 THEN 'high' ELSE 0 END AS bucket FROM range(1, 4)",
+            "CASE projection THEN branch must be an int64 literal",
+        ),
+        (
+            "generated-sql-generate-series-case-unsupported-predicate",
+            "SELECT CASE WHEN value BETWEEN 1 AND 2 THEN 1 ELSE 0 END AS bucket FROM range(1, 4)",
+            "CASE projection predicate must use =, !=, <>, <, <=, >, or >= against an int64 literal",
         ),
         (
             "generated-sql-generate-series-project",
