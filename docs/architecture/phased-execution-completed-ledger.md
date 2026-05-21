@@ -16,6 +16,52 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTC timestamp arithmetic runtime
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-timestamp-arithmetic` / #885.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - RFC 0021 expression/kernel registry runtime evidence.
+  - Scope:
+    - Promoted `TIMESTAMP_ADD_SECONDS` and `TIMESTAMP_SUB_SECONDS` for core expression semantics,
+      SQL local-source predicates comparing to `TIMESTAMP` literals, computed projections over local
+      rows, and Python query-builder predicates/projections.
+    - Added timestamp source coercion, bounded signed second-count validation, null propagation,
+      overflow blockers, and deterministic no-fallback diagnostics.
+    - Added typed SQL/Python report accessors and evidence fields for `timestamp_arithmetic_*` and
+      `timestamp_arithmetic_projection_*`.
+  - Evidence:
+    - Predicate rows emit `timestamp_arithmetic_runtime_execution`,
+      `timestamp_arithmetic_operator`, `timestamp_arithmetic_seconds`, and
+      `timestamp_arithmetic_source_column`.
+    - Projection rows emit `timestamp_arithmetic_projection_runtime_execution`,
+      `timestamp_arithmetic_projection_operator`, `timestamp_arithmetic_projection_seconds`,
+      `timestamp_arithmetic_projection_source_column`, and
+      `timestamp_arithmetic_projection_output_column`.
+    - Rows preserve `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - `cargo check -p shardloom-cli`
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests::parses_scoped_timestamp_arithmetic_projection_and_predicate_statement -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_timestamp_arithmetic_projection_without_fallback -- --nocapture`
+    - `cargo test -p shardloom-core expression::tests::expression_semantics_evaluates_timestamp_add_seconds_without_fallback -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_exposes_timestamp_arithmetic_report_fields python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_timestamp_arithmetic_invokes_sql_smoke`
+    - `cargo fmt --all -- --check`
+    - `python -m compileall -q python\src python\tests scripts examples`
+    - `python -m unittest discover -s python\tests`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_runtime_promotion_evidence.py`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped UTC timestamp-micros second arithmetic fixture smoke only. This is not timezone
+      database or interval completeness, arbitrary timestamp functions, broad SQL/DataFrame parity,
+      object-store/table runtime, claim-grade compute, or performance evidence.
+  - Fallback boundary:
+    - Timestamp arithmetic is parsed, coerced, evaluated, rendered, and evidenced by
+      ShardLoom-native local-source/core expression runtime code. External engines remain
+      baseline/oracle-only and are not invoked.
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped SQL/Python joined computed projection/top-N runtime
   - Date: 2026-05-21
   - Branch/PR: `runtime-join-projection-topn` / #884.

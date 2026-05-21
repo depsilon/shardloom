@@ -856,6 +856,8 @@ fn eval_function_call(
         }),
         "date_add_days" => eval_date_add_days(name, args, row, 1),
         "date_sub_days" => eval_date_add_days(name, args, row, -1),
+        "timestamp_add_seconds" => eval_timestamp_add_seconds(name, args, row, 1),
+        "timestamp_sub_seconds" => eval_timestamp_add_seconds(name, args, row, -1),
         "coalesce" => eval_coalesce(name, args, row),
         "nullif" => eval_nullif(name, args, row),
         "case_when" => eval_case_when(name, args, row),
@@ -1028,6 +1030,64 @@ fn eval_date_add_days(
                 "function {name:?} supports Date32/null and int64/null operands only, got {} and {}",
                 value.dtype().as_str(),
                 days.dtype().as_str()
+            ),
+        )),
+    }
+}
+
+fn eval_timestamp_add_seconds(
+    name: &str,
+    args: &[Expression],
+    row: &ExpressionInputRow,
+    multiplier: i64,
+) -> EvalResult<EvalValue> {
+    if args.len() != 2 {
+        return Err(EvalFailure::invalid(
+            "timestamp_arithmetic",
+            format!("function {name:?} requires TimestampMicros and int64 second-count arguments"),
+        ));
+    }
+    let value = eval_expression(&args[0], row)?;
+    let seconds = eval_expression(&args[1], row)?;
+    let data_materialized = value.data_materialized || seconds.data_materialized;
+    if value.value.is_null() || seconds.value.is_null() {
+        return Ok(
+            EvalValue::null(LogicalDType::TimestampMicros, NullBehavior::NullPropagating)
+                .carry_materialization(data_materialized),
+        );
+    }
+    match (value.value, seconds.value) {
+        (ScalarValue::TimestampMicros(micros), ScalarValue::Int64(second_count)) => {
+            let signed_second_count = second_count.checked_mul(multiplier).ok_or_else(|| {
+                EvalFailure::invalid(
+                    "timestamp_arithmetic",
+                    "second-count multiplication overflow",
+                )
+            })?;
+            let offset_micros = signed_second_count
+                .checked_mul(MICROS_PER_SECOND)
+                .ok_or_else(|| {
+                    EvalFailure::invalid(
+                        "timestamp_arithmetic",
+                        "second-count microsecond conversion overflow",
+                    )
+                })?;
+            let result = micros.checked_add(offset_micros).ok_or_else(|| {
+                EvalFailure::invalid("timestamp_arithmetic", "timestamp arithmetic overflow")
+            })?;
+            Ok(EvalValue::new(
+                ScalarValue::TimestampMicros(result),
+                LogicalDType::TimestampMicros,
+                NullBehavior::NullPropagating,
+            )
+            .carry_materialization(data_materialized))
+        }
+        (value, seconds) => Err(EvalFailure::unsupported(
+            "timestamp_arithmetic",
+            format!(
+                "function {name:?} supports TimestampMicros/null and int64/null operands only, got {} and {}",
+                value.dtype().as_str(),
+                seconds.dtype().as_str()
             ),
         )),
     }
@@ -1834,6 +1894,7 @@ fn function_operator_family(name: &str) -> &'static str {
         "timestamp_year" | "timestamp_month" | "timestamp_day" | "timestamp_hour"
         | "timestamp_minute" | "timestamp_second" => "timestamp_extract",
         "date_add_days" | "date_sub_days" => "date_arithmetic",
+        "timestamp_add_seconds" | "timestamp_sub_seconds" => "timestamp_arithmetic",
         "coalesce" => "null_coalesce",
         "nullif" => "nullif_projection",
         "case_when" => "conditional_projection",
@@ -3395,6 +3456,36 @@ mod tests {
         assert_eq!(report.operator_family, "date_arithmetic");
         assert_eq!(report.value, Some(ScalarValue::Date32(expected)));
         assert_eq!(report.output_dtype, Some(LogicalDType::Date32));
+        assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_timestamp_add_seconds_without_fallback() {
+        let expression = Expression::new(
+            expr_id("timestamp-add"),
+            ExpressionKind::FunctionCall {
+                name: "timestamp_add_seconds".to_string(),
+                args: vec![
+                    Expression::column(expr_id("event_ts"), col("event_ts")),
+                    Expression::literal(expr_id("seconds"), ScalarValue::Int64(90)),
+                ],
+            },
+        );
+        let base_timestamp =
+            parse_iso_timestamp_micros("2026-05-19T12:34:45Z").expect("timestamp parses");
+        let expected =
+            parse_iso_timestamp_micros("2026-05-19T12:36:15Z").expect("timestamp parses");
+        let report = evaluate_expression(
+            &expression,
+            &row(&[("event_ts", ScalarValue::TimestampMicros(base_timestamp))]),
+        );
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(report.operator_family, "timestamp_arithmetic");
+        assert_eq!(report.value, Some(ScalarValue::TimestampMicros(expected)));
+        assert_eq!(report.output_dtype, Some(LogicalDType::TimestampMicros));
         assert_eq!(report.null_behavior, NullBehavior::NullPropagating);
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);

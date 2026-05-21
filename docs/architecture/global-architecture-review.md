@@ -568,6 +568,12 @@ plan before coding.
   null-propagating UTF-8 semantics, and keep literal-only calls, invalid substring bounds, empty
   replace search strings, non-UTF-8 operands, and unsupported shapes deterministic blockers with no
   fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D scoped UTC timestamp second arithmetic adds native
+  `TIMESTAMP_ADD_SECONDS` / `TIMESTAMP_SUB_SECONDS` predicate/projection execution for admitted
+  local-source SQL/Python paths, emits `timestamp_arithmetic_*` and
+  `timestamp_arithmetic_projection_*` evidence, preserves null-propagating timestamp-micros
+  semantics, and keeps invalid second counts, non-timestamp operands, and unsupported interval
+  shapes deterministic blockers with no fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-5B/5C scoped local-source join aggregates admit scalar and grouped
   aggregates over the existing single-/multi-key inner equi-join runtime, emit
   `join_aggregate_runtime_execution`, `join_aggregate_operator_family`, and

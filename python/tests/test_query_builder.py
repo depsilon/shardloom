@@ -774,6 +774,22 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "DATE_ADD_DAYS(CAST(event_dt AS date32), -2) < DATE '2026-05-20'",
         )
         self.assertEqual(
+            str(
+                sl.col("event_ts").timestamp_add_seconds(60)
+                >= datetime(2026, 5, 19, 12, 35, 45, tzinfo=timezone.utc)
+            ),
+            "TIMESTAMP_ADD_SECONDS(event_ts, 60) >= TIMESTAMP '2026-05-19T12:35:45Z'",
+        )
+        self.assertEqual(
+            str(
+                sl.col("event_ts")
+                .cast("timestamp")
+                .timestamp_sub_seconds("45")
+                < datetime(2026, 5, 19, 12, 34, 30, tzinfo=timezone.utc)
+            ),
+            "TIMESTAMP_SUB_SECONDS(CAST(event_ts AS timestamp_micros), 45) < TIMESTAMP '2026-05-19T12:34:30Z'",
+        )
+        self.assertEqual(
             str(sl.col("event_dt").date_year() == 2026),
             "DATE_YEAR(event_dt) = 2026",
         )
@@ -860,6 +876,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.col("event_dt").date_add_days("1 day")
         with self.assertRaises(ValueError):
             sl.col("event_dt").date_add_days(366_001)
+        with self.assertRaises(ValueError):
+            sl.col("event_ts").timestamp_add_seconds(True)
+        with self.assertRaises(ValueError):
+            sl.col("event_ts").timestamp_add_seconds("1 minute")
+        with self.assertRaises(ValueError):
+            sl.col("event_ts").timestamp_add_seconds(31_622_400_001)
         with self.assertRaises(ValueError):
             sl.col("amount") + True
         with self.assertRaises(TypeError):
@@ -992,6 +1014,71 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.timestamp_extract_runtime_execution)
         self.assertEqual(report.timestamp_extract_operator, ("timestamp_hour",))
         self.assertEqual(report.timestamp_extract_source_columns, ("event_ts",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_column_expression_builder_exposes_timestamp_arithmetic_report_fields(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,event_ts FROM 'target/input.csv' WHERE TIMESTAMP_ADD_SECONDS(event_ts, 60) >= TIMESTAMP '2026-05-19T12:35:45Z' LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"event_ts\\":\\"2026-05-19T12:34:45Z\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "predicate_operator_family", "value": "timestamp_arithmetic"},
+                        {"key": "timestamp_literal_runtime_execution", "value": "true"},
+                        {"key": "timestamp_arithmetic_runtime_execution", "value": "true"},
+                        {"key": "timestamp_arithmetic_operator", "value": "timestamp_add_seconds"},
+                        {"key": "timestamp_arithmetic_seconds", "value": "60"},
+                        {"key": "timestamp_arithmetic_source_column", "value": "event_ts"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "event_ts")
+            .where(
+                sl.col("event_ts").timestamp_add_seconds(60)
+                >= datetime(2026, 5, 19, 12, 35, 45, tzinfo=timezone.utc)
+            )
+            .limit(10)
+            .collect()
+        )
+
+        self.assertTrue(report.timestamp_literal_runtime_execution)
+        self.assertTrue(report.timestamp_arithmetic_runtime_execution)
+        self.assertEqual(
+            report.timestamp_arithmetic_operator,
+            ("timestamp_add_seconds",),
+        )
+        self.assertEqual(report.timestamp_arithmetic_seconds, ("60",))
+        self.assertEqual(report.timestamp_arithmetic_source_columns, ("event_ts",))
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
@@ -3840,6 +3927,102 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(
             report.date_arithmetic_projection_output_columns,
             ("next_week", "prior_day"),
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_with_column_timestamp_arithmetic_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,TIMESTAMP_ADD_SECONDS(CAST(event_ts AS timestamp_micros), 90) AS shifted_ts,TIMESTAMP_SUB_SECONDS(CAST(event_ts AS timestamp_micros), 45) AS prior_ts FROM 'target/input.csv' WHERE TIMESTAMP_ADD_SECONDS(event_ts, 60) >= TIMESTAMP '2026-05-19T12:35:45Z' LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source computed projection",
+                    "human_text": "sql local source computed projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"shifted_ts\\":\\"2026-05-19T12:36:15Z\\",\\"prior_ts\\":\\"2026-05-19T12:34:00Z\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "timestamp_arithmetic_runtime_execution", "value": "true"},
+                        {"key": "timestamp_arithmetic_operator", "value": "timestamp_add_seconds"},
+                        {"key": "timestamp_arithmetic_seconds", "value": "60"},
+                        {"key": "timestamp_arithmetic_source_column", "value": "event_ts"},
+                        {"key": "timestamp_arithmetic_projection_runtime_execution", "value": "true"},
+                        {"key": "timestamp_arithmetic_projection_operator", "value": "timestamp_add_seconds,timestamp_sub_seconds"},
+                        {"key": "timestamp_arithmetic_projection_seconds", "value": "90,45"},
+                        {"key": "timestamp_arithmetic_projection_source_column", "value": "event_ts,event_ts"},
+                        {"key": "timestamp_arithmetic_projection_output_column", "value": "shifted_ts,prior_ts"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column(
+                "shifted_ts",
+                sl.col("event_ts")
+                .cast("timestamp")
+                .timestamp_add_seconds(90),
+            )
+            .with_column(
+                "prior_ts",
+                sl.col("event_ts")
+                .cast("timestamp")
+                .timestamp_sub_seconds(45),
+            )
+            .filter(
+                sl.col("event_ts").timestamp_add_seconds(60)
+                >= datetime(2026, 5, 19, 12, 35, 45, tzinfo=timezone.utc)
+            )
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.timestamp_arithmetic_runtime_execution)
+        self.assertEqual(
+            report.timestamp_arithmetic_operator,
+            ("timestamp_add_seconds",),
+        )
+        self.assertEqual(report.timestamp_arithmetic_seconds, ("60",))
+        self.assertEqual(report.timestamp_arithmetic_source_columns, ("event_ts",))
+        self.assertTrue(report.timestamp_arithmetic_projection_runtime_execution)
+        self.assertEqual(
+            report.timestamp_arithmetic_projection_operator,
+            ("timestamp_add_seconds", "timestamp_sub_seconds"),
+        )
+        self.assertEqual(report.timestamp_arithmetic_projection_seconds, ("90", "45"))
+        self.assertEqual(
+            report.timestamp_arithmetic_projection_source_columns,
+            ("event_ts", "event_ts"),
+        )
+        self.assertEqual(
+            report.timestamp_arithmetic_projection_output_columns,
+            ("shifted_ts", "prior_ts"),
         )
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)

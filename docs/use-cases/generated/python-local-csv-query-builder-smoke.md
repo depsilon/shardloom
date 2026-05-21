@@ -68,6 +68,15 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 - `date_arithmetic_operator`
 - `date_arithmetic_days`
 - `date_arithmetic_source_column`
+- `timestamp_arithmetic_runtime_execution`
+- `timestamp_arithmetic_operator`
+- `timestamp_arithmetic_seconds`
+- `timestamp_arithmetic_source_column`
+- `timestamp_arithmetic_projection_runtime_execution`
+- `timestamp_arithmetic_projection_operator`
+- `timestamp_arithmetic_projection_seconds`
+- `timestamp_arithmetic_projection_source_column`
+- `timestamp_arithmetic_projection_output_column`
 - `literal_projection_runtime_execution`
 - `literal_projection_columns`
 - `literal_projection_count`
@@ -110,7 +119,7 @@ The Python query-builder admits local CSV, flat JSON/JSONL/NDJSON, and feature-g
 
 ## Expected Output Or Evidence
 
-A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV, flat JSON/JSONL, or feature-gated flat scalar Parquet source evidence, source_format/source_adapter/source_state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, string transform and scoped string-function fields when requested, date extract/arithmetic fields when requested, literal-projection fields when requested, bounded IN evidence when requested, local JSONL/CSV or feature-gated flat scalar Parquet output evidence, count/scalar/grouped/top-N/join/join-computed-top-N/join-aggregate fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A typed Python report over the SQL local-source JSON envelope with result_rows/first_result_row helpers, local CSV, flat JSON/JSONL, or feature-gated flat scalar Parquet source evidence, source_format/source_adapter/source_state/route fields, source/execution certificate refs, materialization boundary and claim-gate reason fields, string transform, timestamp arithmetic, and scoped string-function fields when requested, date extract/arithmetic and timestamp arithmetic fields when requested, literal-projection fields when requested, bounded IN evidence when requested, local JSONL/CSV or feature-gated flat scalar Parquet output evidence, count/scalar/grouped/top-N/join/join-computed-top-N/join-aggregate fields, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 
