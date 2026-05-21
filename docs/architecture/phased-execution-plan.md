@@ -232,9 +232,231 @@ new runtime implementation work unless the user explicitly reprioritizes. These 
 runtime behavior or support claims. Add a concrete unchecked item here only when a new
 documentation, website, security, release, or claim-gate blocker must interrupt runtime work.
 
-Current non-runtime sequence: there are no active non-runtime closeout items above the runtime
-queue. Completed non-runtime history belongs in
+Current non-runtime sequence: complete the review-derived action items below before new runtime
+expansion unless the user explicitly reprioritizes. Completed non-runtime history belongs in
 `docs/architecture/phased-execution-completed-ledger.md`.
+
+- [ ] REVIEW-P0-1 generated current-support matrix and `runs_today` surface
+  - Source: 2026-05-21 structured repository review action sequence; `GAR-COMMERCIAL-1C`,
+    `GAR-COMMERCIAL-1F`, `GAR-0032-B`, `GAR-0033-A`, status/capability surfaces.
+  - Current state: status pages, capability rows, workflow recipes, package-channel rows, Python
+    method matrices, and many command reports exist, but no single generated support matrix maps
+    CLI commands, Python APIs, input formats, output formats, execution modes, and claim state into
+    one tested `executable|feature_gated|diagnostic_only|report_only|blocked|future` view.
+  - Next slice outcome: add a generated support matrix plus a compact CLI/API surface named
+    `runs_today` or equivalent that reports current runnable, feature-gated, diagnostic-only,
+    report-only, blocked, and future surfaces from one typed source.
+  - User-visible surface: CLI JSON, Python capability helper, website/status page, docs/status
+    artifact, agent-facing capability metadata.
+  - Implementation scope: capability/status registry, command-family metadata, Python API metadata,
+    input/output format rows, execution-mode rows, website/status generator, readiness scripts, and
+    contract tests.
+  - Evidence required: one row per command/API/format/mode with support state, feature gate,
+    evidence refs, claim boundary, blockers, `fallback_attempted=false`, and
+    `external_engine_invoked=false`.
+  - Acceptance: a new user or agent can inspect one generated surface to determine what runs today,
+    what is feature-gated, what is diagnostic/report-only, what is blocked, and what is future work
+    without reading the phase plan.
+  - Verification: support-matrix generator test, CLI snapshot, Python helper test, website/status
+    readiness check, `cargo test -p shardloom-contract-tests --test release_readiness_metadata`,
+    `python scripts/check_website_readiness.py`, `git diff --check`.
+  - Non-goals: no new runtime execution, package publication, production claim, benchmark claim, or
+    broad SQL/DataFrame support claim.
+  - Claim boundary: current-state discoverability only.
+  - Fallback boundary: generated support rows must preserve no-fallback/no-external-engine fields
+    and must not infer support from report-only rows.
+  - Ledger rule: ledger entry must include generated artifact paths and the support-state taxonomy.
+
+- [ ] REVIEW-P0-2 release-grade CI gate matrix
+  - Source: 2026-05-21 structured repository review action sequence; RFC 0024, RFC 0041,
+    release-readiness scripts, package-channel readiness matrix.
+  - Current state: GitHub checks cover a Rust baseline and CodeQL, while feature-gated Rust lanes,
+    Python tests, package smoke, release-readiness scripts, dependency/license audit, and security
+    regression checks are not all enforced as one CI gate matrix.
+  - Next slice outcome: expand CI into a fail-closed gate matrix for default Rust checks,
+    feature-gated Rust checks, Python tests, package/install smoke, release-readiness scripts,
+    dependency/license/provenance audit, and security/path-safety checks.
+  - User-visible surface: GitHub Actions checks, release readiness reports, package-channel status,
+    contributor validation docs.
+  - Implementation scope: `.github/workflows/*`, existing readiness/audit scripts, feature-build
+    matrix docs, package smoke scripts, CI snapshot docs.
+  - Evidence required: each lane reports command, feature set, artifact refs, pass/fail status,
+    unsupported publication state, no-fallback fields where runtime smoke is involved, and release
+    blocker linkage.
+  - Acceptance: PR checks fail when Python tests, feature-gated builds, package smoke,
+    dependency/license audit, release readiness, or security/path-safety checks fail.
+  - Verification: CI workflow dry-run where feasible, local script invocations, release-readiness
+    metadata test, dependency audit script, Python tests, `git diff --check`.
+  - Non-goals: no public release, package upload, release tag, signing key use, OCI push, or
+    production readiness claim.
+  - Claim boundary: CI coverage and release gate strength only.
+  - Fallback boundary: CI runtime smokes must fail if fallback or external-engine invocation is
+    reported for admitted ShardLoom workflows.
+  - Ledger rule: ledger entry must enumerate CI lanes, commands, artifacts, and remaining skipped
+    gates.
+
+- [ ] REVIEW-P0-3 enforced workspace path safety for local output writers
+  - Source: 2026-05-21 structured repository review action sequence; RFC 0019, RFC 0024,
+    local-output writer and staged-workspace safety surfaces.
+  - Current state: workspace path safety reports and lexical checks exist, but the release gate
+    needs actual local writer enforcement across output boundaries, not only report-level safety
+    posture.
+  - Next slice outcome: route local output writers through one enforced workspace/path safety layer
+    covering canonical workspace root checks, symlink/hardlink policy, explicit overwrite policy,
+    temp staging, atomic commit where supported, rollback/cleanup evidence, and deterministic
+    blockers.
+  - User-visible surface: CLI/Python local writes, generated-source writes, SQL local-source output
+    writes, Vortex/staged output commands, diagnostics, release readiness.
+  - Implementation scope: output path validation helpers, generated-source local sinks,
+    SQL/local-source result sinks, Vortex/staged output commit paths, Python write helpers,
+    security tests, release-readiness checks.
+  - Evidence required: canonical path decision, workspace root, symlink/hardlink policy result,
+    overwrite decision, staging path, commit mode, cleanup result, rollback status, output digest,
+    `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Acceptance: every admitted local writer either commits through the shared safety layer or fails
+    with a deterministic diagnostic before writing outside the admitted boundary.
+  - Verification: writer safety unit tests, symlink/path traversal regression tests where supported,
+    local output smoke tests, release-readiness metadata, Python write-helper tests, `cargo clippy
+    --workspace --all-targets -- -D warnings`, `cargo test --workspace --all-targets`.
+  - Non-goals: no object-store write, production transaction manager, distributed commit protocol,
+    package publication, or platform-specific production filesystem guarantee.
+  - Claim boundary: local writer safety enforcement for admitted paths only.
+  - Fallback boundary: safety failures must not retry through external tools, shell copy helpers, or
+    fallback engines.
+  - Ledger rule: ledger entry must list writer families covered and any remaining report-only
+    writers.
+
+- [ ] REVIEW-P1-1 typed command registry and generated command metadata
+  - Source: 2026-05-21 structured repository review action sequence; RFC 0010, RFC 0012,
+    typed command-result envelope, capability discovery.
+  - Current state: CLI command routing, usage text, command families, capability rows, and
+    agent-facing metadata are spread across hand-authored strings and separate registries.
+  - Next slice outcome: introduce a typed command registry that generates CLI help, JSON command
+    metadata, capability rows, docs/status snippets, and agent-facing command metadata from one
+    source.
+  - User-visible surface: `shardloom --help`, command-specific help, capability JSON, generated
+    docs, Python wrapper command metadata.
+  - Implementation scope: CLI command registry module, command enum/family mapping, usage renderer,
+    metadata serializer, Python wrapper command-scope contract, docs generator, snapshots.
+  - Evidence required: command id, support state, input/output contract, feature gates, side-effect
+    level, evidence fields, claim boundary, fallback boundary, and owning phase item.
+  - Acceptance: adding or changing a command updates one registry entry and generated tests catch
+    help/capability/docs drift.
+  - Verification: CLI help snapshots, command metadata JSON snapshots, Python wrapper scope tests,
+    capability discovery snapshots, release-readiness metadata, `git diff --check`.
+  - Non-goals: no command behavior expansion, public API stability claim, package publication, or
+    broad remote/API listener implementation.
+  - Claim boundary: command discoverability and metadata consolidation only.
+  - Fallback boundary: command metadata must explicitly distinguish executable, diagnostic-only,
+    report-only, blocked, and future commands without implying fallback execution.
+  - Ledger rule: ledger entry must name generated outputs and removed hand-maintained drift points.
+
+- [ ] REVIEW-P1-2 typed evidence schema registry and contract generation
+  - Source: 2026-05-21 structured repository review action sequence; typed envelope migration,
+    diagnostics/capabilities, execution certificates.
+  - Current state: typed envelopes and report helpers exist, but many evidence fields are still
+    string-key coupled across Rust reports, CLI JSON, Python typed accessors, docs, and snapshots.
+  - Next slice outcome: add a typed evidence-field schema registry that generates or validates CLI
+    field schemas, Python accessors, documentation rows, and contract snapshots for high-value
+    runtime surfaces.
+  - User-visible surface: CLI JSON schema, Python typed reports, docs/status evidence tables,
+    agent-facing diagnostics.
+  - Implementation scope: evidence schema definitions, CLI output helpers, Python typed report
+    accessors, docs generation or validation scripts, contract/snapshot tests.
+  - Evidence required: field key, dtype, cardinality, owning command/report, support state, claim
+    boundary, no-fallback semantics, deprecation/version policy, Python accessor mapping.
+  - Acceptance: schema drift between Rust output fields, Python accessors, and docs is detected by
+    tests before merge.
+  - Verification: typed-envelope contract snapshots, Python report tests, schema validator script,
+    release-readiness metadata, `cargo test --workspace --all-targets`, Python unit tests.
+  - Non-goals: no wire-format breaking change without compatibility plan, no public API stability
+    claim, no new runtime behavior.
+  - Claim boundary: schema consistency and drift prevention only.
+  - Fallback boundary: generated schemas must preserve `fallback_attempted`,
+    `external_engine_invoked`, support state, and claim-gate fields for runtime evidence.
+  - Ledger rule: ledger entry must list schema families covered and any field families still
+    string-key-only.
+
+- [ ] REVIEW-P1-3 benchmark constitution and row validator
+  - Source: 2026-05-21 structured repository review action sequence; benchmark catalog,
+    comparative rerun gate, benchmark claim evidence.
+  - Current state: benchmark docs and evidence surfaces separate cold/prepared timing and avoid
+    superiority claims, but each benchmark row is not yet fail-closed against a single constitution
+    covering source admission, preparation route, execution route, output route, correctness proof,
+    hardware/build metadata, cost/unit fields, and no-fallback proof.
+  - Next slice outcome: add a benchmark constitution document plus a validator that rejects
+    claim-bearing benchmark rows missing route, correctness, hardware/build, output, and
+    no-fallback evidence.
+  - User-visible surface: benchmark reports, benchmark manifest, release readiness, website/status
+    benchmark interpretation, claim evidence matrix.
+  - Implementation scope: benchmark metadata schema, validation script, contract tests, benchmark
+    docs, release-readiness integration.
+  - Evidence required: workload id, dataset/source admission, preparation route, execution route,
+    output route, cold/warm state, correctness validation mode, hardware profile, build profile,
+    stage timings, cost/unit fields where available, and no-fallback fields.
+  - Acceptance: benchmark rows cannot support performance or replacement claims unless the
+    validator passes and correctness/no-fallback evidence is attached.
+  - Verification: benchmark manifest validator, traditional benchmark harness contract test,
+    release-readiness metadata, `python scripts/check_release_readiness.py`, `git diff --check`.
+  - Non-goals: no new superiority claim, external benchmark publication, managed-platform claim, or
+    package release.
+  - Claim boundary: benchmark evidence structure only.
+  - Fallback boundary: external engines remain baselines/oracles only and must never be encoded as
+    ShardLoom execution fallback.
+  - Ledger rule: ledger entry must include validator command and remaining benchmark evidence gaps.
+
+- [ ] REVIEW-P1-4 dependency, license, provenance, and package-gate automation
+  - Source: 2026-05-21 structured repository review action sequence; RFC 0024, release security
+    gate, package-channel readiness matrix, dependency audit docs.
+  - Current state: package channels remain blocked and dependency/license policy exists, but public
+    package readiness requires automated dependency audit, license/provenance checks, SBOM/checksum
+    dry runs, package smoke, and rollback/yank/deprecate policy checks in release gates.
+  - Next slice outcome: wire dependency/license/provenance/package checks into local validators and
+    CI so package-channel rows remain blocked until evidence is attached.
+  - User-visible surface: release readiness report, package-channel readiness matrix, CI checks,
+    security/release docs.
+  - Implementation scope: dependency audit script, license/provenance metadata checks,
+    SBOM/checksum dry-run script, package smoke script, package-channel validator, CI workflow,
+    release-readiness integration.
+  - Evidence required: dependency inventory, license classification, provenance status, forbidden
+    fallback dependency check, SBOM/checksum artifact refs, package smoke transcript, rollback
+    policy refs, publication authorization state.
+  - Acceptance: any unreviewed dependency, forbidden fallback dependency, missing package smoke,
+    missing SBOM/checksum/provenance, or missing rollback policy fails package readiness.
+  - Verification: dependency audit script, package-channel readiness script, release-readiness
+    metadata, CI gate matrix, `git diff --check`.
+  - Non-goals: no package publication, release tag, upload token use, signing key use, or public
+    package availability claim.
+  - Claim boundary: automated release/package gating only.
+  - Fallback boundary: dependency checks must continue to reject query-engine fallback dependencies
+    and must not authorize external execution.
+  - Ledger rule: ledger entry must list automated gates and channels still blocked.
+
+- [ ] REVIEW-P2-1 contribution governance intake automation
+  - Source: 2026-05-21 structured repository review action sequence; RFC and release governance
+    docs.
+  - Current state: contribution policy is founder-maintainer oriented and RFC-based evolution is
+    planned, but broader contribution intake does not yet have full CLA/DCO automation,
+    maintainer-role documentation, decision escalation, and review-state reporting.
+  - Next slice outcome: add contribution intake policy and automation that keeps dependency,
+    license, RFC, review, and claim-boundary requirements explicit before broader community
+    adoption.
+  - User-visible surface: CONTRIBUTING docs, PR templates, CI checks, governance docs, issue/PR
+    labels where applicable.
+  - Implementation scope: governance docs, PR templates, optional DCO/CLA check wiring, review
+    checklist, release/dependency policy links.
+  - Evidence required: required signoff/CLA/DCO state, reviewer roles, decision escalation path,
+    dependency/RFC/security checklist, claim-boundary checklist.
+  - Acceptance: external contribution requirements are inspectable and enforced or explicitly
+    blocked before public package/release adoption.
+  - Verification: doc link checks, PR template checks, release-readiness metadata, `git diff
+    --check`.
+  - Non-goals: no legal guarantee, package publication, broad governance transfer, or runtime
+    behavior change.
+  - Claim boundary: contribution readiness only.
+  - Fallback boundary: contribution automation must preserve no-fallback dependency and claim
+    policies.
+  - Ledger rule: ledger entry must identify automated vs documented governance controls.
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 
@@ -252,6 +474,70 @@ Runtime completion rule:
   it is a runtime-safety blocker or validator.
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
   in this live queue.
+
+#### Review-Derived Runtime Validators
+
+- [ ] REVIEW-RUNTIME-1 three golden workflow validator
+  - Source: 2026-05-21 structured repository review action sequence; Use Case Atlas, workflow
+    recipe library, prepared/native Vortex evidence, generated-source output evidence.
+  - Current state: scoped local workflows exist across direct transient local SQL/Python,
+    generated-source output, compatibility import, prepared Vortex batch, and native/prepared
+    evidence surfaces, but there is no single validator proving three end-to-end user workflows
+    remain runnable and claim-safe together.
+  - Next slice outcome: add a golden workflow validator covering:
+    `local CSV/JSONL -> vortex_ingest -> prepared query -> JSONL/CSV output`,
+    `generated source -> local Vortex output -> replay/fidelity evidence`, and
+    `prepared/native Vortex count/filter/project -> execution certificate`.
+  - Runtime enablement: release/usability validator for the highest-value runnable local workflows.
+  - User-visible surface: CLI/Python smoke matrix, workflow recipes, release readiness, website
+    "what runs today" support rows.
+  - Implementation scope: validator script or contract test, fixture inputs, expected outputs,
+    Python wrapper calls, CLI command calls, evidence summaries, workflow recipe links.
+  - Evidence required: source route, preparation route, execution route, output route, row counts,
+    correctness digest, output artifact refs, execution certificate refs, Native I/O evidence,
+    `fallback_attempted=false`, `external_engine_invoked=false`, and claim-gate status.
+  - Acceptance: the validator fails if any golden workflow stops running, loses evidence fields,
+    invokes an external engine, or overstates support.
+  - Verification: golden workflow validator, Python workflow tests, CLI smoke tests, release
+    readiness metadata, website/status readiness, `cargo test --workspace --all-targets`.
+  - Non-goals: no production workflow claim, object-store/lakehouse/Foundry production support,
+    package publication, distributed runtime, or performance superiority claim.
+  - Claim boundary: local technical-preview workflow proof only.
+  - Fallback boundary: each workflow must fail closed on fallback/external-engine evidence.
+  - Ledger rule: ledger entry must include workflow commands, artifacts, and unsupported-path
+    boundaries.
+
+- [ ] REVIEW-RUNTIME-2 admitted-semantics fixture matrix and property/differential execution
+  - Source: 2026-05-21 structured repository review action sequence; RFC 0015, RFC 0021,
+    correctness differential harness, expression runtime smokes.
+  - Current state: each admitted expression/operator slice adds focused tests and no-fallback
+    smokes, while broader matrix coverage for dtype, null behavior, coercion, unsupported
+    diagnostics, decoded reference output, differential oracle artifacts, and property/fuzz
+    execution remains incomplete.
+  - Next slice outcome: add an admitted-semantics fixture matrix and execute the first property or
+    differential lane for high-value expression families without using any external oracle as
+    runtime fallback.
+  - Runtime enablement: correctness validator for admitted SQL/Python expression/operator support.
+  - User-visible surface: correctness harness report, expression capability rows, release
+    readiness, benchmark claim gate.
+  - Implementation scope: fixture manifest, decoded-reference expected outputs, property/fuzz
+    runner or deterministic seed executor, optional external-oracle artifact boundary, contract
+    tests, release-readiness integration.
+  - Evidence required: operator family, input dtype, output dtype, null policy, coercion policy,
+    invalid-input behavior, unsupported diagnostic code/message, correctness digest, oracle
+    boundary, property seed, no-fallback fields.
+  - Acceptance: newly admitted operators must attach matrix rows, and the validator fails when
+    dtype/null/coercion/unsupported evidence is missing for claim-bearing support.
+  - Verification: correctness harness tests, expression semantics tests, SQL/Python smoke tests,
+    property/differential runner, release-readiness metadata, `cargo test --workspace
+    --all-targets`.
+  - Non-goals: no production semantic parity claim, ANSI SQL claim, arbitrary UDFs, benchmark
+    superiority claim, or external runtime delegation.
+  - Claim boundary: admitted expression/operator correctness evidence only.
+  - Fallback boundary: external engines may be used only as isolated test oracles/baselines and
+    never as ShardLoom runtime fallback.
+  - Ledger rule: ledger entry must list covered operator families, fixture rows, and remaining
+    matrix gaps.
 
 #### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
 
