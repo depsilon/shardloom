@@ -909,6 +909,57 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def generic_expression_predicate_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted generic expression predicate."""
+
+        return (
+            self.envelope.field_bool(
+                "generic_expression_predicate_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def generic_expression_predicate_source_columns(self) -> tuple[str, ...]:
+        """Return source-column groups used by generic expression predicates."""
+
+        value = self.envelope.field("generic_expression_predicate_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def generic_expression_predicate_operator_families(self) -> tuple[str, ...]:
+        """Return operator-family groups used by generic expression predicates."""
+
+        value = self.envelope.field("generic_expression_predicate_operator_family", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def generic_expression_predicate_binary_operator_count(self) -> int:
+        """Return the number of binary operators in generic expression predicates."""
+
+        return (
+            self.envelope.field_int(
+                "generic_expression_predicate_binary_operator_count", 0
+            )
+            or 0
+        )
+
+    @property
+    def generic_expression_predicate_comparison_operators(self) -> tuple[str, ...]:
+        """Return comparison operators used by generic expression predicates."""
+
+        value = self.envelope.field(
+            "generic_expression_predicate_comparison_operator", ""
+        )
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def numeric_arithmetic_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted numeric arithmetic projection."""
 

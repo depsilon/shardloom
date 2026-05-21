@@ -550,6 +550,12 @@ plan before coding.
   admitted local numeric columns and finite numeric literals, emit
   `generic_expression_projection_*` evidence, and keep missing-column/division-by-zero and
   unsupported-shape blockers deterministic with no fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D generic numeric expression predicates add parenthesized and chained
+  `+` / `-` / `*` / `/` predicate expression trees plus nested `ABS` / `FLOOR` / `CEIL` / `ROUND`
+  calls over admitted local numeric columns and finite numeric literals, compare them to admitted
+  numeric expressions or finite numeric literals, emit `generic_expression_predicate_*` evidence,
+  preserve SQL `WHERE` null-filter semantics, and keep missing-column/division-by-zero and
+  unsupported-shape blockers deterministic with no fallback/external engine invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 

@@ -367,6 +367,12 @@ or documentation updates alone are insufficient.
     `generic_expression_projection_*` evidence, ShardLoom-native null propagation, deterministic
     source-column/division-by-zero/unsupported-shape blockers, and no external fallback. This is
     expression-tree coverage for local computed projections, not arbitrary SQL expression parity.
+    Scoped generalized numeric expression-tree predicates comparing an admitted numeric expression
+    tree to another numeric expression or finite numeric literal are runtime-admitted with
+    `generic_expression_predicate_*` evidence, ShardLoom-native SQL `WHERE` null-filter semantics,
+    deterministic source-column/division-by-zero/unsupported-shape blockers, and no external
+    fallback. This is expression-tree coverage for local predicates, not arbitrary SQL expression
+    parity.
     Scoped UTF-8
     transform projections of the form `LOWER(column) AS column`, `UPPER(column) AS column`, and
     `TRIM(column) AS column` are runtime-admitted with `string_transform_projection_*` evidence,
@@ -423,7 +429,7 @@ or documentation updates alone are insufficient.
     local SQL
     smoke path, plus `where(...)`
     as a familiar filter alias. User workflows still lack broad typed
-    coercions, generalized arithmetic expression trees and generalized projections,
+    coercions, broad non-numeric expression parity beyond the scoped numeric expression trees,
     timezone-database helpers, interval/date-time completeness, subquery-backed IN semantics,
     arbitrary predicate-tree completeness beyond the scoped admitted leaves, and broader expression
     family coverage.
@@ -439,13 +445,15 @@ or documentation updates alone are insufficient.
   - Closeout posture: this parent item is intentionally still open even though many scoped
     `GAR-RUNTIME-IMPL-4D` slices have been completed and moved into the completed ledger. The
     remaining work is no longer "basic expression support"; it is the explicit parity gap around
-    generalized expression trees, broader coercion/function coverage, interval/timezone semantics,
-    subquery-backed `IN`, arbitrary predicate-tree completeness, and final SQL/Python ergonomics.
+    broader non-numeric/generalized expression families, broader coercion/function coverage,
+    interval/timezone semantics, subquery-backed `IN`, arbitrary predicate-tree completeness, and
+    final SQL/Python ergonomics.
     A future closeout PR must either implement those gaps or split each non-goal into separate
     follow-on runtime items before marking `GAR-RUNTIME-IMPL-4D` complete.
   - Next slice outcome: add one implementation PR per remaining expression family: remaining
-    admitted string predicates, richer IN semantics only where evidence-backed, timestamp/timezone
-    helpers, interval/date-time completeness where admitted, and broader typed coercions/functions.
+    non-numeric expression/function families, richer IN semantics only where evidence-backed,
+    timestamp/timezone helpers, interval/date-time completeness where admitted, and broader typed
+    coercions/functions.
   - Runtime enablement: executable ShardLoom-native expression families or deterministic runtime
     blockers for unsupported operators.
   - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.
