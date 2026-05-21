@@ -529,17 +529,19 @@ or documentation updates alone are insufficient.
     `.parquet`/Arrow IPC/Avro/ORC
     projection/optional-filter/limit,
     preview/select-star, scalar aggregate/optional-filter/limit, one-column group-by
-    aggregate/optional-filter/limit, and single-key numeric top-N workflows into that runtime path.
+    aggregate/optional-filter/limit, single-key numeric top-N workflows, and the scoped
+    local-source inner equi-join bridge into that runtime path.
     Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC
     source certificate refs, execution certificate refs, materialization boundaries, pushdown status,
     adapter status, route status, and claim reasons are source-format-aware. Nested/general JSON,
     broader Parquet/Arrow IPC/Avro/ORC type/nesting and output coverage does not all have ordinary
     user-facing SourceState runtime parity.
-  - Next slice outcome: continue promoting remaining local input formats one at a time into
-    UniversalIngress/InputAdapter registry coverage with SourceState evidence,
+  - Next slice outcome: continue promoting remaining local input and operator combinations one at
+    a time into UniversalIngress/InputAdapter registry coverage with SourceState evidence,
     `vortex_ingest_status`, certified route status, and deterministic blockers for unsupported
-    formats/features.
+    formats/features. Recent join slices should keep using the same local-source admission
+    universe instead of creating CSV-only islands unless a format has a deterministic blocker.
   - Runtime enablement: admitted local input adapters that create reusable SourceState evidence for
     actual user reads and can feed `vortex_ingest` into `VortexPreparedState` when preparation is
     admitted.

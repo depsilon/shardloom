@@ -298,9 +298,12 @@ Use this for the scoped GAR-RUNTIME-IMPL-4C join promotion. It emits
 `sql_statement_kind=local_source_inner_equi_join_filter_limit`,
 `join_runtime_execution=true`, `join_type=inner_equi`, left/right source refs, join keys,
 matched/scanned/output row counts, a scoped memory estimate, the inner-equi-join execution
-certificate ref, and no-fallback evidence. It admits one local CSV inner equi-join with explicit
-aliases only. Outer, semi, anti, cross, multi-key, expression, distributed, broadcast, shuffle,
-Python/DataFrame, object-store/table, performance, and production join claims remain blocked.
+certificate ref, and no-fallback evidence. It admits one local-source inner equi-join with
+explicit aliases only. The same scoped shape can run over other admitted local sources such as
+flat JSONL/NDJSON. Feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC joins use the same
+deterministic adapter gates as the rest of `sql-local-source-smoke`.
+Outer, semi, anti, cross, multi-key, expression, distributed, broadcast, shuffle,
+object-store/table, performance, and production join claims remain blocked.
 
 ## Python Local CSV Query-Builder Smoke
 
