@@ -229,38 +229,12 @@ ingest/stage/certification work, not pure query speed. Do not add a hidden globa
 
 Complete these documentation, capability, security, release, and claim-gate items before starting
 new runtime implementation work unless the user explicitly reprioritizes. These items must not add
-runtime behavior or support claims. The GAR-P0/P4/P5 groups in this section are the active
-non-runtime queue; do not start the runtime implementation queue below until these are closed or
-explicitly reprioritized.
+runtime behavior or support claims. Add a concrete unchecked item here only when a new
+documentation, website, security, release, or claim-gate blocker must interrupt runtime work.
 
 Current non-runtime sequence: there are no active non-runtime closeout items above the runtime
 queue. Completed non-runtime history belongs in
-`docs/architecture/phased-execution-completed-ledger.md`; add a new unchecked item here only when a
-new docs, website, security, release, or claim-gate blocker must interrupt runtime work.
-
-##### Non-Runtime GAR-P5 - Correctness, Benchmarks, Claims, And Release
-
-There are no active GAR-P5 closeout items in the live queue. Continue with the runtime
-implementation queue below unless a new non-runtime blocker is explicitly added here first.
-
-##### Non-Runtime GAR-WEB-REDESIGN-2 - Next-Level Website Rebuild
-
-Source: user-requested website reboot after the minimal public surface reset, the ShardLoom logo
-assets, benchmark publishing artifacts, compute-flow route model, use-case/status docs, and
-best-in-class structural references including Modal-style technical glossary density, Linear-style
-product-system polish, Stripe/Resend-style developer clarity, and Vercel/Supabase-style platform
-confidence. Technique transfer is allowed; third-party code, text, CSS, layout code, assets,
-typography, animation, trade dress, and brand identity copying are not allowed.
-
-Goal: rebuild `shardloom.io` as a light-mode-first, cohesive technical product/docs surface for
-evidence-gated compute. The public site must show the route
-`UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState -> ExecutionPlan ->
-OutputPlan -> SinkArtifact -> Evidence -> ClaimGate`, while keeping benchmark, support, and
-claim-boundary language honest.
-
-There are no active website redesign items in the live non-runtime queue. Completed website
-redesign history is captured in the completed ledger; future website work must be added here as a
-new unchecked implementation or validation item before it is started.
+`docs/architecture/phased-execution-completed-ledger.md`.
 
 #### Runtime Implementation Queue - Runtime-Enabling Work Only
 

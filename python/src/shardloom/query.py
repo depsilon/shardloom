@@ -304,6 +304,20 @@ class ColumnExpression:
 
         return self.substr(start, length)
 
+    def left(self, count: object) -> "ColumnExpression":
+        """Return a scoped `LEFT(column, count)` UTF-8 expression."""
+
+        column = _normalize_expression_column(self.sql)
+        normalized_count = _normalize_substring_bound("left count", count, minimum=0)
+        return ColumnExpression(f"LEFT({column}, {normalized_count})")
+
+    def right(self, count: object) -> "ColumnExpression":
+        """Return a scoped `RIGHT(column, count)` UTF-8 expression."""
+
+        column = _normalize_expression_column(self.sql)
+        normalized_count = _normalize_substring_bound("right count", count, minimum=0)
+        return ColumnExpression(f"RIGHT({column}, {normalized_count})")
+
     def replace(self, needle: object, replacement: object) -> "ColumnExpression":
         """Return a scoped `REPLACE(column, needle, replacement)` expression."""
 
@@ -2468,6 +2482,22 @@ def substring(column_expression: object, start: object, length: object) -> Colum
     return substr(column_expression, start, length)
 
 
+def left(column_expression: object, count: object) -> ColumnExpression:
+    """Return a scoped `LEFT(column, count)` UTF-8 expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("left requires a shardloom column expression")
+    return column_expression.left(count)
+
+
+def right(column_expression: object, count: object) -> ColumnExpression:
+    """Return a scoped `RIGHT(column, count)` UTF-8 expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("right requires a shardloom column expression")
+    return column_expression.right(count)
+
+
 def replace(column_expression: object, needle: object, replacement: object) -> ColumnExpression:
     """Return a scoped `REPLACE(column, needle, replacement)` expression."""
 
@@ -3839,12 +3869,12 @@ def _sql_string_function_projection_expression(expression: object) -> str:
     open_index = text.find("(")
     if open_index < 0 or not text.endswith(")"):
         raise ValueError(
-            "computed with_column currently admits CONCAT/SUBSTR/REPLACE expressions"
+            "computed with_column currently admits CONCAT/SUBSTR/LEFT/RIGHT/REPLACE expressions"
         )
     function = text[:open_index].strip().upper()
-    if function not in {"CONCAT", "SUBSTR", "SUBSTRING", "REPLACE"}:
+    if function not in {"CONCAT", "SUBSTR", "SUBSTRING", "LEFT", "RIGHT", "REPLACE"}:
         raise ValueError(
-            "computed with_column currently admits CONCAT/SUBSTR/REPLACE expressions"
+            "computed with_column currently admits CONCAT/SUBSTR/LEFT/RIGHT/REPLACE expressions"
         )
     args = _split_projection_function_args(text[open_index + 1 : -1].strip())
     if function == "CONCAT":
@@ -3874,6 +3904,18 @@ def _sql_string_function_projection_expression(expression: object) -> str:
         start = _normalize_substring_bound("substring start", args[1], minimum=1)
         length = _normalize_substring_bound("substring length", args[2], minimum=0)
         return f"SUBSTR({value_arg}, {start}, {length})"
+    if function in {"LEFT", "RIGHT"}:
+        if len(args) != 2:
+            raise ValueError(
+                "LEFT/RIGHT with_column expressions require exactly two arguments"
+            )
+        value_arg, is_source_column = _normalize_string_function_text_arg_sql(args[0])
+        if not is_source_column:
+            raise ValueError(
+                "LEFT/RIGHT with_column expressions require a source column argument"
+            )
+        count = _normalize_substring_bound("left/right count", args[1], minimum=0)
+        return f"{function}({value_arg}, {count})"
     if len(args) != 3:
         raise ValueError("REPLACE with_column expressions require exactly three arguments")
     value_arg, is_source_column = _normalize_string_function_text_arg_sql(args[0])
