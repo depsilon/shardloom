@@ -20,6 +20,7 @@ mod diagnostics;
 mod engine_fabric_planning;
 mod engine_runtime_planning;
 mod evidence_certificates;
+mod evidence_schema_registry;
 mod extension_planning;
 mod gar_0029_evidence;
 mod generated_source_runtime;
@@ -845,6 +846,7 @@ fn run(args: Vec<String>) -> ExitCode {
 
         Some("help") => command_registry::handle_command_help(args, format, cli_command_name()),
         Some("command-metadata") => command_registry::handle_command_metadata(args, format),
+        Some("evidence-schema") => evidence_schema_registry::handle_evidence_schema(args, format),
         Some("status") => status_capabilities::handle_status(format),
         Some("runs-today") => status_capabilities::handle_runs_today(format),
         Some("release-plan") => packaging_deployment::handle_release_plan(format),
@@ -1298,6 +1300,21 @@ mod tests {
 
     fn run(args: Vec<String>) -> ExitCode {
         run_with_larger_stack("cli-test", args)
+    }
+
+    #[test]
+    fn evidence_schema_dispatch_returns_success() {
+        let code = run(vec!["evidence-schema".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn evidence_schema_unknown_surface_returns_non_zero() {
+        let code = run(vec![
+            "evidence-schema".to_string(),
+            "missing_surface".to_string(),
+        ]);
+        assert_ne!(code, ExitCode::SUCCESS);
     }
 
     struct CliTempWorkspace {

@@ -388,6 +388,15 @@ def main() -> int:
     typed_envelope_doc = read_text(repo_root / "docs/architecture/typed-command-result-envelope.md").lower()
     if "typed envelope" not in typed_envelope_doc and "typed-envelope" not in typed_envelope_doc:
         typed_blockers.append("missing typed envelope architecture doc")
+    evidence_schema_registry = repo_root / "shardloom-cli/src/evidence_schema_registry.rs"
+    evidence_schema_doc = repo_root / "docs/status/evidence-field-schema-registry.md"
+    evidence_schema_validator = repo_root / "scripts/check_evidence_schema_registry.py"
+    if not evidence_schema_registry.exists():
+        typed_blockers.append("missing evidence schema registry source")
+    if "shardloom.evidence_field_schema_registry.v1" not in read_text(evidence_schema_doc):
+        typed_blockers.append("missing evidence schema registry status doc")
+    if not evidence_schema_validator.exists():
+        typed_blockers.append("missing evidence schema registry validator script")
     checks.append(check("typed_envelope_compatibility", "shardloom-cli/tests/typed_envelope_contract_snapshots.rs", typed_blockers))
 
     validation_commands = [

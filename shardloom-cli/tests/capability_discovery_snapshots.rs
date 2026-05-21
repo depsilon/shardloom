@@ -265,6 +265,64 @@ const COMMAND_REGISTRY_ROW_SUFFIXES: [&str; 12] = [
     "external_engine_invoked",
 ];
 
+const EVIDENCE_SCHEMA_REGISTRY_FIELD_KEYS: [&str; 18] = [
+    "evidence_schema_registry_schema_version",
+    "evidence_schema_registry_report_id",
+    "evidence_schema_registry_source",
+    "evidence_schema_registry_docs_ref",
+    "evidence_schema_registry_command",
+    "evidence_schema_registry_surface_count",
+    "evidence_schema_registry_field_count",
+    "evidence_schema_registry_surface_order",
+    "evidence_schema_registry_dtype_vocabulary",
+    "evidence_schema_registry_cardinality_vocabulary",
+    "evidence_schema_registry_deprecation_policy",
+    "evidence_schema_registry_claim_boundary",
+    "evidence_schema_registry_fallback_boundary",
+    "evidence_schema_registry_claim_gate_status",
+    "evidence_schema_registry_schema_drift_detection_status",
+    "evidence_schema_registry_python_accessor_contract_status",
+    "evidence_schema_registry_fallback_attempted",
+    "evidence_schema_registry_external_engine_invoked",
+];
+
+const EVIDENCE_SCHEMA_SURFACE_IDS: [&str; 7] = [
+    "execution_mode_selection_report",
+    "compute_flow_evidence",
+    "execution_certificate_report",
+    "native_io_report",
+    "benchmark_plan_report",
+    "benchmark_claim_evidence_report",
+    "compute_capability_matrix_report",
+];
+
+const EVIDENCE_SCHEMA_SURFACE_SUFFIXES: [&str; 9] = [
+    "artifact_kind",
+    "command_examples",
+    "support_state",
+    "field_count",
+    "field_order",
+    "python_accessor_mapping",
+    "required_no_fallback_fields",
+    "claim_boundary",
+    "deprecation_policy",
+];
+
+const EVIDENCE_SCHEMA_FIELD_SUFFIXES: [&str; 12] = [
+    "key",
+    "dtype",
+    "cardinality",
+    "required_when",
+    "owning_surface",
+    "owning_artifact_kind",
+    "owning_commands",
+    "support_state",
+    "no_fallback_semantics",
+    "deprecation_policy",
+    "python_accessor_mapping",
+    "claim_boundary",
+];
+
 const WRAPPER_CONNECTOR_REGISTRY_ROW_IDS: [&str; 26] = [
     "python_cli_json_client",
     "python_typed_capability_views",
@@ -1180,6 +1238,58 @@ fn append_command_registry_keys(keys: &mut Vec<String>) {
     }
 }
 
+fn append_evidence_schema_registry_keys(keys: &mut Vec<String>) {
+    keys.extend(
+        EVIDENCE_SCHEMA_REGISTRY_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for surface_id in EVIDENCE_SCHEMA_SURFACE_IDS {
+        keys.extend(
+            EVIDENCE_SCHEMA_SURFACE_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("evidence_schema_surface_{surface_id}_{suffix}")),
+        );
+        for field_id in evidence_schema_payload_field_ids(surface_id) {
+            keys.extend(
+                EVIDENCE_SCHEMA_FIELD_SUFFIXES.into_iter().map(|suffix| {
+                    format!("evidence_schema_field_{surface_id}_{field_id}_{suffix}")
+                }),
+            );
+        }
+    }
+}
+
+fn evidence_schema_payload_field_ids(surface_id: &str) -> Vec<String> {
+    let const_name = match surface_id {
+        "execution_mode_selection_report" => "EXECUTION_MODE_SELECTION_REPORT_PAYLOAD_KEYS",
+        "compute_flow_evidence" => "COMPUTE_FLOW_EVIDENCE_PAYLOAD_KEYS",
+        "execution_certificate_report" => "EXECUTION_CERTIFICATE_REPORT_PAYLOAD_KEYS",
+        "native_io_report" => "NATIVE_IO_REPORT_PAYLOAD_KEYS",
+        "benchmark_plan_report" => "BENCHMARK_PLAN_REPORT_PAYLOAD_KEYS",
+        "benchmark_claim_evidence_report" => "BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS",
+        "compute_capability_matrix_report" => "COMPUTE_CAPABILITY_MATRIX_REPORT_PAYLOAD_KEYS",
+        _ => panic!("unknown evidence schema surface {surface_id}"),
+    };
+    let source = include_str!("../src/typed_envelope.rs");
+    let marker = format!("const {const_name}: &[&str] = &[");
+    let (_, after_marker) = source
+        .split_once(&marker)
+        .expect("payload const marker exists");
+    let (array, _) = after_marker
+        .split_once("];")
+        .expect("payload const terminator exists");
+    array
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            let rest = trimmed.strip_prefix('"')?;
+            let (field, _) = rest.split_once('"')?;
+            Some(field.replace('-', "_"))
+        })
+        .collect()
+}
+
 fn command_registry_row_field_ids() -> Vec<String> {
     let source = include_str!("../src/command_registry.rs");
     let (_, after_marker) = source
@@ -1204,6 +1314,7 @@ fn with_dataframe_notebook_package_command_registry_wrapper_and_unstructured_fie
 ) -> Vec<String> {
     let mut keys = with_dataframe_notebook_package_and_generated_source_alignment_fields(base_keys);
     append_command_registry_keys(&mut keys);
+    append_evidence_schema_registry_keys(&mut keys);
     keys.extend(
         WRAPPER_CONNECTOR_REGISTRY_FIELD_KEYS
             .into_iter()
@@ -3309,6 +3420,35 @@ fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
     assert!(output.contains(&field_pair(
         "command_registry_row_vortex_ingest_smoke_external_engine_invoked",
         false
+    )));
+
+    assert!(output.contains(&string_field_pair(
+        "evidence_schema_registry_schema_version",
+        "shardloom.evidence_field_schema_registry.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "evidence_schema_registry_command",
+        "shardloom evidence-schema [surface] --format json"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "evidence_schema_registry_surface_count",
+        "7"
+    )));
+    assert!(output.contains(&field_pair(
+        "evidence_schema_registry_fallback_attempted",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "evidence_schema_registry_external_engine_invoked",
+        false
+    )));
+    assert!(output.contains(&string_field_pair(
+        "evidence_schema_surface_execution_mode_selection_report_python_accessor_mapping",
+        "TraditionalAnalyticsRun.execution_mode_selection_fields"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "evidence_schema_field_execution_mode_selection_report_fallback_attempted_no_fallback_semantics",
+        "must_remain_false"
     )));
 
     assert!(output.contains(&string_field_pair(

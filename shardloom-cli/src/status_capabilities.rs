@@ -34,6 +34,7 @@ use crate::{
     command_registry::append_command_registry_capability_fields,
     engine_runtime_planning::append_streaming_capability_matrix_summary_fields,
     evidence_certificates::append_best_default_certification_gate_fields,
+    evidence_schema_registry::append_evidence_schema_registry_capability_fields,
     extension_planning::{
         append_extension_manifest_effect_capability_matrix_fields,
         append_plugin_abi_udf_sandbox_blocker_fields,
@@ -9775,6 +9776,7 @@ fn world_class_surface_fields(
     }
     if scope == CapabilityDiscoveryScope::ApiSurfaces {
         append_command_registry_capability_fields(&mut fields);
+        append_evidence_schema_registry_capability_fields(&mut fields);
         append_wrapper_connector_registry_fields(&mut fields);
     }
     if scope == CapabilityDiscoveryScope::Observability {

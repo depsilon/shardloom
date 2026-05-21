@@ -911,6 +911,23 @@ fn inline_report_payload_spec(command: &str) -> Option<InlineReportPayloadSpec> 
     }
 }
 
+pub(crate) fn typed_envelope_artifact_payload_keys(
+    artifact_kind: &str,
+) -> Option<&'static [&'static str]> {
+    match artifact_kind {
+        "execution_mode_selection_report" => Some(EXECUTION_MODE_SELECTION_REPORT_PAYLOAD_KEYS),
+        "compute_flow_evidence" => Some(COMPUTE_FLOW_EVIDENCE_PAYLOAD_KEYS),
+        "execution_certificate_report" => Some(EXECUTION_CERTIFICATE_REPORT_PAYLOAD_KEYS),
+        "native_io_report" => Some(NATIVE_IO_REPORT_PAYLOAD_KEYS),
+        "benchmark_plan_report" => Some(BENCHMARK_PLAN_REPORT_PAYLOAD_KEYS),
+        "benchmark_claim_evidence_report" => Some(BENCHMARK_CLAIM_EVIDENCE_REPORT_PAYLOAD_KEYS),
+        "compute_capability_matrix_report" => Some(COMPUTE_CAPABILITY_MATRIX_REPORT_PAYLOAD_KEYS),
+        "semantic_conformance_report" => Some(SEMANTIC_CONFORMANCE_REPORT_PAYLOAD_KEYS),
+        "universal_harness_report" => Some(UNIVERSAL_HARNESS_REPORT_PAYLOAD_KEYS),
+        _ => None,
+    }
+}
+
 fn field_value<'a>(fields: &'a [(String, String)], key: &str) -> Option<&'a str> {
     fields
         .iter()

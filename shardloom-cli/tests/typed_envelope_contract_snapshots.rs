@@ -98,6 +98,14 @@ fn api_surfaces_capability_fixture_routes_registry_into_typed_slots() {
     assert!(output.contains("\"artifact_kind\":\"api_surface_capability_report\""));
     assert!(output.contains("\"artifact_id\":\"capabilities.api_surfaces\""));
     assert!(output.contains("\"capability_snapshot\":{\"fields\":["));
+    assert!(output.contains(&field(
+        "evidence_schema_registry_schema_version",
+        "shardloom.evidence_field_schema_registry.v1"
+    )));
+    assert!(output.contains(&field(
+        "evidence_schema_field_execution_mode_selection_report_fallback_attempted_no_fallback_semantics",
+        "must_remain_false"
+    )));
     assert!(output.contains(&field("wrapper_connector_registry_row_count", "26")));
     assert!(output.contains(&field(
         "wrapper_connector_registry_claim_gate_status",

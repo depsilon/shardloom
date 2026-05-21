@@ -33,6 +33,7 @@ const COMMAND_EVIDENCE_FIELDS: &str = "command|family|support_state|side_effect_
 pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "help",
     "command-metadata",
+    "evidence-schema",
     "spill-lifecycle",
     "spill-reservation-plan",
     "spill-payload-roundtrip",
@@ -758,6 +759,7 @@ pub(crate) fn append_command_registry_capability_fields(fields: &mut Vec<(String
 fn command_usage_fragment(command: &str) -> String {
     match command {
         "help" => "help [command]".to_string(),
+        "evidence-schema" => "evidence-schema [surface]".to_string(),
         "capabilities" => format!("{command} [{}]", capability_scopes().join("|")),
         "rest-api-plan-preview" => {
             format!(
@@ -922,7 +924,7 @@ fn command_support_state(command: &str) -> &'static str {
         "diagnostic_only"
     } else if matches!(
         command,
-        "help" | "command-metadata" | "status" | "runs-today" | "capabilities"
+        "help" | "command-metadata" | "evidence-schema" | "status" | "runs-today" | "capabilities"
     ) || command.ends_with("-smoke")
         || command.ends_with("-run")
         || matches!(
@@ -955,7 +957,7 @@ fn command_support_state(command: &str) -> &'static str {
 fn command_side_effect_level(command: &str) -> &'static str {
     if matches!(
         command,
-        "help" | "command-metadata" | "status" | "runs-today" | "capabilities"
+        "help" | "command-metadata" | "evidence-schema" | "status" | "runs-today" | "capabilities"
     ) || command.ends_with("-plan")
         || command.ends_with("-gate")
         || command.ends_with("-matrix")
@@ -1051,6 +1053,9 @@ fn command_output_contract(command: &str) -> &'static str {
 }
 
 fn command_owning_phase_item(command: &str) -> &'static str {
+    if command == "evidence-schema" {
+        return "REVIEW-P1-2";
+    }
     match classify_command(command).as_str() {
         "status_capabilities" => "REVIEW-P1-1",
         "prepared_source_backed_execution" | "vortex_primitive_execution" | "vortex_planning" => {
@@ -1151,6 +1156,7 @@ mod tests {
         }
         assert!(seen.contains("help"));
         assert!(seen.contains("command-metadata"));
+        assert!(seen.contains("evidence-schema"));
         assert!(seen.contains("capabilities"));
         assert!(seen.contains("vortex-ingest-smoke"));
         assert!(seen.contains("vortex-local-commit-execute"));
@@ -1160,6 +1166,7 @@ mod tests {
     fn usage_line_is_registry_backed() {
         let usage = usage_line("shardloom");
         assert!(usage.starts_with("usage: shardloom <help [command]|command-metadata|"));
+        assert!(usage.contains("evidence-schema [surface]"));
         assert!(usage.contains("capabilities [sql|functions"));
         assert!(usage.contains("serve --mode discovery"));
         assert!(usage.contains("sql-execute"));

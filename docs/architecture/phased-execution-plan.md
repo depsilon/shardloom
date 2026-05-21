@@ -236,32 +236,6 @@ Current non-runtime sequence: complete the review-derived action items below bef
 expansion unless the user explicitly reprioritizes. Completed non-runtime history belongs in
 `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] REVIEW-P1-2 typed evidence schema registry and contract generation
-  - Source: 2026-05-21 structured repository review action sequence; typed envelope migration,
-    diagnostics/capabilities, execution certificates.
-  - Current state: typed envelopes and report helpers exist, but many evidence fields are still
-    string-key coupled across Rust reports, CLI JSON, Python typed accessors, docs, and snapshots.
-  - Next slice outcome: add a typed evidence-field schema registry that generates or validates CLI
-    field schemas, Python accessors, documentation rows, and contract snapshots for high-value
-    runtime surfaces.
-  - User-visible surface: CLI JSON schema, Python typed reports, docs/status evidence tables,
-    agent-facing diagnostics.
-  - Implementation scope: evidence schema definitions, CLI output helpers, Python typed report
-    accessors, docs generation or validation scripts, contract/snapshot tests.
-  - Evidence required: field key, dtype, cardinality, owning command/report, support state, claim
-    boundary, no-fallback semantics, deprecation/version policy, Python accessor mapping.
-  - Acceptance: schema drift between Rust output fields, Python accessors, and docs is detected by
-    tests before merge.
-  - Verification: typed-envelope contract snapshots, Python report tests, schema validator script,
-    release-readiness metadata, `cargo test --workspace --all-targets`, Python unit tests.
-  - Non-goals: no wire-format breaking change without compatibility plan, no public API stability
-    claim, no new runtime behavior.
-  - Claim boundary: schema consistency and drift prevention only.
-  - Fallback boundary: generated schemas must preserve `fallback_attempted`,
-    `external_engine_invoked`, support state, and claim-gate fields for runtime evidence.
-  - Ledger rule: ledger entry must list schema families covered and any field families still
-    string-key-only.
-
 - [ ] REVIEW-P1-3 benchmark constitution and row validator
   - Source: 2026-05-21 structured repository review action sequence; benchmark catalog,
     comparative rerun gate, benchmark claim evidence.
