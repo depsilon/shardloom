@@ -1073,6 +1073,14 @@ impl LocalSourceFormat {
             }
         }
     }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    const fn preserves_columnar_vortex_ingest_source_state(self) -> bool {
+        matches!(
+            self,
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1200,6 +1208,129 @@ impl CsvSourceData {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+struct VortexIngestSourceData {
+    source_format: LocalSourceFormat,
+    header: Vec<String>,
+    read_plan: LocalSourceReadPlan,
+    materialized_columns: Vec<String>,
+    reader_projection_columns: Vec<String>,
+    projection_pushdown_status: LocalSourceProjectionPushdownStatus,
+    source_bytes: u64,
+    source_digest: String,
+    row_count: usize,
+    read_millis: u128,
+    compatibility_parse_millis: u128,
+    source_to_columnar_millis: u128,
+    record_batch_count: usize,
+    materialization_layout: &'static str,
+    parse_normalization: &'static str,
+    columnar_source_preserved: bool,
+}
+
+impl VortexIngestSourceData {
+    fn from_scalar_source(source: CsvSourceData) -> Self {
+        Self {
+            row_count: source.rows.len(),
+            compatibility_parse_millis: source.parse_millis,
+            source_to_columnar_millis: 0,
+            record_batch_count: 0,
+            materialization_layout: CsvSourceData::materialization_layout(),
+            parse_normalization: source.parse_normalization(),
+            columnar_source_preserved: false,
+            source_format: source.source_format,
+            header: source.header,
+            read_plan: source.read_plan,
+            materialized_columns: source.materialized_columns,
+            reader_projection_columns: source.reader_projection_columns,
+            projection_pushdown_status: source.projection_pushdown_status,
+            source_bytes: source.source_bytes,
+            source_digest: source.source_digest,
+            read_millis: source.read_millis,
+        }
+    }
+
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    fn from_columnar_source(
+        source_format: LocalSourceFormat,
+        columnar_source: &shardloom_vortex::FlatLocalColumnarSource,
+        source_bytes: u64,
+        source_digest: String,
+        read_millis: u128,
+        source_to_columnar_millis: u128,
+    ) -> Self {
+        Self {
+            source_format,
+            header: columnar_source.header.clone(),
+            read_plan: LocalSourceReadPlan::full("full_columnar_source_state_default"),
+            materialized_columns: columnar_source.materialized_columns.clone(),
+            reader_projection_columns: columnar_source.reader_projection_columns.clone(),
+            projection_pushdown_status: LocalSourceProjectionPushdownStatus::NotRequestedFullRead,
+            source_bytes,
+            source_digest,
+            row_count: columnar_source.row_count,
+            read_millis,
+            compatibility_parse_millis: 0,
+            source_to_columnar_millis,
+            record_batch_count: columnar_source.batches.len(),
+            materialization_layout: "arrow_record_batch_columnar_source_state",
+            parse_normalization: "structured_reader_to_arrow_record_batches",
+            columnar_source_preserved: true,
+        }
+    }
+
+    fn materialized_columns_field(&self) -> String {
+        if self.materialized_columns.is_empty() {
+            "none".to_string()
+        } else {
+            self.materialized_columns.join(",")
+        }
+    }
+
+    fn reader_projection_columns_field(&self) -> String {
+        if self.reader_projection_columns.is_empty() {
+            "none".to_string()
+        } else {
+            self.reader_projection_columns.join(",")
+        }
+    }
+
+    fn pruned_column_count(&self) -> usize {
+        self.header
+            .len()
+            .saturating_sub(self.materialized_columns.len())
+    }
+
+    fn column_pruning_applied(&self) -> bool {
+        self.pruned_column_count() > 0
+    }
+
+    fn source_state_id(&self) -> String {
+        format!(
+            "local-{}-{}",
+            self.source_format.as_str(),
+            self.source_digest.replace(':', "-")
+        )
+    }
+
+    fn source_state_digest(&self, source_schema_digest: &str) -> String {
+        fnv64_digest(&format!(
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            self.source_format.as_str(),
+            self.source_digest,
+            source_schema_digest,
+            self.row_count,
+            self.source_bytes,
+            self.read_plan.requested_columns(),
+            self.materialized_columns_field(),
+            self.reader_projection_columns_field(),
+            self.projection_pushdown_status.as_str(),
+            self.materialization_layout,
+            self.columnar_source_preserved
+        ))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 struct GroupedAggregateBucket {
     values: Vec<(String, ScalarValue)>,
     row_indexes: Vec<usize>,
@@ -1245,7 +1376,7 @@ struct VortexIngestRequest {
 #[derive(Debug, Clone, PartialEq)]
 struct VortexIngestReport {
     request: VortexIngestRequest,
-    source: CsvSourceData,
+    source: VortexIngestSourceData,
     source_schema_digest: String,
     source_state_id: String,
     source_state_digest: String,
@@ -1528,6 +1659,19 @@ fn normalized_output_path_key(path: &Path) -> String {
 fn run_vortex_ingest_smoke(
     request: VortexIngestRequest,
 ) -> Result<VortexIngestReport, ShardLoomError> {
+    #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+    {
+        let source_format = LocalSourceFormat::from_path(&request.source_path)?;
+        if source_format.preserves_columnar_vortex_ingest_source_state() {
+            return run_columnar_vortex_ingest_smoke(request, source_format);
+        }
+    }
+    run_scalar_vortex_ingest_smoke(request)
+}
+
+fn run_scalar_vortex_ingest_smoke(
+    request: VortexIngestRequest,
+) -> Result<VortexIngestReport, ShardLoomError> {
     let prepare_start = Instant::now();
     let source = read_local_source(&request.source_path)?;
     let rows = ordered_source_rows(&source.header, &source.rows)?;
@@ -1539,6 +1683,87 @@ fn run_vortex_ingest_smoke(
     .allow_overwrite(request.allow_overwrite)
     .certification_level(request.certification_level);
     let vortex_report = shardloom_vortex::write_flat_scalar_vortex_prepared_state(vortex_request)?;
+    let prepare_once_total_millis = prepare_start.elapsed().as_millis();
+
+    let evidence_start = Instant::now();
+    let source = VortexIngestSourceData::from_scalar_source(source);
+    let source_schema_digest = fnv64_digest(&source.header.join(","));
+    let source_state_id = source_state_id_for_source(&source);
+    let source_state_digest = source_state_digest_for_source(&source, &source_schema_digest);
+    let prepared_state_digest = fnv64_digest(&format!(
+        "{}|{}|{}|{}",
+        source_state_digest,
+        vortex_report.artifact_digest,
+        vortex_report.column_family_summary(),
+        vortex_report.row_count
+    ));
+    let prepared_state_id = format!(
+        "vortex-prepared-state-{}",
+        prepared_state_digest.replace(':', "-")
+    );
+    let evidence_render_millis = evidence_start.elapsed().as_millis();
+
+    Ok(VortexIngestReport {
+        request,
+        source,
+        source_schema_digest,
+        source_state_id,
+        source_state_digest,
+        prepared_state_id,
+        prepared_state_digest,
+        prepare_once_total_millis,
+        evidence_render_millis,
+        vortex_report,
+    })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn run_columnar_vortex_ingest_smoke(
+    request: VortexIngestRequest,
+    source_format: LocalSourceFormat,
+) -> Result<VortexIngestReport, ShardLoomError> {
+    reject_remote_source_path(&request.source_path)?;
+    let prepare_start = Instant::now();
+    let read_start = Instant::now();
+    let bytes = fs::read(&request.source_path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to read local {} source {}: {error}",
+            source_format.row_label(),
+            request.source_path.display(),
+        ))
+    })?;
+    let read_millis = read_start.elapsed().as_millis();
+    let source_bytes = u64::try_from(bytes.len()).map_err(|_| {
+        ShardLoomError::InvalidOperation(format!(
+            "{} source length does not fit in u64",
+            source_format.row_label()
+        ))
+    })?;
+    let source_digest = fnv64_digest_bytes(&bytes);
+    let source_to_columnar_start = Instant::now();
+    let columnar_source =
+        read_columnar_vortex_ingest_source(source_format, &request.source_path, MAX_INPUT_ROWS)?;
+    let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
+    for column in &columnar_source.header {
+        validate_sql_identifier(column)?;
+    }
+
+    let source = VortexIngestSourceData::from_columnar_source(
+        source_format,
+        &columnar_source,
+        source_bytes,
+        source_digest,
+        read_millis,
+        source_to_columnar_millis,
+    );
+    let vortex_request = shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
+        &request.target_path,
+        columnar_source,
+    )
+    .allow_overwrite(request.allow_overwrite)
+    .certification_level(request.certification_level);
+    let vortex_report =
+        shardloom_vortex::write_flat_columnar_vortex_prepared_state(vortex_request)?;
     let prepare_once_total_millis = prepare_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
@@ -1570,6 +1795,30 @@ fn run_vortex_ingest_smoke(
         evidence_render_millis,
         vortex_report,
     })
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn read_columnar_vortex_ingest_source(
+    source_format: LocalSourceFormat,
+    path: &Path,
+    max_rows: usize,
+) -> Result<shardloom_vortex::FlatLocalColumnarSource, ShardLoomError> {
+    match source_format {
+        LocalSourceFormat::Parquet => {
+            shardloom_vortex::read_flat_parquet_columnar_source(path, max_rows)
+        }
+        LocalSourceFormat::ArrowIpc => {
+            shardloom_vortex::read_flat_arrow_ipc_columnar_source(path, max_rows)
+        }
+        LocalSourceFormat::Avro => shardloom_vortex::read_flat_avro_columnar_source(path, max_rows),
+        LocalSourceFormat::Orc => shardloom_vortex::read_flat_orc_columnar_source(path, max_rows),
+        LocalSourceFormat::Csv | LocalSourceFormat::Json | LocalSourceFormat::JsonLines => {
+            Err(ShardLoomError::InvalidOperation(format!(
+                "local {} source does not have a columnar vortex_ingest SourceState route; no fallback execution was attempted",
+                source_format.row_label()
+            )))
+        }
+    }
 }
 
 fn output_column_names(parsed: &ParsedSqlLocalSource, source: &CsvSourceData) -> Vec<String> {
@@ -1754,11 +2003,19 @@ impl VortexIngestReport {
             ),
             (
                 "source_state_materialization_layout".to_string(),
-                CsvSourceData::materialization_layout().to_string(),
+                self.source.materialization_layout.to_string(),
             ),
             (
                 "source_state_parse_normalization".to_string(),
-                self.source.parse_normalization().to_string(),
+                self.source.parse_normalization.to_string(),
+            ),
+            (
+                "source_state_columnar_preserved".to_string(),
+                self.source.columnar_source_preserved.to_string(),
+            ),
+            (
+                "source_state_record_batch_count".to_string(),
+                self.source.record_batch_count.to_string(),
             ),
             (
                 "source_state_materialized_column_count".to_string(),
@@ -1804,7 +2061,7 @@ impl VortexIngestReport {
             ("source_columns".to_string(), self.source.header.join(",")),
             (
                 "input_row_count".to_string(),
-                self.source.rows.len().to_string(),
+                self.source.row_count.to_string(),
             ),
             (
                 "target_vortex_path".to_string(),
@@ -1887,7 +2144,18 @@ impl VortexIngestReport {
             ),
             (
                 "compatibility_parse_millis".to_string(),
-                self.source.parse_millis.to_string(),
+                self.source.compatibility_parse_millis.to_string(),
+            ),
+            (
+                "source_to_columnar_millis".to_string(),
+                self.source.source_to_columnar_millis.to_string(),
+            ),
+            (
+                "vortex_array_build_millis".to_string(),
+                self.vortex_report
+                    .array_build_micros
+                    .div_ceil(1000)
+                    .to_string(),
             ),
             (
                 "vortex_ingest_millis".to_string(),
@@ -1965,6 +2233,14 @@ impl VortexIngestReport {
             ),
             (
                 "materialization_boundary".to_string(),
+                format!(
+                    "local_{}_{}_to_vortex_prepared_state",
+                    self.source.source_format.as_str(),
+                    self.source.materialization_layout
+                ),
+            ),
+            (
+                "legacy_materialization_boundary".to_string(),
                 format!(
                     "local_{}_row_materialization_to_vortex_prepared_state",
                     self.source.source_format.as_str()
@@ -2125,11 +2401,14 @@ fn ordered_source_rows(
         .collect()
 }
 
-fn source_state_id_for_source(source: &CsvSourceData) -> String {
+fn source_state_id_for_source(source: &VortexIngestSourceData) -> String {
     source.source_state_id()
 }
 
-fn source_state_digest_for_source(source: &CsvSourceData, source_schema_digest: &str) -> String {
+fn source_state_digest_for_source(
+    source: &VortexIngestSourceData,
+    source_schema_digest: &str,
+) -> String {
     source.source_state_digest(source_schema_digest)
 }
 

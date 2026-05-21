@@ -41,6 +41,21 @@ pub struct FlatLocalSourceTable {
     pub rows: Vec<BTreeMap<String, ScalarValue>>,
 }
 
+/// Columnar local compatibility source produced by a scoped local adapter.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FlatLocalColumnarSource {
+    /// Column order from the source schema.
+    pub header: Vec<String>,
+    /// Column order materialized for the caller.
+    pub materialized_columns: Vec<String>,
+    /// Column order requested from the underlying local reader.
+    pub reader_projection_columns: Vec<String>,
+    /// Arrow record batches preserved before scalar-row materialization.
+    pub batches: Vec<RecordBatch>,
+    /// Total row count across `batches`.
+    pub row_count: usize,
+}
+
 /// Read a local Parquet file into flat scalar rows for scoped runtime smokes.
 ///
 /// # Errors
@@ -48,6 +63,20 @@ pub struct FlatLocalSourceTable {
 /// the Parquet reader cannot be constructed, a column has an unsupported nested
 /// or decimal Arrow type, or the row count exceeds `max_rows`.
 pub fn read_flat_parquet_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
+    let source = read_flat_parquet_columnar_source(path, max_rows)?;
+    flat_columnar_source_to_scalar_table(&source, path, "Parquet")
+}
+
+/// Read a local Parquet file into columnar Arrow batches for scoped runtime smokes.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Parquet reader cannot be constructed, or the row count exceeds
+/// `max_rows`.
+pub fn read_flat_parquet_columnar_source(
+    path: &Path,
+    max_rows: usize,
+) -> Result<FlatLocalColumnarSource> {
     let file = open_local_source_file(path, "Parquet")?;
     let mut reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
         .map_err(|error| {
@@ -65,7 +94,7 @@ pub fn read_flat_parquet_source(path: &Path, max_rows: usize) -> Result<FlatLoca
             ))
         })?;
 
-    read_flat_record_batch_reader(&mut reader, path, "Parquet", max_rows)
+    read_flat_record_batch_reader_columnar(&mut reader, path, "Parquet", max_rows)
 }
 
 /// Read selected root columns from a local Parquet file into flat scalar rows.
@@ -83,6 +112,23 @@ pub fn read_flat_parquet_source_with_projection(
     max_rows: usize,
     required_columns: &[String],
 ) -> Result<FlatLocalSourceTable> {
+    let source =
+        read_flat_parquet_columnar_source_with_projection(path, max_rows, required_columns)?;
+    flat_columnar_source_to_scalar_table(&source, path, "Parquet")
+}
+
+/// Read selected root columns from a local Parquet file into columnar Arrow
+/// batches.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Parquet reader cannot be constructed, or the row count exceeds
+/// `max_rows`.
+pub fn read_flat_parquet_columnar_source_with_projection(
+    path: &Path,
+    max_rows: usize,
+    required_columns: &[String],
+) -> Result<FlatLocalColumnarSource> {
     let file = open_local_source_file(path, "Parquet")?;
     let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
         .map_err(|error| {
@@ -109,7 +155,7 @@ pub fn read_flat_parquet_source_with_projection(
             ))
         })?;
 
-    read_flat_record_batch_reader_with_header(
+    read_flat_record_batch_reader_columnar_with_header(
         &mut reader,
         path,
         "Parquet",
@@ -127,6 +173,21 @@ pub fn read_flat_parquet_source_with_projection(
 /// nested, decimal, dictionary, or union Arrow type, or the row count exceeds
 /// `max_rows`.
 pub fn read_flat_arrow_ipc_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
+    let source = read_flat_arrow_ipc_columnar_source(path, max_rows)?;
+    flat_columnar_source_to_scalar_table(&source, path, "Arrow IPC")
+}
+
+/// Read a local Arrow IPC file into columnar Arrow batches for scoped runtime
+/// smokes.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Arrow IPC reader cannot be constructed, or the row count exceeds
+/// `max_rows`.
+pub fn read_flat_arrow_ipc_columnar_source(
+    path: &Path,
+    max_rows: usize,
+) -> Result<FlatLocalColumnarSource> {
     let file = open_local_source_file(path, "Arrow IPC")?;
     let mut reader = arrow_ipc::reader::FileReader::try_new(file, None).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -135,7 +196,7 @@ pub fn read_flat_arrow_ipc_source(path: &Path, max_rows: usize) -> Result<FlatLo
         ))
     })?;
 
-    read_flat_record_batch_reader(&mut reader, path, "Arrow IPC", max_rows)
+    read_flat_record_batch_reader_columnar(&mut reader, path, "Arrow IPC", max_rows)
 }
 
 /// Read selected columns from a local Arrow IPC file into flat scalar rows.
@@ -153,6 +214,23 @@ pub fn read_flat_arrow_ipc_source_with_projection(
     max_rows: usize,
     required_columns: &[String],
 ) -> Result<FlatLocalSourceTable> {
+    let source =
+        read_flat_arrow_ipc_columnar_source_with_projection(path, max_rows, required_columns)?;
+    flat_columnar_source_to_scalar_table(&source, path, "Arrow IPC")
+}
+
+/// Read selected columns from a local Arrow IPC file into columnar Arrow
+/// batches.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Arrow IPC reader cannot be constructed, or the row count exceeds
+/// `max_rows`.
+pub fn read_flat_arrow_ipc_columnar_source_with_projection(
+    path: &Path,
+    max_rows: usize,
+    required_columns: &[String],
+) -> Result<FlatLocalColumnarSource> {
     let full_file = open_local_source_file(path, "Arrow IPC")?;
     let full_reader = arrow_ipc::reader::FileReader::try_new(full_file, None).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -174,7 +252,7 @@ pub fn read_flat_arrow_ipc_source_with_projection(
             ))
         })?;
 
-    read_flat_record_batch_reader_with_header(
+    read_flat_record_batch_reader_columnar_with_header(
         &mut reader,
         path,
         "Arrow IPC",
@@ -192,6 +270,20 @@ pub fn read_flat_arrow_ipc_source_with_projection(
 /// logical, decimal, dictionary, or union Arrow type, or the row count exceeds
 /// `max_rows`.
 pub fn read_flat_avro_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
+    let source = read_flat_avro_columnar_source(path, max_rows)?;
+    flat_columnar_source_to_scalar_table(&source, path, "Avro")
+}
+
+/// Read a local Avro file into columnar Arrow batches for scoped runtime
+/// smokes.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Avro reader cannot be constructed, or the row count exceeds `max_rows`.
+pub fn read_flat_avro_columnar_source(
+    path: &Path,
+    max_rows: usize,
+) -> Result<FlatLocalColumnarSource> {
     let file = open_local_source_file(path, "Avro")?;
     let mut reader = arrow_avro::reader::ReaderBuilder::new()
         .with_batch_size(max_rows.clamp(1, 8192))
@@ -203,7 +295,7 @@ pub fn read_flat_avro_source(path: &Path, max_rows: usize) -> Result<FlatLocalSo
             ))
         })?;
 
-    read_flat_record_batch_reader(&mut reader, path, "Avro", max_rows)
+    read_flat_record_batch_reader_columnar(&mut reader, path, "Avro", max_rows)
 }
 
 /// Read selected columns from a local Avro file into flat scalar rows.
@@ -221,6 +313,20 @@ pub fn read_flat_avro_source_with_projection(
     max_rows: usize,
     required_columns: &[String],
 ) -> Result<FlatLocalSourceTable> {
+    let source = read_flat_avro_columnar_source_with_projection(path, max_rows, required_columns)?;
+    flat_columnar_source_to_scalar_table(&source, path, "Avro")
+}
+
+/// Read selected columns from a local Avro file into columnar Arrow batches.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Avro reader cannot be constructed, or the row count exceeds `max_rows`.
+pub fn read_flat_avro_columnar_source_with_projection(
+    path: &Path,
+    max_rows: usize,
+    required_columns: &[String],
+) -> Result<FlatLocalColumnarSource> {
     let full_file = open_local_source_file(path, "Avro")?;
     let full_reader = arrow_avro::reader::ReaderBuilder::new()
         .with_batch_size(max_rows.clamp(1, 8192))
@@ -253,7 +359,7 @@ pub fn read_flat_avro_source_with_projection(
             ))
         })?;
 
-    read_flat_record_batch_reader_with_reader_projection(
+    read_flat_record_batch_reader_columnar_with_reader_projection(
         &mut reader,
         path,
         "Avro",
@@ -272,6 +378,19 @@ pub fn read_flat_avro_source_with_projection(
 /// decimal, dictionary, or union Arrow type, or the row count exceeds
 /// `max_rows`.
 pub fn read_flat_orc_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
+    let source = read_flat_orc_columnar_source(path, max_rows)?;
+    flat_columnar_source_to_scalar_table(&source, path, "ORC")
+}
+
+/// Read a local ORC file into columnar Arrow batches for scoped runtime smokes.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the ORC reader cannot be constructed, or the row count exceeds `max_rows`.
+pub fn read_flat_orc_columnar_source(
+    path: &Path,
+    max_rows: usize,
+) -> Result<FlatLocalColumnarSource> {
     let file = open_local_source_file(path, "ORC")?;
     let mut reader = orc_rust::ArrowReaderBuilder::try_new(file)
         .map_err(|error| {
@@ -283,7 +402,7 @@ pub fn read_flat_orc_source(path: &Path, max_rows: usize) -> Result<FlatLocalSou
         .with_batch_size(max_rows.clamp(1, 8192))
         .build();
 
-    read_flat_record_batch_reader(&mut reader, path, "ORC", max_rows)
+    read_flat_record_batch_reader_columnar(&mut reader, path, "ORC", max_rows)
 }
 
 /// Read selected root columns from a local ORC file into flat scalar rows.
@@ -301,6 +420,21 @@ pub fn read_flat_orc_source_with_projection(
     max_rows: usize,
     required_columns: &[String],
 ) -> Result<FlatLocalSourceTable> {
+    let source = read_flat_orc_columnar_source_with_projection(path, max_rows, required_columns)?;
+    flat_columnar_source_to_scalar_table(&source, path, "ORC")
+}
+
+/// Read selected root columns from a local ORC file into columnar Arrow
+/// batches.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the ORC reader cannot be constructed, or the row count exceeds `max_rows`.
+pub fn read_flat_orc_columnar_source_with_projection(
+    path: &Path,
+    max_rows: usize,
+    required_columns: &[String],
+) -> Result<FlatLocalColumnarSource> {
     let file = open_local_source_file(path, "ORC")?;
     let builder = orc_rust::ArrowReaderBuilder::try_new(file).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -320,7 +454,7 @@ pub fn read_flat_orc_source_with_projection(
         .with_projection(projection)
         .build();
 
-    read_flat_record_batch_reader_with_header(
+    read_flat_record_batch_reader_columnar_with_header(
         &mut reader,
         path,
         "ORC",
@@ -330,19 +464,19 @@ pub fn read_flat_orc_source_with_projection(
     )
 }
 
-fn read_flat_record_batch_reader<R>(
+fn read_flat_record_batch_reader_columnar<R>(
     reader: &mut R,
     path: &Path,
     source_label: &str,
     max_rows: usize,
-) -> Result<FlatLocalSourceTable>
+) -> Result<FlatLocalColumnarSource>
 where
     R: RecordBatchReader,
 {
     let schema = reader.schema();
     let header = source_schema_header(path, source_label, schema.as_ref())?;
     let projected_header = header.clone();
-    read_flat_record_batch_reader_with_header(
+    read_flat_record_batch_reader_columnar_with_header(
         reader,
         path,
         source_label,
@@ -352,19 +486,19 @@ where
     )
 }
 
-fn read_flat_record_batch_reader_with_header<R>(
+fn read_flat_record_batch_reader_columnar_with_header<R>(
     reader: &mut R,
     path: &Path,
     source_label: &str,
     max_rows: usize,
     header: Vec<String>,
     projected_header: &[String],
-) -> Result<FlatLocalSourceTable>
+) -> Result<FlatLocalColumnarSource>
 where
     R: RecordBatchReader,
 {
     let reader_projection_columns = projected_header.to_owned();
-    read_flat_record_batch_reader_with_reader_projection(
+    read_flat_record_batch_reader_columnar_with_reader_projection(
         reader,
         path,
         source_label,
@@ -375,7 +509,7 @@ where
     )
 }
 
-fn read_flat_record_batch_reader_with_reader_projection<R>(
+fn read_flat_record_batch_reader_columnar_with_reader_projection<R>(
     reader: &mut R,
     path: &Path,
     source_label: &str,
@@ -383,15 +517,12 @@ fn read_flat_record_batch_reader_with_reader_projection<R>(
     header: Vec<String>,
     projected_header: &[String],
     reader_projection_columns: Vec<String>,
-) -> Result<FlatLocalSourceTable>
+) -> Result<FlatLocalColumnarSource>
 where
     R: RecordBatchReader,
 {
-    let output_columns = projected_header
-        .iter()
-        .map(String::as_str)
-        .collect::<BTreeSet<_>>();
-    let mut rows = Vec::new();
+    let mut batches = Vec::new();
+    let mut row_count = 0usize;
     for batch in reader {
         let batch = batch.map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -405,15 +536,45 @@ where
                 path.display(),
             )));
         }
+        row_count = row_count.checked_add(batch.num_rows()).ok_or_else(|| {
+            ShardLoomError::InvalidOperation(format!(
+                "local {source_label} source '{}' row count overflowed usize",
+                path.display()
+            ))
+        })?;
+        if row_count > max_rows {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "local {source_label} source '{}' exceeds the scoped SQL local-source row limit of {max_rows}",
+                path.display()
+            )));
+        }
+        batches.push(batch);
+    }
+
+    Ok(FlatLocalColumnarSource {
+        header,
+        materialized_columns: projected_header.to_owned(),
+        reader_projection_columns,
+        batches,
+        row_count,
+    })
+}
+
+fn flat_columnar_source_to_scalar_table(
+    source: &FlatLocalColumnarSource,
+    path: &Path,
+    source_label: &str,
+) -> Result<FlatLocalSourceTable> {
+    let output_columns = source
+        .materialized_columns
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    let mut rows = Vec::with_capacity(source.row_count);
+    for batch in &source.batches {
         for row_index in 0..batch.num_rows() {
-            if rows.len() >= max_rows {
-                return Err(ShardLoomError::InvalidOperation(format!(
-                    "local {source_label} source '{}' exceeds the scoped SQL local-source row limit of {max_rows}",
-                    path.display()
-                )));
-            }
             let mut row = BTreeMap::new();
-            for (column, array) in reader_projection_columns.iter().zip(batch.columns()) {
+            for (column, array) in source.reader_projection_columns.iter().zip(batch.columns()) {
                 if !output_columns.contains(column.as_str()) {
                     continue;
                 }
@@ -433,8 +594,8 @@ where
     }
 
     Ok(FlatLocalSourceTable {
-        header,
-        reader_projection_columns,
+        header: source.header.clone(),
+        reader_projection_columns: source.reader_projection_columns.clone(),
         rows,
     })
 }

@@ -11,7 +11,16 @@ use std::path::PathBuf;
 #[cfg(feature = "vortex-write")]
 use std::{collections::BTreeSet, path::Path, time::Instant};
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use arrow_array::{
+    Array, ArrayRef as ArrowArrayRef, Date32Array, Float32Array, Float64Array, Int8Array,
+    Int16Array, Int32Array, Int64Array, LargeStringArray, StringArray, StringViewArray,
+    TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
+};
 use shardloom_core::{Result, ScalarValue, ShardLoomError};
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+use crate::universal_format_io::FlatLocalColumnarSource;
 
 /// Request to write one flat scalar local source into a local Vortex artifact.
 #[derive(Debug, Clone, PartialEq)]
@@ -21,6 +30,47 @@ pub struct VortexPreparedStateWriteRequest {
     pub rows: Vec<Vec<(String, ScalarValue)>>,
     pub allow_overwrite: bool,
     pub certification_level: VortexIngestCertificationLevel,
+}
+
+/// Request to write one flat columnar local source into a Vortex artifact.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[derive(Debug, Clone, PartialEq)]
+pub struct VortexPreparedStateColumnarWriteRequest {
+    pub target_path: PathBuf,
+    pub source: FlatLocalColumnarSource,
+    pub allow_overwrite: bool,
+    pub certification_level: VortexIngestCertificationLevel,
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+impl VortexPreparedStateColumnarWriteRequest {
+    /// Create a request for a columnar local `VortexPreparedState` artifact write.
+    #[must_use]
+    pub fn new(target_path: impl Into<PathBuf>, source: FlatLocalColumnarSource) -> Self {
+        Self {
+            target_path: target_path.into(),
+            source,
+            allow_overwrite: false,
+            certification_level: VortexIngestCertificationLevel::IngestCertified,
+        }
+    }
+
+    /// Allow overwriting an existing local target artifact.
+    #[must_use]
+    pub const fn allow_overwrite(mut self, allow_overwrite: bool) -> Self {
+        self.allow_overwrite = allow_overwrite;
+        self
+    }
+
+    /// Set the requested ingest certification depth.
+    #[must_use]
+    pub const fn certification_level(
+        mut self,
+        certification_level: VortexIngestCertificationLevel,
+    ) -> Self {
+        self.certification_level = certification_level;
+        self
+    }
 }
 
 impl VortexPreparedStateWriteRequest {
@@ -110,6 +160,7 @@ pub struct VortexPreparedStateWriteReport {
     pub digest_micros: u128,
     pub writer_row_count: u64,
     pub reopen_row_count: u64,
+    pub array_build_micros: u128,
     pub write_micros: u128,
     pub reopen_scan_micros: u128,
     pub reopen_verification_status: String,
@@ -196,8 +247,6 @@ pub fn write_flat_scalar_vortex_prepared_state(
 pub fn write_flat_scalar_vortex_prepared_state(
     request: VortexPreparedStateWriteRequest,
 ) -> Result<VortexPreparedStateWriteReport> {
-    use std::fs;
-
     if request.certification_level == VortexIngestCertificationLevel::IngestFullReplay {
         return Err(ShardLoomError::InvalidOperation(
             "local vortex_ingest ingest_full_replay requires downstream result replay/output evidence; use ingest_certified for prepare-once proof or run an output/replay workflow; no fallback execution was attempted"
@@ -207,13 +256,67 @@ pub fn write_flat_scalar_vortex_prepared_state(
 
     let row_count = validate_flat_rows(&request.columns, &request.rows)?;
     let column_families = scalar_column_families(&request.columns, &request.rows)?;
-    if request.target_path.exists() && !request.allow_overwrite {
+    prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
+    let array_build_start = Instant::now();
+    let array = flat_rows_to_vortex_struct(&request.columns, &request.rows, &column_families)?;
+    let array_build_micros = array_build_start.elapsed().as_micros();
+    finalize_vortex_prepared_state_write(
+        request.target_path,
+        request.columns.len(),
+        column_families,
+        row_count,
+        &array,
+        array_build_micros,
+        request.certification_level,
+    )
+}
+
+/// Write flat columnar Arrow batches into a local Vortex artifact and
+/// reopen/scan it.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when columnar support is outside
+/// the scoped contract, the target already exists without overwrite
+/// permission, or upstream Vortex write/reopen APIs fail.
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub fn write_flat_columnar_vortex_prepared_state(
+    request: VortexPreparedStateColumnarWriteRequest,
+) -> Result<VortexPreparedStateWriteReport> {
+    if request.certification_level == VortexIngestCertificationLevel::IngestFullReplay {
+        return Err(ShardLoomError::InvalidOperation(
+            "local vortex_ingest ingest_full_replay requires downstream result replay/output evidence; use ingest_certified for prepare-once proof or run an output/replay workflow; no fallback execution was attempted"
+                .to_string(),
+        ));
+    }
+
+    validate_flat_columns(&request.source.materialized_columns)?;
+    prepare_vortex_target(&request.target_path, request.allow_overwrite)?;
+    let array_build_start = Instant::now();
+    let (array, column_families) = flat_columnar_source_to_vortex_struct(&request.source)?;
+    let array_build_micros = array_build_start.elapsed().as_micros();
+    let row_count = usize_to_u64(request.source.row_count)?;
+    finalize_vortex_prepared_state_write(
+        request.target_path,
+        request.source.materialized_columns.len(),
+        column_families,
+        row_count,
+        &array,
+        array_build_micros,
+        request.certification_level,
+    )
+}
+
+#[cfg(feature = "vortex-write")]
+fn prepare_vortex_target(target_path: &Path, allow_overwrite: bool) -> Result<()> {
+    use std::fs;
+
+    if target_path.exists() && !allow_overwrite {
         return Err(ShardLoomError::InvalidOperation(format!(
             "local vortex_ingest target '{}' already exists; pass --allow-overwrite to replace it",
-            request.target_path.display()
+            target_path.display()
         )));
     }
-    if let Some(parent) = request.target_path.parent()
+    if let Some(parent) = target_path.parent()
         && !parent.as_os_str().is_empty()
     {
         fs::create_dir_all(parent).map_err(|error| {
@@ -223,18 +326,29 @@ pub fn write_flat_scalar_vortex_prepared_state(
             ))
         })?;
     }
+    Ok(())
+}
 
-    let array = flat_rows_to_vortex_struct(&request.columns, &request.rows, &column_families)?;
-    let write_result = write_vortex_array(&request.target_path, &array)?;
+#[cfg(feature = "vortex-write")]
+fn finalize_vortex_prepared_state_write(
+    target_path: PathBuf,
+    column_count: usize,
+    column_families: Vec<(String, String)>,
+    row_count: u64,
+    array: &vortex::array::ArrayRef,
+    array_build_micros: u128,
+    certification_level: VortexIngestCertificationLevel,
+) -> Result<VortexPreparedStateWriteReport> {
+    let write_result = write_vortex_array(&target_path, array)?;
 
     let (
         reopen_row_count,
         reopen_scan_micros,
         reopen_verification_status,
         upstream_vortex_scan_called,
-    ) = if request.certification_level == VortexIngestCertificationLevel::IngestCertified {
+    ) = if certification_level == VortexIngestCertificationLevel::IngestCertified {
         let reopen_start = Instant::now();
-        let reopen_row_count = reopen_vortex_row_count(&request.target_path)?;
+        let reopen_row_count = reopen_vortex_row_count(&target_path)?;
         let reopen_scan_micros = reopen_start.elapsed().as_micros();
         if write_result.writer_row_count != row_count || reopen_row_count != row_count {
             return Err(ShardLoomError::InvalidOperation(format!(
@@ -259,20 +373,21 @@ pub fn write_flat_scalar_vortex_prepared_state(
     };
 
     Ok(VortexPreparedStateWriteReport {
-        target_path: request.target_path,
+        target_path,
         row_count,
-        column_count: request.columns.len(),
+        column_count,
         column_families,
         bytes_written: write_result.bytes_written,
         artifact_digest: write_result.artifact_digest,
         digest_micros: write_result.digest_micros,
         writer_row_count: write_result.writer_row_count,
         reopen_row_count,
+        array_build_micros,
         write_micros: write_result.write_micros,
         reopen_scan_micros,
         reopen_verification_status,
         timing_scope: "vortex_ingest_prepare_once".to_string(),
-        certification_level: request.certification_level.as_str().to_string(),
+        certification_level: certification_level.as_str().to_string(),
         preparation_included: true,
         query_timing_starts_after_preparation: false,
         upstream_vortex_write_called: true,
@@ -380,6 +495,299 @@ fn scalar_family(value: &ScalarValue) -> Option<&'static str> {
         | ScalarValue::Binary(_)
         | ScalarValue::Float64(_) => None,
     }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn flat_columnar_source_to_vortex_struct(
+    source: &FlatLocalColumnarSource,
+) -> Result<(vortex::array::ArrayRef, Vec<(String, String)>)> {
+    use vortex::array::IntoArray as _;
+    use vortex::array::arrays::StructArray;
+    use vortex::array::dtype::FieldNames;
+    use vortex::array::validity::Validity;
+
+    let column_families = columnar_column_families(source)?;
+    let fields = column_families
+        .iter()
+        .map(|(column, family)| {
+            let column_index = source
+                .reader_projection_columns
+                .iter()
+                .position(|candidate| candidate == column)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "local vortex_ingest columnar SourceState is missing projected column '{column}'; no fallback execution was attempted"
+                    ))
+                })?;
+            let arrays = source
+                .batches
+                .iter()
+                .map(|batch| batch.column(column_index).clone())
+                .collect::<Vec<_>>();
+            columnar_column_to_vortex_array(column, family, &arrays)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let array = StructArray::try_new(
+        FieldNames::from(
+            source
+                .materialized_columns
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+        ),
+        fields,
+        source.row_count,
+        Validity::NonNullable,
+    )
+    .map_err(vortex_error)?
+    .into_array();
+    Ok((array, column_families))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_column_families(source: &FlatLocalColumnarSource) -> Result<Vec<(String, String)>> {
+    source
+        .materialized_columns
+        .iter()
+        .map(|column| {
+            let column_index = source
+                .reader_projection_columns
+                .iter()
+                .position(|candidate| candidate == column)
+                .ok_or_else(|| {
+                    ShardLoomError::InvalidOperation(format!(
+                        "local vortex_ingest columnar SourceState is missing projected column '{column}'; no fallback execution was attempted"
+                    ))
+                })?;
+            let mut family = None;
+            for batch in &source.batches {
+                let array = batch.column(column_index);
+                reject_columnar_nulls(column, array.as_ref())?;
+                let candidate = arrow_column_family(column, array.as_ref())?;
+                if let Some(existing) = family {
+                    if existing != candidate {
+                        return Err(ShardLoomError::InvalidOperation(format!(
+                            "local vortex_ingest column '{column}' mixes columnar families {existing} and {candidate}; no fallback execution was attempted"
+                        )));
+                    }
+                } else {
+                    family = Some(candidate);
+                }
+            }
+            Ok((column.clone(), family.unwrap_or("utf8").to_string()))
+        })
+        .collect()
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn reject_columnar_nulls(column: &str, array: &dyn Array) -> Result<()> {
+    if array.null_count() > 0 {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest column '{column}' contains nulls; scoped Vortex ingest admits non-null int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted"
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn arrow_column_family(column: &str, array: &dyn Array) -> Result<&'static str> {
+    if array.as_any().is::<Int8Array>()
+        || array.as_any().is::<Int16Array>()
+        || array.as_any().is::<Int32Array>()
+        || array.as_any().is::<Int64Array>()
+    {
+        return Ok("int64");
+    }
+    if array.as_any().is::<UInt8Array>()
+        || array.as_any().is::<UInt16Array>()
+        || array.as_any().is::<UInt32Array>()
+        || array.as_any().is::<UInt64Array>()
+    {
+        return Ok("uint64");
+    }
+    if array.as_any().is::<Float32Array>() || array.as_any().is::<Float64Array>() {
+        return Ok("float64");
+    }
+    if array.as_any().is::<StringArray>()
+        || array.as_any().is::<LargeStringArray>()
+        || array.as_any().is::<StringViewArray>()
+    {
+        return Ok("utf8");
+    }
+    if array.as_any().is::<Date32Array>() {
+        return Ok("date32");
+    }
+    if array.as_any().is::<TimestampMicrosecondArray>() {
+        return Ok("timestamp_micros");
+    }
+    Err(ShardLoomError::InvalidOperation(format!(
+        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits non-null int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted",
+        array.data_type()
+    )))
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_column_to_vortex_array(
+    column: &str,
+    family: &str,
+    arrays: &[ArrowArrayRef],
+) -> Result<vortex::array::ArrayRef> {
+    use vortex::array::IntoArray as _;
+    use vortex::array::arrays::{PrimitiveArray, VarBinViewArray};
+
+    match family {
+        "int64" => Ok(columnar_int64_values(column, arrays)?
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array()),
+        "uint64" => Ok(columnar_uint64_values(column, arrays)?
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array()),
+        "float64" => Ok(columnar_float64_values(column, arrays)?
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array()),
+        "utf8" => {
+            let values = columnar_utf8_values(column, arrays)?;
+            Ok(VarBinViewArray::from_iter_str(values.iter().map(String::as_str)).into_array())
+        }
+        "date32" => Ok(columnar_date32_values(column, arrays)?
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array()),
+        "timestamp_micros" => Ok(columnar_timestamp_micros_values(column, arrays)?
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array()),
+        other => Err(ShardLoomError::InvalidOperation(format!(
+            "local vortex_ingest column '{column}' has unsupported columnar family {other}; no fallback execution was attempted"
+        ))),
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_int64_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<i64>> {
+    let mut values = Vec::new();
+    for array in arrays {
+        if let Some(array) = array.as_any().downcast_ref::<Int8Array>() {
+            values.extend((0..array.len()).map(|index| i64::from(array.value(index))));
+        } else if let Some(array) = array.as_any().downcast_ref::<Int16Array>() {
+            values.extend((0..array.len()).map(|index| i64::from(array.value(index))));
+        } else if let Some(array) = array.as_any().downcast_ref::<Int32Array>() {
+            values.extend((0..array.len()).map(|index| i64::from(array.value(index))));
+        } else if let Some(array) = array.as_any().downcast_ref::<Int64Array>() {
+            values.extend((0..array.len()).map(|index| array.value(index)));
+        } else {
+            return Err(unexpected_columnar_array(column, "int64", array.as_ref()));
+        }
+    }
+    Ok(values)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_uint64_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<u64>> {
+    let mut values = Vec::new();
+    for array in arrays {
+        if let Some(array) = array.as_any().downcast_ref::<UInt8Array>() {
+            values.extend((0..array.len()).map(|index| u64::from(array.value(index))));
+        } else if let Some(array) = array.as_any().downcast_ref::<UInt16Array>() {
+            values.extend((0..array.len()).map(|index| u64::from(array.value(index))));
+        } else if let Some(array) = array.as_any().downcast_ref::<UInt32Array>() {
+            values.extend((0..array.len()).map(|index| u64::from(array.value(index))));
+        } else if let Some(array) = array.as_any().downcast_ref::<UInt64Array>() {
+            values.extend((0..array.len()).map(|index| array.value(index)));
+        } else {
+            return Err(unexpected_columnar_array(column, "uint64", array.as_ref()));
+        }
+    }
+    Ok(values)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_float64_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<f64>> {
+    let mut values = Vec::new();
+    for array in arrays {
+        if let Some(array) = array.as_any().downcast_ref::<Float32Array>() {
+            for index in 0..array.len() {
+                let value = array.value(index);
+                if !value.is_finite() {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "local vortex_ingest column '{column}' contains non-finite float32; no fallback execution was attempted"
+                    )));
+                }
+                values.push(f64::from(value));
+            }
+        } else if let Some(array) = array.as_any().downcast_ref::<Float64Array>() {
+            for index in 0..array.len() {
+                let value = array.value(index);
+                if !value.is_finite() {
+                    return Err(ShardLoomError::InvalidOperation(format!(
+                        "local vortex_ingest column '{column}' contains non-finite float64; no fallback execution was attempted"
+                    )));
+                }
+                values.push(value);
+            }
+        } else {
+            return Err(unexpected_columnar_array(column, "float64", array.as_ref()));
+        }
+    }
+    Ok(values)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_utf8_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<String>> {
+    let mut values = Vec::new();
+    for array in arrays {
+        if let Some(array) = array.as_any().downcast_ref::<StringArray>() {
+            values.extend((0..array.len()).map(|index| array.value(index).to_string()));
+        } else if let Some(array) = array.as_any().downcast_ref::<LargeStringArray>() {
+            values.extend((0..array.len()).map(|index| array.value(index).to_string()));
+        } else if let Some(array) = array.as_any().downcast_ref::<StringViewArray>() {
+            values.extend((0..array.len()).map(|index| array.value(index).to_string()));
+        } else {
+            return Err(unexpected_columnar_array(column, "utf8", array.as_ref()));
+        }
+    }
+    Ok(values)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_date32_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<i32>> {
+    let mut values = Vec::new();
+    for array in arrays {
+        if let Some(array) = array.as_any().downcast_ref::<Date32Array>() {
+            values.extend((0..array.len()).map(|index| array.value(index)));
+        } else {
+            return Err(unexpected_columnar_array(column, "date32", array.as_ref()));
+        }
+    }
+    Ok(values)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_timestamp_micros_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<i64>> {
+    let mut values = Vec::new();
+    for array in arrays {
+        if let Some(array) = array.as_any().downcast_ref::<TimestampMicrosecondArray>() {
+            values.extend((0..array.len()).map(|index| array.value(index)));
+        } else {
+            return Err(unexpected_columnar_array(
+                column,
+                "timestamp_micros",
+                array.as_ref(),
+            ));
+        }
+    }
+    Ok(values)
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn unexpected_columnar_array(column: &str, family: &str, array: &dyn Array) -> ShardLoomError {
+    ShardLoomError::InvalidOperation(format!(
+        "local vortex_ingest column '{column}' expected {family}, found Arrow type {:?}; no fallback execution was attempted",
+        array.data_type()
+    ))
 }
 
 #[cfg(feature = "vortex-write")]
@@ -700,6 +1108,62 @@ mod tests {
         assert_eq!(report.certification_level, "ingest_minimal");
         assert!(report.upstream_vortex_write_called);
         assert!(!report.upstream_vortex_scan_called);
+        assert!(path.exists());
+        std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_source_writes_and_reopens_vortex_artifact() {
+        use std::sync::Arc;
+
+        use arrow_array::{Float64Array, Int64Array, RecordBatch, StringArray};
+        use arrow_schema::{DataType, Field, Schema};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "label".to_string(), "metric".to_string()];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("label", DataType::Utf8, false),
+            Field::new("metric", DataType::Float64, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2])),
+                Arc::new(StringArray::from(vec!["alpha", "beta"])),
+                Arc::new(Float64Array::from(vec![1.5, 2.5])),
+            ],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 2,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let report = write_flat_columnar_vortex_prepared_state(request).expect("write report");
+
+        assert_eq!(report.row_count, 2);
+        assert_eq!(report.reopen_row_count, 2);
+        assert_eq!(
+            report.column_family_summary(),
+            "id:int64,label:utf8,metric:float64"
+        );
+        assert_eq!(
+            report.reopen_verification_status,
+            "reopen_row_count_verified"
+        );
+        assert!(report.upstream_vortex_write_called);
+        assert!(report.upstream_vortex_scan_called);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }

@@ -16,6 +16,68 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F/4F1 columnar SourceState `vortex_ingest` preservation
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-columnar-source-state-next` / #889.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F` UniversalIngress local/non-Vortex adapter runtime coverage.
+    - `GAR-RUNTIME-IMPL-4F1` compatibility import certified optimization and `vortex_ingest`
+      attribution.
+    - User request to use larger performance-oriented slices after completing the 8-item sweep.
+  - Scope:
+    - Added `FlatLocalColumnarSource` for feature-gated Parquet, Arrow IPC, Avro, and ORC
+      structured local reads so adapter output can remain Arrow `RecordBatch` batches before
+      scalar-row materialization.
+    - Refactored scalar structured readers to collect through the same columnar SourceState helper
+      and only materialize row maps at the scalar expression boundary.
+    - Added a feature-gated columnar `VortexPreparedState` writer path for flat scalar Arrow
+      batches, including direct conversion to Vortex arrays without first building per-row maps.
+    - Routed `vortex-ingest-smoke` through the columnar SourceState path for Parquet/Arrow
+      IPC/Avro/ORC when both `vortex-write` and `universal-format-io` are enabled; CSV/JSON/JSONL
+      remain scalar compatibility paths.
+    - Extended CLI/Python evidence with SourceState materialization layout, parse-normalization,
+      columnar-preserved flag, record-batch count, `source_to_columnar_millis`, and
+      `vortex_array_build_millis`.
+  - Evidence:
+    - `vortex-ingest-smoke` over local Parquet reports
+      `source_state_materialization_layout=arrow_record_batch_columnar_source_state`,
+      `source_state_columnar_preserved=true`, and writer/reopen row-count proof.
+    - Direct-transient SQL local-source tests still prove reader-level projection and Avro
+      `COUNT(*)` row-count-anchor behavior after the shared columnar reader refactor.
+    - No Spark, DataFusion, DuckDB, Polars, pandas, or other external engine path was added.
+  - Verification:
+    - `cargo check -p shardloom-vortex --features "vortex-write universal-format-io"`
+    - `cargo check -p shardloom-cli --features "vortex-write universal-format-io"`
+    - `cargo check -p shardloom-cli --features vortex-write`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy -p shardloom-vortex --features "vortex-write universal-format-io" --lib -- -D warnings`
+    - `cargo clippy -p shardloom-cli --features "vortex-write universal-format-io" --all-targets -- -D warnings`
+    - `cargo clippy -p shardloom-vortex --features universal-format-io --lib -- -D warnings`
+    - `cargo clippy -p shardloom-cli --features universal-format-io --all-targets -- -D warnings`
+    - `cargo test -p shardloom-vortex --features "vortex-write universal-format-io" local_flat_columnar_source_writes_and_reopens_vortex_artifact -- --nocapture`
+    - `cargo test -p shardloom-cli --features "vortex-write universal-format-io" --test sql_local_source_runtime_smoke vortex_ingest_smoke -- --nocapture`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke source_state_evidence -- --nocapture`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_uses_zero_column_reader_projection_for_count_star -- --nocapture`
+    - `cargo test -p shardloom-cli --features vortex-write --test sql_local_source_runtime_smoke vortex_ingest_smoke -- --nocapture`
+    - `python -m pytest python/tests/test_cli_client.py -k vortex_ingest_smoke_helper_dispatches_prepare_once_route`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js` using the bundled workspace Node runtime.
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_benchmark_environment.py --profile smoke`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv,parquet --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --shardloom-native-iterations 1 --skip-shardloom-native --output target\codex-benchmark-artifacts\columnar-vortex-ingest-smoke.json --markdown-output target\codex-benchmark-artifacts\columnar-vortex-ingest-smoke.md`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local flat scalar structured-file SourceState preservation for prepare-once
+      `vortex_ingest` only. This is not a broad Arrow execution model, nested structured-format
+      support, object-store/table support, production SQL/DataFrame support, or performance claim.
+  - Fallback boundary:
+    - The path uses feature-gated local compatibility adapters and upstream Vortex write/reopen
+      APIs only. External engines remain baselines/oracles only and are not invoked as fallback
+      execution.
 - [x] Session label: GAR-RUNTIME-IMPL-4F structured reader-level SourceState projection
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-columnar-source-state-20260521` / #888.

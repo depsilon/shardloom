@@ -188,7 +188,8 @@ to the runtime queue.
       clean longer run can complete.
 - [x] 7. Universal ingest/adapter bottleneck research: Arrow RS and Vortex surfaces were reviewed;
       the selected next implementation is format-neutral SourceState projection evidence,
-      reader-level projection where supported, and later columnar SourceState preservation.
+      reader-level projection where supported, and columnar SourceState preservation through
+      `vortex_ingest` where scalar rows are not required.
 - [x] 8. Parallel-path consolidation review: local SQL/Python/ingest paths continue to share the
       same admitted local input universe and SourceState evidence instead of creating CSV-only or
       format-specific bypasses.
@@ -631,17 +632,22 @@ or documentation updates alone are insufficient.
     parse-normalization family, and scalar-row materialization layout. Feature-gated
     Parquet/Arrow IPC/Avro/ORC adapters now apply reader-level projection before scalar-row
     conversion for required-column read plans; Avro `COUNT(*)` uses a one-column row-count anchor
-    because the Arrow Avro reader does not emit zero-column record batches.
+    because the Arrow Avro reader does not emit zero-column record batches. The feature-gated
+    `vortex_ingest` prepare-once path now preserves flat scalar Parquet/Arrow IPC/Avro/ORC inputs
+    as Arrow `RecordBatch` columnar SourceState when both `vortex-write` and
+    `universal-format-io` are enabled, emits columnar-preservation, record-batch,
+    source-to-columnar, and Vortex array-build evidence, and still falls back to scalar paths only
+    where scalar rows are the admitted representation.
     Nested/general JSON, broader Parquet/Arrow IPC/Avro/ORC type/nesting and output coverage does
     not all have ordinary user-facing SourceState runtime parity.
   - Next slice outcome: continue promoting remaining local input and operator combinations one at
     a time into UniversalIngress/InputAdapter registry coverage with SourceState evidence,
     `vortex_ingest_status`, certified route status, and deterministic blockers for unsupported
-    formats/features. The next optimization step is preserving a columnar SourceState for
-    feature-gated Parquet/Arrow IPC/Avro/ORC until scalar rows are required, then routing the same
-    projection/fingerprint evidence into `vortex_ingest` without adding a hidden Arrow-default
-    execution model. Recent join slices should keep using the same local-source admission universe
-    instead of creating CSV-only islands unless a format has a deterministic blocker.
+    formats/features. The next optimization step is extending columnar SourceState reuse from the
+    prepare-once route into repeated prepared workflows and benchmark rows without adding a hidden
+    Arrow-default execution model. Recent join slices should keep using the same local-source
+    admission universe instead of creating CSV-only islands unless a format has a deterministic
+    blocker.
   - Runtime enablement: admitted local input adapters that create reusable SourceState evidence for
     actual user reads and can feed `vortex_ingest` into `VortexPreparedState` when preparation is
     admitted.
@@ -692,16 +698,17 @@ or documentation updates alone are insufficient.
     work where feasible, promoting prepare-once reuse across repeated certified workflows, and
     keeping benchmark/website interpretation aligned.
   - Checkpoint A7 research note: the current slow path still normalizes local CSV/JSON and
-    feature-gated Parquet/Arrow IPC/Avro/ORC readers into scalar row maps before execution, but
-    the structured-format path now pushes required-column projection into the local readers before
-    that scalar boundary. Arrow RS reader docs expose RecordBatch streaming with batch sizing,
-    projection APIs, and Parquet projection/filter/metadata reuse; local crate APIs confirm
-    Parquet `ProjectionMask`, Arrow IPC/Avro projection indices, and ORC named-root projection.
+    feature-gated Parquet/Arrow IPC/Avro/ORC readers into scalar row maps for direct-transient SQL
+    execution, but the structured-format path now pushes required-column projection into the local
+    readers before that scalar boundary, and the `vortex_ingest` prepare-once path preserves those
+    structured inputs as Arrow `RecordBatch` columnar SourceState until Vortex artifact creation.
+    Arrow RS reader docs expose RecordBatch streaming with batch sizing, projection APIs, and
+    Parquet projection/filter/metadata reuse; local crate APIs confirm Parquet `ProjectionMask`,
+    Arrow IPC/Avro projection indices, and ORC named-root projection.
     Vortex Scan API docs describe Source/Sink/Split pushdown and compressed scan boundaries while
     noting the full API is still under active development. The next optimization slice should
-    therefore build the format-neutral columnar `SourceState` adapter and Vortex-first
-    wrapper/report boundary, not a hidden Arrow-default execution model or external-engine
-    fallback.
+    therefore connect columnar SourceState preservation to prepared-state reuse and benchmark
+    telemetry, not a hidden Arrow-default execution model or external-engine fallback.
   - Runtime enablement: certified ingest/stage execution remains supported, while repeated
     workflows can certify or prepare once and then run `prepared_vortex` from
     `VortexPreparedState` without reinterpreting compatibility cold timing as query speed.

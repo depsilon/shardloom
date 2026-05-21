@@ -526,17 +526,25 @@ pub use traditional_analytics::{
 };
 #[cfg(feature = "universal-format-io")]
 pub use universal_format_io::{
-    FlatLocalSourceTable, encode_flat_arrow_ipc_rows, encode_flat_avro_rows, encode_flat_orc_rows,
-    encode_flat_parquet_rows, read_flat_arrow_ipc_source,
-    read_flat_arrow_ipc_source_with_projection, read_flat_avro_source,
-    read_flat_avro_source_with_projection, read_flat_orc_source,
-    read_flat_orc_source_with_projection, read_flat_parquet_source,
+    FlatLocalColumnarSource, FlatLocalSourceTable, encode_flat_arrow_ipc_rows,
+    encode_flat_avro_rows, encode_flat_orc_rows, encode_flat_parquet_rows,
+    read_flat_arrow_ipc_columnar_source, read_flat_arrow_ipc_columnar_source_with_projection,
+    read_flat_arrow_ipc_source, read_flat_arrow_ipc_source_with_projection,
+    read_flat_avro_columnar_source, read_flat_avro_columnar_source_with_projection,
+    read_flat_avro_source, read_flat_avro_source_with_projection, read_flat_orc_columnar_source,
+    read_flat_orc_columnar_source_with_projection, read_flat_orc_source,
+    read_flat_orc_source_with_projection, read_flat_parquet_columnar_source,
+    read_flat_parquet_columnar_source_with_projection, read_flat_parquet_source,
     read_flat_parquet_source_with_projection,
 };
 pub use vortex_ingest::{
     VortexIngestCertificationLevel, VortexPreparedStateWriteReport,
     VortexPreparedStateWriteRequest, vortex_ingest_write_feature_enabled,
     write_flat_scalar_vortex_prepared_state,
+};
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+pub use vortex_ingest::{
+    VortexPreparedStateColumnarWriteRequest, write_flat_columnar_vortex_prepared_state,
 };
 
 // Runtime bridge, scheduler, bounded execution, and narrow local engine/provider exports.
