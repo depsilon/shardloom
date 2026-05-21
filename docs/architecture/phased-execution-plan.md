@@ -236,37 +236,6 @@ Current non-runtime sequence: complete the review-derived action items below bef
 expansion unless the user explicitly reprioritizes. Completed non-runtime history belongs in
 `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] REVIEW-P0-1 generated current-support matrix and `runs_today` surface
-  - Source: 2026-05-21 structured repository review action sequence; `GAR-COMMERCIAL-1C`,
-    `GAR-COMMERCIAL-1F`, `GAR-0032-B`, `GAR-0033-A`, status/capability surfaces.
-  - Current state: status pages, capability rows, workflow recipes, package-channel rows, Python
-    method matrices, and many command reports exist, but no single generated support matrix maps
-    CLI commands, Python APIs, input formats, output formats, execution modes, and claim state into
-    one tested `executable|feature_gated|diagnostic_only|report_only|blocked|future` view.
-  - Next slice outcome: add a generated support matrix plus a compact CLI/API surface named
-    `runs_today` or equivalent that reports current runnable, feature-gated, diagnostic-only,
-    report-only, blocked, and future surfaces from one typed source.
-  - User-visible surface: CLI JSON, Python capability helper, website/status page, docs/status
-    artifact, agent-facing capability metadata.
-  - Implementation scope: capability/status registry, command-family metadata, Python API metadata,
-    input/output format rows, execution-mode rows, website/status generator, readiness scripts, and
-    contract tests.
-  - Evidence required: one row per command/API/format/mode with support state, feature gate,
-    evidence refs, claim boundary, blockers, `fallback_attempted=false`, and
-    `external_engine_invoked=false`.
-  - Acceptance: a new user or agent can inspect one generated surface to determine what runs today,
-    what is feature-gated, what is diagnostic/report-only, what is blocked, and what is future work
-    without reading the phase plan.
-  - Verification: support-matrix generator test, CLI snapshot, Python helper test, website/status
-    readiness check, `cargo test -p shardloom-contract-tests --test release_readiness_metadata`,
-    `python scripts/check_website_readiness.py`, `git diff --check`.
-  - Non-goals: no new runtime execution, package publication, production claim, benchmark claim, or
-    broad SQL/DataFrame support claim.
-  - Claim boundary: current-state discoverability only.
-  - Fallback boundary: generated support rows must preserve no-fallback/no-external-engine fields
-    and must not infer support from report-only rows.
-  - Ledger rule: ledger entry must include generated artifact paths and the support-state taxonomy.
-
 - [ ] REVIEW-P0-2 release-grade CI gate matrix
   - Source: 2026-05-21 structured repository review action sequence; RFC 0024, RFC 0041,
     release-readiness scripts, package-channel readiness matrix.

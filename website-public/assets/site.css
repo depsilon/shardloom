@@ -955,7 +955,8 @@ p {
 
 .status-runtime-supported,
 .status-ready-local,
-.status-smoke-supported {
+.status-smoke-supported,
+.status-executable {
   border-color: rgba(21, 116, 95, 0.28);
   background: rgba(21, 116, 95, 0.07);
   color: var(--green);
@@ -963,7 +964,10 @@ p {
 
 .status-report-only,
 .status-not-planned,
-.status-planned {
+.status-planned,
+.status-feature-gated,
+.status-diagnostic-only,
+.status-future {
   border-color: rgba(154, 101, 0, 0.28);
   background: rgba(154, 101, 0, 0.08);
   color: var(--amber);

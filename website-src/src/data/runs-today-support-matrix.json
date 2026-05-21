@@ -1,0 +1,767 @@
+{
+  "schema_version": "shardloom.runs_today_support_matrix.v1",
+  "matrix_id": "review-p0-1.current-support",
+  "command": "runs-today",
+  "docs_ref": "docs/status/runs-today-support-matrix.json",
+  "website_data_ref": "website-public/assets/data/runs-today-support-matrix.json",
+  "support_state_vocabulary": [
+    "executable",
+    "feature_gated",
+    "diagnostic_only",
+    "report_only",
+    "blocked",
+    "future"
+  ],
+  "family_order": [
+    "cli_command",
+    "python_api",
+    "input_format",
+    "output_format",
+    "execution_mode",
+    "claim_state"
+  ],
+  "row_order": [
+    "cli_status_capability_reports",
+    "cli_sql_local_source_smoke",
+    "cli_vortex_ingest_smoke",
+    "cli_generated_source_smokes",
+    "cli_prepared_vortex_batch_benchmark",
+    "python_status_capabilities",
+    "python_local_query_builder",
+    "python_generated_source_helpers",
+    "python_prepared_vortex_batch",
+    "input_csv_json_jsonl_ndjson",
+    "input_vortex_local",
+    "input_parquet_arrow_avro_orc",
+    "input_object_store_cloud",
+    "output_inline_jsonl_csv",
+    "output_vortex_local",
+    "output_parquet_arrow_avro_orc",
+    "execution_direct_compatibility_transient",
+    "execution_compatibility_import_certified",
+    "execution_prepared_vortex",
+    "execution_native_vortex_scoped",
+    "execution_report_only_surfaces",
+    "execution_live_hybrid_remote_distributed",
+    "claim_current_state_discoverability",
+    "claim_production_readiness",
+    "claim_performance_superiority",
+    "claim_package_publication",
+    "claim_object_store_lakehouse_foundry_production"
+  ],
+  "row_count": 27,
+  "support_state_counts": {
+    "executable": 13,
+    "feature_gated": 4,
+    "diagnostic_only": 3,
+    "report_only": 1,
+    "blocked": 5,
+    "future": 1
+  },
+  "family_counts": {
+    "cli_command": 5,
+    "python_api": 4,
+    "input_format": 4,
+    "output_format": 3,
+    "execution_mode": 6,
+    "claim_state": 5
+  },
+  "blocker_ids": [
+    "feature.vortex_write_required_for_default_build",
+    "feature.universal_format_io_required_for_default_build",
+    "review-p0-3.object_store_runtime_and_path_safety_required",
+    "runtime.evidence_required_before_execution_admission",
+    "cg22.cg23.object_store_runtime_evidence_required",
+    "release.production_readiness_gate_required",
+    "cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required",
+    "release.package_publication_gate_required",
+    "platform.production_integration_evidence_required"
+  ],
+  "evidence_refs": [
+    "capability_discovery_snapshots",
+    "typed_envelope_compatibility_lock",
+    "release_readiness_metadata",
+    "sql_local_source_runtime_smoke",
+    "sql_parser_tests",
+    "python_query_builder_tests",
+    "vortex_ingest_evidence_fields",
+    "generated_source_runtime_tests",
+    "generated_source_certificate_contract",
+    "traditional_benchmark_harness",
+    "benchmark_runtime_tests",
+    "prepared_vortex_batch_python_tests",
+    "python.tests.test_cli_client",
+    "python.tests.test_quickstart_proof",
+    "python.tests.test_query_builder",
+    "universal_compatibility_scoreboard",
+    "vortex_count_tests",
+    "vortex_filter_project_tests",
+    "prepared_vortex_batch_tests",
+    "feature_gated_sql_local_source_tests",
+    "object_store_request_plan",
+    "object_store_boundary_use_cases",
+    "fanout_replay_tests",
+    "sql_local_source_vortex_output_tests",
+    "vortex_output_commit_tests",
+    "workload_certification_dossier",
+    "prepared_source_reuse_tests",
+    "traditional_analytics_vortex_batch_run",
+    "python_prepared_batch_tests",
+    "vortex_query_trace_tests",
+    "engine_capability_matrix",
+    "rest_api_contract_plan",
+    "object_store_runtime_gate",
+    "runs_today_cli_snapshot",
+    "runs_today_python_helper",
+    "website_readiness",
+    "release_readiness_matrix",
+    "package_channel_readiness_matrix",
+    "global_architecture_gate",
+    "benchmark_claim_evidence_plan",
+    "benchmark_constitution_required",
+    "release_plan",
+    "python_wrapper_plan",
+    "table_compat_plan",
+    "foundry_readiness"
+  ],
+  "all_rows_fallback_attempted_false": true,
+  "all_rows_external_engine_invoked_false": true,
+  "all_rows_no_fallback_no_external_engine": true,
+  "runtime_expansion_allowed": false,
+  "package_publication_allowed": false,
+  "performance_claim_allowed": false,
+  "claim_gate_status": "not_claim_grade",
+  "claim_boundary": "current-state discoverability only; this matrix does not expand runtime support or authorize production, package, performance, object-store, lakehouse, Foundry, REST, or Spark-replacement claims",
+  "rows": [
+    {
+      "id": "cli_status_capability_reports",
+      "family": "cli_command",
+      "surface": [
+        "status",
+        "capabilities",
+        "compute-capability-matrix",
+        "global-architecture-gate",
+        "semantic-conformance-suite"
+      ],
+      "support_state": "diagnostic_only",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "capability_discovery_snapshots",
+        "typed_envelope_compatibility_lock",
+        "release_readiness_metadata"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "side-effect-free discovery only; does not execute datasets or authorize support claims",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "cli_sql_local_source_smoke",
+      "family": "cli_command",
+      "surface": [
+        "sql-local-source-smoke"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "sql_local_source_runtime_smoke",
+        "sql_parser_tests",
+        "python_query_builder_tests"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "scoped local flat-source SQL smoke execution only, not broad SQL/DataFrame support",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "cli_vortex_ingest_smoke",
+      "family": "cli_command",
+      "surface": [
+        "vortex-ingest-smoke"
+      ],
+      "support_state": "feature_gated",
+      "feature_gate": "vortex-write",
+      "evidence_refs": [
+        "sql_local_source_runtime_smoke",
+        "vortex_ingest_evidence_fields"
+      ],
+      "blocker_id": "feature.vortex_write_required_for_default_build",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "local compatibility ingest to Vortex artifact only when feature enabled; no table/object-store claim",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "cli_generated_source_smokes",
+      "family": "cli_command",
+      "surface": [
+        "generated-source-user-rows-smoke",
+        "generated-source-range-smoke",
+        "generated-source-sequence-smoke",
+        "generated-source-sql-smoke"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "generated_source_runtime_tests",
+        "generated_source_certificate_contract"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "source-free/generated local output smokes only; not a broad SQL generator or platform sink",
+      "runtime_execution": true,
+      "data_read": false,
+      "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "cli_prepared_vortex_batch_benchmark",
+      "family": "cli_command",
+      "surface": [
+        "traditional-analytics-vortex-batch-run",
+        "traditional-analytics-vortex-run"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "traditional_benchmark_harness",
+        "benchmark_runtime_tests",
+        "prepared_vortex_batch_python_tests"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "local prepared-route evidence and benchmark rows only; no performance-superiority claim",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "python_status_capabilities",
+      "family": "python_api",
+      "surface": [
+        "ShardLoomClient.status",
+        "ShardLoomClient.capabilities",
+        "ShardLoomContext.capabilities"
+      ],
+      "support_state": "diagnostic_only",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "python.tests.test_cli_client",
+        "python.tests.test_quickstart_proof"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "thin CLI JSON protocol discovery only; not a native binding",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "python_local_query_builder",
+      "family": "python_api",
+      "surface": [
+        "read_csv",
+        "read_json",
+        "read_vortex",
+        "sql",
+        "from_rows",
+        "LazyFrame.collect"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "python.tests.test_query_builder",
+        "sql_local_source_runtime_smoke"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "scoped local query-builder lowering to admitted CLI smokes only",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "python_generated_source_helpers",
+      "family": "python_api",
+      "surface": [
+        "range",
+        "sequence",
+        "from_rows",
+        "sql_literal_select",
+        "sql_values",
+        "GeneratedSqlSource"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "python.tests.test_query_builder",
+        "generated_source_runtime_tests"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "local generated-source helper execution only; no source connector expansion",
+      "runtime_execution": true,
+      "data_read": false,
+      "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "python_prepared_vortex_batch",
+      "family": "python_api",
+      "surface": [
+        "PreparedVortexArtifacts.run_batch",
+        "ShardLoomClient.traditional_analytics_vortex_batch_run"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "python.tests.test_cli_client",
+        "traditional_benchmark_harness"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "local prepared Vortex batch workflow only; not a package or production API claim",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "input_csv_json_jsonl_ndjson",
+      "family": "input_format",
+      "surface": [
+        "csv",
+        "json",
+        "jsonl",
+        "ndjson"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "sql_local_source_runtime_smoke",
+        "python_query_builder_tests",
+        "universal_compatibility_scoreboard"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "flat local source fixture coverage only; not production connector coverage",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "input_vortex_local",
+      "family": "input_format",
+      "surface": [
+        "vortex"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "vortex_count_tests",
+        "vortex_filter_project_tests",
+        "prepared_vortex_batch_tests"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "scoped local Vortex input primitives and prepared-route workflows only",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "input_parquet_arrow_avro_orc",
+      "family": "input_format",
+      "surface": [
+        "parquet",
+        "arrow_ipc",
+        "avro",
+        "orc"
+      ],
+      "support_state": "feature_gated",
+      "feature_gate": "universal-format-io",
+      "evidence_refs": [
+        "feature_gated_sql_local_source_tests",
+        "universal_compatibility_scoreboard"
+      ],
+      "blocker_id": "feature.universal_format_io_required_for_default_build",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "local flat-scalar feature-gated adapters only; broad/nested/production format support remains blocked",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "input_object_store_cloud",
+      "family": "input_format",
+      "surface": [
+        "s3",
+        "gcs",
+        "adls",
+        "http_range"
+      ],
+      "support_state": "blocked",
+      "feature_gate": "not_enabled",
+      "evidence_refs": [
+        "object_store_request_plan",
+        "object_store_boundary_use_cases",
+        "capability_discovery_snapshots"
+      ],
+      "blocker_id": "review-p0-3.object_store_runtime_and_path_safety_required",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "cloud object-store runtime and credentialed network reads are blocked",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "output_inline_jsonl_csv",
+      "family": "output_format",
+      "surface": [
+        "inline_jsonl",
+        "csv"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "sql_local_source_runtime_smoke",
+        "generated_source_runtime_tests",
+        "fanout_replay_tests"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "local fixture result output only; not production sink or transaction support",
+      "runtime_execution": true,
+      "data_read": false,
+      "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "output_vortex_local",
+      "family": "output_format",
+      "surface": [
+        "vortex"
+      ],
+      "support_state": "feature_gated",
+      "feature_gate": "vortex-write",
+      "evidence_refs": [
+        "generated_source_runtime_tests",
+        "sql_local_source_vortex_output_tests",
+        "vortex_output_commit_tests"
+      ],
+      "blocker_id": "feature.vortex_write_required_for_default_build",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "local Vortex artifact writes only when feature enabled; no object-store/table commit claim",
+      "runtime_execution": true,
+      "data_read": false,
+      "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "output_parquet_arrow_avro_orc",
+      "family": "output_format",
+      "surface": [
+        "parquet",
+        "arrow_ipc",
+        "avro",
+        "orc"
+      ],
+      "support_state": "feature_gated",
+      "feature_gate": "universal-format-io",
+      "evidence_refs": [
+        "generated_source_runtime_tests",
+        "sql_local_source_runtime_smoke"
+      ],
+      "blocker_id": "feature.universal_format_io_required_for_default_build",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "local flat-scalar compatibility exports only when feature enabled",
+      "runtime_execution": true,
+      "data_read": false,
+      "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "execution_direct_compatibility_transient",
+      "family": "execution_mode",
+      "surface": [
+        "direct_compatibility_transient"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "sql_local_source_runtime_smoke",
+        "python_query_builder_tests"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "scoped local source-backed execution only",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "execution_compatibility_import_certified",
+      "family": "execution_mode",
+      "surface": [
+        "compatibility_import_certified"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "traditional_benchmark_harness",
+        "workload_certification_dossier"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "certified local cold-route fixture evidence only",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "execution_prepared_vortex",
+      "family": "execution_mode",
+      "surface": [
+        "prepared_vortex"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "prepared_source_reuse_tests",
+        "traditional_analytics_vortex_batch_run",
+        "python_prepared_batch_tests"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "prepared local Vortex reuse route only; not broad Vortex-native operator completeness",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "execution_native_vortex_scoped",
+      "family": "execution_mode",
+      "surface": [
+        "native_vortex"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "vortex_count_tests",
+        "vortex_filter_project_tests",
+        "vortex_query_trace_tests"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "scoped local count/filter/project primitive coverage only",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "execution_report_only_surfaces",
+      "family": "execution_mode",
+      "surface": [
+        "runtime-plan",
+        "scan-plan",
+        "engine-capability-matrix",
+        "workflow-unsupported-plan"
+      ],
+      "support_state": "report_only",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "typed_envelope_compatibility_lock",
+        "capability_discovery_snapshots"
+      ],
+      "blocker_id": "runtime.evidence_required_before_execution_admission",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "architecture/planning reports only; these commands do not execute workloads",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "execution_live_hybrid_remote_distributed",
+      "family": "execution_mode",
+      "surface": [
+        "live",
+        "hybrid",
+        "remote",
+        "distributed"
+      ],
+      "support_state": "future",
+      "feature_gate": "not_enabled",
+      "evidence_refs": [
+        "engine_capability_matrix",
+        "rest_api_contract_plan",
+        "object_store_runtime_gate"
+      ],
+      "blocker_id": "cg22.cg23.object_store_runtime_evidence_required",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "future execution fabric; no remote/distributed runtime claim",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "claim_current_state_discoverability",
+      "family": "claim_state",
+      "surface": [
+        "what_runs_today"
+      ],
+      "support_state": "diagnostic_only",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "runs_today_cli_snapshot",
+        "runs_today_python_helper",
+        "website_readiness"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "claim_safe_discovery",
+      "claim_boundary": "current-state discoverability only; not runtime expansion",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "claim_production_readiness",
+      "family": "claim_state",
+      "surface": [
+        "production_readiness"
+      ],
+      "support_state": "blocked",
+      "feature_gate": "not_enabled",
+      "evidence_refs": [
+        "release_readiness_matrix",
+        "package_channel_readiness_matrix",
+        "global_architecture_gate"
+      ],
+      "blocker_id": "release.production_readiness_gate_required",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "no production-readiness claim is allowed",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "claim_performance_superiority",
+      "family": "claim_state",
+      "surface": [
+        "performance_superiority",
+        "spark_replacement"
+      ],
+      "support_state": "blocked",
+      "feature_gate": "not_enabled",
+      "evidence_refs": [
+        "benchmark_claim_evidence_plan",
+        "benchmark_constitution_required"
+      ],
+      "blocker_id": "cg5.cg6.claim_grade_correctness_and_benchmark_evidence_required",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "no faster-than or replacement claim is allowed",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "claim_package_publication",
+      "family": "claim_state",
+      "surface": [
+        "pypi",
+        "crates_io",
+        "oci",
+        "package_install"
+      ],
+      "support_state": "blocked",
+      "feature_gate": "not_enabled",
+      "evidence_refs": [
+        "package_channel_readiness_matrix",
+        "release_plan",
+        "python_wrapper_plan"
+      ],
+      "blocker_id": "release.package_publication_gate_required",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "no public package publication or install-channel claim is allowed",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "claim_object_store_lakehouse_foundry_production",
+      "family": "claim_state",
+      "surface": [
+        "object_store",
+        "lakehouse",
+        "foundry",
+        "rest_api"
+      ],
+      "support_state": "blocked",
+      "feature_gate": "not_enabled",
+      "evidence_refs": [
+        "object_store_request_plan",
+        "table_compat_plan",
+        "foundry_readiness",
+        "rest_api_contract_plan"
+      ],
+      "blocker_id": "platform.production_integration_evidence_required",
+      "claim_gate_status": "not_claim_grade",
+      "claim_boundary": "integration/platform production support remains blocked or report-only",
+      "runtime_execution": false,
+      "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    }
+  ]
+}

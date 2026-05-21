@@ -52,6 +52,8 @@ from shardloom import (
     RestApiLocalLifecycle,
     RestApiPlanPreview,
     RestApiSecurityGovernance,
+    RunsTodaySupportMatrix,
+    RunsTodaySupportRow,
     SemanticConformanceSuite,
     VortexIngestSmokeReport,
     WorkloadCertificationDossier,
@@ -127,6 +129,102 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.status, "success")
         self.assertFalse(result.fallback.attempted)
         self.assertEqual(result.field_map["engine"], "shardloom")
+
+    def test_runs_today_returns_typed_current_support_matrix(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["runs-today", "--format", "json"], sys.argv
+                fields = [
+                    ["runs_today_schema_version", "shardloom.runs_today_support_matrix.v1"],
+                    ["runs_today_matrix_id", "review-p0-1.current-support"],
+                    ["runs_today_support_state_vocabulary", "executable,feature_gated,diagnostic_only,report_only,blocked,future"],
+                    ["runs_today_family_order", "cli_command,claim_state"],
+                    ["runs_today_row_order", "cli_sql_local_source_smoke,claim_performance_superiority"],
+                    ["runs_today_row_count", "2"],
+                    ["runs_today_executable_row_count", "1"],
+                    ["runs_today_feature_gated_row_count", "0"],
+                    ["runs_today_diagnostic_only_row_count", "0"],
+                    ["runs_today_report_only_row_count", "0"],
+                    ["runs_today_blocked_row_count", "1"],
+                    ["runs_today_future_row_count", "0"],
+                    ["runs_today_all_rows_no_fallback_no_external_engine", "true"],
+                    ["runs_today_performance_claim_allowed", "false"],
+                    ["runs_today_package_publication_allowed", "false"],
+                    ["runs_today_row_cli_sql_local_source_smoke_family", "cli_command"],
+                    ["runs_today_row_cli_sql_local_source_smoke_surface", "sql-local-source-smoke"],
+                    ["runs_today_row_cli_sql_local_source_smoke_support_state", "executable"],
+                    ["runs_today_row_cli_sql_local_source_smoke_feature_gate", "default"],
+                    ["runs_today_row_cli_sql_local_source_smoke_evidence_refs", "sql_local_source_runtime_smoke"],
+                    ["runs_today_row_cli_sql_local_source_smoke_blocker_id", "none"],
+                    ["runs_today_row_cli_sql_local_source_smoke_claim_gate_status", "fixture_smoke_only"],
+                    ["runs_today_row_cli_sql_local_source_smoke_claim_boundary", "scoped local SQL only"],
+                    ["runs_today_row_cli_sql_local_source_smoke_runtime_execution", "true"],
+                    ["runs_today_row_cli_sql_local_source_smoke_data_read", "true"],
+                    ["runs_today_row_cli_sql_local_source_smoke_write_io", "false"],
+                    ["runs_today_row_cli_sql_local_source_smoke_fallback_attempted", "false"],
+                    ["runs_today_row_cli_sql_local_source_smoke_external_engine_invoked", "false"],
+                    ["runs_today_row_claim_performance_superiority_family", "claim_state"],
+                    ["runs_today_row_claim_performance_superiority_surface", "performance_superiority,spark_replacement"],
+                    ["runs_today_row_claim_performance_superiority_support_state", "blocked"],
+                    ["runs_today_row_claim_performance_superiority_feature_gate", "not_enabled"],
+                    ["runs_today_row_claim_performance_superiority_evidence_refs", "benchmark_claim_evidence_plan"],
+                    ["runs_today_row_claim_performance_superiority_blocker_id", "cg5.cg6.required"],
+                    ["runs_today_row_claim_performance_superiority_claim_gate_status", "not_claim_grade"],
+                    ["runs_today_row_claim_performance_superiority_claim_boundary", "no performance claim"],
+                    ["runs_today_row_claim_performance_superiority_runtime_execution", "false"],
+                    ["runs_today_row_claim_performance_superiority_data_read", "false"],
+                    ["runs_today_row_claim_performance_superiority_write_io", "false"],
+                    ["runs_today_row_claim_performance_superiority_fallback_attempted", "false"],
+                    ["runs_today_row_claim_performance_superiority_external_engine_invoked", "false"],
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "runs-today",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [{"key": key, "value": value} for key, value in fields],
+                }))
+                """
+            )
+        )
+
+        matrix = ShardLoomClient(binary=binary).runs_today()
+
+        self.assertIsInstance(matrix, RunsTodaySupportMatrix)
+        self.assertEqual(matrix.schema_version, "shardloom.runs_today_support_matrix.v1")
+        self.assertEqual(matrix.matrix_id, "review-p0-1.current-support")
+        self.assertEqual(
+            matrix.support_state_vocabulary,
+            (
+                "executable",
+                "feature_gated",
+                "diagnostic_only",
+                "report_only",
+                "blocked",
+                "future",
+            ),
+        )
+        self.assertEqual(matrix.executable_row_count, 1)
+        self.assertEqual(matrix.blocked_row_count, 1)
+        self.assertTrue(matrix.all_rows_no_fallback_no_external_engine)
+        self.assertFalse(matrix.performance_claim_allowed)
+        self.assertFalse(matrix.package_publication_allowed)
+        row = matrix.row("cli_sql_local_source_smoke")
+        self.assertIsInstance(row, RunsTodaySupportRow)
+        self.assertEqual(row.support_state, "executable")
+        self.assertEqual(row.surface, ("sql-local-source-smoke",))
+        self.assertTrue(row.runtime_execution)
+        self.assertTrue(row.data_read)
+        self.assertFalse(row.fallback_attempted)
+        blocked = matrix.rows_by_support_state("blocked")
+        self.assertEqual(blocked[0].row_id, "claim_performance_superiority")
+        self.assertEqual(blocked[0].surface, ("performance_superiority", "spark_replacement"))
+        self.assertEqual(matrix.rows_by_family("claim_state"), blocked)
 
     def test_typed_envelope_payloads_are_preserved(self) -> None:
         binary = self.fake_cli(

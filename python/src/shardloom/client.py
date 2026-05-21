@@ -3370,6 +3370,188 @@ class MaterializationPolicyRow:
 
 
 @dataclass(frozen=True, slots=True)
+class RunsTodaySupportRow:
+    """One current-support row from the `runs-today` matrix."""
+
+    row_id: str
+    family: str
+    surface: tuple[str, ...]
+    support_state: str
+    feature_gate: str
+    evidence_refs: tuple[str, ...]
+    blocker_id: str
+    claim_gate_status: str
+    claim_boundary: str
+    runtime_execution: bool
+    data_read: bool
+    write_io: bool
+    fallback_attempted: bool
+    external_engine_invoked: bool
+
+
+@dataclass(frozen=True, slots=True)
+class RunsTodaySupportMatrix:
+    """Typed view over the generated current-support matrix."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def schema_version(self) -> str:
+        """Return the generated matrix schema version."""
+
+        return _required_field(self.envelope, "runs_today_schema_version")
+
+    @property
+    def matrix_id(self) -> str:
+        """Return the generated matrix identifier."""
+
+        return _required_field(self.envelope, "runs_today_matrix_id")
+
+    @property
+    def support_state_vocabulary(self) -> tuple[str, ...]:
+        """Return the support-state vocabulary used by this matrix."""
+
+        return _csv_values(self.envelope.field("runs_today_support_state_vocabulary"))
+
+    @property
+    def families(self) -> tuple[str, ...]:
+        """Return support-row families in declared order."""
+
+        return _csv_values(self.envelope.field("runs_today_family_order"))
+
+    @property
+    def row_ids(self) -> tuple[str, ...]:
+        """Return support rows in declared order."""
+
+        return _csv_values(self.envelope.field("runs_today_row_order"))
+
+    @property
+    def rows(self) -> tuple[RunsTodaySupportRow, ...]:
+        """Return typed support rows in declared order."""
+
+        rows: list[RunsTodaySupportRow] = []
+        for row_id in self.row_ids:
+            prefix = f"runs_today_row_{row_id}_"
+            rows.append(
+                RunsTodaySupportRow(
+                    row_id=row_id,
+                    family=_required_field(self.envelope, f"{prefix}family"),
+                    surface=_csv_values(self.envelope.field(f"{prefix}surface")),
+                    support_state=_required_field(self.envelope, f"{prefix}support_state"),
+                    feature_gate=_required_field(self.envelope, f"{prefix}feature_gate"),
+                    evidence_refs=_csv_values(
+                        self.envelope.field(f"{prefix}evidence_refs")
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    claim_boundary=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_boundary",
+                    ),
+                    runtime_execution=self.envelope.field_bool(
+                        f"{prefix}runtime_execution",
+                        False,
+                    )
+                    is True,
+                    data_read=self.envelope.field_bool(f"{prefix}data_read", False) is True,
+                    write_io=self.envelope.field_bool(f"{prefix}write_io", False) is True,
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
+
+    @property
+    def executable_row_count(self) -> int:
+        """Return executable row count."""
+
+        return self.envelope.field_int("runs_today_executable_row_count", 0) or 0
+
+    @property
+    def feature_gated_row_count(self) -> int:
+        """Return feature-gated row count."""
+
+        return self.envelope.field_int("runs_today_feature_gated_row_count", 0) or 0
+
+    @property
+    def diagnostic_only_row_count(self) -> int:
+        """Return diagnostic-only row count."""
+
+        return self.envelope.field_int("runs_today_diagnostic_only_row_count", 0) or 0
+
+    @property
+    def report_only_row_count(self) -> int:
+        """Return report-only row count."""
+
+        return self.envelope.field_int("runs_today_report_only_row_count", 0) or 0
+
+    @property
+    def blocked_row_count(self) -> int:
+        """Return blocked row count."""
+
+        return self.envelope.field_int("runs_today_blocked_row_count", 0) or 0
+
+    @property
+    def future_row_count(self) -> int:
+        """Return future row count."""
+
+        return self.envelope.field_int("runs_today_future_row_count", 0) or 0
+
+    @property
+    def all_rows_no_fallback_no_external_engine(self) -> bool:
+        """Whether all rows report no fallback and no external engine invocation."""
+
+        return (
+            self.envelope.field_bool(
+                "runs_today_all_rows_no_fallback_no_external_engine",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def performance_claim_allowed(self) -> bool:
+        """Whether this matrix authorizes a performance claim."""
+
+        return self.envelope.field_bool("runs_today_performance_claim_allowed", True) is True
+
+    @property
+    def package_publication_allowed(self) -> bool:
+        """Whether this matrix authorizes package publication."""
+
+        return self.envelope.field_bool("runs_today_package_publication_allowed", True) is True
+
+    def rows_by_family(self, family: str) -> tuple[RunsTodaySupportRow, ...]:
+        """Return rows matching one family."""
+
+        return tuple(row for row in self.rows if row.family == family)
+
+    def rows_by_support_state(self, support_state: str) -> tuple[RunsTodaySupportRow, ...]:
+        """Return rows matching one support state."""
+
+        return tuple(row for row in self.rows if row.support_state == support_state)
+
+    def row(self, row_id: str) -> RunsTodaySupportRow:
+        """Return a single support row by id."""
+
+        for row in self.rows:
+            if row.row_id == row_id:
+                return row
+        raise KeyError(row_id)
+
+
+@dataclass(frozen=True, slots=True)
 class ComputeCapabilityMatrix:
     """Typed view over the report-only compute capability coverage matrix."""
 
@@ -5713,6 +5895,11 @@ class ShardLoomClient:
         """Return the CLI status envelope."""
 
         return self.run(["status"], check=check)
+
+    def runs_today(self, *, check: bool = True) -> RunsTodaySupportMatrix:
+        """Return the generated current-support matrix."""
+
+        return RunsTodaySupportMatrix(self.run(["runs-today"], check=check))
 
     def api_compat_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the CLI/API JSON compatibility plan envelope."""

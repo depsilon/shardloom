@@ -100,6 +100,27 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fragments: &[],
         },
         EnvelopeCase {
+            name: "runs-today success",
+            args: &["runs-today", "--format", "json"],
+            command: "runs-today",
+            status: "success",
+            family: "status_capabilities",
+            success: true,
+            allow_stderr: false,
+            fields: &[
+                (
+                    "runs_today_schema_version",
+                    "shardloom.runs_today_support_matrix.v1",
+                ),
+                (
+                    "runs_today_support_state_vocabulary",
+                    "executable,feature_gated,diagnostic_only,report_only,blocked,future",
+                ),
+                ("runs_today_all_rows_no_fallback_no_external_engine", "true"),
+            ],
+            fragments: &[],
+        },
+        EnvelopeCase {
             name: "cross-CG capability parity",
             args: &["capabilities", "cross-cg", "--format", "json"],
             command: "capabilities",

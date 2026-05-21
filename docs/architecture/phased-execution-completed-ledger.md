@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-P0-1 generated current-support matrix and runs-today surface
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-13-20260521` / #902.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - `REVIEW-P0-1 generated current-support matrix and runs_today surface`.
+    - `GAR-COMMERCIAL-1C`, `GAR-COMMERCIAL-1F`, `GAR-0032-B`, `GAR-0033-A`, and existing
+      status/capability surfaces.
+  - Scope:
+    - Added side-effect-free `shardloom runs-today --format json` as a typed current-support
+      matrix sourced from Rust rows instead of copied prose.
+    - Classified 27 support rows across CLI commands, Python APIs, input formats, output formats,
+      execution modes, and claim states.
+    - Used the support-state taxonomy
+      `executable,feature_gated,diagnostic_only,report_only,blocked,future`.
+    - Added per-row feature gate, evidence refs, blocker id, claim gate status, claim boundary,
+      runtime/data/write flags, `fallback_attempted=false`, and `external_engine_invoked=false`.
+    - Added Python typed accessors through `ShardLoomClient.runs_today()`,
+      `RunsTodaySupportMatrix`, and `RunsTodaySupportRow`.
+    - Added `scripts/export_runs_today_support_matrix.py` to export the CLI envelope into generated
+      docs and website data artifacts.
+    - Rendered the generated current-support matrix on the public website status page and updated
+      website readiness/static-asset validators for the new support-state vocabulary.
+  - Generated artifacts:
+    - `docs/status/runs-today-support-matrix.json`
+    - `website-src/src/data/runs-today-support-matrix.json`
+    - `website-public/assets/data/runs-today-support-matrix.json`
+    - `website/assets/data/runs-today-support-matrix.json`
+  - Evidence:
+    - The matrix schema is `shardloom.runs_today_support_matrix.v1`.
+    - The matrix reports `row_count=27`, executable rows, feature-gated rows, diagnostic-only rows,
+      report-only rows, blocked rows, and future rows from one command.
+    - The website status page now includes a generated "What Runs Today" matrix before the public
+      capability-facing status rows.
+    - Generated artifacts preserve `all_rows_no_fallback_no_external_engine=true`,
+      `runtime_expansion_allowed=false`, `package_publication_allowed=false`, and
+      `performance_claim_allowed=false`.
+  - Verification:
+    - `cargo run --quiet -p shardloom-cli -- runs-today --format json`
+    - `python scripts\export_runs_today_support_matrix.py`
+    - `cargo test -p shardloom-cli --test capability_discovery_snapshots runs_today_exposes_generated_current_support_matrix -- --nocapture`
+    - `cargo test -p shardloom-cli --test typed_envelope_compatibility_lock representative_cli_json_paths_keep_typed_envelope_contract -- --nocapture`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_runs_today_returns_typed_current_support_matrix`
+    - `python scripts\export_runs_today_support_matrix.py --check`
+    - `python -m py_compile scripts\export_runs_today_support_matrix.py scripts\check_website_readiness.py`
+    - `node scripts\sync-content.mjs`
+    - `astro build`
+    - `node scripts\postbuild-static.mjs`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js`
+    - `astro-check`
+  - Claim boundary:
+    - This is a current-state discoverability and drift-control surface only. It does not expand
+      runtime support or authorize production, package, performance, object-store, lakehouse,
+      Foundry, REST, Spark-replacement, broad SQL, or broad DataFrame claims.
+  - Fallback boundary:
+    - `runs-today` is side-effect-free discovery. No pandas, Polars, DuckDB, DataFusion, Spark,
+      Dask, Ray, database, managed platform, or Vortex query-engine integration is used as fallback
+      execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python TRY_CAST dirty-value runtime
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-11-20260521` / #900.

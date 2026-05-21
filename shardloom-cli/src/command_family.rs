@@ -115,6 +115,7 @@ fn is_status_capabilities_command(command: &str) -> bool {
     matches!(
         command,
         "status"
+            | "runs-today"
             | "capabilities"
             | "compute-capability-matrix"
             | "global-architecture-gate"
@@ -388,6 +389,10 @@ mod tests {
     fn classifies_representative_priority_39_families() {
         assert_eq!(
             classify_command("status"),
+            CommandFamily::StatusCapabilities
+        );
+        assert_eq!(
+            classify_command("runs-today"),
             CommandFamily::StatusCapabilities
         );
         assert_eq!(

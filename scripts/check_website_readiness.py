@@ -43,6 +43,7 @@ EXPECTED_ASSETS = [
     "assets/site.css",
     "assets/data/compute-engine-flow-reference.md",
     "assets/data/benchmark-evidence.json",
+    "assets/data/runs-today-support-matrix.json",
     "assets/data/use-case-index.json",
     "assets/benchmarks/latest/manifest.json",
     "assets/benchmarks/latest/benchmark-results.json",
@@ -73,6 +74,10 @@ STATUS_VOCABULARY = {
     "blocked",
     "unsupported",
     "not_planned",
+    "executable",
+    "feature_gated",
+    "diagnostic_only",
+    "future",
 }
 CLAIM_PHRASES = [
     r"\bShardLoom is faster\b",
@@ -372,6 +377,50 @@ def main() -> int:
                 blockers.append(f"benchmark manifest missing list field: {field}")
     else:
         blockers.append("missing benchmark manifest")
+
+    runs_today_path = website / "assets/data/runs-today-support-matrix.json"
+    if runs_today_path.exists():
+        runs_today = json.loads(runs_today_path.read_text(encoding="utf-8"))
+        expected_states = [
+            "executable",
+            "feature_gated",
+            "diagnostic_only",
+            "report_only",
+            "blocked",
+            "future",
+        ]
+        if runs_today.get("schema_version") != "shardloom.runs_today_support_matrix.v1":
+            blockers.append("runs-today matrix has unexpected schema version")
+        if runs_today.get("support_state_vocabulary") != expected_states:
+            blockers.append("runs-today matrix support-state vocabulary drifted")
+        if runs_today.get("all_rows_no_fallback_no_external_engine") is not True:
+            blockers.append("runs-today matrix must prove no fallback and no external engine rows")
+        if runs_today.get("performance_claim_allowed") is not False:
+            blockers.append("runs-today matrix must keep performance_claim_allowed=false")
+        rows = runs_today.get("rows")
+        if not isinstance(rows, list) or len(rows) < 20:
+            blockers.append("runs-today matrix must expose at least 20 support rows")
+        else:
+            families = {row.get("family") for row in rows}
+            required_families = {
+                "cli_command",
+                "python_api",
+                "input_format",
+                "output_format",
+                "execution_mode",
+                "claim_state",
+            }
+            if not required_families.issubset(families):
+                blockers.append("runs-today matrix missing required support-row families")
+            for row in rows:
+                if row.get("fallback_attempted") is not False:
+                    blockers.append(f"runs-today row reports fallback_attempted: {row.get('id')}")
+                if row.get("external_engine_invoked") is not False:
+                    blockers.append(
+                        f"runs-today row reports external_engine_invoked: {row.get('id')}"
+                    )
+    else:
+        blockers.append("missing runs-today support matrix")
 
     redirects_path = website / "_redirects"
     if redirects_path.exists():

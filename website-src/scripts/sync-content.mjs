@@ -39,6 +39,13 @@ function syncSourceOfTruthData() {
   );
   write(path.join(publicDataRoot, "compute-engine-flow-reference.md"), canonicalFlow);
 
+  const runsTodayMatrix = fs.readFileSync(
+    path.join(repoRoot, "docs", "status", "runs-today-support-matrix.json"),
+    "utf8",
+  );
+  write(path.join(dataRoot, "runs-today-support-matrix.json"), runsTodayMatrix);
+  write(path.join(publicDataRoot, "runs-today-support-matrix.json"), runsTodayMatrix);
+
   const useCaseYaml = fs.readFileSync(
     path.join(repoRoot, "docs", "use-cases", "use-case-index.yml"),
     "utf8",
@@ -140,39 +147,6 @@ ${categories
 ## Claim Boundary
 
 The Field Guide explains vocabulary. It does not create a runtime, performance, production, SQL/DataFrame, object-store, lakehouse, Foundry, package-publication, Spark-displacement, or fallback-execution claim.
-`;
-}
-
-function docsIndex() {
-  return `${frontmatter({
-    title: "Docs",
-    description: "ShardLoom documentation entry point with quick-start, architecture, benchmark, and release references.",
-    sidebar: { label: "Docs" },
-  })}
-
-ShardLoom docs live in the repository and this Starlight surface keeps the public site aligned with the source-of-truth files.
-
-## Start
-
-- [First 10 minutes](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/first-10-minutes.md)
-- [Examples](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/examples.md)
-- [Certified local workload](https://github.com/depsilon/shardloom/blob/main/docs/getting-started/certified-local-workload.md)
-
-## Architecture
-
-- [Compute engine flow reference](https://github.com/depsilon/shardloom/blob/main/docs/architecture/compute-engine-flow-reference.md)
-- [Universal input contract](https://github.com/depsilon/shardloom/blob/main/docs/architecture/universal-input-contract.md)
-- [Phased execution plan](https://github.com/depsilon/shardloom/blob/main/docs/architecture/phased-execution-plan.md)
-
-## Evidence
-
-- [Local taxonomy benchmark](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/local-taxonomy-benchmark.md)
-- [Baseline comparison boundary](https://github.com/depsilon/shardloom/blob/main/docs/benchmarks/baseline-comparison-boundary.md)
-- [Foundry proof of use](https://github.com/depsilon/shardloom/blob/main/docs/foundry/proof-of-use-certification.md)
-
-## Claim Boundary
-
-These pages are documentation and evidence interpretation surfaces. They do not claim production readiness, package publication, Spark displacement, or external-engine fallback.
 `;
 }
 

@@ -355,10 +355,15 @@ consumers are present and emits
 at `docs/architecture/source-state-reuse-coverage-matrix.md` and the machine-readable
 `source_state_coverage_*` fields, including per-child
 `scenario_&lt;slug&gt;_source_state_coverage_status`, to classify each scenario as `source-state-reused`,
-`source-state-not-needed`, `blocked-with-reason`, or `unsupported-with-reason`. The current
-batch source-state families remain scoped in-process derived state, so family coverage fields report
-`source_state_digest_status=not_emitted_scoped_in_memory_source_state`. GAR-IOREUSE-1A adds a
-separate universal SourceState row contract with `source_state_id`, `source_state_digest`,
+`source-state-not-needed`, `blocked-with-reason`, or `unsupported-with-reason`. Batch source-state
+families remain scoped in-process derived state, and rows now emit
+`source_state_digest_status=emitted_scoped_in_memory_source_state_digest`,
+`source_state_digest_algorithm=fnv1a64`, `source_state_digest_scope`, and
+`source_state_family_digests` as evidence-only reuse identities over source artifact digests,
+requested execution mode, and family reuse posture. Benchmark rows expose the direct batch digest
+as `batch_source_state_digest` to keep it distinct from the universal SourceState row digest.
+GAR-IOREUSE-1A adds a separate universal
+SourceState row contract with `source_state_id`, `source_state_digest`,
 source-format/location/fingerprint/schema fields, parse/decode plan digest, reuse hit/reason,
 no-fallback fields, and `source_state_claim_gate_status=not_claim_grade`. Those statuses mean scoped
 process/source-metadata/source-state reuse only; they are not a daemon, service, hidden benchmark
