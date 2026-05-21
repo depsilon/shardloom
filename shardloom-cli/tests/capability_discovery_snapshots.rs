@@ -223,6 +223,48 @@ const WRAPPER_CONNECTOR_REGISTRY_FIELD_KEYS: [&str; 17] = [
     "wrapper_connector_registry_claim_gate_status",
 ];
 
+const COMMAND_REGISTRY_FIELD_KEYS: [&str; 24] = [
+    "command_registry_schema_version",
+    "command_registry_report_id",
+    "command_registry_docs_ref",
+    "command_registry_source",
+    "command_registry_metadata_command",
+    "command_registry_help_command",
+    "command_registry_registered_command_count",
+    "command_registry_support_state_vocabulary",
+    "command_registry_row_order",
+    "command_registry_family_order",
+    "command_registry_executable_count",
+    "command_registry_feature_gated_count",
+    "command_registry_diagnostic_only_count",
+    "command_registry_report_only_count",
+    "command_registry_blocked_count",
+    "command_registry_future_count",
+    "command_registry_evidence_fields",
+    "command_registry_claim_boundary",
+    "command_registry_fallback_boundary",
+    "command_registry_fallback_attempted",
+    "command_registry_external_engine_invoked",
+    "command_registry_all_commands_have_usage_fragment",
+    "command_registry_all_commands_classified",
+    "command_registry_claim_gate_status",
+];
+
+const COMMAND_REGISTRY_ROW_SUFFIXES: [&str; 12] = [
+    "command",
+    "family",
+    "support_state",
+    "side_effect_level",
+    "usage_fragment",
+    "feature_gate_status",
+    "input_contract",
+    "output_contract",
+    "evidence_fields",
+    "owning_phase_item",
+    "fallback_attempted",
+    "external_engine_invoked",
+];
+
 const WRAPPER_CONNECTOR_REGISTRY_ROW_IDS: [&str; 26] = [
     "python_cli_json_client",
     "python_typed_capability_views",
@@ -1127,10 +1169,41 @@ fn with_dataframe_notebook_package_and_generated_source_alignment_fields(
     keys
 }
 
-fn with_dataframe_notebook_package_wrapper_and_unstructured_fields(
+fn append_command_registry_keys(keys: &mut Vec<String>) {
+    keys.extend(COMMAND_REGISTRY_FIELD_KEYS.into_iter().map(str::to_string));
+    for row_id in command_registry_row_field_ids() {
+        keys.extend(
+            COMMAND_REGISTRY_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("command_registry_row_{row_id}_{suffix}")),
+        );
+    }
+}
+
+fn command_registry_row_field_ids() -> Vec<String> {
+    let source = include_str!("../src/command_registry.rs");
+    let (_, after_marker) = source
+        .split_once("pub(crate) const REGISTERED_COMMANDS: &[&str] = &[")
+        .expect("registered commands array marker");
+    let (array, _) = after_marker
+        .split_once("];")
+        .expect("registered commands array terminator");
+    array
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            let rest = trimmed.strip_prefix('"')?;
+            let (command, _) = rest.split_once('"')?;
+            Some(command.replace('-', "_"))
+        })
+        .collect()
+}
+
+fn with_dataframe_notebook_package_command_registry_wrapper_and_unstructured_fields(
     base_keys: &[&'static str],
 ) -> Vec<String> {
     let mut keys = with_dataframe_notebook_package_and_generated_source_alignment_fields(base_keys);
+    append_command_registry_keys(&mut keys);
     keys.extend(
         WRAPPER_CONNECTOR_REGISTRY_FIELD_KEYS
             .into_iter()
@@ -1831,9 +1904,11 @@ fn capability_discovery_json_field_keys_are_stable() {
             "python" => with_dataframe_notebook_package_and_generated_source_alignment_fields(
                 WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
             ),
-            "api-surfaces" => with_dataframe_notebook_package_wrapper_and_unstructured_fields(
-                WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
-            ),
+            "api-surfaces" => {
+                with_dataframe_notebook_package_command_registry_wrapper_and_unstructured_fields(
+                    WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice(),
+                )
+            }
             "universal-adapters" => {
                 let mut keys: Vec<String> =
                     with_generated_source_fields(WORLD_CLASS_SURFACE_FIELD_KEYS.as_slice())
@@ -3158,8 +3233,83 @@ fn generated_source_api_admission_matrix_classifies_source_free_surfaces() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors() {
     let output = run_capabilities_scope("api-surfaces");
+
+    assert!(output.contains(&string_field_pair(
+        "command_registry_schema_version",
+        "shardloom.command_registry.v1"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_report_id",
+        "review-p1-1.command_registry"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_docs_ref",
+        "docs/status/cli-command-registry.md"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_source",
+        "shardloom-cli/src/command_registry.rs"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_metadata_command",
+        "shardloom command-metadata [command] --format json"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_help_command",
+        "shardloom help [command] --format json"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_registered_command_count",
+        &command_registry_row_field_ids().len().to_string()
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_support_state_vocabulary",
+        "executable,feature_gated,diagnostic_only,report_only,blocked,future"
+    )));
+    assert!(output.contains(&field_pair("command_registry_fallback_attempted", false)));
+    assert!(output.contains(&field_pair(
+        "command_registry_external_engine_invoked",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "command_registry_all_commands_have_usage_fragment",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "command_registry_all_commands_classified",
+        true
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_claim_gate_status",
+        "metadata_only_not_claim_grade"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_row_help_usage_fragment",
+        "help [command]"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_row_vortex_ingest_smoke_input_contract",
+        "local_source_or_vortex_artifact_args"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_row_vortex_ingest_smoke_output_contract",
+        "typed_envelope_plus_local_runtime_or_artifact_evidence"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "command_registry_row_vortex_ingest_smoke_owning_phase_item",
+        "GAR-RUNTIME-IMPL-4"
+    )));
+    assert!(output.contains(&field_pair(
+        "command_registry_row_vortex_ingest_smoke_fallback_attempted",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "command_registry_row_vortex_ingest_smoke_external_engine_invoked",
+        false
+    )));
 
     assert!(output.contains(&string_field_pair(
         "wrapper_connector_registry_schema_version",

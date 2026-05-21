@@ -5663,7 +5663,7 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(plan.contains("support_status=unsupported|blocked|report_only"));
     assert!(!plan.contains("- [ ] GAR-0024-A publication and API/schema stability gate"));
     assert!(plan.contains("complete the review-derived action items below before new runtime"));
-    assert!(plan.contains("REVIEW-P1-1 typed command registry"));
+    assert!(!plan.contains("- [ ] REVIEW-P1-1 typed command registry"));
     assert!(plan.contains("REVIEW-P1-4 dependency, license, provenance"));
     assert!(plan.contains("REVIEW-RUNTIME-1 three golden workflow validator"));
     assert!(plan.contains("Completed non-runtime history belongs in"));
@@ -5671,6 +5671,11 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(
         completed_ledger.contains("GAR-0024-A publication and API/schema stability gate"),
         "GAR-0024-A should be moved from Planned to the completed ledger"
+    );
+    assert!(
+        completed_ledger.contains("REVIEW-P1-1A typed command registry")
+            && completed_ledger.contains("REVIEW-P1-1B typed command registry"),
+        "REVIEW-P1-1 should be moved from Planned to the completed ledger"
     );
     assert!(
         completed_ledger.contains("GAR-0043-B publication attestation and final release rehearsal"),

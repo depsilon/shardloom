@@ -13,7 +13,7 @@ use crate::{
     command_family::classify_command,
 };
 
-const REGISTRY_SCHEMA_VERSION: &str = "shardloom.command_registry.v1";
+pub(crate) const REGISTRY_SCHEMA_VERSION: &str = "shardloom.command_registry.v1";
 const SUPPORT_STATE_VOCABULARY: &[&str] = &[
     "executable",
     "feature_gated",
@@ -22,11 +22,16 @@ const SUPPORT_STATE_VOCABULARY: &[&str] = &[
     "blocked",
     "future",
 ];
+const REGISTRY_REPORT_ID: &str = "review-p1-1.command_registry";
+const REGISTRY_SOURCE: &str = "shardloom-cli/src/command_registry.rs";
+const REGISTRY_DOCS_REF: &str = "docs/status/cli-command-registry.md";
 const CLAIM_BOUNDARY: &str = "command metadata only; runtime support and public claims remain governed by runs-today, capabilities, certificates, and release gates";
 const FALLBACK_BOUNDARY: &str =
     "metadata rendering is side-effect-free and never invokes fallback or external engines";
+const COMMAND_EVIDENCE_FIELDS: &str = "command|family|support_state|side_effect_level|usage_fragment|feature_gate_status|input_contract|output_contract|owning_phase_item|claim_boundary|fallback_boundary|fallback_attempted|external_engine_invoked";
 
 pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
+    "help",
     "command-metadata",
     "spill-lifecycle",
     "spill-reservation-plan",
@@ -239,6 +244,31 @@ impl CommandDescriptor {
     pub(crate) fn usage_fragment(self) -> String {
         command_usage_fragment(self.command)
     }
+
+    #[must_use]
+    pub(crate) fn field_id(self) -> String {
+        command_field_id(self.command)
+    }
+
+    #[must_use]
+    pub(crate) fn feature_gate_status(self) -> &'static str {
+        command_feature_gate_status(self.command)
+    }
+
+    #[must_use]
+    pub(crate) fn input_contract(self) -> &'static str {
+        command_input_contract(self.command)
+    }
+
+    #[must_use]
+    pub(crate) fn output_contract(self) -> &'static str {
+        command_output_contract(self.command)
+    }
+
+    #[must_use]
+    pub(crate) fn owning_phase_item(self) -> &'static str {
+        command_owning_phase_item(self.command)
+    }
 }
 
 pub(crate) fn registered_commands() -> impl Iterator<Item = CommandDescriptor> {
@@ -264,6 +294,59 @@ pub(crate) fn usage_line(command_name: &str) -> String {
         .collect::<Vec<_>>()
         .join("|");
     format!("usage: {command_name} <{fragments}> [--format text|json]")
+}
+
+pub(crate) fn handle_command_help(
+    mut args: impl Iterator<Item = String>,
+    format: OutputFormat,
+    command_name: &str,
+) -> ExitCode {
+    let selected = args.next();
+    if let Some(extra) = args.next() {
+        return emit_error(
+            "help",
+            format,
+            "unexpected help argument",
+            &ShardLoomError::InvalidOperation(format!("unexpected help argument: {extra}")),
+        );
+    }
+    let selected_descriptor = match selected.as_deref() {
+        Some(command) => match lookup(command) {
+            Some(descriptor) => Some(descriptor),
+            None => {
+                return emit_error(
+                    "help",
+                    format,
+                    "unknown help target",
+                    &ShardLoomError::InvalidOperation(format!("unknown help target: {command}")),
+                );
+            }
+        },
+        None => None,
+    };
+
+    let mut fields = command_metadata_fields(selected_descriptor);
+    fields.push((
+        "help_scope".to_string(),
+        selected.unwrap_or_else(|| "all".to_string()),
+    ));
+    fields.push(("usage_line".to_string(), usage_line(command_name)));
+    if let Some(descriptor) = selected_descriptor {
+        fields.push((
+            "selected_command_help_text".to_string(),
+            command_help_text(command_name, descriptor),
+        ));
+    }
+    emit(
+        "help",
+        format,
+        CommandStatus::Success,
+        "command help rendered from registry metadata without side effects".to_string(),
+        command_help_text_for_selection(command_name, selected_descriptor),
+        Vec::<Diagnostic>::new(),
+        fields,
+    );
+    ExitCode::SUCCESS
 }
 
 pub(crate) fn handle_command_metadata(
@@ -312,6 +395,7 @@ pub(crate) fn handle_command_metadata(
     ExitCode::SUCCESS
 }
 
+#[allow(clippy::too_many_lines)]
 fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, String)> {
     let descriptors = registered_commands().collect::<Vec<_>>();
     let mut fields = vec![
@@ -320,11 +404,23 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
             REGISTRY_SCHEMA_VERSION.to_string(),
         ),
         (
+            "command_registry_report_id".to_string(),
+            REGISTRY_REPORT_ID.to_string(),
+        ),
+        (
             "command_registry_source".to_string(),
-            "shardloom-cli/src/command_registry.rs".to_string(),
+            REGISTRY_SOURCE.to_string(),
+        ),
+        (
+            "command_registry_docs_ref".to_string(),
+            REGISTRY_DOCS_REF.to_string(),
         ),
         (
             "registered_command_count".to_string(),
+            descriptors.len().to_string(),
+        ),
+        (
+            "command_registry_registered_command_count".to_string(),
             descriptors.len().to_string(),
         ),
         (
@@ -365,6 +461,60 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
                 .collect::<Vec<_>>()
                 .join(","),
         ),
+        (
+            "registered_command_feature_gate_statuses".to_string(),
+            descriptors
+                .iter()
+                .map(|descriptor| {
+                    format!(
+                        "{}={}",
+                        descriptor.command,
+                        descriptor.feature_gate_status()
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(","),
+        ),
+        (
+            "registered_command_input_contracts".to_string(),
+            descriptors
+                .iter()
+                .map(|descriptor| format!("{}={}", descriptor.command, descriptor.input_contract()))
+                .collect::<Vec<_>>()
+                .join(","),
+        ),
+        (
+            "registered_command_output_contracts".to_string(),
+            descriptors
+                .iter()
+                .map(|descriptor| {
+                    format!("{}={}", descriptor.command, descriptor.output_contract())
+                })
+                .collect::<Vec<_>>()
+                .join(","),
+        ),
+        (
+            "registered_command_owning_phase_items".to_string(),
+            descriptors
+                .iter()
+                .map(|descriptor| {
+                    format!("{}={}", descriptor.command, descriptor.owning_phase_item())
+                })
+                .collect::<Vec<_>>()
+                .join(","),
+        ),
+        (
+            "command_registry_evidence_fields".to_string(),
+            COMMAND_EVIDENCE_FIELDS.to_string(),
+        ),
+        (
+            "command_registry_help_command".to_string(),
+            "shardloom help [command] --format json".to_string(),
+        ),
+        (
+            "command_registry_metadata_command".to_string(),
+            "shardloom command-metadata [command] --format json".to_string(),
+        ),
         ("claim_boundary".to_string(), CLAIM_BOUNDARY.to_string()),
         (
             "fallback_boundary".to_string(),
@@ -395,6 +545,26 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
                 "selected_command_usage_fragment".to_string(),
                 descriptor.usage_fragment(),
             ),
+            (
+                "selected_command_feature_gate_status".to_string(),
+                descriptor.feature_gate_status().to_string(),
+            ),
+            (
+                "selected_command_input_contract".to_string(),
+                descriptor.input_contract().to_string(),
+            ),
+            (
+                "selected_command_output_contract".to_string(),
+                descriptor.output_contract().to_string(),
+            ),
+            (
+                "selected_command_evidence_fields".to_string(),
+                COMMAND_EVIDENCE_FIELDS.to_string(),
+            ),
+            (
+                "selected_command_owning_phase_item".to_string(),
+                descriptor.owning_phase_item().to_string(),
+            ),
         ]);
     }
     fields
@@ -403,12 +573,16 @@ fn command_metadata_fields(selected: Option<CommandDescriptor>) -> Vec<(String, 
 fn command_metadata_text(selected: Option<CommandDescriptor>) -> String {
     if let Some(descriptor) = selected {
         return format!(
-            "{}\nfamily={}\nsupport_state={}\nside_effect_level={}\nusage={}\nclaim_boundary={CLAIM_BOUNDARY}\nfallback_boundary={FALLBACK_BOUNDARY}",
+            "{}\nfamily={}\nsupport_state={}\nside_effect_level={}\nusage={}\nfeature_gate_status={}\ninput_contract={}\noutput_contract={}\nowning_phase_item={}\nevidence_fields={COMMAND_EVIDENCE_FIELDS}\nclaim_boundary={CLAIM_BOUNDARY}\nfallback_boundary={FALLBACK_BOUNDARY}",
             descriptor.command,
             descriptor.family(),
             descriptor.support_state(),
             descriptor.side_effect_level(),
-            descriptor.usage_fragment()
+            descriptor.usage_fragment(),
+            descriptor.feature_gate_status(),
+            descriptor.input_contract(),
+            descriptor.output_contract(),
+            descriptor.owning_phase_item()
         );
     }
 
@@ -430,8 +604,160 @@ fn command_metadata_text(selected: Option<CommandDescriptor>) -> String {
     )
 }
 
+#[allow(clippy::too_many_lines)]
+pub(crate) fn append_command_registry_capability_fields(fields: &mut Vec<(String, String)>) {
+    let descriptors = registered_commands().collect::<Vec<_>>();
+    fields.extend([
+        (
+            "command_registry_schema_version".to_string(),
+            REGISTRY_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "command_registry_report_id".to_string(),
+            REGISTRY_REPORT_ID.to_string(),
+        ),
+        (
+            "command_registry_docs_ref".to_string(),
+            REGISTRY_DOCS_REF.to_string(),
+        ),
+        (
+            "command_registry_source".to_string(),
+            REGISTRY_SOURCE.to_string(),
+        ),
+        (
+            "command_registry_metadata_command".to_string(),
+            "shardloom command-metadata [command] --format json".to_string(),
+        ),
+        (
+            "command_registry_help_command".to_string(),
+            "shardloom help [command] --format json".to_string(),
+        ),
+        (
+            "command_registry_registered_command_count".to_string(),
+            descriptors.len().to_string(),
+        ),
+        (
+            "command_registry_support_state_vocabulary".to_string(),
+            SUPPORT_STATE_VOCABULARY.join(","),
+        ),
+        (
+            "command_registry_row_order".to_string(),
+            descriptors
+                .iter()
+                .map(|descriptor| descriptor.command)
+                .collect::<Vec<_>>()
+                .join(","),
+        ),
+        (
+            "command_registry_family_order".to_string(),
+            unique_descriptor_values(&descriptors, CommandDescriptor::family).join(","),
+        ),
+        (
+            "command_registry_executable_count".to_string(),
+            support_state_count(&descriptors, "executable").to_string(),
+        ),
+        (
+            "command_registry_feature_gated_count".to_string(),
+            support_state_count(&descriptors, "feature_gated").to_string(),
+        ),
+        (
+            "command_registry_diagnostic_only_count".to_string(),
+            support_state_count(&descriptors, "diagnostic_only").to_string(),
+        ),
+        (
+            "command_registry_report_only_count".to_string(),
+            support_state_count(&descriptors, "report_only").to_string(),
+        ),
+        (
+            "command_registry_blocked_count".to_string(),
+            support_state_count(&descriptors, "blocked").to_string(),
+        ),
+        (
+            "command_registry_future_count".to_string(),
+            support_state_count(&descriptors, "future").to_string(),
+        ),
+        (
+            "command_registry_evidence_fields".to_string(),
+            COMMAND_EVIDENCE_FIELDS.to_string(),
+        ),
+        (
+            "command_registry_claim_boundary".to_string(),
+            CLAIM_BOUNDARY.to_string(),
+        ),
+        (
+            "command_registry_fallback_boundary".to_string(),
+            FALLBACK_BOUNDARY.to_string(),
+        ),
+        (
+            "command_registry_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "command_registry_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "command_registry_all_commands_have_usage_fragment".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "command_registry_all_commands_classified".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "command_registry_claim_gate_status".to_string(),
+            "metadata_only_not_claim_grade".to_string(),
+        ),
+    ]);
+    for descriptor in descriptors {
+        let prefix = format!("command_registry_row_{}", descriptor.field_id());
+        fields.extend([
+            (format!("{prefix}_command"), descriptor.command.to_string()),
+            (format!("{prefix}_family"), descriptor.family().to_string()),
+            (
+                format!("{prefix}_support_state"),
+                descriptor.support_state().to_string(),
+            ),
+            (
+                format!("{prefix}_side_effect_level"),
+                descriptor.side_effect_level().to_string(),
+            ),
+            (
+                format!("{prefix}_usage_fragment"),
+                descriptor.usage_fragment(),
+            ),
+            (
+                format!("{prefix}_feature_gate_status"),
+                descriptor.feature_gate_status().to_string(),
+            ),
+            (
+                format!("{prefix}_input_contract"),
+                descriptor.input_contract().to_string(),
+            ),
+            (
+                format!("{prefix}_output_contract"),
+                descriptor.output_contract().to_string(),
+            ),
+            (
+                format!("{prefix}_evidence_fields"),
+                COMMAND_EVIDENCE_FIELDS.to_string(),
+            ),
+            (
+                format!("{prefix}_owning_phase_item"),
+                descriptor.owning_phase_item().to_string(),
+            ),
+            (format!("{prefix}_fallback_attempted"), "false".to_string()),
+            (
+                format!("{prefix}_external_engine_invoked"),
+                "false".to_string(),
+            ),
+        ]);
+    }
+}
+
 fn command_usage_fragment(command: &str) -> String {
     match command {
+        "help" => "help [command]".to_string(),
         "capabilities" => format!("{command} [{}]", capability_scopes().join("|")),
         "rest-api-plan-preview" => {
             format!(
@@ -508,6 +834,10 @@ fn command_usage_fragment(command: &str) -> String {
         "retry-gate-plan" | "cancellation-gate-plan" => format!("{command} <signals>"),
         _ => command.to_string(),
     }
+}
+
+fn command_field_id(command: &str) -> String {
+    command.replace('-', "_")
 }
 
 fn capability_scopes() -> &'static [&'static str] {
@@ -592,7 +922,7 @@ fn command_support_state(command: &str) -> &'static str {
         "diagnostic_only"
     } else if matches!(
         command,
-        "command-metadata" | "status" | "runs-today" | "capabilities"
+        "help" | "command-metadata" | "status" | "runs-today" | "capabilities"
     ) || command.ends_with("-smoke")
         || command.ends_with("-run")
         || matches!(
@@ -625,7 +955,7 @@ fn command_support_state(command: &str) -> &'static str {
 fn command_side_effect_level(command: &str) -> &'static str {
     if matches!(
         command,
-        "command-metadata" | "status" | "runs-today" | "capabilities"
+        "help" | "command-metadata" | "status" | "runs-today" | "capabilities"
     ) || command.ends_with("-plan")
         || command.ends_with("-gate")
         || command.ends_with("-matrix")
@@ -661,6 +991,140 @@ fn command_side_effect_level(command: &str) -> &'static str {
     }
 }
 
+fn command_feature_gate_status(command: &str) -> &'static str {
+    match command_support_state(command) {
+        "feature_gated" => "explicit_feature_gate_or_runtime_gate_required",
+        "blocked" => "blocked",
+        "future" => "future",
+        _ => "not_required_for_metadata",
+    }
+}
+
+fn command_input_contract(command: &str) -> &'static str {
+    match classify_command(command).as_str() {
+        "status_capabilities" => "registry_or_capability_scope_args",
+        "prepared_source_backed_execution" => "local_source_or_vortex_artifact_args",
+        "vortex_primitive_execution" => "local_vortex_artifact_and_operator_args",
+        "vortex_output_commit" => "local_workspace_commit_or_write_signals",
+        "object_store_planning" => "declared_object_store_request_shape",
+        "rest_api_planning" => "declared_remote_api_contract_or_lifecycle_signals",
+        "workflow_planning" => "workflow_or_local_artifact_args",
+        "input_planning" => "declared_input_source_or_adapter_shape",
+        "engine_runtime_planning" => "declared_runtime_or_engine_mode_signals",
+        "vortex_runtime_planning" => "declared_vortex_runtime_signals",
+        "vortex_planning" => "declared_vortex_file_or_planning_signals",
+        "benchmarks" => "declared_benchmark_or_local_runtime_args",
+        "packaging_deployment" => "release_or_package_readiness_scope",
+        "operational_hardening" => "declared_safety_memory_spill_or_recovery_signals",
+        "diagnostics" => "diagnostic_or_estimate_args",
+        "evidence_certificates" => "evidence_or_certificate_scope_args",
+        "optimizer_planning" => "declared_optimizer_or_kernel_scope",
+        "extension_planning" => "extension_manifest_or_udf_scope_args",
+        _ => "command_specific_args",
+    }
+}
+
+fn command_output_contract(command: &str) -> &'static str {
+    if command.ends_with("-smoke")
+        || command.ends_with("-run")
+        || command.contains("write")
+        || command.contains("execute")
+        || matches!(
+            command,
+            "vortex-count"
+                | "vortex-count-where"
+                | "vortex-project"
+                | "vortex-filter"
+                | "vortex-filter-project"
+                | "vortex-local-exec"
+                | "vortex-bounded-local-exec"
+                | "vortex-run"
+                | "vortex-query-trace"
+                | "spill-payload-roundtrip"
+                | "cleanup-synthetic-payload"
+        )
+    {
+        "typed_envelope_plus_local_runtime_or_artifact_evidence"
+    } else {
+        "typed_envelope_metadata_report_only"
+    }
+}
+
+fn command_owning_phase_item(command: &str) -> &'static str {
+    match classify_command(command).as_str() {
+        "status_capabilities" => "REVIEW-P1-1",
+        "prepared_source_backed_execution" | "vortex_primitive_execution" | "vortex_planning" => {
+            "GAR-RUNTIME-IMPL-4"
+        }
+        "vortex_output_commit" => "CG-3",
+        "object_store_planning" => "CG-10",
+        "rest_api_planning" => "CG-23",
+        "workflow_planning" => "CG-21",
+        "input_planning" => "CG-20",
+        "engine_runtime_planning" => "CG-8-CG-22",
+        "vortex_runtime_planning" => "CG-8",
+        "benchmarks" => "CG-6",
+        "packaging_deployment" => "REVIEW-P0-4",
+        "operational_hardening" => "CG-14-CG-17",
+        "diagnostics" => "RFC-0012",
+        "evidence_certificates" => "CG-5-CG-16",
+        "optimizer_planning" => "CG-7-CG-8",
+        "extension_planning" => "RFC-0023",
+        _ => "unassigned",
+    }
+}
+
+fn unique_descriptor_values(
+    descriptors: &[CommandDescriptor],
+    accessor: fn(CommandDescriptor) -> &'static str,
+) -> Vec<&'static str> {
+    let mut values = Vec::new();
+    for descriptor in descriptors {
+        let value = accessor(*descriptor);
+        if !values.contains(&value) {
+            values.push(value);
+        }
+    }
+    values
+}
+
+fn support_state_count(descriptors: &[CommandDescriptor], support_state: &str) -> usize {
+    descriptors
+        .iter()
+        .filter(|descriptor| descriptor.support_state() == support_state)
+        .count()
+}
+
+fn command_help_text_for_selection(
+    command_name: &str,
+    selected: Option<CommandDescriptor>,
+) -> String {
+    selected.map_or_else(
+        || {
+            format!(
+                "{}\n\nUse '{command_name} help <command>' for command-specific metadata. Use '{command_name} command-metadata [command] --format json' for agent-readable registry output.",
+                usage_line(command_name)
+            )
+        },
+        |descriptor| command_help_text(command_name, descriptor),
+    )
+}
+
+fn command_help_text(command_name: &str, descriptor: CommandDescriptor) -> String {
+    format!(
+        "command: {}\nusage: {command_name} {} [--format text|json]\nfamily: {}\nsupport_state: {}\nside_effect_level: {}\nfeature_gate_status: {}\ninput_contract: {}\noutput_contract: {}\nowning_phase_item: {}\nevidence_fields: {COMMAND_EVIDENCE_FIELDS}\nclaim_boundary: {CLAIM_BOUNDARY}\nfallback_boundary: {FALLBACK_BOUNDARY}",
+        descriptor.command,
+        descriptor.usage_fragment(),
+        descriptor.family(),
+        descriptor.support_state(),
+        descriptor.side_effect_level(),
+        descriptor.feature_gate_status(),
+        descriptor.input_contract(),
+        descriptor.output_contract(),
+        descriptor.owning_phase_item(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -685,6 +1149,7 @@ mod tests {
             );
             assert!(!descriptor.usage_fragment().is_empty());
         }
+        assert!(seen.contains("help"));
         assert!(seen.contains("command-metadata"));
         assert!(seen.contains("capabilities"));
         assert!(seen.contains("vortex-ingest-smoke"));
@@ -694,7 +1159,7 @@ mod tests {
     #[test]
     fn usage_line_is_registry_backed() {
         let usage = usage_line("shardloom");
-        assert!(usage.starts_with("usage: shardloom <command-metadata|"));
+        assert!(usage.starts_with("usage: shardloom <help [command]|command-metadata|"));
         assert!(usage.contains("capabilities [sql|functions"));
         assert!(usage.contains("serve --mode discovery"));
         assert!(usage.contains("sql-execute"));
@@ -717,8 +1182,80 @@ mod tests {
             "selected_command_family".to_string(),
             "prepared_source_backed_execution".to_string()
         )));
+        assert!(fields.contains(&(
+            "selected_command_feature_gate_status".to_string(),
+            "not_required_for_metadata".to_string()
+        )));
+        assert!(fields.contains(&(
+            "selected_command_input_contract".to_string(),
+            "local_source_or_vortex_artifact_args".to_string()
+        )));
+        assert!(fields.contains(&(
+            "selected_command_output_contract".to_string(),
+            "typed_envelope_plus_local_runtime_or_artifact_evidence".to_string()
+        )));
+        assert!(fields.contains(&(
+            "selected_command_owning_phase_item".to_string(),
+            "GAR-RUNTIME-IMPL-4".to_string()
+        )));
         assert!(fields.contains(&("fallback_attempted".to_string(), "false".to_string())));
         assert!(fields.contains(&("external_engine_invoked".to_string(), "false".to_string())));
+    }
+
+    #[test]
+    fn help_text_is_registry_backed_and_command_specific() {
+        let descriptor = lookup("vortex-ingest-smoke").expect("registered command");
+        let help = command_help_text("shardloom", descriptor);
+        assert!(
+            help.contains(
+                "usage: shardloom vortex-ingest-smoke <local-source-path> <target.vortex>"
+            )
+        );
+        assert!(help.contains("support_state: executable"));
+        assert!(help.contains("owning_phase_item: GAR-RUNTIME-IMPL-4"));
+        assert!(help.contains("fallback_boundary: metadata rendering is side-effect-free"));
+    }
+
+    #[test]
+    fn capability_fields_are_registry_generated() {
+        let mut fields = Vec::new();
+        append_command_registry_capability_fields(&mut fields);
+        assert!(fields.contains(&(
+            "command_registry_registered_command_count".to_string(),
+            REGISTERED_COMMANDS.len().to_string()
+        )));
+        assert!(fields.contains(&(
+            "command_registry_row_vortex_ingest_smoke_command".to_string(),
+            "vortex-ingest-smoke".to_string()
+        )));
+        assert!(fields.contains(&(
+            "command_registry_row_vortex_ingest_smoke_owning_phase_item".to_string(),
+            "GAR-RUNTIME-IMPL-4".to_string()
+        )));
+        assert!(fields.contains(&(
+            "command_registry_fallback_attempted".to_string(),
+            "false".to_string()
+        )));
+        assert!(fields.contains(&(
+            "command_registry_external_engine_invoked".to_string(),
+            "false".to_string()
+        )));
+    }
+
+    #[test]
+    fn docs_status_snippet_tracks_registry_summary() {
+        let docs = include_str!("../../docs/status/cli-command-registry.md");
+        assert!(docs.contains(REGISTRY_SCHEMA_VERSION));
+        assert!(docs.contains(REGISTRY_SOURCE));
+        assert!(docs.contains("shardloom command-metadata [command] --format json"));
+        assert!(docs.contains("shardloom help [command] --format json"));
+        assert!(docs.contains(&format!(
+            "Registered command count: {}",
+            REGISTERED_COMMANDS.len()
+        )));
+        assert!(docs.contains("Support-state vocabulary: executable, feature_gated, diagnostic_only, report_only, blocked, future"));
+        assert!(docs.contains("fallback_attempted=false"));
+        assert!(docs.contains("external_engine_invoked=false"));
     }
 
     #[test]

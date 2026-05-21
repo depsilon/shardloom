@@ -235,17 +235,26 @@ class ShardLoomClientTests(unittest.TestCase):
                 assert sys.argv[1:] == ["command-metadata", "vortex-ingest-smoke", "--format", "json"], sys.argv
                 fields = [
                     ["command_registry_schema_version", "shardloom.command_registry.v1"],
-                    ["registered_command_count", "3"],
+                    ["registered_command_count", "4"],
                     ["command_registry_support_state_vocabulary", "executable,feature_gated,diagnostic_only,report_only,blocked,future"],
-                    ["registered_commands", "command-metadata,status,vortex-ingest-smoke"],
-                    ["registered_command_families", "command-metadata=status_capabilities,status=status_capabilities,vortex-ingest-smoke=prepared_source_backed_execution"],
-                    ["registered_command_support_states", "command-metadata=executable,status=executable,vortex-ingest-smoke=executable"],
-                    ["registered_command_side_effect_levels", "command-metadata=side_effect_free_metadata_or_report,status=side_effect_free_metadata_or_report,vortex-ingest-smoke=local_runtime_or_local_artifact_effect_possible"],
+                    ["registered_commands", "help,command-metadata,status,vortex-ingest-smoke"],
+                    ["registered_command_families", "help=status_capabilities,command-metadata=status_capabilities,status=status_capabilities,vortex-ingest-smoke=prepared_source_backed_execution"],
+                    ["registered_command_support_states", "help=executable,command-metadata=executable,status=executable,vortex-ingest-smoke=executable"],
+                    ["registered_command_side_effect_levels", "help=side_effect_free_metadata_or_report,command-metadata=side_effect_free_metadata_or_report,status=side_effect_free_metadata_or_report,vortex-ingest-smoke=local_runtime_or_local_artifact_effect_possible"],
+                    ["registered_command_feature_gate_statuses", "help=not_required_for_metadata,command-metadata=not_required_for_metadata,status=not_required_for_metadata,vortex-ingest-smoke=not_required_for_metadata"],
+                    ["registered_command_input_contracts", "help=registry_or_capability_scope_args,command-metadata=registry_or_capability_scope_args,status=registry_or_capability_scope_args,vortex-ingest-smoke=local_source_or_vortex_artifact_args"],
+                    ["registered_command_output_contracts", "help=typed_envelope_metadata_report_only,command-metadata=typed_envelope_metadata_report_only,status=typed_envelope_metadata_report_only,vortex-ingest-smoke=typed_envelope_plus_local_runtime_or_artifact_evidence"],
+                    ["registered_command_owning_phase_items", "help=REVIEW-P1-1,command-metadata=REVIEW-P1-1,status=REVIEW-P1-1,vortex-ingest-smoke=GAR-RUNTIME-IMPL-4"],
                     ["selected_command", "vortex-ingest-smoke"],
                     ["selected_command_family", "prepared_source_backed_execution"],
                     ["selected_command_support_state", "executable"],
                     ["selected_command_side_effect_level", "local_runtime_or_local_artifact_effect_possible"],
                     ["selected_command_usage_fragment", "vortex-ingest-smoke <local-source-path> <target.vortex>"],
+                    ["selected_command_feature_gate_status", "not_required_for_metadata"],
+                    ["selected_command_input_contract", "local_source_or_vortex_artifact_args"],
+                    ["selected_command_output_contract", "typed_envelope_plus_local_runtime_or_artifact_evidence"],
+                    ["selected_command_evidence_fields", "command|family|support_state|side_effect_level|usage_fragment|feature_gate_status|input_contract|output_contract|owning_phase_item|claim_boundary|fallback_boundary|fallback_attempted|external_engine_invoked"],
+                    ["selected_command_owning_phase_item", "GAR-RUNTIME-IMPL-4"],
                     ["fallback_attempted", "false"],
                     ["external_engine_invoked", "false"],
                 ]
@@ -267,7 +276,7 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertIsInstance(report, CommandMetadataReport)
         self.assertEqual(report.schema_version, "shardloom.command_registry.v1")
-        self.assertEqual(report.registered_command_count, 3)
+        self.assertEqual(report.registered_command_count, 4)
         self.assertEqual(
             report.support_state_vocabulary,
             (
@@ -281,7 +290,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(
             report.registered_commands,
-            ("command-metadata", "status", "vortex-ingest-smoke"),
+            ("help", "command-metadata", "status", "vortex-ingest-smoke"),
         )
         self.assertEqual(report.selected_command, "vortex-ingest-smoke")
         self.assertEqual(
@@ -294,6 +303,39 @@ class ShardLoomClientTests(unittest.TestCase):
             report.side_effect_level_for("vortex-ingest-smoke"),
             "local_runtime_or_local_artifact_effect_possible",
         )
+        self.assertEqual(
+            report.feature_gate_status_for("vortex-ingest-smoke"),
+            "not_required_for_metadata",
+        )
+        self.assertEqual(
+            report.input_contract_for("vortex-ingest-smoke"),
+            "local_source_or_vortex_artifact_args",
+        )
+        self.assertEqual(
+            report.output_contract_for("vortex-ingest-smoke"),
+            "typed_envelope_plus_local_runtime_or_artifact_evidence",
+        )
+        self.assertEqual(
+            report.owning_phase_item_for("vortex-ingest-smoke"),
+            "GAR-RUNTIME-IMPL-4",
+        )
+        self.assertEqual(
+            report.selected_command_feature_gate_status,
+            "not_required_for_metadata",
+        )
+        self.assertEqual(
+            report.selected_command_input_contract,
+            "local_source_or_vortex_artifact_args",
+        )
+        self.assertEqual(
+            report.selected_command_output_contract,
+            "typed_envelope_plus_local_runtime_or_artifact_evidence",
+        )
+        self.assertEqual(
+            report.selected_command_owning_phase_item,
+            "GAR-RUNTIME-IMPL-4",
+        )
+        self.assertIn("fallback_attempted", report.selected_command_evidence_fields)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 

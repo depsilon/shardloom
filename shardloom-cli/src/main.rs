@@ -843,6 +843,7 @@ fn run(args: Vec<String>) -> ExitCode {
             operational_hardening::handle_cleanup_synthetic_payload(args, format)
         }
 
+        Some("help") => command_registry::handle_command_help(args, format, cli_command_name()),
         Some("command-metadata") => command_registry::handle_command_metadata(args, format),
         Some("status") => status_capabilities::handle_status(format),
         Some("runs-today") => status_capabilities::handle_runs_today(format),
@@ -1613,6 +1614,18 @@ mod tests {
             "command-metadata".to_string(),
             "not-a-command".to_string(),
         ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn command_help_dispatch_returns_success() {
+        let code = run(vec!["help".to_string(), "vortex-ingest-smoke".to_string()]);
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn command_help_unknown_command_returns_non_zero() {
+        let code = run(vec!["help".to_string(), "not-a-command".to_string()]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
 

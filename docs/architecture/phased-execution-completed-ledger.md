@@ -16,6 +16,59 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-P1-1B typed command registry capability/docs/help backfill
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-17-20260521` / #906.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - RFC 0010, RFC 0012, typed command-result envelope, and capability discovery guidance.
+    - `REVIEW-P1-1 typed command registry generated capability/docs backfill`.
+  - Scope:
+    - Added `help [command]` as a side-effect-free registry-backed command-specific help surface.
+    - Extended command metadata with feature-gate status, input contract, output contract, evidence
+      field set, and owning phase/gate metadata for each registered command.
+    - Backfilled Python `CommandMetadataReport` typed accessors for the new registry metadata maps
+      and selected-command fields.
+    - Projected the same registry into `capabilities api-surfaces --format json` as generated
+      command-registry summary and per-command rows.
+    - Added `docs/status/cli-command-registry.md` as a status snippet validated by registry tests
+      rather than a second hand-maintained command table.
+    - Removed the completed `REVIEW-P1-1` work item from the active phased execution plan so the
+      plan remains an unchecked queue only.
+  - User-visible evidence:
+    - `shardloom help vortex-ingest-smoke --format json` exposes command-specific help and metadata
+      from the registry.
+    - `shardloom command-metadata vortex-ingest-smoke --format json` includes command support,
+      side-effect, feature-gate, input/output-contract, evidence-field, phase/gate, claim, and
+      no-fallback metadata.
+    - `shardloom capabilities api-surfaces --format json` now includes generated
+      `command_registry_*` summary fields and `command_registry_row_*` per-command rows.
+  - Drift guards:
+    - Registry unit tests enforce command uniqueness, family classification, support-state
+      vocabulary, dispatch-table parity, command-specific help rendering, capability field
+      generation, and docs/status snippet freshness.
+    - Capability snapshot tests derive expected command-registry row keys from
+      `shardloom-cli/src/command_registry.rs` so command additions update one registry source.
+    - Python wrapper tests assert typed access to feature-gate, input/output-contract, evidence, and
+      phase/gate metadata.
+  - Verification:
+    - `cargo fmt --all`
+    - `cargo test -p shardloom-cli command_registry -- --nocapture`
+    - `cargo test -p shardloom-cli command_help -- --nocapture`
+    - `cargo test -p shardloom-cli wrapper_connector_registry_classifies_api_surface_wrappers_and_connectors --test capability_discovery_snapshots -- --nocapture`
+  - Remaining non-goals:
+    - No runtime command execution behavior, support claim, package publication, public API
+      stability claim, remote listener implementation, or performance claim is authorized by this
+      metadata backfill.
+  - Claim boundary:
+    - This is command discoverability and metadata consolidation only. Runtime support and public
+      claims remain governed by `runs-today`, capabilities, execution certificates, release gates,
+      and benchmark evidence.
+  - Fallback boundary:
+    - Command registry metadata, `help`, and capability projections are side-effect-free and report
+      `fallback_attempted=false` and `external_engine_invoked=false`; they must never invoke
+      fallback execution or external query engines.
+
 - [x] Session label: REVIEW-P1-1A typed command registry, generated usage, and Python metadata
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-16-20260521` / #905.
