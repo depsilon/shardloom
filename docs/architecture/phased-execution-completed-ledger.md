@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python string-function predicate/projection runtime
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-string-functions-4d` / #882.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, and date runtime families`
+    - ShardLoom-native string expression semantics
+    - SQL local-source predicate/projection runtime
+    - Python query-builder expression surface.
+  - Scope:
+    - Added ShardLoom-native UTF-8 `CONCAT`, `SUBSTR` / `SUBSTRING`, and `REPLACE` function
+      evaluation with null propagation and deterministic dtype/argument blockers.
+    - Promoted scoped local SQL string-function predicates and computed projections over admitted
+      local-source rows when at least one source column participates.
+    - Added deterministic blockers for literal-only calls, invalid substring starts/lengths, empty
+      replace search strings, non-UTF-8 operands, unsupported nesting, joins, and duplicate output
+      names.
+    - Added Python query-builder helpers `sl.concat(...)`, `.concat(...)`, `.substr(...)`,
+      `.substring(...)`, and `.replace(...)` plus typed report accessors for predicate and
+      projection evidence.
+  - Evidence:
+    - Predicate rows emit `predicate_operator_family=string_function`,
+      `string_function_runtime_execution=true`, `string_function_operator`,
+      `string_function_source_column`, `string_function_literal_count`,
+      `string_function_rhs_dtype`, selected row counts, inline JSONL results,
+      `fallback_attempted=false`, `external_engine_invoked=false`, and
+      `claim_gate_status=fixture_smoke_only`.
+    - Projection rows emit `string_function_projection_runtime_execution=true`,
+      `string_function_projection_operator`, `string_function_projection_source_column`,
+      `string_function_projection_output_column`, and
+      `string_function_projection_literal_count`.
+  - Verification:
+    - `cargo test -p shardloom-core string_functions -- --nocapture`
+    - `cargo test -p shardloom-cli sql_local_source_runtime::tests::parses_scoped_string_function_projection_and_predicate_statement -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke string_function -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python/src/shardloom python/tests/test_query_builder.py`
+    - `python scripts/check_runtime_promotion_evidence.py`
+    - `python scripts/check_use_case_index.py`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `python -m unittest discover -s python/tests`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local SQL/Python UTF-8 `CONCAT`/`SUBSTR`/`REPLACE` predicate/projection fixture smoke
+      only. This is not broad SQL/DataFrame string-function parity, locale/collation completeness,
+      regex support, encoded-native string execution, claim-grade compute, or performance evidence.
+  - Fallback boundary:
+    - String functions are parsed, bound, lowered, evaluated, rendered, and evidenced by
+      ShardLoom-native local-source runtime code. External engines remain baseline/oracle-only and
+      are not invoked.
 - [x] Session label: GAR-RUNTIME-IMPL-4F scoped SQL/Python multi-key local-source join runtime
   - Date: 2026-05-21
   - Branch/PR: `runtime-multikey-local-joins` / #881.

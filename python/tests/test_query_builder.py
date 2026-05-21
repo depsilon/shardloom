@@ -810,6 +810,22 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("label").lower() == "alpha"), "LOWER(label) = 'alpha'")
         self.assertEqual(str(sl.col("label").upper() != "BETA"), "UPPER(label) != 'BETA'")
         self.assertEqual(str(sl.col("label").trim() == "gamma"), "TRIM(label) = 'gamma'")
+        self.assertEqual(
+            str(sl.concat(sl.col("label"), "-", sl.col("segment")) == "alpha-north"),
+            "CONCAT(label, '-', segment) = 'alpha-north'",
+        )
+        self.assertEqual(
+            str(sl.col("label").substr(2, 3) == "lph"),
+            "SUBSTR(label, 2, 3) = 'lph'",
+        )
+        self.assertEqual(
+            str(sl.substring(sl.col("label"), "1", 2) == "al"),
+            "SUBSTR(label, 1, 2) = 'al'",
+        )
+        self.assertEqual(
+            str(sl.col("label").replace(" ", "_") == "alpha_beta"),
+            "REPLACE(label, ' ', '_') = 'alpha_beta'",
+        )
         self.assertEqual(str(sl.col("amount") + 5 >= 20), "amount + 5 >= 20")
         self.assertEqual(str(sl.col("amount") - 3 < 10), "amount - 3 < 10")
         self.assertEqual(str(sl.col("amount") * 2 == 40), "amount * 2 = 40")
@@ -848,6 +864,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.col("amount") + True
         with self.assertRaises(TypeError):
             sl.col("amount") * "2"
+        with self.assertRaisesRegex(ValueError, "at least one shardloom column"):
+            sl.concat("alpha", "beta")
+        with self.assertRaisesRegex(ValueError, "bare column names"):
+            sl.concat(sl.col("label").lower(), "x")
+        with self.assertRaisesRegex(ValueError, "substring start"):
+            sl.col("label").substr(0, 2)
+        with self.assertRaisesRegex(ValueError, "replace search literal"):
+            sl.col("label").replace("", "x")
 
     def test_column_expression_builder_exposes_date_extract_report_fields(self) -> None:
         binary = self.fake_cli(
@@ -1024,6 +1048,67 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.string_transform_operator, ("lower",))
         self.assertEqual(report.string_transform_source_columns, ("label",))
         self.assertEqual(report.result_jsonl, '{"id":1,"label":"Alpha"}\n')
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_column_expression_builder_exposes_string_function_report_fields(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "predicate_operator_family", "value": "string_function"},
+                        {"key": "string_function_runtime_execution", "value": "true"},
+                        {"key": "string_function_operator", "value": "concat"},
+                        {"key": "string_function_source_column", "value": "label+segment"},
+                        {"key": "string_function_literal_count", "value": "2"},
+                        {"key": "string_function_rhs_dtype", "value": "utf8"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter(sl.concat(sl.col("label"), "-", sl.col("segment")) == "alpha-north")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "string_function")
+        self.assertTrue(report.string_function_runtime_execution)
+        self.assertEqual(report.string_function_operator, ("concat",))
+        self.assertEqual(report.string_function_source_columns, ("label+segment",))
+        self.assertEqual(report.string_function_literal_counts, (2,))
+        self.assertEqual(report.string_function_rhs_dtypes, ("utf8",))
+        self.assertEqual(report.result_jsonl, '{"id":1,"label":"alpha"}\n')
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
@@ -3110,6 +3195,88 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.string_length_projection_runtime_execution)
         self.assertEqual(report.string_length_projection_source_columns, ("label",))
         self.assertEqual(report.string_length_projection_output_columns, ("label_len",))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_with_column_string_function_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 1, 3) AS prefix,REPLACE(label, 'a', '') AS scrubbed FROM 'target/input.csv' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source string function projection",
+                    "human_text": "sql local source string function projection",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label_key\\":\\"alpha-north\\",\\"prefix\\":\\"alp\\",\\"scrubbed\\":\\"lph\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "predicate_operator_family", "value": "string_function"},
+                        {"key": "string_function_runtime_execution", "value": "true"},
+                        {"key": "string_function_operator", "value": "concat"},
+                        {"key": "string_function_source_column", "value": "label+segment"},
+                        {"key": "string_function_literal_count", "value": "2"},
+                        {"key": "string_function_rhs_dtype", "value": "utf8"},
+                        {"key": "string_function_projection_runtime_execution", "value": "true"},
+                        {"key": "string_function_projection_operator", "value": "concat,substr,replace"},
+                        {"key": "string_function_projection_source_column", "value": "label+segment,label,label"},
+                        {"key": "string_function_projection_output_column", "value": "label_key,prefix,scrubbed"},
+                        {"key": "string_function_projection_literal_count", "value": "1,2,2"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("label_key", sl.concat(sl.col("label"), "-", sl.col("segment")))
+            .with_column("prefix", sl.col("label").substr(1, 3))
+            .with_column("scrubbed", sl.replace(sl.col("label"), "a", ""))
+            .filter(sl.concat(sl.col("label"), "-", sl.col("segment")) == "alpha-north")
+            .limit(2)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "string_function")
+        self.assertTrue(report.string_function_runtime_execution)
+        self.assertEqual(report.string_function_operator, ("concat",))
+        self.assertEqual(report.string_function_source_columns, ("label+segment",))
+        self.assertEqual(report.string_function_literal_counts, (2,))
+        self.assertEqual(report.string_function_rhs_dtypes, ("utf8",))
+        self.assertTrue(report.string_function_projection_runtime_execution)
+        self.assertEqual(
+            report.string_function_projection_operator, ("concat", "substr", "replace")
+        )
+        self.assertEqual(
+            report.string_function_projection_source_columns,
+            ("label+segment", "label", "label"),
+        )
+        self.assertEqual(
+            report.string_function_projection_output_columns,
+            ("label_key", "prefix", "scrubbed"),
+        )
+        self.assertEqual(report.string_function_projection_literal_counts, (1, 2, 2))
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

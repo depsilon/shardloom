@@ -834,6 +834,48 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def string_function_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted UTF-8 string function predicate."""
+
+        return self.envelope.field_bool("string_function_runtime_execution", False) is True
+
+    @property
+    def string_function_operator(self) -> tuple[str, ...]:
+        """Return UTF-8 string function predicate operators emitted by the smoke."""
+
+        value = self.envelope.field("string_function_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_function_source_columns(self) -> tuple[str, ...]:
+        """Return source-column groups used by string function predicates."""
+
+        value = self.envelope.field("string_function_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_function_literal_counts(self) -> tuple[int, ...]:
+        """Return string literal counts used by string function predicates."""
+
+        value = self.envelope.field("string_function_literal_count", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(int(part) for part in value.split(",") if part)
+
+    @property
+    def string_function_rhs_dtypes(self) -> tuple[str, ...]:
+        """Return string function predicate right-hand literal dtypes emitted by the smoke."""
+
+        value = self.envelope.field("string_function_rhs_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def string_length_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted UTF-8 length predicate."""
 
@@ -1429,6 +1471,51 @@ class SqlLocalSourceSmokeReport:
         if not value or value == "not_applicable":
             return ()
         return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_function_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted UTF-8 string function projection."""
+
+        return (
+            self.envelope.field_bool("string_function_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def string_function_projection_operator(self) -> tuple[str, ...]:
+        """Return UTF-8 string function projection operators emitted by the smoke."""
+
+        value = self.envelope.field("string_function_projection_operator", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_function_projection_source_columns(self) -> tuple[str, ...]:
+        """Return source-column groups used by string function projections."""
+
+        value = self.envelope.field("string_function_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_function_projection_output_columns(self) -> tuple[str, ...]:
+        """Return UTF-8 string function projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("string_function_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def string_function_projection_literal_counts(self) -> tuple[int, ...]:
+        """Return string literal counts used by string function projections."""
+
+        value = self.envelope.field("string_function_projection_literal_count", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(int(part) for part in value.split(",") if part)
 
     @property
     def date_extract_projection_runtime_execution(self) -> bool:

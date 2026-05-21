@@ -334,6 +334,12 @@ or documentation updates alone are insufficient.
     UTF-8 string length predicates of the form `LENGTH(column) <comparison> <integer literal>` are
     runtime-admitted with `string_length_*` evidence, SQL NULL-filter semantics, and deterministic
     blockers for non-integer right-hand literals, non-UTF-8 source columns, or unsupported
+    expression shapes. Scoped UTF-8 string functions of the forms
+    `CONCAT(column-or-literal, ...)`, `SUBSTR(column-or-literal, start, length)`, and
+    `REPLACE(column-or-literal, search, replacement)` are runtime-admitted for local-source
+    predicates when at least one source column is present, with `string_function_*` evidence,
+    ShardLoom-native null propagation, and deterministic blockers for literal-only calls,
+    invalid substring bounds, empty replace search strings, non-UTF-8 operands, or unsupported
     expression shapes. Scoped UTC
     timestamp-micros parsing/formatting, UTF-8/timestamp/date casts,
     `TIMESTAMP 'YYYY-MM-DDTHH:MM:SS(.ffffff)Z'` literals, and
@@ -385,7 +391,10 @@ or documentation updates alone are insufficient.
     unsupported-shape blockers. Scoped UTF-8 string length projections of the form
     `LENGTH(column) AS column` are runtime-admitted with `string_length_projection_*` evidence,
     ShardLoom-native null propagation, and deterministic duplicate-output-name/source-column/
-    unsupported-shape blockers. Scoped Date32 and UTC timestamp extract projections through
+    unsupported-shape blockers. Scoped UTF-8 `CONCAT`, `SUBSTR` / `SUBSTRING`, and `REPLACE`
+    projections are runtime-admitted with `string_function_projection_*` evidence, ShardLoom-native
+    null propagation, and deterministic duplicate-output-name/source-column/literal-only/
+    invalid-argument/unsupported-shape blockers. Scoped Date32 and UTC timestamp extract projections through
     `DATE_YEAR` / `DATE_MONTH` / `DATE_DAY` and `TIMESTAMP_YEAR` / `TIMESTAMP_MONTH` /
     `TIMESTAMP_DAY` / `TIMESTAMP_HOUR` / `TIMESTAMP_MINUTE` / `TIMESTAMP_SECOND` are
     runtime-admitted with `date_extract_projection_*` and `timestamp_extract_projection_*`
@@ -429,7 +438,8 @@ or documentation updates alone are insufficient.
     `with_column(...)`, scoped numeric rounding predicates and `with_column(...)`, scoped numeric
     arithmetic `with_column(...)`, scoped cast `with_column(...)`,
     scoped Date32 day arithmetic `with_column(...)`, scoped UTF-8 string transform and length
-    `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
+    `with_column(...)`, scoped UTF-8 `concat(...)`, `substr(...)` / `substring(...)`, and
+    `replace(...)` predicates and `with_column(...)`, scoped Date32/UTC timestamp extract `with_column(...)`,
     scoped null-cleanup `with_column(...)` via `.fill_null(...)` and `.null_if(...)`, scoped
     conditional `with_column(...)` via `sl.case_when(...)`, and logical predicates into the same
     local SQL

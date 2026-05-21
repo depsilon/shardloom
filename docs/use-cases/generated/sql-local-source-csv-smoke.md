@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `direct_compatibility_transient`
 - **Engine mode:** `batch`
-- **Claim boundary:** Scoped local CSV/flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/optional-filter/limit with comparison, cast, DATE literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 LOWER/UPPER/TRIM transform predicates, and balanced parenthesized leaves; scalar aggregate with aliases, multi-key group-by aggregate with aliases, single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; optional local JSONL/CSV sinks; feature-gated flat scalar local structured sinks; and scoped single- or multi-key local-source inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. No broad SQL/DataFrame runtime, production SQL, broad Parquet/Arrow/Avro/ORC/Vortex output, fanout, object-store/table source, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness, external fallback, or performance claim.
+- **Claim boundary:** Scoped local CSV/flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/optional-filter/limit with comparison, cast, DATE literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 LOWER/UPPER/TRIM transform and CONCAT/SUBSTR/REPLACE predicates/projections, and balanced parenthesized leaves; scalar aggregate with aliases, multi-key group-by aggregate with aliases, single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; optional local JSONL/CSV sinks; feature-gated flat scalar local structured sinks; and scoped single- or multi-key local-source inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. No broad SQL/DataFrame runtime, production SQL, broad Parquet/Arrow/Avro/ORC/Vortex output, fanout, object-store/table source, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness, external fallback, or performance claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ SQL local CSV projection/optional-filter/IN/limit, aggregate, group-by, top-N, a
 
 ## Claim Boundary
 
-Scoped local CSV/flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/optional-filter/limit with comparison, cast, DATE literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 LOWER/UPPER/TRIM transform predicates, and balanced parenthesized leaves; scalar aggregate with aliases, multi-key group-by aggregate with aliases, single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; optional local JSONL/CSV sinks; feature-gated flat scalar local structured sinks; and scoped single- or multi-key local-source inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. No broad SQL/DataFrame runtime, production SQL, broad Parquet/Arrow/Avro/ORC/Vortex output, fanout, object-store/table source, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness, external fallback, or performance claim.
+Scoped local CSV/flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC SELECT projection/optional-filter/limit with comparison, cast, DATE literals, Date32 extract/day arithmetic, bounded IN, null/string/logical predicates, UTF-8 LOWER/UPPER/TRIM transform and CONCAT/SUBSTR/REPLACE predicates/projections, and balanced parenthesized leaves; scalar aggregate with aliases, multi-key group-by aggregate with aliases, single-key numeric ORDER BY/LIMIT top-N; ctx.sql collect/write; optional local JSONL/CSV sinks; feature-gated flat scalar local structured sinks; and scoped single- or multi-key local-source inner equi-join bridge. Bounded IN admits up to 32 non-null scalar literals and blocks empty, NULL, mixed DATE/non-DATE, and oversized lists. No broad SQL/DataFrame runtime, production SQL, broad Parquet/Arrow/Avro/ORC/Vortex output, fanout, object-store/table source, generalized joins/groups/orderings, timestamp/timezone completeness, locale/collation completeness, NULL/subquery-backed IN, arbitrary predicate-tree completeness, external fallback, or performance claim.
 
 ## How To Try It
 
@@ -26,11 +26,11 @@ New-Item -ItemType Directory -Force target | Out-Null; "id,customer_id,region,am
 
 ## Blocker
 
-Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting coverage, join shapes beyond the scoped local-source inner equi-join bridge, outer/semi/anti/cross joins and expression joins, timestamp/timezone completeness, NULL/subquery-backed IN, broader grouped aggregate generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks/fanout, and production SQL/DataFrame support require later runtime slices.
+Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting coverage, join shapes beyond the scoped local-source inner equi-join bridge, outer/semi/anti/cross joins and expression joins, timestamp/timezone completeness, NULL/subquery-backed IN, broader grouped aggregate generality, generalized ordering/null/collation support, arbitrary predicate-tree completeness beyond admitted parenthesized leaves, functions beyond admitted scalar helpers, generalized string functions beyond scoped CONCAT/SUBSTR/REPLACE, subqueries, catalogs, object stores, table/lakehouse sources, broader output sinks/fanout, and production SQL/DataFrame support require later runtime slices.
 
 ## Internal Flow
 
-`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, optional_local_jsonl_output, optional_local_csv_output, optional_feature_gated_local_parquet_output, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, sql_local_source_evidence, evidence_summary, claim_summary -> evidence -> claim gate`
+`local_csv -> direct_compatibility_transient -> batch -> inline_jsonl_result, result_rows, first_result_row, optional_local_jsonl_output, optional_local_csv_output, optional_feature_gated_local_parquet_output, string_function_projection_result, scalar_aggregate_result, grouped_aggregate_result, topn_result, join_result, sql_local_source_evidence, evidence_summary, claim_summary -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -49,6 +49,16 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 - `string_transform_runtime_execution`
 - `string_transform_operator`
 - `string_transform_source_column`
+- `string_function_runtime_execution`
+- `string_function_operator`
+- `string_function_source_column`
+- `string_function_literal_count`
+- `string_function_rhs_dtype`
+- `string_function_projection_runtime_execution`
+- `string_function_projection_operator`
+- `string_function_projection_source_column`
+- `string_function_projection_output_column`
+- `string_function_projection_literal_count`
 - `date_extract_runtime_execution`
 - `date_extract_operator`
 - `date_extract_source_column`
@@ -95,7 +105,7 @@ Vortex SQL sources, broader Parquet/Arrow IPC/Avro/ORC/Vortex type/nesting cover
 
 ## Expected Output Or Evidence
 
-A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL/CSV or feature-gated flat scalar Parquet output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, string transform fields when requested, date extract/arithmetic fields when requested, IN evidence when requested, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
+A JSON envelope and typed Python report with inline JSONL result, result_rows/first_result_row helpers, optional local JSONL/CSV or feature-gated flat scalar Parquet output path/format/digest/certificate fields, parser/binder/planner/runtime flags, local CSV source evidence, string transform and scoped string-function fields when requested, date extract/arithmetic fields when requested, IN evidence when requested, scalar/grouped/top-N/join fields when requested, left/right source refs for join rows, materialization/decode evidence, fallback_attempted=false, external_engine_invoked=false, and claim_gate_status=fixture_smoke_only.
 
 ## Common Mistakes
 

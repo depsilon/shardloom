@@ -284,6 +284,40 @@ class ColumnExpression:
 
         return ColumnExpression(f"LENGTH({self.sql})")
 
+    def concat(self, *parts: object) -> "ColumnExpression":
+        """Return a scoped `CONCAT(column-or-string-literal, ...)` expression."""
+
+        return concat(self, *parts)
+
+    def substr(self, start: object, length: object) -> "ColumnExpression":
+        """Return a scoped 1-based `SUBSTR(column, start, length)` expression."""
+
+        column = _normalize_expression_column(self.sql)
+        normalized_start = _normalize_substring_bound("substring start", start, minimum=1)
+        normalized_length = _normalize_substring_bound(
+            "substring length", length, minimum=0
+        )
+        return ColumnExpression(f"SUBSTR({column}, {normalized_start}, {normalized_length})")
+
+    def substring(self, start: object, length: object) -> "ColumnExpression":
+        """Alias for `substr(...)`."""
+
+        return self.substr(start, length)
+
+    def replace(self, needle: object, replacement: object) -> "ColumnExpression":
+        """Return a scoped `REPLACE(column, needle, replacement)` expression."""
+
+        column = _normalize_expression_column(self.sql)
+        needle_literal = _sql_string_function_literal(
+            "replace search literal", needle, allow_empty=False
+        )
+        replacement_literal = _sql_string_function_literal(
+            "replace replacement literal", replacement, allow_empty=True
+        )
+        return ColumnExpression(
+            f"REPLACE({column}, {needle_literal}, {replacement_literal})"
+        )
+
     def fill_null(self, value: object) -> "ColumnExpression":
         """Return a scoped `COALESCE(column, literal)` null-cleanup expression."""
 
@@ -2146,6 +2180,46 @@ def length(column_expression: object) -> ColumnExpression:
     return column_expression.length()
 
 
+def concat(*parts: object) -> ColumnExpression:
+    """Return a scoped `CONCAT(column-or-string-literal, ...)` expression."""
+
+    if len(parts) < 2:
+        raise ValueError("concat requires at least two arguments")
+    sql_parts: list[str] = []
+    has_source_column = False
+    for index, part in enumerate(parts):
+        sql, is_source_column = _sql_string_function_text_arg(
+            part, f"concat argument {index + 1}"
+        )
+        sql_parts.append(sql)
+        has_source_column = has_source_column or is_source_column
+    if not has_source_column:
+        raise ValueError("concat requires at least one shardloom column expression")
+    return ColumnExpression(f"CONCAT({', '.join(sql_parts)})")
+
+
+def substr(column_expression: object, start: object, length: object) -> ColumnExpression:
+    """Return a scoped 1-based `SUBSTR(column, start, length)` expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("substr requires a shardloom column expression")
+    return column_expression.substr(start, length)
+
+
+def substring(column_expression: object, start: object, length: object) -> ColumnExpression:
+    """Alias for `substr(...)`."""
+
+    return substr(column_expression, start, length)
+
+
+def replace(column_expression: object, needle: object, replacement: object) -> ColumnExpression:
+    """Return a scoped `REPLACE(column, needle, replacement)` expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("replace requires a shardloom column expression")
+    return column_expression.replace(needle, replacement)
+
+
 def abs(column_expression: object) -> ColumnExpression:
     """Return a scoped `ABS(column)` numeric absolute-value expression."""
 
@@ -2956,6 +3030,15 @@ def _sql_string_literal(value: object) -> str:
     return "'" + text.replace("'", "''") + "'"
 
 
+def _sql_string_function_literal(
+    name: str, value: object, *, allow_empty: bool
+) -> str:
+    text = str(value)
+    if not allow_empty and text == "":
+        raise ValueError(f"{name} must not be empty")
+    return "'" + text.replace("'", "''") + "'"
+
+
 def _sql_literal(value: object) -> str:
     if value is None:
         raise ValueError("SQL NULL comparisons must use is_null() or is_not_null()")
@@ -3139,6 +3222,7 @@ def _sql_computed_projection_expression(expression: object) -> str:
         _sql_date_arithmetic_projection_expression,
         _sql_string_length_projection_expression,
         _sql_string_transform_projection_expression,
+        _sql_string_function_projection_expression,
         _sql_temporal_extract_projection_expression,
     )
     last_error: TypeError | ValueError | None = None
@@ -3300,6 +3384,64 @@ def _sql_string_length_projection_expression(expression: object) -> str:
     return f"LENGTH({normalized})"
 
 
+def _sql_string_function_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    open_index = text.find("(")
+    if open_index < 0 or not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits CONCAT/SUBSTR/REPLACE expressions"
+        )
+    function = text[:open_index].strip().upper()
+    if function not in {"CONCAT", "SUBSTR", "SUBSTRING", "REPLACE"}:
+        raise ValueError(
+            "computed with_column currently admits CONCAT/SUBSTR/REPLACE expressions"
+        )
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if function == "CONCAT":
+        if len(args) < 2:
+            raise ValueError("CONCAT with_column expressions require at least two arguments")
+        normalized_args: list[str] = []
+        has_source_column = False
+        for arg in args:
+            normalized, is_source_column = _normalize_string_function_text_arg_sql(arg)
+            normalized_args.append(normalized)
+            has_source_column = has_source_column or is_source_column
+        if not has_source_column:
+            raise ValueError(
+                "CONCAT with_column expressions require at least one source column"
+            )
+        return f"CONCAT({', '.join(normalized_args)})"
+    if function in {"SUBSTR", "SUBSTRING"}:
+        if len(args) != 3:
+            raise ValueError(
+                "SUBSTR/SUBSTRING with_column expressions require exactly three arguments"
+            )
+        value_arg, is_source_column = _normalize_string_function_text_arg_sql(args[0])
+        if not is_source_column:
+            raise ValueError(
+                "SUBSTR/SUBSTRING with_column expressions require a source column argument"
+            )
+        start = _normalize_substring_bound("substring start", args[1], minimum=1)
+        length = _normalize_substring_bound("substring length", args[2], minimum=0)
+        return f"SUBSTR({value_arg}, {start}, {length})"
+    if len(args) != 3:
+        raise ValueError("REPLACE with_column expressions require exactly three arguments")
+    value_arg, is_source_column = _normalize_string_function_text_arg_sql(args[0])
+    if not is_source_column:
+        raise ValueError("REPLACE with_column expressions require a source column argument")
+    needle = _parse_sql_string_literal_token(args[1])
+    if needle == "":
+        raise ValueError("REPLACE with_column expressions require a non-empty search literal")
+    replacement = _parse_sql_string_literal_token(args[2])
+    return (
+        f"REPLACE({value_arg}, "
+        f"{_sql_string_function_literal('replace search literal', needle, allow_empty=False)}, "
+        f"{_sql_string_function_literal('replace replacement literal', replacement, allow_empty=True)})"
+    )
+
+
 def _sql_temporal_extract_projection_expression(expression: object) -> str:
     if not isinstance(expression, ColumnExpression):
         raise TypeError("computed with_column requires a shardloom ColumnExpression")
@@ -3336,22 +3478,92 @@ def _split_projection_function_args(expression: str) -> tuple[str, ...]:
     args: list[str] = []
     start = 0
     depth = 0
-    for index, char in enumerate(expression):
-        if char == "(":
+    in_quote = False
+    index = 0
+    while index < len(expression):
+        char = expression[index]
+        if char == "'":
+            if in_quote and index + 1 < len(expression) and expression[index + 1] == "'":
+                index += 2
+                continue
+            in_quote = not in_quote
+        elif char == "(" and not in_quote:
             depth += 1
-        elif char == ")":
+        elif char == ")" and not in_quote:
             depth -= 1
             if depth < 0:
                 raise ValueError("computed with_column expression has unbalanced parentheses")
-        elif char == "," and depth == 0:
+        elif char == "," and not in_quote and depth == 0:
             args.append(expression[start:index].strip())
             start = index + 1
+        index += 1
+    if in_quote:
+        raise ValueError("computed with_column expression has an unclosed string literal")
     if depth != 0:
         raise ValueError("computed with_column expression has unbalanced parentheses")
     args.append(expression[start:].strip())
     if any(not arg for arg in args):
         raise ValueError("computed with_column expression has an empty argument")
     return tuple(args)
+
+
+def _sql_string_function_text_arg(value: object, name: str) -> tuple[str, bool]:
+    if isinstance(value, ColumnExpression):
+        return _normalize_expression_column(value.sql), True
+    return _sql_string_function_literal(name, value, allow_empty=True), False
+
+
+def _normalize_string_function_text_arg_sql(raw: str) -> tuple[str, bool]:
+    text = _require_non_empty("string function argument", raw)
+    if text.startswith("'"):
+        value = _parse_sql_string_literal_token(text)
+        return (
+            _sql_string_function_literal(
+                "string function literal", value, allow_empty=True
+            ),
+            False,
+        )
+    return _normalize_expression_column(text), True
+
+
+def _parse_sql_string_literal_token(raw: str) -> str:
+    text = raw.strip()
+    if not text.startswith("'") or not text.endswith("'") or len(text) < 2:
+        raise ValueError("string function literals must be single quoted")
+    body = text[1:-1]
+    output: list[str] = []
+    index = 0
+    while index < len(body):
+        char = body[index]
+        if char == "'":
+            if index + 1 < len(body) and body[index + 1] == "'":
+                output.append("'")
+                index += 2
+                continue
+            raise ValueError(
+                "single quotes inside string function literals must be escaped as doubled quotes"
+            )
+        output.append(char)
+        index += 1
+    return "".join(output)
+
+
+def _normalize_substring_bound(name: str, value: object, *, minimum: int) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer literal")
+    if isinstance(value, int):
+        parsed = value
+    else:
+        text = _require_non_empty(name, value)
+        if text in {"+", "-"} or not all(
+            ch.isdigit() or (index == 0 and ch in {"+", "-"})
+            for index, ch in enumerate(text)
+        ):
+            raise ValueError(f"{name} must be an integer literal")
+        parsed = int(text)
+    if parsed < minimum:
+        raise ValueError(f"{name} must be >= {minimum}")
+    return parsed
 
 
 def _normalize_temporal_extract_column(expression: str, dtype: str) -> str:
