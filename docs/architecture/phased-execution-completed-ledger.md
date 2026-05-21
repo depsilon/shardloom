@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5J benchmark coverage dashboard and claim-grade closeout
+  visibility
+  - Date: 2026-05-21
+  - Branch/PR: `benchmark-page-coverage-roster` / #873.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate`
+    - `GAR-BENCH-PUB-1 complete competitor benchmark publishing and static artifact ingestion`
+    - static benchmark publishing runbook
+    - website benchmark artifact and claim-safe benchmark dashboard.
+  - Scope:
+    - Made profile lane availability explicit on the benchmark page, including Spark lanes as
+      `not_requested_by_current_profile` when the current committed artifact remains
+      `full_local`.
+    - Added artifact format coverage metadata for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC
+      so broad format expectations stay visible even when the current published artifact has
+      narrower timing evidence.
+    - Added claim-grade closeout metadata that names the remaining ShardLoom non-claim-grade,
+      blocked, unsupported, and fixture-smoke rows and ties their retirement to
+      `GAR-RUNTIME-IMPL-5J` before broad claim-grade benchmark publication.
+    - Fixed benchmark claim-gate distribution rendering and replaced the misleading
+      prepared/native source-state scalar with batch source-state coverage evidence.
+    - Rendered the full published comparative roster and all published ShardLoom detailed evidence
+      rows instead of a 40-row engineering sample.
+    - Extended runtime promotion validation so Spark lane visibility, broad format coverage, and
+      claim-grade closeout metadata cannot silently regress.
+  - Evidence:
+    - `profile_lane_availability`, `format_coverage`, `claim_grade_closeout`,
+      `published_benchmark_rows`, `source_state_coverage_*`, `fallback_attempted=false`,
+      `external_engine_invoked=false`, and `performance_claim_allowed=false`.
+  - Verification:
+    - `python scripts/check_runtime_promotion_evidence.py`
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python -m compileall -q scripts website-src`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `git diff --check`
+  - Claim boundary:
+    - Benchmark publishing and website interpretation only. This did not rerun benchmarks, invent
+      Spark timing rows, claim performance or superiority, upgrade fixture-smoke/runtime evidence
+      to claim-grade, or mark broad production support complete.
+  - Fallback boundary:
+    - External engines remain benchmark baselines only. The website renders committed static
+      artifacts and does not execute ShardLoom runtime, competitors, or fallback engines.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F scoped local-source inner equi-join across admitted formats
   - Date: 2026-05-20
   - Branch/PR: `runtime-local-json-join-4f` / #872.
