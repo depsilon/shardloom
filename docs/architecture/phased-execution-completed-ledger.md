@@ -16,9 +16,69 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F structured reader-level SourceState projection
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-columnar-source-state-20260521` / #888.
+  - Source:
+    - User-requested compute-engine finish-line sweep items 1-8.
+    - `GAR-RUNTIME-IMPL-4F` UniversalIngress local/non-Vortex adapter runtime coverage.
+    - `GAR-RUNTIME-IMPL-4F1` compatibility import certified optimization and `vortex_ingest`
+      attribution.
+  - Scope:
+    - Promoted feature-gated Parquet, Arrow IPC, Avro, and ORC local-source reads from
+      post-conversion pruning to reader-level projection before scalar-row conversion.
+    - Added reusable `shardloom-vortex` projected read helpers for Parquet `ProjectionMask`,
+      Arrow IPC projection indices, Avro projection indices, and ORC named-root projection while
+      keeping `FlatLocalSourceTable::header` as the full source schema.
+    - Added `reader_projection_columns` evidence so reports distinguish final materialized row-map
+      columns from the actual columns requested from the local reader. Avro `COUNT(*)` records the
+      one-column row-count anchor required by the Arrow Avro reader, while final materialized
+      columns remain `none`.
+    - Extended `sql-local-source-smoke` and `vortex-ingest-smoke` SourceState evidence with
+      `source_state_projection_pushdown_status`,
+      `source_state_reader_projection_column_count`, and
+      `source_state_reader_projection_columns`.
+    - Recorded the 8-item compute-engine release sweep checklist at the top of the phase plan,
+      including PR #880+ Codex review resolution status, docs/website cleanup, modularization and
+      optimization review outcomes, benchmark gating, external research, and parallel-path
+      consolidation status.
+  - Evidence:
+    - Parser-level pruning remains explicit for CSV/JSON/JSONL.
+    - Parquet/Arrow IPC/Avro/ORC required-column plans emit
+      `source_state_projection_pushdown_status=reader_level_projection`.
+    - `COUNT(*)` over feature-gated structured inputs proves zero-final-column materialization
+      across Parquet, Arrow IPC, Avro, and ORC.
+    - No Spark, DataFusion, DuckDB, Polars, pandas, or other external engine path was added.
+  - Verification:
+    - `cargo check -p shardloom-vortex --features universal-format-io`
+    - `cargo check -p shardloom-cli --features universal-format-io`
+    - `cargo fmt --all -- --check`
+    - `cargo clippy -p shardloom-vortex --features universal-format-io --lib -- -D warnings`
+    - `cargo clippy -p shardloom-cli --features universal-format-io --all-targets -- -D warnings`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke source_state_evidence -- --nocapture`
+    - `cargo test -p shardloom-cli --features universal-format-io --test sql_local_source_runtime_smoke sql_local_source_smoke_uses_zero_column_reader_projection_for_count_star -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback -- --nocapture`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js` using the bundled workspace Node runtime.
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_benchmark_environment.py --profile smoke`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom --formats csv,parquet --scenario "filter + projection + limit" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --shardloom-native-iterations 1 --skip-shardloom-native --output target\codex-benchmark-artifacts\reader-projection-smoke.json --markdown-output target\codex-benchmark-artifacts\reader-projection-smoke.md`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local SourceState projection-pushdown evidence only. This is not columnar-native
+      execution, broad structured-format fidelity, object-store/table support, production SQL, or
+      performance evidence.
+  - Fallback boundary:
+    - Projection pushdown uses local compatibility reader APIs only and remains inside the
+      feature-gated adapter boundary. External engines remain baselines/oracles only and are not
+      invoked as fallback execution.
 - [x] Session label: GAR-RUNTIME-IMPL-4F local SourceState read-plan runtime evidence
   - Date: 2026-05-21
-  - Branch/PR: `compute-engine-source-state-runtime-20260521` / local WIP.
+  - Branch/PR: `compute-engine-source-state-runtime-20260521` / #887.
   - Source:
     - `GAR-RUNTIME-IMPL-4F` UniversalIngress local/non-Vortex adapter runtime coverage.
     - `GAR-RUNTIME-IMPL-4F1` compatibility import optimization research note.

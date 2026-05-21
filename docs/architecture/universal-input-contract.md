@@ -38,12 +38,14 @@ not by compiling every reader by default. Active implementation status for input
 - Compatibility structured files
   - CSV, JSON/NDJSON, Parquet, Arrow IPC, Avro, and ORC have feature-gated local benchmark bridge
     coverage.
-  - CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet also have scoped
-    direct-transient `sql-local-source-smoke` runtime coverage for local projection/filter/limit
-    style workflows. The Parquet path requires `shardloom-cli --features universal-format-io`; the
-    default build reports a deterministic Parquet adapter blocker. The same gate admits scoped flat
-    scalar local Parquet output for that SQL local-source smoke and reports a deterministic Parquet
-    sink blocker in default builds.
+  - CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet, Arrow IPC, Avro, and ORC
+    have scoped direct-transient `sql-local-source-smoke` runtime coverage for local
+    projection/filter/limit style workflows. Feature-gated structured readers report local
+    SourceState read-plan evidence, requested/materialized columns, reader projection columns, and
+    reader-level projection status when `shardloom-cli --features universal-format-io` is enabled;
+    default builds report deterministic Parquet, Arrow IPC, Avro, or ORC adapter blockers. The
+    same gate admits scoped flat scalar local Parquet/Arrow IPC/Avro/ORC output for that SQL
+    local-source smoke and reports deterministic sink blockers in default builds.
   - Production-certified adapters remain separate phases and must emit full capability, pushdown,
     fidelity, and certificate evidence.
 - Catalog/table refs

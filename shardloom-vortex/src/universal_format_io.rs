@@ -33,7 +33,11 @@ use std::sync::Arc;
 pub struct FlatLocalSourceTable {
     /// Column order from the source schema.
     pub header: Vec<String>,
-    /// Source rows converted to `ShardLoom` scalar values.
+    /// Column order requested from the underlying local reader.
+    pub reader_projection_columns: Vec<String>,
+    /// Source rows converted to `ShardLoom` scalar values. Projection-capable
+    /// readers may omit non-materialized columns while preserving the full
+    /// source schema in `header`.
     pub rows: Vec<BTreeMap<String, ScalarValue>>,
 }
 
@@ -44,12 +48,7 @@ pub struct FlatLocalSourceTable {
 /// the Parquet reader cannot be constructed, a column has an unsupported nested
 /// or decimal Arrow type, or the row count exceeds `max_rows`.
 pub fn read_flat_parquet_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
-    let file = File::open(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to open local Parquet source '{}': {error}",
-            path.display()
-        ))
-    })?;
+    let file = open_local_source_file(path, "Parquet")?;
     let mut reader = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -69,6 +68,57 @@ pub fn read_flat_parquet_source(path: &Path, max_rows: usize) -> Result<FlatLoca
     read_flat_record_batch_reader(&mut reader, path, "Parquet", max_rows)
 }
 
+/// Read selected root columns from a local Parquet file into flat scalar rows.
+///
+/// The returned [`FlatLocalSourceTable::header`] remains the full source schema
+/// so callers can keep binding and `SourceState` evidence tied to the original
+/// input. Row maps contain only columns requested in `required_columns`.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Parquet reader cannot be constructed, a requested projected column has an
+/// unsupported nested or decimal Arrow type, or the row count exceeds `max_rows`.
+pub fn read_flat_parquet_source_with_projection(
+    path: &Path,
+    max_rows: usize,
+    required_columns: &[String],
+) -> Result<FlatLocalSourceTable> {
+    let file = open_local_source_file(path, "Parquet")?;
+    let builder = parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder::try_new(file)
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local Parquet source reader for '{}': {error}",
+                path.display()
+            ))
+        })?;
+    let header = source_schema_header(path, "Parquet", builder.schema().as_ref())?;
+    let projection_indices = projection_indices_for_header(&header, required_columns);
+    let projected_header = projection_header(&header, &projection_indices);
+    let projection = parquet::arrow::ProjectionMask::roots(
+        builder.parquet_schema(),
+        projection_indices.iter().copied(),
+    );
+    let mut reader = builder
+        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_projection(projection)
+        .build()
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to build local Parquet source reader for '{}': {error}",
+                path.display()
+            ))
+        })?;
+
+    read_flat_record_batch_reader_with_header(
+        &mut reader,
+        path,
+        "Parquet",
+        max_rows,
+        header,
+        &projected_header,
+    )
+}
+
 /// Read a local Arrow IPC file into flat scalar rows for scoped runtime smokes.
 ///
 /// # Errors
@@ -77,12 +127,7 @@ pub fn read_flat_parquet_source(path: &Path, max_rows: usize) -> Result<FlatLoca
 /// nested, decimal, dictionary, or union Arrow type, or the row count exceeds
 /// `max_rows`.
 pub fn read_flat_arrow_ipc_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
-    let file = File::open(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to open local Arrow IPC source '{}': {error}",
-            path.display()
-        ))
-    })?;
+    let file = open_local_source_file(path, "Arrow IPC")?;
     let mut reader = arrow_ipc::reader::FileReader::try_new(file, None).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to create local Arrow IPC source reader for '{}': {error}",
@@ -93,6 +138,52 @@ pub fn read_flat_arrow_ipc_source(path: &Path, max_rows: usize) -> Result<FlatLo
     read_flat_record_batch_reader(&mut reader, path, "Arrow IPC", max_rows)
 }
 
+/// Read selected columns from a local Arrow IPC file into flat scalar rows.
+///
+/// The returned [`FlatLocalSourceTable::header`] remains the full source schema
+/// while row maps contain only columns requested in `required_columns`.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Arrow IPC reader cannot be constructed, a requested projected column has
+/// an unsupported nested, decimal, dictionary, or union Arrow type, or the row
+/// count exceeds `max_rows`.
+pub fn read_flat_arrow_ipc_source_with_projection(
+    path: &Path,
+    max_rows: usize,
+    required_columns: &[String],
+) -> Result<FlatLocalSourceTable> {
+    let full_file = open_local_source_file(path, "Arrow IPC")?;
+    let full_reader = arrow_ipc::reader::FileReader::try_new(full_file, None).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create local Arrow IPC source reader for '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let header = source_schema_header(path, "Arrow IPC", full_reader.schema().as_ref())?;
+    let projection_indices = projection_indices_for_header(&header, required_columns);
+    let projected_header = projection_header(&header, &projection_indices);
+    drop(full_reader);
+
+    let file = open_local_source_file(path, "Arrow IPC")?;
+    let mut reader = arrow_ipc::reader::FileReader::try_new(file, Some(projection_indices))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create projected local Arrow IPC source reader for '{}': {error}",
+                path.display()
+            ))
+        })?;
+
+    read_flat_record_batch_reader_with_header(
+        &mut reader,
+        path,
+        "Arrow IPC",
+        max_rows,
+        header,
+        &projected_header,
+    )
+}
+
 /// Read a local Avro file into flat scalar rows for scoped runtime smokes.
 ///
 /// # Errors
@@ -101,12 +192,7 @@ pub fn read_flat_arrow_ipc_source(path: &Path, max_rows: usize) -> Result<FlatLo
 /// logical, decimal, dictionary, or union Arrow type, or the row count exceeds
 /// `max_rows`.
 pub fn read_flat_avro_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
-    let file = File::open(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to open local Avro source '{}': {error}",
-            path.display()
-        ))
-    })?;
+    let file = open_local_source_file(path, "Avro")?;
     let mut reader = arrow_avro::reader::ReaderBuilder::new()
         .with_batch_size(max_rows.clamp(1, 8192))
         .build(BufReader::new(file))
@@ -120,6 +206,64 @@ pub fn read_flat_avro_source(path: &Path, max_rows: usize) -> Result<FlatLocalSo
     read_flat_record_batch_reader(&mut reader, path, "Avro", max_rows)
 }
 
+/// Read selected columns from a local Avro file into flat scalar rows.
+///
+/// The returned [`FlatLocalSourceTable::header`] remains the full source schema
+/// while row maps contain only columns requested in `required_columns`.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the Avro reader cannot be constructed, a requested projected column has an
+/// unsupported nested, logical, decimal, dictionary, or union Arrow type, or the
+/// row count exceeds `max_rows`.
+pub fn read_flat_avro_source_with_projection(
+    path: &Path,
+    max_rows: usize,
+    required_columns: &[String],
+) -> Result<FlatLocalSourceTable> {
+    let full_file = open_local_source_file(path, "Avro")?;
+    let full_reader = arrow_avro::reader::ReaderBuilder::new()
+        .with_batch_size(max_rows.clamp(1, 8192))
+        .build(BufReader::new(full_file))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create local Avro source reader for '{}': {error}",
+                path.display()
+            ))
+        })?;
+    let header = source_schema_header(path, "Avro", full_reader.schema().as_ref())?;
+    let projection_indices = projection_indices_for_header(&header, required_columns);
+    let projected_header = projection_header(&header, &projection_indices);
+    let (reader_projection_indices, reader_projection_columns) = if projection_indices.is_empty() {
+        (vec![0], projection_header(&header, &[0]))
+    } else {
+        (projection_indices, projected_header.clone())
+    };
+    drop(full_reader);
+
+    let file = open_local_source_file(path, "Avro")?;
+    let mut reader = arrow_avro::reader::ReaderBuilder::new()
+        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_projection(reader_projection_indices)
+        .build(BufReader::new(file))
+        .map_err(|error| {
+            ShardLoomError::InvalidOperation(format!(
+                "failed to create projected local Avro source reader for '{}': {error}",
+                path.display()
+            ))
+        })?;
+
+    read_flat_record_batch_reader_with_reader_projection(
+        &mut reader,
+        path,
+        "Avro",
+        max_rows,
+        header,
+        &projected_header,
+        reader_projection_columns,
+    )
+}
+
 /// Read a local ORC file into flat scalar rows for scoped runtime smokes.
 ///
 /// # Errors
@@ -128,12 +272,7 @@ pub fn read_flat_avro_source(path: &Path, max_rows: usize) -> Result<FlatLocalSo
 /// decimal, dictionary, or union Arrow type, or the row count exceeds
 /// `max_rows`.
 pub fn read_flat_orc_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
-    let file = File::open(path).map_err(|error| {
-        ShardLoomError::InvalidOperation(format!(
-            "failed to open local ORC source '{}': {error}",
-            path.display()
-        ))
-    })?;
+    let file = open_local_source_file(path, "ORC")?;
     let mut reader = orc_rust::ArrowReaderBuilder::try_new(file)
         .map_err(|error| {
             ShardLoomError::InvalidOperation(format!(
@@ -147,6 +286,50 @@ pub fn read_flat_orc_source(path: &Path, max_rows: usize) -> Result<FlatLocalSou
     read_flat_record_batch_reader(&mut reader, path, "ORC", max_rows)
 }
 
+/// Read selected root columns from a local ORC file into flat scalar rows.
+///
+/// The returned [`FlatLocalSourceTable::header`] remains the full source schema
+/// while row maps contain only columns requested in `required_columns`.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when the file cannot be opened,
+/// the ORC reader cannot be constructed, a requested projected column has an
+/// unsupported nested, decimal, dictionary, or union Arrow type, or the row
+/// count exceeds `max_rows`.
+pub fn read_flat_orc_source_with_projection(
+    path: &Path,
+    max_rows: usize,
+    required_columns: &[String],
+) -> Result<FlatLocalSourceTable> {
+    let file = open_local_source_file(path, "ORC")?;
+    let builder = orc_rust::ArrowReaderBuilder::try_new(file).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to create local ORC source reader for '{}': {error}",
+            path.display()
+        ))
+    })?;
+    let header = source_schema_header(path, "ORC", builder.schema().as_ref())?;
+    let projection_indices = projection_indices_for_header(&header, required_columns);
+    let projected_header = projection_header(&header, &projection_indices);
+    let projection = orc_rust::projection::ProjectionMask::named_roots(
+        builder.file_metadata().root_data_type(),
+        &projected_header,
+    );
+    let mut reader = builder
+        .with_batch_size(max_rows.clamp(1, 8192))
+        .with_projection(projection)
+        .build();
+
+    read_flat_record_batch_reader_with_header(
+        &mut reader,
+        path,
+        "ORC",
+        max_rows,
+        header,
+        &projected_header,
+    )
+}
+
 fn read_flat_record_batch_reader<R>(
     reader: &mut R,
     path: &Path,
@@ -158,6 +341,56 @@ where
 {
     let schema = reader.schema();
     let header = source_schema_header(path, source_label, schema.as_ref())?;
+    let projected_header = header.clone();
+    read_flat_record_batch_reader_with_header(
+        reader,
+        path,
+        source_label,
+        max_rows,
+        header,
+        &projected_header,
+    )
+}
+
+fn read_flat_record_batch_reader_with_header<R>(
+    reader: &mut R,
+    path: &Path,
+    source_label: &str,
+    max_rows: usize,
+    header: Vec<String>,
+    projected_header: &[String],
+) -> Result<FlatLocalSourceTable>
+where
+    R: RecordBatchReader,
+{
+    let reader_projection_columns = projected_header.to_owned();
+    read_flat_record_batch_reader_with_reader_projection(
+        reader,
+        path,
+        source_label,
+        max_rows,
+        header,
+        projected_header,
+        reader_projection_columns,
+    )
+}
+
+fn read_flat_record_batch_reader_with_reader_projection<R>(
+    reader: &mut R,
+    path: &Path,
+    source_label: &str,
+    max_rows: usize,
+    header: Vec<String>,
+    projected_header: &[String],
+    reader_projection_columns: Vec<String>,
+) -> Result<FlatLocalSourceTable>
+where
+    R: RecordBatchReader,
+{
+    let output_columns = projected_header
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
     let mut rows = Vec::new();
     for batch in reader {
         let batch = batch.map_err(|error| {
@@ -166,10 +399,10 @@ where
                 path.display()
             ))
         })?;
-        if batch.num_columns() != header.len() {
+        if batch.num_columns() != reader_projection_columns.len() {
             return Err(ShardLoomError::InvalidOperation(format!(
-                "local {source_label} source '{}' changed column count between schema and batch",
-                path.display()
+                "local {source_label} source '{}' changed projected column count between schema and batch",
+                path.display(),
             )));
         }
         for row_index in 0..batch.num_rows() {
@@ -180,7 +413,10 @@ where
                 )));
             }
             let mut row = BTreeMap::new();
-            for (column, array) in header.iter().zip(batch.columns()) {
+            for (column, array) in reader_projection_columns.iter().zip(batch.columns()) {
+                if !output_columns.contains(column.as_str()) {
+                    continue;
+                }
                 row.insert(
                     column.clone(),
                     arrow_scalar_to_shardloom(
@@ -196,15 +432,32 @@ where
         }
     }
 
-    Ok(FlatLocalSourceTable { header, rows })
+    Ok(FlatLocalSourceTable {
+        header,
+        reader_projection_columns,
+        rows,
+    })
 }
 
-fn source_schema_header(path: &Path, source_label: &str, schema: &Schema) -> Result<Vec<String>> {
-    let header = schema
+fn open_local_source_file(path: &Path, source_label: &str) -> Result<File> {
+    File::open(path).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to open local {source_label} source '{}': {error}",
+            path.display()
+        ))
+    })
+}
+
+fn schema_field_names(schema: &Schema) -> Vec<String> {
+    schema
         .fields()
         .iter()
         .map(|field| field.name().clone())
-        .collect::<Vec<_>>();
+        .collect()
+}
+
+fn source_schema_header(path: &Path, source_label: &str, schema: &Schema) -> Result<Vec<String>> {
+    let header = schema_field_names(schema);
     if header.is_empty() {
         return Err(ShardLoomError::InvalidOperation(format!(
             "local {source_label} source '{}' must contain at least one column",
@@ -227,6 +480,25 @@ fn source_schema_header(path: &Path, source_label: &str, schema: &Schema) -> Res
         }
     }
     Ok(header)
+}
+
+fn projection_indices_for_header(header: &[String], required_columns: &[String]) -> Vec<usize> {
+    let required = required_columns
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    header
+        .iter()
+        .enumerate()
+        .filter_map(|(index, column)| required.contains(column.as_str()).then_some(index))
+        .collect()
+}
+
+fn projection_header(header: &[String], projection_indices: &[usize]) -> Vec<String> {
+    projection_indices
+        .iter()
+        .filter_map(|index| header.get(*index).cloned())
+        .collect()
 }
 
 /// Encode flat scalar rows into local Parquet bytes for scoped runtime smokes.

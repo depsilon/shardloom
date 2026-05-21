@@ -39,6 +39,69 @@ fn run_sql_local_source_smoke_json(statement: &str) -> String {
     String::from_utf8(output.stdout).expect("stdout is utf8")
 }
 
+fn assert_required_source_state_projection_evidence(stdout: &str, pushdown_status: &str) {
+    assert!(stdout.contains(&field("source_state_read_plan", "required_columns")));
+    assert!(stdout.contains(&field("source_state_requested_columns", "amount,id,label")));
+    assert!(stdout.contains(&field(
+        "source_state_projection_pushdown_status",
+        pushdown_status
+    )));
+    assert!(stdout.contains(&field("source_state_materialized_column_count", "3")));
+    assert!(stdout.contains(&field(
+        "source_state_materialized_columns",
+        "id,label,amount"
+    )));
+    assert!(stdout.contains(&field("source_state_reader_projection_column_count", "3")));
+    assert!(stdout.contains(&field(
+        "source_state_reader_projection_columns",
+        "id,label,amount"
+    )));
+    assert!(stdout.contains(&field("source_state_pruned_column_count", "1")));
+    assert!(stdout.contains(&field("source_state_column_pruning_applied", "true")));
+}
+
+#[cfg(feature = "universal-format-io")]
+fn assert_zero_column_reader_projection_count_star<F>(
+    extension: &str,
+    source_format: &str,
+    reader_projection_column_count: &str,
+    reader_projection_columns: &str,
+    write_source: F,
+) where
+    F: FnOnce(&Path),
+{
+    let source_path = unique_path("sql-local-source-count-star-projection", extension);
+    write_source(&source_path);
+
+    let statement = format!("SELECT count(*) FROM '{}' LIMIT 1", source_path.display());
+    let stdout = run_sql_local_source_smoke_json(&statement);
+
+    assert!(stdout.contains(&field("source_format", source_format)));
+    assert!(stdout.contains(&field("source_state_read_plan", "required_columns")));
+    assert!(stdout.contains(&field("source_state_requested_columns", "none")));
+    assert!(stdout.contains(&field(
+        "source_state_projection_pushdown_status",
+        "reader_level_projection"
+    )));
+    assert!(stdout.contains(&field("source_state_materialized_column_count", "0")));
+    assert!(stdout.contains(&field("source_state_materialized_columns", "none")));
+    assert!(stdout.contains(&field(
+        "source_state_reader_projection_column_count",
+        reader_projection_column_count
+    )));
+    assert!(stdout.contains(&field(
+        "source_state_reader_projection_columns",
+        reader_projection_columns
+    )));
+    assert!(stdout.contains(&field("source_state_pruned_column_count", "4")));
+    assert!(stdout.contains(&field("source_state_column_pruning_applied", "true")));
+    assert!(stdout.contains(&field("input_row_count", "4")));
+    assert!(stdout.contains(&field("aggregate_functions", "count(*)")));
+    assert!(stdout.contains("\"result_jsonl\",\"value\":\"{\\\"count_all\\\":4}\\n\""));
+
+    fs::remove_file(source_path).expect("remove source");
+}
+
 #[cfg(not(feature = "vortex-write"))]
 #[test]
 fn vortex_ingest_smoke_blocks_without_vortex_write_feature() {
@@ -450,15 +513,7 @@ fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback(
         "local_input_adapter_registry_version",
         "shardloom.local_input_adapter_registry.v1"
     )));
-    assert!(stdout.contains(&field("source_state_read_plan", "required_columns")));
-    assert!(stdout.contains(&field("source_state_requested_columns", "amount,id,label")));
-    assert!(stdout.contains(&field("source_state_materialized_column_count", "3")));
-    assert!(stdout.contains(&field(
-        "source_state_materialized_columns",
-        "id,label,amount"
-    )));
-    assert!(stdout.contains(&field("source_state_pruned_column_count", "1")));
-    assert!(stdout.contains(&field("source_state_column_pruning_applied", "true")));
+    assert_required_source_state_projection_evidence(&stdout, "local_text_parser_column_pruning");
     assert!(stdout.contains(&field("input_row_count", "4")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
     assert!(stdout.contains(&field("limit", "1")));
@@ -550,6 +605,7 @@ fn sql_local_source_smoke_executes_parquet_projection_filter_limit_with_source_s
     assert!(stdout.contains(&field("input_row_count", "4")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
     assert!(stdout.contains(&field("projected_columns", "id,label")));
+    assert_required_source_state_projection_evidence(&stdout, "reader_level_projection");
     assert!(stdout.contains(&field(
         "source_certificate_ref",
         "sql-local-source.parquet.compatibility-source.v1"
@@ -617,6 +673,7 @@ fn sql_local_source_smoke_executes_arrow_ipc_projection_filter_limit_with_source
     assert!(stdout.contains(&field("input_row_count", "4")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
     assert!(stdout.contains(&field("projected_columns", "id,label")));
+    assert_required_source_state_projection_evidence(&stdout, "reader_level_projection");
     assert!(stdout.contains(&field(
         "source_certificate_ref",
         "sql-local-source.arrow_ipc.compatibility-source.v1"
@@ -684,6 +741,7 @@ fn sql_local_source_smoke_executes_avro_projection_filter_limit_with_source_stat
     assert!(stdout.contains(&field("input_row_count", "4")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
     assert!(stdout.contains(&field("projected_columns", "id,label")));
+    assert_required_source_state_projection_evidence(&stdout, "reader_level_projection");
     assert!(stdout.contains(&field(
         "source_certificate_ref",
         "sql-local-source.avro.compatibility-source.v1"
@@ -751,6 +809,7 @@ fn sql_local_source_smoke_executes_orc_projection_filter_limit_with_source_state
     assert!(stdout.contains(&field("input_row_count", "4")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
     assert!(stdout.contains(&field("projected_columns", "id,label")));
+    assert_required_source_state_projection_evidence(&stdout, "reader_level_projection");
     assert!(stdout.contains(&field(
         "source_certificate_ref",
         "sql-local-source.orc.compatibility-source.v1"
@@ -770,6 +829,39 @@ fn sql_local_source_smoke_executes_orc_projection_filter_limit_with_source_state
     );
 
     fs::remove_file(source_path).expect("remove source orc");
+}
+
+#[cfg(feature = "universal-format-io")]
+#[test]
+fn sql_local_source_smoke_uses_zero_column_reader_projection_for_count_star() {
+    assert_zero_column_reader_projection_count_star(
+        "parquet",
+        "parquet",
+        "0",
+        "none",
+        write_parquet_smoke_source,
+    );
+    assert_zero_column_reader_projection_count_star(
+        "arrow",
+        "arrow_ipc",
+        "0",
+        "none",
+        write_arrow_ipc_smoke_source,
+    );
+    assert_zero_column_reader_projection_count_star(
+        "avro",
+        "avro",
+        "1",
+        "id",
+        write_avro_smoke_source,
+    );
+    assert_zero_column_reader_projection_count_star(
+        "orc",
+        "orc",
+        "0",
+        "none",
+        write_orc_smoke_source,
+    );
 }
 
 #[cfg(not(feature = "universal-format-io"))]
