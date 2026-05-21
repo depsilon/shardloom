@@ -445,6 +445,7 @@ The Python query builder also exposes a scoped `sl.col(...)` predicate helper fo
 runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contains()`,
 `not_contains()`, `startswith()`, `not_startswith()`, `endswith()`, `not_endswith()`, `like(...)`,
 `not_like(...)`, `between(...)`, bounded `isin(...)` / `not_in(...)`, `cast(dtype)`,
+`is_true()`, `is_false()`, `is_not_true()`, `is_not_false()`,
 `date_year()`, `date_month()`, `date_day()`, `date_add_days(days)`, and
 `date_sub_days(days)`, plus `timestamp_year()`, `timestamp_month()`, `timestamp_day()`,
 `timestamp_hour()`, `timestamp_minute()`, and `timestamp_second()` comparisons, and the scoped

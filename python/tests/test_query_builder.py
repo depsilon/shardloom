@@ -663,6 +663,67 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_column_expression_builder_lowers_is_not_boolean_predicates(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id FROM 'target/input.csv' WHERE active IS NOT TRUE LIMIT 5",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2}\\n{\\"id\\":3}\\n"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "predicate_operator_family", "value": "boolean_predicate"},
+                        {"key": "boolean_predicate_runtime_execution", "value": "true"},
+                        {"key": "boolean_predicate_operator", "value": "is_not_true"},
+                        {"key": "boolean_predicate_source_column", "value": "active"},
+                        {"key": "boolean_predicate_null_semantics", "value": "sql_boolean_is_not_true_false_null_matches"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .filter(sl.col("active").is_not_true())
+            .select("id")
+            .limit(5)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "boolean_predicate")
+        self.assertTrue(report.boolean_predicate_runtime_execution)
+        self.assertEqual(report.boolean_predicate_operator, ("is_not_true",))
+        self.assertEqual(report.boolean_predicate_source_columns, ("active",))
+        self.assertEqual(
+            report.boolean_predicate_null_semantics,
+            "sql_boolean_is_not_true_false_null_matches",
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_column_expression_builder_formats_admitted_predicate_families(self) -> None:
         self.assertEqual(
             str(sl.col("event_dt").cast("date32") >= date(2026, 5, 19)),
@@ -748,6 +809,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(str(sl.col("closed_at").is_not_null()), "closed_at IS NOT NULL")
         self.assertEqual(str(sl.col("active").is_true()), "active IS TRUE")
         self.assertEqual(str(sl.col("active").is_false()), "active IS FALSE")
+        self.assertEqual(str(sl.col("active").is_not_true()), "active IS NOT TRUE")
+        self.assertEqual(str(sl.col("active").is_not_false()), "active IS NOT FALSE")
 
         with self.assertRaisesRegex(ValueError, "timezone-aware"):
             sl.col("event_dt") >= datetime(2026, 5, 19, 12, 30)

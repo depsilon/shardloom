@@ -192,6 +192,16 @@ class ColumnExpression:
 
         return PredicateExpression(f"{self.sql} IS FALSE")
 
+    def is_not_true(self) -> PredicateExpression:
+        """Return a scoped SQL `IS NOT TRUE` predicate."""
+
+        return PredicateExpression(f"{self.sql} IS NOT TRUE")
+
+    def is_not_false(self) -> PredicateExpression:
+        """Return a scoped SQL `IS NOT FALSE` predicate."""
+
+        return PredicateExpression(f"{self.sql} IS NOT FALSE")
+
     def like(self, pattern: object) -> PredicateExpression:
         """Return a scoped SQL LIKE predicate.
 

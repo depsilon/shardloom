@@ -507,6 +507,7 @@ enum ParsedPredicate {
         column: String,
         expected: bool,
         null_is_false: bool,
+        negated: bool,
     },
     IsNull {
         column: String,
@@ -4990,7 +4991,8 @@ impl ParsedPredicate {
                 column,
                 expected,
                 null_is_false,
-            } => boolean_predicate_expression(column, *expected, *null_is_false),
+                negated,
+            } => boolean_predicate_expression(column, *expected, *null_is_false, *negated),
             Self::StringTransformCompare {
                 column,
                 op,
@@ -5172,10 +5174,26 @@ impl ParsedPredicate {
 
     fn push_boolean_predicate_operators(&self, operators: &mut Vec<&'static str>) {
         match self {
-            Self::BooleanPredicate { expected: true, .. } => operators.push("is_true"),
             Self::BooleanPredicate {
-                expected: false, ..
+                expected: true,
+                negated: false,
+                ..
+            } => operators.push("is_true"),
+            Self::BooleanPredicate {
+                expected: false,
+                negated: false,
+                ..
             } => operators.push("is_false"),
+            Self::BooleanPredicate {
+                expected: true,
+                negated: true,
+                ..
+            } => operators.push("is_not_true"),
+            Self::BooleanPredicate {
+                expected: false,
+                negated: true,
+                ..
+            } => operators.push("is_not_false"),
             Self::Logical { left, right, .. } => {
                 left.push_boolean_predicate_operators(operators);
                 right.push_boolean_predicate_operators(operators);
@@ -5232,6 +5250,48 @@ impl ParsedPredicate {
             | Self::IsNotNull { .. }
             | Self::InList { .. }
             | Self::StringMatch { .. } => {}
+        }
+    }
+
+    fn boolean_predicate_null_semantics(&self) -> &'static str {
+        if !self.uses_boolean_predicate() {
+            "not_applicable"
+        } else if self.uses_boolean_is_not_truth_match() {
+            "sql_boolean_is_not_true_false_null_matches"
+        } else {
+            "sql_where_true_only_null_filters_out"
+        }
+    }
+
+    fn uses_boolean_is_not_truth_match(&self) -> bool {
+        match self {
+            Self::BooleanPredicate { negated: true, .. } => true,
+            Self::Not { inner } => match inner.as_ref() {
+                Self::BooleanPredicate {
+                    null_is_false: true,
+                    ..
+                } => true,
+                _ => inner.uses_boolean_is_not_truth_match(),
+            },
+            Self::Logical { left, right, .. } => {
+                left.uses_boolean_is_not_truth_match() || right.uses_boolean_is_not_truth_match()
+            }
+            Self::All
+            | Self::Compare { .. }
+            | Self::CastCompare { .. }
+            | Self::NumericArithmeticCompare { .. }
+            | Self::NumericAbsCompare { .. }
+            | Self::NumericRoundingCompare { .. }
+            | Self::DateArithmeticCompare { .. }
+            | Self::DateExtractCompare { .. }
+            | Self::StringLengthCompare { .. }
+            | Self::TimestampExtractCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::BooleanPredicate { .. }
+            | Self::IsNull { .. }
+            | Self::IsNotNull { .. }
+            | Self::InList { .. }
+            | Self::StringMatch { .. } => false,
         }
     }
 
@@ -6701,6 +6761,7 @@ fn boolean_predicate_expression(
     column: &str,
     expected: bool,
     null_is_false: bool,
+    negated: bool,
 ) -> Result<Expression, ShardLoomError> {
     let column_expression = Expression::column(
         ExprId::new(format!("where.boolean.{column}"))?,
@@ -6717,13 +6778,24 @@ fn boolean_predicate_expression(
             },
         )
     };
-    if null_is_false {
-        Ok(Expression::new(
+    let value_expression = if null_is_false {
+        Expression::new(
             ExprId::new("where.boolean.null_is_false")?,
             ExpressionKind::Binary {
                 left: Box::new(value_expression),
                 op: BinaryOp::And,
                 right: Box::new(null_predicate_expression(column, false)?),
+            },
+        )
+    } else {
+        value_expression
+    };
+    if negated {
+        Ok(Expression::new(
+            ExprId::new("where.boolean.is_not_truth")?,
+            ExpressionKind::Unary {
+                op: UnaryOp::Not,
+                expr: Box::new(value_expression),
             },
         ))
     } else {
@@ -7290,12 +7362,10 @@ impl SqlLocalSourceReport {
             ),
             (
                 "boolean_predicate_null_semantics".to_string(),
-                if self.parsed.predicate.uses_boolean_predicate() {
-                    "sql_where_true_only_null_filters_out"
-                } else {
-                    "not_applicable"
-                }
-                .to_string(),
+                self.parsed
+                    .predicate
+                    .boolean_predicate_null_semantics()
+                    .to_string(),
             ),
             (
                 "string_predicate_runtime_execution".to_string(),
@@ -10278,7 +10348,7 @@ fn parse_token_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
             })
         }
         _ => Err(unsupported_sql_error(
-            "WHERE admits only <column>, <column> IS TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
+            "WHERE admits only <column>, <column> IS [NOT] TRUE/FALSE, <column> <op> <literal>, <column> <op> DATE <date-literal>, <column> <op> TIMESTAMP <timestamp-literal>, <column> [NOT] BETWEEN <literal> AND <literal>, <column> (+|-|*|/) <numeric-literal> <op> <numeric-literal>, ABS/FLOOR/CEIL/ROUND(<column>) <op> <numeric-literal>, LENGTH(<column>) <op> <int-literal>, DATE_YEAR/MONTH/DAY(<column>) <op> <int-literal>, TIMESTAMP_YEAR/MONTH/DAY/HOUR/MINUTE/SECOND(<column>) <op> <int-literal>, DATE_ADD_DAYS(<column>, <days>) <op> DATE <date-literal>, DATE_SUB_DAYS(<column>, <days>) <op> DATE <date-literal>, LOWER/UPPER/TRIM(<column>) <op> <string-literal>, <column> [NOT] IN (<literal>,...), <column> [NOT] LIKE <string-pattern>, <column> IS NULL, <column> IS NOT NULL, admitted predicates joined by AND/OR/NOT, or balanced grouping parentheses around admitted predicates",
         )),
     }
 }
@@ -10293,6 +10363,7 @@ fn parse_boolean_predicate_tokens(
                 column: (*column).clone(),
                 expected: true,
                 null_is_false: false,
+                negated: false,
             }))
         }
         [column, is_keyword, truth_keyword]
@@ -10305,17 +10376,22 @@ fn parse_boolean_predicate_tokens(
                 column: (*column).clone(),
                 expected: truth_keyword.eq_ignore_ascii_case("true"),
                 null_is_false: true,
+                negated: false,
             }))
         }
-        [_, is_keyword, not_keyword, truth_keyword]
+        [column, is_keyword, not_keyword, truth_keyword]
             if is_keyword.eq_ignore_ascii_case("is")
                 && not_keyword.eq_ignore_ascii_case("not")
                 && (truth_keyword.eq_ignore_ascii_case("true")
                     || truth_keyword.eq_ignore_ascii_case("false")) =>
         {
-            Err(unsupported_sql_error(
-                "boolean predicates admit <column>, <column> IS TRUE, and <column> IS FALSE only; IS NOT TRUE/FALSE three-valued matching remains blocked",
-            ))
+            validate_sql_column_ref(column)?;
+            Ok(Some(ParsedPredicate::BooleanPredicate {
+                column: (*column).clone(),
+                expected: truth_keyword.eq_ignore_ascii_case("true"),
+                null_is_false: true,
+                negated: true,
+            }))
         }
         _ => Ok(None),
     }
