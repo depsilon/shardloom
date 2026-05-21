@@ -1,0 +1,273 @@
+#!/usr/bin/env python
+# SPDX-License-Identifier: Apache-2.0
+"""Validate the GitHub Actions release-grade CI gate matrix."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SCHEMA_VERSION = "shardloom.ci_gate_matrix_report.v1"
+
+
+@dataclass(frozen=True)
+class CiLane:
+    lane_id: str
+    job_id: str
+    commands: tuple[str, ...]
+    artifact_refs: tuple[str, ...]
+    release_blocker_refs: tuple[str, ...]
+    no_fallback_required: bool = True
+
+
+REQUIRED_LANES: tuple[CiLane, ...] = (
+    CiLane(
+        lane_id="rust_baseline",
+        job_id="rust-baseline",
+        commands=(
+            "cargo fmt --all -- --check",
+            "cargo clippy --workspace --all-targets -- -D warnings",
+            "cargo test --workspace --all-targets",
+        ),
+        artifact_refs=(),
+        release_blocker_refs=("default Rust formatting, linting, and tests",),
+    ),
+    CiLane(
+        lane_id="rust_feature_matrix",
+        job_id="rust-feature-matrix",
+        commands=(
+            "cargo check --workspace",
+            "cargo check --workspace --all-features",
+            "cargo check --workspace --no-default-features",
+            "cargo check -p shardloom-vortex --features upstream-vortex",
+            "cargo check -p shardloom-vortex --features vortex-file-io",
+            "cargo check -p shardloom-vortex --features vortex-local-primitives",
+            "cargo check -p shardloom-vortex --features vortex-encoded-read-spike",
+            "cargo test -p shardloom-contract-tests --test conda_packaging_recipes",
+            "cargo check -p shardloom-vortex --features vortex-traditional-analytics-benchmark",
+        ),
+        artifact_refs=(),
+        release_blocker_refs=("workspace feature/build matrix",),
+    ),
+    CiLane(
+        lane_id="python_package_smoke",
+        job_id="python-package",
+        commands=(
+            "python -m unittest discover -s python/tests",
+            "python -m compileall -q python/src python/tests scripts examples benchmarks/traditional_analytics",
+            "python -m build python",
+            "python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda",
+        ),
+        artifact_refs=(
+            "python/dist",
+            "target/release-dry-run-proof",
+            "target/release-provenance-dry-run",
+        ),
+        release_blocker_refs=("Python tests", "package/install smoke", "local provenance dry run"),
+    ),
+    CiLane(
+        lane_id="dependency_security",
+        job_id="dependency-security",
+        commands=(
+            "python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json",
+            "python scripts/check_security_posture.py",
+            "python scripts/release_provenance_dry_run.py",
+            "python scripts/check_release_security_gate.py",
+        ),
+        artifact_refs=(
+            "target/dependency-audit-report.json",
+            "target/security-posture-report.json",
+            "target/release-provenance-dry-run",
+            "target/release-security-gate-report.json",
+        ),
+        release_blocker_refs=("dependency/license audit", "security posture", "release security gate"),
+    ),
+    CiLane(
+        lane_id="release_readiness_reports",
+        job_id="release-readiness",
+        commands=(
+            "python scripts/check_dependency_audit.py --release-gate --json-output target/dependency-audit-report.json",
+            "python scripts/check_security_posture.py",
+            "python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda",
+            "python scripts/check_release_security_gate.py",
+            "python scripts/check_package_channel_readiness.py",
+            "python scripts/check_release_architecture_tracker.py --allow-blocked",
+            "python scripts/final_release_rehearsal.py --allow-blocked",
+            "python scripts/check_ci_gate_matrix.py",
+            "python scripts/check_release_readiness.py --allow-blocked",
+        ),
+        artifact_refs=(
+            "target/dependency-audit-report.json",
+            "target/security-posture-report.json",
+            "target/release-dry-run-proof",
+            "target/release-provenance-dry-run",
+            "target/release-security-gate-report.json",
+            "target/package-channel-readiness-report.json",
+            "target/release-architecture-tracker-report.json",
+            "target/final-release-rehearsal",
+            "target/ci-gate-matrix-report.json",
+            "target/hard-release-readiness-gate.json",
+        ),
+        release_blocker_refs=("release readiness scripts", "package channel matrix", "final rehearsal"),
+    ),
+    CiLane(
+        lane_id="website_docs_validation",
+        job_id="website-docs",
+        commands=(
+            "npm run build",
+            "npm run check",
+            "python scripts/check_website_readiness.py",
+            "node website/validate_static_assets.js",
+        ),
+        artifact_refs=(),
+        release_blocker_refs=("website build", "docs/status generated assets"),
+        no_fallback_required=False,
+    ),
+    CiLane(
+        lane_id="ci_gate_matrix_contract",
+        job_id="ci-gate-matrix",
+        commands=("python scripts/check_ci_gate_matrix.py",),
+        artifact_refs=("target/ci-gate-matrix-report.json",),
+        release_blocker_refs=("CI matrix drift contract",),
+    ),
+)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo-root", type=Path, default=ROOT)
+    parser.add_argument(
+        "--workflow",
+        type=Path,
+        default=Path(".github/workflows/ci.yml"),
+    )
+    parser.add_argument(
+        "--matrix-doc",
+        type=Path,
+        default=Path("docs/release/ci-gate-matrix.md"),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("target/ci-gate-matrix-report.json"),
+    )
+    return parser.parse_args()
+
+
+def resolve(repo_root: Path, path: Path) -> Path:
+    return path if path.is_absolute() else repo_root / path
+
+
+def read_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
+def lane_status(lane: CiLane, workflow: str, doc: str) -> dict[str, Any]:
+    blockers: list[str] = []
+    if f"  {lane.job_id}:" not in workflow:
+        blockers.append(f"missing workflow job {lane.job_id}")
+    for command in lane.commands:
+        if command not in workflow:
+            blockers.append(f"workflow missing command: {command}")
+        if command not in doc:
+            blockers.append(f"doc missing command: {command}")
+    for artifact in lane.artifact_refs:
+        if artifact not in workflow:
+            blockers.append(f"workflow missing artifact ref: {artifact}")
+        if artifact not in doc:
+            blockers.append(f"doc missing artifact ref: {artifact}")
+    for blocker_ref in lane.release_blocker_refs:
+        if blocker_ref not in doc:
+            blockers.append(f"doc missing release blocker ref: {blocker_ref}")
+    if lane.lane_id not in doc:
+        blockers.append(f"doc missing lane id {lane.lane_id}")
+    return {
+        "lane_id": lane.lane_id,
+        "job_id": lane.job_id,
+        "commands": list(lane.commands),
+        "artifact_refs": list(lane.artifact_refs),
+        "release_blocker_refs": list(lane.release_blocker_refs),
+        "status": "passed" if not blockers else "failed",
+        "blockers": blockers,
+        "release_blocking": bool(blockers),
+        "no_fallback_required": lane.no_fallback_required,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+    }
+
+
+def main() -> int:
+    args = parse_args()
+    repo_root = args.repo_root.resolve()
+    workflow_path = resolve(repo_root, args.workflow)
+    doc_path = resolve(repo_root, args.matrix_doc)
+    output = resolve(repo_root, args.output)
+
+    workflow = read_text(workflow_path)
+    doc = read_text(doc_path)
+    blockers: list[str] = []
+    if not workflow:
+        blockers.append("missing CI workflow")
+    if not doc:
+        blockers.append("missing CI gate matrix doc")
+
+    for required in [
+        SCHEMA_VERSION,
+        "public_release_claim_allowed=false",
+        "public_package_claim_allowed=false",
+        "publication_attempted=false",
+        "tag_created=false",
+        "secrets_required=false",
+        "package_upload_attempted=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "skipped_gate=clean_conda_release_environment",
+        "skipped_gate=real_publication",
+    ]:
+        if required not in doc:
+            blockers.append(f"doc missing marker: {required}")
+
+    lane_rows = [lane_status(lane, workflow, doc) for lane in REQUIRED_LANES]
+    blockers.extend(
+        f"{row['lane_id']}: {blocker}"
+        for row in lane_rows
+        for blocker in row["blockers"]
+    )
+    passed = not blockers
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "status": "passed" if passed else "failed",
+        "lane_count": len(REQUIRED_LANES),
+        "workflow_ref": str(args.workflow).replace("\\", "/"),
+        "matrix_doc_ref": str(args.matrix_doc).replace("\\", "/"),
+        "lanes": lane_rows,
+        "blockers": blockers,
+        "public_release_claim_allowed": False,
+        "public_package_claim_allowed": False,
+        "publication_attempted": False,
+        "tag_created": False,
+        "secrets_required": False,
+        "package_upload_attempted": False,
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "remaining_skipped_gates": [
+            "clean_conda_release_environment",
+            "real_publication",
+            "release_tag_creation",
+            "signing_key_use",
+            "package_upload",
+        ],
+    }
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(output)
+    return 0 if passed else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

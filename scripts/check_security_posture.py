@@ -57,7 +57,7 @@ def main() -> int:
         scorecard,
         [
             "workflow_dispatch:",
-            "ossf/scorecard-action@v2.4.0",
+            "ossf/scorecard-action@v2.4.3",
             "publish_results: false",
             "github/codeql-action/upload-sarif@v4",
             "security-events: write",

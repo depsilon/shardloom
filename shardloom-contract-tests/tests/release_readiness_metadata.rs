@@ -1980,13 +1980,24 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
     assert!(!plan.contains("- [ ] GAR-0043-B publication attestation and final release rehearsal"));
     assert!(plan.contains("complete the review-derived action items below before new runtime"));
     assert!(!plan.contains("- [ ] REVIEW-P0-1 generated current-support matrix"));
-    assert!(plan.contains("REVIEW-P0-2 release-grade CI gate matrix"));
+    assert!(!plan.contains("- [ ] REVIEW-P0-2 release-grade CI gate matrix"));
     assert!(plan.contains("REVIEW-P0-3 enforced workspace path safety"));
     assert!(plan.contains("Completed non-runtime history belongs in"));
     assert!(plan.contains("docs/release/final-release-rehearsal.md"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     for required in [
+        "REVIEW-P0-2 release-grade CI gate matrix",
+        "shardloom.ci_gate_matrix_report.v1",
+        "docs/release/ci-gate-matrix.md",
+        ".github/workflows/ci.yml",
+        "rust_baseline",
+        "rust_feature_matrix",
+        "python_package_smoke",
+        "dependency_security",
+        "release_readiness_reports",
+        "website_docs_validation",
+        "ci_gate_matrix_contract",
         "REVIEW-P0-1 generated current-support matrix and runs-today surface",
         "shardloom.runs_today_support_matrix.v1",
         "docs/status/runs-today-support-matrix.json",
@@ -2016,6 +2027,56 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
     let gar = read_repo_file("docs/architecture/global-architecture-review.md");
     assert!(gar.contains("`GAR-0043-B` adds `shardloom.final_release_rehearsal_report.v1`"));
     assert!(gar.contains("Actual public package publication, release tags, signing"));
+
+    let ci_workflow = read_repo_file(".github/workflows/ci.yml");
+    let ci_doc = read_repo_file("docs/release/ci-gate-matrix.md");
+    let ci_script = read_repo_file("scripts/check_ci_gate_matrix.py");
+    for required in [
+        "rust-baseline",
+        "rust-feature-matrix",
+        "python-package",
+        "dependency-security",
+        "release-readiness",
+        "website-docs",
+        "ci-gate-matrix",
+        "cargo check --workspace --all-features",
+        "python scripts/check_dependency_audit.py --release-gate",
+        "python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda",
+        "python scripts/check_release_readiness.py --allow-blocked",
+        "npm run build",
+        "node website/validate_static_assets.js",
+    ] {
+        assert!(
+            ci_workflow.contains(required),
+            "missing CI workflow marker {required}"
+        );
+    }
+    for required in [
+        "shardloom.ci_gate_matrix_report.v1",
+        "rust_baseline",
+        "rust_feature_matrix",
+        "python_package_smoke",
+        "dependency_security",
+        "release_readiness_reports",
+        "website_docs_validation",
+        "ci_gate_matrix_contract",
+        "target/ci-gate-matrix-report.json",
+        "public_release_claim_allowed=false",
+        "public_package_claim_allowed=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "skipped_gate=clean_conda_release_environment",
+        "skipped_gate=real_publication",
+    ] {
+        assert!(
+            ci_doc.contains(required),
+            "missing CI gate doc marker {required}"
+        );
+        assert!(
+            ci_script.contains(required),
+            "missing CI gate script marker {required}"
+        );
+    }
 
     let traceability = read_repo_file("docs/architecture/rfc-phase-traceability.md");
     assert!(traceability.contains("GAR-0043-B"));

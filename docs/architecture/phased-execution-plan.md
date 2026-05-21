@@ -236,34 +236,6 @@ Current non-runtime sequence: complete the review-derived action items below bef
 expansion unless the user explicitly reprioritizes. Completed non-runtime history belongs in
 `docs/architecture/phased-execution-completed-ledger.md`.
 
-- [ ] REVIEW-P0-2 release-grade CI gate matrix
-  - Source: 2026-05-21 structured repository review action sequence; RFC 0024, RFC 0041,
-    release-readiness scripts, package-channel readiness matrix.
-  - Current state: GitHub checks cover a Rust baseline and CodeQL, while feature-gated Rust lanes,
-    Python tests, package smoke, release-readiness scripts, dependency/license audit, and security
-    regression checks are not all enforced as one CI gate matrix.
-  - Next slice outcome: expand CI into a fail-closed gate matrix for default Rust checks,
-    feature-gated Rust checks, Python tests, package/install smoke, release-readiness scripts,
-    dependency/license/provenance audit, and security/path-safety checks.
-  - User-visible surface: GitHub Actions checks, release readiness reports, package-channel status,
-    contributor validation docs.
-  - Implementation scope: `.github/workflows/*`, existing readiness/audit scripts, feature-build
-    matrix docs, package smoke scripts, CI snapshot docs.
-  - Evidence required: each lane reports command, feature set, artifact refs, pass/fail status,
-    unsupported publication state, no-fallback fields where runtime smoke is involved, and release
-    blocker linkage.
-  - Acceptance: PR checks fail when Python tests, feature-gated builds, package smoke,
-    dependency/license audit, release readiness, or security/path-safety checks fail.
-  - Verification: CI workflow dry-run where feasible, local script invocations, release-readiness
-    metadata test, dependency audit script, Python tests, `git diff --check`.
-  - Non-goals: no public release, package upload, release tag, signing key use, OCI push, or
-    production readiness claim.
-  - Claim boundary: CI coverage and release gate strength only.
-  - Fallback boundary: CI runtime smokes must fail if fallback or external-engine invocation is
-    reported for admitted ShardLoom workflows.
-  - Ledger rule: ledger entry must enumerate CI lanes, commands, artifacts, and remaining skipped
-    gates.
-
 - [ ] REVIEW-P0-3 enforced workspace path safety for local output writers
   - Source: 2026-05-21 structured repository review action sequence; RFC 0019, RFC 0024,
     local-output writer and staged-workspace safety surfaces.

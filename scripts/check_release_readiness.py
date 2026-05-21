@@ -398,6 +398,7 @@ def main() -> int:
         "python -m build python",
         "python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
         "cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
+        "python scripts/check_ci_gate_matrix.py",
         "python scripts/check_release_security_gate.py",
         "python scripts/check_release_architecture_tracker.py --allow-blocked",
         "python scripts/check_package_channel_readiness.py",
