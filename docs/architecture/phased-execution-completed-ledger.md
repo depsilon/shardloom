@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E source-free SQL range CASE projections
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-7-20260521` / #896.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime`.
+    - Follow-on runtime work after #895 to keep widening user-visible compute coverage in larger
+      slices.
+  - Scope:
+    - Extended source-free SQL `generate_series`/`range` generated-output projections from direct
+      range-column output, int64 literals, and `+`/`-`/`*` arithmetic to scoped single-branch CASE
+      projections.
+    - Admitted `CASE WHEN <range-column> <comparison> <int64> THEN <int64> ELSE <int64> END AS
+      column` for `=`, `!=`, `<>`, `<`, `<=`, `>`, and `>=` predicates.
+    - Added deterministic blockers for unsupported CASE predicates and non-int64 CASE branches
+      before generated output is written.
+    - Verified the Python `ctx.sql(...).write(...)` path carries the broadened SQL statement into
+      the same generated-source SQL runtime command and typed evidence accessors.
+  - Evidence:
+    - Generated SQL range output now writes a CASE-derived `is_high` int64 column alongside direct
+      and arithmetic projection columns.
+    - `sql_source_free_projection_expressions` records CASE projection evidence such as
+      `case(value>=3?1:0)` without introducing a broad source-free SQL expression claim.
+    - Unsupported CASE forms fail with deterministic diagnostics and
+      `external_engine_invoked=false`.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke sql_smoke_writes_generate_series_projection_jsonl -- --nocapture`
+    - `cargo test -p shardloom-cli --test generated_source_runtime_smoke sql_smoke_blocks_unadmitted_generate_series_forms -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_sql_generate_series_projection_write_invokes_generated_source_sql_smoke`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `python -m compileall -q python\src python\tests scripts examples benchmarks\traditional_analytics`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This is scoped source-free SQL range CASE projection coverage only. It does not claim
+      arbitrary SQL expressions, searched CASE parity beyond one branch, table functions beyond
+      admitted `generate_series`/`range`, DataFrame generated-expression parity, object-store/
+      Foundry generated-output, or performance superiority.
+  - Fallback boundary:
+    - Parsing, evaluation, generated row construction, output writing, and evidence remain
+      ShardLoom-owned. No external engine is invoked for admitted or rejected generated SQL
+      projection paths.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D conditional projection source-column branches
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-6-20260521` / #895.

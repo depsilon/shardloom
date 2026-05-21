@@ -372,8 +372,13 @@ or documentation updates alone are insufficient.
     emitting Vortex artifact digest, reopen proof, upstream Vortex writer/scan flags, and
     `certified_local_vortex_sink`; default builds return a deterministic Vortex sink blocker.
     Python range/sequence builders also support `limit(...)`, `head(...)`, and `take(...)` by
-    adjusting generator bounds before invoking the same engine-native range/sequence smoke.
-    Remaining gaps are broader SQL source-free projection beyond the admitted range-generator
+    adjusting generator bounds before invoking the same engine-native range/sequence smoke. Scoped
+    source-free SQL `generate_series`/`range` projections now admit direct range-column output,
+    int64 literals, range-column `+`/`-`/`*` int64 arithmetic, and single-branch
+    `CASE WHEN <range-column> <comparison> <int64> THEN <int64> ELSE <int64> END` projections with
+    `sql_source_free_projection_*` evidence and deterministic blockers for unsupported predicates
+    or non-int64 branches.
+    Remaining gaps are broader SQL source-free projection beyond that admitted range-generator
     projection subset, arbitrary SQL table functions, broad DataFrame expression-backed
     projection/`with_column`, object-store/Foundry generated-output paths, broader
     structured-format fidelity, and claim-grade output coverage.
