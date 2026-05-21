@@ -125,7 +125,14 @@ class ColumnExpression:
         return PredicateExpression(f"{self.sql} {operator} {_sql_literal(value)}")
 
     def _numeric_binary(self, operator: str, value: object) -> "ColumnExpression":
-        return ColumnExpression(f"{self.sql} {operator} {_sql_numeric_literal(value)}")
+        rhs = (
+            _parenthesize_numeric_operand(value.sql)
+            if isinstance(value, ColumnExpression)
+            else _sql_numeric_literal(value)
+        )
+        return ColumnExpression(
+            f"{_parenthesize_numeric_operand(self.sql)} {operator} {rhs}"
+        )
 
     def __add__(self, value: object) -> "ColumnExpression":
         """Return a scoped numeric addition expression for predicates."""
@@ -2955,6 +2962,90 @@ def _sql_numeric_arithmetic_projection_expression(expression: object) -> str:
     return text
 
 
+def _sql_generic_expression_projection_expression(expression: object) -> str:
+    if not isinstance(expression, ColumnExpression):
+        raise TypeError("computed with_column requires a shardloom ColumnExpression")
+    text = expression.sql.strip()
+    if not _expression_has_numeric_operator(text):
+        raise ValueError(
+            "computed with_column generic expressions require a numeric expression tree"
+        )
+    _validate_balanced_expression_parentheses(text)
+    return text
+
+
+def _parenthesize_numeric_operand(value: str) -> str:
+    text = _require_non_empty("numeric expression", value)
+    if _expression_has_numeric_operator(text) and not (
+        text.startswith("(") and text.endswith(")")
+    ):
+        return f"({text})"
+    return text
+
+
+def _expression_has_numeric_operator(value: str) -> bool:
+    in_quote = False
+    depth = 0
+    for index, char in enumerate(value):
+        if char == "'":
+            in_quote = not in_quote
+            continue
+        if in_quote:
+            continue
+        if char == "(":
+            depth += 1
+            continue
+        if char == ")":
+            depth -= 1
+            continue
+        if char in {"*", "/"}:
+            return True
+        if char in {"+", "-"} and not _is_unary_numeric_sign(value, index, char):
+            return True
+    return False
+
+
+def _is_unary_numeric_sign(value: str, index: int, char: str) -> bool:
+    if char not in {"+", "-"}:
+        return False
+    before = next(
+        (candidate for candidate in reversed(value[:index]) if not candidate.isspace()),
+        None,
+    )
+    after = next(
+        (
+            candidate
+            for candidate in value[index + len(char) :]
+            if not candidate.isspace()
+        ),
+        None,
+    )
+    return (before is None or before in "(,+-*/") and (
+        after is not None and (after.isdigit() or after == ".")
+    )
+
+
+def _validate_balanced_expression_parentheses(value: str) -> None:
+    in_quote = False
+    depth = 0
+    for char in value:
+        if char == "'":
+            in_quote = not in_quote
+            continue
+        if in_quote:
+            continue
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth < 0:
+                raise ValueError("computed with_column expression has unbalanced parentheses")
+    if in_quote:
+        raise ValueError("computed with_column expression has an unclosed string literal")
+    if depth != 0:
+        raise ValueError("computed with_column expression has unbalanced parentheses")
+
+
 def _sql_numeric_abs_projection_expression(expression: object) -> str:
     if not isinstance(expression, ColumnExpression):
         raise TypeError("computed with_column requires a shardloom ColumnExpression")
@@ -2998,6 +3089,7 @@ def _sql_computed_projection_expression(expression: object) -> str:
         _sql_numeric_arithmetic_projection_expression,
         _sql_numeric_abs_projection_expression,
         _sql_numeric_rounding_projection_expression,
+        _sql_generic_expression_projection_expression,
         _sql_date_arithmetic_projection_expression,
         _sql_string_length_projection_expression,
         _sql_string_transform_projection_expression,

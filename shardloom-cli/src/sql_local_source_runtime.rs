@@ -219,6 +219,7 @@ struct ParsedSqlLocalSource {
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     numeric_abs_projections: Vec<ParsedNumericAbsProjection>,
     numeric_rounding_projections: Vec<ParsedNumericRoundingProjection>,
+    generic_expression_projections: Vec<ParsedGenericExpressionProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
@@ -297,6 +298,15 @@ struct ParsedNumericRoundingProjection {
     alias: String,
     column: String,
     op: NumericRoundingOp,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedGenericExpressionProjection {
+    alias: String,
+    expression: Expression,
+    source_columns: Vec<String>,
+    operator_families: Vec<String>,
+    binary_operator_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -439,6 +449,7 @@ struct ParsedProjectionList {
     numeric_arithmetic_projections: Vec<ParsedNumericArithmeticProjection>,
     numeric_abs_projections: Vec<ParsedNumericAbsProjection>,
     numeric_rounding_projections: Vec<ParsedNumericRoundingProjection>,
+    generic_expression_projections: Vec<ParsedGenericExpressionProjection>,
     date_arithmetic_projections: Vec<ParsedDateArithmeticProjection>,
     string_length_projections: Vec<ParsedStringLengthProjection>,
     string_transform_projections: Vec<ParsedStringTransformProjection>,
@@ -1963,6 +1974,13 @@ fn computed_projection_expressions(
         )
         .chain(
             parsed
+                .generic_expression_projections
+                .iter()
+                .map(generic_expression_projection_expression)
+                .collect::<Result<Vec<_>, ShardLoomError>>()?,
+        )
+        .chain(
+            parsed
                 .date_arithmetic_projections
                 .iter()
                 .map(date_arithmetic_projection_expression)
@@ -1997,6 +2015,18 @@ fn computed_projection_expressions(
                 .collect::<Result<Vec<_>, ShardLoomError>>()?,
         )
         .collect::<Vec<_>>())
+}
+
+fn generic_expression_projection_expression(
+    projection: &ParsedGenericExpressionProjection,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new(format!("project.alias.{}", projection.alias))?,
+        ExpressionKind::Alias {
+            expr: Box::new(projection.expression.clone()),
+            alias: projection.alias.clone(),
+        },
+    ))
 }
 
 fn cast_projection_expression(
@@ -3539,7 +3569,7 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
             || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal> ELSE <literal> END AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -3636,6 +3666,16 @@ fn validate_numeric_projection_source_columns(
             "numeric rounding projection source column",
             "CSV header",
         )?;
+    }
+    for projection in &parsed.generic_expression_projections {
+        for column in &projection.source_columns {
+            require_header_column(
+                header,
+                column,
+                "generic expression projection source column",
+                "CSV header",
+            )?;
+        }
     }
     Ok(())
 }
@@ -3787,6 +3827,9 @@ fn validate_literal_numeric_output_names<'a>(
     for projection in &parsed.numeric_rounding_projections {
         require_unique_projection_output_name(output_names, &projection.alias)?;
     }
+    for projection in &parsed.generic_expression_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
     Ok(())
 }
 
@@ -3872,6 +3915,7 @@ fn bind_join_sql_local_source(
         || !parsed.numeric_arithmetic_projections.is_empty()
         || !parsed.numeric_abs_projections.is_empty()
         || !parsed.numeric_rounding_projections.is_empty()
+        || !parsed.generic_expression_projections.is_empty()
         || !parsed.date_arithmetic_projections.is_empty()
         || !parsed.string_length_projections.is_empty()
         || !parsed.string_transform_projections.is_empty()
@@ -4023,6 +4067,10 @@ impl ParsedSqlLocalSource {
         !self.numeric_rounding_projections.is_empty()
     }
 
+    fn has_generic_expression_projection(&self) -> bool {
+        !self.generic_expression_projections.is_empty()
+    }
+
     fn has_date_arithmetic_projection(&self) -> bool {
         !self.date_arithmetic_projections.is_empty()
     }
@@ -4052,6 +4100,7 @@ impl ParsedSqlLocalSource {
             || self.has_numeric_arithmetic_projection()
             || self.has_numeric_abs_projection()
             || self.has_numeric_rounding_projection()
+            || self.has_generic_expression_projection()
             || self.has_date_arithmetic_projection()
             || self.has_string_length_projection()
             || self.has_string_transform_projection()
@@ -4103,6 +4152,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_numeric_rounding_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
         } else if self.has_numeric_rounding_projection() {
+            "local_source_computed_projection_limit"
+        } else if self.has_generic_expression_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_generic_expression_projection() {
             "local_source_computed_projection_limit"
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "local_source_computed_projection_filter_limit"
@@ -4180,6 +4233,10 @@ impl ParsedSqlLocalSource {
             "computed-projection-filter-limit"
         } else if self.has_numeric_rounding_projection() {
             "computed-projection-limit"
+        } else if self.has_generic_expression_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_generic_expression_projection() {
+            "computed-projection-limit"
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "computed-projection-filter-limit"
         } else if self.has_date_arithmetic_projection() {
@@ -4255,6 +4312,10 @@ impl ParsedSqlLocalSource {
         } else if self.has_numeric_rounding_projection() && self.has_filter() {
             "computed_projection_filter_limit"
         } else if self.has_numeric_rounding_projection() {
+            "computed_projection_limit"
+        } else if self.has_generic_expression_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_generic_expression_projection() {
             "computed_projection_limit"
         } else if self.has_date_arithmetic_projection() && self.has_filter() {
             "computed_projection_filter_limit"
@@ -4349,6 +4410,11 @@ impl ParsedSqlLocalSource {
                 )
                 .chain(
                     self.numeric_rounding_projections
+                        .iter()
+                        .map(|projection| projection.alias.clone()),
+                )
+                .chain(
+                    self.generic_expression_projections
                         .iter()
                         .map(|projection| projection.alias.clone()),
                 )
@@ -4655,6 +4721,49 @@ impl ParsedSqlLocalSource {
                 .collect::<Vec<_>>()
                 .join(",")
         }
+    }
+
+    fn generic_expression_projection_source_columns(&self) -> String {
+        if self.generic_expression_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.generic_expression_projections
+                .iter()
+                .map(|projection| projection.source_columns.join("+"))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn generic_expression_projection_output_columns(&self) -> String {
+        if self.generic_expression_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.generic_expression_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn generic_expression_projection_operator_families(&self) -> String {
+        if self.generic_expression_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.generic_expression_projections
+                .iter()
+                .map(|projection| projection.operator_families.join("+"))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn generic_expression_projection_binary_operator_count(&self) -> usize {
+        self.generic_expression_projections
+            .iter()
+            .map(|projection| projection.binary_operator_count)
+            .sum()
     }
 
     fn date_arithmetic_projection_operators(&self) -> String {
@@ -7674,6 +7783,29 @@ impl SqlLocalSourceReport {
                 self.parsed.numeric_rounding_projection_output_columns(),
             ),
             (
+                "generic_expression_projection_runtime_execution".to_string(),
+                self.parsed.has_generic_expression_projection().to_string(),
+            ),
+            (
+                "generic_expression_projection_source_column".to_string(),
+                self.parsed.generic_expression_projection_source_columns(),
+            ),
+            (
+                "generic_expression_projection_output_column".to_string(),
+                self.parsed.generic_expression_projection_output_columns(),
+            ),
+            (
+                "generic_expression_projection_operator_family".to_string(),
+                self.parsed
+                    .generic_expression_projection_operator_families(),
+            ),
+            (
+                "generic_expression_projection_binary_operator_count".to_string(),
+                self.parsed
+                    .generic_expression_projection_binary_operator_count()
+                    .to_string(),
+            ),
+            (
                 "date_arithmetic_projection_runtime_execution".to_string(),
                 self.parsed.has_date_arithmetic_projection().to_string(),
             ),
@@ -9245,6 +9377,7 @@ fn parsed_sql_local_source_from_parts(
         numeric_arithmetic_projections: projection_list.numeric_arithmetic_projections,
         numeric_abs_projections: projection_list.numeric_abs_projections,
         numeric_rounding_projections: projection_list.numeric_rounding_projections,
+        generic_expression_projections: projection_list.generic_expression_projections,
         date_arithmetic_projections: projection_list.date_arithmetic_projections,
         string_length_projections: projection_list.string_length_projections,
         string_transform_projections: projection_list.string_transform_projections,
@@ -9293,6 +9426,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut numeric_arithmetic_projections = Vec::new();
     let mut numeric_abs_projections = Vec::new();
     let mut numeric_rounding_projections = Vec::new();
+    let mut generic_expression_projections = Vec::new();
     let mut date_arithmetic_projections = Vec::new();
     let mut string_length_projections = Vec::new();
     let mut string_transform_projections = Vec::new();
@@ -9309,6 +9443,8 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                 ));
             }
             projections.push("*".to_string());
+        } else if let Some(generic_projection) = parse_generic_expression_projection(projection)? {
+            generic_expression_projections.push(generic_projection);
         } else if let Some(arithmetic_projection) = parse_numeric_arithmetic_projection(projection)?
         {
             numeric_arithmetic_projections.push(arithmetic_projection);
@@ -9355,6 +9491,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         numeric_arithmetic_projections,
         numeric_abs_projections,
         numeric_rounding_projections,
+        generic_expression_projections,
         date_arithmetic_projections,
         string_length_projections,
         string_transform_projections,
@@ -9738,6 +9875,452 @@ fn parse_conditional_projection(
         then_value,
         else_value,
     }))
+}
+
+fn parse_generic_expression_projection(
+    raw: &str,
+) -> Result<Option<ParsedGenericExpressionProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    if expression_raw.is_empty() || alias.is_empty() {
+        return Ok(None);
+    }
+    if is_simple_numeric_arithmetic_projection_shape(expression_raw)?
+        || !expression_contains_numeric_operator(expression_raw)?
+    {
+        return Ok(None);
+    }
+    validate_sql_identifier(alias)?;
+    let expression =
+        parse_numeric_scalar_expression(expression_raw, &format!("project.generic.{alias}"))?;
+    let source_columns = expression_source_columns(&expression);
+    if source_columns.is_empty() {
+        return Err(unsupported_sql_error(
+            "generic expression projections require at least one source column",
+        ));
+    }
+    let operator_families = expression_operator_families(&expression);
+    let binary_operator_count = expression_binary_operator_count(&expression);
+    if binary_operator_count == 0 {
+        return Ok(None);
+    }
+    Ok(Some(ParsedGenericExpressionProjection {
+        alias: alias.to_string(),
+        expression,
+        source_columns,
+        operator_families,
+        binary_operator_count,
+    }))
+}
+
+fn is_simple_numeric_arithmetic_projection_shape(raw: &str) -> Result<bool, ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    let Some(op_index) = tokens
+        .iter()
+        .position(|token| parse_numeric_arithmetic_op(token).is_some())
+    else {
+        return Ok(false);
+    };
+    if tokens.len() != 3 || op_index != 1 {
+        return Ok(false);
+    }
+    if validate_sql_column_ref(&tokens[0]).is_err() {
+        return Ok(false);
+    }
+    Ok(parse_numeric_arithmetic_literal(&tokens[2]).is_ok())
+}
+
+fn parse_numeric_scalar_expression(
+    raw: &str,
+    id_prefix: &str,
+) -> Result<Expression, ShardLoomError> {
+    let trimmed = trim_enclosing_scalar_expression_parentheses(raw)?;
+    if let Some((index, op)) = find_top_level_numeric_operator(trimmed, &['+', '-'])? {
+        return numeric_binary_expression(trimmed, id_prefix, index, op);
+    }
+    if let Some((index, op)) = find_top_level_numeric_operator(trimmed, &['*', '/'])? {
+        return numeric_binary_expression(trimmed, id_prefix, index, op);
+    }
+    if let Some(expression) = parse_numeric_cast_expression(trimmed, id_prefix)? {
+        return Ok(expression);
+    }
+    if let Some(expression) = parse_numeric_function_expression(trimmed, id_prefix)? {
+        return Ok(expression);
+    }
+    if let Ok(value) = parse_numeric_arithmetic_literal(trimmed) {
+        return Ok(Expression::literal(
+            ExprId::new(format!("{id_prefix}.literal"))?,
+            value,
+        ));
+    }
+    validate_sql_column_ref(trimmed)?;
+    Ok(Expression::column(
+        ExprId::new(format!("{id_prefix}.{trimmed}"))?,
+        ColumnRef::new(trimmed.to_string())?,
+    ))
+}
+
+fn numeric_binary_expression(
+    raw: &str,
+    id_prefix: &str,
+    op_index: usize,
+    op_char: char,
+) -> Result<Expression, ShardLoomError> {
+    let left_raw = raw[..op_index].trim();
+    let right_raw = raw[op_index + op_char.len_utf8()..].trim();
+    if left_raw.is_empty() || right_raw.is_empty() {
+        return Err(unsupported_sql_error(
+            "generic numeric expression projections require operands on both sides of an arithmetic operator",
+        ));
+    }
+    if op_char == '/'
+        && matches!(
+            parse_numeric_arithmetic_literal(right_raw),
+            Ok(ScalarValue::Int64(0) | ScalarValue::Float64(0.0))
+        )
+    {
+        return Err(unsupported_sql_error(
+            "generic numeric expression projection division by zero is not admitted",
+        ));
+    }
+    Ok(Expression::new(
+        ExprId::new(format!("{id_prefix}.binary"))?,
+        ExpressionKind::Binary {
+            left: Box::new(parse_numeric_scalar_expression(
+                left_raw,
+                &format!("{id_prefix}.left"),
+            )?),
+            op: numeric_binary_op_from_char(op_char)?,
+            right: Box::new(parse_numeric_scalar_expression(
+                right_raw,
+                &format!("{id_prefix}.right"),
+            )?),
+        },
+    ))
+}
+
+fn numeric_binary_op_from_char(op: char) -> Result<BinaryOp, ShardLoomError> {
+    match op {
+        '+' => Ok(BinaryOp::Add),
+        '-' => Ok(BinaryOp::Subtract),
+        '*' => Ok(BinaryOp::Multiply),
+        '/' => Ok(BinaryOp::Divide),
+        _ => Err(unsupported_sql_error(
+            "generic numeric expressions admit +, -, *, and / operators only",
+        )),
+    }
+}
+
+fn parse_numeric_cast_expression(
+    raw: &str,
+    id_prefix: &str,
+) -> Result<Option<Expression>, ShardLoomError> {
+    if !raw
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("cast("))
+    {
+        return Ok(None);
+    }
+    let close_index = matching_closing_parenthesis(raw, 4)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "generic numeric CAST expressions must use CAST(<expr> AS int64|float64)",
+        )
+    })?;
+    if !raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "generic numeric CAST projections must be a single CAST expression",
+        ));
+    }
+    let inner = raw[5..close_index].trim();
+    let as_index = find_keyword_outside_quotes_and_parentheses(inner, "as")?.ok_or_else(|| {
+        unsupported_sql_error("generic numeric CAST expressions must use CAST(<expr> AS <dtype>)")
+    })?;
+    let source_raw = inner[..as_index].trim();
+    let target_raw = inner[as_index + "as".len()..].trim();
+    let target_dtype = parse_cast_target_dtype(target_raw)?;
+    if !matches!(target_dtype, LogicalDType::Int64 | LogicalDType::Float64) {
+        return Err(unsupported_sql_error(
+            "generic numeric CAST projections currently admit int64 and float64 targets only",
+        ));
+    }
+    Ok(Some(Expression::cast(
+        ExprId::new(format!("{id_prefix}.cast"))?,
+        parse_numeric_scalar_expression(source_raw, &format!("{id_prefix}.cast.source"))?,
+        target_dtype,
+    )))
+}
+
+fn parse_numeric_function_expression(
+    raw: &str,
+    id_prefix: &str,
+) -> Result<Option<Expression>, ShardLoomError> {
+    let Some(open_index) = raw.find('(') else {
+        return Ok(None);
+    };
+    let function_raw = raw[..open_index].trim();
+    let function_name = match function_raw.to_ascii_lowercase().as_str() {
+        "abs" => "abs",
+        "floor" => "floor",
+        "ceil" | "ceiling" => "ceil",
+        "round" => "round",
+        _ => return Ok(None),
+    };
+    let close_index = matching_closing_parenthesis(raw, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "generic numeric function projections must use ABS/FLOOR/CEIL/ROUND(<expr>)",
+        )
+    })?;
+    if !raw[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "generic numeric function projections must be a single function expression",
+        ));
+    }
+    let inner = raw[open_index + 1..close_index].trim();
+    let args = split_sql_csv(inner)?;
+    let [arg] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "generic numeric function projections require exactly one expression argument",
+        ));
+    };
+    Ok(Some(Expression::new(
+        ExprId::new(format!("{id_prefix}.{function_name}"))?,
+        ExpressionKind::FunctionCall {
+            name: function_name.to_string(),
+            args: vec![parse_numeric_scalar_expression(
+                arg,
+                &format!("{id_prefix}.{function_name}.arg"),
+            )?],
+        },
+    )))
+}
+
+fn trim_enclosing_scalar_expression_parentheses(mut raw: &str) -> Result<&str, ShardLoomError> {
+    raw = raw.trim();
+    loop {
+        if !raw.starts_with('(') {
+            return Ok(raw);
+        }
+        let Some(close_index) = matching_closing_parenthesis(raw, 0)? else {
+            return Err(unsupported_sql_error(
+                "generic numeric expression parentheses must be balanced",
+            ));
+        };
+        if close_index != raw.len() - 1 {
+            return Ok(raw);
+        }
+        raw = raw[1..close_index].trim();
+        if raw.is_empty() {
+            return Err(unsupported_sql_error(
+                "generic numeric expression parentheses must contain an expression",
+            ));
+        }
+    }
+}
+
+fn find_top_level_numeric_operator(
+    raw: &str,
+    operators: &[char],
+) -> Result<Option<(usize, char)>, ShardLoomError> {
+    let mut chars = raw.char_indices().peekable();
+    let mut in_quote = false;
+    let mut depth = 0_u32;
+    let mut candidate = None;
+    while let Some((index, ch)) = chars.next() {
+        if ch == '\'' {
+            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                let _ = chars.next();
+            } else {
+                in_quote = !in_quote;
+            }
+            continue;
+        }
+        if in_quote {
+            continue;
+        }
+        match ch {
+            '(' => {
+                depth += 1;
+                continue;
+            }
+            ')' => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("generic numeric expression parentheses are not balanced")
+                })?;
+                continue;
+            }
+            _ => {}
+        }
+        if depth == 0 && operators.contains(&ch) && !is_unary_numeric_sign(raw, index, ch) {
+            candidate = Some((index, ch));
+        }
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    if depth != 0 {
+        return Err(unsupported_sql_error(
+            "generic numeric expression parentheses are not balanced",
+        ));
+    }
+    Ok(candidate)
+}
+
+fn expression_contains_numeric_operator(raw: &str) -> Result<bool, ShardLoomError> {
+    let mut chars = raw.char_indices().peekable();
+    let mut in_quote = false;
+    let mut depth = 0_u32;
+    while let Some((index, ch)) = chars.next() {
+        if ch == '\'' {
+            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                let _ = chars.next();
+            } else {
+                in_quote = !in_quote;
+            }
+            continue;
+        }
+        if in_quote {
+            continue;
+        }
+        match ch {
+            '(' => depth += 1,
+            ')' => {
+                depth = depth.checked_sub(1).ok_or_else(|| {
+                    unsupported_sql_error("generic numeric expression parentheses are not balanced")
+                })?;
+            }
+            '+' | '-' | '*' | '/' if !is_unary_numeric_sign(raw, index, ch) => return Ok(true),
+            _ => {}
+        }
+    }
+    if in_quote {
+        return Err(unsupported_sql_error("SQL string literal is not closed"));
+    }
+    if depth != 0 {
+        return Err(unsupported_sql_error(
+            "generic numeric expression parentheses are not balanced",
+        ));
+    }
+    Ok(false)
+}
+
+fn is_unary_numeric_sign(raw: &str, index: usize, ch: char) -> bool {
+    if !matches!(ch, '+' | '-') {
+        return false;
+    }
+    let before = raw[..index]
+        .chars()
+        .rev()
+        .find(|candidate| !candidate.is_whitespace());
+    let after = raw[index + ch.len_utf8()..]
+        .chars()
+        .find(|candidate| !candidate.is_whitespace());
+    let sign_position =
+        before.is_none_or(|candidate| matches!(candidate, '(' | ',' | '+' | '-' | '*' | '/'));
+    sign_position && after.is_some_and(|candidate| candidate.is_ascii_digit() || candidate == '.')
+}
+
+fn expression_source_columns(expression: &Expression) -> Vec<String> {
+    let mut columns = BTreeSet::new();
+    collect_expression_source_columns(expression, &mut columns);
+    columns.into_iter().collect()
+}
+
+fn collect_expression_source_columns(expression: &Expression, columns: &mut BTreeSet<String>) {
+    match &expression.kind {
+        ExpressionKind::Column(column) => {
+            columns.insert(column.as_str().to_string());
+        }
+        ExpressionKind::Alias { expr, .. }
+        | ExpressionKind::Cast { expr, .. }
+        | ExpressionKind::Unary { expr, .. } => collect_expression_source_columns(expr, columns),
+        ExpressionKind::Binary { left, right, .. }
+        | ExpressionKind::Compare { left, right, .. } => {
+            collect_expression_source_columns(left, columns);
+            collect_expression_source_columns(right, columns);
+        }
+        ExpressionKind::FunctionCall { args, .. } => {
+            for arg in args {
+                collect_expression_source_columns(arg, columns);
+            }
+        }
+        ExpressionKind::Literal(_) | ExpressionKind::Unsupported { .. } => {}
+    }
+}
+
+fn expression_operator_families(expression: &Expression) -> Vec<String> {
+    let mut families = BTreeSet::new();
+    collect_expression_operator_families(expression, &mut families);
+    families.into_iter().collect()
+}
+
+fn collect_expression_operator_families(expression: &Expression, families: &mut BTreeSet<String>) {
+    match &expression.kind {
+        ExpressionKind::Cast { expr, .. } => {
+            families.insert("cast".to_string());
+            collect_expression_operator_families(expr, families);
+        }
+        ExpressionKind::Binary { left, op, right } => {
+            families.insert(
+                match op {
+                    BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
+                        "numeric_binary"
+                    }
+                    BinaryOp::And | BinaryOp::Or => "logical_predicate",
+                }
+                .to_string(),
+            );
+            collect_expression_operator_families(left, families);
+            collect_expression_operator_families(right, families);
+        }
+        ExpressionKind::FunctionCall { name, args } => {
+            families.insert(generic_function_operator_family(name).to_string());
+            for arg in args {
+                collect_expression_operator_families(arg, families);
+            }
+        }
+        ExpressionKind::Alias { expr, .. } | ExpressionKind::Unary { expr, .. } => {
+            collect_expression_operator_families(expr, families);
+        }
+        ExpressionKind::Compare { left, right, .. } => {
+            collect_expression_operator_families(left, families);
+            collect_expression_operator_families(right, families);
+        }
+        ExpressionKind::Literal(_)
+        | ExpressionKind::Column(_)
+        | ExpressionKind::Unsupported { .. } => {}
+    }
+}
+
+fn generic_function_operator_family(name: &str) -> &'static str {
+    match name.trim().to_ascii_lowercase().as_str() {
+        "abs" | "numeric_abs" => "numeric_abs",
+        "floor" | "ceil" | "ceiling" | "round" | "numeric_floor" | "numeric_ceil"
+        | "numeric_round" => "numeric_rounding",
+        _ => "function",
+    }
+}
+
+fn expression_binary_operator_count(expression: &Expression) -> usize {
+    match &expression.kind {
+        ExpressionKind::Binary { left, right, .. } => {
+            1 + expression_binary_operator_count(left) + expression_binary_operator_count(right)
+        }
+        ExpressionKind::Alias { expr, .. }
+        | ExpressionKind::Cast { expr, .. }
+        | ExpressionKind::Unary { expr, .. } => expression_binary_operator_count(expr),
+        ExpressionKind::Compare { left, right, .. } => {
+            expression_binary_operator_count(left) + expression_binary_operator_count(right)
+        }
+        ExpressionKind::FunctionCall { args, .. } => {
+            args.iter().map(expression_binary_operator_count).sum()
+        }
+        ExpressionKind::Literal(_)
+        | ExpressionKind::Column(_)
+        | ExpressionKind::Unsupported { .. } => 0,
+    }
 }
 
 fn parse_null_coalesce_column_arg(
@@ -11996,6 +12579,47 @@ mod tests {
         assert_eq!(
             parsed.numeric_arithmetic_projection_operators(),
             "add,multiply"
+        );
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
+    fn parses_generic_expression_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,(amount + tax) * 2 AS gross,ABS(amount - tax) AS spread FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+        )
+        .expect("generic expression projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert!(parsed.numeric_arithmetic_projections.is_empty());
+        assert_eq!(parsed.generic_expression_projections.len(), 2);
+        assert_eq!(parsed.generic_expression_projections[0].alias, "gross");
+        assert_eq!(
+            parsed.generic_expression_projections[0].source_columns,
+            vec!["amount".to_string(), "tax".to_string()]
+        );
+        assert_eq!(
+            parsed.generic_expression_projection_output_columns(),
+            "gross,spread"
+        );
+        assert_eq!(
+            parsed.generic_expression_projection_source_columns(),
+            "amount+tax,amount+tax"
+        );
+        assert_eq!(
+            parsed.generic_expression_projection_operator_families(),
+            "numeric_binary,numeric_abs+numeric_binary"
+        );
+        assert_eq!(
+            parsed.generic_expression_projection_binary_operator_count(),
+            3
         );
         assert_eq!(
             parsed.statement_kind(),

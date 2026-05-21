@@ -545,6 +545,11 @@ plan before coding.
   makes top-level `AND`/`OR` detection ignore grouped subexpressions, preserves recursive evidence,
   and emits deterministic unbalanced-parenthesis blockers with no fallback/external engine
   invocation.
+- [x] GAR-RUNTIME-IMPL-4D generic numeric expression projections add parenthesized and chained
+  `+` / `-` / `*` / `/` expression trees plus nested `ABS` / `FLOOR` / `CEIL` / `ROUND` calls over
+  admitted local numeric columns and finite numeric literals, emit
+  `generic_expression_projection_*` evidence, and keep missing-column/division-by-zero and
+  unsupported-shape blockers deterministic with no fallback/external engine invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 

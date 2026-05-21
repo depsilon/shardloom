@@ -1182,6 +1182,55 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def generic_expression_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted generic expression projection."""
+
+        return (
+            self.envelope.field_bool(
+                "generic_expression_projection_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def generic_expression_projection_source_columns(self) -> tuple[str, ...]:
+        """Return source-column groups used by generic expression projections."""
+
+        value = self.envelope.field("generic_expression_projection_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def generic_expression_projection_output_columns(self) -> tuple[str, ...]:
+        """Return generic expression projection output columns emitted by the smoke."""
+
+        value = self.envelope.field("generic_expression_projection_output_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def generic_expression_projection_operator_families(self) -> tuple[str, ...]:
+        """Return operator-family groups used by generic expression projections."""
+
+        value = self.envelope.field("generic_expression_projection_operator_family", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def generic_expression_projection_binary_operator_count(self) -> int:
+        """Return the number of binary operators in generic expression projections."""
+
+        return (
+            self.envelope.field_int(
+                "generic_expression_projection_binary_operator_count", 0
+            )
+            or 0
+        )
+
+    @property
     def date_arithmetic_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted Date32 day arithmetic projection."""
 
