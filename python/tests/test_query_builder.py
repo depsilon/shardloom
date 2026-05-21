@@ -730,6 +730,14 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "CAST(event_dt AS date32) >= DATE '2026-05-19'",
         )
         self.assertEqual(
+            str(sl.col("raw_amount").try_cast("int64") >= 10),
+            "TRY_CAST(raw_amount AS int64) >= 10",
+        )
+        self.assertEqual(
+            str(sl.try_cast(sl.col("raw_amount"), "int64") == 42),
+            "TRY_CAST(raw_amount AS int64) = 42",
+        )
+        self.assertEqual(
             str(sl.col("label").isin(["alpha", "gamma"])),
             "label IN ('alpha','gamma')",
         )
@@ -3881,6 +3889,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "cast_projection_source_column", "value": "amount,event_date"},
                         {"key": "cast_projection_output_column", "value": "amount_float,event_day"},
                         {"key": "cast_projection_target_dtype", "value": "float64,date32"},
+                        {"key": "cast_projection_mode", "value": "strict,strict"},
                         {"key": "output_row_count", "value": "1"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"},
@@ -3911,6 +3920,77 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             report.cast_projection_output_columns, ("amount_float", "event_day")
         )
         self.assertEqual(report.cast_projection_target_dtypes, ("float64", "date32"))
+        self.assertEqual(report.cast_projection_modes, ("strict", "strict"))
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_with_try_cast_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,TRY_CAST(raw_amount AS int64) AS amount_i64 FROM 'target/input.csv' WHERE TRY_CAST(raw_amount AS int64) >= 10 LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source try cast",
+                    "human_text": "sql local source try cast",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":3,\\"amount_i64\\":15}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_computed_projection_filter_limit"},
+                        {"key": "predicate_operator_family", "value": "cast"},
+                        {"key": "cast_runtime_execution", "value": "true"},
+                        {"key": "cast_source_column", "value": "raw_amount"},
+                        {"key": "cast_target_dtype", "value": "int64"},
+                        {"key": "cast_mode", "value": "try"},
+                        {"key": "cast_projection_runtime_execution", "value": "true"},
+                        {"key": "cast_projection_source_column", "value": "raw_amount"},
+                        {"key": "cast_projection_output_column", "value": "amount_i64"},
+                        {"key": "cast_projection_target_dtype", "value": "int64"},
+                        {"key": "cast_projection_mode", "value": "try"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id")
+            .with_column("amount_i64", sl.try_cast(sl.col("raw_amount"), "int64"))
+            .filter(sl.col("raw_amount").try_cast("int64") >= 10)
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.predicate_operator_family, "cast")
+        self.assertTrue(report.cast_runtime_execution)
+        self.assertEqual(report.cast_source_columns, ("raw_amount",))
+        self.assertEqual(report.cast_target_dtypes, ("int64",))
+        self.assertEqual(report.cast_modes, ("try",))
+        self.assertTrue(report.cast_projection_runtime_execution)
+        self.assertEqual(report.cast_projection_source_columns, ("raw_amount",))
+        self.assertEqual(report.cast_projection_output_columns, ("amount_i64",))
+        self.assertEqual(report.cast_projection_target_dtypes, ("int64",))
+        self.assertEqual(report.cast_projection_modes, ("try",))
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")

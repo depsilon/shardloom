@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D scoped SQL/Python TRY_CAST dirty-value runtime
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-11-20260521` / #900.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - User request to keep completed phased-plan content in this ledger and push the cleanup with
+      the active compute-engine runtime batch.
+  - Scope:
+    - Added ShardLoom-native `ExpressionKind::TryCast` and `Expression::try_cast(...)` so admitted
+      cast pairs can treat invalid dirty values as `NULL` without changing unsupported cast-pair
+      behavior.
+    - Extended scoped SQL local-source parsing and runtime lowering for
+      `TRY_CAST(<column> AS <dtype>)` in computed projections and comparison predicates.
+    - Added strict-vs-try evidence fields, `cast_mode` and `cast_projection_mode`, while preserving
+      the existing `CAST(...)` runtime as `strict`.
+    - Added Python `ColumnExpression.try_cast(...)` and exported top-level `sl.try_cast(...)` so
+      query-builder workflows lower to the same scoped SQL runtime.
+    - Added Python typed report accessors for cast predicate execution, source columns, target
+      dtypes, modes, and projection modes.
+    - Audited the live phased execution plan; no checked or completed Planned sections remain
+      outside the completed ledger after the prior cleanup, so this completed slice is recorded here
+      without adding detailed history back to the live queue.
+  - Evidence:
+    - Local SQL can project `TRY_CAST(raw_amount AS int64)` and returns malformed UTF-8 numeric
+      inputs as JSON `null`.
+    - Local SQL can filter with `WHERE TRY_CAST(raw_amount AS int64) >= 10`; malformed values do not
+      match the predicate and do not abort the admitted dirty-value workflow.
+    - Unsupported cast pairs, such as binary-to-int64, remain deterministic unsupported diagnostics;
+      `TRY_CAST` is not a broad catch-all or fallback path for unadmitted coercions.
+    - Evidence fields distinguish `cast_mode=strict|try` and
+      `cast_projection_mode=strict|try` with `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+  - Verification:
+    - `cargo fmt --all -- --check`
+    - `cargo test -p shardloom-core expression_semantics_try_cast --lib -- --nocapture`
+    - `cargo test -p shardloom-cli parses_scoped_try_cast -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_try_cast_projection_and_predicate_without_fallback -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_cast_projection_without_fallback -- --nocapture`
+    - `cargo test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_cast_predicates_without_fallback -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_cast_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_try_cast_invokes_sql_smoke`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests`
+    - `python -m unittest discover -s python\tests`
+    - `python -m compileall -q python\src python\tests scripts examples benchmarks\traditional_analytics`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - This admits scoped local SQL/Python dirty-value `TRY_CAST` behavior for explicitly admitted
+      cast pairs only. It does not claim broad ANSI SQL cast parity, broad coercion support,
+      timezone/interval completeness, generalized nested expression casts, production SQL/DataFrame
+      support, or performance superiority.
+  - Fallback boundary:
+    - Evaluation remains ShardLoom-native through the existing expression evaluator and local-source
+      smoke runtime. No pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray, database, managed
+      platform, or Vortex query-engine integration is used as execution fallback.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D scoped UTF-8 LEFT/RIGHT string-function runtime
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-10-20260521` / #899.

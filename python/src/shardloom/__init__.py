@@ -144,6 +144,7 @@ from .query import (
     substr,
     substring,
     round,
+    try_cast,
 )
 from .session import (
     LocalFileFingerprint,
@@ -274,6 +275,7 @@ __all__ = [
     "sql_values",
     "substr",
     "substring",
+    "try_cast",
     "from_pandas",
     "from_arrow_table",
     "from_arrow_ipc",

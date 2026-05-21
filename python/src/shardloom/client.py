@@ -1355,6 +1355,39 @@ class SqlLocalSourceSmokeReport:
         )
 
     @property
+    def cast_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted cast predicate."""
+
+        return self.envelope.field_bool("cast_runtime_execution", False) is True
+
+    @property
+    def cast_source_columns(self) -> tuple[str, ...]:
+        """Return cast predicate source columns emitted by the smoke."""
+
+        value = self.envelope.field("cast_source_column", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def cast_target_dtypes(self) -> tuple[str, ...]:
+        """Return cast predicate target dtypes emitted by the smoke."""
+
+        value = self.envelope.field("cast_target_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def cast_modes(self) -> tuple[str, ...]:
+        """Return cast predicate modes emitted by the smoke."""
+
+        value = self.envelope.field("cast_mode", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
     def cast_projection_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted cast projection."""
 
@@ -1383,6 +1416,15 @@ class SqlLocalSourceSmokeReport:
         """Return cast projection target dtypes emitted by the smoke."""
 
         value = self.envelope.field("cast_projection_target_dtype", "")
+        if not value or value == "not_applicable":
+            return ()
+        return tuple(part for part in value.split(",") if part)
+
+    @property
+    def cast_projection_modes(self) -> tuple[str, ...]:
+        """Return cast projection modes emitted by the smoke."""
+
+        value = self.envelope.field("cast_projection_mode", "")
         if not value or value == "not_applicable":
             return ()
         return tuple(part for part in value.split(",") if part)

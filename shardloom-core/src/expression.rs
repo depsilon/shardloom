@@ -134,6 +134,10 @@ pub enum ExpressionKind {
         expr: Box<Expression>,
         target_dtype: LogicalDType,
     },
+    TryCast {
+        expr: Box<Expression>,
+        target_dtype: LogicalDType,
+    },
     Unary {
         op: UnaryOp,
         expr: Box<Expression>,
@@ -201,6 +205,18 @@ impl Expression {
         }
     }
     #[must_use]
+    pub fn try_cast(id: ExprId, expr: Expression, target_dtype: LogicalDType) -> Self {
+        Self {
+            id,
+            dtype: Some(target_dtype.clone()),
+            kind: ExpressionKind::TryCast {
+                expr: Box::new(expr),
+                target_dtype,
+            },
+            diagnostics: Vec::new(),
+        }
+    }
+    #[must_use]
     pub fn unsupported(id: ExprId, feature: impl Into<String>, reason: impl Into<String>) -> Self {
         let feature = feature.into();
         let reason = reason.into();
@@ -247,6 +263,9 @@ impl Expression {
                 ExpressionKind::Alias { alias, .. } => format!("alias({alias})"),
                 ExpressionKind::Cast { target_dtype, .. } => {
                     format!("cast({})", target_dtype.as_str())
+                }
+                ExpressionKind::TryCast { target_dtype, .. } => {
+                    format!("try_cast({})", target_dtype.as_str())
                 }
                 ExpressionKind::Unary { op, .. } => format!("unary({})", op.as_str()),
                 ExpressionKind::Binary { op, .. } => format!("binary({})", op.as_str()),
@@ -704,6 +723,10 @@ fn eval_expression(expression: &Expression, row: &ExpressionInputRow) -> EvalRes
         ExpressionKind::Cast { expr, target_dtype } => {
             let value = eval_expression(expr, row)?;
             cast_eval_value(&value, target_dtype)
+        }
+        ExpressionKind::TryCast { expr, target_dtype } => {
+            let value = eval_expression(expr, row)?;
+            try_cast_eval_value(&value, target_dtype)
         }
         ExpressionKind::Unary { op, expr } => {
             let value = eval_expression(expr, row)?;
@@ -2044,6 +2067,21 @@ fn cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult
     )
 }
 
+fn try_cast_eval_value(value: &EvalValue, target_dtype: &LogicalDType) -> EvalResult<EvalValue> {
+    let data_materialized = value.data_materialized;
+    match cast_eval_value(value, target_dtype) {
+        Ok(mut casted) => {
+            casted.null_behavior = NullBehavior::NullAware;
+            Ok(casted)
+        }
+        Err(failure) if failure.status == ExpressionEvaluationStatus::InvalidInput => Ok(
+            EvalValue::null(target_dtype.clone(), NullBehavior::NullAware)
+                .carry_materialization(data_materialized),
+        ),
+        Err(failure) => Err(failure),
+    }
+}
+
 fn projection_name(expression: &Expression) -> String {
     match &expression.kind {
         ExpressionKind::Alias { alias, .. } => alias.clone(),
@@ -2058,6 +2096,7 @@ fn expression_operator_family(expression: &Expression) -> &'static str {
         ExpressionKind::Column(_) => "column",
         ExpressionKind::Alias { .. } => "alias",
         ExpressionKind::Cast { .. } => "cast",
+        ExpressionKind::TryCast { .. } => "try_cast",
         ExpressionKind::Unary { op, .. } => match op {
             UnaryOp::Not => "boolean",
             UnaryOp::IsNull | UnaryOp::IsNotNull => "null_predicate",
@@ -3059,6 +3098,13 @@ mod tests {
         assert!(e.summary().contains("cast(float64)"));
     }
     #[test]
+    fn expression_try_cast_sets_dtype() {
+        let input = Expression::literal(expr_id("e1"), ScalarValue::Utf8("1".to_string()));
+        let e = Expression::try_cast(expr_id("try-cast"), input, LogicalDType::Int64);
+        assert_eq!(e.dtype, Some(LogicalDType::Int64));
+        assert!(e.summary().contains("try_cast(int64)"));
+    }
+    #[test]
     fn expression_unsupported_has_errors() {
         let e = Expression::unsupported(ExprId::new("e1").expect("ok"), "feature", "reason");
         assert!(e.has_errors());
@@ -3326,6 +3372,55 @@ mod tests {
         assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
         assert_eq!(report.value, Some(ScalarValue::Int64(42)));
         assert_eq!(report.output_dtype, Some(LogicalDType::Int64));
+    }
+
+    #[test]
+    fn expression_semantics_try_casts_invalid_utf8_to_null_without_fallback() {
+        let expression = Expression::try_cast(
+            expr_id("try-cast"),
+            Expression::column(expr_id("amount"), col("amount")),
+            LogicalDType::Int64,
+        );
+        let valid = evaluate_expression(
+            &expression,
+            &row(&[("amount", ScalarValue::Utf8("42".to_string()))]),
+        );
+        assert_eq!(valid.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(valid.operator_family, "try_cast");
+        assert_eq!(valid.value, Some(ScalarValue::Int64(42)));
+        assert_eq!(valid.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(valid.null_behavior, NullBehavior::NullAware);
+        assert!(!valid.fallback_attempted);
+        assert!(!valid.external_engine_invoked);
+
+        let invalid = evaluate_expression(
+            &expression,
+            &row(&[("amount", ScalarValue::Utf8("not-an-int".to_string()))]),
+        );
+        assert_eq!(invalid.status, ExpressionEvaluationStatus::Evaluated);
+        assert_eq!(invalid.operator_family, "try_cast");
+        assert_eq!(invalid.value, Some(ScalarValue::Null));
+        assert_eq!(invalid.output_dtype, Some(LogicalDType::Int64));
+        assert_eq!(invalid.null_behavior, NullBehavior::NullAware);
+        assert!(!invalid.has_errors());
+        assert!(!invalid.fallback_attempted);
+        assert!(!invalid.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_try_cast_blocks_unadmitted_pairs_without_fallback() {
+        let expression = Expression::try_cast(
+            expr_id("try-cast-binary"),
+            Expression::literal(expr_id("binary"), ScalarValue::Binary(vec![1, 2, 3])),
+            LogicalDType::Int64,
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert_eq!(report.operator_family, "try_cast");
+        assert!(report.has_errors());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
 
     #[test]

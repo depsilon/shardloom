@@ -391,6 +391,12 @@ class ColumnExpression:
         normalized_dtype = _normalize_cast_dtype(dtype)
         return ColumnExpression(f"CAST({self.sql} AS {normalized_dtype})")
 
+    def try_cast(self, dtype: object) -> "ColumnExpression":
+        """Return a scoped `TRY_CAST(column AS dtype)` expression for dirty values."""
+
+        normalized_dtype = _normalize_cast_dtype(dtype)
+        return ColumnExpression(f"TRY_CAST({self.sql} AS {normalized_dtype})")
+
     def date_add_days(self, days: object) -> "ColumnExpression":
         """Return a scoped Date32 day-add expression for date predicates."""
 
@@ -2442,6 +2448,14 @@ def null_if(column_expression: object, value: object) -> ColumnExpression:
     return column_expression.null_if(value)
 
 
+def try_cast(column_expression: object, dtype: object) -> ColumnExpression:
+    """Return a scoped `TRY_CAST(column AS dtype)` dirty-value expression."""
+
+    if not isinstance(column_expression, ColumnExpression):
+        raise TypeError("try_cast requires a shardloom column expression")
+    return column_expression.try_cast(dtype)
+
+
 def length(column_expression: object) -> ColumnExpression:
     """Return a scoped `LENGTH(column)` UTF-8 length expression."""
 
@@ -3683,17 +3697,31 @@ def _sql_cast_projection_expression(expression: object) -> str:
     if not isinstance(expression, ColumnExpression):
         raise TypeError("computed with_column requires a shardloom ColumnExpression")
     text = expression.sql.strip()
-    if not text.upper().startswith("CAST(") or not text.endswith(")"):
-        raise ValueError("computed with_column currently admits CAST column expressions")
-    inner = text[5:-1].strip()
+    upper_text = text.upper()
+    if not text.endswith(")"):
+        raise ValueError(
+            "computed with_column currently admits CAST/TRY_CAST column expressions"
+        )
+    if upper_text.startswith("TRY_CAST("):
+        function = "TRY_CAST"
+        inner = text[len("TRY_CAST(") : -1].strip()
+    elif upper_text.startswith("CAST("):
+        function = "CAST"
+        inner = text[len("CAST(") : -1].strip()
+    else:
+        raise ValueError(
+            "computed with_column currently admits CAST/TRY_CAST column expressions"
+        )
     upper_inner = inner.upper()
     marker = " AS "
     marker_index = upper_inner.find(marker)
     if marker_index < 0:
-        raise ValueError("CAST column expressions must use CAST(column AS dtype)")
+        raise ValueError(
+            "CAST/TRY_CAST column expressions must use CAST(column AS dtype) syntax"
+        )
     column = _normalize_expression_column(inner[:marker_index].strip())
     dtype = _normalize_cast_dtype(inner[marker_index + len(marker) :].strip())
-    return f"CAST({column} AS {dtype})"
+    return f"{function}({column} AS {dtype})"
 
 
 def _sql_null_coalesce_projection_expression(expression: object) -> str:
