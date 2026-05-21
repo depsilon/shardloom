@@ -43,6 +43,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/release-security-gate-report.json"),
     )
     parser.add_argument(
+        "--contribution-governance-report",
+        type=Path,
+        default=Path("target/contribution-governance-report.json"),
+    )
+    parser.add_argument(
         "--architecture-tracker-report",
         type=Path,
         default=Path("target/release-architecture-tracker-report.json"),
@@ -161,12 +166,14 @@ def main() -> int:
     provenance_manifest_path = resolve(repo_root, args.provenance_manifest)
     provenance_report_path = resolve(repo_root, args.provenance_report)
     security_report_path = resolve(repo_root, args.release_security_report)
+    contribution_report_path = resolve(repo_root, args.contribution_governance_report)
     architecture_report_path = resolve(repo_root, args.architecture_tracker_report)
     package_report_path = resolve(repo_root, args.package_channel_report)
 
     provenance_manifest = load_json(provenance_manifest_path)
     provenance = load_json(provenance_report_path)
     security_report = load_json(security_report_path)
+    contribution_report = load_json(contribution_report_path)
     architecture_report = load_json(architecture_report_path)
     package_report = load_json(package_report_path)
     package_matrix = load_json(repo_root / "docs/release/package-channel-readiness-matrix.json")
@@ -190,12 +197,15 @@ def main() -> int:
         blockers.append(f"provenance schema_version={provenance.get('schema_version')}")
     if security_report is None:
         blockers.append("missing release security gate report")
+    if contribution_report is None:
+        blockers.append("missing contribution governance report")
     if architecture_report is None:
         blockers.append("missing release architecture tracker report")
     if package_report is None:
         blockers.append("missing package-channel readiness report")
     blockers.extend(provenance_status_blockers(provenance))
     blockers.extend(upstream_report_blockers(security_report, "release security"))
+    blockers.extend(upstream_report_blockers(contribution_report, "contribution governance"))
     blockers.extend(
         upstream_report_blockers(
             architecture_report,
@@ -245,6 +255,21 @@ def main() -> int:
             security_report,
             "release security",
             ["publication_attempted", "tag_created", "secrets_required", "fallback_attempted", "external_engine_invoked"],
+        )
+    )
+    blockers.extend(
+        false_field_blockers(
+            contribution_report,
+            "contribution governance",
+            [
+                "public_release_claim_allowed",
+                "public_package_claim_allowed",
+                "publication_attempted",
+                "tag_created",
+                "secrets_required",
+                "fallback_attempted",
+                "external_engine_invoked",
+            ],
         )
     )
     blockers.extend(
@@ -314,6 +339,7 @@ def main() -> int:
         "release_provenance_manifest_ref": rel(repo_root, provenance_manifest_path),
         "release_provenance_report_ref": rel(repo_root, provenance_report_path),
         "release_security_report_ref": rel(repo_root, security_report_path),
+        "contribution_governance_report_ref": rel(repo_root, contribution_report_path),
         "release_architecture_tracker_report_ref": rel(repo_root, architecture_report_path),
         "package_channel_report_ref": rel(repo_root, package_report_path),
         "known_unsupported_paths_ref": "docs/release/known-unsupported-paths.md",

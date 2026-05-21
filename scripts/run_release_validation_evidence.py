@@ -77,6 +77,7 @@ REQUIRED_VALIDATION_COMMANDS = [
         "global_architecture_gate",
         ["cargo", "run", "-q", "-p", "shardloom-cli", "--", "global-architecture-gate", "--format", "json"],
     ),
+    ("contribution_governance", [sys.executable, "scripts/check_contribution_governance.py"]),
     ("ci_gate_matrix_contract", [sys.executable, "scripts/check_ci_gate_matrix.py"]),
     ("release_security_gate", [sys.executable, "scripts/check_release_security_gate.py"]),
     (

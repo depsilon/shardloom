@@ -38,6 +38,11 @@ def parse_args() -> argparse.Namespace:
         default=Path("target/release-security-gate-report.json"),
     )
     parser.add_argument(
+        "--contribution-governance-report",
+        type=Path,
+        default=Path("target/contribution-governance-report.json"),
+    )
+    parser.add_argument(
         "--validation-evidence",
         type=Path,
         default=Path("target/release-validation-evidence.json"),
@@ -100,6 +105,7 @@ def main() -> int:
     output = resolve(repo_root, args.output)
     dry_run_path = resolve(repo_root, args.release_dry_run_transcript)
     security_gate_path = resolve(repo_root, args.security_gate_report)
+    contribution_governance_path = resolve(repo_root, args.contribution_governance_report)
     validation_evidence_path = resolve(repo_root, args.validation_evidence)
     package_channel_matrix_path = resolve(repo_root, args.package_channel_matrix)
     package_channel_report_path = resolve(repo_root, args.package_channel_report)
@@ -157,6 +163,53 @@ def main() -> int:
             "security_dependency_provenance_and_known_unsupported_paths",
             str(args.security_gate_report).replace("\\", "/"),
             security_blockers,
+        )
+    )
+
+    contribution_governance = load_json(contribution_governance_path)
+    contribution_blockers: list[str] = []
+    if contribution_governance is None:
+        contribution_blockers.append("missing contribution governance report")
+    else:
+        if (
+            contribution_governance.get("schema_version")
+            != "shardloom.contribution_governance_report.v1"
+        ):
+            contribution_blockers.append(
+                "contribution governance schema_version="
+                + str(contribution_governance.get("schema_version", "missing"))
+            )
+        if contribution_governance.get("status") != "passed":
+            contribution_blockers.extend(
+                contribution_governance.get("blockers", ["contribution governance blocked"])
+            )
+        for field in [
+            "public_release_claim_allowed",
+            "public_package_claim_allowed",
+            "publication_attempted",
+            "tag_created",
+            "secrets_required",
+            "fallback_attempted",
+            "external_engine_invoked",
+        ]:
+            if contribution_governance.get(field) is not False:
+                contribution_blockers.append(f"contribution governance {field} must be false")
+        for field, expected in [
+            ("external_contribution_acceptance_status", "maintainer_approval_required"),
+            ("cla_assistant_status", "not_active"),
+            ("dco_policy_status", "not_active"),
+            ("legal_claim_status", "documented_policy_only"),
+        ]:
+            if contribution_governance.get(field) != expected:
+                contribution_blockers.append(
+                    f"contribution governance {field}="
+                    + str(contribution_governance.get(field, "missing"))
+                )
+    checks.append(
+        check(
+            "contribution_governance_intake_gate",
+            str(args.contribution_governance_report).replace("\\", "/"),
+            contribution_blockers,
         )
     )
 
@@ -486,6 +539,7 @@ def main() -> int:
         "python -m build python",
         "python scripts/release_dry_run_proof.py --rows 64 --iterations 1",
         "cargo run -q -p shardloom-cli -- global-architecture-gate --format json",
+        "python scripts/check_contribution_governance.py",
         "python scripts/check_ci_gate_matrix.py",
         "python scripts/check_release_security_gate.py",
         "python scripts/check_release_architecture_tracker.py --allow-blocked",
@@ -524,6 +578,9 @@ def main() -> int:
         "public_package_claim_allowed": passed,
         "package_channel_matrix_ref": str(args.package_channel_matrix).replace("\\", "/"),
         "package_channel_report_ref": str(args.package_channel_report).replace("\\", "/"),
+        "contribution_governance_report_ref": str(args.contribution_governance_report).replace(
+            "\\", "/"
+        ),
         "per_claim_evidence_matrix_ref": str(args.per_claim_evidence_matrix).replace("\\", "/"),
         "architecture_tracker_report_ref": str(args.architecture_tracker_report).replace("\\", "/"),
         "final_release_rehearsal_report_ref": str(args.final_release_rehearsal_report).replace("\\", "/"),

@@ -16,6 +16,81 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: REVIEW-P2-1 contribution governance intake automation
+  - Date: 2026-05-21
+  - Branch/PR: `compute-engine-runtime-next-21-20260521` / #910.
+  - Source:
+    - 2026-05-21 structured repository review action sequence.
+    - Contributor policy, license/provenance policy, RFC/release governance docs, and
+      `REVIEW-P2-1 contribution governance intake automation`.
+  - Scope:
+    - Added `scripts/check_contribution_governance.py`, which emits
+      `shardloom.contribution_governance_report.v1` at
+      `target/contribution-governance-report.json`.
+    - Added `docs/legal/contribution-intake-readiness.md` as the concise automated/documented/
+      blocked support matrix for contribution intake posture.
+    - Strengthened `CONTRIBUTING.md`, `docs/legal/contributor-policy.md`, and
+      `.github/PULL_REQUEST_TEMPLATE.md` with required signoff/CLA/DCO state, reviewer roles,
+      decision escalation, dependency/license/provenance review, security/release/RFC impact,
+      claim-boundary review, and no-fallback dependency checks.
+    - Wired contribution governance into `.github/workflows/ci.yml`, the CI gate matrix contract,
+      hard release-readiness aggregation, release validation evidence runner, and final
+      no-publication release rehearsal.
+    - Removed `REVIEW-P2-1` from the active phased execution plan so Planned remains an unchecked
+      queue only.
+  - Automated controls:
+    - `ci_contribution_governance_validator`
+    - `pr_template_marker_check`
+    - `release_readiness_report_integration`
+  - Documented controls:
+    - `required_signoff_cla_dco_state`
+    - `reviewer_roles_and_decision_escalation`
+    - `dependency_license_provenance_checklist`
+    - `security_release_rfc_checklist`
+    - `claim_boundary_checklist`
+    - `no_fallback_dependency_policy`
+  - Blocked controls:
+    - `external_cla_assistant`
+    - `dco_signoff_route`
+    - `broad_governance_transfer`
+    - `package_publication_from_contribution_gate`
+  - User-visible evidence:
+    - `python scripts\check_contribution_governance.py`
+    - `target/contribution-governance-report.json`
+    - `shardloom.contribution_governance_report.v1`
+    - `contribution_intake_status=documented_and_ci_checked`
+    - `external_contribution_acceptance_status=maintainer_approval_required`
+    - `cla_assistant_status=not_active`
+    - `dco_policy_status=not_active`
+    - `legal_claim_status=documented_policy_only`
+    - `public_release_claim_allowed=false`
+    - `public_package_claim_allowed=false`
+    - `publication_attempted=false`
+    - `tag_created=false`
+    - `secrets_required=false`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+  - Verification:
+    - `python scripts\check_contribution_governance.py`
+    - `python scripts\check_ci_gate_matrix.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `cargo test -p shardloom-contract-tests --test license_metadata`
+    - `cargo test -p shardloom-contract-tests --test release_readiness_metadata`
+    - Full repository verification is recorded on the PR before merge.
+  - Remaining blockers:
+    - No external CLA Assistant is active.
+    - DCO remains inactive; no `DCO-1.1.txt` is shipped.
+    - Outside contribution acceptance remains maintainer-approval-gated.
+    - Broad governance transfer, package publication, release tags, signing, package-channel
+      submission, and public release/package claims remain blocked.
+  - Claim boundary:
+    - Contribution governance documentation and CI drift-check readiness only.
+  - Fallback boundary:
+    - Contribution automation must not add runtime dependencies, external query-engine execution,
+      fallback execution, package publication, release tags, secrets, or public claim approval.
+    - External engines remain baselines/oracles only; `fallback_attempted=false` and
+      `external_engine_invoked=false` remain required release-gate fields.
+
 - [x] Session label: REVIEW-P1-4 dependency, license, provenance, and package-gate automation
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-20-20260521` / #909.
