@@ -1884,7 +1884,7 @@ class LazyFrame:
         )
 
     def _can_append_group_by_aggregate(self, columns: tuple[str, ...]) -> bool:
-        if not _is_query_builder_local_source(self.source) or len(columns) != 1:
+        if not _is_query_builder_local_source(self.source):
             return False
         return all(
             operation.kind not in {"select", "aggregate", "group_by"}

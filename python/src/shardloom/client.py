@@ -1684,6 +1684,18 @@ class SqlLocalSourceSmokeReport:
         return tuple(part for part in value.split(",") if part)
 
     @property
+    def group_by_key_arity(self) -> int:
+        """Return the number of columns in the grouped aggregate key."""
+
+        return self.envelope.field_int("group_by_key_arity", 0) or 0
+
+    @property
+    def group_by_multi_key_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted multi-key grouped aggregate path."""
+
+        return self.envelope.field_bool("group_by_multi_key_runtime_execution", False) is True
+
+    @property
     def group_by_group_count(self) -> int:
         """Return the number of groups emitted before the result limit."""
 
