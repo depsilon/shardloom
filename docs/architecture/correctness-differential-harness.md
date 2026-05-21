@@ -97,6 +97,12 @@ The report answers:
   string family is an explicit report-only gap until a fixture manifest,
   decoded reference outputs, external-oracle result artifacts, and property/fuzz
   execution are populated.
+- `REVIEW-RUNTIME-2` adds the separate admitted semantics matrix validator with
+  schema `shardloom.admitted_semantics_matrix_report.v1`. That validator
+  executes scoped SQL local-source expression fixtures, compares ShardLoom
+  output with decoded reference JSONL, runs the first deterministic seeded
+  property lane, and verifies unsupported diagnostics without invoking external
+  engines. The aggregate CG-5 harness itself remains no-query/no-execution.
 - The benchmark claim gate explicitly reports blockers for unpopulated
   deferred fixture-family artifact slots, unpopulated external-oracle result
   artifacts, and property/fuzz execution not yet performed.

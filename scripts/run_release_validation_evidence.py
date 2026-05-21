@@ -89,6 +89,7 @@ REQUIRED_VALIDATION_COMMANDS = [
         [sys.executable, "scripts/check_package_channel_readiness.py", "--require-local-evidence"],
     ),
     ("golden_workflow_validator", [sys.executable, "scripts/check_golden_workflows.py"]),
+    ("admitted_semantics_matrix", [sys.executable, "scripts/check_admitted_semantics_matrix.py"]),
     (
         "final_release_rehearsal",
         [sys.executable, "scripts/final_release_rehearsal.py", "--allow-blocked"],

@@ -2315,13 +2315,152 @@ fn golden_workflow_validator_is_wired_into_release_readiness() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] REVIEW-RUNTIME-1 three golden workflow validator"));
-    assert!(plan.contains("REVIEW-RUNTIME-2 admitted-semantics fixture matrix"));
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("REVIEW-RUNTIME-1 three golden workflow validator"));
     assert!(completed.contains("shardloom.golden_workflow_validation_report.v1"));
     assert!(completed.contains("Workflow commands"));
     assert!(completed.contains("Artifacts and evidence"));
     assert!(completed.contains("Unsupported-path boundaries"));
+    assert!(completed.contains("fallback_attempted=false"));
+    assert!(completed.contains("external_engine_invoked=false"));
+}
+
+#[test]
+fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
+    let script = read_repo_file("scripts/check_admitted_semantics_matrix.py");
+    for required in [
+        "shardloom.admitted_semantics_matrix_report.v1",
+        "shardloom.admitted_semantics_fixture_matrix.v1",
+        "numeric_generic_property_seed_20260521",
+        "try_cast_projection_null_on_invalid",
+        "string_transform_length_utf8",
+        "temporal_extract_utc_date32_timestamp",
+        "null_coalesce_nullif",
+        "predicate_projection_three_valued",
+        "unsupported_numeric_division_by_zero",
+        "unsupported_cast_decimal128",
+        "semantic-conformance-suite",
+        "correctness-harness-plan",
+        "target/admitted-semantics-matrix-report.json",
+        "target/admitted-semantics-matrix",
+        "property_execution_performed",
+        "decoded_reference_differential_execution_performed",
+        "production_claim_allowed",
+        "ansi_sql_claim_allowed",
+        "performance_claim_allowed",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ] {
+        assert!(
+            script.contains(required),
+            "missing admitted semantics script marker {required}"
+        );
+    }
+
+    let matrix = read_repo_file("docs/status/admitted-semantics-matrix.json");
+    for required in [
+        "shardloom.admitted_semantics_fixture_matrix.v1",
+        "numeric_generic_property_seed_20260521",
+        "try_cast_projection_null_on_invalid",
+        "string_transform_length_utf8",
+        "temporal_extract_utc_date32_timestamp",
+        "null_coalesce_nullif",
+        "predicate_projection_three_valued",
+        "unsupported_numeric_division_by_zero",
+        "unsupported_cast_decimal128",
+        "decoded_reference_only",
+        "deterministic_unsupported_diagnostic",
+        "\"fallback_attempted\": false",
+        "\"external_engine_invoked\": false",
+    ] {
+        assert!(
+            matrix.contains(required),
+            "missing admitted semantics matrix marker {required}"
+        );
+    }
+
+    let status_doc = read_repo_file("docs/status/admitted-semantics-matrix.md");
+    for required in [
+        "shardloom.admitted_semantics_matrix_report.v1",
+        "python scripts\\check_admitted_semantics_matrix.py",
+        "matrix_row_count=8",
+        "executable_fixture_count=6",
+        "unsupported_diagnostic_count=2",
+        "property_execution_performed=true",
+        "decoded_reference_differential_execution_performed=true",
+        "semantic_conformance_suite_status=passed",
+        "correctness_harness_boundary_status=passed",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            status_doc.contains(required),
+            "missing admitted semantics status doc marker {required}"
+        );
+    }
+
+    let ci_workflow = read_repo_file(".github/workflows/ci.yml");
+    assert!(ci_workflow.contains("Admitted semantics matrix"));
+    assert!(ci_workflow.contains("python scripts/check_admitted_semantics_matrix.py"));
+    assert!(ci_workflow.contains("target/admitted-semantics-matrix-report.json"));
+    assert!(ci_workflow.contains("target/admitted-semantics-matrix"));
+
+    let ci_doc = read_repo_file("docs/release/ci-gate-matrix.md");
+    assert!(ci_doc.contains("python scripts/check_admitted_semantics_matrix.py"));
+    assert!(ci_doc.contains("target/admitted-semantics-matrix-report.json"));
+    assert!(ci_doc.contains("admitted semantics matrix"));
+
+    let ci_script = read_repo_file("scripts/check_ci_gate_matrix.py");
+    assert!(ci_script.contains("python scripts/check_admitted_semantics_matrix.py"));
+    assert!(ci_script.contains("target/admitted-semantics-matrix-report.json"));
+    assert!(ci_script.contains("target/admitted-semantics-matrix"));
+    assert!(ci_script.contains("admitted semantics matrix"));
+
+    let release_readiness = read_repo_file("scripts/check_release_readiness.py");
+    for required in [
+        "--admitted-semantics-report",
+        "target/admitted-semantics-matrix-report.json",
+        "admitted_semantics_matrix_validator",
+        "shardloom.admitted_semantics_matrix_report.v1",
+        "property_execution_performed",
+        "decoded_reference_differential_execution_performed",
+        "python scripts/check_admitted_semantics_matrix.py",
+        "admitted_semantics_report_ref",
+    ] {
+        assert!(
+            release_readiness.contains(required),
+            "missing admitted semantics release-readiness marker {required}"
+        );
+    }
+
+    let validation = read_repo_file("scripts/run_release_validation_evidence.py");
+    assert!(validation.contains("admitted_semantics_matrix"));
+    assert!(validation.contains("scripts/check_admitted_semantics_matrix.py"));
+
+    let final_rehearsal = read_repo_file("scripts/final_release_rehearsal.py");
+    assert!(final_rehearsal.contains("--admitted-semantics-report"));
+    assert!(final_rehearsal.contains("admitted_semantics_report_ref"));
+    assert!(final_rehearsal.contains("admitted semantics"));
+
+    let hard_gate = read_repo_file("docs/release/hard-release-readiness-gate.md");
+    assert!(hard_gate.contains("shardloom.admitted_semantics_matrix_report.v1"));
+    assert!(hard_gate.contains("target/admitted-semantics-matrix-report.json"));
+    assert!(hard_gate.contains("property_execution_performed=true"));
+
+    let final_rehearsal_doc = read_repo_file("docs/release/final-release-rehearsal.md");
+    assert!(final_rehearsal_doc.contains("admitted_semantics_report_ref"));
+
+    let harness_doc = read_repo_file("docs/architecture/correctness-differential-harness.md");
+    assert!(harness_doc.contains("shardloom.admitted_semantics_matrix_report.v1"));
+    assert!(harness_doc.contains("first deterministic seeded"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] REVIEW-RUNTIME-2 admitted-semantics fixture matrix"));
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("REVIEW-RUNTIME-2 admitted-semantics fixture matrix"));
+    assert!(completed.contains("shardloom.admitted_semantics_matrix_report.v1"));
+    assert!(completed.contains("Covered operator families"));
+    assert!(completed.contains("Remaining matrix gaps"));
     assert!(completed.contains("fallback_attempted=false"));
     assert!(completed.contains("external_engine_invoked=false"));
 }
@@ -5893,7 +6032,7 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(!plan.contains("- [ ] REVIEW-P1-1 typed command registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-2 typed evidence schema registry"));
     assert!(!plan.contains("- [ ] REVIEW-P1-4 dependency, license, provenance"));
-    assert!(plan.contains("REVIEW-RUNTIME-2 admitted-semantics fixture matrix"));
+    assert!(!plan.contains("- [ ] REVIEW-RUNTIME-2 admitted-semantics fixture matrix"));
     assert!(plan.contains("Completed non-runtime history belongs in"));
     let completed_ledger = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(
@@ -5912,6 +6051,10 @@ fn security_rfc_and_p80_completion_are_traceable() {
     assert!(
         completed_ledger.contains("REVIEW-P1-4 dependency, license, provenance"),
         "REVIEW-P1-4 should be moved from Planned to the completed ledger"
+    );
+    assert!(
+        completed_ledger.contains("REVIEW-RUNTIME-2 admitted-semantics fixture matrix"),
+        "REVIEW-RUNTIME-2 should be moved from Planned to the completed ledger"
     );
     let evidence_schema_registry = read_repo_file("shardloom-cli/src/evidence_schema_registry.rs");
     assert!(evidence_schema_registry.contains("shardloom.evidence_field_schema_registry.v1"));

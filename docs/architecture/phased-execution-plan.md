@@ -253,40 +253,6 @@ Runtime completion rule:
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
   in this live queue.
 
-#### Review-Derived Runtime Validators
-
-- [ ] REVIEW-RUNTIME-2 admitted-semantics fixture matrix and property/differential execution
-  - Source: 2026-05-21 structured repository review action sequence; RFC 0015, RFC 0021,
-    correctness differential harness, expression runtime smokes.
-  - Current state: each admitted expression/operator slice adds focused tests and no-fallback
-    smokes, while broader matrix coverage for dtype, null behavior, coercion, unsupported
-    diagnostics, decoded reference output, differential oracle artifacts, and property/fuzz
-    execution remains incomplete.
-  - Next slice outcome: add an admitted-semantics fixture matrix and execute the first property or
-    differential lane for high-value expression families without using any external oracle as
-    runtime fallback.
-  - Runtime enablement: correctness validator for admitted SQL/Python expression/operator support.
-  - User-visible surface: correctness harness report, expression capability rows, release
-    readiness, benchmark claim gate.
-  - Implementation scope: fixture manifest, decoded-reference expected outputs, property/fuzz
-    runner or deterministic seed executor, optional external-oracle artifact boundary, contract
-    tests, release-readiness integration.
-  - Evidence required: operator family, input dtype, output dtype, null policy, coercion policy,
-    invalid-input behavior, unsupported diagnostic code/message, correctness digest, oracle
-    boundary, property seed, no-fallback fields.
-  - Acceptance: newly admitted operators must attach matrix rows, and the validator fails when
-    dtype/null/coercion/unsupported evidence is missing for claim-bearing support.
-  - Verification: correctness harness tests, expression semantics tests, SQL/Python smoke tests,
-    property/differential runner, release-readiness metadata, `cargo test --workspace
-    --all-targets`.
-  - Non-goals: no production semantic parity claim, ANSI SQL claim, arbitrary UDFs, benchmark
-    superiority claim, or external runtime delegation.
-  - Claim boundary: admitted expression/operator correctness evidence only.
-  - Fallback boundary: external engines may be used only as isolated test oracles/baselines and
-    never as ShardLoom runtime fallback.
-  - Ledger rule: ledger entry must list covered operator families, fixture rows, and remaining
-    matrix gaps.
-
 #### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
 
 This queue exists to keep the remaining "fully functional / usable compute engine" work from
