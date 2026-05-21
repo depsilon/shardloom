@@ -5352,6 +5352,10 @@ fn sql_local_source_smoke_executes_inner_equi_join_without_fallback() {
     assert!(stdout.contains(&field("right_input_row_count", "3")));
     assert!(stdout.contains(&field("join_left_key", "f.customer_id")));
     assert!(stdout.contains(&field("join_right_key", "d.customer_id")));
+    assert!(stdout.contains(&field("join_left_keys", "f.customer_id")));
+    assert!(stdout.contains(&field("join_right_keys", "d.customer_id")));
+    assert!(stdout.contains(&field("join_key_arity", "1")));
+    assert!(stdout.contains(&field("join_multi_key_runtime_execution", "false")));
     assert!(stdout.contains(&field("join_matched_row_count", "3")));
     assert!(stdout.contains(&field("join_left_rows_scanned", "4")));
     assert!(stdout.contains(&field("join_right_rows_scanned", "3")));
@@ -5362,6 +5366,93 @@ fn sql_local_source_smoke_executes_inner_equi_join_without_fallback() {
     assert!(stdout.contains(&field("projected_columns", "f.id,d.segment")));
     assert!(stdout.contains(
         "\"result_jsonl\",\"value\":\"{\\\"f.id\\\":2,\\\"d.segment\\\":\\\"enterprise\\\"}\\n{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"startup\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.inner-equi-join-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_multi_key_inner_equi_join_without_fallback() {
+    let fact_path = unique_path("sql-local-source-multi-key-join-fact", "csv");
+    let dim_path = unique_path("sql-local-source-multi-key-join-dim", "csv");
+    fs::write(
+        &fact_path,
+        "\
+id,customer_id,region,amount
+1,10,east,8
+2,20,west,15
+3,20,east,21
+4,30,east,22
+5,30,west,23
+",
+    )
+    .expect("write fact csv");
+    fs::write(
+        &dim_path,
+        "\
+customer_id,region,segment
+20,west,enterprise
+20,east,consumer
+30,west,startup
+99,east,orphan
+",
+    )
+    .expect("write dim csv");
+
+    let statement = format!(
+        "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 10",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_inner_equi_join_filter_limit"
+    )));
+    assert!(stdout.contains(&field("join_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_type", "inner_equi")));
+    assert!(stdout.contains(&field("join_left_key", "f.customer_id,f.region")));
+    assert!(stdout.contains(&field("join_right_key", "d.customer_id,d.region")));
+    assert!(stdout.contains(&field("join_left_keys", "f.customer_id,f.region")));
+    assert!(stdout.contains(&field("join_right_keys", "d.customer_id,d.region")));
+    assert!(stdout.contains(&field("join_key_arity", "2")));
+    assert!(stdout.contains(&field("join_multi_key_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_matched_row_count", "3")));
+    assert!(stdout.contains(&field("join_left_rows_scanned", "5")));
+    assert!(stdout.contains(&field("join_right_rows_scanned", "4")));
+    assert!(stdout.contains(&field("join_rows_output", "3")));
+    assert!(stdout.contains(&field("join_memory_estimate_bytes", "4032")));
+    assert!(stdout.contains(&field("selected_row_count", "3")));
+    assert!(stdout.contains(&field("output_row_count", "3")));
+    assert!(stdout.contains(&field("projected_columns", "f.id,d.segment")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"f.id\\\":2,\\\"d.segment\\\":\\\"enterprise\\\"}\\n{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"consumer\\\"}\\n{\\\"f.id\\\":5,\\\"d.segment\\\":\\\"startup\\\"}\\n\""
     ));
     assert!(stdout.contains(&field(
         "execution_certificate_ref",
@@ -5415,6 +5506,10 @@ fn sql_local_source_smoke_executes_jsonl_inner_equi_join_without_fallback() {
     assert!(stdout.contains(&field("source_adapter_id", "local_jsonl_input_adapter")));
     assert!(stdout.contains(&field("join_runtime_execution", "true")));
     assert!(stdout.contains(&field("join_type", "inner_equi")));
+    assert!(stdout.contains(&field("join_left_keys", "f.customer_id")));
+    assert!(stdout.contains(&field("join_right_keys", "d.customer_id")));
+    assert!(stdout.contains(&field("join_key_arity", "1")));
+    assert!(stdout.contains(&field("join_multi_key_runtime_execution", "false")));
     assert!(stdout.contains(&field("join_matched_row_count", "3")));
     assert!(stdout.contains(&field("join_rows_output", "2")));
     assert!(stdout.contains(&field("selected_row_count", "2")));
@@ -5515,7 +5610,7 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
                 fact_path.display(),
                 dim_path.display()
             ),
-            "JOIN smoke ON clause must be",
+            "JOIN smoke requires unique key columns on each side",
         ),
         (
             format!(
@@ -5523,7 +5618,7 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
                 fact_path.display(),
                 dim_path.display()
             ),
-            "JOIN smoke ON clause must be",
+            "JOIN smoke admits equi-join ON predicates only",
         ),
         (
             format!(

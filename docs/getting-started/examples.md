@@ -279,31 +279,34 @@ runtime, object-store/table sources, performance evidence, and production claims
 ```powershell
 New-Item -ItemType Directory -Force target | Out-Null
 @"
-id,customer_id,amount
-1,10,8
-2,20,15
-3,30,21
-4,99,13
+id,customer_id,region,amount
+1,10,east,8
+2,20,west,15
+3,20,east,21
+4,30,east,22
+5,30,west,23
 "@ | Set-Content -Encoding utf8 target\sql-local-source-join-fact.csv
 @"
-customer_id,segment
-10,seed
-20,enterprise
-30,startup
+customer_id,region,segment
+20,west,enterprise
+20,east,consumer
+30,west,startup
+99,east,orphan
 "@ | Set-Content -Encoding utf8 target\sql-local-source-join-dim.csv
-cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id WHERE f.amount >= 10 LIMIT 10" --format json
+cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT f.id,d.segment FROM 'target/sql-local-source-join-fact.csv' AS f INNER JOIN 'target/sql-local-source-join-dim.csv' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 LIMIT 10" --format json
 ```
 
 Use this for the scoped GAR-RUNTIME-IMPL-4C join promotion. It emits
 `sql_statement_kind=local_source_inner_equi_join_filter_limit`,
 `join_runtime_execution=true`, `join_type=inner_equi`, left/right source refs, join keys,
-matched/scanned/output row counts, a scoped memory estimate, the inner-equi-join execution
-certificate ref, and no-fallback evidence. It admits one local-source inner equi-join with
-explicit aliases only. The same scoped shape can run over other admitted local sources such as
+`join_key_arity`, `join_multi_key_runtime_execution`, matched/scanned/output row counts, a scoped
+memory estimate, the inner-equi-join execution certificate ref, and no-fallback evidence. It admits
+scoped single- or multi-key local-source inner equi-joins with explicit aliases only. The same scoped
+shape can run over other admitted local sources such as
 flat JSONL/NDJSON. Feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC joins use the same
 deterministic adapter gates as the rest of `sql-local-source-smoke`.
-Outer, semi, anti, cross, multi-key, expression, distributed, broadcast, shuffle,
-object-store/table, performance, and production join claims remain blocked.
+Outer, semi, anti, cross, expression, distributed, broadcast, shuffle, object-store/table,
+performance, and production join claims remain blocked.
 
 ## Python Local CSV Query-Builder Smoke
 
@@ -376,7 +379,7 @@ topn = (
 )
 joined = (
     ctx.read_csv("target/sql-local-source-join-fact.csv")
-    .join(ctx.read_csv("target/sql-local-source-join-dim.csv"), on="customer_id")
+    .join(ctx.read_csv("target/sql-local-source-join-dim.csv"), on=("customer_id", "region"))
     .select("f.id", "d.segment")
     .filter("f.amount >= 10")
     .limit(10)
@@ -417,9 +420,10 @@ are familiar aliases over the same bounded `preview(...)` select-star path. Scal
 the same scoped SQL local-source smoke for `COUNT`, `SUM`, `AVG`, `MIN`, and `MAX`; `count()` is a
 convenience wrapper over the same `COUNT(*)` smoke; one-column
 `group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke; single-key numeric
-`sort(...).limit(...)` lowers to the scoped top-N smoke; one local CSV
-`join(..., on="key")` with qualified projection/filter columns lowers to the scoped inner equi-join
-smoke; and explicit-projection literal `with_column(...)` lowers to scoped literal projection.
+`sort(...).limit(...)` lowers to the scoped top-N smoke; local-source
+`join(..., on="key")` or `join(..., on=("customer_id", "region"))` with qualified
+projection/filter columns lowers to the scoped inner equi-join smoke; and explicit-projection
+literal `with_column(...)` lowers to scoped literal projection.
 `where(...)` is a familiar alias for `filter(...)`. `sl.col(...)` is a Python predicate helper for
 admitted comparison, inclusive `between(...)`, null, string `LIKE`, bounded `IN`, cast/date,
 Date32 extract/day arithmetic, and logical predicates; it lowers into ShardLoom's existing local SQL

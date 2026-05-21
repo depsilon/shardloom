@@ -651,9 +651,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "Scoped local CSV and flat JSONL/NDJSON projection/optional-filter/limit, "
-            "scalar aggregate, one-column group-by aggregate, and single-key "
-            "top-N collect smoke only; no broad DataFrame runtime, object-store/table "
-            "source, external engine, fallback, or production claim."
+            "scalar aggregate, multi-key group-by aggregate, single-key top-N, "
+            "and scoped local-source inner equi-join collect smoke only; no broad "
+            "DataFrame runtime, object-store/table source, external engine, fallback, "
+            "or production claim."
         ),
     ),
     _df_method(
@@ -673,9 +674,10 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         materialization_required=True,
         claim_boundary=(
             "Scoped local CSV and flat JSONL/NDJSON projection/optional-filter/limit, "
-            "scalar aggregate, one-column group-by aggregate, and single-key "
-            "top-N JSONL/CSV and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC "
-            "output smoke only; no broad DataFrame runtime, object-store/table sink, "
+            "scalar aggregate, multi-key group-by aggregate, single-key top-N, "
+            "and scoped local-source inner equi-join JSONL/CSV and feature-gated flat "
+            "scalar Parquet/Arrow IPC/Avro/ORC output smoke only; no broad DataFrame "
+            "runtime, object-store/table sink, "
             "external engine, fallback, fanout, or production claim."
         ),
     ),

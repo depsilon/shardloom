@@ -16,6 +16,34 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F scoped SQL/Python multi-key local-source join runtime
+  - Date: 2026-05-21
+  - Branch/PR: `runtime-multikey-local-joins` / #881.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+  - Scope:
+    - Promoted scoped local-source inner equi-joins from one key pair to one or more ordered key pairs joined by `AND`.
+    - Preserved single-key join behavior while emitting plural key evidence, key arity, and multi-key runtime evidence.
+    - Added deterministic blockers for duplicate key columns per side, non-equi ON predicates, non-left-to-right alias ordering, and unsupported join families.
+    - Added Python query-builder lowering for `join(..., on=("customer_id", "region"))` over admitted local sources.
+  - Evidence:
+    - `join_runtime_execution=true`, `join_type=inner_equi`, `join_left_key`, `join_right_key`, `join_left_keys`, `join_right_keys`, `join_key_arity`, `join_multi_key_runtime_execution`, source-format evidence, scanned/matched/output row counts, scoped memory estimate, inline JSONL result rows, format-specific execution certificate refs, `fallback_attempted=false`, `external_engine_invoked=false`, and `claim_gate_status=fixture_smoke_only`.
+  - Verification:
+    - Focused Rust parser test for multi-key join ON predicates.
+    - Focused Rust CLI smokes for single-key, multi-key, and JSONL inner equi-joins plus unsupported join-shape blockers.
+    - Focused Python query-builder tests for single-key and multi-key join lowering and typed report accessors.
+    - `cargo fmt --all -- --check`
+    - `cargo clippy --workspace --all-targets -- -D warnings`
+    - `cargo test --workspace --all-targets`
+    - `python -m compileall -q python/src python/tests scripts examples`
+    - `python -m unittest discover -s python/tests`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local SQL/Python single- and multi-key inner equi-join fixture smoke only. This is not broad DataFrame join parity, expression joins, outer/semi/anti/cross joins, distributed joins, object-store/table joins, claim-grade compute, or performance evidence.
+  - Fallback boundary:
+    - Join parsing, binding, key construction, hash matching, predicate evaluation, rendering, and evidence are ShardLoom-native local-source runtime code. External engines remain baseline/oracle-only and are not invoked.
 - [x] Session label: GAR-RUNTIME-IMPL-4F scoped SQL/Python aggregate alias runtime
   - Date: 2026-05-21
   - Branch/PR: `runtime-aggregate-aliases` / #880.
