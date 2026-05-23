@@ -2617,7 +2617,7 @@ fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPla
             columns.insert(column.clone());
         }
     }
-    if let Some(order_by) = parsed.order_by.as_ref() {
+    if let Some(order_by) = parsed.order_by.as_ref().filter(|_| !parsed.is_aggregate()) {
         for key in &order_by.keys {
             columns.insert(key.column.clone());
         }
@@ -3706,6 +3706,30 @@ fn compare_order_by_values(
     Ordering::Equal
 }
 
+fn ordered_output_row_indexes(
+    rows: &[Vec<(String, ScalarValue)>],
+    order_by: &ParsedOrderBy,
+    missing_label: &str,
+) -> Result<Vec<usize>, ShardLoomError> {
+    let mut sort_values = Vec::with_capacity(rows.len());
+    for (row_index, row) in rows.iter().enumerate() {
+        let mut input_row = ExpressionInputRow::new();
+        for (column, value) in row {
+            input_row.insert(column.clone(), value.clone());
+        }
+        let values = sort_values_for_row(&input_row, order_by, missing_label)?;
+        sort_values.push((row_index, values));
+    }
+    sort_values.sort_by(|(left_index, left_values), (right_index, right_values)| {
+        let ordering = compare_order_by_values(order_by, left_values, right_values);
+        ordering.then_with(|| left_index.cmp(right_index))
+    });
+    Ok(sort_values
+        .into_iter()
+        .map(|(row_index, _values)| row_index)
+        .collect())
+}
+
 fn build_join_right_rows_by_key<'a>(
     join: &ParsedJoin,
     right_source: &'a CsvSourceData,
@@ -4648,7 +4672,7 @@ fn evaluate_grouped_aggregate_output(
     }
 
     let mut output_rows = Vec::new();
-    for (_key, bucket) in groups.into_iter().take(parsed.limit) {
+    for (_key, bucket) in groups {
         let mut row = bucket.values;
         for aggregate in &parsed.aggregates {
             row.push((
@@ -4657,6 +4681,17 @@ fn evaluate_grouped_aggregate_output(
             ));
         }
         output_rows.push(row);
+    }
+    if let Some(order_by) = parsed.order_by.as_ref() {
+        let ordered_indexes =
+            ordered_output_row_indexes(&output_rows, order_by, "ORDER BY aggregate output column")?;
+        output_rows = ordered_indexes
+            .into_iter()
+            .take(parsed.limit)
+            .map(|row_index| output_rows[row_index].clone())
+            .collect();
+    } else {
+        output_rows.truncate(parsed.limit);
     }
     Ok(output_rows)
 }
@@ -5207,17 +5242,29 @@ fn validate_order_by_source(
 ) -> Result<(), ShardLoomError> {
     if let Some(order_by) = parsed.order_by.as_ref() {
         if parsed.is_aggregate() || parsed.is_grouped_aggregate() {
-            return Err(unsupported_sql_error(
-                "ORDER BY top-N smoke currently admits projection rows only; aggregate and grouped top-N remain blocked",
-            ));
+            let output_columns = parsed.output_columns(header);
+            return validate_order_by_output_columns(
+                order_by,
+                &output_columns,
+                "ORDER BY aggregate output column",
+            );
         }
-        for key in &order_by.keys {
-            if !header.iter().any(|candidate| candidate == &key.column) {
-                return Err(unsupported_sql_error(&format!(
-                    "ORDER BY column {:?} is not present in the CSV header",
-                    key.column
-                )));
-            }
+        validate_order_by_output_columns(order_by, header, "ORDER BY column")?;
+    }
+    Ok(())
+}
+
+fn validate_order_by_output_columns(
+    order_by: &ParsedOrderBy,
+    columns: &[String],
+    label: &str,
+) -> Result<(), ShardLoomError> {
+    for key in &order_by.keys {
+        if !columns.iter().any(|candidate| candidate == &key.column) {
+            return Err(unsupported_sql_error(&format!(
+                "{label} {:?} is not present in the row",
+                key.column
+            )));
         }
     }
     Ok(())
@@ -5645,11 +5692,6 @@ fn bind_join_sql_local_source(
             "JOIN smoke requires a readable local right source",
         ));
     };
-    if parsed.order_by.is_some() && parsed.is_aggregate() {
-        return Err(unsupported_sql_error(
-            "ORDER BY joins currently admit projection rows only; aggregate and grouped join top-N remain blocked",
-        ));
-    }
     if parsed.has_computed_projection() && parsed.is_aggregate() {
         return Err(unsupported_sql_error(
             "computed JOIN projections cannot be mixed with aggregate functions in this scoped smoke",
@@ -5657,7 +5699,18 @@ fn bind_join_sql_local_source(
     }
     let qualified_header =
         qualified_join_header(left_alias, left_header, &join.right_alias, right_header);
-    validate_join_order_by_source(parsed, &qualified_header)?;
+    if parsed.is_aggregate() || parsed.is_grouped_aggregate() {
+        if let Some(order_by) = parsed.order_by.as_ref() {
+            let output_columns = parsed.output_columns(&qualified_header);
+            validate_order_by_output_columns(
+                order_by,
+                &output_columns,
+                "ORDER BY join aggregate output column",
+            )?;
+        }
+    } else {
+        validate_join_order_by_source(parsed, &qualified_header)?;
+    }
     validate_join_key_pairs(join, left_alias, left_header, right_header)?;
     if parsed.is_grouped_aggregate() {
         validate_join_grouped_aggregate_sources(
@@ -6081,7 +6134,23 @@ impl ParsedSqlLocalSource {
     }
 
     fn statement_kind(&self) -> &'static str {
-        if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
+        if self.is_join()
+            && self.is_grouped_aggregate()
+            && self.order_by.is_some()
+            && self.has_filter()
+        {
+            "local_source_inner_equi_join_group_by_aggregate_order_by_topn_filter_limit"
+        } else if self.is_join() && self.is_grouped_aggregate() && self.order_by.is_some() {
+            "local_source_inner_equi_join_group_by_aggregate_order_by_topn_limit"
+        } else if self.is_join()
+            && self.is_aggregate()
+            && self.order_by.is_some()
+            && self.has_filter()
+        {
+            "local_source_inner_equi_join_aggregate_order_by_topn_filter_limit"
+        } else if self.is_join() && self.is_aggregate() && self.order_by.is_some() {
+            "local_source_inner_equi_join_aggregate_order_by_topn_limit"
+        } else if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
             "local_source_inner_equi_join_group_by_aggregate_filter_limit"
         } else if self.is_join() && self.is_grouped_aggregate() {
             "local_source_inner_equi_join_group_by_aggregate_limit"
@@ -6095,6 +6164,14 @@ impl ParsedSqlLocalSource {
             "local_source_inner_equi_join_filter_limit"
         } else if self.is_join() {
             "local_source_inner_equi_join_limit"
+        } else if self.is_grouped_aggregate() && self.order_by.is_some() && self.has_filter() {
+            "local_source_group_by_aggregate_order_by_topn_filter_limit"
+        } else if self.is_grouped_aggregate() && self.order_by.is_some() {
+            "local_source_group_by_aggregate_order_by_topn_limit"
+        } else if self.is_aggregate() && self.order_by.is_some() && self.has_filter() {
+            "local_source_aggregate_order_by_topn_filter_limit"
+        } else if self.is_aggregate() && self.order_by.is_some() {
+            "local_source_aggregate_order_by_topn_limit"
         } else if self.order_by.is_some() && self.has_filter() {
             "local_source_order_by_topn_filter_limit"
         } else if self.order_by.is_some() {
@@ -6107,74 +6184,14 @@ impl ParsedSqlLocalSource {
             "local_source_aggregate_filter_limit"
         } else if self.is_aggregate() {
             "local_source_aggregate_limit"
-        } else if self.has_cast_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_cast_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_null_coalesce_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_null_coalesce_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_nullif_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_nullif_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_conditional_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_conditional_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_predicate_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_predicate_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_numeric_arithmetic_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_numeric_abs_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_numeric_abs_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_numeric_rounding_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_numeric_rounding_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_generic_expression_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_generic_expression_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_date_arithmetic_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_date_arithmetic_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_timestamp_arithmetic_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_timestamp_arithmetic_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_string_length_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_string_length_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_string_transform_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_string_transform_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_string_function_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_string_function_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_date_extract_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_date_extract_projection() {
-            "local_source_computed_projection_limit"
-        } else if self.has_timestamp_extract_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
-        } else if self.has_timestamp_extract_projection() {
-            "local_source_computed_projection_limit"
         } else if self.has_literal_projection() && self.has_filter() {
             "local_source_literal_projection_filter_limit"
         } else if self.has_literal_projection() {
             "local_source_literal_projection_limit"
+        } else if self.has_computed_projection() && self.has_filter() {
+            "local_source_computed_projection_filter_limit"
+        } else if self.has_computed_projection() {
+            "local_source_computed_projection_limit"
         } else if self.has_filter() {
             "local_source_projection_filter_limit"
         } else {
@@ -6183,7 +6200,23 @@ impl ParsedSqlLocalSource {
     }
 
     fn execution_certificate_suffix(&self) -> &'static str {
-        if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
+        if self.is_join()
+            && self.is_grouped_aggregate()
+            && self.order_by.is_some()
+            && self.has_filter()
+        {
+            "inner-equi-join-group-by-aggregate-order-by-topn-filter-limit"
+        } else if self.is_join() && self.is_grouped_aggregate() && self.order_by.is_some() {
+            "inner-equi-join-group-by-aggregate-order-by-topn-limit"
+        } else if self.is_join()
+            && self.is_aggregate()
+            && self.order_by.is_some()
+            && self.has_filter()
+        {
+            "inner-equi-join-aggregate-order-by-topn-filter-limit"
+        } else if self.is_join() && self.is_aggregate() && self.order_by.is_some() {
+            "inner-equi-join-aggregate-order-by-topn-limit"
+        } else if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
             "inner-equi-join-group-by-aggregate-filter-limit"
         } else if self.is_join() && self.is_grouped_aggregate() {
             "inner-equi-join-group-by-aggregate-limit"
@@ -6197,6 +6230,14 @@ impl ParsedSqlLocalSource {
             "inner-equi-join-filter-limit"
         } else if self.is_join() {
             "inner-equi-join-limit"
+        } else if self.is_grouped_aggregate() && self.order_by.is_some() && self.has_filter() {
+            "group-by-aggregate-order-by-topn-filter-limit"
+        } else if self.is_grouped_aggregate() && self.order_by.is_some() {
+            "group-by-aggregate-order-by-topn-limit"
+        } else if self.is_aggregate() && self.order_by.is_some() && self.has_filter() {
+            "aggregate-order-by-topn-filter-limit"
+        } else if self.is_aggregate() && self.order_by.is_some() {
+            "aggregate-order-by-topn-limit"
         } else if self.order_by.is_some() && self.has_filter() {
             "order-by-topn-filter-limit"
         } else if self.order_by.is_some() {
@@ -6209,74 +6250,14 @@ impl ParsedSqlLocalSource {
             "aggregate-filter-limit"
         } else if self.is_aggregate() {
             "aggregate-limit"
-        } else if self.has_cast_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_cast_projection() {
-            "computed-projection-limit"
-        } else if self.has_null_coalesce_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_null_coalesce_projection() {
-            "computed-projection-limit"
-        } else if self.has_nullif_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_nullif_projection() {
-            "computed-projection-limit"
-        } else if self.has_conditional_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_conditional_projection() {
-            "computed-projection-limit"
-        } else if self.has_predicate_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_predicate_projection() {
-            "computed-projection-limit"
-        } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_numeric_arithmetic_projection() {
-            "computed-projection-limit"
-        } else if self.has_numeric_abs_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_numeric_abs_projection() {
-            "computed-projection-limit"
-        } else if self.has_numeric_rounding_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_numeric_rounding_projection() {
-            "computed-projection-limit"
-        } else if self.has_generic_expression_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_generic_expression_projection() {
-            "computed-projection-limit"
-        } else if self.has_date_arithmetic_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_date_arithmetic_projection() {
-            "computed-projection-limit"
-        } else if self.has_timestamp_arithmetic_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_timestamp_arithmetic_projection() {
-            "computed-projection-limit"
-        } else if self.has_string_length_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_string_length_projection() {
-            "computed-projection-limit"
-        } else if self.has_string_transform_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_string_transform_projection() {
-            "computed-projection-limit"
-        } else if self.has_string_function_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_string_function_projection() {
-            "computed-projection-limit"
-        } else if self.has_date_extract_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_date_extract_projection() {
-            "computed-projection-limit"
-        } else if self.has_timestamp_extract_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
-        } else if self.has_timestamp_extract_projection() {
-            "computed-projection-limit"
         } else if self.has_literal_projection() && self.has_filter() {
             "literal-projection-filter-limit"
         } else if self.has_literal_projection() {
             "literal-projection-limit"
+        } else if self.has_computed_projection() && self.has_filter() {
+            "computed-projection-filter-limit"
+        } else if self.has_computed_projection() {
+            "computed-projection-limit"
         } else if self.has_filter() {
             "projection-filter-limit"
         } else {
@@ -6285,7 +6266,23 @@ impl ParsedSqlLocalSource {
     }
 
     fn claim_gate_reason_suffix(&self) -> &'static str {
-        if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
+        if self.is_join()
+            && self.is_grouped_aggregate()
+            && self.order_by.is_some()
+            && self.has_filter()
+        {
+            "inner_equi_join_group_by_aggregate_order_by_topn_filter_limit"
+        } else if self.is_join() && self.is_grouped_aggregate() && self.order_by.is_some() {
+            "inner_equi_join_group_by_aggregate_order_by_topn_limit"
+        } else if self.is_join()
+            && self.is_aggregate()
+            && self.order_by.is_some()
+            && self.has_filter()
+        {
+            "inner_equi_join_aggregate_order_by_topn_filter_limit"
+        } else if self.is_join() && self.is_aggregate() && self.order_by.is_some() {
+            "inner_equi_join_aggregate_order_by_topn_limit"
+        } else if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
             "inner_equi_join_group_by_aggregate_filter_limit"
         } else if self.is_join() && self.is_grouped_aggregate() {
             "inner_equi_join_group_by_aggregate_limit"
@@ -6299,6 +6296,14 @@ impl ParsedSqlLocalSource {
             "inner_equi_join_filter_limit"
         } else if self.is_join() {
             "inner_equi_join_limit"
+        } else if self.is_grouped_aggregate() && self.order_by.is_some() && self.has_filter() {
+            "group_by_aggregate_order_by_topn_filter_limit"
+        } else if self.is_grouped_aggregate() && self.order_by.is_some() {
+            "group_by_aggregate_order_by_topn_limit"
+        } else if self.is_aggregate() && self.order_by.is_some() && self.has_filter() {
+            "scalar_aggregate_order_by_topn_filter_limit"
+        } else if self.is_aggregate() && self.order_by.is_some() {
+            "scalar_aggregate_order_by_topn_limit"
         } else if self.order_by.is_some() && self.has_filter() {
             "order_by_topn_filter_limit"
         } else if self.order_by.is_some() {
@@ -6311,74 +6316,14 @@ impl ParsedSqlLocalSource {
             "scalar_aggregate_filter_limit"
         } else if self.is_aggregate() {
             "scalar_aggregate_limit"
-        } else if self.has_cast_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_cast_projection() {
-            "computed_projection_limit"
-        } else if self.has_null_coalesce_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_null_coalesce_projection() {
-            "computed_projection_limit"
-        } else if self.has_nullif_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_nullif_projection() {
-            "computed_projection_limit"
-        } else if self.has_conditional_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_conditional_projection() {
-            "computed_projection_limit"
-        } else if self.has_predicate_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_predicate_projection() {
-            "computed_projection_limit"
-        } else if self.has_numeric_arithmetic_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_numeric_arithmetic_projection() {
-            "computed_projection_limit"
-        } else if self.has_numeric_abs_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_numeric_abs_projection() {
-            "computed_projection_limit"
-        } else if self.has_numeric_rounding_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_numeric_rounding_projection() {
-            "computed_projection_limit"
-        } else if self.has_generic_expression_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_generic_expression_projection() {
-            "computed_projection_limit"
-        } else if self.has_date_arithmetic_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_date_arithmetic_projection() {
-            "computed_projection_limit"
-        } else if self.has_timestamp_arithmetic_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_timestamp_arithmetic_projection() {
-            "computed_projection_limit"
-        } else if self.has_string_length_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_string_length_projection() {
-            "computed_projection_limit"
-        } else if self.has_string_transform_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_string_transform_projection() {
-            "computed_projection_limit"
-        } else if self.has_string_function_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_string_function_projection() {
-            "computed_projection_limit"
-        } else if self.has_date_extract_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_date_extract_projection() {
-            "computed_projection_limit"
-        } else if self.has_timestamp_extract_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
-        } else if self.has_timestamp_extract_projection() {
-            "computed_projection_limit"
         } else if self.has_literal_projection() && self.has_filter() {
             "literal_projection_filter_limit"
         } else if self.has_literal_projection() {
             "literal_projection_limit"
+        } else if self.has_computed_projection() && self.has_filter() {
+            "computed_projection_filter_limit"
+        } else if self.has_computed_projection() {
+            "computed_projection_limit"
         } else if self.has_filter() {
             "projection_filter_limit"
         } else {

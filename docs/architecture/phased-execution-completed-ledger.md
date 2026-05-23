@@ -16,6 +16,56 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5C aggregate-output top-N runtime promotion
+  - Date: 2026-05-23
+  - Branch/PR: `compute-engine-runtime-next-32-20260523` / #925.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - `GAR-RUNTIME-IMPL-5D local input adapter runtime parity`.
+    - User direction to focus current PRs on actual compute-engine runtime features, keep SQL/Python
+      surfaces format-neutral, and isolate per-format behavior to read/ingest and write boundaries.
+  - Scope:
+    - Promoted scoped SQL local-source scalar and grouped aggregate `ORDER BY <aggregate-output>
+      [ASC|DESC][, ...] LIMIT <n>` from deterministic blockers into executable ShardLoom-native
+      aggregate-output top-N rows.
+    - Promoted joined scalar and grouped aggregate output ordering over explicit local-source inner
+      equi-join shapes, while keeping ordering over non-output join/source columns blocked with a
+      stable no-fallback diagnostic.
+    - Added aggregate-output row ordering after grouped aggregate materialization so `LIMIT`
+      applies after numeric multi-key aggregate-output sort rather than before sort.
+    - Kept SQL/Python surface lowering format-neutral: Python `.agg(...).sort(...).limit(...)`
+      and `.group_by(...).agg(...).sort(...).limit(...)` lower through the shared
+      `sql-local-source-smoke` SQL path, with source-format behavior still isolated to local
+      read adapters and output sinks.
+    - Collapsed repeated computed-projection suffix classification so statement-kind,
+      execution-certificate, and claim-gate labels remain compact as runtime families expand.
+    - Refreshed Python README, compute-flow reference, and phase-plan current-state language so
+      aggregate-output top-N is no longer listed as blocked for admitted local scalar/grouped and
+      joined aggregate workflows.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke aggregate_order_by_topn -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli sql_local_source_runtime -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli sql_local_source_runtime::tests::parses_scoped_literal_projection_statement -- --nocapture`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_scalar_aggregate_order_by_topn_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_group_by_aggregate_order_by_topn_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_join_scalar_aggregate_order_by_topn_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported`
+    - `python -m unittest discover -s python/tests`
+    - `python -m compileall -q python\src python\tests scripts benchmarks\traditional_analytics`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-source numeric aggregate-output top-N only, including admitted joined aggregate
+      shapes. This does not add window ranking, string/collation/null ordering parity,
+      object-store/table ordering, distributed sort, broad SQL/DataFrame parity, production
+      performance claims, package-publication readiness, or Spark-replacement claims.
+  - Remaining gates:
+    - Continue runtime completion on richer expression/operator parity, broader materialization and
+      output ergonomics, Vortex scan pushdown, encoded kernel pairs, session/reuse depth,
+      memory/spill safety, package-proof evidence, and production release validation.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C multi-key local top-N runtime promotion
   - Date: 2026-05-23
   - Branch/PR: `compute-engine-runtime-next-31-20260523` / #924.
