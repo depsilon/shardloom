@@ -74,6 +74,9 @@ Status reading order:
   detailed session history and historical phase ledgers.
 - Supporting docs may contain rationale, inventories, traceability, and historical notes, but they
   must not introduce a second current queue.
+- Repeated support, claim-boundary, benchmark-interpretation, and runtime-state explanations should
+  be owned by one canonical doc or generated data artifact; other pages should link to or render
+  that source instead of restating parallel wording.
 - If a supporting doc discovers new work, add the actionable checklist item here before
   implementation begins.
 - Supporting docs must not keep unchecked implementation checklists outside this file and
@@ -1086,8 +1089,9 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5H evidence envelope, evidence levels, and claim validators
   - Source: `GAR-RUNTIME-IMPL-4K`, `GAR-PERF-2A`, release readiness metadata, benchmark publishing
     policy.
-  - Current state: reports expose many useful fields, but CLI, Python, benchmark, website, and
-    release gates can still diverge as runtime surfaces expand.
+  - Current state: reports expose many useful fields, but CLI, Python, benchmark, website, docs, and
+    release gates can still diverge as runtime surfaces expand or when mirrored website artifacts
+    restate support/claim language independently.
   - Next slice outcome: add a versioned execution-envelope schema, evidence levels, and validators
     that every runtime path must satisfy.
   - Runtime enablement: shared runtime evidence validator that blocks unsupported/report-only rows
@@ -1095,21 +1099,23 @@ docs/website parity, and a completed-ledger entry.
   - User-visible surface: CLI JSON, Python typed reports, benchmark artifacts, website evidence,
     release readiness.
   - Implementation scope: shared schema, report adapters, typed aliases/migrations, readiness
-    checks, website renderer, benchmark completeness gate.
+    checks, source-of-truth mirror checks, website renderer, benchmark completeness gate.
   - Evidence required: execution/engine/evidence mode, source/generated/output refs, certificate
     refs, materialization/decode refs, no-fallback fields, claim gate, evidence level.
   - Acceptance: missing fallback/certificate/claim fields fail validation; `minimal_runtime` cannot
-    become claim-grade by accident; report-only rows cannot masquerade as runtime support.
+    become claim-grade by accident; report-only rows cannot masquerade as runtime support; public
+    docs/website surfaces render canonical support/evidence data instead of maintaining duplicated
+    claim-boundary prose or stale benchmark status copies.
   - Verification: schema contract tests, release readiness metadata, benchmark completeness,
-    website readiness, Python typed-report tests.
+    website readiness and mirror-drift checks, Python typed-report tests.
   - Non-goals: no runtime capability upgrade from schema work alone.
   - Claim boundary: evidence standardization and claim gating only.
   - Fallback boundary: every envelope exposes `fallback_attempted=false` and
     `external_engine_invoked=false` or fails.
   - Dependencies/blockers: stable field names, compatibility aliases, Python report migration,
     benchmark/website validators.
-  - Ledger rule: ledger entry must record schema version, migrated surfaces, and validation failures
-    now blocked.
+  - Ledger rule: ledger entry must record schema version, migrated surfaces, source-of-truth mirrors,
+    and validation failures now blocked.
 
 - [ ] GAR-RUNTIME-IMPL-5I optimizer, session runtime, reuse, and buffer-pool promotion
   - Source: `GAR-RUNTIME-IMPL-4L`, `GAR-PERF-2B`, `GAR-PERF-2F`, `GAR-PERF-2G`,
@@ -1151,7 +1157,9 @@ docs/website parity, and a completed-ledger entry.
     `spark-local-tuned` visible as `full_local_plus_spark` lanes even when the current artifact did
     not request them. Current promoted rows also still include ShardLoom `blocked`,
     `fixture_smoke_only`, and external `external_baseline_only` rows, and the main artifact lacks
-    broad-format JSONL/Arrow IPC/Avro/ORC comparative coverage.
+    broad-format JSONL/Arrow IPC/Avro/ORC comparative coverage. Benchmark pages must also pull
+    current support and claim-boundary context from generated status/evidence data instead of
+    carrying their own explanatory copy.
   - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
     promoted runtime path and block stale or incomplete public claims. The next public comparative
     refresh should run or explicitly gate `full_local_plus_spark`, include Spark lane availability,
@@ -1161,8 +1169,8 @@ docs/website parity, and a completed-ledger entry.
     fresh evidence.
   - User-visible surface: website benchmarks, docs/benchmarks, status page, release readiness.
   - Implementation scope: artifact freshness checker, profile matrix, runtime claim matrix,
-    benchmark page ingestion, release validators, Spark/JVM profile publishing checks, format
-    coverage checks, and claim-gate closeout diagnostics.
+    benchmark page ingestion from canonical generated artifacts, release validators, Spark/JVM
+    profile publishing checks, format coverage checks, and claim-gate closeout diagnostics.
   - Evidence required: benchmark profile/environment, scenario coverage, lane status, correctness
     refs, certificate refs, no-fallback fields, claim gate, Spark lane availability, format
     coverage, and source-state/prepared-state coverage.
@@ -1173,7 +1181,8 @@ docs/website parity, and a completed-ledger entry.
     raw comparative roster renders all promoted rows, not a sample; the main ShardLoom comparative
     roster has no `blocked`, `unsupported`, `not_claim_grade`, or `fixture_smoke_only` rows before
     any broad claim-grade benchmark publication, while external lanes remain `external_baseline_only`
-    and never satisfy ShardLoom evidence.
+    and never satisfy ShardLoom evidence; the benchmark page reuses the runs-today support matrix
+    for support posture and the promoted benchmark bundle for timing/coverage context.
   - Verification: benchmark artifact completeness checker, website readiness, release readiness,
     traditional benchmark harness tests, `full_local_plus_spark` preflight/runbook evidence.
   - Non-goals: no performance/superiority/Spark-replacement claim.

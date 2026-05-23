@@ -234,6 +234,32 @@ def check_claim_phrases(text: str, label: str, blockers: list[str]) -> None:
             blockers.append(f"{label} contains forbidden claim phrase: {pattern}")
 
 
+def same_text(path_a: Path, path_b: Path) -> bool:
+    return path_a.read_text(encoding="utf-8").replace("\r\n", "\n") == path_b.read_text(
+        encoding="utf-8"
+    ).replace("\r\n", "\n")
+
+
+def check_mirrored_file(
+    *,
+    source: Path,
+    mirror: Path,
+    label: str,
+    blockers: list[str],
+) -> None:
+    if not source.exists():
+        blockers.append(f"missing canonical {label}: {source.relative_to(ROOT).as_posix()}")
+        return
+    if not mirror.exists():
+        blockers.append(f"missing mirrored {label}: {mirror.relative_to(ROOT).as_posix()}")
+        return
+    if not same_text(source, mirror):
+        blockers.append(
+            f"{label} drift: {mirror.relative_to(ROOT).as_posix()} does not match "
+            f"{source.relative_to(ROOT).as_posix()}"
+        )
+
+
 def forbidden_runtime_hosts(text: str) -> set[str]:
     hosts: set[str] = set()
     for match in URL_RE.finditer(text):
@@ -361,11 +387,53 @@ def main() -> int:
 
     flow_snapshot = website / "assets/data/compute-engine-flow-reference.md"
     canonical_flow = repo_root / "docs/architecture/compute-engine-flow-reference.md"
-    if flow_snapshot.exists() and canonical_flow.exists():
-        if flow_snapshot.read_text(encoding="utf-8").replace("\r\n", "\n") != canonical_flow.read_text(
-            encoding="utf-8"
-        ).replace("\r\n", "\n"):
-            blockers.append("website compute-flow snapshot does not match canonical architecture doc")
+    check_mirrored_file(
+        source=canonical_flow,
+        mirror=flow_snapshot,
+        label="compute-flow snapshot",
+        blockers=blockers,
+    )
+    check_mirrored_file(
+        source=canonical_flow,
+        mirror=repo_root / "website-public/assets/data/compute-engine-flow-reference.md",
+        label="compute-flow public-dir snapshot",
+        blockers=blockers,
+    )
+
+    canonical_benchmark_results = (
+        repo_root / "website-public/assets/benchmarks/latest/benchmark-results.json"
+    )
+    canonical_benchmark_manifest = (
+        repo_root / "website-public/assets/benchmarks/latest/manifest.json"
+    )
+    canonical_benchmark_data = repo_root / "website-public/assets/data/benchmark-evidence.json"
+    for mirror in (
+        website / "assets/benchmarks/latest/benchmark-results.json",
+        website / "assets/data/benchmark-evidence.json",
+        repo_root / "website-src/src/data/benchmark-evidence.json",
+    ):
+        check_mirrored_file(
+            source=canonical_benchmark_results,
+            mirror=mirror,
+            label="benchmark evidence bundle",
+            blockers=blockers,
+        )
+    check_mirrored_file(
+        source=canonical_benchmark_results,
+        mirror=canonical_benchmark_data,
+        label="benchmark public-dir data snapshot",
+        blockers=blockers,
+    )
+    for mirror in (
+        website / "assets/benchmarks/latest/manifest.json",
+        repo_root / "website-src/src/data/benchmark-manifest.json",
+    ):
+        check_mirrored_file(
+            source=canonical_benchmark_manifest,
+            mirror=mirror,
+            label="benchmark manifest bundle",
+            blockers=blockers,
+        )
 
     manifest_path = website / "assets/benchmarks/latest/manifest.json"
     if manifest_path.exists():

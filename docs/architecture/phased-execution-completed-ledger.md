@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5H/5J benchmark website evidence source-of-truth mirrors
+  - Date: 2026-05-23
+  - Branch/PR: `compute-engine-runtime-next-28-20260523` / #917.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5H evidence envelope, evidence levels, and claim validators`.
+    - `GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate`.
+    - User guidance to reduce duplicated explanatory language and have benchmark pages pull current
+      support posture from canonical status/evidence artifacts.
+  - Scope:
+    - Promoted `website-public/assets/benchmarks/latest/benchmark-results.json` and
+      `website-public/assets/benchmarks/latest/manifest.json` as the canonical public benchmark
+      bundle consumed by Astro source data and static website output.
+    - Updated `scripts/promote_benchmark_artifact.py` so one benchmark promotion mirrors the
+      generated summary and manifest into Astro import data, Astro public assets, and committed
+      static website assets.
+    - Updated `website-src/scripts/sync-content.mjs` so benchmark import data is regenerated from
+      the committed public benchmark bundle instead of hand-maintained benchmark copy text.
+    - Added website readiness mirror-drift checks for compute-flow snapshots, benchmark summaries,
+      benchmark data snapshots, and benchmark manifests.
+    - Updated the benchmark dashboard to render current support counts and claim boundary from
+      `docs/status/runs-today-support-matrix.json` data while keeping benchmark artifacts limited to
+      timing, lane availability, and coverage interpretation.
+    - Updated benchmark publishing runbook, website README, and active phase-plan rules to prefer
+      canonical docs/generated data over duplicated support or benchmark-interpretation language.
+  - Verification:
+    - `node website-src\scripts\sync-content.mjs`
+    - `node website-src\node_modules\astro\bin\astro.mjs build`
+    - `node website-src\scripts\postbuild-static.mjs`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `python scripts\check_website_readiness.py`
+    - `node website\validate_static_assets.js`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_benchmark_constitution.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test benchmark_evidence_manifest -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test release_readiness_metadata -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test benchmark_constitution_snapshots -- --nocapture`
+    - `node website-src\node_modules\astro\bin\astro.mjs check`
+    - `git diff --check`
+  - Claim boundary:
+    - Source-of-truth and website/readiness drift prevention only. This does not refresh the stale
+      public benchmark artifact, create performance/superiority claims, expand runtime support,
+      publish packages, or unblock production, Spark, object-store, lakehouse, Foundry, or REST
+      claims.
+  - Remaining gates:
+    - Full `full_local_plus_spark` comparative refresh, broader format coverage, build/cold-warm
+      benchmark row completeness, and package/release readiness remain active `GAR-RUNTIME-IMPL-5J`
+      work.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F1 direct-transient columnar SourceState boundary
   - Date: 2026-05-23
   - Branch/PR: `compute-engine-runtime-next-27-20260521` / #916.

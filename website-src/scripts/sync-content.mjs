@@ -10,6 +10,7 @@ const docsRoot = path.join(root, "src", "content", "docs");
 const useCaseRoot = path.join(root, "src", "content", "use-cases");
 const statusRoot = path.join(root, "src", "content", "status");
 const publicDataRoot = path.join(repoRoot, "website-public", "assets", "data");
+const publicBenchmarkRoot = path.join(repoRoot, "website-public", "assets", "benchmarks", "latest");
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(path.join(dataRoot, file), "utf8"));
@@ -54,6 +55,19 @@ function syncSourceOfTruthData() {
   const useCaseJson = JSON.stringify(useCaseIndex, null, 2) + "\n";
   write(path.join(dataRoot, "use-case-index.json"), useCaseJson);
   write(path.join(publicDataRoot, "use-case-index.json"), useCaseJson);
+
+  const benchmarkEvidence = fs.readFileSync(
+    path.join(publicBenchmarkRoot, "benchmark-results.json"),
+    "utf8",
+  );
+  write(path.join(dataRoot, "benchmark-evidence.json"), benchmarkEvidence);
+  write(path.join(publicDataRoot, "benchmark-evidence.json"), benchmarkEvidence);
+
+  const benchmarkManifest = fs.readFileSync(
+    path.join(publicBenchmarkRoot, "manifest.json"),
+    "utf8",
+  );
+  write(path.join(dataRoot, "benchmark-manifest.json"), benchmarkManifest);
 }
 
 function yamlStringList(values) {

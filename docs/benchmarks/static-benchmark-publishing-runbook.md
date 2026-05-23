@@ -79,11 +79,24 @@ claim-safe public Markdown renderer is added. The website latest bundle publishe
 and website summary only, because raw benchmark Markdown can contain claim-safety language that is
 appropriate for local evidence but not for the public static site.
 
-Prepare website pages from the committed manifest:
+The promoter mirrors the same generated bundle into the Astro import data, the Astro public asset
+source, and the committed static output. Do not hand-edit those copies independently:
+
+- `website-public/assets/benchmarks/latest/manifest.json`
+- `website-public/assets/benchmarks/latest/benchmark-results.json`
+- `website-public/assets/data/benchmark-evidence.json`
+- `website-src/src/data/benchmark-manifest.json`
+- `website-src/src/data/benchmark-evidence.json`
+- `website/assets/benchmarks/latest/manifest.json`
+- `website/assets/benchmarks/latest/benchmark-results.json`
+- `website/assets/data/benchmark-evidence.json`
+
+Prepare website pages from the committed Astro source/public assets:
 
 ```powershell
-python website\build_static_pages.py `
-  --benchmark-manifest website\assets\benchmarks\latest\manifest.json
+cd website-src
+npm run build
+cd ..
 python scripts\check_benchmark_artifact_completeness.py `
   --manifest website\assets\benchmarks\latest\manifest.json
 python scripts\check_benchmark_constitution.py
@@ -92,11 +105,16 @@ node website\validate_static_assets.js
 git diff --check
 ```
 
-The committed latest bundle is expected to include:
+The committed latest bundle is expected to include matching Astro source/public/static copies:
 
 - `website/assets/benchmarks/latest/manifest.json`
 - `website/assets/benchmarks/latest/benchmark-results.json`
 - `website/assets/data/benchmark-evidence.json`
+- `website-public/assets/benchmarks/latest/manifest.json`
+- `website-public/assets/benchmarks/latest/benchmark-results.json`
+- `website-public/assets/data/benchmark-evidence.json`
+- `website-src/src/data/benchmark-manifest.json`
+- `website-src/src/data/benchmark-evidence.json`
 - `website/benchmarks.html`
 
 ## Manifest Rules
