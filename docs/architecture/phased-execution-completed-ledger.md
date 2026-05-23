@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5C multi-key local top-N runtime promotion
+  - Date: 2026-05-23
+  - Branch/PR: `compute-engine-runtime-next-31-20260523` / #924.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - User direction to prioritize actual compute-engine/runtime feature completion and avoid
+      small sliver PRs.
+    - User clarification that SQL/Python/user surfaces must stay format-neutral, with per-format
+      behavior isolated to read/ingest and write boundaries.
+  - Scope:
+    - Promoted scoped SQL local-source `ORDER BY <column> [ASC|DESC][, ...] LIMIT <n>` from a
+      single-key numeric top-N path to a multi-key numeric top-N path for projection rows and
+      joined projection rows.
+    - Added ShardLoom-native multi-key sort comparison with per-key direction handling and stable
+      input-order tie-breaking; unsupported null, non-numeric, duplicate-key, aggregate-ordering,
+      and collation/null-ordering paths still fail closed without fallback.
+    - Updated SQL local-source evidence so `sort_operator_family`, `sort_keys`, and
+      `sort_direction` report multi-key details such as `multi_key_numeric_topn`,
+      `amount,id`, and `desc,asc`.
+    - Lowered Python query-builder `.sort("a", "b", descending=...)` chains through the same
+      format-neutral `sql-local-source-smoke` runtime path instead of reporting multi-column sort
+      as unsupported.
+    - Updated Python unsupported-path coverage so sort-after-aggregate remains a deterministic
+      report-only blocker while admitted multi-key sort is executable.
+    - Refreshed the Python README and active phase-plan current-state language from single-key
+      top-N to multi-key numeric top-N for local and joined scoped workflows.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 test -p shardloom-cli parses_scoped_multi_key_order_by_topn_statement -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli runs_scoped_multi_key_order_by_topn_csv_statement -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli sql_local_source_runtime -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_multi_key_numeric_order_by_topn_without_fallback -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback -- --nocapture`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_multi_key_order_by_topn_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported`
+    - `python -m compileall -q python\src python\tests scripts benchmarks\traditional_analytics`
+    - `python -m unittest discover -s python/tests`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python scripts\check_golden_workflows.py`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-source numeric multi-key top-N only. This does not add aggregate ordering,
+      window ranking, collation/null ordering, object-store/table ordering, distributed sort,
+      production performance claims, package-publication readiness, or Spark-replacement claims.
+  - Remaining gates:
+    - Continue runtime completion on broader expression/operator parity, richer materialization
+      and output ergonomics, Vortex scan pushdown, encoded kernel pairs, session/reuse depth,
+      memory/spill safety, package-proof evidence, and production release validation.
+
 - [x] Session label: GAR-USER-SURFACE-1C Python query-builder capability parity and bounded object materialization
   - Date: 2026-05-23
   - Branch/PR: `compute-engine-runtime-next-30-20260523` / #919.
