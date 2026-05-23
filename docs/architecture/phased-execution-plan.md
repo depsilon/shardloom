@@ -1464,12 +1464,18 @@ runnable, documented, tested, and claim-safe.
     helpers also exist for scoped local workflows. Engine-native range/sequence generated sources
     now support `limit(...)`, `head(...)`, and `take(...)` bound adjustment before local writes, with
     DataFrame capability rows separating generic `write`, JSONL, and CSV evidence requirements.
-    Broad Python DataFrame joins, broad non-literal `with_column` over input-backed rows, broader
-    expression projection beyond admitted scoped families, richer outputs, and parity-like method coverage remain
+    The DataFrame method matrix now marks scoped local-source `with_column(...)`, `.join(...)`,
+    `.agg(...)`/`.aggregate(...)`, `.sort(...)`, bounded `.to_python_objects()`, bounded
+    `.schema()`/`.describe_schema()`/`.validate_schema(...)`, and bounded
+    `.data_quality_summary()`/`.data_quality_check(...)` as fixture-smoke-supported where they
+    lower through ShardLoom's shared format-neutral SQL local-source runtime. Generalized joins,
+    expression projection beyond admitted scoped families, broader data-quality rules,
+    pandas/Arrow/NumPy materialization, richer outputs, and parity-like method coverage remain
     unsupported/report-only.
   - Next slice outcome: promote DataFrame-style methods in user-value order with either runnable
-    runtime or deterministic blockers: joins, `with_column`, expression projection, schema helpers,
-    output writers, and collect/write ergonomics.
+    runtime or deterministic blockers: pandas/Arrow materialization boundaries, broader
+    data-quality rules, broader expression projection, richer output writers, and collect/write
+    ergonomics.
   - Runtime enablement: familiar DataFrame/query-builder workflows that execute through ShardLoom
     native runtime paths for admitted local inputs and outputs.
   - User-visible surface: `ctx.read_csv`, `ctx.read_json`, `ctx.read_parquet`,

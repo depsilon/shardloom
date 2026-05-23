@@ -326,6 +326,132 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_to_python_objects_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":2,\\"label\\":\\"beta\\"}\\n"},
+                        {"key": "output_row_count", "value": "1"},
+                        {"key": "selected_row_count", "value": "2"},
+                        {"key": "user_surface_runtime_scope", "value": "format_neutral_sql_frontend"},
+                        {"key": "format_specific_boundary_scope", "value": "read_adapter_and_write_sink_only"},
+                        {"key": "format_specific_compute_path", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        rows = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter(sl.col("amount") >= 10)
+            .limit(2)
+            .to_python_objects()
+        )
+
+        self.assertEqual(rows, ({"id": 2, "label": "beta"},))
+
+    def test_local_csv_query_builder_schema_quality_helpers_invoke_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label,amount FROM 'target/input.csv' WHERE amount >= 10 LIMIT 100",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\",\\"amount\\":10}\\n{\\"id\\":2,\\"label\\":null,\\"amount\\":15}\\n{\\"id\\":3,\\"label\\":\\"alpha\\",\\"amount\\":21}\\n"},
+                        {"key": "output_row_count", "value": "3"},
+                        {"key": "selected_row_count", "value": "3"},
+                        {"key": "user_surface_runtime_scope", "value": "format_neutral_sql_frontend"},
+                        {"key": "format_specific_boundary_scope", "value": "read_adapter_and_write_sink_only"},
+                        {"key": "format_specific_compute_path", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label", "amount")
+            .filter(sl.col("amount") >= 10)
+        )
+
+        schema = workflow.schema()
+        described = workflow.describe_schema()
+        validation = workflow.validate_schema(
+            {"id": "int64", "label": "string", "amount": "int64"}
+        )
+        quality_summary = workflow.data_quality_summary()
+        quality_checks = workflow.data_quality_check(
+            "not_null:id",
+            "not_null:label",
+            "unique:id",
+            "unique:label",
+        )
+
+        self.assertIsInstance(schema, sl.WorkflowSchemaReport)
+        self.assertEqual(schema.schema_map, {"id": "int64", "label": "utf8", "amount": "int64"})
+        self.assertEqual(schema.field("label").null_count, 1)
+        self.assertEqual(schema.nullable_fields, ("label",))
+        self.assertFalse(schema.fallback_attempted)
+        self.assertFalse(schema.external_engine_invoked)
+        self.assertEqual(described.field_names, ("id", "label", "amount"))
+        self.assertTrue(validation.valid)
+        self.assertEqual(validation.dtype_mismatches, ())
+        self.assertEqual(quality_summary.null_counts, {"id": 0, "label": 1, "amount": 0})
+        self.assertEqual(quality_summary.row_count, 3)
+        self.assertFalse(quality_checks.passed)
+        by_check = {result.check: result for result in quality_checks.checks}
+        self.assertTrue(by_check["not_null:id"].passed)
+        self.assertFalse(by_check["not_null:label"].passed)
+        self.assertEqual(by_check["not_null:label"].failing_row_count, 1)
+        self.assertTrue(by_check["unique:id"].passed)
+        self.assertFalse(by_check["unique:label"].passed)
+        self.assertEqual(by_check["unique:label"].failing_row_count, 1)
+
     def test_local_parquet_query_builder_collect_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -7339,7 +7465,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.to_arrow_table(),
             workflow.to_arrow_ipc(),
             workflow.to_numpy(),
-            workflow.to_python_objects(),
             workflow.with_column("date", "to_date(ts)"),
             workflow.group_by("id").agg(total="sum(amount)"),
             workflow.agg("sum(amount)"),
@@ -7354,11 +7479,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.aggregate("sum(amount)"),
             workflow.window("row_number() over (partition by id)"),
             workflow.schema_contract({"id": "int64"}),
-            workflow.schema(),
-            workflow.describe_schema(),
-            workflow.validate_schema({"id": "int64"}),
-            workflow.data_quality_check("not_null:id"),
-            workflow.data_quality_summary(),
+            workflow.data_quality_check("regex:id"),
             workflow.quarantine("bad.vortex"),
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).preview(limit=5),
             sl.read_csv("events.data", client=ShardLoomClient(binary=binary)).head(limit=5),
@@ -7370,7 +7491,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.foundry_generated_output("foundry://dataset/output"),
         )
 
-        self.assertEqual(len(reports), 39)
+        self.assertEqual(len(reports), 34)
         for report in reports:
             self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
             self.assertEqual(report.envelope.status, "unsupported")
@@ -7439,9 +7560,6 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(by_operation["sql-execute"].envelope.field_bool("runtime_required"))
         self.assertEqual(by_operation["window"].envelope.field("workflow_operation"), "window")
         self.assertFalse(by_operation["schema-contract"].envelope.field_bool("runtime_required"))
-        self.assertFalse(by_operation["schema"].envelope.field_bool("runtime_required"))
-        self.assertFalse(by_operation["describe-schema"].envelope.field_bool("runtime_required"))
-        self.assertFalse(by_operation["validate-schema"].envelope.field_bool("runtime_required"))
         self.assertFalse(by_operation["data-quality"].envelope.field_bool("runtime_required"))
         self.assertEqual(by_operation["quarantine"].envelope.field("target_ref"), "bad.vortex")
         self.assertTrue(by_operation["quarantine"].envelope.field_bool("write_required"))

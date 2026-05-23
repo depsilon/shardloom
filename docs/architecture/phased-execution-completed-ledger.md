@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-USER-SURFACE-1C Python query-builder capability parity and bounded object materialization
+  - Date: 2026-05-23
+  - Branch/PR: `compute-engine-runtime-next-30-20260523` / #919.
+  - Source:
+    - `GAR-USER-SURFACE-1C DataFrame/query-builder parity for ordinary local workflows`.
+    - User direction to postpone remaining website/benchmark work after PR #918 and focus on
+      actual compute-engine features until runtime gaps are closed.
+    - User clarification that SQL/Python/user surfaces should stay format-neutral, with
+      per-format behavior isolated to read/ingest and write boundaries.
+  - Scope:
+    - Added bounded `LazyFrame.to_python_objects()` runtime materialization for admitted
+      local-source query-builder workflows by reusing ShardLoom's existing
+      `sql-local-source-smoke` inline JSONL result and `SqlLocalSourceSmokeReport.result_rows`
+      validation.
+    - Added bounded schema, schema-description, schema-validation, data-quality summary, and
+      `not_null`/`unique` data-quality check helpers over the same local-source runtime path.
+    - Promoted the Python DataFrame method capability matrix for already-executable scoped
+      local-source `with_column(...)`, `.join(...)`, `.agg(...)`/`.aggregate(...)`, `.sort(...)`,
+      bounded `.to_python_objects()`, `.schema()`/`.describe_schema()`/
+      `.validate_schema(...)`, and `.data_quality_summary()`/`.data_quality_check(...)`
+      workflows from unsupported diagnostics to `fixture_smoke_supported` rows with
+      method-specific evidence requirements.
+    - Centralized the repeated local query-builder claim-boundary language in shared capability
+      constants so user/agent capability discovery describes the format-neutral runtime once.
+    - Kept unsupported variations deterministic: unbounded materialization, unsupported joins,
+      unsupported data-quality rule syntax, pandas/Arrow/NumPy conversions, notebook display, and
+      object-store/table paths still route through explicit no-fallback unsupported diagnostics.
+    - Refreshed the Python README and phase-plan wording so user-facing method discovery no
+      longer reports already-runnable scoped local workflows as globally blocked.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_to_python_objects_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_schema_quality_helpers_invoke_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_missing_dataframe_affordances_return_report_only_unsupported`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+    - `python -m compileall -q python\src python\tests scripts benchmarks\traditional_analytics`
+    - `python -m unittest discover -s python/tests`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python scripts\check_golden_workflows.py`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-source Python query-builder parity and bounded object materialization only.
+      This does not make pandas/Arrow/NumPy materialization, schema/data-quality helpers,
+      object-store/table sources, broad SQL/DataFrame runtime, distributed execution, production,
+      performance, package-publication, or Spark-replacement claims.
+  - Remaining gates:
+    - Complete pandas/Arrow materialization boundaries, broader data-quality rules, broader
+      expression/operator coverage, richer output writers, Vortex-native pushdown/kernel coverage,
+      session/reuse depth, and production release evidence remain active in the phase plan.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5J prepare-batch benchmark coverage and production gate refresh
   - Date: 2026-05-23
   - Branch/PR: `compute-engine-runtime-next-29-20260523` / #918.
