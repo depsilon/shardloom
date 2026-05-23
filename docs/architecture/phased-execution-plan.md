@@ -789,7 +789,7 @@ or documentation updates alone are insufficient.
     readiness, release readiness.
   - Non-goals: no production REST service, daemon, broker/state-store runtime, remote workers,
     distributed claim, or exactly-once claim.
-  - Claim boundary: fixture/local control-plane technical preview only.
+  - Claim boundary: fixture/local control-plane proof only.
   - Fallback boundary: remote APIs cannot trigger external compute.
   - Dependencies/blockers: lifecycle/security policy, evidence envelope, local API schema,
     loopback-only network guard, and distributed blocker diagnostics.
@@ -824,12 +824,13 @@ or documentation updates alone are insufficient.
     fixture data, and dependency/license review.
   - Ledger rule: ledger entry must separate admitted local behaviors from denied effects.
 
-- [ ] GAR-RUNTIME-IMPL-4S clean install public technical-preview usability gate
+- [ ] GAR-RUNTIME-IMPL-4S clean install production usability and release rehearsal gate
   - Source: public preview readiness, package-channel matrix, website
     readiness, Use Case Atlas.
-  - Current state: runtime slices are being promoted incrementally; final public usability still
-    requires clean install proof, docs/website parity, examples, benchmark evidence, and claim gates.
-  - Next slice outcome: run a no-publication technical-preview rehearsal from clean checkout or
+  - Current state: runtime slices are being promoted incrementally; production usability still
+    requires complete runtime coverage, clean install proof, docs/website parity, examples, current
+    benchmark evidence, and claim gates. A preview posture is not the target state.
+  - Next slice outcome: run a no-publication production-readiness rehearsal from clean checkout or
     local package artifact through CLI/Python workflows, unsupported diagnostics, benchmarks,
     website/status, security/legal, and release metadata.
   - Runtime enablement: end-to-end usability validator proving admitted runtime paths from clean
@@ -843,9 +844,11 @@ or documentation updates alone are insufficient.
     unsupported paths without reading phase-plan internals.
   - Verification: clean venv smoke, cargo fmt/clippy/tests, Python compileall/tests, website
     readiness, static asset validation, benchmark artifact completeness, `git diff --check`.
-  - Non-goals: no public package upload, tag, production/platform/performance claim, Spark
-    replacement claim, object-store/lakehouse/Foundry production claim, or hidden fast mode.
-  - Claim boundary: public technical preview only with workload-scoped claims.
+  - Non-goals: no public package upload or release tag without explicit human approval; no
+    production/platform/performance/Spark-replacement claim until all matching runtime and evidence
+    gates pass; no hidden fast mode.
+  - Claim boundary: production readiness requires complete runtime coverage and workload-scoped
+    evidence. Do not substitute a technical-preview target for the production engine goal.
   - Fallback boundary: release gates must fail if any supported workflow uses external fallback.
   - Dependencies/blockers: completion of admitted runtime slices, clean install script, docs/website
     parity, benchmark artifact policy, and security/legal checks.
@@ -1155,11 +1158,14 @@ docs/website parity, and a completed-ledger entry.
     current public benchmark artifact is `full_local` and therefore shows CSV/Parquet comparative
     rows without Spark profile rows; the website must keep `spark-default` and
     `spark-local-tuned` visible as `full_local_plus_spark` lanes even when the current artifact did
-    not request them. Current promoted rows also still include ShardLoom `blocked`,
-    `fixture_smoke_only`, and external `external_baseline_only` rows, and the main artifact lacks
-    broad-format JSONL/Arrow IPC/Avro/ORC comparative coverage. Benchmark pages must also pull
-    current support and claim-boundary context from generated status/evidence data instead of
-    carrying their own explanatory copy.
+    not request them. The benchmark registry and release gate now require `shardloom-prepare-batch`
+    for full local published profiles, and the current promoted `full_local` artifact includes the
+    ShardLoom cold route, prepared route, single-process prepare/batch route, native Vortex route,
+    and local comparison baselines across CSV/Parquet required scenarios. Current promoted rows
+    still include ShardLoom `blocked`, `fixture_smoke_only`, and external `external_baseline_only`
+    rows, and the main artifact lacks broad-format JSONL/Arrow IPC/Avro/ORC comparative coverage.
+    Benchmark pages must also pull current support and claim-boundary context from generated
+    status/evidence data instead of carrying their own explanatory copy.
   - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
     promoted runtime path and block stale or incomplete public claims. The next public comparative
     refresh should run or explicitly gate `full_local_plus_spark`, include Spark lane availability,
@@ -1175,7 +1181,7 @@ docs/website parity, and a completed-ledger entry.
     refs, certificate refs, no-fallback fields, claim gate, Spark lane availability, format
     coverage, and source-state/prepared-state coverage.
   - Acceptance: promoted paths are not presented publicly without current evidence; missing
-    required lanes/scenarios are visible and block claim-grade status; Spark lanes are visible in
+    required lanes/scenarios/formats are visible and block claim-grade status; Spark lanes are visible in
     artifact lane availability; broad formats are visible as available or missing; prepared/native
     source-state coverage is rendered from batch evidence instead of a misleading scalar count; the
     raw comparative roster renders all promoted rows, not a sample; the main ShardLoom comparative
@@ -1216,7 +1222,7 @@ docs/website parity, and a completed-ledger entry.
     readiness, website status checks.
   - Non-goals: no object-store write, table commit, production object-store claim, or managed
     platform claim.
-  - Claim boundary: provider/profile-specific technical-preview read proof only.
+  - Claim boundary: provider/profile-specific read proof only.
   - Fallback boundary: storage provider access does not authorize external query execution.
   - Dependencies/blockers: security/effect policy, provider test harness, dependency/license review,
     emulator or public no-credential fixture.
@@ -1297,7 +1303,7 @@ docs/website parity, and a completed-ledger entry.
     readiness, release readiness.
   - Non-goals: no production REST service, daemon, broker/state-store runtime, remote workers,
     distributed claim, or exactly-once claim.
-  - Claim boundary: fixture/local control-plane technical preview only.
+  - Claim boundary: fixture/local control-plane proof only.
   - Fallback boundary: remote APIs cannot trigger external compute.
   - Dependencies/blockers: lifecycle/security policy, evidence envelope, local API schema,
     loopback-only network guard, distributed blocker diagnostics.
@@ -1358,16 +1364,16 @@ docs/website parity, and a completed-ledger entry.
   - Dependencies/blockers: local package proof, generated-source runtime, output evidence writer.
   - Ledger rule: ledger entry must include proof commands, output/evidence refs, and blocked claims.
 
-- [ ] GAR-RUNTIME-IMPL-5Q final public technical-preview usability and website learning gate
-  - Source: `GAR-RUNTIME-IMPL-4S`, `GAR-DOCS-1`, `GAR-WEB-ATLAS-1`, public-preview readiness,
+- [ ] GAR-RUNTIME-IMPL-5Q final production usability and website learning gate
+  - Source: `GAR-RUNTIME-IMPL-4S`, `GAR-DOCS-1`, `GAR-WEB-ATLAS-1`, public-readiness,
     package-channel matrix.
   - Current state: repo, website, and docs are strong, but final usability requires clean install
     proof, examples, website/status parity, benchmark interpretation, security/legal/release checks,
     and a non-expert learning path after runtime slices land.
-  - Next slice outcome: run a no-publication technical-preview rehearsal from clean checkout/local
+  - Next slice outcome: run a no-publication production-readiness rehearsal from clean checkout/local
     artifact through CLI/Python workflows, unsupported diagnostics, benchmarks, website/status,
     SECURITY/LICENSE/NOTICE checks, and release metadata.
-  - Runtime enablement: final technical-preview usability validator across install, examples,
+  - Runtime enablement: final production usability validator across install, examples,
     runtime evidence, unsupported diagnostics, and website learning paths.
   - User-visible surface: README, docs/getting-started, website Field Guide/Use Case Atlas/status,
     package metadata, release report.
@@ -1381,9 +1387,11 @@ docs/website parity, and a completed-ledger entry.
     state without overclaiming.
   - Verification: clean venv smoke, cargo fmt/clippy/tests, Python compileall/tests, website
     readiness, static asset validation, benchmark artifact completeness, `git diff --check`.
-  - Non-goals: no public package upload, tag, production/platform/performance claim, Spark
-    replacement claim, object-store/lakehouse/Foundry production claim, or hidden fast mode.
-  - Claim boundary: public technical preview only with workload-scoped claims.
+  - Non-goals: no public package upload or release tag without explicit human approval; no
+    production/platform/performance/Spark-replacement claim until all matching runtime and evidence
+    gates pass; no hidden fast mode.
+  - Claim boundary: production readiness requires complete runtime coverage and workload-scoped
+    evidence. Do not substitute a technical-preview target for the production engine goal.
   - Fallback boundary: release gates fail if any supported workflow uses external fallback.
   - Dependencies/blockers: completion of admitted runtime slices, docs/website parity, benchmark
     artifact policy, security/legal checks.
@@ -1482,7 +1490,7 @@ runnable, documented, tested, and claim-safe.
     support, local join/runtime expansion, and broad SQL/DataFrame claim gates.
   - Non-goals: no pandas/Polars backend, Spark-compatible DataFrame API promise, notebook
     production claim, full SQL optimizer parity, or performance claim.
-  - Claim boundary: method-by-method local technical-preview support only.
+  - Claim boundary: method-by-method scoped local runtime support only until production evidence is complete.
   - Fallback boundary: DataFrame methods must lower to ShardLoom runtime or deterministic blockers.
   - Ledger rule: ledger entry must include method support table, runnable examples, and blockers.
 
@@ -1491,7 +1499,7 @@ runnable, documented, tested, and claim-safe.
     `GAR-RUNTIME-IMPL-5Q`.
   - Current state: local source-tree and editable Python usage are documented, but public package
     publication is not complete and a non-expert install/import/run path still needs final proof.
-  - Next slice outcome: provide a clean local technical-preview path from install to import to first
+  - Next slice outcome: provide a clean local path from install to import to first
     SQL/DataFrame/generated-source workflow without reading architecture docs.
   - Runtime enablement: local install/import proof that reaches admitted runtime workflows and
     returns evidence.
@@ -1509,7 +1517,7 @@ runnable, documented, tested, and claim-safe.
   - Dependencies/blockers: local wheel/source checkout proof, binary resolution stability, package
     channel readiness matrix, and release security gates for any public package publication.
   - Non-goals: no PyPI/TestPyPI/conda/Homebrew publication unless release gates separately pass.
-  - Claim boundary: local technical-preview install/import proof only.
+  - Claim boundary: local install/import proof only until production evidence is complete.
   - Fallback boundary: install helpers must not install or invoke fallback engines.
   - Ledger rule: ledger entry must include clean-environment commands and outputs.
 
@@ -1547,9 +1555,9 @@ runnable, documented, tested, and claim-safe.
 
 - [ ] GAR-USER-SURFACE-1F PySpark-like surface completion validator
   - Source: this `GAR-USER-SURFACE-1` bundle, `GAR-RUNTIME-IMPL-5Q`, Use Case Atlas, public
-    technical-preview readiness, Python capability matrix.
+    production-readiness posture, Python capability matrix.
   - Current state: individual runtime slices can land without a single final validator answering
-    whether the Python/SQL surface is simple and complete enough for technical-preview users.
+    whether the Python/SQL surface is simple and complete enough for production users.
   - Next slice outcome: add a completion gate that checks the import/context/session/SQL/DataFrame/
     generated-output path against the public usability target.
   - Runtime enablement: release/usability validator that blocks a PySpark-like simplicity claim

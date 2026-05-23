@@ -503,6 +503,7 @@ fn dependency_audit_scaffolding_documents_policy_and_tools() {
         "python scripts/check_package_channel_readiness.py",
         "feature/build matrix execution evidence",
         "typed_envelope_compatibility",
+        "shardloom-prepare-batch",
         "cargo fmt --all -- --check",
         "cargo clippy --workspace --all-targets -- -D warnings",
         "cargo test --workspace --all-targets",
@@ -1295,6 +1296,7 @@ fn hard_release_readiness_gate_docs_are_present() {
         "shardloom.package_channel_readiness_matrix.v1",
         "python scripts\\check_package_channel_readiness.py",
         "target/package-channel-readiness-report.json",
+        "shardloom-prepare-batch",
         "Trusted Publisher/OIDC",
         "Internal Rust crates remain unpublished",
         "shardloom.publication_api_schema_stability_gate.v1",
@@ -2312,9 +2314,7 @@ fn golden_workflow_validator_is_wired_into_release_readiness() {
     let hard_gate = read_repo_file("docs/release/hard-release-readiness-gate.md");
     assert!(hard_gate.contains("shardloom.golden_workflow_validation_report.v1"));
     assert!(hard_gate.contains("target/golden-workflow-report.json"));
-    assert!(
-        hard_gate.contains("runtime_support_claim=local_technical_preview_workflow_proof_only")
-    );
+    assert!(hard_gate.contains("runtime_support_claim=local_runtime_workflow_proof_only"));
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] REVIEW-RUNTIME-1 three golden workflow validator"));

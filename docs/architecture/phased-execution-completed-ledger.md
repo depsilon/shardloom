@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5J prepare-batch benchmark coverage and production gate refresh
+  - Date: 2026-05-23
+  - Branch/PR: `compute-engine-runtime-next-29-20260523` / #918.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate`.
+    - User guidance that benchmark/comparison results were missing critical ShardLoom runtime
+      lanes.
+    - User clarification that the target is full runtime/production readiness, not a technical
+      preview package.
+  - Scope:
+    - Promoted `shardloom-prepare-batch` to a first-class ShardLoom benchmark lane covering the
+      single-process `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState ->
+      prepared_vortex batch` route.
+    - Required `shardloom-prepare-batch` for `full_local`, `full_local_plus_spark`,
+      `extended_local`, and `io_reuse_and_fanout` benchmark profiles while keeping it optional for
+      smoke runs.
+    - Updated the benchmark runner's default and claim-readiness engine order so prepared, native,
+      and prepare-batch ShardLoom rows are not omitted from current reruns.
+    - Tightened benchmark artifact completeness validation to block missing profile-required
+      formats, scenarios, and row evidence in promoted artifacts.
+    - Tightened the hard release readiness gate so full/extended benchmark manifests must include
+      `shardloom`, `shardloom-prepared-vortex`, `shardloom-prepare-batch`, and
+      `shardloom-vortex` in both expected and available lane metadata, and so the gate reuses the
+      canonical benchmark artifact completeness validator for required formats/scenarios/row
+      evidence.
+    - Renamed the golden-workflow release-gate vocabulary from local technical-preview proof to
+      local runtime proof so active release metadata does not substitute a preview target for
+      production readiness.
+    - Reran and promoted the current `full_local` core benchmark artifact with cold ShardLoom,
+      prepared Vortex, single-process prepare/batch, native Vortex, and local comparison baseline
+      rows across CSV/Parquet required scenarios.
+    - Updated the phase plan, benchmark catalog, compute-flow reference, and hard release gate to
+      keep the production target explicit while preserving blocked claims until runtime and evidence
+      gates pass.
+  - Verification:
+    - `node website-src\scripts\sync-content.mjs`
+    - `node website-src\node_modules\astro\bin\astro.mjs build`
+    - `node website-src\scripts\postbuild-static.mjs`
+    - `node website\validate_static_assets.js`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_benchmark_constitution.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python -m py_compile benchmarks\traditional_analytics\benchmark_registry.py benchmarks\traditional_analytics\run.py scripts\check_benchmark_artifact_completeness.py scripts\check_release_readiness.py scripts\check_golden_workflows.py`
+    - `python -m compileall -q python\src python\tests scripts benchmarks\traditional_analytics`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test traditional_benchmark_harness --test release_readiness_metadata --test benchmark_evidence_manifest -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test benchmark_constitution_snapshots -- --nocapture`
+    - `node website-src\node_modules\astro\bin\astro.mjs check`
+    - `git diff --check`
+  - Claim boundary:
+    - Benchmark and release-gate evidence coverage only. This does not make performance,
+      superiority, production, Spark-replacement, object-store, lakehouse, Foundry, distributed, or
+      package-publication claims.
+  - Remaining gates:
+    - Complete runtime coverage, broad-format JSONL/Arrow IPC/Avro/ORC comparative evidence,
+      `full_local_plus_spark` baseline availability, claim-grade iteration counts, package-channel
+      proof, final release rehearsal, and remaining production runtime items stay active in the
+      phase plan.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5H/5J benchmark website evidence source-of-truth mirrors
   - Date: 2026-05-23
   - Branch/PR: `compute-engine-runtime-next-28-20260523` / #917.

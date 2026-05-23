@@ -105,6 +105,42 @@ def lane_evidence_counts(payload: dict[str, Any]) -> Counter[str]:
     return counts
 
 
+def promoted_artifact_metadata(payload: dict[str, Any]) -> dict[str, Any]:
+    metadata = payload.get("published_benchmark_artifact")
+    return metadata if isinstance(metadata, dict) else payload
+
+
+def validate_profile_scope(
+    payload: dict[str, Any],
+    profile: str,
+    blockers: list[str],
+) -> None:
+    metadata = promoted_artifact_metadata(payload)
+    profile_def = PROFILES[profile]
+    format_order = {
+        str(item)
+        for item in metadata.get("format_order", [])
+        if isinstance(item, str)
+    }
+    scenario_order: set[str] = set()
+    for item in metadata.get("scenario_order", []):
+        if not isinstance(item, str):
+            continue
+        scenario_order.add(item)
+        if ": " in item:
+            scenario_order.add(item.split(": ", 1)[1])
+    missing_formats = sorted(set(profile_def.required_formats) - format_order)
+    missing_scenarios = sorted(set(profile_def.required_scenarios) - scenario_order)
+    if missing_formats:
+        blockers.append(
+            f"published artifact is missing profile-required formats: {missing_formats}"
+        )
+    if missing_scenarios:
+        blockers.append(
+            f"published artifact is missing profile-required scenarios: {missing_scenarios}"
+        )
+
+
 def recursive_text_contains(value: Any, needle: str) -> bool:
     if isinstance(value, str):
         return needle in value
@@ -212,6 +248,7 @@ def validate_manifest(manifest_path: Path, allow_incomplete: bool) -> tuple[list
             payload = load_json(json_path)
             if isinstance(payload, dict):
                 validate_rows(payload, blockers)
+                validate_profile_scope(payload, profile, blockers)
                 if recursive_text_contains(payload, "spark-retire"):
                     blockers.append(
                         "published benchmark artifact must not reference spark-retire"

@@ -57,6 +57,15 @@ LANES: dict[str, Lane] = {
         external_baseline_only=False,
         availability_hint="workspace-local prepared Vortex benchmark lane",
     ),
+    "shardloom-prepare-batch": Lane(
+        "shardloom-prepare-batch",
+        "shardloom",
+        external_baseline_only=False,
+        availability_hint=(
+            "workspace-local single-process compatibility prepare plus prepared/native "
+            "batch benchmark lane"
+        ),
+    ),
     "shardloom-vortex": Lane(
         "shardloom-vortex",
         "shardloom",
@@ -145,7 +154,12 @@ PROFILES: dict[str, BenchmarkProfile] = {
     "smoke": BenchmarkProfile(
         name="smoke",
         required_lanes=("shardloom",),
-        optional_lanes=("shardloom-prepared-vortex", "shardloom-vortex", "native-vortex"),
+        optional_lanes=(
+            "shardloom-prepared-vortex",
+            "shardloom-prepare-batch",
+            "shardloom-vortex",
+            "native-vortex",
+        ),
         required_formats=("csv",),
         optional_formats=("parquet",),
         required_scenarios=("selective filter",),
@@ -159,6 +173,7 @@ PROFILES: dict[str, BenchmarkProfile] = {
         required_lanes=(
             "shardloom",
             "shardloom-prepared-vortex",
+            "shardloom-prepare-batch",
             "shardloom-vortex",
             "pandas",
             "polars-eager",
@@ -192,6 +207,7 @@ PROFILES: dict[str, BenchmarkProfile] = {
         required_lanes=(
             "shardloom",
             "shardloom-prepared-vortex",
+            "shardloom-prepare-batch",
             "shardloom-vortex",
             "pandas",
             "polars-eager",
@@ -222,6 +238,7 @@ PROFILES: dict[str, BenchmarkProfile] = {
         required_lanes=(
             "shardloom",
             "shardloom-prepared-vortex",
+            "shardloom-prepare-batch",
             "shardloom-vortex",
         ),
         optional_lanes=(
@@ -274,7 +291,7 @@ PROFILES: dict[str, BenchmarkProfile] = {
     ),
     "io_reuse_and_fanout": BenchmarkProfile(
         name="io_reuse_and_fanout",
-        required_lanes=("shardloom", "shardloom-prepared-vortex"),
+        required_lanes=("shardloom", "shardloom-prepared-vortex", "shardloom-prepare-batch"),
         optional_lanes=("shardloom-vortex", "native-vortex"),
         required_formats=("csv", "parquet", "vortex"),
         optional_formats=("jsonl", "arrow-ipc", "avro", "orc"),
