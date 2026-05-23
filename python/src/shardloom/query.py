@@ -8,7 +8,7 @@ import math
 import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Mapping, Sequence, cast
+from typing import Any, Mapping, Sequence, cast
 from urllib.parse import quote
 
 from .client import (
@@ -1476,6 +1476,194 @@ class UnsupportedWorkflowOperationReport:
 
 
 @dataclass(frozen=True, slots=True)
+class WorkflowSchemaField:
+    """Observed schema field for a bounded ShardLoom local-source workflow."""
+
+    name: str
+    dtype: str
+    nullable: bool
+    declared_dtype: str | None
+    observed_non_null_count: int
+    null_count: int
+
+    @property
+    def observed_row_count(self) -> int:
+        """Return rows observed while inferring this field."""
+
+        return self.observed_non_null_count + self.null_count
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowSchemaReport:
+    """Schema report backed by an admitted local-source runtime smoke."""
+
+    workflow: "LazyFrame"
+    smoke_report: SqlLocalSourceSmokeReport
+    fields: tuple[WorkflowSchemaField, ...]
+
+    @property
+    def field_names(self) -> tuple[str, ...]:
+        """Return schema field names in stable observed order."""
+
+        return tuple(field.name for field in self.fields)
+
+    @property
+    def schema_map(self) -> dict[str, str]:
+        """Return a field-to-dtype mapping."""
+
+        return {field.name: field.dtype for field in self.fields}
+
+    @property
+    def nullable_fields(self) -> tuple[str, ...]:
+        """Return fields observed with null or missing values."""
+
+        return tuple(field.name for field in self.fields if field.nullable)
+
+    @property
+    def observed_row_count(self) -> int:
+        """Return the bounded row count used for schema discovery."""
+
+        return len(self.smoke_report.result_rows)
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether schema discovery attempted fallback execution."""
+
+        return self.smoke_report.fallback_attempted
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether schema discovery invoked an external execution engine."""
+
+        return self.smoke_report.external_engine_invoked
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the claim-gate status of the backing runtime smoke."""
+
+        return self.smoke_report.claim_gate_status
+
+    @property
+    def evidence_summary(self) -> EvidenceSummary:
+        """Return compact evidence from the backing runtime smoke."""
+
+        return self.smoke_report.evidence_summary
+
+    def field(self, name: str) -> WorkflowSchemaField:
+        """Return one schema field by name."""
+
+        for field in self.fields:
+            if field.name == name:
+                return field
+        raise KeyError(f"schema field {name!r} was not observed")
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowSchemaMismatch:
+    """One schema validation mismatch."""
+
+    field: str
+    expected_dtype: str
+    observed_dtype: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowSchemaValidationReport:
+    """Validation report for an expected schema against observed ShardLoom rows."""
+
+    schema_report: WorkflowSchemaReport
+    expected_schema: tuple[tuple[str, str], ...]
+    missing_fields: tuple[str, ...]
+    unexpected_fields: tuple[str, ...]
+    dtype_mismatches: tuple[WorkflowSchemaMismatch, ...]
+
+    @property
+    def valid(self) -> bool:
+        """Whether the observed schema satisfies the expected schema exactly."""
+
+        return not self.missing_fields and not self.unexpected_fields and not self.dtype_mismatches
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether validation attempted fallback execution."""
+
+        return self.schema_report.fallback_attempted
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether validation invoked an external execution engine."""
+
+        return self.schema_report.external_engine_invoked
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the claim-gate status of the backing runtime smoke."""
+
+        return self.schema_report.claim_gate_status
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowDataQualityCheckResult:
+    """Result for one bounded data-quality check."""
+
+    check: str
+    column: str
+    passed: bool
+    failing_row_count: int
+    message: str
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowDataQualityReport:
+    """Bounded data-quality summary over an admitted local-source workflow."""
+
+    schema_report: WorkflowSchemaReport
+    checks: tuple[WorkflowDataQualityCheckResult, ...] = ()
+
+    @property
+    def row_count(self) -> int:
+        """Return the bounded row count inspected by the report."""
+
+        return self.schema_report.observed_row_count
+
+    @property
+    def field_count(self) -> int:
+        """Return the number of observed fields."""
+
+        return len(self.schema_report.fields)
+
+    @property
+    def null_counts(self) -> dict[str, int]:
+        """Return observed null-or-missing counts by field."""
+
+        return {field.name: field.null_count for field in self.schema_report.fields}
+
+    @property
+    def passed(self) -> bool:
+        """Whether every requested data-quality check passed."""
+
+        return all(check.passed for check in self.checks)
+
+    @property
+    def fallback_attempted(self) -> bool:
+        """Whether data-quality reporting attempted fallback execution."""
+
+        return self.schema_report.fallback_attempted
+
+    @property
+    def external_engine_invoked(self) -> bool:
+        """Whether data-quality reporting invoked an external execution engine."""
+
+        return self.schema_report.external_engine_invoked
+
+    @property
+    def claim_gate_status(self) -> str | None:
+        """Return the claim-gate status of the backing runtime smoke."""
+
+        return self.schema_report.claim_gate_status
+
+
+@dataclass(frozen=True, slots=True)
 class LazyFrame:
     """A lazy ShardLoom workflow plan.
 
@@ -1823,9 +2011,15 @@ class LazyFrame:
 
         return self._unsupported_operation("to-numpy", check=check)
 
-    def to_python_objects(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for Python-object materialization."""
+    def to_python_objects(
+        self,
+        *,
+        check: bool = False,
+    ) -> tuple[Mapping[str, Any], ...] | UnsupportedWorkflowOperationReport:
+        """Return bounded Python row objects for admitted local-source workflows."""
 
+        if statement := self._sql_local_source_statement():
+            return self.client.sql_local_source_smoke(statement, check=check).result_rows
         return self._unsupported_operation("to-python-objects", check=check)
 
     def write_vortex(
@@ -1992,14 +2186,26 @@ class LazyFrame:
         target = ",".join(f"{name}:{dtype}" for name, dtype in normalized)
         return self._unsupported_operation("schema-contract", target, check=check)
 
-    def schema(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for workflow schema discovery."""
+    def schema(
+        self,
+        *,
+        check: bool = False,
+    ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
+        """Return a bounded schema report for admitted local-source workflows."""
 
+        if report := self._bounded_schema_report(check=check):
+            return report
         return self._unsupported_operation("schema", check=check)
 
-    def describe_schema(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for rich schema description."""
+    def describe_schema(
+        self,
+        *,
+        check: bool = False,
+    ) -> WorkflowSchemaReport | UnsupportedWorkflowOperationReport:
+        """Return detailed bounded schema evidence for admitted local-source workflows."""
 
+        if report := self._bounded_schema_report(check=check):
+            return report
         return self._unsupported_operation("describe-schema", check=check)
 
     def validate_schema(
@@ -2007,12 +2213,14 @@ class LazyFrame:
         schema: Mapping[str, object],
         *,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for workflow schema validation."""
+    ) -> WorkflowSchemaValidationReport | UnsupportedWorkflowOperationReport:
+        """Validate an expected schema against admitted local-source rows."""
 
         normalized = _normalize_schema(schema)
         if not normalized:
             raise ValueError("schema validation contract must not be empty")
+        if report := self._bounded_schema_report(check=check):
+            return _validate_workflow_schema(report, normalized)
         target = ",".join(f"{name}:{dtype}" for name, dtype in normalized)
         return self._unsupported_operation("validate-schema", target, check=check)
 
@@ -2020,12 +2228,17 @@ class LazyFrame:
         self,
         *checks: object,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for data-quality checks."""
+    ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
+        """Run bounded data-quality checks for admitted local-source workflows."""
 
+        normalized_checks = _normalize_columns(checks)
+        parsed_checks = _parse_data_quality_checks(normalized_checks)
+        if parsed_checks is not None:
+            if report := self._bounded_schema_report(check=check):
+                return _workflow_data_quality_report(report, parsed_checks)
         return self._unsupported_operation(
             "data-quality",
-            ",".join(_normalize_columns(checks)),
+            ",".join(normalized_checks),
             check=check,
         )
 
@@ -2033,14 +2246,20 @@ class LazyFrame:
         self,
         *checks: object,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Alias for data-quality check unsupported reporting."""
+    ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
+        """Alias for bounded data-quality checks."""
 
         return self.data_quality_check(*checks, check=check)
 
-    def data_quality_summary(self, *, check: bool = False) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for data-quality summary output."""
+    def data_quality_summary(
+        self,
+        *,
+        check: bool = False,
+    ) -> WorkflowDataQualityReport | UnsupportedWorkflowOperationReport:
+        """Return bounded null-count and schema summary for admitted workflows."""
 
+        if report := self._bounded_schema_report(check=check):
+            return WorkflowDataQualityReport(schema_report=report)
         return self._unsupported_operation("data-quality-summary", check=check)
 
     def quarantine(
@@ -2209,6 +2428,13 @@ class LazyFrame:
                 return False
         return saw_projection
 
+    def _bounded_schema_report(self, *, check: bool) -> WorkflowSchemaReport | None:
+        statement = self._sql_local_source_statement(default_limit=100)
+        if statement is None:
+            return None
+        smoke_report = self.client.sql_local_source_smoke(statement, check=check)
+        return _workflow_schema_report(self, smoke_report)
+
     def _append_group_by_aggregate(
         self,
         columns: tuple[str, ...],
@@ -2225,7 +2451,7 @@ class LazyFrame:
             engine_mode=self.engine_mode,
         )
 
-    def _sql_local_source_statement(self) -> str | None:
+    def _sql_local_source_statement(self, *, default_limit: int | None = None) -> str | None:
         if not _is_query_builder_local_source(self.source):
             return None
         projection_list: tuple[str, ...] | None = None
@@ -2258,7 +2484,9 @@ class LazyFrame:
             else:
                 return None
         if limit is None:
-            return None
+            if default_limit is None:
+                return None
+            limit = str(default_limit)
         if group_by_list is not None and aggregate_list is None:
             return None
         if join_info is not None:
@@ -4462,6 +4690,219 @@ def _optional_sql_where_clause(predicate: str | None) -> str:
     if predicate is None:
         return ""
     return f" WHERE {predicate}"
+
+
+def _workflow_schema_report(
+    workflow: LazyFrame,
+    smoke_report: SqlLocalSourceSmokeReport,
+) -> WorkflowSchemaReport:
+    rows = smoke_report.result_rows
+    fields = _infer_workflow_schema_fields(rows, workflow.source.schema)
+    return WorkflowSchemaReport(workflow=workflow, smoke_report=smoke_report, fields=fields)
+
+
+def _infer_workflow_schema_fields(
+    rows: tuple[Mapping[str, Any], ...],
+    declared_schema: tuple[tuple[str, str], ...],
+) -> tuple[WorkflowSchemaField, ...]:
+    declared = {name: dtype for name, dtype in declared_schema}
+    field_order: list[str] = []
+    for name, _dtype in declared_schema:
+        if name not in field_order:
+            field_order.append(name)
+    for row in rows:
+        for name in row:
+            if name not in field_order:
+                field_order.append(name)
+
+    fields: list[WorkflowSchemaField] = []
+    for name in field_order:
+        values = [row.get(name) for row in rows]
+        non_null_values = [value for value in values if value is not None]
+        observed_dtype = _merge_observed_dtypes(
+            _infer_python_scalar_dtype(value) for value in non_null_values
+        )
+        declared_dtype = declared.get(name)
+        dtype = observed_dtype or _normalize_schema_dtype_token(declared_dtype) or "null"
+        null_count = len(rows) - len(non_null_values)
+        fields.append(
+            WorkflowSchemaField(
+                name=name,
+                dtype=dtype,
+                nullable=null_count > 0,
+                declared_dtype=declared_dtype,
+                observed_non_null_count=len(non_null_values),
+                null_count=null_count,
+            )
+        )
+    return tuple(fields)
+
+
+def _infer_python_scalar_dtype(value: object) -> str:
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int64"
+    if isinstance(value, float):
+        return "float64"
+    if isinstance(value, str):
+        return "utf8"
+    if value is None:
+        return "null"
+    return "json"
+
+
+def _merge_observed_dtypes(dtypes: Sequence[str]) -> str | None:
+    unique = tuple(dict.fromkeys(dtype for dtype in dtypes if dtype != "null"))
+    if not unique:
+        return None
+    if len(unique) == 1:
+        return unique[0]
+    if set(unique) <= {"int64", "float64"}:
+        return "float64"
+    return "mixed"
+
+
+def _normalize_schema_dtype_token(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower().replace("-", "_")
+    aliases = {
+        "boolean": "bool",
+        "bool": "bool",
+        "int": "int64",
+        "integer": "int64",
+        "i64": "int64",
+        "int64": "int64",
+        "long": "int64",
+        "float": "float64",
+        "double": "float64",
+        "f64": "float64",
+        "float64": "float64",
+        "str": "utf8",
+        "string": "utf8",
+        "utf8": "utf8",
+        "date": "date32",
+        "date32": "date32",
+        "timestamp": "timestamp_micros",
+        "timestamp_micros": "timestamp_micros",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _validate_workflow_schema(
+    report: WorkflowSchemaReport,
+    expected_schema: tuple[tuple[str, str], ...],
+) -> WorkflowSchemaValidationReport:
+    observed = report.schema_map
+    expected = {
+        name: _normalize_schema_dtype_token(dtype) or dtype
+        for name, dtype in expected_schema
+    }
+    missing_fields = tuple(name for name in expected if name not in observed)
+    unexpected_fields = tuple(name for name in observed if name not in expected)
+    mismatches: list[WorkflowSchemaMismatch] = []
+    for name, expected_dtype in expected.items():
+        observed_dtype = observed.get(name)
+        if observed_dtype is not None and observed_dtype != expected_dtype:
+            mismatches.append(
+                WorkflowSchemaMismatch(
+                    field=name,
+                    expected_dtype=expected_dtype,
+                    observed_dtype=observed_dtype,
+                )
+            )
+    return WorkflowSchemaValidationReport(
+        schema_report=report,
+        expected_schema=expected_schema,
+        missing_fields=missing_fields,
+        unexpected_fields=unexpected_fields,
+        dtype_mismatches=tuple(mismatches),
+    )
+
+
+def _parse_data_quality_checks(
+    checks: tuple[str, ...],
+) -> tuple[tuple[str, str, str], ...] | None:
+    if not checks:
+        raise ValueError("data-quality checks must not be empty")
+    parsed: list[tuple[str, str, str]] = []
+    for check in checks:
+        parts = check.split(":", 1)
+        if len(parts) != 2:
+            return None
+        kind = parts[0].strip().lower().replace("-", "_").replace(" ", "_")
+        column = parts[1].strip()
+        if not column:
+            return None
+        if kind in {"not_null", "non_null", "required"}:
+            parsed.append(("not_null", column, check))
+        elif kind == "unique":
+            parsed.append(("unique", column, check))
+        else:
+            return None
+    return tuple(parsed)
+
+
+def _workflow_data_quality_report(
+    schema_report: WorkflowSchemaReport,
+    checks: tuple[tuple[str, str, str], ...],
+) -> WorkflowDataQualityReport:
+    rows = schema_report.smoke_report.result_rows
+    field_names = set(schema_report.field_names)
+    results: list[WorkflowDataQualityCheckResult] = []
+    for kind, column, raw_check in checks:
+        if column not in field_names:
+            results.append(
+                WorkflowDataQualityCheckResult(
+                    check=raw_check,
+                    column=column,
+                    passed=False,
+                    failing_row_count=len(rows),
+                    message=f"column {column!r} was not observed",
+                )
+            )
+            continue
+        if kind == "not_null":
+            failing = sum(1 for row in rows if row.get(column) is None)
+            results.append(
+                WorkflowDataQualityCheckResult(
+                    check=raw_check,
+                    column=column,
+                    passed=failing == 0,
+                    failing_row_count=failing,
+                    message="all rows are non-null" if failing == 0 else "null values observed",
+                )
+            )
+            continue
+        if kind == "unique":
+            seen: set[str] = set()
+            duplicate_count = 0
+            for row in rows:
+                key = _stable_quality_value_key(row.get(column))
+                if key in seen:
+                    duplicate_count += 1
+                else:
+                    seen.add(key)
+            results.append(
+                WorkflowDataQualityCheckResult(
+                    check=raw_check,
+                    column=column,
+                    passed=duplicate_count == 0,
+                    failing_row_count=duplicate_count,
+                    message="all values are unique"
+                    if duplicate_count == 0
+                    else "duplicate values observed",
+                )
+            )
+    return WorkflowDataQualityReport(
+        schema_report=schema_report,
+        checks=tuple(results),
+    )
+
+
+def _stable_quality_value_key(value: object) -> str:
+    return repr(value)
 
 
 def _normalize_local_output_format(value: str) -> str:

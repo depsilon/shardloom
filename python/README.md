@@ -684,6 +684,10 @@ json_rows = (
 )
 
 collected = workflow.collect()
+python_objects = workflow.to_python_objects()
+schema_report = workflow.schema()
+schema_validation = workflow.validate_schema({"id": "int64", "label": "string"})
+quality_report = workflow.data_quality_check("not_null:id", "unique:id")
 written = workflow.write("target/sql-local-source-result.jsonl", allow_overwrite=True)
 csv_written = workflow.write_csv("target/sql-local-source-result.csv", allow_overwrite=True)
 fanout_written = workflow.fanout(
@@ -728,6 +732,10 @@ joined = (
 )
 
 print(collected.result_rows)
+print(python_objects)
+print(schema_report.schema_map)
+print(schema_validation.valid)
+print(quality_report.passed)
 print(written.output_path)
 print(written.output_native_io_certificate_status)
 print(csv_written.output_path)
@@ -841,7 +849,8 @@ numeric top-N over joined rows. Scoped scalar/grouped join aggregates over those
 lower through the same runtime.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
-general expression-backed `with_column`, generalized grouped aggregation, ordering/collation parity, nested JSON,
+expression-backed `with_column` beyond the admitted numeric/string/null/temporal/predicate families,
+generalized grouped aggregation, ordering/collation parity, nested JSON,
 broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
@@ -864,13 +873,21 @@ object-store/table joins still return deterministic unsupported diagnostics or
 fail closed through the scoped SQL binder.
 
 Typed runtime reports expose `result_rows` and `first_result_row` helpers plus compact evidence and
-claim helpers so examples do not need to parse raw JSONL or scrape raw envelope fields:
+claim helpers so examples do not need to parse raw JSONL or scrape raw envelope fields. The
+`to_python_objects()` convenience returns the same validated bounded row objects directly for
+admitted local-source workflows. Schema and data-quality helpers use the same bounded
+`sql-local-source-smoke` path, so format-specific behavior remains isolated to read adapters and
+write sinks:
 
 ```python
 summary = written.evidence_summary
 claim = written.claim_summary
 
 print(collected.first_result_row)
+print(workflow.schema().schema_map)
+print(workflow.validate_schema({"id": "int64", "label": "string"}).valid)
+print(workflow.data_quality_summary().null_counts)
+print(workflow.data_quality_check("not_null:id", "unique:id").passed)
 print(summary.output_path)
 print(summary.output_io_performed)
 print(summary.fallback_attempted, summary.external_engine_invoked)
@@ -970,8 +987,8 @@ evidence. Input and output formats remain decoupled, and reuse evidence will not
 production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
 
 Unsupported workflow affordances are explicit report surfaces too. These calls
-are meant to make familiar pandas/Arrow/DataFrame/notebook methods discoverable
-without pretending they execute yet:
+show how familiar pandas/Arrow/DataFrame/notebook methods fail closed when they
+are outside the admitted bounded local-source shapes:
 
 ```python
 import shardloom as sl
@@ -988,16 +1005,12 @@ reports = [
     workflow.to_arrow_table(),
     workflow.to_arrow_ipc(),
     workflow.to_numpy(),
-    workflow.to_python_objects(),
     workflow.with_column("event_date", "to_date(ts)"),
     selected_workflow.group_by("customer_id", "region").agg(total="sum(amount)"),
     selected_workflow.group_by("customer_id").agg(total="sum(amount)"),
     selected_workflow.agg("count(*)"),
     workflow.sort("event_date"),
-    workflow.schema(),
-    workflow.describe_schema(),
-    workflow.validate_schema({"id": "int64"}),
-    workflow.data_quality_summary(),
+    workflow.data_quality_check("regex:id"),
     workflow.quarantine("bad-events.vortex"),
     workflow.preview(limit=20),
     workflow.display(),
@@ -1017,15 +1030,15 @@ for report in reports:
 
 Every report above is generated through `workflow-unsupported-plan` and returns
 `status="unsupported"` with `fallback_attempted=false`. The methods do not
-import pandas or pyarrow, inspect the passed Python object, materialize rows,
-write quarantine outputs, parse SQL, execute DataFrame expressions, render
+import pandas or pyarrow, inspect the passed Python object, materialize pandas/Arrow/NumPy objects,
+write quarantine outputs, parse SQL, execute unsupported DataFrame expressions, render
 notebook display output, invoke Foundry/model services, or use another engine
 as fallback.
 
 The DataFrame-style surface also has a typed method capability matrix. Use it
 when a wrapper, notebook, or agent needs to know which familiar method names are
-lazy declarations, which are unsupported diagnostics, and which evidence gates
-must pass before a method can become runtime-supported:
+lazy declarations, which have scoped runtime-smoke support, which are unsupported diagnostics, and
+which evidence gates bound each method:
 
 ```python
 import shardloom as sl

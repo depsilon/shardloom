@@ -2744,10 +2744,10 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("filter", dataframe_methods.plan_only_methods)
         self.assertIn("where", dataframe_methods.plan_only_methods)
         self.assertIn("select", dataframe_methods.plan_only_methods)
-        self.assertIn("join", dataframe_methods.unsupported_methods)
-        self.assertIn("agg", dataframe_methods.unsupported_methods)
+        self.assertNotIn("join", dataframe_methods.unsupported_methods)
+        self.assertNotIn("agg", dataframe_methods.unsupported_methods)
         self.assertIn("window", dataframe_methods.unsupported_methods)
-        self.assertIn("data_quality", dataframe_methods.unsupported_methods)
+        self.assertNotIn("data_quality", dataframe_methods.unsupported_methods)
         self.assertIn("from_pandas", dataframe_methods.unsupported_methods)
         self.assertEqual(
             dataframe_methods.row("read_vortex").support_status,
@@ -2771,6 +2771,59 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(dataframe_methods.row("head").runtime_execution)
         self.assertTrue(dataframe_methods.row("take").data_read)
+        self.assertEqual(
+            dataframe_methods.row("with_column").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("with_column").runtime_execution)
+        self.assertIn(
+            "computed_projection_evidence",
+            dataframe_methods.row("with_column").required_evidence,
+        )
+        self.assertEqual(
+            dataframe_methods.row("join").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("join").runtime_execution)
+        self.assertIn("join_operator", dataframe_methods.row("join").required_evidence)
+        self.assertEqual(
+            dataframe_methods.row("agg").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("aggregate").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("sort").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertIn("sort_operator", dataframe_methods.row("sort").required_evidence)
+        self.assertEqual(
+            dataframe_methods.row("to_python_objects").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("to_python_objects").runtime_execution)
+        self.assertTrue(dataframe_methods.row("to_python_objects").materialization_required)
+        self.assertEqual(
+            dataframe_methods.row("schema").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("describe_schema").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertEqual(
+            dataframe_methods.row("validate_schema").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("schema").runtime_execution)
+        self.assertTrue(dataframe_methods.row("validate_schema").materialization_required)
+        self.assertEqual(
+            dataframe_methods.row("data_quality_summary").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("data_quality_check").runtime_execution)
         self.assertEqual(
             dataframe_methods.row("write").required_evidence,
             (
@@ -2829,10 +2882,7 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertTrue(dataframe_methods.row("write_vortex").runtime_execution)
         self.assertTrue(dataframe_methods.row("write_vortex").write_io)
-        self.assertEqual(
-            dataframe_methods.row("join").blocker_id,
-            "cg21.workflow.join.operator_unsupported",
-        )
+        self.assertIsNone(dataframe_methods.row("join").blocker_id)
         self.assertTrue(dataframe_methods.row("to_pandas").materialization_required)
         self.assertEqual(
             dataframe_methods.row("display").blocker_id,
@@ -2843,10 +2893,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(dataframe_methods.any_runtime_execution)
         self.assertTrue(dataframe_methods.any_data_read)
         self.assertTrue(dataframe_methods.any_write_io)
-        self.assertEqual(
-            ctx.dataframe_method_matrix().row("agg").diagnostic_operation,
-            "agg",
-        )
+        self.assertIsNone(ctx.dataframe_method_matrix().row("agg").diagnostic_operation)
         self.assertTrue(ctx.etl_workflow_matrix().row("production_etl_certification").blocked)
         self.assertIn("adapter_certification_required", capabilities.adapters.required_gates)
         self.assertIn(
