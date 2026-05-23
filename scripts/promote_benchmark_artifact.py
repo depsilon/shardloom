@@ -32,6 +32,13 @@ from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
 SUMMARY_SCHEMA_VERSION = "shardloom.website.benchmark_evidence.v1"
 DEFAULT_LATEST_DIR = ROOT / "website" / "assets" / "benchmarks" / "latest"
 DEFAULT_WEBSITE_DATA = ROOT / "website" / "assets" / "data" / "benchmark-evidence.json"
+DEFAULT_PUBLIC_LATEST_DIR = ROOT / "website-public" / "assets" / "benchmarks" / "latest"
+DEFAULT_PUBLIC_WEBSITE_DATA = (
+    ROOT / "website-public" / "assets" / "data" / "benchmark-evidence.json"
+)
+DEFAULT_WEBSITE_SRC_DATA = ROOT / "website-src" / "src" / "data" / "benchmark-evidence.json"
+DEFAULT_WEBSITE_SRC_MANIFEST = ROOT / "website-src" / "src" / "data" / "benchmark-manifest.json"
+DEFAULT_BASE_SUMMARY = DEFAULT_PUBLIC_WEBSITE_DATA
 BENCHMARK_PROFILE_ROSTER = ("full_local", "full_local_plus_spark")
 EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "source_state",
@@ -56,9 +63,33 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_LATEST_DIR)
     parser.add_argument("--website-data", type=Path, default=DEFAULT_WEBSITE_DATA)
     parser.add_argument(
+        "--public-output-dir",
+        type=Path,
+        default=DEFAULT_PUBLIC_LATEST_DIR,
+        help="Astro public-dir benchmark bundle mirrored into the static build.",
+    )
+    parser.add_argument(
+        "--public-website-data",
+        type=Path,
+        default=DEFAULT_PUBLIC_WEBSITE_DATA,
+        help="Astro public-dir benchmark evidence data mirrored into the static build.",
+    )
+    parser.add_argument(
+        "--website-src-data",
+        type=Path,
+        default=DEFAULT_WEBSITE_SRC_DATA,
+        help="Astro import-time benchmark evidence data used by the benchmark page.",
+    )
+    parser.add_argument(
+        "--website-src-manifest",
+        type=Path,
+        default=DEFAULT_WEBSITE_SRC_MANIFEST,
+        help="Astro import-time benchmark manifest used by the benchmark page.",
+    )
+    parser.add_argument(
         "--base-summary",
         type=Path,
-        default=DEFAULT_WEBSITE_DATA,
+        default=DEFAULT_BASE_SUMMARY,
         help="Existing website summary to preserve prepared/native batch evidence from.",
     )
     return parser.parse_args()
@@ -72,6 +103,16 @@ def load_json(path: Path) -> Any:
 def write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def write_json_once(paths: list[Path], payload: Any) -> None:
+    seen: set[Path] = set()
+    for path in paths:
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        write_json(path, payload)
 
 
 def repo_relative(path: Path) -> str:
@@ -611,9 +652,24 @@ def main() -> int:
             "scope": "promoted local benchmark artifact evidence only",
         },
     }
-    write_json(results_path, summary)
-    write_json(args.output_dir / "manifest.json", manifest)
-    write_json(args.website_data, summary)
+    write_json_once(
+        [
+            results_path,
+            args.public_output_dir / "benchmark-results.json",
+            args.website_data,
+            args.public_website_data,
+            args.website_src_data,
+        ],
+        summary,
+    )
+    write_json_once(
+        [
+            args.output_dir / "manifest.json",
+            args.public_output_dir / "manifest.json",
+            args.website_src_manifest,
+        ],
+        manifest,
+    )
     print(args.output_dir / "manifest.json")
     return 0 if manifest["artifact_status"] == "complete" else 1
 

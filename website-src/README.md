@@ -33,4 +33,6 @@ npm run check
 
 The build must not run ShardLoom benchmarks, fetch runtime GitHub/raw content, publish packages, or
 expand support claims. Benchmark pages render committed artifacts under
-`website-public/assets/benchmarks/latest/`.
+`website-public/assets/benchmarks/latest/`. `npm run sync-content` copies canonical docs/status
+data and the committed benchmark bundle into Astro import data before each build, so pages should
+reuse those JSON/Markdown sources instead of restating support or claim-boundary language.
