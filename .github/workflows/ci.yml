@@ -81,7 +81,7 @@ jobs:
         run: python -m build python
       - name: Local package smoke
         run: python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: python-package-smoke-evidence
@@ -115,7 +115,7 @@ jobs:
         run: python scripts/release_provenance_dry_run.py
       - name: Release security gate
         run: python scripts/check_release_security_gate.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dependency-security-evidence
@@ -166,7 +166,7 @@ jobs:
         run: python scripts/check_ci_gate_matrix.py
       - name: Hard release readiness gate
         run: python scripts/check_release_readiness.py --allow-blocked
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: release-readiness-evidence
@@ -226,7 +226,7 @@ jobs:
           python-version: "3.11"
       - name: Validate CI gate matrix
         run: python scripts/check_ci_gate_matrix.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ci-gate-matrix-report
