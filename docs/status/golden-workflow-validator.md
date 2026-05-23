@@ -2,7 +2,7 @@
 
 # Golden Workflow Validator
 
-Status: local technical-preview runtime validator.
+Status: local runtime validator.
 
 Run:
 
@@ -27,7 +27,7 @@ shardloom.golden_workflow_validation_report.v1
 
 | Workflow | Runtime proof | Claim boundary |
 | --- | --- | --- |
-| local CSV/JSONL to `vortex_ingest` to prepared query to JSONL/CSV output | `vortex-ingest-smoke`, prepared `vortex-filter-project`, Python `ctx.prepare_vortex(...)`, and `sql-local-source-smoke` JSONL/CSV fanout over a shared local source | Local technical-preview path only; the ad hoc ingested artifact has Native I/O evidence, while fixture execution certificates remain limited to checked-in primitive fixtures |
+| local CSV/JSONL to `vortex_ingest` to prepared query to JSONL/CSV output | `vortex-ingest-smoke`, prepared `vortex-filter-project`, Python `ctx.prepare_vortex(...)`, and `sql-local-source-smoke` JSONL/CSV fanout over a shared local source | Local runtime path only; the ad hoc ingested artifact has Native I/O evidence, while fixture execution certificates remain limited to checked-in primitive fixtures |
 | generated source to local Vortex output and replay/fidelity evidence | `generated-source-user-rows-smoke --output-format vortex` plus local `vortex-filter-project` replay over the emitted `.vortex` artifact | Source-free local Vortex output/replay only; no broad generated SQL, object-store, table, or production sink claim |
 | prepared/native Vortex count/filter/project with execution certificates | `vortex-count-where`, `vortex-project`, and `vortex-filter-project` over `local_primitive_struct_five.vortex` | Scoped fixture-certified native Vortex primitive coverage only |
 

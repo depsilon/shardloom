@@ -30,6 +30,8 @@ from typing import Any, Callable
 ENGINE_ORDER = (
     "shardloom",
     "shardloom-vortex",
+    "shardloom-prepared-vortex",
+    "shardloom-prepare-batch",
     "pandas",
     "polars-eager",
     "polars-lazy",
@@ -50,11 +52,7 @@ EXTENDED_OPTIONAL_ENGINE_ORDER = (
     "ibis-polars",
     "cudf-gpu",
 )
-ENGINE_CHOICES = ENGINE_ORDER + (
-    "shardloom-prepared-vortex",
-    "shardloom-prepare-batch",
-    "shardloom-direct-transient",
-) + EXTENDED_OPTIONAL_ENGINE_ORDER
+ENGINE_CHOICES = ENGINE_ORDER + ("shardloom-direct-transient",) + EXTENDED_OPTIONAL_ENGINE_ORDER
 ENGINE_ALIASES = {
     "spark": ("spark-default", "spark-local-tuned"),
     "polars": ("polars-eager", "polars-lazy"),
@@ -1341,6 +1339,8 @@ MIN_CLAIM_GRADE_ITERATIONS = 3
 CLAIM_READINESS_RERUN_ENGINES = (
     "shardloom",
     "shardloom-vortex",
+    "shardloom-prepared-vortex",
+    "shardloom-prepare-batch",
     "pandas",
     "polars-eager",
     "polars-lazy",

@@ -14,6 +14,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+from check_benchmark_artifact_completeness import (
+    validate_manifest as validate_benchmark_artifact_completeness,
+)
 from check_package_channel_readiness import (
     validate_local_gate_evidence as validate_package_local_gate_evidence,
 )
@@ -642,7 +645,8 @@ def main() -> int:
     benchmark_constitution_script = repo_root / "scripts/check_benchmark_constitution.py"
     benchmark_constitution_doc = repo_root / "docs/architecture/benchmark-constitution.md"
     benchmark_constitution_source = repo_root / "shardloom-core/src/benchmark.rs"
-    benchmark_manifest = load_json(repo_root / "website/assets/benchmarks/latest/manifest.json")
+    benchmark_manifest_path = repo_root / "website/assets/benchmarks/latest/manifest.json"
+    benchmark_manifest = load_json(benchmark_manifest_path)
     benchmark_constitution_blockers: list[str] = []
     if not benchmark_constitution_script.exists():
         benchmark_constitution_blockers.append("missing benchmark constitution validator script")
@@ -659,6 +663,14 @@ def main() -> int:
     if benchmark_manifest is None:
         benchmark_constitution_blockers.append("missing website benchmark manifest")
     else:
+        completeness_blockers, _ = validate_benchmark_artifact_completeness(
+            benchmark_manifest_path,
+            allow_incomplete=False,
+        )
+        for blocker in completeness_blockers:
+            benchmark_constitution_blockers.append(
+                f"benchmark artifact completeness: {blocker}"
+            )
         for required in [
             "benchmark_constitution_schema_version",
             "benchmark_constitution_validator",
@@ -672,6 +684,34 @@ def main() -> int:
             benchmark_constitution_blockers.append("benchmark manifest constitution schema mismatch")
         if benchmark_manifest.get("benchmark_constitution_performance_claim_allowed") is not False:
             benchmark_constitution_blockers.append("benchmark constitution performance claim must be false")
+        if benchmark_manifest.get("artifact_status") != "complete":
+            benchmark_constitution_blockers.append(
+                "benchmark manifest artifact_status="
+                + str(benchmark_manifest.get("artifact_status", "missing"))
+            )
+        if benchmark_manifest.get("missing_required_lanes"):
+            benchmark_constitution_blockers.append(
+                "benchmark manifest missing_required_lanes="
+                + ",".join(str(lane) for lane in benchmark_manifest.get("missing_required_lanes", []))
+            )
+        benchmark_profile = str(benchmark_manifest.get("benchmark_profile", ""))
+        if benchmark_profile in {"full_local", "full_local_plus_spark", "extended_local"}:
+            expected_lanes = set(benchmark_manifest.get("expected_lanes") or [])
+            available_lanes = set(benchmark_manifest.get("available_lanes") or [])
+            for lane in [
+                "shardloom",
+                "shardloom-prepared-vortex",
+                "shardloom-prepare-batch",
+                "shardloom-vortex",
+            ]:
+                if lane not in expected_lanes:
+                    benchmark_constitution_blockers.append(
+                        f"benchmark manifest expected_lanes missing {lane}"
+                    )
+                if lane not in available_lanes:
+                    benchmark_constitution_blockers.append(
+                        f"benchmark manifest available_lanes missing {lane}"
+                    )
     checks.append(
         check(
             "benchmark_constitution_validator",

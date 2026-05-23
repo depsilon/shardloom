@@ -664,8 +664,8 @@ def workflow_local_csv_to_prepared_and_fanout(
             rel(repo_root, csv_output),
         ],
         "claim_boundary": (
-            "local technical-preview workflow proof; prepared primitive over ad hoc ingested "
-            "artifact has Native I/O evidence but no fixture execution certificate"
+            "local runtime workflow proof; prepared primitive over ad hoc ingested artifact has "
+            "Native I/O evidence but no fixture execution certificate"
         ),
         "stages": stages,
         "blockers": blockers,
@@ -993,7 +993,7 @@ def main() -> int:
         "workflow_ids": [workflow["workflow_id"] for workflow in workflows],
         "workflows": workflows,
         "blockers": blockers,
-        "runtime_support_claim": "local_technical_preview_workflow_proof_only",
+        "runtime_support_claim": "local_runtime_workflow_proof_only",
         "claim_gate_status": "fixture_smoke_only",
         "production_claim_allowed": False,
         "performance_claim_allowed": False,

@@ -2025,6 +2025,12 @@ Use for primary ShardLoom runtime-development comparison, warm-query evaluation,
 workflow proof. The lane starts from `VortexPreparedState`; source read and preparation timing must
 be reported separately when available.
 
+The `shardloom-prepare-batch` benchmark lane is the single-process version of the same lifecycle:
+it runs `UniversalIngress`, `SourceState`, `vortex_ingest`, `VortexPreparedState`, and a prepared
+scenario batch in one ShardLoom process while keeping preparation timing separate from child query
+timing. Full local benchmark profiles must include this lane so public evidence covers the
+prepare-once runtime route, not only the warm prepared replay route.
+
 ### Lane C - Native Vortex
 
 ```text

@@ -8,6 +8,7 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"spark-default\""));
     assert!(script.contains("\"spark-local-tuned\""));
     assert!(script.contains("\"shardloom-prepared-vortex\""));
+    assert!(script.contains("\"shardloom-prepare-batch\""));
     assert!(script.contains("\"spark\": (\"spark-default\", \"spark-local-tuned\")"));
     assert!(script.contains("\"polars\": (\"polars-eager\", \"polars-lazy\")"));
     assert!(script.contains("\"native-vortex\": (\"shardloom-vortex\",)"));
@@ -1062,6 +1063,7 @@ fn traditional_benchmark_docs_state_no_fallback_and_markdown_outputs() {
     assert!(normalized.contains("not interpreted as zero"));
     assert!(readme.contains("compatibility-import-certified timing"));
     assert!(readme.contains("execution_mode=prepared_vortex"));
+    assert!(readme.contains("shardloom-prepare-batch"));
     assert!(readme.contains("standalone `.vortex` report rows"));
     assert!(readme.contains("docs/architecture/compute-engine-flow-reference.md"));
     assert!(readme.contains("per-path certificate id/status"));

@@ -178,6 +178,12 @@ exists and are not Vortex-native claims.
 External-engine rows remain benchmark baseline comparisons only. They cannot satisfy ShardLoom
 execution certificates, Native I/O certificates, Vortex-native claim gates, or no-fallback proof,
 and they must never run unsupported ShardLoom work as fallback.
+
+`shardloom-prepare-batch` is now a required ShardLoom lane for `full_local`,
+`full_local_plus_spark`, and `extended_local` published profiles. The completeness validator checks
+that the promoted artifact covers every profile-required format and scenario and that the
+single-process prepare/batch route appears as row evidence instead of being omitted from the public
+benchmark bundle.
 ```
 
 Required row fields include requested/selected execution mode, mode-selection reason, preparation

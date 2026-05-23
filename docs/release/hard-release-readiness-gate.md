@@ -168,7 +168,7 @@ golden_workflow_validator_status=passed
 workflow_count=3
 stage_count>=9
 support_matrix_status=passed
-runtime_support_claim=local_technical_preview_workflow_proof_only
+runtime_support_claim=local_runtime_workflow_proof_only
 production_claim_allowed=false
 performance_claim_allowed=false
 public_release_claim_allowed=false
@@ -177,7 +177,7 @@ fallback_attempted=false
 external_engine_invoked=false
 ```
 
-This is a local technical-preview runtime proof only. It does not authorize production workflow,
+This is a local runtime proof only. It does not authorize production workflow,
 object-store/lakehouse/Foundry, package-publication, distributed-runtime, or performance-superiority
 claims.
 
@@ -230,6 +230,25 @@ The release gate checks `shardloom.benchmark_constitution_validation.v1` manifes
 admission, preparation/execution/output routes, correctness proof, hardware/build metadata,
 cold/warm attribution, stage timings, cost/unit fields where available, no-fallback proof, and
 external-baseline boundary evidence.
+
+For `full_local`, `full_local_plus_spark`, and `extended_local` benchmark manifests, the release
+gate also requires current ShardLoom runtime lanes to be present in both `expected_lanes` and
+`available_lanes`:
+
+```text
+shardloom
+shardloom-prepared-vortex
+shardloom-prepare-batch
+shardloom-vortex
+```
+
+`shardloom-prepare-batch` is the single-process `UniversalIngress -> SourceState ->
+vortex_ingest -> VortexPreparedState -> prepared_vortex batch` route. Omitting it from benchmark
+artifacts hides a real runtime path and keeps the benchmark/release evidence incomplete.
+
+The hard release gate reuses `scripts/check_benchmark_artifact_completeness.py` so missing
+profile-required formats, scenarios, and published row evidence block release readiness through the
+same canonical benchmark artifact validator that protects the website/public bundle.
 
 The package-channel matrix uses schema `shardloom.package_channel_readiness_matrix.v1`:
 
