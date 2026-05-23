@@ -2,7 +2,7 @@
 //!
 //! This module intentionally admits one small SQL shape over local
 //! CSV/JSONL/JSON and feature-gated local Parquet/Arrow IPC/Avro/ORC:
-//! `SELECT <columns> FROM <local.csv|local.jsonl|local.json|local.parquet|local.arrow|local.ipc|local.avro|local.orc> [WHERE <scoped predicate>] [ORDER BY <column> ASC|DESC] LIMIT <n>`
+//! `SELECT <columns> FROM <local.csv|local.jsonl|local.json|local.parquet|local.arrow|local.ipc|local.avro|local.orc> [WHERE <scoped predicate>] [ORDER BY <column> [ASC|DESC][, ...]] LIMIT <n>`
 //! plus explicit local single- and multi-key inner equi-join shapes.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
@@ -566,6 +566,11 @@ impl_projection_alias!(
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParsedOrderBy {
+    keys: Vec<ParsedOrderKey>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedOrderKey {
     column: String,
     direction: SortDirection,
 }
@@ -2613,7 +2618,9 @@ fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPla
         }
     }
     if let Some(order_by) = parsed.order_by.as_ref() {
-        columns.insert(order_by.column.clone());
+        for key in &order_by.keys {
+            columns.insert(key.column.clone());
+        }
     }
     for column in parsed.predicate.columns() {
         columns.insert(column.to_string());
@@ -3527,20 +3534,11 @@ fn ordered_projection_row_indexes(
         let row = source.rows.get(*row_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
         })?;
-        let value = row.get(&order_by.column).ok_or_else(|| {
-            unsupported_sql_error(&format!(
-                "ORDER BY column {:?} is not present in the CSV row",
-                order_by.column
-            ))
-        })?;
-        sort_values.push((*row_index, SortValue::try_from_scalar(value)?));
+        let values = sort_values_for_row(row, order_by, "ORDER BY column")?;
+        sort_values.push((*row_index, values));
     }
-    sort_values.sort_by(|(left_index, left_value), (right_index, right_value)| {
-        let ordering = left_value.cmp(right_value);
-        let ordering = match order_by.direction {
-            SortDirection::Asc => ordering,
-            SortDirection::Desc => ordering.reverse(),
-        };
+    sort_values.sort_by(|(left_index, left_values), (right_index, right_values)| {
+        let ordering = compare_order_by_values(order_by, left_values, right_values);
         ordering.then_with(|| left_index.cmp(right_index))
     });
     ordered.clear();
@@ -3656,25 +3654,56 @@ fn ordered_join_row_indexes(
         let row = rows.get(*row_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation("selected join row index is out of bounds".to_string())
         })?;
-        let value = row.get(&order_by.column).ok_or_else(|| {
-            unsupported_sql_error(&format!(
-                "ORDER BY join column {:?} is not present in the joined row",
-                order_by.column
-            ))
-        })?;
-        sort_values.push((*row_index, SortValue::try_from_scalar(value)?));
+        let values = sort_values_for_row(row, order_by, "ORDER BY join column")?;
+        sort_values.push((*row_index, values));
     }
-    sort_values.sort_by(|(left_index, left_value), (right_index, right_value)| {
-        let ordering = left_value.cmp(right_value);
-        let ordering = match order_by.direction {
-            SortDirection::Asc => ordering,
-            SortDirection::Desc => ordering.reverse(),
-        };
+    sort_values.sort_by(|(left_index, left_values), (right_index, right_values)| {
+        let ordering = compare_order_by_values(order_by, left_values, right_values);
         ordering.then_with(|| left_index.cmp(right_index))
     });
     ordered.clear();
     ordered.extend(sort_values.into_iter().map(|(row_index, _value)| row_index));
     Ok(ordered)
+}
+
+fn sort_values_for_row(
+    row: &ExpressionInputRow,
+    order_by: &ParsedOrderBy,
+    missing_label: &str,
+) -> Result<Vec<SortValue>, ShardLoomError> {
+    let mut values = Vec::with_capacity(order_by.keys.len());
+    for key in &order_by.keys {
+        let value = row.get(&key.column).ok_or_else(|| {
+            unsupported_sql_error(&format!(
+                "{missing_label} {:?} is not present in the row",
+                key.column
+            ))
+        })?;
+        values.push(SortValue::try_from_scalar(value)?);
+    }
+    Ok(values)
+}
+
+fn compare_order_by_values(
+    order_by: &ParsedOrderBy,
+    left_values: &[SortValue],
+    right_values: &[SortValue],
+) -> Ordering {
+    for (key, (left_value, right_value)) in order_by
+        .keys
+        .iter()
+        .zip(left_values.iter().zip(right_values.iter()))
+    {
+        let ordering = left_value.cmp(right_value);
+        let ordering = match key.direction {
+            SortDirection::Asc => ordering,
+            SortDirection::Desc => ordering.reverse(),
+        };
+        if ordering != Ordering::Equal {
+            return ordering;
+        }
+    }
+    Ordering::Equal
 }
 
 fn build_join_right_rows_by_key<'a>(
@@ -5182,11 +5211,13 @@ fn validate_order_by_source(
                 "ORDER BY top-N smoke currently admits projection rows only; aggregate and grouped top-N remain blocked",
             ));
         }
-        if !header.iter().any(|candidate| candidate == &order_by.column) {
-            return Err(unsupported_sql_error(&format!(
-                "ORDER BY column {:?} is not present in the CSV header",
-                order_by.column
-            )));
+        for key in &order_by.keys {
+            if !header.iter().any(|candidate| candidate == &key.column) {
+                return Err(unsupported_sql_error(&format!(
+                    "ORDER BY column {:?} is not present in the CSV header",
+                    key.column
+                )));
+            }
         }
     }
     Ok(())
@@ -5705,14 +5736,16 @@ fn validate_join_order_by_source(
     let Some(order_by) = parsed.order_by.as_ref() else {
         return Ok(());
     };
-    if !qualified_header
-        .iter()
-        .any(|candidate| candidate == &order_by.column)
-    {
-        return Err(unsupported_sql_error(&format!(
-            "ORDER BY join column {:?} is not present in the qualified JOIN row",
-            order_by.column
-        )));
+    for key in &order_by.keys {
+        if !qualified_header
+            .iter()
+            .any(|candidate| candidate == &key.column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "ORDER BY join column {:?} is not present in the qualified JOIN row",
+                key.column
+            )));
+        }
     }
     Ok(())
 }
@@ -7205,8 +7238,32 @@ impl AggregateFunction {
 }
 
 impl ParsedOrderBy {
-    fn direction_label(&self) -> &'static str {
-        self.direction.as_str()
+    fn is_multi_key(&self) -> bool {
+        self.keys.len() > 1
+    }
+
+    fn columns_label(&self) -> String {
+        self.keys
+            .iter()
+            .map(|key| key.column.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn directions_label(&self) -> String {
+        self.keys
+            .iter()
+            .map(|key| key.direction.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn operator_family_label(&self) -> &'static str {
+        if self.is_multi_key() {
+            "multi_key_numeric_topn"
+        } else {
+            "single_key_numeric_topn"
+        }
     }
 }
 
@@ -10982,28 +11039,24 @@ impl SqlLocalSourceReport {
             ),
             (
                 "sort_operator_family".to_string(),
-                if self.parsed.order_by.is_some() {
-                    "single_key_numeric_topn"
-                } else {
-                    "not_applicable"
-                }
-                .to_string(),
+                self.parsed.order_by.as_ref().map_or_else(
+                    || "not_applicable".to_string(),
+                    |order_by| order_by.operator_family_label().to_string(),
+                ),
             ),
             (
                 "sort_keys".to_string(),
                 self.parsed
                     .order_by
                     .as_ref()
-                    .map_or_else(String::new, |order_by| order_by.column.clone()),
+                    .map_or_else(String::new, ParsedOrderBy::columns_label),
             ),
             (
                 "sort_direction".to_string(),
                 self.parsed
                     .order_by
                     .as_ref()
-                    .map_or_else(String::new, |order_by| {
-                        order_by.direction_label().to_string()
-                    }),
+                    .map_or_else(String::new, ParsedOrderBy::directions_label),
             ),
             (
                 "sort_null_ordering".to_string(),
@@ -15482,36 +15535,46 @@ fn parse_order_by(raw: Option<&str>) -> Result<Option<ParsedOrderBy>, ShardLoomE
         return Err(unsupported_sql_error("ORDER BY clause must not be empty"));
     }
     let entries = split_sql_csv(raw)?;
-    if entries.len() != 1 {
-        return Err(unsupported_sql_error(
-            "ORDER BY top-N smoke admits exactly one sort key",
-        ));
+    if entries.is_empty() {
+        return Err(unsupported_sql_error("ORDER BY clause must not be empty"));
     }
-    let tokens = split_whitespace_outside_quotes(&entries[0])?;
-    let (column, direction) = match tokens.as_slice() {
-        [column] => (column, SortDirection::Asc),
-        [column, direction] if direction.eq_ignore_ascii_case("asc") => {
-            (column, SortDirection::Asc)
-        }
-        [column, direction] if direction.eq_ignore_ascii_case("desc") => {
-            (column, SortDirection::Desc)
-        }
-        [_, direction] if direction.eq_ignore_ascii_case("nulls") => {
+    let mut keys = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let tokens = split_whitespace_outside_quotes(&entry)?;
+        let (column, direction) = match tokens.as_slice() {
+            [column] => (column, SortDirection::Asc),
+            [column, direction] if direction.eq_ignore_ascii_case("asc") => {
+                (column, SortDirection::Asc)
+            }
+            [column, direction] if direction.eq_ignore_ascii_case("desc") => {
+                (column, SortDirection::Desc)
+            }
+            [_, direction] if direction.eq_ignore_ascii_case("nulls") => {
+                return Err(unsupported_sql_error(
+                    "ORDER BY NULLS FIRST/LAST is not admitted in this scoped top-N smoke",
+                ));
+            }
+            _ => {
+                return Err(unsupported_sql_error(
+                    "ORDER BY top-N smoke admits <column> [ASC|DESC] keys only",
+                ));
+            }
+        };
+        validate_sql_column_ref(column)?;
+        if keys
+            .iter()
+            .any(|existing: &ParsedOrderKey| existing.column == *column)
+        {
             return Err(unsupported_sql_error(
-                "ORDER BY NULLS FIRST/LAST is not admitted in this scoped top-N smoke",
+                "ORDER BY duplicate sort keys are not admitted in this scoped top-N smoke",
             ));
         }
-        _ => {
-            return Err(unsupported_sql_error(
-                "ORDER BY top-N smoke admits <column> [ASC|DESC] only",
-            ));
-        }
-    };
-    validate_sql_column_ref(column)?;
-    Ok(Some(ParsedOrderBy {
-        column: column.clone(),
-        direction,
-    }))
+        keys.push(ParsedOrderKey {
+            column: column.clone(),
+            direction,
+        });
+    }
+    Ok(Some(ParsedOrderBy { keys }))
 }
 
 fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> {
@@ -17695,7 +17758,6 @@ fn unsupported_sql_error(reason: &str) -> ShardLoomError {
 mod tests {
     use super::*;
 
-    #[cfg(feature = "universal-format-io")]
     fn sql_local_source_test_path(extension: &str) -> PathBuf {
         let mut path = std::env::temp_dir();
         let nanos = std::time::SystemTime::now()
@@ -17709,12 +17771,10 @@ mod tests {
         path
     }
 
-    #[cfg(feature = "universal-format-io")]
     fn field_map(fields: Vec<(String, String)>) -> BTreeMap<String, String> {
         fields.into_iter().collect()
     }
 
-    #[cfg(feature = "universal-format-io")]
     fn assert_field_eq(fields: &BTreeMap<String, String>, key: &str, expected: &str) {
         assert_eq!(fields.get(key).map(String::as_str), Some(expected));
     }
@@ -19037,13 +19097,73 @@ mod tests {
         assert!(parsed.aggregates.is_empty());
         assert!(parsed.group_by.is_empty());
         let order_by = parsed.order_by.as_ref().expect("order by parsed");
-        assert_eq!(order_by.column, "amount");
-        assert_eq!(order_by.direction, SortDirection::Desc);
+        assert_eq!(order_by.columns_label(), "amount");
+        assert_eq!(order_by.directions_label(), "desc");
+        assert_eq!(order_by.operator_family_label(), "single_key_numeric_topn");
+        assert_eq!(order_by.keys[0].column, "amount");
+        assert_eq!(order_by.keys[0].direction, SortDirection::Desc);
         assert_eq!(parsed.limit, 3);
         assert_eq!(
             parsed.statement_kind(),
             "local_source_order_by_topn_filter_limit"
         );
+    }
+
+    #[test]
+    fn parses_scoped_multi_key_order_by_topn_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,label FROM 'target/input.csv' WHERE amount >= 0 ORDER BY amount DESC,id ASC LIMIT 3",
+        )
+        .expect("multi-key order-by statement parses");
+
+        let order_by = parsed.order_by.as_ref().expect("order by parsed");
+        assert!(order_by.is_multi_key());
+        assert_eq!(order_by.columns_label(), "amount,id");
+        assert_eq!(order_by.directions_label(), "desc,asc");
+        assert_eq!(order_by.operator_family_label(), "multi_key_numeric_topn");
+        assert_eq!(parsed.limit, 3);
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_order_by_topn_filter_limit"
+        );
+    }
+
+    #[test]
+    fn runs_scoped_multi_key_order_by_topn_csv_statement() {
+        let path = sql_local_source_test_path("csv");
+        fs::write(
+            &path,
+            "id,label,amount\n1,alpha,10\n2,beta,10\n3,gamma,20\n4,delta,20\n5,epsilon,5\n",
+        )
+        .expect("write csv source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id,label FROM '{}' WHERE amount >= 10 ORDER BY amount DESC,id ASC LIMIT 3",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke(&request).expect("run multi-key top-N smoke");
+        let fields = field_map(report.fields());
+
+        assert_eq!(
+            report.result_jsonl,
+            "{\"id\":3,\"label\":\"gamma\"}\n{\"id\":4,\"label\":\"delta\"}\n{\"id\":1,\"label\":\"alpha\"}\n"
+        );
+        assert_field_eq(&fields, "order_by_runtime_execution", "true");
+        assert_field_eq(&fields, "top_n_runtime_execution", "true");
+        assert_field_eq(&fields, "sort_operator_family", "multi_key_numeric_topn");
+        assert_field_eq(&fields, "sort_keys", "amount,id");
+        assert_field_eq(&fields, "sort_direction", "desc,asc");
+        assert_field_eq(&fields, "top_n_limit", "3");
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        fs::remove_file(&path).expect("remove csv source");
     }
 
     #[test]
@@ -19676,8 +19796,11 @@ mod tests {
             "segment_region"
         );
         let order_by = parsed.order_by.as_ref().expect("order by parsed");
-        assert_eq!(order_by.column, "f.amount");
-        assert_eq!(order_by.direction, SortDirection::Desc);
+        assert_eq!(order_by.columns_label(), "f.amount");
+        assert_eq!(order_by.directions_label(), "desc");
+        assert_eq!(order_by.operator_family_label(), "single_key_numeric_topn");
+        assert_eq!(order_by.keys[0].column, "f.amount");
+        assert_eq!(order_by.keys[0].direction, SortDirection::Desc);
         assert_eq!(
             parsed.statement_kind(),
             "local_source_inner_equi_join_computed_projection_order_by_topn_filter_limit"

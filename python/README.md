@@ -561,7 +561,7 @@ JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are 
 `MIN`, and `MAX`. The convenience `count()` method lowers to the same
 `COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. Multi-key grouped aggregates shaped as
 `group_by(...).agg(...).limit(n)` with an optional filter are supported, including named
-aggregate aliases such as `agg(rows="count(*)", total="sum(amount)")`. A single-key
+aggregate aliases such as `agg(rows="count(*)", total="sum(amount)")`. A multi-key
 numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric sort
 keys. Local-source joins also admit scalar and grouped aggregates when the workflow keeps the
@@ -718,7 +718,7 @@ grouped = (
 topn = (
     ctx.read_json("target/sql-local-source-smoke.jsonl")
     .select("id", "label")
-    .sort("amount", descending=True)
+    .sort("amount", "id", descending=True)
     .limit(2)
     .collect()
 )
@@ -843,8 +843,8 @@ Parquet/Arrow IPC/Avro/ORC bridge for the scoped
 projection/optional-filter/limit, scalar aggregate, multi-key grouped aggregate,
 preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
 ABS, scoped numeric rounding, and scoped UTF-8 string length `with_column`,
-single-key numeric top-N, and scoped single- or multi-key local-source inner equi-join shapes.
-Joined workflows also admit scoped computed projections over qualified columns plus single-key
+multi-key numeric top-N, and scoped single- or multi-key local-source inner equi-join shapes.
+Joined workflows also admit scoped computed projections over qualified columns plus multi-key
 numeric top-N over joined rows. Scoped scalar/grouped join aggregates over those same join shapes
 lower through the same runtime.
 It does not make the Python client a
@@ -863,8 +863,8 @@ other local-source smokes. Use `join(..., on="key")` or
 qualified projection columns such as
 `f.id` and `d.segment`, a qualified predicate such as `f.amount >= 10`, and an
 explicit `limit(...)`. A joined workflow can add admitted `with_column(...)` expressions over
-qualified columns and may use `sort("f.amount", descending=True).limit(n)` for the scoped
-single-key numeric joined top-N path. A joined workflow can also end in `agg(...).limit(...)` or
+qualified columns and may use `sort("f.amount", "f.id", descending=True).limit(n)` for the scoped
+multi-key numeric joined top-N path. A joined workflow can also end in `agg(...).limit(...)` or
 `group_by(...).agg(...).limit(...)` for the admitted scalar/grouped join-aggregate subset. Broad
 DataFrame joins remain blocked: outer/semi/anti/cross
 joins, expression joins,

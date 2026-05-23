@@ -2156,7 +2156,7 @@ class LazyFrame:
         direction = "desc" if descending else "asc"
         target = f"{direction}:{','.join(normalized_columns)}"
         if self._can_append_sort(normalized_columns):
-            return self._append(WorkflowOperation("sort", (direction, normalized_columns[0])))
+            return self._append(WorkflowOperation("sort", (direction, *normalized_columns)))
         return self._unsupported_operation("sort", target, check=check)
 
     def window(
@@ -2400,7 +2400,9 @@ class LazyFrame:
         )
 
     def _can_append_sort(self, columns: tuple[str, ...]) -> bool:
-        if not _is_query_builder_local_source(self.source) or len(columns) != 1:
+        if not _is_query_builder_local_source(self.source) or not columns:
+            return False
+        if len(set(columns)) != len(columns):
             return False
         return all(
             operation.kind not in {"aggregate", "group_by", "sort"}
@@ -2459,7 +2461,7 @@ class LazyFrame:
         group_by_list: tuple[str, ...] | None = None
         literal_columns: list[tuple[str, str]] = []
         join_info: tuple[str, str, str, str, str, str] | None = None
-        sort_key: tuple[str, str] | None = None
+        sort_key: tuple[str, tuple[str, ...]] | None = None
         predicate: str | None = None
         limit: str | None = None
         for operation in self.operations:
@@ -2472,7 +2474,7 @@ class LazyFrame:
             elif operation.kind == "with_column":
                 literal_columns.append((operation.values[0], operation.values[1]))
             elif operation.kind == "sort" and sort_key is None:
-                sort_key = (operation.values[0], operation.values[1])
+                sort_key = (operation.values[0], operation.values[1:])
             elif operation.kind == "join" and join_info is None:
                 if aggregate_list is not None or group_by_list is not None:
                     return None
@@ -2519,8 +2521,8 @@ class LazyFrame:
                 group_by_clause = ""
             order_by_clause = ""
             if sort_key is not None:
-                direction, column = sort_key
-                order_by_clause = f" ORDER BY {column} {direction.upper()}"
+                direction, columns = sort_key
+                order_by_clause = _format_order_by_clause(columns, direction)
             source_uri = _quote_sql_local_source_path(self.source.uri)
             right_source_uri = _quote_sql_local_source_path(right_uri)
             return (
@@ -2556,8 +2558,8 @@ class LazyFrame:
             return None
         order_by_clause = ""
         if sort_key is not None:
-            direction, column = sort_key
-            order_by_clause = f" ORDER BY {column} {direction.upper()}"
+            direction, columns = sort_key
+            order_by_clause = _format_order_by_clause(columns, direction)
         source_uri = _quote_sql_local_source_path(self.source.uri)
         return (
             f"SELECT {select_clause} FROM {source_uri}"
@@ -4684,6 +4686,14 @@ def _quote_sql_local_source_path(value: str) -> str:
             "by the scoped Python query-builder smoke"
         )
     return f"'{path}'"
+
+
+def _format_order_by_clause(columns: tuple[str, ...], direction: str) -> str:
+    if not columns:
+        return ""
+    direction_label = direction.upper()
+    keys = ",".join(f"{column} {direction_label}" for column in columns)
+    return f" ORDER BY {keys}"
 
 
 def _optional_sql_where_clause(predicate: str | None) -> str:

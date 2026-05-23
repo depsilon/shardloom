@@ -2691,6 +2691,77 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_multi_key_order_by_topn_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 ORDER BY amount DESC,id DESC LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":4,\\"label\\":\\"delta\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_order_by_topn_filter_limit"},
+                        {"key": "order_by_runtime_execution", "value": "true"},
+                        {"key": "top_n_runtime_execution", "value": "true"},
+                        {"key": "sort_operator_family", "value": "multi_key_numeric_topn"},
+                        {"key": "sort_keys", "value": "amount,id"},
+                        {"key": "sort_direction", "value": "desc,desc"},
+                        {"key": "sort_null_ordering", "value": "nulls_blocked_for_fixture_smoke"},
+                        {"key": "top_n_limit", "value": "2"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "4"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.order-by-topn-filter-limit.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        sorted_workflow = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter("amount >= 10")
+            .sort("amount", "id", descending=True)
+        )
+        self.assertIsInstance(sorted_workflow, sl.LazyFrame)
+        report = sorted_workflow.limit(2).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.result_jsonl,
+            '{"id":4,"label":"delta"}\n{"id":3,"label":"gamma"}\n',
+        )
+        self.assertTrue(report.order_by_runtime_execution)
+        self.assertTrue(report.top_n_runtime_execution)
+        self.assertEqual(report.sort_keys, ("amount", "id"))
+        self.assertEqual(report.sort_direction, "desc,desc")
+        self.assertEqual(report.sort_null_ordering, "nulls_blocked_for_fixture_smoke")
+        self.assertEqual(report.top_n_limit, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_sql_local_source_report_exposes_join_evidence(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -7468,7 +7539,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             workflow.with_column("date", "to_date(ts)"),
             workflow.group_by("id").agg(total="sum(amount)"),
             workflow.agg("sum(amount)"),
-            workflow.sort("amount", "id", descending=True),
+            sl.read_csv("events.csv", client=ShardLoomClient(binary=binary))
+            .group_by("id")
+            .agg(total="sum(amount)")
+            .sort("total"),
             workflow.write_vortex("out.vortex", check=False),
             workflow.write_parquet("out.parquet", check=False),
             ctx.sql_parse("select * from events"),
@@ -7547,7 +7621,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(by_operation["agg"].envelope.field("workflow_operation"), "agg")
         self.assertEqual(
             by_operation["sort"].envelope.field("target_ref"),
-            "desc:amount,id",
+            "asc:total",
         )
         self.assertEqual(
             by_operation["write-vortex"].envelope.field("target_ref"),
