@@ -214,6 +214,66 @@ class SessionSqlResult:
         return self.report.source_state_projection_pushdown_status
 
     @property
+    def user_surface_runtime_scope(self) -> str | None:
+        """Return whether SQL/Python compute used the common runtime."""
+
+        return self.report.user_surface_runtime_scope
+
+    @property
+    def format_specific_boundary_scope(self) -> str | None:
+        """Return where format-specific behavior was allowed."""
+
+        return self.report.format_specific_boundary_scope
+
+    @property
+    def format_specific_compute_path(self) -> bool:
+        """Whether the result used a format-specific compute path."""
+
+        return self.report.format_specific_compute_path
+
+    @property
+    def source_state_materialization_layout(self) -> str | None:
+        """Return the local SourceState materialization layout when available."""
+
+        return self.report.source_state_materialization_layout
+
+    @property
+    def source_state_parse_normalization(self) -> str | None:
+        """Return the local SourceState parse/normalization route when available."""
+
+        return self.report.source_state_parse_normalization
+
+    @property
+    def source_state_columnar_preserved(self) -> bool:
+        """Whether the CLI preserved a columnar SourceState boundary."""
+
+        return self.report.source_state_columnar_preserved
+
+    @property
+    def source_state_record_batch_count(self) -> int:
+        """Return the local SourceState record-batch count."""
+
+        return self.report.source_state_record_batch_count
+
+    @property
+    def source_to_columnar_millis(self) -> int:
+        """Return source-to-columnar adapter time in milliseconds."""
+
+        return self.report.source_to_columnar_millis
+
+    @property
+    def source_state_runtime_consumption_layout(self) -> str | None:
+        """Return the runtime layout that consumed the SourceState."""
+
+        return self.report.source_state_runtime_consumption_layout
+
+    @property
+    def source_state_scalar_runtime_materialization_required(self) -> bool:
+        """Whether the SQL runtime still materialized scalar rows."""
+
+        return self.report.source_state_scalar_runtime_materialization_required
+
+    @property
     def source_state_materialized_columns(self) -> tuple[str, ...]:
         """Return local SourceState materialized columns."""
 
@@ -274,6 +334,18 @@ class SessionSqlResult:
             "source_state_contract_schema_version": self.source_state_contract_schema_version,
             "source_state_read_plan": self.source_state_read_plan,
             "source_state_projection_pushdown_status": self.source_state_projection_pushdown_status,
+            "user_surface_runtime_scope": self.user_surface_runtime_scope,
+            "format_specific_boundary_scope": self.format_specific_boundary_scope,
+            "format_specific_compute_path": self.format_specific_compute_path,
+            "source_state_materialization_layout": self.source_state_materialization_layout,
+            "source_state_parse_normalization": self.source_state_parse_normalization,
+            "source_state_columnar_preserved": self.source_state_columnar_preserved,
+            "source_state_record_batch_count": self.source_state_record_batch_count,
+            "source_to_columnar_millis": self.source_to_columnar_millis,
+            "source_state_runtime_consumption_layout": self.source_state_runtime_consumption_layout,
+            "source_state_scalar_runtime_materialization_required": (
+                self.source_state_scalar_runtime_materialization_required
+            ),
             "source_state_materialized_columns": self.source_state_materialized_columns,
             "source_state_reader_projection_columns": self.source_state_reader_projection_columns,
             "output_plan_reuse_hit": self.output_plan_reuse_hit,

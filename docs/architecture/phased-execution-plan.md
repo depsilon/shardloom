@@ -396,7 +396,12 @@ or documentation updates alone are insufficient.
     as Arrow `RecordBatch` columnar SourceState when both `vortex-write` and
     `universal-format-io` are enabled, emits columnar-preservation, record-batch,
     source-to-columnar, and Vortex array-build evidence, and still falls back to scalar paths only
-    where scalar rows are the admitted representation.
+    where scalar rows are the admitted representation. Feature-gated direct-transient
+    `sql-local-source-smoke` structured readers now carry the same columnar SourceState boundary
+    through reader projection and disclose the explicit scalar-row expression-runtime consumption
+    boundary with format-neutral SQL/Python runtime scope, `format_specific_compute_path=false`,
+    `source_state_columnar_preserved`, record-batch count, source-to-columnar timing, runtime
+    consumption layout, and scalar materialization-required evidence.
     Nested/general JSON, broader Parquet/Arrow IPC/Avro/ORC type/nesting and output coverage does
     not all have ordinary user-facing SourceState runtime parity.
   - Next slice outcome: continue promoting remaining local input and operator combinations one at
@@ -451,10 +456,13 @@ or documentation updates alone are insufficient.
     `shardloom-prepare-batch` comparative-harness lane, which prepare local compatibility inputs
     once and run a prepared Vortex scenario batch in the same process with explicit preparation,
     query, reuse, no-fallback, and claim-boundary evidence.
-  - Remaining gap: direct-transient local CSV/JSON and feature-gated Parquet/Arrow IPC/Avro/ORC
-    paths still cross scalar row-map normalization for some workflows. The prepare-once route is
-    local/scoped evidence only; it is not a persistent cache, object-store/table workflow,
-    SQL/DataFrame production runtime, performance claim, or package-readiness claim.
+  - Remaining gap: direct-transient local CSV/JSON paths and several generated/admitted
+    local-source workflows still cross scalar row-map normalization without a reusable columnar
+    SourceState boundary, and feature-gated Parquet/Arrow IPC/Avro/ORC direct-transient workflows
+    still materialize scalar rows for the scoped expression runtime after preserving reader-level
+    columnar ingress evidence. The prepare-once route is local/scoped evidence only; it is not a
+    persistent cache, object-store/table workflow, SQL/DataFrame production runtime, performance
+    claim, or package-readiness claim.
   - Next slice outcome: keep reducing the UniversalIngress/adapter bottleneck by carrying
     columnar SourceState into more direct-transient and generated/admitted local-source paths, while
     preserving certification-depth policy and claim-safe cold/warm timing separation.

@@ -16,6 +16,66 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F1 direct-transient columnar SourceState boundary
+  - Date: 2026-05-23
+  - Branch/PR: `compute-engine-runtime-next-27-20260521` / #916.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`.
+    - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest
+      attribution`.
+    - User guidance that SQL/Python user-surface logic must remain format-neutral, with
+      format/source-specific behavior isolated to read/ingest and write boundaries.
+  - Vortex-first provider check:
+    - Subject area: feature-gated local Parquet/Arrow IPC/Avro/ORC direct-transient SQL/Python
+      reads.
+    - Upstream Vortex concept checked: no Vortex query-engine integration or external runtime was
+      added. The slice reused the existing Arrow `RecordBatch` compatibility adapter boundary and
+      kept Vortex-native provider use limited to already admitted `vortex_ingest`/writer surfaces.
+    - Decision: preserve and report columnar SourceState ingress for structured readers, then
+      explicitly disclose the scalar ShardLoom expression-runtime consumption boundary.
+    - Residual handling: SQL predicates, projections, aggregates, and joins still execute through
+      the existing ShardLoom-native local runtime or deterministic blockers; no residual work is
+      delegated to Arrow, DataFusion, DuckDB, Spark, Polars, pandas, or another engine.
+    - Materialization/decode boundary: structured readers preserve `RecordBatch` SourceState
+      evidence through reader projection, then materialize scalar rows at
+      `scalar_row_map_expression_runtime`.
+    - Evidence added: `user_surface_runtime_scope=format_neutral_sql_python_runtime`,
+      `format_specific_boundary_scope=read_ingest_and_write_only`,
+      `format_specific_compute_path=false`,
+      `source_state_materialization_layout=arrow_record_batch_columnar_source_state_then_scalar_row_map`,
+      `source_state_parse_normalization=structured_reader_to_arrow_record_batches_then_scalar_rows`,
+      `source_state_columnar_preserved`, `source_state_record_batch_count`,
+      `source_to_columnar_millis`, `source_state_runtime_consumption_layout`, and
+      `source_state_scalar_runtime_materialization_required`.
+    - Gates still blocked: hidden Arrow-default execution, performance/superiority claims, broad
+      SQL/DataFrame production support, persistent cache, object-store/table/lakehouse/Foundry
+      runtime, package readiness, and Spark-displacement claims.
+  - Scope:
+    - Refactored feature-gated structured `sql-local-source-smoke` reads to call the columnar
+      reader helpers first, then materialize through an explicit exported scalar-boundary helper.
+    - Kept `sql-local-source-smoke` as the single local SQL command; source format detection and
+      projection-capable readers remain ingress adapter concerns.
+    - Added Python typed accessors on `SqlLocalSourceSmokeReport` and `SessionSqlResult` for the
+      new SourceState and format-neutral runtime-scope evidence.
+    - Updated the universal input contract, Python README, and phase plan to keep the claim
+      boundary clear.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli direct_transient_arrow_ipc_reports_columnar_source_state_boundary --features universal-format-io -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-vortex --features universal-format-io --lib`
+    - `cargo +1.91.1 clippy -p shardloom-cli --all-targets --features universal-format-io -- -D warnings`
+    - `cargo +1.91.1 test -p shardloom-cli --all-targets --features universal-format-io`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m py_compile python\src\shardloom\client.py python\src\shardloom\session.py python\tests\test_cli_client.py`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_session_reuses_local_query_output_when_fingerprints_match`
+    - `python -m unittest discover -s python/tests`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local direct-transient and Python session evidence only. This does not claim
+      format-specific compute, Arrow-native query execution, Vortex-native query execution,
+      performance improvement, production SQL/DataFrame readiness, object-store/table/lakehouse
+      runtime, package readiness, or Spark replacement.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F1 prepare/batch Python and benchmark harness adoption
   - Date: 2026-05-21
   - Branch/PR: `compute-engine-runtime-next-26-20260521` / #915.

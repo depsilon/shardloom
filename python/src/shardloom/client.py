@@ -985,6 +985,71 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field("source_state_projection_pushdown_status")
 
     @property
+    def user_surface_runtime_scope(self) -> str | None:
+        """Return whether SQL/Python compute used the common user-surface runtime."""
+
+        return self.envelope.field("user_surface_runtime_scope")
+
+    @property
+    def format_specific_boundary_scope(self) -> str | None:
+        """Return where format-specific behavior is allowed for this report."""
+
+        return self.envelope.field("format_specific_boundary_scope")
+
+    @property
+    def format_specific_compute_path(self) -> bool:
+        """Whether this report used a format-specific compute path."""
+
+        return self.envelope.field_bool("format_specific_compute_path", False) is True
+
+    @property
+    def source_state_materialization_layout(self) -> str | None:
+        """Return the local SourceState materialization layout."""
+
+        return self.envelope.field("source_state_materialization_layout")
+
+    @property
+    def source_state_parse_normalization(self) -> str | None:
+        """Return the local SourceState parse/normalization route."""
+
+        return self.envelope.field("source_state_parse_normalization")
+
+    @property
+    def source_state_columnar_preserved(self) -> bool:
+        """Whether the local SourceState preserved a columnar adapter boundary."""
+
+        return self.envelope.field_bool("source_state_columnar_preserved", False) is True
+
+    @property
+    def source_state_record_batch_count(self) -> int:
+        """Return the preserved local SourceState record-batch count."""
+
+        return self.envelope.field_int("source_state_record_batch_count", 0) or 0
+
+    @property
+    def source_to_columnar_millis(self) -> int:
+        """Return source-to-columnar adapter time in milliseconds."""
+
+        return self.envelope.field_int("source_to_columnar_millis", 0) or 0
+
+    @property
+    def source_state_runtime_consumption_layout(self) -> str | None:
+        """Return the runtime layout that consumed the local SourceState."""
+
+        return self.envelope.field("source_state_runtime_consumption_layout")
+
+    @property
+    def source_state_scalar_runtime_materialization_required(self) -> bool:
+        """Whether the local SQL runtime still materialized scalar rows."""
+
+        return (
+            self.envelope.field_bool(
+                "source_state_scalar_runtime_materialization_required", False
+            )
+            is True
+        )
+
+    @property
     def source_state_materialized_columns(self) -> tuple[str, ...]:
         """Return SourceState columns materialized by the local runtime."""
 
