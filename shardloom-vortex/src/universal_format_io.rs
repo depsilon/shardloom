@@ -64,7 +64,7 @@ pub struct FlatLocalColumnarSource {
 /// or decimal Arrow type, or the row count exceeds `max_rows`.
 pub fn read_flat_parquet_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
     let source = read_flat_parquet_columnar_source(path, max_rows)?;
-    flat_columnar_source_to_scalar_table(&source, path, "Parquet")
+    materialize_flat_columnar_source_to_scalar_table(&source, path, "Parquet")
 }
 
 /// Read a local Parquet file into columnar Arrow batches for scoped runtime smokes.
@@ -114,7 +114,7 @@ pub fn read_flat_parquet_source_with_projection(
 ) -> Result<FlatLocalSourceTable> {
     let source =
         read_flat_parquet_columnar_source_with_projection(path, max_rows, required_columns)?;
-    flat_columnar_source_to_scalar_table(&source, path, "Parquet")
+    materialize_flat_columnar_source_to_scalar_table(&source, path, "Parquet")
 }
 
 /// Read selected root columns from a local Parquet file into columnar Arrow
@@ -174,7 +174,7 @@ pub fn read_flat_parquet_columnar_source_with_projection(
 /// `max_rows`.
 pub fn read_flat_arrow_ipc_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
     let source = read_flat_arrow_ipc_columnar_source(path, max_rows)?;
-    flat_columnar_source_to_scalar_table(&source, path, "Arrow IPC")
+    materialize_flat_columnar_source_to_scalar_table(&source, path, "Arrow IPC")
 }
 
 /// Read a local Arrow IPC file into columnar Arrow batches for scoped runtime
@@ -216,7 +216,7 @@ pub fn read_flat_arrow_ipc_source_with_projection(
 ) -> Result<FlatLocalSourceTable> {
     let source =
         read_flat_arrow_ipc_columnar_source_with_projection(path, max_rows, required_columns)?;
-    flat_columnar_source_to_scalar_table(&source, path, "Arrow IPC")
+    materialize_flat_columnar_source_to_scalar_table(&source, path, "Arrow IPC")
 }
 
 /// Read selected columns from a local Arrow IPC file into columnar Arrow
@@ -271,7 +271,7 @@ pub fn read_flat_arrow_ipc_columnar_source_with_projection(
 /// `max_rows`.
 pub fn read_flat_avro_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
     let source = read_flat_avro_columnar_source(path, max_rows)?;
-    flat_columnar_source_to_scalar_table(&source, path, "Avro")
+    materialize_flat_columnar_source_to_scalar_table(&source, path, "Avro")
 }
 
 /// Read a local Avro file into columnar Arrow batches for scoped runtime
@@ -314,7 +314,7 @@ pub fn read_flat_avro_source_with_projection(
     required_columns: &[String],
 ) -> Result<FlatLocalSourceTable> {
     let source = read_flat_avro_columnar_source_with_projection(path, max_rows, required_columns)?;
-    flat_columnar_source_to_scalar_table(&source, path, "Avro")
+    materialize_flat_columnar_source_to_scalar_table(&source, path, "Avro")
 }
 
 /// Read selected columns from a local Avro file into columnar Arrow batches.
@@ -379,7 +379,7 @@ pub fn read_flat_avro_columnar_source_with_projection(
 /// `max_rows`.
 pub fn read_flat_orc_source(path: &Path, max_rows: usize) -> Result<FlatLocalSourceTable> {
     let source = read_flat_orc_columnar_source(path, max_rows)?;
-    flat_columnar_source_to_scalar_table(&source, path, "ORC")
+    materialize_flat_columnar_source_to_scalar_table(&source, path, "ORC")
 }
 
 /// Read a local ORC file into columnar Arrow batches for scoped runtime smokes.
@@ -421,7 +421,7 @@ pub fn read_flat_orc_source_with_projection(
     required_columns: &[String],
 ) -> Result<FlatLocalSourceTable> {
     let source = read_flat_orc_columnar_source_with_projection(path, max_rows, required_columns)?;
-    flat_columnar_source_to_scalar_table(&source, path, "ORC")
+    materialize_flat_columnar_source_to_scalar_table(&source, path, "ORC")
 }
 
 /// Read selected root columns from a local ORC file into columnar Arrow
@@ -560,7 +560,17 @@ where
     })
 }
 
-fn flat_columnar_source_to_scalar_table(
+/// Materialize a scoped flat columnar local source into `ShardLoom` scalar rows.
+///
+/// This is an explicit compatibility boundary for caller-owned direct runtime
+/// paths. It preserves the original source schema and reader projection
+/// metadata in the returned table, but the rows are decoded scalar values for
+/// ShardLoom-native expression evaluation rather than Arrow execution.
+///
+/// # Errors
+/// Returns [`ShardLoomError::InvalidOperation`] when any projected Arrow array
+/// contains an unsupported scalar type for the scoped local runtime.
+pub fn materialize_flat_columnar_source_to_scalar_table(
     source: &FlatLocalColumnarSource,
     path: &Path,
     source_label: &str,

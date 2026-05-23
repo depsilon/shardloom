@@ -1479,6 +1479,16 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
                             {{"key": "source_state_read_plan", "value": "projected_source_state"}},
                             {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
+                            {{"key": "user_surface_runtime_scope", "value": "format_neutral_sql_python_runtime"}},
+                            {{"key": "format_specific_boundary_scope", "value": "read_ingest_and_write_only"}},
+                            {{"key": "format_specific_compute_path", "value": "false"}},
+                            {{"key": "source_state_materialization_layout", "value": "arrow_record_batch_columnar_source_state_then_scalar_row_map"}},
+                            {{"key": "source_state_parse_normalization", "value": "structured_reader_to_arrow_record_batches_then_scalar_rows"}},
+                            {{"key": "source_state_columnar_preserved", "value": "true"}},
+                            {{"key": "source_state_record_batch_count", "value": "1"}},
+                            {{"key": "source_to_columnar_millis", "value": "3"}},
+                            {{"key": "source_state_runtime_consumption_layout", "value": "scalar_row_map_expression_runtime"}},
+                            {{"key": "source_state_scalar_runtime_materialization_required", "value": "true"}},
                             {{"key": "source_state_materialized_columns", "value": "id"}},
                             {{"key": "source_state_reader_projection_columns", "value": "id"}},
                             {{"key": "result_replay_verified", "value": "true"}},
@@ -1516,6 +1526,30 @@ class ShardLoomClientTests(unittest.TestCase):
                 second.source_state_projection_pushdown_status,
                 "reader_projection_applied",
             )
+            self.assertEqual(
+                second.user_surface_runtime_scope,
+                "format_neutral_sql_python_runtime",
+            )
+            self.assertEqual(
+                second.format_specific_boundary_scope, "read_ingest_and_write_only"
+            )
+            self.assertFalse(second.format_specific_compute_path)
+            self.assertEqual(
+                second.source_state_materialization_layout,
+                "arrow_record_batch_columnar_source_state_then_scalar_row_map",
+            )
+            self.assertEqual(
+                second.source_state_parse_normalization,
+                "structured_reader_to_arrow_record_batches_then_scalar_rows",
+            )
+            self.assertTrue(second.source_state_columnar_preserved)
+            self.assertEqual(second.source_state_record_batch_count, 1)
+            self.assertEqual(second.source_to_columnar_millis, 3)
+            self.assertEqual(
+                second.source_state_runtime_consumption_layout,
+                "scalar_row_map_expression_runtime",
+            )
+            self.assertTrue(second.source_state_scalar_runtime_materialization_required)
             self.assertEqual(second.source_state_materialized_columns, ("id",))
             self.assertEqual(second.source_state_reader_projection_columns, ("id",))
             self.assertEqual(
@@ -1531,6 +1565,20 @@ class ShardLoomClientTests(unittest.TestCase):
                 second.evidence()["source_state_projection_pushdown_status"],
                 "reader_projection_applied",
             )
+            self.assertEqual(
+                second.evidence()["user_surface_runtime_scope"],
+                "format_neutral_sql_python_runtime",
+            )
+            self.assertEqual(
+                second.evidence()["format_specific_boundary_scope"],
+                "read_ingest_and_write_only",
+            )
+            self.assertEqual(second.evidence()["format_specific_compute_path"], False)
+            self.assertEqual(
+                second.evidence()["source_state_materialization_layout"],
+                "arrow_record_batch_columnar_source_state_then_scalar_row_map",
+            )
+            self.assertEqual(second.evidence()["source_state_columnar_preserved"], True)
             self.assertFalse(second.fallback_attempted)
             self.assertFalse(second.external_engine_invoked)
             self.assertEqual(count_path.read_text(encoding="utf-8"), "1")

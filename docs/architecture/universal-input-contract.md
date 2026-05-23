@@ -44,8 +44,17 @@ not by compiling every reader by default. Active implementation status for input
     SourceState read-plan evidence, requested/materialized columns, reader projection columns, and
     reader-level projection status when `shardloom-cli --features universal-format-io` is enabled;
     default builds report deterministic Parquet, Arrow IPC, Avro, or ORC adapter blockers. The
-    same gate admits scoped flat scalar local Parquet/Arrow IPC/Avro/ORC output for that SQL
-    local-source smoke and reports deterministic sink blockers in default builds.
+    same direct-transient SQL path now preserves the structured-reader Arrow `RecordBatch`
+    SourceState boundary until the explicit scalar-row expression-runtime materialization boundary,
+    reporting `user_surface_runtime_scope=format_neutral_sql_python_runtime`,
+    `format_specific_boundary_scope=read_ingest_and_write_only`,
+    `format_specific_compute_path=false`, `source_state_columnar_preserved`,
+    `source_state_record_batch_count`, `source_to_columnar_millis`,
+    `source_state_runtime_consumption_layout`, and
+    `source_state_scalar_runtime_materialization_required` so columnar ingress is not hidden inside
+    generic parse time and is not misreported as per-format, Arrow, or Vortex-native query
+    execution. The same gate admits scoped flat scalar local Parquet/Arrow IPC/Avro/ORC output for
+    that SQL local-source smoke and reports deterministic sink blockers in default builds.
   - When `vortex-ingest-smoke` is built with both `vortex-write` and `universal-format-io`, flat
     scalar Parquet/Arrow IPC/Avro/ORC inputs preserve an Arrow `RecordBatch` columnar SourceState
     through the prepare-once boundary and use upstream Vortex

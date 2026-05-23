@@ -1154,6 +1154,15 @@ impl LocalSourceFormat {
         }
     }
 
+    const fn scalar_parse_normalization(self) -> &'static str {
+        match self {
+            Self::Csv | Self::Json | Self::JsonLines => "local_text_to_scalar_rows",
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
+                "arrow_record_batch_to_scalar_rows"
+            }
+        }
+    }
+
     fn projection_pushdown_status(
         self,
         read_plan: &LocalSourceReadPlan,
@@ -1202,23 +1211,49 @@ struct LocalSourceReadContent {
     header: Vec<String>,
     rows: Vec<ExpressionInputRow>,
     reader_projection_columns: Option<Vec<String>>,
+    source_to_columnar_millis: u128,
+    record_batch_count: usize,
+    materialization_layout: &'static str,
+    parse_normalization: &'static str,
+    columnar_source_preserved: bool,
 }
 
 impl LocalSourceReadContent {
-    fn new(
+    fn text(
+        source_format: LocalSourceFormat,
         header: Vec<String>,
         rows: Vec<ExpressionInputRow>,
-        reader_projection_columns: Option<Vec<String>>,
     ) -> Self {
         Self {
             header,
             rows,
-            reader_projection_columns,
+            reader_projection_columns: None,
+            source_to_columnar_millis: 0,
+            record_batch_count: 0,
+            materialization_layout: "scalar_row_map",
+            parse_normalization: source_format.scalar_parse_normalization(),
+            columnar_source_preserved: false,
         }
     }
 
-    fn text(header: Vec<String>, rows: Vec<ExpressionInputRow>) -> Self {
-        Self::new(header, rows, None)
+    #[cfg(feature = "universal-format-io")]
+    fn columnar_then_scalar(
+        header: Vec<String>,
+        rows: Vec<ExpressionInputRow>,
+        reader_projection_columns: Vec<String>,
+        source_to_columnar_millis: u128,
+        record_batch_count: usize,
+    ) -> Self {
+        Self {
+            header,
+            rows,
+            reader_projection_columns: Some(reader_projection_columns),
+            source_to_columnar_millis,
+            record_batch_count,
+            materialization_layout: "arrow_record_batch_columnar_source_state_then_scalar_row_map",
+            parse_normalization: "structured_reader_to_arrow_record_batches_then_scalar_rows",
+            columnar_source_preserved: true,
+        }
     }
 }
 
@@ -1235,6 +1270,11 @@ struct CsvSourceData {
     source_digest: String,
     read_millis: u128,
     parse_millis: u128,
+    source_to_columnar_millis: u128,
+    record_batch_count: usize,
+    materialization_layout: &'static str,
+    parse_normalization: &'static str,
+    columnar_source_preserved: bool,
 }
 
 impl CsvSourceData {
@@ -1264,20 +1304,16 @@ impl CsvSourceData {
         self.pruned_column_count() > 0
     }
 
-    const fn materialization_layout() -> &'static str {
-        "scalar_row_map"
+    const fn materialization_layout(&self) -> &'static str {
+        self.materialization_layout
     }
 
     const fn parse_normalization(&self) -> &'static str {
-        match self.source_format {
-            LocalSourceFormat::Csv | LocalSourceFormat::Json | LocalSourceFormat::JsonLines => {
-                "local_text_to_scalar_rows"
-            }
-            LocalSourceFormat::Parquet
-            | LocalSourceFormat::ArrowIpc
-            | LocalSourceFormat::Avro
-            | LocalSourceFormat::Orc => "arrow_record_batch_to_scalar_rows",
-        }
+        self.parse_normalization
+    }
+
+    const fn columnar_source_preserved(&self) -> bool {
+        self.columnar_source_preserved
     }
 
     fn source_state_id(&self) -> String {
@@ -1290,7 +1326,7 @@ impl CsvSourceData {
 
     fn source_state_digest(&self, source_schema_digest: &str) -> String {
         fnv64_digest(&format!(
-            "{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             self.source_format.as_str(),
             self.source_digest,
             source_schema_digest,
@@ -1299,7 +1335,10 @@ impl CsvSourceData {
             self.read_plan.requested_columns(),
             self.materialized_columns_field(),
             self.reader_projection_columns_field(),
-            self.projection_pushdown_status.as_str()
+            self.projection_pushdown_status.as_str(),
+            self.materialization_layout,
+            self.columnar_source_preserved,
+            self.record_batch_count
         ))
     }
 }
@@ -1329,11 +1368,11 @@ impl VortexIngestSourceData {
         Self {
             row_count: source.rows.len(),
             compatibility_parse_millis: source.parse_millis,
-            source_to_columnar_millis: 0,
-            record_batch_count: 0,
-            materialization_layout: CsvSourceData::materialization_layout(),
+            source_to_columnar_millis: source.source_to_columnar_millis,
+            record_batch_count: source.record_batch_count,
+            materialization_layout: source.materialization_layout(),
             parse_normalization: source.parse_normalization(),
-            columnar_source_preserved: false,
+            columnar_source_preserved: source.columnar_source_preserved(),
             source_format: source.source_format,
             header: source.header,
             read_plan: source.read_plan,
@@ -10438,6 +10477,18 @@ impl SqlLocalSourceReport {
             ("sql_binder_executed".to_string(), "true".to_string()),
             ("sql_planner_executed".to_string(), "true".to_string()),
             ("sql_runtime_execution".to_string(), "true".to_string()),
+            (
+                "user_surface_runtime_scope".to_string(),
+                "format_neutral_sql_python_runtime".to_string(),
+            ),
+            (
+                "format_specific_boundary_scope".to_string(),
+                "read_ingest_and_write_only".to_string(),
+            ),
+            (
+                "format_specific_compute_path".to_string(),
+                "false".to_string(),
+            ),
             ("source_io_performed".to_string(), "true".to_string()),
             (
                 "source_format".to_string(),
@@ -10558,11 +10609,31 @@ impl SqlLocalSourceReport {
             ),
             (
                 "source_state_materialization_layout".to_string(),
-                CsvSourceData::materialization_layout().to_string(),
+                self.source.materialization_layout().to_string(),
             ),
             (
                 "source_state_parse_normalization".to_string(),
                 self.source.parse_normalization().to_string(),
+            ),
+            (
+                "source_state_columnar_preserved".to_string(),
+                self.source.columnar_source_preserved().to_string(),
+            ),
+            (
+                "source_state_record_batch_count".to_string(),
+                self.source.record_batch_count.to_string(),
+            ),
+            (
+                "source_to_columnar_millis".to_string(),
+                self.source.source_to_columnar_millis.to_string(),
+            ),
+            (
+                "source_state_runtime_consumption_layout".to_string(),
+                "scalar_row_map_expression_runtime".to_string(),
+            ),
+            (
+                "source_state_scalar_runtime_materialization_required".to_string(),
+                "true".to_string(),
             ),
             (
                 "source_state_materialized_column_count".to_string(),
@@ -12408,17 +12479,17 @@ fn read_local_source_with_plan(
         LocalSourceFormat::Csv => {
             let content = decode_local_text_source(path, source_format, bytes)?;
             let (header, rows) = parse_csv_source_content_with_plan(&content, read_plan)?;
-            LocalSourceReadContent::text(header, rows)
+            LocalSourceReadContent::text(source_format, header, rows)
         }
         LocalSourceFormat::Json => {
             let content = decode_local_text_source(path, source_format, bytes)?;
             let (header, rows) = parse_json_source_content_with_plan(&content, read_plan)?;
-            LocalSourceReadContent::text(header, rows)
+            LocalSourceReadContent::text(source_format, header, rows)
         }
         LocalSourceFormat::JsonLines => {
             let content = decode_local_text_source(path, source_format, bytes)?;
             let (header, rows) = parse_jsonl_source_content_with_plan(&content, read_plan)?;
-            LocalSourceReadContent::text(header, rows)
+            LocalSourceReadContent::text(source_format, header, rows)
         }
         LocalSourceFormat::Parquet => read_parquet_source_content(path, read_plan)?,
         LocalSourceFormat::ArrowIpc => read_arrow_ipc_source_content(path, read_plan)?,
@@ -12429,6 +12500,11 @@ fn read_local_source_with_plan(
         header,
         mut rows,
         reader_projection_columns,
+        source_to_columnar_millis,
+        record_batch_count,
+        materialization_layout,
+        parse_normalization,
+        columnar_source_preserved,
     } = content;
     prune_rows_to_read_plan(&mut rows, read_plan);
     let materialized_columns = read_plan.materialized_columns(&header);
@@ -12447,6 +12523,11 @@ fn read_local_source_with_plan(
         source_digest,
         read_millis,
         parse_millis: parse_start.elapsed().as_millis(),
+        source_to_columnar_millis,
+        record_batch_count,
+        materialization_layout,
+        parse_normalization,
+        columnar_source_preserved,
     })
 }
 
@@ -12474,27 +12555,59 @@ fn prune_rows_to_read_plan(rows: &mut [ExpressionInputRow], read_plan: &LocalSou
 }
 
 #[cfg(feature = "universal-format-io")]
+fn read_structured_columnar_source_content<ReadFull, ReadProjected>(
+    path: &Path,
+    read_plan: &LocalSourceReadPlan,
+    source_format: LocalSourceFormat,
+    read_full: ReadFull,
+    read_projected: ReadProjected,
+) -> Result<LocalSourceReadContent, ShardLoomError>
+where
+    ReadFull:
+        FnOnce(&Path, usize) -> Result<shardloom_vortex::FlatLocalColumnarSource, ShardLoomError>,
+    ReadProjected: FnOnce(
+        &Path,
+        usize,
+        &[String],
+    ) -> Result<shardloom_vortex::FlatLocalColumnarSource, ShardLoomError>,
+{
+    let source_to_columnar_start = Instant::now();
+    let columnar_source = if let Some(required_columns) = read_plan.required_columns_vec() {
+        read_projected(path, MAX_INPUT_ROWS, &required_columns)?
+    } else {
+        read_full(path, MAX_INPUT_ROWS)?
+    };
+    let source_to_columnar_millis = source_to_columnar_start.elapsed().as_millis();
+    for column in &columnar_source.header {
+        validate_sql_identifier(column)?;
+    }
+    let record_batch_count = columnar_source.batches.len();
+    let table = shardloom_vortex::materialize_flat_columnar_source_to_scalar_table(
+        &columnar_source,
+        path,
+        source_format.row_label(),
+    )?;
+    Ok(LocalSourceReadContent::columnar_then_scalar(
+        table.header,
+        table.rows,
+        table.reader_projection_columns,
+        source_to_columnar_millis,
+        record_batch_count,
+    ))
+}
+
+#[cfg(feature = "universal-format-io")]
 fn read_parquet_source_content(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
 ) -> Result<LocalSourceReadContent, ShardLoomError> {
-    let table = if let Some(required_columns) = read_plan.required_columns_vec() {
-        shardloom_vortex::read_flat_parquet_source_with_projection(
-            path,
-            MAX_INPUT_ROWS,
-            &required_columns,
-        )?
-    } else {
-        shardloom_vortex::read_flat_parquet_source(path, MAX_INPUT_ROWS)?
-    };
-    for column in &table.header {
-        validate_sql_identifier(column)?;
-    }
-    Ok(LocalSourceReadContent::new(
-        table.header,
-        table.rows,
-        Some(table.reader_projection_columns),
-    ))
+    read_structured_columnar_source_content(
+        path,
+        read_plan,
+        LocalSourceFormat::Parquet,
+        shardloom_vortex::read_flat_parquet_columnar_source,
+        shardloom_vortex::read_flat_parquet_columnar_source_with_projection,
+    )
 }
 
 #[cfg(not(feature = "universal-format-io"))]
@@ -12512,23 +12625,13 @@ fn read_arrow_ipc_source_content(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
 ) -> Result<LocalSourceReadContent, ShardLoomError> {
-    let table = if let Some(required_columns) = read_plan.required_columns_vec() {
-        shardloom_vortex::read_flat_arrow_ipc_source_with_projection(
-            path,
-            MAX_INPUT_ROWS,
-            &required_columns,
-        )?
-    } else {
-        shardloom_vortex::read_flat_arrow_ipc_source(path, MAX_INPUT_ROWS)?
-    };
-    for column in &table.header {
-        validate_sql_identifier(column)?;
-    }
-    Ok(LocalSourceReadContent::new(
-        table.header,
-        table.rows,
-        Some(table.reader_projection_columns),
-    ))
+    read_structured_columnar_source_content(
+        path,
+        read_plan,
+        LocalSourceFormat::ArrowIpc,
+        shardloom_vortex::read_flat_arrow_ipc_columnar_source,
+        shardloom_vortex::read_flat_arrow_ipc_columnar_source_with_projection,
+    )
 }
 
 #[cfg(not(feature = "universal-format-io"))]
@@ -12546,23 +12649,13 @@ fn read_avro_source_content(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
 ) -> Result<LocalSourceReadContent, ShardLoomError> {
-    let table = if let Some(required_columns) = read_plan.required_columns_vec() {
-        shardloom_vortex::read_flat_avro_source_with_projection(
-            path,
-            MAX_INPUT_ROWS,
-            &required_columns,
-        )?
-    } else {
-        shardloom_vortex::read_flat_avro_source(path, MAX_INPUT_ROWS)?
-    };
-    for column in &table.header {
-        validate_sql_identifier(column)?;
-    }
-    Ok(LocalSourceReadContent::new(
-        table.header,
-        table.rows,
-        Some(table.reader_projection_columns),
-    ))
+    read_structured_columnar_source_content(
+        path,
+        read_plan,
+        LocalSourceFormat::Avro,
+        shardloom_vortex::read_flat_avro_columnar_source,
+        shardloom_vortex::read_flat_avro_columnar_source_with_projection,
+    )
 }
 
 #[cfg(not(feature = "universal-format-io"))]
@@ -12580,23 +12673,13 @@ fn read_orc_source_content(
     path: &Path,
     read_plan: &LocalSourceReadPlan,
 ) -> Result<LocalSourceReadContent, ShardLoomError> {
-    let table = if let Some(required_columns) = read_plan.required_columns_vec() {
-        shardloom_vortex::read_flat_orc_source_with_projection(
-            path,
-            MAX_INPUT_ROWS,
-            &required_columns,
-        )?
-    } else {
-        shardloom_vortex::read_flat_orc_source(path, MAX_INPUT_ROWS)?
-    };
-    for column in &table.header {
-        validate_sql_identifier(column)?;
-    }
-    Ok(LocalSourceReadContent::new(
-        table.header,
-        table.rows,
-        Some(table.reader_projection_columns),
-    ))
+    read_structured_columnar_source_content(
+        path,
+        read_plan,
+        LocalSourceFormat::Orc,
+        shardloom_vortex::read_flat_orc_columnar_source,
+        shardloom_vortex::read_flat_orc_columnar_source_with_projection,
+    )
 }
 
 #[cfg(not(feature = "universal-format-io"))]
@@ -17611,6 +17694,120 @@ fn unsupported_sql_error(reason: &str) -> ShardLoomError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "universal-format-io")]
+    fn sql_local_source_test_path(extension: &str) -> PathBuf {
+        let mut path = std::env::temp_dir();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        path.push(format!(
+            "shardloom-sql-local-source-{}-{nanos}.{extension}",
+            std::process::id()
+        ));
+        path
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn field_map(fields: Vec<(String, String)>) -> BTreeMap<String, String> {
+        fields.into_iter().collect()
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    fn assert_field_eq(fields: &BTreeMap<String, String>, key: &str, expected: &str) {
+        assert_eq!(fields.get(key).map(String::as_str), Some(expected));
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn direct_transient_arrow_ipc_reports_columnar_source_state_boundary() {
+        let path = sql_local_source_test_path("arrow");
+        let columns = vec!["id".to_string(), "amount".to_string(), "label".to_string()];
+        let rows = vec![
+            vec![
+                ("id".to_string(), ScalarValue::Int64(1)),
+                ("amount".to_string(), ScalarValue::Int64(5)),
+                ("label".to_string(), ScalarValue::Utf8("low".to_string())),
+            ],
+            vec![
+                ("id".to_string(), ScalarValue::Int64(2)),
+                ("amount".to_string(), ScalarValue::Int64(15)),
+                ("label".to_string(), ScalarValue::Utf8("high".to_string())),
+            ],
+        ];
+        let bytes = shardloom_vortex::encode_flat_arrow_ipc_rows(&columns, &rows)
+            .expect("encode arrow ipc");
+        fs::write(&path, bytes).expect("write arrow ipc source");
+
+        let request = SqlLocalSourceRequest {
+            statement: format!(
+                "SELECT id FROM '{}' WHERE amount >= 10 LIMIT 1",
+                path.display()
+            ),
+            output_format: SqlLocalSourceOutputFormat::InlineJsonl,
+            output_path: None,
+            fanout_outputs: Vec::new(),
+            allow_overwrite: false,
+        };
+        let report = run_sql_local_source_smoke(&request).expect("run sql smoke");
+        let fields = field_map(report.fields());
+
+        assert_field_eq(&fields, "source_format", "arrow_ipc");
+        assert_field_eq(
+            &fields,
+            "user_surface_runtime_scope",
+            "format_neutral_sql_python_runtime",
+        );
+        assert_field_eq(
+            &fields,
+            "format_specific_boundary_scope",
+            "read_ingest_and_write_only",
+        );
+        assert_field_eq(&fields, "format_specific_compute_path", "false");
+        assert_field_eq(
+            &fields,
+            "source_state_materialization_layout",
+            "arrow_record_batch_columnar_source_state_then_scalar_row_map",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_parse_normalization",
+            "structured_reader_to_arrow_record_batches_then_scalar_rows",
+        );
+        assert_field_eq(&fields, "source_state_columnar_preserved", "true");
+        assert_field_eq(&fields, "source_state_record_batch_count", "1");
+        assert_field_eq(
+            &fields,
+            "source_state_runtime_consumption_layout",
+            "scalar_row_map_expression_runtime",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_scalar_runtime_materialization_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_projection_pushdown_status",
+            "reader_level_projection",
+        );
+        assert_field_eq(&fields, "source_state_materialized_columns", "id,amount");
+        assert_field_eq(
+            &fields,
+            "source_state_reader_projection_columns",
+            "id,amount",
+        );
+        let source_to_columnar_millis = fields
+            .get("source_to_columnar_millis")
+            .expect("source_to_columnar_millis")
+            .parse::<u128>()
+            .expect("source_to_columnar_millis numeric");
+        assert!(source_to_columnar_millis <= report.source.parse_millis);
+        assert_eq!(report.output_rows.len(), 1);
+        assert!(report.output_rows[0].contains(&("id".to_string(), ScalarValue::Int64(2))));
+        fs::remove_file(&path).expect("remove arrow ipc source");
+    }
 
     #[test]
     fn parses_scoped_sql_local_source_statement() {

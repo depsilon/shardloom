@@ -129,9 +129,15 @@ the local source fingerprint and prepared Vortex artifact fingerprint still matc
 admitted local query-builder `collect(...)`, `write(...)`, and `fanout(...)` results when the SQL
 statement, local source fingerprints, and local output artifact fingerprints still match. Session
 evidence exposes `session_id`, `session_state_scope`, cache hit/miss counts, source/prepared/output
-reuse counts, explicit close status, and no-fallback/no-external-engine fields. It does not imply a
-daemon, remote server, hidden global cache, DataFrame/SQL production runtime, object-store/lakehouse
-runtime, or performance claim.
+reuse counts, direct local SourceState read-plan/materialization fields, explicit close status, and
+no-fallback/no-external-engine fields. For feature-gated Parquet/Arrow IPC/Avro/ORC local SQL
+smokes, those SourceState fields disclose preserved columnar `RecordBatch` ingress plus the scalar
+expression-runtime boundary rather than treating Arrow as a hidden execution engine. The report also
+keeps `user_surface_runtime_scope=format_neutral_sql_python_runtime`,
+`format_specific_boundary_scope=read_ingest_and_write_only`, and
+`format_specific_compute_path=false`. It does not imply a daemon, remote server, hidden global cache,
+DataFrame/SQL production runtime,
+object-store/lakehouse runtime, or performance claim.
 
 ```python
 import shardloom as sl
@@ -956,12 +962,12 @@ SQL/DataFrame execution or Polars/DataFusion optimizer parity.
 
 Reusable I/O state and broad cross-format fanout are planned as `GAR-IOREUSE-1`. The current Python
 runtime exposes scoped local-source `.fanout(...)` smokes over admitted local compatibility sinks and
-feature-gated local Vortex output/fanout with local artifact replay/fidelity reporting. Future
-Python capability/write views may expose broader
-`SourceState`, `VortexPreparedState`, `OutputPlan`, cache invalidation, reuse levels,
-generated-source fanout, persistent OutputPlan reuse, and claim-grade replay/fidelity evidence, but
-input and output formats remain decoupled and reuse evidence will not imply performance, production,
-object-store/lakehouse, Foundry, or SQL/DataFrame support.
+feature-gated local Vortex output/fanout with local artifact replay/fidelity reporting. Current
+typed result objects expose scoped `SourceState`, `VortexPreparedState`, and `OutputPlan` evidence
+where the CLI emits it; future Python capability/write views may broaden cache invalidation, reuse
+levels, generated-source fanout, persistent OutputPlan reuse, and claim-grade replay/fidelity
+evidence. Input and output formats remain decoupled, and reuse evidence will not imply performance,
+production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
 
 Unsupported workflow affordances are explicit report surfaces too. These calls
 are meant to make familiar pandas/Arrow/DataFrame/notebook methods discoverable
