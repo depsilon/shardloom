@@ -2387,7 +2387,7 @@ class LazyFrame:
         if not _is_query_builder_local_source(self.source):
             return False
         return all(
-            operation.kind not in {"select", "aggregate", "group_by"}
+            operation.kind not in {"select", "aggregate", "group_by", "sort"}
             for operation in self.operations
         )
 
@@ -2395,7 +2395,7 @@ class LazyFrame:
         if not _is_query_builder_local_source(self.source):
             return False
         return all(
-            operation.kind not in {"select", "aggregate", "group_by"}
+            operation.kind not in {"select", "aggregate", "group_by", "sort"}
             for operation in self.operations
         )
 
@@ -2404,10 +2404,7 @@ class LazyFrame:
             return False
         if len(set(columns)) != len(columns):
             return False
-        return all(
-            operation.kind not in {"aggregate", "group_by", "sort"}
-            for operation in self.operations
-        )
+        return all(operation.kind != "sort" for operation in self.operations)
 
     def _can_append_projection_column(self, column_name: str) -> bool:
         if not _is_query_builder_local_source(self.source):
@@ -2502,7 +2499,7 @@ class LazyFrame:
                 for left_column, right_column in zip(left_keys, right_keys)
             )
             if aggregate_list is not None:
-                if projection_list is not None or literal_columns or sort_key is not None:
+                if projection_list is not None or literal_columns:
                     return None
                 if group_by_list is not None:
                     select_clause = ",".join((*group_by_list, *aggregate_list))
@@ -2554,8 +2551,6 @@ class LazyFrame:
                 return None
             select_clause = "*"
             group_by_clause = ""
-        if sort_key is not None and (aggregate_list is not None or group_by_list is not None):
-            return None
         order_by_clause = ""
         if sort_key is not None:
             direction, columns = sort_key

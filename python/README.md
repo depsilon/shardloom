@@ -561,10 +561,13 @@ JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are 
 `MIN`, and `MAX`. The convenience `count()` method lowers to the same
 `COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. Multi-key grouped aggregates shaped as
 `group_by(...).agg(...).limit(n)` with an optional filter are supported, including named
-aggregate aliases such as `agg(rows="count(*)", total="sum(amount)")`. A multi-key
+aggregate aliases such as `agg(rows="count(*)", total="sum(amount)")`; those grouped aggregate
+rows can also use numeric top-N ordering over aggregate output aliases via
+`group_by(...).agg(...).sort(...).limit(n)`. A multi-key
 numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric sort
-keys. Local-source joins also admit scalar and grouped aggregates when the workflow keeps the
+keys. Local-source joins also admit scalar and grouped aggregates, including numeric top-N
+ordering over aggregate output aliases, when the workflow keeps the
 same explicit aliases, qualified join-side columns, optional pre-aggregate filter, and bounded
 `limit(...)`. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL/CSV file
 by default, and local-source workflows can use `write(..., output_format="csv")`
@@ -840,13 +843,15 @@ print(sql_written.fallback_attempted, sql_written.external_engine_invoked)
 
 This is a fixture-smoke local CSV plus flat JSON/JSONL/NDJSON and feature-gated flat scalar
 Parquet/Arrow IPC/Avro/ORC bridge for the scoped
-projection/optional-filter/limit, scalar aggregate, multi-key grouped aggregate,
+projection/optional-filter/limit, scalar aggregate, scalar aggregate-output top-N,
+multi-key grouped aggregate, grouped aggregate-output top-N,
 preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
 ABS, scoped numeric rounding, and scoped UTF-8 string length `with_column`,
 multi-key numeric top-N, and scoped single- or multi-key local-source inner equi-join shapes.
 Joined workflows also admit scoped computed projections over qualified columns plus multi-key
 numeric top-N over joined rows. Scoped scalar/grouped join aggregates over those same join shapes
-lower through the same runtime.
+lower through the same runtime and may order by numeric aggregate output aliases before a bounded
+`limit(...)`.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 expression-backed `with_column` beyond the admitted numeric/string/null/temporal/predicate families,
@@ -865,7 +870,9 @@ qualified projection columns such as
 explicit `limit(...)`. A joined workflow can add admitted `with_column(...)` expressions over
 qualified columns and may use `sort("f.amount", "f.id", descending=True).limit(n)` for the scoped
 multi-key numeric joined top-N path. A joined workflow can also end in `agg(...).limit(...)` or
-`group_by(...).agg(...).limit(...)` for the admitted scalar/grouped join-aggregate subset. Broad
+`group_by(...).agg(...).limit(...)` for the admitted scalar/grouped join-aggregate subset, and can
+place `sort("total_amount", descending=True).limit(n)` after those aggregates when the sort keys
+are numeric aggregate output aliases. Broad
 DataFrame joins remain blocked: outer/semi/anti/cross
 joins, expression joins,
 unqualified join predicates, nested/complex structured data, and
@@ -896,9 +903,9 @@ print(claim.public_performance_claim_allowed)
 ```
 
 The lower-level `client.sql_local_source_smoke(...)` helper can also call the
-scoped local CSV scalar, grouped aggregate, order/top-N, explicit inner
-equi-join, and join-aggregate smokes directly. Direct client calls are only a typed wrapper around
-the CLI fixture-smoke evidence:
+scoped local CSV scalar aggregate, grouped aggregate, aggregate-output order/top-N, projection
+order/top-N, explicit inner equi-join, joined row top-N, and joined aggregate-output order/top-N
+smokes directly. Direct client calls are only a typed wrapper around the CLI fixture-smoke evidence:
 
 ```python
 report = client.sql_local_source_smoke(
@@ -920,6 +927,16 @@ print(grouped.group_by_multi_key_runtime_execution)
 print(grouped.aggregate_output_columns)
 print(grouped.aggregate_aliases)
 print(grouped.group_by_group_count)
+
+grouped_topn = client.sql_local_source_smoke(
+    "SELECT region,count(*) AS rows,sum(amount) AS total_amount "
+    "FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE amount >= 10 GROUP BY region "
+    "ORDER BY total_amount DESC,rows DESC LIMIT 2",
+)
+print(grouped_topn.sort_keys)
+print(grouped_topn.sort_direction)
+print(grouped_topn.top_n_limit)
 
 topn = client.sql_local_source_smoke(
     "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
@@ -962,10 +979,21 @@ join_grouped = client.sql_local_source_smoke(
 print(join_grouped.join_aggregate_runtime_execution)
 print(join_grouped.join_aggregate_operator_family)
 print(join_grouped.join_aggregate_group_count)
+
+join_grouped_topn = client.sql_local_source_smoke(
+    "SELECT d.segment,count(*) AS rows,sum(f.amount) AS total_amount "
+    "FROM 'target/sql-local-source-join-fact.csv' AS f "
+    "INNER JOIN 'target/sql-local-source-join-dim.csv' AS d "
+    "ON f.customer_id = d.customer_id AND f.region = d.region "
+    "WHERE f.amount >= 10 GROUP BY d.segment "
+    "ORDER BY total_amount DESC,rows DESC LIMIT 2",
+)
+print(join_grouped_topn.sort_keys)
+print(join_grouped_topn.top_n_limit)
 ```
 
 That path is still fixture-smoke evidence only. Broader grouped aggregate generality,
-multi-key sorts, aggregate ordering, null ordering, collation parity,
+null ordering, collation parity,
 broader correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source inner-equi query-builder bridge, broad expression-backed input-backed `with_column`,
