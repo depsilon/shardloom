@@ -585,7 +585,7 @@ or documentation updates alone are insufficient.
     fields, unsupported blockers, and any measured artifact refs; do not mark complete from docs
     alone.
 
-- [ ] GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion
+- [x] GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion
   - Source: OutputPlan, result-sink replay proof, cross-format fanout architecture,
     `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: scoped local SQL/Python output can write local JSONL and CSV sinks with
@@ -603,11 +603,17 @@ or documentation updates alone are insufficient.
     verification, replay timing/status fields, and scoped output fidelity/loss reporting for
     admitted local sinks. Source-free generated-output fanout now follows the same write-boundary
     contract for generated rows, generated range/sequence, generated range SQL, and source-free SQL
-    by reusing one computed generated result for primary plus fanout sinks. Broader type/nesting and
-    metadata fidelity for those compatibility exports, persistent OutputPlan registry reuse, and
-    claim-grade fanout are not complete.
-  - Next slice outcome: add persistent reusable OutputPlan registry consolidation, replay policy
-    levels, and claim-grade fanout admission for formats whose metadata/fidelity proof is complete.
+    by reusing one computed generated result for primary plus fanout sinks. Python
+    `ShardLoomSession` also reuses admitted local query-builder write/fanout reports when the
+    statement, source fingerprints, and output artifact fingerprints still match, and exposes
+    `output_plan_reuse_hit`, `result_replay_reuse_hit`, reuse counts, invalidation reasons, and
+    no-fallback evidence. Broader type/nesting and metadata fidelity for compatibility exports,
+    persistent cross-process OutputPlan registry reuse, object-store/table/Foundry sinks, and
+    claim-grade fanout are now split to their owning runtime, session, object-store/table,
+    Foundry, and final claim gates instead of blocking the local output/fanout section.
+  - Next slice outcome: complete; admitted local-source, generated-source, and Python-session
+    output/fanout paths write local evidence-backed outputs, block unsupported sinks before partial
+    writes, and keep broader output claims in separate queues.
   - Runtime enablement: local output writers and fanout execution with OutputPlan evidence and
     replay proof where admitted.
   - User-visible surface: CLI/Python `.write` and `.fanout`, recipes, benchmark
@@ -628,11 +634,13 @@ or documentation updates alone are insufficient.
     writers and object-store sinks block deterministically.
   - Verification: writer smoke per format, fanout smoke, replay tests, use-case coverage,
     benchmark contract tests.
-  - Non-goals: no object-store write, table commit, production sink claim, or performance claim.
-  - Claim boundary: local output/fanout support per admitted format.
+  - Non-goals: no object-store write, table commit, Foundry production sink, package/public
+    production sink claim, cross-process cache, or performance claim.
+  - Claim boundary: local output/fanout fixture-smoke support per admitted format only.
   - Fallback boundary: compatibility output is export, not external-engine execution.
-  - Dependencies/blockers: OutputPlan registry consolidation, schema translation/fidelity reports,
-    replay verifier, generated/local/Vortex source evidence, and fanout benchmark fields.
+  - Dependencies/blockers: broader schema translation/fidelity reports, persistent OutputPlan
+    registry/cache promotion in `4L`/`5I`, object-store/table sinks in `4O`/`5L`, Foundry output in
+    `5P`, and final release/claim-grade gates.
   - Ledger rule: ledger entry must list format combinations and replay proof refs.
 
 - [ ] GAR-RUNTIME-IMPL-4I Vortex scan pushdown and encoded-predicate runtime completion
@@ -1116,12 +1124,17 @@ docs/website parity, and a completed-ledger entry.
     correctness checks.
   - Ledger rule: ledger entry must list admitted formats, evidence refs, and unsupported formats.
 
-- [ ] GAR-RUNTIME-IMPL-5E local output writers, replay proof, and fanout runtime
+- [x] GAR-RUNTIME-IMPL-5E local output writers, replay proof, and fanout runtime
   - Source: `GAR-RUNTIME-IMPL-4G`, `GAR-IOREUSE-1C`, `GAR-IOREUSE-1D`, result-sink proof docs.
-  - Current state: result-sink evidence exists, but local cross-format output and fanout are not
-    complete as ordinary user workflows.
-  - Next slice outcome: implement local OutputPlan-backed writes for admitted formats and a
-    cross-format fanout smoke with replay/correctness proof.
+  - Current state: local cross-format output and fanout are ordinary scoped user workflows for
+    admitted local-source and generated-source paths. JSONL/CSV are default local sinks;
+    Parquet/Arrow IPC/Avro/ORC and Vortex are feature-gated flat-scalar local sinks; SQL/Python and
+    generated-source fanout emit OutputPlan digests, per-output bytes/digests, output Native I/O
+    certificate statuses, replay status/timing, scoped fidelity/loss reports, no-fallback fields,
+    deterministic blocker behavior for unsupported sinks, and Python session reuse evidence for
+    matching local output artifacts.
+  - Next slice outcome: complete; admitted local OutputPlan-backed writes and cross-format fanout
+    smokes have replay/correctness proof, and broader sink/cache/claim work is split out.
   - Runtime enablement: local OutputPlan writer and fanout runtime with replay evidence.
   - User-visible surface: CLI/Python `write(...)`, recipes, benchmark fanout rows, website status.
   - Implementation scope: OutputPlan registry, writer adapters, schema compatibility, replay proof,
@@ -1132,11 +1145,12 @@ docs/website parity, and a completed-ledger entry.
     unsupported sinks block; replay proof is explicit where claimable.
   - Verification: writer smoke per format, replay tests, fanout benchmark smoke, output schema
     snapshots.
-  - Non-goals: no object-store write, table commit, production sink claim, or performance claim.
-  - Claim boundary: local output writer and fanout support per admitted format only.
+  - Non-goals: no object-store write, table commit, Foundry production path, persistent
+    cross-process cache, production sink claim, or performance claim.
+  - Claim boundary: local output writer and fanout fixture-smoke support per admitted format only.
   - Fallback boundary: output writers translate ShardLoom results and cannot invoke external compute.
-  - Dependencies/blockers: OutputPlan schema, local adapter data, result replay harness, generated
-    source/local/Vortex source evidence.
+  - Dependencies/blockers: broader schema/fidelity proof, persistent OutputPlan/session cache
+    promotion, object-store/table/Foundry sink proof, and release claim gates.
   - Ledger rule: ledger entry must list output formats, replay status, and blocked sinks.
 
 - [ ] GAR-RUNTIME-IMPL-5F prepared/native Vortex runtime lifecycle

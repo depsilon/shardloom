@@ -1,6 +1,7 @@
 # I/O Reuse And Cross-Format Fanout Architecture
 
-Status: partially implemented architecture reference for `GAR-IOREUSE-1`.
+Status: implemented for scoped local output/fanout runtime; broader cache, object-store/table,
+Foundry, production, and claim-grade fanout remain gated by later `GAR-IOREUSE-1` follow-through.
 
 ## Summary
 
@@ -29,10 +30,11 @@ result-sink planning, metadata preservation posture, write/replay refs, and sink
 cases as deterministic report-only rows. `GAR-IOREUSE-1E` adds the cache invalidation/fingerprint
 benchmark contract for current-row local SourceState, VortexPreparedState, ExecutionPlan,
 OutputPlan, and SinkArtifact posture. `GAR-IOREUSE-1F` adds evidence-safe reuse-level visibility.
-`GAR-IOREUSE-1G` adds report-only Foundry generated-output fanout posture. Fanout runtime,
-persistent caches, generated-output runtime, and Foundry output API proof remain planned. This
-document does not implement object-store I/O, table/lakehouse commits, Foundry production support,
-performance claims, a persistent cache, or a hidden fast mode.
+`GAR-IOREUSE-1G` adds report-only Foundry generated-output fanout posture. Scoped local fanout
+runtime now exists for local-source SQL/Python and generated-output workflows, and Python
+`ShardLoomSession` can reuse matching local query-builder output/fanout reports. Persistent
+cross-process caches, object-store I/O, table/lakehouse commits, Foundry production support,
+performance claims, broad output-fidelity claims, and hidden fast modes remain out of scope.
 
 ## Goals
 
@@ -230,9 +232,10 @@ Local Vortex result-sink rows with write/replay evidence can report `output_plan
 Rows without an output request report `not_needed`, unsupported rows stay explicit, and external
 baselines are `external_baseline_only`.
 
-Output planning is separate from input format. One prepared source may later fan out to multiple
-local output formats when sink evidence exists, but cross-format fanout is still a future slice.
-Local output, object-store write, and table/lakehouse commit semantics remain separate.
+Output planning is separate from input format. Scoped local-source and generated-source workflows
+can fan out to multiple admitted local output formats when sink evidence exists. Object-store
+write, table/lakehouse commit semantics, Foundry output APIs, and production sink claims remain
+separate.
 
 ### SinkArtifact
 
@@ -297,8 +300,8 @@ claim_gate_status=not_claim_grade
 
 Current `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, `GAR-IOREUSE-1C`, and `GAR-IOREUSE-1D` benchmark rows
 expose the SourceState, VortexPreparedState, OutputPlan, and report-only fanout subsets listed
-above. Future runtime fanout/reuse rows should replace report-only blockers with measured values
-for:
+above. Scoped local-source and generated-source runtime fanout rows now replace report-only posture
+for admitted local workflows with measured/evidence values for:
 
 ```text
 operator_compute_millis
@@ -310,8 +313,8 @@ external_engine_invoked=false
 claim_gate_status
 ```
 
-Sink artifact refs and per-output metadata preservation reports should expand when implementation
-reaches those runtime slices.
+Sink artifact refs and per-output metadata preservation reports should expand further only when
+broader schema/fidelity, benchmark, object-store/table, or production-claim slices land.
 
 The benchmark must demonstrate when source/prepared state is reused across outputs, separate raw
 one-shot speed from reuse/fanout timing, and avoid marking any output sink as supported without
@@ -500,12 +503,12 @@ transform output APIs where applicable, not direct object-store/S3 writes.
 
 ## Claim Boundary
 
-The bundle can eventually support claims about scoped local I/O reuse and local cross-format output
-fanout only when the relevant evidence exists. It cannot authorize performance, superiority,
+The bundle supports only scoped local I/O reuse and local cross-format output/fanout claims where
+the matching fixture-smoke evidence exists. It cannot authorize performance, superiority,
 Spark-displacement, production, broad SQL/DataFrame, object-store/lakehouse, Foundry production,
 package, or release claims.
 
-Until implementation and evidence exist, rows should use:
+Rows outside the scoped local evidence boundary should use:
 
 ```text
 claim_gate_status=not_claim_grade
@@ -514,7 +517,7 @@ fallback_attempted=false
 external_engine_invoked=false
 ```
 
-## Acceptance For The Planning Bundle
+## Acceptance For The Local Runtime Bundle
 
 - The phase plan contains detailed remaining GAR follow-up slices, and
   the completed ledger records `GAR-IOREUSE-1A`, `GAR-IOREUSE-1B`, `GAR-IOREUSE-1C`,
@@ -526,8 +529,10 @@ external_engine_invoked=false
 - Compute-flow docs show the decoupled path:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`.
 - The global architecture review mirrors unchecked follow-up items.
-- No runtime code, package publication, object-store runtime, table commit, performance claim, or
-  fallback engine is introduced by the planning slice.
+- Scoped local SQL/Python and generated-output writes/fanout emit OutputPlan, sink artifact,
+  replay/fidelity, certificate, no-fallback, and no-external-engine evidence.
+- No package publication, object-store runtime, table commit, performance claim, production claim,
+  broad output-fidelity claim, or fallback engine is introduced by the local runtime slice.
 
 ## Verification Plan
 
@@ -539,3 +544,8 @@ cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
 python scripts/check_website_readiness.py
 git diff --check
 ```
+
+Runtime closeout validation also includes focused SQL/generated fanout smokes, Python session
+fanout reuse tests, `cargo fmt --all -- --check`,
+`cargo clippy --workspace --all-targets -- -D warnings`,
+`cargo test --workspace --all-targets`, Python compileall, and `git diff --check`.

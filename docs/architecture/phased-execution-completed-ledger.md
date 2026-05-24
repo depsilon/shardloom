@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4G/5E local output writer and fanout closeout
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-output-fanout-closeout-20260524` / #943.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`.
+    - `GAR-RUNTIME-IMPL-5E local output writers, replay proof, and fanout runtime`.
+    - `GAR-IOREUSE-1C` OutputPlan contract and `GAR-IOREUSE-1D` fanout matrix.
+  - Scope:
+    - Closed the scoped local output/fanout section around existing SQL/Python local-source
+      JSONL/CSV writes, feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC writes,
+      feature-gated local Vortex writes, local-source fanout, and generated-source fanout.
+    - Preserved output/fanout as fixture-smoke local runtime only: fanout reuses a computed local
+      result for multiple sink writes and emits OutputPlan digest, per-output bytes/digests,
+      output Native I/O certificate status, replay status/timing, scoped fidelity/loss reporting,
+      workspace path-safety, commit-mode, no-fallback, and no-external-engine evidence.
+    - Added Python session regression coverage proving admitted local query-builder fanout reports
+      are reused only when statement, source fingerprints, and output artifact fingerprints still
+      match, and are invalidated when an output artifact changes.
+    - Split residual work to owning queues: broader schema/type/nesting fidelity and production
+      sink claims to final claim gates, persistent cross-process OutputPlan/session/cache reuse to
+      `4L`/`5I`, object-store/table/lakehouse writes to `4O`/`5L`, Foundry output proof to `5P`,
+      and release/package usability to `4S`/`5Q`.
+  - Verification:
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_session_reuses_local_fanout_outputs_when_fingerprints_match`
+    - `python -m unittest python.tests.test_cli_client`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_writes_local_jsonl_csv_fanout_with_evidence -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test generated_source_runtime_smoke sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local output/fanout fixture-smoke runtime only: local JSONL/CSV sinks, feature-gated
+      flat scalar Parquet/Arrow IPC/Avro/ORC sinks, feature-gated local Vortex sinks, SQL/Python
+      local-source fanout, generated-source fanout, and Python in-process session reuse for
+      fingerprint-matched local output artifacts. This does not claim broad writer fidelity,
+      nested/schema-evolution completeness, object-store/table/lakehouse writes, Foundry
+      production output APIs, persistent cross-process cache, production sink support, package
+      readiness, performance superiority, or fallback execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E/5A generated-source builder closeout
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-generated-source-closeout-20260524` / #942.
