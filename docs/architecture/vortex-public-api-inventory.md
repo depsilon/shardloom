@@ -74,9 +74,13 @@ phase note. They are not active queue state and do not override `phased-executio
 - Still deferred: generalized Source/Sink API integration, object-store scan, table/catalog scan,
   broad reader wiring, writes, Arrow-default execution, GPU/device execution,
   vector/geospatial/media execution, and external query-engine integration execution.
-- Upstream 0.71 intake: Vortex `0.71.0` is released, classified in the 0.71 delta section below,
-  and used as ShardLoom's optional `vortex = "0.71"` dependency. No 0.71 API is admitted until the
-  relevant runtime slice adds provider admission, certificates, no-fallback evidence, and tests.
+- Upstream 0.72 intake: Vortex `0.72.0` is the active optional `vortex = "0.72"` dependency after
+  the dependency/runtime-compatibility update. No 0.72 API is admitted until the relevant runtime
+  slice adds provider admission, certificates, no-fallback evidence, and tests.
+- TurboQuant posture: upstream Vortex exposes TurboQuant as a vector quantization extension family,
+  but ShardLoom now exposes only a blocked capability row for
+  `vortex_turboquant_vector_encoding`. No vector quantization, ANN, similarity search, GPU, or
+  quantized execution support is claimed.
 - Prohibited: DataFusion, DuckDB, Spark, Polars, Velox, `vortex-datafusion`, or similar engines
   executing unsupported ShardLoom residual work as fallback.
 
@@ -94,12 +98,64 @@ phase note. They are not active queue state and do not override `phased-executio
 
 ## Dependency Snapshot
 - Crate: `vortex`
-- Version: `0.71`
+- Version: `0.72`
 - License: Apache-2.0 (per dependency review)
 - ShardLoom crate using it: `shardloom-vortex`
 - Actual Vortex IO implemented: historical metadata/footer fixture open plus approved feature-gated
   local primitive scan paths where recorded in the phase plan
 - Fallback execution introduced: no
+
+## Upstream Vortex 0.72 Dependency Update And TurboQuant Gate
+
+This section records the `vortex = "0.72"` dependency compatibility update and the TurboQuant
+capability review. It does not authorize new Vortex runtime APIs, vector execution, GPU execution,
+or performance claims.
+
+Source evidence:
+
+- Dependabot PR: <https://github.com/depsilon/shardloom/pull/923>.
+- Upstream release feed: <https://github.com/vortex-data/vortex/releases>.
+- Vortex crate documentation/version listing: <https://docs.rs/crate/vortex-datafusion/latest>.
+- TurboQuant extension documentation: <https://docs.rs/vortex-turboquant/latest/vortex_turboquant/>.
+- TurboQuant paper: <https://arxiv.org/abs/2504.19874>.
+
+Dependency update:
+
+- `shardloom-vortex` now requires optional `vortex = "0.72"`.
+- `Cargo.lock` now resolves the upstream Vortex crate family to `0.72.0`.
+- Default ShardLoom builds still do not enable upstream Vortex.
+- No `vortex-datafusion`, DuckDB, Spark, Polars, Velox, or other external query-engine fallback
+  dependency is introduced.
+
+TurboQuant review:
+
+- Upstream TurboQuant is a Vortex vector extension for lossy high-dimensional vector compression.
+- The documented Vortex extension operates on Vector extension arrays backed by FixedSizeList
+  storage and exposes encode/decode scalar functions with deterministic metadata and centroids.
+- The current upstream documentation says the encoding is Stage 1 / MSE-oriented and does not yet
+  include the paper's QJL residual correction for unbiased inner-product estimation.
+- ShardLoom has no admitted embedding generation, vector search, vector similarity, quantized-vector
+  execution, or GPU runtime path today.
+- ShardLoom therefore records TurboQuant as a blocked capability discovery row only:
+  `vortex_turboquant_vector_encoding`.
+
+Runtime follow-through required before any TurboQuant admission:
+
+- Feature-gated compile proof against a compatible upstream `vortex-turboquant` crate or umbrella
+  Vortex feature.
+- Vector dtype/storage contract, dimensionality contract, null-row behavior, lossy quantization
+  policy, deterministic seed/metadata policy, decode/reconstruction correctness tests, and
+  no-fallback evidence.
+- Explicit separation between vector encoding/decoding and vector search/ANN/similarity execution.
+- Claim-gate evidence showing no GPU, model call, external vector index, or fallback engine was
+  invoked.
+
+Claim boundary:
+
+- Vortex `0.72.0` compatibility is a dependency/build compatibility claim only.
+- TurboQuant is discoverable as blocked capability metadata only.
+- No new runtime behavior, vector quantization support, vector search support, GPU support,
+  object-store support, SQL/DataFrame support, package readiness, or performance claim is added.
 
 ## Upstream Vortex 0.71 Delta Inventory
 

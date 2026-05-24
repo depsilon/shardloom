@@ -5,15 +5,49 @@ ShardLoom is auditing the upstream Vortex dependency graph before deeper integra
 builds stay lightweight while preserving a controlled path to upstream Vortex capability work.
 
 ## Current state
-- Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.71`.
-- Latest upstream intake note: `vortex = 0.71.0` was inventoried in
-  `docs/dependencies/vortex-0.71-upstream-intake.md` and
-  `docs/architecture/vortex-public-api-inventory.md`.
+- Current direct dependency in `shardloom-vortex`: optional umbrella `vortex = 0.72`.
+- Latest upstream intake note: `vortex = 0.72.0` was reviewed in
+  `docs/architecture/vortex-public-api-inventory.md`; the prior detailed `0.71` release-note
+  intake remains historical background.
 - Umbrella `vortex` crate is still used for upstream opt-in builds.
 - Default build (`default = []`) does not enable upstream Vortex.
 - Existing feature-gated Vortex file/local primitive/write paths remain explicitly scoped and
   claim-gated; the version bump does not broaden runtime support.
 - Fallback execution engines are not present.
+
+## Vortex 0.72 dependency bump proof
+
+The combined dependency/runtime-compatibility update incorporates the open Dependabot Vortex bump
+from `0.71.0` to `0.72.0`, alongside the Parquet `58.3.0` and GitHub Actions major-version updates.
+
+Compatibility posture:
+
+- `shardloom-vortex/Cargo.toml` requires optional `vortex = "0.72"`.
+- `Cargo.lock` resolves the upstream Vortex crate family to `0.72.0`.
+- Default builds still keep upstream Vortex optional and disabled by default.
+- TurboQuant was reviewed as an upstream vector-extension opportunity, but ShardLoom does not add a
+  `vortex-turboquant` dependency or admit vector quantization runtime support in this update.
+- Capability discovery now exposes `vortex_turboquant_vector_encoding` as blocked metadata so
+  users and agents do not confuse upstream availability with ShardLoom runtime support.
+
+Validation recorded for the bump:
+
+- `cargo +1.91.1 check -p shardloom-vortex --features upstream-vortex`
+- `cargo +1.91.1 check -p shardloom-vortex --features universal-format-io`
+- `cargo +1.91.1 check -p shardloom-vortex --features vortex-file-io`
+- `cargo +1.91.1 check -p shardloom-vortex --features vortex-write`
+- `cargo +1.91.1 check -p shardloom-vortex --features vortex-local-primitives`
+- `cargo +1.91.1 check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+- `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+- `cargo +1.91.1 test -p shardloom-cli unstructured_and_adapter_capabilities_expose_report_only_matrix -- --nocapture`
+- `python scripts\check_dependency_audit.py --release-gate --json-output target\dependency-audit-report.json`
+
+Claim boundary:
+
+- The bump proves optional dependency compatibility only.
+- It does not admit new Vortex runtime APIs, TurboQuant execution, vector search, GPU execution,
+  external engines, object-store/table support, SQL/DataFrame support, performance claims, package
+  claims, or production readiness.
 
 ## Vortex 0.71 dependency bump proof
 

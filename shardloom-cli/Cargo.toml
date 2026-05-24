@@ -39,7 +39,7 @@ arrow-avro = { version = "58.3.0", default-features = false, features = ["deflat
 arrow-ipc = "58.3.0"
 arrow-schema = "58.3.0"
 orc-rust = { version = "0.8.0", default-features = false }
-parquet = "58.2.0"
+parquet = "58.3.0"
 
 [[bin]]
 name = "shardloom"

@@ -52,6 +52,7 @@ Each row exposes:
 - image/audio/video references and media decode boundaries
 - embedding generation and vector values
 - vector search
+- Vortex TurboQuant vector encoding
 - additional local file adapters
 - database and warehouse adapters
 - object-store and table/lakehouse adapters
@@ -62,10 +63,10 @@ Each row exposes:
 
 This matrix is a diagnostic/report-only capability surface. It adds no document parser, text
 extraction runtime, OCR, transcription, image/audio/video decode, embedding model, vector index,
-vector search runtime, database/warehouse driver, object-store runtime, table/lakehouse runtime,
-event listener, API client, SaaS connector, credential resolution, network probe, source read, sink
-write, model call, external engine invocation, or fallback execution. In short, the slice preserves
-no fallback execution.
+vector search runtime, TurboQuant vector encoding/decoding runtime, database/warehouse driver,
+object-store runtime, table/lakehouse runtime, event listener, API client, SaaS connector,
+credential resolution, network probe, source read, sink write, model call, external engine
+invocation, or fallback execution. In short, the slice preserves no fallback execution.
 
 The external-effect blocker matrix remains the effect-policy authority for model calls, API calls,
 media extraction, plugin execution, and network egress. A future row may only be promoted when it

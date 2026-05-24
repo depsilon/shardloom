@@ -828,12 +828,13 @@ const UNSTRUCTURED_ADAPTER_CAPABILITY_FIELD_KEYS: [&str; 14] = [
     "unstructured_adapter_capability_external_engine_invoked",
 ];
 
-const UNSTRUCTURED_ADAPTER_CAPABILITY_ROW_IDS: [&str; 10] = [
+const UNSTRUCTURED_ADAPTER_CAPABILITY_ROW_IDS: [&str; 11] = [
     "document_reference",
     "text_extraction",
     "image_audio_video",
     "embedding_vector_generation",
     "vector_search",
+    "vortex_turboquant_vector_encoding",
     "universal_file_adapter",
     "database_warehouse_adapter",
     "object_store_table_adapter",
@@ -2536,6 +2537,7 @@ fn unstructured_and_adapter_capabilities_expose_report_only_matrix() {
             "image_audio_video",
             "embedding_vector_generation",
             "vector_search",
+            "vortex_turboquant_vector_encoding",
             "universal_file_adapter",
             "database_warehouse_adapter",
             "object_store_table_adapter",
