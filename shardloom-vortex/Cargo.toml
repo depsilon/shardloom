@@ -48,9 +48,9 @@ arrow-avro = { version = "58.3.0", default-features = false, features = ["deflat
 arrow-ipc = { version = "58.3.0", optional = true }
 arrow-schema = { version = "58.3.0", optional = true }
 orc-rust = { version = "0.8.0", default-features = false, optional = true }
-parquet = { version = "58.2.0", optional = true }
+parquet = { version = "58.3.0", optional = true }
 shardloom-core = { version = "0.1.0", path = "../shardloom-core" }
 shardloom-exec = { version = "0.1.0", path = "../shardloom-exec" }
 shardloom-plan = { version = "0.1.0", path = "../shardloom-plan" }
 lending-iterator = { version = "0.1.7", optional = true }
-vortex = { version = "0.71", optional = true }
+vortex = { version = "0.72", optional = true }

@@ -578,7 +578,7 @@ or documentation updates alone are insufficient.
     `scan_limit_pushed_down=false`, `scan_limit_pushdown_status=blocked_no_scan_limit_admission`,
     `scan_residual_limit_applied=true`, residual executor `shardloom_native`,
     `fallback_attempted=false`, and `external_engine_invoked=false`. Runtime provider evidence now
-    records the active optional Vortex `0.71` dependency. Broad Vortex Scan limit/slice pushdown,
+    records the active optional Vortex `0.72` dependency. Broad Vortex Scan limit/slice pushdown,
     encoded-native operator admission, and prepared/native scenario coverage are still incomplete.
   - Next slice outcome: lower filter, projection, and limit into Vortex Scan where admitted, and
     emit deterministic blockers or ShardLoom-native residual evidence when a predicate, projection,
@@ -589,7 +589,7 @@ or documentation updates alone are insufficient.
   - User-visible surface: prepared/native benchmark rows, explain output, capability matrix.
   - Implementation scope: scan request builder, filter expression lowering, projection mask, limit/
     slice pushdown, evidence fields.
-  - Vortex 0.71 opportunity mapping:
+  - Vortex 0.71/0.72 opportunity mapping:
     - Statistic expressions, stats rewrite sessions, `NullCount`, and `UncompressedSize` are
       candidates for metadata-first planning and scan evidence, not standalone runtime claims.
     - `register_splits` offset/relative row-range fixes should feed split-aware scan evidence and
@@ -626,10 +626,12 @@ or documentation updates alone are insufficient.
   - User-visible surface: benchmark evidence, explain output, capability matrix.
   - Implementation scope: kernel registry, admission policy, encoded evaluator, decoded reference
     comparison, blockers.
-  - Vortex 0.71 opportunity mapping:
+  - Vortex 0.71/0.72 opportunity mapping:
     - FastLanes signed bases, SparseArray iterative execution, mask/rank intersection
       improvements, smallvec performance fixes, and TurboQuant are candidate inputs for
-      encoding/operator-pair admission.
+      encoding/operator-pair admission. The `0.72` dependency update keeps TurboQuant blocked as
+      capability metadata (`vortex_turboquant_vector_encoding`) until feature proof, vector dtype
+      semantics, lossy-quantization policy, decode correctness, and no-fallback evidence land.
     - Sparse traversal remains blocked until source-backed segment extraction and certificate
       evidence exist.
     - CUDA/FSST and GPU fixes remain blocked future accelerator context, not CPU-local runtime
