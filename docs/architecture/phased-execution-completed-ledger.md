@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped expression ON join runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-expression-join-runtime-20260524` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - User direction that SQL/Python must stay format-neutral, with source-specific behavior only at
+      read/ingest and write/sink boundaries.
+  - Scope:
+    - Promoted scoped local-source non-equi/expression ON joins from deterministic blocker to
+      ShardLoom-native execution for column-comparison predicates, generic numeric expression
+      predicates, and logical combinations that bind to both join sides.
+    - Kept optimized equi-join key paths separate from nested expression-candidate evaluation so
+      same-named key joins retain hash-style candidate behavior while expression joins report full
+      evaluated candidate counts.
+    - Added SQL evidence fields for expression ON execution, ON predicate operator family, ON
+      source columns, key arity, matched/candidate/unmatched/output counts, certificate refs,
+      no-fallback status, and external-engine status.
+    - Extended the Python query builder with format-neutral `join(..., condition=...)` lowering and
+      typed report accessors for expression ON predicate evidence, while preserving `join(..., on=...)`
+      for equi keys and `join(..., how="cross")` for cross joins.
+    - Added deterministic blockers for ambiguous Python join API combinations, cross joins with
+      expression conditions, one-sided expression ON predicates, invalid RHS literals in ON clauses,
+      and unsupported/admitted-alias violations.
+  - Verification:
+    - `cargo +1.91.1 check -p shardloom-cli --tests`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_inner_expression_join_without_fallback`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_left_outer_expression_join_without_fallback`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_expression_join_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_rejects_ambiguous_join_condition_api`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest discover -s python/tests`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-source fixture-smoke expression ON join runtime only. This does not add
+      object-store/table/lakehouse joins, distributed/shuffle/broadcast join execution, arbitrary
+      SQL expression parity, broad SQL/DataFrame parity, performance claims, package publication, or
+      fallback execution.
+  - Remaining gates:
+    - Continue broader expression parity, Vortex scan pushdown, encoded kernel pairs, prepared/session
+      reuse, persistent OutputPlan reuse, memory/spill safety, object-store/table runtime ladders,
+      and final release validation.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped local-source join runtime expansion
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-join-runtime-expansion-20260524` / #932.

@@ -930,12 +930,12 @@ docs/website parity, and a completed-ledger entry.
     projection/optional-filter/limit, preview/select-star, scalar and grouped aggregates with
     optional filters and output aliases, multi-key scalar top-N over projection rows, aggregate
     output aliases, and group keys, explicit single- or multi-key inner equi-join,
-    left/right/full outer equi-join, left semi/anti equi-join, cross join, scoped computed
-    join projections, multi-key scalar joined top-N, and scalar/grouped join-aggregate ordering by
-    aggregate output aliases or group keys; richer expressions, casts, dates, strings, windows, subqueries,
-    catalogs, expression/non-equi joins,
-    null/collation ordering, and broad planner behavior
-    remain incomplete or blocked.
+    left/right/full outer equi-join, left semi/anti equi-join, cross join, scoped
+    column-comparison and generic numeric-expression ON joins, scoped computed join projections,
+    multi-key scalar joined top-N, and scalar/grouped join-aggregate ordering by aggregate output
+    aliases or group keys; richer expressions, casts, dates, strings, windows, subqueries,
+    catalogs, arbitrary join predicates, null/collation ordering, and broad planner behavior remain
+    incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
     and emits stable blockers for unsupported syntax.
   - Runtime enablement: ShardLoom-native SQL execution for admitted syntax families plus stable
@@ -964,8 +964,8 @@ docs/website parity, and a completed-ledger entry.
     Use Case Atlas.
   - Current state: Python wrapper and selected query-builder methods exist. The local CSV/flat
     JSONL query builder now covers projection/filter/limit, preview, scalar aggregate, multi-key
-    group-by, multi-key scalar top-N, aggregate-output top-N, scoped local-source joins,
-    computed projections and multi-key scalar top-N over joined rows, scalar/grouped join
+    group-by, multi-key scalar top-N, aggregate-output top-N, scoped local-source equi/cross and
+    expression-condition joins, computed projections and multi-key scalar top-N over joined rows, scalar/grouped join
     aggregate, explicit-projection literal `with_column(...)`, and `count()` workflows, but
     complete end-to-end generated/local/Vortex workflows and
     unsupported-method diagnostics are not yet ordinary user-grade coverage.
