@@ -2611,6 +2611,96 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_having_unprojected_aggregate_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT region,count(*) AS rows FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region HAVING sum(amount) >= 10 ORDER BY rows DESC LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"region\\":\\"east\\",\\"rows\\":2}\\n{\\"region\\":\\"west\\",\\"rows\\":2}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_group_by_aggregate_order_by_topn_filter_limit_having"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "grouped_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(*)"},
+                        {"key": "aggregate_output_columns", "value": "rows"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "group_by_columns", "value": "region"},
+                        {"key": "having_runtime_execution", "value": "true"},
+                        {"key": "having_operator_family", "value": "comparison"},
+                        {"key": "having_source_column", "value": "sum(amount)"},
+                        {"key": "having_aggregate_runtime_execution", "value": "true"},
+                        {"key": "having_aggregate_function", "value": "sum(amount)"},
+                        {"key": "having_aggregate_output_column", "value": "__having_sum_amount_1"},
+                        {"key": "having_input_row_count", "value": "3"},
+                        {"key": "having_selected_row_count", "value": "2"},
+                        {"key": "order_by_runtime_execution", "value": "true"},
+                        {"key": "sort_keys", "value": "rows"},
+                        {"key": "sort_direction", "value": "desc"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "5"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.group-by-aggregate-order-by-topn-filter-limit-having.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = (
+            ctx.read_csv("target/input.csv")
+            .filter(sl.col("amount") >= 0)
+            .group_by("region")
+            .agg(rows="count(*)")
+            .having("sum(amount) >= 10")
+        )
+        self.assertIsInstance(workflow, sl.LazyFrame)
+        report = workflow.sort("rows", descending=True).limit(10).collect()
+
+        self.assertEqual(
+            report.result_jsonl,
+            '{"region":"east","rows":2}\n{"region":"west","rows":2}\n',
+        )
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_functions, ("count(*)",))
+        self.assertEqual(report.aggregate_output_columns, ("rows",))
+        self.assertTrue(report.group_by_runtime_execution)
+        self.assertTrue(report.having_runtime_execution)
+        self.assertTrue(report.having_aggregate_runtime_execution)
+        self.assertEqual(report.having_operator_family, "comparison")
+        self.assertEqual(report.having_source_columns, ("sum(amount)",))
+        self.assertEqual(report.having_aggregate_functions, ("sum(amount)",))
+        self.assertEqual(
+            report.having_aggregate_output_columns,
+            ("__having_sum_amount_1",),
+        )
+        self.assertEqual(report.having_input_row_count, 3)
+        self.assertEqual(report.having_selected_row_count, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_filter_after_having_stays_unsupported(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

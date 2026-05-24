@@ -592,6 +592,12 @@ plan before coding.
   keeps aggregate join ordering, outer join families, expression joins, multi-key/null/collation
   ordering, and broad SQL/DataFrame joins deterministic blockers with no fallback/external engine
   invocation.
+- [x] GAR-RUNTIME-IMPL-4D/5B/5C scoped local-source HAVING aggregate expressions admit
+  unprojected `COUNT`, `COUNT(DISTINCT column)`, `SUM`, `AVG`, `MIN`, and `MAX` aggregate functions
+  inside post-aggregate `HAVING`, evaluate them as hidden HAVING-only aggregate columns, strip those
+  hidden columns from user result rows, emit `having_aggregate_*` evidence, expose Python typed
+  report accessors, and keep unsupported DISTINCT aggregate shapes or non-output source columns
+  deterministic blockers with no fallback/external engine invocation.
 - [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
   runtime remain incomplete.
 

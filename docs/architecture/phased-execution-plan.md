@@ -293,15 +293,17 @@ or documentation updates alone are insufficient.
     `select(...)`; computed-projection top-N now sorts projected rows by computed aliases and can
     still sort by source columns when the source column is not projected. Scoped scalar/grouped
     aggregate `HAVING` now evaluates admitted predicates over emitted aggregate output rows for
-    local-source SQL/Python and join-aggregate paths, with deterministic blockers when `HAVING`
-    references non-output source columns.
+    local-source SQL/Python and join-aggregate paths. Scoped local-source aggregate HAVING also
+    admits unprojected `COUNT(*)`, `COUNT(column)`, `COUNT(DISTINCT column)`, `SUM`, `AVG`, `MIN`,
+    and `MAX` aggregate functions as hidden HAVING-only evaluation columns, strips those columns
+    from user output, and keeps unsupported aggregate shapes or non-output source-column references
+    deterministically blocked.
     The remaining work is the parity gap
     around broader non-numeric/generalized expression families, broader coercion/function coverage,
-    HAVING expressions over unprojected aggregate functions, interval/date-time and
-    timezone-database semantics, correlated/multi-column/nested subquery semantics, arbitrary
-    predicate-tree completeness beyond the currently admitted leaves, and final SQL/Python
-    ergonomics. Unsupported residual work must continue to fail with deterministic
-    no-fallback diagnostics.
+    broader HAVING expression trees, interval/date-time and timezone-database semantics,
+    correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness beyond
+    the currently admitted leaves, and final SQL/Python ergonomics. Unsupported residual work must
+    continue to fail with deterministic no-fallback diagnostics.
   - Closeout posture: this parent item remains open for the residual parity gaps above.
     A future closeout PR must either implement those gaps or split each non-goal into separate
     follow-on runtime items before marking `GAR-RUNTIME-IMPL-4D` complete.
@@ -419,7 +421,8 @@ or documentation updates alone are insufficient.
     `.parquet`/Arrow IPC/Avro/ORC
     projection/optional-filter/limit,
     preview/select-star, scalar aggregate/optional-filter/limit with aliases, multi-key group-by
-    aggregate/optional-filter/limit plus post-aggregate HAVING over aggregate output rows,
+    aggregate/optional-filter/limit plus post-aggregate HAVING over aggregate output rows or
+    admitted unprojected aggregate functions,
     multi-key scalar top-N workflows, scoped local-source
     join bridges covering inner, left/right/full outer, left semi/anti, and cross joins,
     computed projections and multi-key scalar
@@ -1010,8 +1013,9 @@ docs/website parity, and a completed-ledger entry.
     column-comparison and generic numeric-expression ON joins, scoped computed join projections,
     multi-key scalar joined top-N, and scalar/grouped join-aggregate ordering by aggregate output
     aliases or group keys. Scalar/grouped aggregate and join-aggregate rows also admit scoped
-    post-aggregate `HAVING` predicates bound to emitted aggregate output aliases or selected group
-    keys. Scoped local-source `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`,
+    post-aggregate `HAVING` predicates bound to emitted aggregate output aliases, selected group
+    keys, or admitted unprojected aggregate functions evaluated as hidden HAVING-only columns.
+    Scoped local-source `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`,
     `NTILE()`, `PERCENT_RANK()`, and `CUME_DIST()` window projections now execute through the same
     format-neutral SQL runtime with deterministic partitioned ranking, offset semantics,
     distribution semantics, peer-group tie evidence, and typed report evidence;
@@ -1048,7 +1052,8 @@ docs/website parity, and a completed-ledger entry.
     JSONL query builder now covers projection/filter/limit, preview, scalar aggregate, multi-key
     group-by, multi-key scalar top-N, aggregate-output top-N, scoped local-source equi/cross and
     expression-condition joins, computed projections and multi-key scalar top-N over joined rows, scalar/grouped join
-    aggregate, post-aggregate `having(...)` / post-`agg(...)` `filter(...)`, scoped
+    aggregate, post-aggregate `having(...)` / post-`agg(...)` `filter(...)` over aggregate output
+    aliases or admitted unprojected aggregate functions, scoped
     `.window(sl.row_number(...), sl.rank(...), sl.dense_rank(...))` projections,
     explicit-projection literal `with_column(...)`, and `count()` workflows, but
     complete end-to-end generated/local/Vortex workflows and
@@ -1087,7 +1092,8 @@ docs/website parity, and a completed-ledger entry.
     projection/optional-filter/limit,
     preview/select-star, scalar-aggregate/optional-filter/limit with aliases, multi-key group-by
     aggregate/optional-filter/limit, multi-key scalar top-N workflows, aggregate-output top-N
-    workflows, post-aggregate HAVING over aggregate output rows, joined computed projection/top-N
+    workflows, post-aggregate HAVING over aggregate output rows or admitted unprojected aggregate
+    functions, joined computed projection/top-N
     workflows, scalar/grouped join aggregates with optional HAVING, and local-source
     evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC rows. Traditional analytics direct-transient smokes now admit CSV,

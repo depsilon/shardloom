@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D/5B/5C HAVING aggregate-expression runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-having-aggregate-closeout-20260524` / #944.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - User direction to complete directly related phase sections end to end instead of landing
+      tiny leaf slices.
+  - Scope:
+    - Admitted scoped local-source post-aggregate HAVING predicates over unprojected aggregate
+      function expressions for scalar/grouped aggregate rows and scoped joined aggregate rows by
+      rewriting them to hidden HAVING-only aggregate columns.
+    - Reused ShardLoom-native aggregate evaluators for `COUNT(*)`, `COUNT(column)`,
+      `COUNT(DISTINCT column)`, `SUM`, `AVG`, `MIN`, and `MAX`; unsupported DISTINCT aggregate
+      shapes remain deterministic blockers.
+    - Evaluates hidden HAVING-only aggregate columns before post-aggregate filtering and strips
+      them before result rendering and `ORDER BY` / `LIMIT`, so `SELECT` output remains unchanged.
+    - Emits `having_aggregate_runtime_execution`, `having_aggregate_function`, and
+      `having_aggregate_output_column` evidence while preserving `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+    - Exposes typed Python report accessors and query-builder coverage for unprojected aggregate
+      functions in post-aggregate `having(...)`.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_aggregate_having_without_fallback -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_join_group_by_aggregate_having_without_fallback -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli sql_local_source_runtime::tests::parses_scoped_having_unprojected_aggregate_functions -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli sql_local_source_runtime::tests::source_read_plan_collects_having_aggregate_source_columns -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli having -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_having_unprojected_aggregate_invokes_sql_smoke`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-source fixture-smoke HAVING aggregate expressions only. This does not add broad
+      HAVING expression trees, arbitrary aggregate expressions, ANSI SQL parity, catalog/table
+      support, object-store/lakehouse sources, production SQL/DataFrame support, performance
+      claims, package publication, or fallback execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4G/5E local output writer and fanout closeout
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-output-fanout-closeout-20260524` / #943.

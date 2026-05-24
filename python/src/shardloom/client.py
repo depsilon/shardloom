@@ -2988,6 +2988,33 @@ class SqlLocalSourceSmokeReport:
         return _csv_values(value)
 
     @property
+    def having_aggregate_runtime_execution(self) -> bool:
+        """Whether HAVING evaluated an unprojected aggregate function."""
+
+        return (
+            self.envelope.field_bool("having_aggregate_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def having_aggregate_functions(self) -> tuple[str, ...]:
+        """Return unprojected aggregate functions evaluated for HAVING."""
+
+        value = self.envelope.field("having_aggregate_function", "not_applicable")
+        if value == "not_applicable":
+            return ()
+        return _csv_values(value)
+
+    @property
+    def having_aggregate_output_columns(self) -> tuple[str, ...]:
+        """Return hidden aggregate columns used only for HAVING evaluation."""
+
+        value = self.envelope.field("having_aggregate_output_column", "not_applicable")
+        if value == "not_applicable":
+            return ()
+        return _csv_values(value)
+
+    @property
     def having_input_row_count(self) -> int:
         """Return aggregate rows evaluated by HAVING before the result limit."""
 

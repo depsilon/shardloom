@@ -302,6 +302,7 @@ struct ParsedSqlLocalSource {
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
     window_projections: Vec<ParsedWindowProjection>,
     aggregates: Vec<ParsedAggregate>,
+    having_aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
     order_by: Option<ParsedOrderBy>,
     source_path: PathBuf,
@@ -1772,6 +1773,7 @@ struct SqlLocalSourceClauseIndexes {
 struct ParsedSqlLocalSourceParts {
     statement: String,
     projection_list: ParsedProjectionList,
+    having_aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
     order_by: Option<ParsedOrderBy>,
     source_clause: ParsedSourceClause,
@@ -2951,6 +2953,11 @@ fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPla
         columns.insert(column.clone());
     }
     for aggregate in &parsed.aggregates {
+        if let Some(column) = aggregate.column.as_ref() {
+            columns.insert(column.clone());
+        }
+    }
+    for aggregate in &parsed.having_aggregates {
         if let Some(column) = aggregate.column.as_ref() {
             columns.insert(column.clone());
         }
@@ -5816,14 +5823,11 @@ fn evaluate_scalar_aggregate_output(
     }
     let row_indexes = (0..rows.len()).collect::<Vec<_>>();
     let mut row = Vec::with_capacity(parsed.aggregates.len());
-    for aggregate in &parsed.aggregates {
-        row.push((
-            aggregate.output_name(),
-            evaluate_scalar_aggregate(aggregate, rows, &row_indexes)?,
-        ));
-    }
+    append_aggregate_values(&mut row, &parsed.aggregates, rows, &row_indexes)?;
+    append_aggregate_values(&mut row, &parsed.having_aggregates, rows, &row_indexes)?;
     let (having_input_row_count, having_selected_row_count, mut output_rows) =
         apply_having_filter(parsed, vec![row])?;
+    strip_having_aggregate_columns(parsed, &mut output_rows);
     output_rows.truncate(parsed.limit);
     Ok(AggregateEvaluationOutput {
         having_input_row_count,
@@ -5868,16 +5872,18 @@ fn evaluate_grouped_aggregate_output(
     let mut output_rows = Vec::new();
     for (_key, bucket) in groups {
         let mut row = bucket.values;
-        for aggregate in &parsed.aggregates {
-            row.push((
-                aggregate.output_name(),
-                evaluate_scalar_aggregate(aggregate, rows, &bucket.row_indexes)?,
-            ));
-        }
+        append_aggregate_values(&mut row, &parsed.aggregates, rows, &bucket.row_indexes)?;
+        append_aggregate_values(
+            &mut row,
+            &parsed.having_aggregates,
+            rows,
+            &bucket.row_indexes,
+        )?;
         output_rows.push(row);
     }
     let (having_input_row_count, having_selected_row_count, mut output_rows) =
         apply_having_filter(parsed, output_rows)?;
+    strip_having_aggregate_columns(parsed, &mut output_rows);
     if let Some(order_by) = parsed.order_by.as_ref() {
         let ordered_indexes =
             ordered_output_row_indexes(&output_rows, order_by, "ORDER BY aggregate output column")?;
@@ -5930,6 +5936,35 @@ fn apply_having_filter(
         selected_rows.push(row.clone());
     }
     Ok((input_row_count, selected_rows.len(), selected_rows))
+}
+
+fn append_aggregate_values(
+    row: &mut Vec<(String, ScalarValue)>,
+    aggregates: &[ParsedAggregate],
+    rows: &[&ExpressionInputRow],
+    row_indexes: &[usize],
+) -> Result<(), ShardLoomError> {
+    for aggregate in aggregates {
+        row.push((
+            aggregate.output_name(),
+            evaluate_scalar_aggregate(aggregate, rows, row_indexes)?,
+        ));
+    }
+    Ok(())
+}
+
+fn strip_having_aggregate_columns(parsed: &ParsedSqlLocalSource, output_rows: &mut SqlOutputRows) {
+    if parsed.having_aggregates.is_empty() {
+        return;
+    }
+    let hidden_columns = parsed
+        .having_aggregates
+        .iter()
+        .map(ParsedAggregate::output_name)
+        .collect::<BTreeSet<_>>();
+    for row in output_rows {
+        row.retain(|(column, _value)| !hidden_columns.contains(column));
+    }
 }
 
 fn group_key(values: &[(String, ScalarValue)]) -> String {
@@ -6474,7 +6509,7 @@ fn bind_sql_local_source(
             "HAVING requires aggregate output columns in this scoped smoke",
         ));
     }
-    validate_having_source_columns(parsed, &parsed.output_columns(header))?;
+    validate_having_source_columns(parsed, &parsed.having_evaluation_columns(header))?;
     validate_predicate_source_columns(parsed, header)?;
     Ok(())
 }
@@ -6645,7 +6680,7 @@ fn validate_aggregate_source_columns(
     parsed: &ParsedSqlLocalSource,
     header: &[String],
 ) -> Result<(), ShardLoomError> {
-    for aggregate in &parsed.aggregates {
+    for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
         if let Some(column) = aggregate.column.as_deref() {
             if !header.iter().any(|candidate| candidate == column) {
                 return Err(unsupported_sql_error(&format!(
@@ -7131,7 +7166,7 @@ fn bind_join_sql_local_source(
             "HAVING requires aggregate output columns in this scoped smoke",
         ));
     }
-    validate_having_source_columns(parsed, &parsed.output_columns(&qualified_header))?;
+    validate_having_source_columns(parsed, &parsed.having_evaluation_columns(&qualified_header))?;
     bind_qualified_predicate(
         &parsed.predicate,
         left_alias,
@@ -7313,6 +7348,11 @@ fn join_left_existence_source_refs(parsed: &ParsedSqlLocalSource) -> BTreeSet<&s
             source_refs.insert(column);
         }
     }
+    for aggregate in &parsed.having_aggregates {
+        if let Some(column) = aggregate.column.as_deref() {
+            source_refs.insert(column);
+        }
+    }
     for column in parsed.predicate.columns() {
         source_refs.insert(column);
     }
@@ -7433,7 +7473,7 @@ fn validate_join_aggregate_source_columns(
     right_alias: &str,
     right_header: &[String],
 ) -> Result<(), ShardLoomError> {
-    for aggregate in &parsed.aggregates {
+    for aggregate in parsed.aggregates.iter().chain(&parsed.having_aggregates) {
         if let Some(column) = aggregate.column.as_deref() {
             bind_qualified_column(column, left_alias, left_header, right_alias, right_header)?;
         }
@@ -8000,6 +8040,16 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn having_evaluation_columns(&self, header: &[String]) -> Vec<String> {
+        let mut columns = self.output_columns(header);
+        columns.extend(
+            self.having_aggregates
+                .iter()
+                .map(ParsedAggregate::output_name),
+        );
+        columns
+    }
+
     fn projection_output_columns(&self, header: &[String]) -> Vec<String> {
         let mut output_columns = Vec::new();
         for output in &self.projection_order {
@@ -8041,6 +8091,10 @@ impl ParsedSqlLocalSource {
 
     fn has_distinct_aggregate(&self) -> bool {
         self.aggregates.iter().any(|aggregate| aggregate.distinct)
+    }
+
+    fn has_having_aggregate_functions(&self) -> bool {
+        !self.having_aggregates.is_empty()
     }
 
     fn aggregate_output_columns(&self) -> String {
@@ -8101,6 +8155,52 @@ impl ParsedSqlLocalSource {
             "sql_count_distinct_ignores_nulls".to_string()
         } else {
             "not_applicable".to_string()
+        }
+    }
+
+    fn having_source_columns(&self) -> String {
+        if !self.has_having() {
+            return "not_applicable".to_string();
+        }
+        let hidden_labels = self
+            .having_aggregates
+            .iter()
+            .map(|aggregate| (aggregate.output_name(), aggregate.label()))
+            .collect::<BTreeMap<_, _>>();
+        self.having
+            .columns()
+            .into_iter()
+            .map(|column| {
+                hidden_labels
+                    .get(column)
+                    .cloned()
+                    .unwrap_or_else(|| column.to_string())
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn having_aggregate_functions(&self) -> String {
+        if self.having_aggregates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.having_aggregates
+                .iter()
+                .map(ParsedAggregate::label)
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn having_aggregate_output_columns(&self) -> String {
+        if self.having_aggregates.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.having_aggregates
+                .iter()
+                .map(ParsedAggregate::output_name)
+                .collect::<Vec<_>>()
+                .join(",")
         }
     }
 
@@ -13365,11 +13465,19 @@ impl SqlLocalSourceReport {
             ),
             (
                 "having_source_column".to_string(),
-                if self.parsed.has_having() {
-                    self.parsed.having.columns().join(",")
-                } else {
-                    "not_applicable".to_string()
-                },
+                self.parsed.having_source_columns(),
+            ),
+            (
+                "having_aggregate_runtime_execution".to_string(),
+                self.parsed.has_having_aggregate_functions().to_string(),
+            ),
+            (
+                "having_aggregate_function".to_string(),
+                self.parsed.having_aggregate_functions(),
+            ),
+            (
+                "having_aggregate_output_column".to_string(),
+                self.parsed.having_aggregate_output_columns(),
             ),
             (
                 "having_input_row_count".to_string(),
@@ -15724,17 +15832,29 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     }
 
     let projection_list = parse_projection_list(select_list)?;
+    let (having_raw, having_aggregates) = if let Some(having_raw) = having_raw {
+        let (rewritten, aggregates) = rewrite_having_aggregate_predicate(
+            having_raw,
+            reserved_having_aggregate_aliases(&projection_list),
+        )?;
+        (Some(rewritten), aggregates)
+    } else {
+        (None, Vec::new())
+    };
     let group_by = parse_group_by_list(group_by_raw)?;
     let order_by = parse_order_by(order_by_raw)?;
     let source_clause = parse_source_clause(source_raw)?;
     let predicate = predicate_raw.map_or(Ok(ParsedPredicate::All), parse_predicate)?;
-    let having = having_raw.map_or(Ok(ParsedPredicate::All), parse_predicate)?;
+    let having = having_raw
+        .as_deref()
+        .map_or(Ok(ParsedPredicate::All), parse_predicate)?;
     let limit = parse_limit(limit_raw)?;
 
     Ok(parsed_sql_local_source_from_parts(
         ParsedSqlLocalSourceParts {
             statement,
             projection_list,
+            having_aggregates,
             group_by,
             order_by,
             source_clause,
@@ -15749,6 +15869,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
     let ParsedSqlLocalSourceParts {
         statement,
         projection_list,
+        having_aggregates,
         group_by,
         order_by,
         source_clause,
@@ -15778,6 +15899,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         timestamp_extract_projections: projection_list.timestamp_extract_projections,
         window_projections: projection_list.window_projections,
         aggregates: projection_list.aggregates,
+        having_aggregates,
         group_by,
         order_by,
         source_path: source_clause.source_path,
@@ -15805,6 +15927,138 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
         return Err(unsupported_sql_error("SQL statement must not be empty"));
     }
     Ok(statement.to_string())
+}
+
+fn rewrite_having_aggregate_predicate(
+    raw: &str,
+    mut reserved_aliases: BTreeSet<String>,
+) -> Result<(String, Vec<ParsedAggregate>), ShardLoomError> {
+    let mut rewritten = String::with_capacity(raw.len());
+    let mut aggregates = Vec::new();
+    let mut cursor = 0;
+    let mut index = 0;
+    let bytes = raw.as_bytes();
+    let mut in_string = false;
+    while index < raw.len() {
+        if bytes[index] == b'\'' {
+            in_string = !in_string;
+            index += 1;
+            continue;
+        }
+        if !in_string {
+            if let Some(function_name) = aggregate_function_prefix_at(raw, index) {
+                let open_index = index + function_name.len();
+                let close_index =
+                    matching_closing_parenthesis(raw, open_index)?.ok_or_else(|| {
+                        unsupported_sql_error(
+                            "HAVING aggregate predicates require complete aggregate function calls",
+                        )
+                    })?;
+                let expression = &raw[index..=close_index];
+                let mut aggregate = parse_aggregate_projection(expression)?.ok_or_else(|| {
+                    unsupported_sql_error(
+                        "HAVING aggregate predicates admit COUNT, SUM, AVG, MIN, or MAX only",
+                    )
+                })?;
+                let alias_base = sanitize_having_aggregate_alias(&aggregate.output_name());
+                let mut suffix = aggregates.len() + 1;
+                let alias = loop {
+                    let candidate = format!("__having_{alias_base}_{suffix}");
+                    if reserved_aliases.insert(candidate.clone()) {
+                        break candidate;
+                    }
+                    suffix += 1;
+                };
+                aggregate.alias = Some(alias.clone());
+                aggregates.push(aggregate);
+                rewritten.push_str(&raw[cursor..index]);
+                rewritten.push_str(&alias);
+                index = close_index + 1;
+                cursor = index;
+                continue;
+            }
+        }
+        index += 1;
+    }
+
+    rewritten.push_str(&raw[cursor..]);
+    Ok((rewritten, aggregates))
+}
+
+fn reserved_having_aggregate_aliases(projection_list: &ParsedProjectionList) -> BTreeSet<String> {
+    let mut reserved = projection_list
+        .aggregates
+        .iter()
+        .map(ParsedAggregate::output_name)
+        .collect::<BTreeSet<_>>();
+    for output in &projection_list.projection_order {
+        match output {
+            ParsedProjectionOutput::Raw(column) if column == "*" => {}
+            ParsedProjectionOutput::Raw(column)
+            | ParsedProjectionOutput::Literal(column)
+            | ParsedProjectionOutput::Cast(column)
+            | ParsedProjectionOutput::NullCoalesce(column)
+            | ParsedProjectionOutput::NullIf(column)
+            | ParsedProjectionOutput::Conditional(column)
+            | ParsedProjectionOutput::Predicate(column)
+            | ParsedProjectionOutput::NumericArithmetic(column)
+            | ParsedProjectionOutput::NumericAbs(column)
+            | ParsedProjectionOutput::NumericRounding(column)
+            | ParsedProjectionOutput::GenericExpression(column)
+            | ParsedProjectionOutput::DateArithmetic(column)
+            | ParsedProjectionOutput::TimestampArithmetic(column)
+            | ParsedProjectionOutput::StringLength(column)
+            | ParsedProjectionOutput::StringTransform(column)
+            | ParsedProjectionOutput::StringFunction(column)
+            | ParsedProjectionOutput::DateExtract(column)
+            | ParsedProjectionOutput::TimestampExtract(column)
+            | ParsedProjectionOutput::Window(column) => {
+                reserved.insert(column.clone());
+            }
+        }
+    }
+    reserved
+}
+
+fn aggregate_function_prefix_at(raw: &str, index: usize) -> Option<&'static str> {
+    if !sql_identifier_boundary_before(raw, index) {
+        return None;
+    }
+    for name in ["count", "sum", "avg", "min", "max"] {
+        let end = index + name.len();
+        if raw
+            .get(index..end)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            && raw.as_bytes().get(end) == Some(&b'(')
+        {
+            return Some(name);
+        }
+    }
+    None
+}
+
+fn sql_identifier_boundary_before(raw: &str, index: usize) -> bool {
+    if index == 0 {
+        return true;
+    }
+    raw.as_bytes()
+        .get(index - 1)
+        .is_none_or(|byte| !byte.is_ascii_alphanumeric() && *byte != b'_')
+}
+
+fn sanitize_having_aggregate_alias(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string()
 }
 
 #[allow(clippy::too_many_lines)]
@@ -22108,6 +22362,48 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_having_unprojected_aggregate_functions() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT region,count(*) AS rows FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region HAVING sum(amount) >= 10 AND count(*) >= 2 AND count(DISTINCT id) >= 2 LIMIT 10",
+        )
+        .expect("aggregate HAVING statement with unprojected aggregate functions parses");
+        assert_eq!(parsed.group_by, vec!["region"]);
+        assert_eq!(parsed.aggregates.len(), 1);
+        assert_eq!(parsed.aggregates[0].label(), "count(*)");
+        assert_eq!(parsed.aggregates[0].output_name(), "rows");
+        assert_eq!(parsed.having_aggregates.len(), 3);
+        assert_eq!(parsed.having_aggregates[0].label(), "sum(amount)");
+        assert_eq!(parsed.having_aggregates[1].label(), "count(*)");
+        assert_eq!(parsed.having_aggregates[2].label(), "count(DISTINCT id)");
+        assert_eq!(parsed.having.family(), "logical_predicate");
+        assert_eq!(
+            parsed.having_source_columns(),
+            "sum(amount),count(*),count(DISTINCT id)"
+        );
+        assert!(parsed.has_having_aggregate_functions());
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_group_by_aggregate_filter_limit_having"
+        );
+    }
+
+    #[test]
+    fn having_hidden_aggregate_aliases_do_not_collide_with_visible_outputs() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT region,count(*) AS __having_sum_amount_1 FROM 'target/input.csv' GROUP BY region HAVING sum(amount) >= 10 LIMIT 10",
+        )
+        .expect("statement parses");
+
+        assert_eq!(parsed.aggregates[0].output_name(), "__having_sum_amount_1");
+        assert_eq!(parsed.having_aggregates.len(), 1);
+        assert_eq!(
+            parsed.having_aggregates[0].output_name(),
+            "__having_sum_amount_2"
+        );
+        assert_eq!(parsed.having_source_columns(), "sum(amount)");
+    }
+
+    #[test]
     fn parses_scoped_multi_key_group_by_aggregate_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT region,segment,count(*),sum(amount) FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region,segment LIMIT 10",
@@ -22922,6 +23218,24 @@ mod tests {
         assert_eq!(
             plan.materialized_columns(&["id".into(), "label".into(), "amount".into()]),
             vec!["id", "label", "amount"]
+        );
+    }
+
+    #[test]
+    fn source_read_plan_collects_having_aggregate_source_columns() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT region,count(*) AS rows FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region HAVING sum(amount) >= 10 AND count(DISTINCT id) >= 2 LIMIT 5",
+        )
+        .expect("statement parses");
+
+        let plan = source_read_plan_for_sql(&parsed);
+
+        assert_eq!(plan.status(), "required_columns");
+        assert_eq!(plan.reason, "sql_required_source_columns");
+        assert_eq!(plan.requested_columns(), "amount,id,region");
+        assert_eq!(
+            plan.materialized_columns(&["id".into(), "region".into(), "amount".into()]),
+            vec!["id", "region", "amount"]
         );
     }
 
