@@ -299,13 +299,14 @@ cargo run -q -p shardloom-cli -- sql-local-source-smoke "SELECT f.id,d.segment F
 Use this for the scoped GAR-RUNTIME-IMPL-4C join promotion. It emits
 `sql_statement_kind=local_source_inner_equi_join_filter_limit`,
 `join_runtime_execution=true`, `join_type=inner_equi`, left/right source refs, join keys,
-`join_key_arity`, `join_multi_key_runtime_execution`, matched/scanned/output row counts, a scoped
-memory estimate, the inner-equi-join execution certificate ref, and no-fallback evidence. It admits
-scoped single- or multi-key local-source inner equi-joins with explicit aliases only. The same scoped
-shape can run over other admitted local sources such as
+`join_key_arity`, `join_multi_key_runtime_execution`, matched/candidate/unmatched/scanned/output
+row counts, a scoped memory estimate, the join execution certificate ref, and no-fallback evidence.
+It admits scoped single- or multi-key local-source inner equi-joins plus left/right/full outer,
+left semi/anti, and cross joins with explicit aliases only. The same scoped shapes can run over other
+admitted local sources such as
 flat JSONL/NDJSON. Feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC joins use the same
 deterministic adapter gates as the rest of `sql-local-source-smoke`.
-Outer, semi, anti, cross, expression, distributed, broadcast, shuffle, object-store/table,
+Expression, distributed, broadcast, shuffle, object-store/table,
 performance, and production join claims remain blocked.
 
 ## Python Local CSV Query-Builder Smoke
@@ -432,7 +433,7 @@ convenience wrapper over the same `COUNT(*)` smoke; one-column
 `group_by(...).agg(...)` lowers to the scoped grouped aggregate smoke; single-key numeric
 `sort(...).limit(...)` lowers to the scoped top-N smoke; local-source
 `join(..., on="key")` or `join(..., on=("customer_id", "region"))` with qualified
-projection/filter columns lowers to the scoped inner equi-join smoke; scalar/grouped aggregates
+projection/filter columns lowers to the scoped join smoke; scalar/grouped aggregates
 over those scoped joined rows lower to the scoped join-aggregate smoke; and explicit-projection
 literal `with_column(...)` lowers to scoped literal projection.
 `where(...)` is a familiar alias for `filter(...)`. `sl.col(...)` is a Python predicate helper for
@@ -440,7 +441,8 @@ admitted comparison, inclusive `between(...)`, null, string `LIKE`, bounded `IN`
 Date32 extract/day arithmetic, and logical predicates; it lowers into ShardLoom's existing local SQL
 runtime rather than a Python engine. It is not a pandas/Polars backend, broad DataFrame runtime,
 non-literal `with_column`, generalized grouped aggregate,
-ordering, or broad join runtime, object-store/table path, production SQL support, or performance claim.
+ordering, expression/non-equi join runtime, object-store/table path, production SQL support, or
+performance claim.
 Runtime reports also expose `result_rows` / `first_result_row` plus `evidence_summary` and
 `claim_summary` helpers so users can inspect bounded rows, the output sink, no-fallback fields,
 external-engine boundary, and claim gate without parsing raw JSONL or scraping raw JSON.

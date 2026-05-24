@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped local-source join runtime expansion
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-join-runtime-expansion-20260524` / #932.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - User direction that SQL/Python should remain format-neutral, with per-format behavior isolated
+      to read/ingest adapters and write/sink boundaries.
+  - Scope:
+    - Promoted scoped local-source joins from inner equi-only to ShardLoom-native inner, left/right/full
+      outer equi, left semi/anti equi, and cross join execution over the existing admitted local
+      source formats.
+    - Kept SQL/Python lowering format-neutral: `LazyFrame.join(..., how=...)` emits SQL join syntax,
+      while source-format differences remain in UniversalIngress/local readers and output sinks.
+    - Added join evidence for actual join type, candidate/matched rows, unmatched left/right rows,
+      scanned rows, output rows, join keys, source formats, certificate refs, no-fallback status,
+      and external-engine status.
+    - Added deterministic blockers for still-unsupported join surfaces: non-equi predicates,
+      unqualified join predicates, right-side projections from left semi/anti joins, cross joins
+      with `ON`, object-store/table joins, and expression/distributed join claims.
+    - Refactored join evaluation into a small accumulator plus cross/equi collection helpers so the
+      widened runtime stays clippy-clean without fallback or report-only execution.
+    - Updated Python typed report accessors, query-builder tests, public README/getting-started
+      docs, phase plan current-state text, compute-flow snapshots, use-case metadata, and generated
+      website/source data.
+  - Verification:
+    - `cargo +1.91.1 check -p shardloom-cli --tests`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_left_outer_join_without_fallback -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_right_outer_join_without_fallback -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_left_outer_join_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_cross_join_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_right_join_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_invalid_join_how_is_deterministic`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest discover -s python/tests`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-source fixture-smoke join runtime only. This does not add expression/non-equi
+      joins, object-store/table/lakehouse joins, distributed/shuffle/broadcast join execution,
+      broad SQL/DataFrame parity, performance claims, package publication, or fallback execution.
+  - Remaining gates:
+    - Continue broader expression parity, Vortex scan pushdown, encoded kernel pairs, prepared/session
+      reuse, persistent OutputPlan reuse, memory/spill safety, object-store/table runtime ladders,
+      and final release validation.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E/4G/5C generated-source fanout and replay runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-generated-fanout-runtime-20260524` / #931.

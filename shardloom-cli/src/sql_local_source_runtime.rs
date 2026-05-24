@@ -3,7 +3,7 @@
 //! This module intentionally admits one small SQL shape over local
 //! CSV/JSONL/JSON and feature-gated local Parquet/Arrow IPC/Avro/ORC:
 //! `SELECT <columns> FROM <local.csv|local.jsonl|local.json|local.parquet|local.arrow|local.ipc|local.avro|local.orc> [WHERE <scoped predicate>] [ORDER BY <column> [ASC|DESC][, ...]] LIMIT <n>`
-//! plus explicit local single- and multi-key inner equi-join shapes.
+//! plus explicit local single- and multi-key equi-join shapes.
 //! It uses ShardLoom-owned parsing/binding plus the core expression semantics
 //! baseline. It does not invoke `DataFusion`, `DuckDB`, `SQLite`, `Spark`,
 //! `Polars`, `pandas`, object stores, catalogs, or Vortex query-engine
@@ -577,9 +577,21 @@ struct ParsedOrderKey {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParsedJoin {
+    join_type: ParsedJoinType,
     right_source_path: PathBuf,
     right_alias: String,
     key_pairs: Vec<ParsedJoinKeyPair>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ParsedJoinType {
+    InnerEqui,
+    LeftOuterEqui,
+    RightOuterEqui,
+    FullOuterEqui,
+    LeftSemiEqui,
+    LeftAntiEqui,
+    Cross,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1537,6 +1549,8 @@ type SqlOutputRows = Vec<SqlOutputRow>;
 #[derive(Debug, Clone, PartialEq)]
 struct JoinEvaluationOutput {
     joined_row_count: usize,
+    unmatched_left_row_count: usize,
+    unmatched_right_row_count: usize,
     selected_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
 }
@@ -1549,6 +1563,8 @@ struct SqlLocalSourceReport {
     right_source: Option<CsvSourceData>,
     selected_row_count: usize,
     joined_row_count: usize,
+    unmatched_left_row_count: usize,
+    unmatched_right_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
     result_jsonl: String,
     plan_digest: String,
@@ -2774,18 +2790,25 @@ fn run_sql_local_source_smoke(
     validate_nullif_projection_values(&parsed, &source, right_source.as_ref())?;
 
     let compute_start = Instant::now();
-    let (selected_row_count, joined_row_count, output_rows) =
-        if let Some(right_source) = right_source.as_ref() {
-            let join_output = evaluate_join_output(&parsed, &source, right_source)?;
-            (
-                join_output.selected_row_count,
-                join_output.joined_row_count,
-                join_output.output_rows,
-            )
-        } else {
-            let (selected_row_count, output_rows) = evaluate_non_join_output(&parsed, &source)?;
-            (selected_row_count, 0, output_rows)
-        };
+    let (
+        selected_row_count,
+        joined_row_count,
+        unmatched_left_row_count,
+        unmatched_right_row_count,
+        output_rows,
+    ) = if let Some(right_source) = right_source.as_ref() {
+        let join_output = evaluate_join_output(&parsed, &source, right_source)?;
+        (
+            join_output.selected_row_count,
+            join_output.joined_row_count,
+            join_output.unmatched_left_row_count,
+            join_output.unmatched_right_row_count,
+            join_output.output_rows,
+        )
+    } else {
+        let (selected_row_count, output_rows) = evaluate_non_join_output(&parsed, &source)?;
+        (selected_row_count, 0, 0, 0, output_rows)
+    };
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
@@ -2832,6 +2855,8 @@ fn run_sql_local_source_smoke(
         right_source,
         selected_row_count,
         joined_row_count,
+        unmatched_left_row_count,
+        unmatched_right_row_count,
         output_rows,
         result_jsonl,
         plan_digest,
@@ -3678,6 +3703,7 @@ fn evaluate_join_output(
     })?;
 
     let right_rows_by_key = build_join_right_rows_by_key(join, right_source)?;
+    let mut right_matched_rows = vec![false; right_source.rows.len()];
 
     let predicate_expression = if parsed.predicate.is_all() {
         None
@@ -3689,69 +3715,257 @@ fn evaluate_join_output(
     } else {
         join_projection_expressions(parsed)?
     };
-    let mut joined_row_count = 0usize;
-    let mut selected_row_count = 0usize;
-    let mut output_rows = Vec::new();
-    let mut selected_join_rows = Vec::new();
-    for left_row in &left_source.rows {
-        let Some(key_parts) = join_key_parts(
+    let join_context = JoinEvaluationContext {
+        join,
+        left_alias,
+        left_source,
+        right_source,
+        predicate_expression: predicate_expression.as_ref(),
+    };
+    let mut accumulator = JoinRowAccumulator::default();
+
+    if join.join_type == ParsedJoinType::Cross {
+        collect_cross_join_rows(&mut accumulator, &join_context, &mut right_matched_rows)?;
+    } else {
+        collect_equi_join_rows(
+            &mut accumulator,
+            &join_context,
+            &right_rows_by_key,
+            &mut right_matched_rows,
+        )?;
+    }
+
+    let output_rows =
+        evaluate_join_selected_output_rows(parsed, &projection_expressions, &accumulator.rows)?;
+
+    Ok(JoinEvaluationOutput {
+        joined_row_count: accumulator.joined_row_count,
+        unmatched_left_row_count: accumulator.unmatched_left_row_count,
+        unmatched_right_row_count: accumulator.unmatched_right_row_count,
+        selected_row_count: accumulator.selected_row_count,
+        output_rows,
+    })
+}
+
+struct JoinEvaluationContext<'a> {
+    join: &'a ParsedJoin,
+    left_alias: &'a str,
+    left_source: &'a CsvSourceData,
+    right_source: &'a CsvSourceData,
+    predicate_expression: Option<&'a Expression>,
+}
+
+#[derive(Default)]
+struct JoinRowAccumulator {
+    joined_row_count: usize,
+    unmatched_left_row_count: usize,
+    unmatched_right_row_count: usize,
+    selected_row_count: usize,
+    rows: Vec<ExpressionInputRow>,
+}
+
+impl JoinRowAccumulator {
+    fn push_matched_candidate(
+        &mut self,
+        context: &JoinEvaluationContext<'_>,
+        left_row: &ExpressionInputRow,
+        right_row: &ExpressionInputRow,
+    ) -> Result<(), ShardLoomError> {
+        self.increment_joined_candidate()?;
+        let joined_row = qualified_join_row(
+            context.left_alias,
+            &context.left_source.header,
             left_row,
-            join.key_pairs.iter().map(|pair| &pair.left),
-            "left",
-        )?
-        else {
-            continue;
-        };
-        if let Some(right_matches) = right_rows_by_key.get(&key_parts) {
-            for right_row in right_matches {
-                if joined_row_count >= MAX_JOIN_CANDIDATE_ROWS {
-                    return Err(unsupported_sql_error(&format!(
-                        "JOIN candidate row count exceeds scoped smoke cap of {MAX_JOIN_CANDIDATE_ROWS}; duplicate-key joins need a later streaming/hash-join runtime slice"
-                    )));
+            &context.join.right_alias,
+            &context.right_source.header,
+            right_row,
+        );
+        self.push_if_selected(context.predicate_expression, joined_row)
+    }
+
+    fn push_left_source_only(
+        &mut self,
+        context: &JoinEvaluationContext<'_>,
+        left_row: &ExpressionInputRow,
+    ) -> Result<(), ShardLoomError> {
+        let joined_row = qualified_join_left_only_row(
+            context.left_alias,
+            &context.left_source.header,
+            left_row,
+            &context.join.right_alias,
+            &context.right_source.header,
+        );
+        self.push_if_selected(context.predicate_expression, joined_row)
+    }
+
+    fn push_unmatched_left(
+        &mut self,
+        context: &JoinEvaluationContext<'_>,
+        left_row: &ExpressionInputRow,
+    ) -> Result<(), ShardLoomError> {
+        self.unmatched_left_row_count += 1;
+        self.push_left_source_only(context, left_row)
+    }
+
+    fn push_unmatched_right(
+        &mut self,
+        context: &JoinEvaluationContext<'_>,
+        right_row: &ExpressionInputRow,
+    ) -> Result<(), ShardLoomError> {
+        self.unmatched_right_row_count += 1;
+        let joined_row = qualified_join_right_only_row(
+            context.left_alias,
+            &context.left_source.header,
+            &context.join.right_alias,
+            &context.right_source.header,
+            right_row,
+        );
+        self.push_if_selected(context.predicate_expression, joined_row)
+    }
+
+    fn increment_joined_candidate(&mut self) -> Result<(), ShardLoomError> {
+        self.joined_row_count = self.joined_row_count.checked_add(1).ok_or_else(|| {
+            unsupported_sql_error("JOIN candidate row count overflowed scoped smoke accounting")
+        })?;
+        enforce_join_candidate_cap(self.joined_row_count)
+    }
+
+    fn push_if_selected(
+        &mut self,
+        predicate_expression: Option<&Expression>,
+        joined_row: ExpressionInputRow,
+    ) -> Result<(), ShardLoomError> {
+        if evaluate_join_predicate(predicate_expression, &joined_row)? {
+            self.selected_row_count += 1;
+            self.rows.push(joined_row);
+        }
+        Ok(())
+    }
+}
+
+fn collect_cross_join_rows(
+    accumulator: &mut JoinRowAccumulator,
+    context: &JoinEvaluationContext<'_>,
+    right_matched_rows: &mut [bool],
+) -> Result<(), ShardLoomError> {
+    for left_row in &context.left_source.rows {
+        for (right_index, right_row) in context.right_source.rows.iter().enumerate() {
+            accumulator.push_matched_candidate(context, left_row, right_row)?;
+            if let Some(matched) = right_matched_rows.get_mut(right_index) {
+                *matched = true;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn collect_equi_join_rows(
+    accumulator: &mut JoinRowAccumulator,
+    context: &JoinEvaluationContext<'_>,
+    right_rows_by_key: &JoinRightRowsByKey<'_>,
+    right_matched_rows: &mut [bool],
+) -> Result<(), ShardLoomError> {
+    for left_row in &context.left_source.rows {
+        let left_match_count = collect_left_equi_matches(
+            accumulator,
+            context,
+            right_rows_by_key,
+            right_matched_rows,
+            left_row,
+        )?;
+        if context.join.join_type == ParsedJoinType::LeftSemiEqui && left_match_count > 0 {
+            accumulator.push_left_source_only(context, left_row)?;
+        } else if left_match_count == 0 && context.join.join_type.preserves_unmatched_left() {
+            accumulator.push_unmatched_left(context, left_row)?;
+        }
+    }
+    collect_unmatched_right_rows(accumulator, context, right_matched_rows)
+}
+
+fn collect_left_equi_matches(
+    accumulator: &mut JoinRowAccumulator,
+    context: &JoinEvaluationContext<'_>,
+    right_rows_by_key: &JoinRightRowsByKey<'_>,
+    right_matched_rows: &mut [bool],
+    left_row: &ExpressionInputRow,
+) -> Result<usize, ShardLoomError> {
+    let key_parts = join_key_parts(
+        left_row,
+        context.join.key_pairs.iter().map(|pair| &pair.left),
+        "left",
+    )?;
+    let mut left_match_count = 0usize;
+    if let Some(key_parts) = key_parts.as_ref() {
+        if let Some(right_matches) = right_rows_by_key.get(key_parts) {
+            for (right_index, right_row) in right_matches {
+                left_match_count += 1;
+                if context.join.join_type.emits_matched_pairs() {
+                    accumulator.push_matched_candidate(context, left_row, right_row)?;
+                } else {
+                    accumulator.increment_joined_candidate()?;
                 }
-                joined_row_count += 1;
-                let joined_row = qualified_join_row(
-                    left_alias,
-                    &left_source.header,
-                    left_row,
-                    &join.right_alias,
-                    &right_source.header,
-                    right_row,
-                );
-                if evaluate_join_predicate(predicate_expression.as_ref(), &joined_row)? {
-                    selected_row_count += 1;
-                    selected_join_rows.push(joined_row);
+                if let Some(matched) = right_matched_rows.get_mut(*right_index) {
+                    *matched = true;
                 }
             }
         }
     }
-    if parsed.is_grouped_aggregate() {
-        let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
-        output_rows = evaluate_grouped_aggregate_output(parsed, &selected_join_row_refs)?;
-    } else if parsed.is_aggregate() {
-        let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
-        output_rows = evaluate_scalar_aggregate_output(parsed, &selected_join_row_refs)?;
-    } else {
-        let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
-        let ordered_join_row_indexes = ordered_join_row_indexes(parsed, &selected_join_row_refs)?;
-        for row_index in ordered_join_row_indexes.into_iter().take(parsed.limit) {
-            let joined_row = selected_join_rows.get(row_index).ok_or_else(|| {
-                ShardLoomError::InvalidOperation(
-                    "ordered join row index is out of bounds".to_string(),
-                )
-            })?;
-            output_rows.push(evaluate_join_projection(
-                &projection_expressions,
-                joined_row,
-            )?);
+    Ok(left_match_count)
+}
+
+fn collect_unmatched_right_rows(
+    accumulator: &mut JoinRowAccumulator,
+    context: &JoinEvaluationContext<'_>,
+    right_matched_rows: &[bool],
+) -> Result<(), ShardLoomError> {
+    if !context.join.join_type.preserves_unmatched_right() {
+        return Ok(());
+    }
+    for (right_index, right_row) in context.right_source.rows.iter().enumerate() {
+        if !right_matched_rows
+            .get(right_index)
+            .copied()
+            .unwrap_or(false)
+        {
+            accumulator.push_unmatched_right(context, right_row)?;
         }
     }
+    Ok(())
+}
 
-    Ok(JoinEvaluationOutput {
-        joined_row_count,
-        selected_row_count,
-        output_rows,
-    })
+fn evaluate_join_selected_output_rows(
+    parsed: &ParsedSqlLocalSource,
+    projection_expressions: &[Expression],
+    selected_join_rows: &[ExpressionInputRow],
+) -> Result<SqlOutputRows, ShardLoomError> {
+    let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
+    if parsed.is_grouped_aggregate() {
+        return evaluate_grouped_aggregate_output(parsed, &selected_join_row_refs);
+    }
+    if parsed.is_aggregate() {
+        return evaluate_scalar_aggregate_output(parsed, &selected_join_row_refs);
+    }
+    let ordered_join_row_indexes = ordered_join_row_indexes(parsed, &selected_join_row_refs)?;
+    let mut output_rows = Vec::new();
+    for row_index in ordered_join_row_indexes.into_iter().take(parsed.limit) {
+        let joined_row = selected_join_rows.get(row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("ordered join row index is out of bounds".to_string())
+        })?;
+        output_rows.push(evaluate_join_projection(
+            projection_expressions,
+            joined_row,
+        )?);
+    }
+    Ok(output_rows)
+}
+
+fn enforce_join_candidate_cap(joined_row_count: usize) -> Result<(), ShardLoomError> {
+    if joined_row_count > MAX_JOIN_CANDIDATE_ROWS {
+        return Err(unsupported_sql_error(&format!(
+            "JOIN candidate row count exceeds scoped smoke cap of {MAX_JOIN_CANDIDATE_ROWS}; duplicate-key/cross joins need a later streaming/hash-join runtime slice"
+        )));
+    }
+    Ok(())
 }
 
 fn join_projection_expressions(
@@ -3895,12 +4109,17 @@ fn validate_sort_value_families(
     Ok(())
 }
 
+type JoinRightRowsByKey<'a> = BTreeMap<Vec<String>, Vec<(usize, &'a ExpressionInputRow)>>;
+
 fn build_join_right_rows_by_key<'a>(
     join: &ParsedJoin,
     right_source: &'a CsvSourceData,
-) -> Result<BTreeMap<Vec<String>, Vec<&'a ExpressionInputRow>>, ShardLoomError> {
-    let mut right_rows_by_key: BTreeMap<Vec<String>, Vec<&ExpressionInputRow>> = BTreeMap::new();
-    for right_row in &right_source.rows {
+) -> Result<JoinRightRowsByKey<'a>, ShardLoomError> {
+    let mut right_rows_by_key: JoinRightRowsByKey<'_> = BTreeMap::new();
+    if !join.join_type.requires_equi_on() {
+        return Ok(right_rows_by_key);
+    }
+    for (right_index, right_row) in right_source.rows.iter().enumerate() {
         let Some(key_parts) = join_key_parts(
             right_row,
             join.key_pairs.iter().map(|pair| &pair.right),
@@ -3912,7 +4131,7 @@ fn build_join_right_rows_by_key<'a>(
         right_rows_by_key
             .entry(key_parts)
             .or_default()
-            .push(right_row);
+            .push((right_index, right_row));
     }
     Ok(right_rows_by_key)
 }
@@ -4780,6 +4999,47 @@ fn qualified_join_row(
         if let Some(value) = left_row.get(column) {
             row.insert(qualified_column_name(left_alias, column), value.clone());
         }
+    }
+    for column in right_header {
+        if let Some(value) = right_row.get(column) {
+            row.insert(qualified_column_name(right_alias, column), value.clone());
+        }
+    }
+    row
+}
+
+fn qualified_join_left_only_row(
+    left_alias: &str,
+    left_header: &[String],
+    left_row: &ExpressionInputRow,
+    right_alias: &str,
+    right_header: &[String],
+) -> ExpressionInputRow {
+    let mut row = ExpressionInputRow::new();
+    for column in left_header {
+        if let Some(value) = left_row.get(column) {
+            row.insert(qualified_column_name(left_alias, column), value.clone());
+        }
+    }
+    for column in right_header {
+        row.insert(
+            qualified_column_name(right_alias, column),
+            ScalarValue::Null,
+        );
+    }
+    row
+}
+
+fn qualified_join_right_only_row(
+    left_alias: &str,
+    left_header: &[String],
+    right_alias: &str,
+    right_header: &[String],
+    right_row: &ExpressionInputRow,
+) -> ExpressionInputRow {
+    let mut row = ExpressionInputRow::new();
+    for column in left_header {
+        row.insert(qualified_column_name(left_alias, column), ScalarValue::Null);
     }
     for column in right_header {
         if let Some(value) = right_row.get(column) {
@@ -5903,6 +6163,7 @@ fn bind_join_sql_local_source(
         validate_join_order_by_source(parsed, &qualified_header)?;
     }
     validate_join_key_pairs(join, left_alias, left_header, right_header)?;
+    validate_join_type_surface(parsed, left_alias)?;
     if parsed.is_grouped_aggregate() {
         validate_join_grouped_aggregate_sources(
             parsed,
@@ -6037,6 +6298,118 @@ fn validate_join_key_pairs(
     Ok(())
 }
 
+fn validate_join_type_surface(
+    parsed: &ParsedSqlLocalSource,
+    left_alias: &str,
+) -> Result<(), ShardLoomError> {
+    let Some(join) = parsed.join.as_ref() else {
+        return Ok(());
+    };
+    if !join.join_type.is_left_existence() {
+        return Ok(());
+    }
+    for column_ref in join_left_existence_source_refs(parsed) {
+        let qualified = parse_qualified_column_ref(column_ref)?;
+        if qualified.alias != left_alias {
+            return Err(unsupported_sql_error(&format!(
+                "{} emits the left source only; source reference {column_ref:?} is not admitted outside the ON clause",
+                join.join_type.as_str()
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn join_left_existence_source_refs(parsed: &ParsedSqlLocalSource) -> BTreeSet<&str> {
+    let mut source_refs = BTreeSet::new();
+    for column in &parsed.projections {
+        if column != "*" {
+            source_refs.insert(column.as_str());
+        }
+    }
+    for column in &parsed.group_by {
+        source_refs.insert(column.as_str());
+    }
+    if !parsed.is_aggregate() {
+        if let Some(order_by) = parsed.order_by.as_ref() {
+            for key in &order_by.keys {
+                source_refs.insert(key.column.as_str());
+            }
+        }
+    }
+    for aggregate in &parsed.aggregates {
+        if let Some(column) = aggregate.column.as_deref() {
+            source_refs.insert(column);
+        }
+    }
+    for column in parsed.predicate.columns() {
+        source_refs.insert(column);
+    }
+    for projection in &parsed.cast_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.null_coalesce_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.nullif_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.conditional_projections {
+        for column in projection.predicate.columns() {
+            source_refs.insert(column);
+        }
+        if let Some(column) = projection.then_branch.source_column() {
+            source_refs.insert(column);
+        }
+        if let Some(column) = projection.else_branch.source_column() {
+            source_refs.insert(column);
+        }
+    }
+    for projection in &parsed.predicate_projections {
+        for column in projection.predicate.columns() {
+            source_refs.insert(column);
+        }
+    }
+    for projection in &parsed.numeric_arithmetic_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.numeric_abs_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.numeric_rounding_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.generic_expression_projections {
+        for column in &projection.source_columns {
+            source_refs.insert(column.as_str());
+        }
+    }
+    for projection in &parsed.date_arithmetic_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.timestamp_arithmetic_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.string_length_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.string_transform_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.string_function_projections {
+        for column in &projection.source_columns {
+            source_refs.insert(column.as_str());
+        }
+    }
+    for projection in &parsed.date_extract_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    for projection in &parsed.timestamp_extract_projections {
+        source_refs.insert(projection.column.as_str());
+    }
+    source_refs
+}
+
 fn validate_join_grouped_aggregate_sources(
     parsed: &ParsedSqlLocalSource,
     left_alias: &str,
@@ -6158,44 +6531,36 @@ enum JoinProjectionShape {
 }
 
 impl JoinProjectionShape {
-    fn statement_kind(self) -> &'static str {
+    fn statement_suffix(self) -> &'static str {
         match self {
-            Self::ComputedTopNFilter => {
-                "local_source_inner_equi_join_computed_projection_order_by_topn_filter_limit"
-            }
-            Self::ComputedTopN => {
-                "local_source_inner_equi_join_computed_projection_order_by_topn_limit"
-            }
-            Self::RawTopNFilter => "local_source_inner_equi_join_order_by_topn_filter_limit",
-            Self::RawTopN => "local_source_inner_equi_join_order_by_topn_limit",
-            Self::ComputedFilter => "local_source_inner_equi_join_computed_projection_filter_limit",
-            Self::Computed => "local_source_inner_equi_join_computed_projection_limit",
+            Self::ComputedTopNFilter => "computed_projection_order_by_topn_filter_limit",
+            Self::ComputedTopN => "computed_projection_order_by_topn_limit",
+            Self::RawTopNFilter => "order_by_topn_filter_limit",
+            Self::RawTopN => "order_by_topn_limit",
+            Self::ComputedFilter => "computed_projection_filter_limit",
+            Self::Computed => "computed_projection_limit",
         }
     }
 
-    fn execution_certificate_suffix(self) -> &'static str {
+    fn certificate_suffix(self) -> &'static str {
         match self {
-            Self::ComputedTopNFilter => {
-                "inner-equi-join-computed-projection-order-by-topn-filter-limit"
-            }
-            Self::ComputedTopN => "inner-equi-join-computed-projection-order-by-topn-limit",
-            Self::RawTopNFilter => "inner-equi-join-order-by-topn-filter-limit",
-            Self::RawTopN => "inner-equi-join-order-by-topn-limit",
-            Self::ComputedFilter => "inner-equi-join-computed-projection-filter-limit",
-            Self::Computed => "inner-equi-join-computed-projection-limit",
+            Self::ComputedTopNFilter => "computed-projection-order-by-topn-filter-limit",
+            Self::ComputedTopN => "computed-projection-order-by-topn-limit",
+            Self::RawTopNFilter => "order-by-topn-filter-limit",
+            Self::RawTopN => "order-by-topn-limit",
+            Self::ComputedFilter => "computed-projection-filter-limit",
+            Self::Computed => "computed-projection-limit",
         }
     }
 
-    fn claim_gate_reason_suffix(self) -> &'static str {
+    fn claim_suffix(self) -> &'static str {
         match self {
-            Self::ComputedTopNFilter => {
-                "inner_equi_join_computed_projection_order_by_topn_filter_limit"
-            }
-            Self::ComputedTopN => "inner_equi_join_computed_projection_order_by_topn_limit",
-            Self::RawTopNFilter => "inner_equi_join_order_by_topn_filter_limit",
-            Self::RawTopN => "inner_equi_join_order_by_topn_limit",
-            Self::ComputedFilter => "inner_equi_join_computed_projection_filter_limit",
-            Self::Computed => "inner_equi_join_computed_projection_limit",
+            Self::ComputedTopNFilter => "computed_projection_order_by_topn_filter_limit",
+            Self::ComputedTopN => "computed_projection_order_by_topn_limit",
+            Self::RawTopNFilter => "order_by_topn_filter_limit",
+            Self::RawTopN => "order_by_topn_limit",
+            Self::ComputedFilter => "computed_projection_filter_limit",
+            Self::Computed => "computed_projection_limit",
         }
     }
 }
@@ -6330,213 +6695,237 @@ impl ParsedSqlLocalSource {
         }
     }
 
-    fn statement_kind(&self) -> &'static str {
+    fn join_statement_kind(&self, suffix: &str) -> String {
+        let join = self
+            .join
+            .as_ref()
+            .expect("join statement kind requested without join");
+        format!("local_source_{}_{}", join.statement_join_prefix(), suffix)
+    }
+
+    fn join_certificate_suffix(&self, suffix: &str) -> String {
+        let join = self
+            .join
+            .as_ref()
+            .expect("join certificate suffix requested without join");
+        format!("{}-{}", join.certificate_join_prefix(), suffix)
+    }
+
+    fn join_claim_suffix(&self, suffix: &str) -> String {
+        let join = self
+            .join
+            .as_ref()
+            .expect("join claim suffix requested without join");
+        format!("{}_{}", join.claim_join_prefix(), suffix)
+    }
+
+    fn statement_kind(&self) -> String {
         if self.is_join()
             && self.is_grouped_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
         {
-            "local_source_inner_equi_join_group_by_aggregate_order_by_topn_filter_limit"
+            self.join_statement_kind("group_by_aggregate_order_by_topn_filter_limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.order_by.is_some() {
-            "local_source_inner_equi_join_group_by_aggregate_order_by_topn_limit"
+            self.join_statement_kind("group_by_aggregate_order_by_topn_limit")
         } else if self.is_join()
             && self.is_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
         {
-            "local_source_inner_equi_join_aggregate_order_by_topn_filter_limit"
+            self.join_statement_kind("aggregate_order_by_topn_filter_limit")
         } else if self.is_join() && self.is_aggregate() && self.order_by.is_some() {
-            "local_source_inner_equi_join_aggregate_order_by_topn_limit"
+            self.join_statement_kind("aggregate_order_by_topn_limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
-            "local_source_inner_equi_join_group_by_aggregate_filter_limit"
+            self.join_statement_kind("group_by_aggregate_filter_limit")
         } else if self.is_join() && self.is_grouped_aggregate() {
-            "local_source_inner_equi_join_group_by_aggregate_limit"
+            self.join_statement_kind("group_by_aggregate_limit")
         } else if self.is_join() && self.is_aggregate() && self.has_filter() {
-            "local_source_inner_equi_join_aggregate_filter_limit"
+            self.join_statement_kind("aggregate_filter_limit")
         } else if self.is_join() && self.is_aggregate() {
-            "local_source_inner_equi_join_aggregate_limit"
+            self.join_statement_kind("aggregate_limit")
         } else if let Some(shape) = self.join_projection_shape() {
-            shape.statement_kind()
+            self.join_statement_kind(shape.statement_suffix())
         } else if self.is_join() && self.has_filter() {
-            "local_source_inner_equi_join_filter_limit"
+            self.join_statement_kind("filter_limit")
         } else if self.is_join() {
-            "local_source_inner_equi_join_limit"
+            self.join_statement_kind("limit")
         } else if self.is_grouped_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "local_source_group_by_aggregate_order_by_topn_filter_limit"
+            "local_source_group_by_aggregate_order_by_topn_filter_limit".to_string()
         } else if self.is_grouped_aggregate() && self.order_by.is_some() {
-            "local_source_group_by_aggregate_order_by_topn_limit"
+            "local_source_group_by_aggregate_order_by_topn_limit".to_string()
         } else if self.is_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "local_source_aggregate_order_by_topn_filter_limit"
+            "local_source_aggregate_order_by_topn_filter_limit".to_string()
         } else if self.is_aggregate() && self.order_by.is_some() {
-            "local_source_aggregate_order_by_topn_limit"
+            "local_source_aggregate_order_by_topn_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
-            "local_source_computed_projection_order_by_topn_filter_limit"
+            "local_source_computed_projection_order_by_topn_filter_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
-            "local_source_computed_projection_order_by_topn_limit"
+            "local_source_computed_projection_order_by_topn_limit".to_string()
         } else if self.order_by.is_some() && self.has_filter() {
-            "local_source_order_by_topn_filter_limit"
+            "local_source_order_by_topn_filter_limit".to_string()
         } else if self.order_by.is_some() {
-            "local_source_order_by_topn_limit"
+            "local_source_order_by_topn_limit".to_string()
         } else if self.is_grouped_aggregate() && self.has_filter() {
-            "local_source_group_by_aggregate_filter_limit"
+            "local_source_group_by_aggregate_filter_limit".to_string()
         } else if self.is_grouped_aggregate() {
-            "local_source_group_by_aggregate_limit"
+            "local_source_group_by_aggregate_limit".to_string()
         } else if self.is_aggregate() && self.has_filter() {
-            "local_source_aggregate_filter_limit"
+            "local_source_aggregate_filter_limit".to_string()
         } else if self.is_aggregate() {
-            "local_source_aggregate_limit"
+            "local_source_aggregate_limit".to_string()
         } else if self.has_literal_projection() && self.has_filter() {
-            "local_source_literal_projection_filter_limit"
+            "local_source_literal_projection_filter_limit".to_string()
         } else if self.has_literal_projection() {
-            "local_source_literal_projection_limit"
+            "local_source_literal_projection_limit".to_string()
         } else if self.has_computed_projection() && self.has_filter() {
-            "local_source_computed_projection_filter_limit"
+            "local_source_computed_projection_filter_limit".to_string()
         } else if self.has_computed_projection() {
-            "local_source_computed_projection_limit"
+            "local_source_computed_projection_limit".to_string()
         } else if self.has_filter() {
-            "local_source_projection_filter_limit"
+            "local_source_projection_filter_limit".to_string()
         } else {
-            "local_source_projection_limit"
+            "local_source_projection_limit".to_string()
         }
     }
 
-    fn execution_certificate_suffix(&self) -> &'static str {
+    fn execution_certificate_suffix(&self) -> String {
         if self.is_join()
             && self.is_grouped_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
         {
-            "inner-equi-join-group-by-aggregate-order-by-topn-filter-limit"
+            self.join_certificate_suffix("group-by-aggregate-order-by-topn-filter-limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.order_by.is_some() {
-            "inner-equi-join-group-by-aggregate-order-by-topn-limit"
+            self.join_certificate_suffix("group-by-aggregate-order-by-topn-limit")
         } else if self.is_join()
             && self.is_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
         {
-            "inner-equi-join-aggregate-order-by-topn-filter-limit"
+            self.join_certificate_suffix("aggregate-order-by-topn-filter-limit")
         } else if self.is_join() && self.is_aggregate() && self.order_by.is_some() {
-            "inner-equi-join-aggregate-order-by-topn-limit"
+            self.join_certificate_suffix("aggregate-order-by-topn-limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
-            "inner-equi-join-group-by-aggregate-filter-limit"
+            self.join_certificate_suffix("group-by-aggregate-filter-limit")
         } else if self.is_join() && self.is_grouped_aggregate() {
-            "inner-equi-join-group-by-aggregate-limit"
+            self.join_certificate_suffix("group-by-aggregate-limit")
         } else if self.is_join() && self.is_aggregate() && self.has_filter() {
-            "inner-equi-join-aggregate-filter-limit"
+            self.join_certificate_suffix("aggregate-filter-limit")
         } else if self.is_join() && self.is_aggregate() {
-            "inner-equi-join-aggregate-limit"
+            self.join_certificate_suffix("aggregate-limit")
         } else if let Some(shape) = self.join_projection_shape() {
-            shape.execution_certificate_suffix()
+            self.join_certificate_suffix(shape.certificate_suffix())
         } else if self.is_join() && self.has_filter() {
-            "inner-equi-join-filter-limit"
+            self.join_certificate_suffix("filter-limit")
         } else if self.is_join() {
-            "inner-equi-join-limit"
+            self.join_certificate_suffix("limit")
         } else if self.is_grouped_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "group-by-aggregate-order-by-topn-filter-limit"
+            "group-by-aggregate-order-by-topn-filter-limit".to_string()
         } else if self.is_grouped_aggregate() && self.order_by.is_some() {
-            "group-by-aggregate-order-by-topn-limit"
+            "group-by-aggregate-order-by-topn-limit".to_string()
         } else if self.is_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "aggregate-order-by-topn-filter-limit"
+            "aggregate-order-by-topn-filter-limit".to_string()
         } else if self.is_aggregate() && self.order_by.is_some() {
-            "aggregate-order-by-topn-limit"
+            "aggregate-order-by-topn-limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
-            "computed-projection-order-by-topn-filter-limit"
+            "computed-projection-order-by-topn-filter-limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
-            "computed-projection-order-by-topn-limit"
+            "computed-projection-order-by-topn-limit".to_string()
         } else if self.order_by.is_some() && self.has_filter() {
-            "order-by-topn-filter-limit"
+            "order-by-topn-filter-limit".to_string()
         } else if self.order_by.is_some() {
-            "order-by-topn-limit"
+            "order-by-topn-limit".to_string()
         } else if self.is_grouped_aggregate() && self.has_filter() {
-            "group-by-aggregate-filter-limit"
+            "group-by-aggregate-filter-limit".to_string()
         } else if self.is_grouped_aggregate() {
-            "group-by-aggregate-limit"
+            "group-by-aggregate-limit".to_string()
         } else if self.is_aggregate() && self.has_filter() {
-            "aggregate-filter-limit"
+            "aggregate-filter-limit".to_string()
         } else if self.is_aggregate() {
-            "aggregate-limit"
+            "aggregate-limit".to_string()
         } else if self.has_literal_projection() && self.has_filter() {
-            "literal-projection-filter-limit"
+            "literal-projection-filter-limit".to_string()
         } else if self.has_literal_projection() {
-            "literal-projection-limit"
+            "literal-projection-limit".to_string()
         } else if self.has_computed_projection() && self.has_filter() {
-            "computed-projection-filter-limit"
+            "computed-projection-filter-limit".to_string()
         } else if self.has_computed_projection() {
-            "computed-projection-limit"
+            "computed-projection-limit".to_string()
         } else if self.has_filter() {
-            "projection-filter-limit"
+            "projection-filter-limit".to_string()
         } else {
-            "projection-limit"
+            "projection-limit".to_string()
         }
     }
 
-    fn claim_gate_reason_suffix(&self) -> &'static str {
+    fn claim_gate_reason_suffix(&self) -> String {
         if self.is_join()
             && self.is_grouped_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
         {
-            "inner_equi_join_group_by_aggregate_order_by_topn_filter_limit"
+            self.join_claim_suffix("group_by_aggregate_order_by_topn_filter_limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.order_by.is_some() {
-            "inner_equi_join_group_by_aggregate_order_by_topn_limit"
+            self.join_claim_suffix("group_by_aggregate_order_by_topn_limit")
         } else if self.is_join()
             && self.is_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
         {
-            "inner_equi_join_aggregate_order_by_topn_filter_limit"
+            self.join_claim_suffix("aggregate_order_by_topn_filter_limit")
         } else if self.is_join() && self.is_aggregate() && self.order_by.is_some() {
-            "inner_equi_join_aggregate_order_by_topn_limit"
+            self.join_claim_suffix("aggregate_order_by_topn_limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
-            "inner_equi_join_group_by_aggregate_filter_limit"
+            self.join_claim_suffix("group_by_aggregate_filter_limit")
         } else if self.is_join() && self.is_grouped_aggregate() {
-            "inner_equi_join_group_by_aggregate_limit"
+            self.join_claim_suffix("group_by_aggregate_limit")
         } else if self.is_join() && self.is_aggregate() && self.has_filter() {
-            "inner_equi_join_aggregate_filter_limit"
+            self.join_claim_suffix("aggregate_filter_limit")
         } else if self.is_join() && self.is_aggregate() {
-            "inner_equi_join_aggregate_limit"
+            self.join_claim_suffix("aggregate_limit")
         } else if let Some(shape) = self.join_projection_shape() {
-            shape.claim_gate_reason_suffix()
+            self.join_claim_suffix(shape.claim_suffix())
         } else if self.is_join() && self.has_filter() {
-            "inner_equi_join_filter_limit"
+            self.join_claim_suffix("filter_limit")
         } else if self.is_join() {
-            "inner_equi_join_limit"
+            self.join_claim_suffix("limit")
         } else if self.is_grouped_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "group_by_aggregate_order_by_topn_filter_limit"
+            "group_by_aggregate_order_by_topn_filter_limit".to_string()
         } else if self.is_grouped_aggregate() && self.order_by.is_some() {
-            "group_by_aggregate_order_by_topn_limit"
+            "group_by_aggregate_order_by_topn_limit".to_string()
         } else if self.is_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "scalar_aggregate_order_by_topn_filter_limit"
+            "scalar_aggregate_order_by_topn_filter_limit".to_string()
         } else if self.is_aggregate() && self.order_by.is_some() {
-            "scalar_aggregate_order_by_topn_limit"
+            "scalar_aggregate_order_by_topn_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
-            "computed_projection_order_by_topn_filter_limit"
+            "computed_projection_order_by_topn_filter_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
-            "computed_projection_order_by_topn_limit"
+            "computed_projection_order_by_topn_limit".to_string()
         } else if self.order_by.is_some() && self.has_filter() {
-            "order_by_topn_filter_limit"
+            "order_by_topn_filter_limit".to_string()
         } else if self.order_by.is_some() {
-            "order_by_topn_limit"
+            "order_by_topn_limit".to_string()
         } else if self.is_grouped_aggregate() && self.has_filter() {
-            "group_by_aggregate_filter_limit"
+            "group_by_aggregate_filter_limit".to_string()
         } else if self.is_grouped_aggregate() {
-            "group_by_aggregate_limit"
+            "group_by_aggregate_limit".to_string()
         } else if self.is_aggregate() && self.has_filter() {
-            "scalar_aggregate_filter_limit"
+            "scalar_aggregate_filter_limit".to_string()
         } else if self.is_aggregate() {
-            "scalar_aggregate_limit"
+            "scalar_aggregate_limit".to_string()
         } else if self.has_literal_projection() && self.has_filter() {
-            "literal_projection_filter_limit"
+            "literal_projection_filter_limit".to_string()
         } else if self.has_literal_projection() {
-            "literal_projection_limit"
+            "literal_projection_limit".to_string()
         } else if self.has_computed_projection() && self.has_filter() {
-            "computed_projection_filter_limit"
+            "computed_projection_filter_limit".to_string()
         } else if self.has_computed_projection() {
-            "computed_projection_limit"
+            "computed_projection_limit".to_string()
         } else if self.has_filter() {
-            "projection_filter_limit"
+            "projection_filter_limit".to_string()
         } else {
-            "projection_limit"
+            "projection_limit".to_string()
         }
     }
 
@@ -7428,6 +7817,22 @@ impl QualifiedColumn {
 }
 
 impl ParsedJoin {
+    fn statement_join_prefix(&self) -> &'static str {
+        self.join_type.statement_prefix()
+    }
+
+    fn certificate_join_prefix(&self) -> &'static str {
+        self.join_type.certificate_prefix()
+    }
+
+    fn claim_join_prefix(&self) -> &'static str {
+        self.join_type.claim_prefix()
+    }
+
+    fn kind(&self) -> &'static str {
+        self.join_type.as_str()
+    }
+
     fn key_arity(&self) -> usize {
         self.key_pairs.len()
     }
@@ -7450,6 +7855,82 @@ impl ParsedJoin {
             .map(|pair| pair.right.to_ref())
             .collect::<Vec<_>>()
             .join(",")
+    }
+}
+
+impl ParsedJoinType {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::InnerEqui => "inner_equi",
+            Self::LeftOuterEqui => "left_outer_equi",
+            Self::RightOuterEqui => "right_outer_equi",
+            Self::FullOuterEqui => "full_outer_equi",
+            Self::LeftSemiEqui => "left_semi_equi",
+            Self::LeftAntiEqui => "left_anti_equi",
+            Self::Cross => "cross",
+        }
+    }
+
+    const fn statement_prefix(self) -> &'static str {
+        match self {
+            Self::InnerEqui => "inner_equi_join",
+            Self::LeftOuterEqui => "left_outer_equi_join",
+            Self::RightOuterEqui => "right_outer_equi_join",
+            Self::FullOuterEqui => "full_outer_equi_join",
+            Self::LeftSemiEqui => "left_semi_equi_join",
+            Self::LeftAntiEqui => "left_anti_equi_join",
+            Self::Cross => "cross_join",
+        }
+    }
+
+    const fn certificate_prefix(self) -> &'static str {
+        match self {
+            Self::InnerEqui => "inner-equi-join",
+            Self::LeftOuterEqui => "left-outer-equi-join",
+            Self::RightOuterEqui => "right-outer-equi-join",
+            Self::FullOuterEqui => "full-outer-equi-join",
+            Self::LeftSemiEqui => "left-semi-equi-join",
+            Self::LeftAntiEqui => "left-anti-equi-join",
+            Self::Cross => "cross-join",
+        }
+    }
+
+    const fn claim_prefix(self) -> &'static str {
+        match self {
+            Self::InnerEqui => "inner_equi_join",
+            Self::LeftOuterEqui => "left_outer_equi_join",
+            Self::RightOuterEqui => "right_outer_equi_join",
+            Self::FullOuterEqui => "full_outer_equi_join",
+            Self::LeftSemiEqui => "left_semi_equi_join",
+            Self::LeftAntiEqui => "left_anti_equi_join",
+            Self::Cross => "cross_join",
+        }
+    }
+
+    const fn requires_equi_on(self) -> bool {
+        !matches!(self, Self::Cross)
+    }
+
+    const fn preserves_unmatched_left(self) -> bool {
+        matches!(
+            self,
+            Self::LeftOuterEqui | Self::FullOuterEqui | Self::LeftAntiEqui
+        )
+    }
+
+    const fn preserves_unmatched_right(self) -> bool {
+        matches!(self, Self::RightOuterEqui | Self::FullOuterEqui)
+    }
+
+    const fn emits_matched_pairs(self) -> bool {
+        matches!(
+            self,
+            Self::InnerEqui | Self::LeftOuterEqui | Self::RightOuterEqui | Self::FullOuterEqui
+        )
+    }
+
+    const fn is_left_existence(self) -> bool {
+        matches!(self, Self::LeftSemiEqui | Self::LeftAntiEqui)
     }
 }
 
@@ -10681,7 +11162,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "sql_statement_kind".to_string(),
-                self.parsed.statement_kind().to_string(),
+                self.parsed.statement_kind(),
             ),
             ("sql_statement".to_string(), self.request.statement.clone()),
             ("sql_parser_executed".to_string(), "true".to_string()),
@@ -10954,12 +11435,11 @@ impl SqlLocalSourceReport {
             ),
             (
                 "join_type".to_string(),
-                if self.parsed.is_join() {
-                    "inner_equi"
-                } else {
-                    "not_applicable"
-                }
-                .to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .map_or("not_applicable", ParsedJoin::kind)
+                    .to_string(),
             ),
             (
                 "join_left_key".to_string(),
@@ -11008,6 +11488,18 @@ impl SqlLocalSourceReport {
             (
                 "join_matched_row_count".to_string(),
                 self.joined_row_count.to_string(),
+            ),
+            (
+                "join_candidate_row_count".to_string(),
+                self.joined_row_count.to_string(),
+            ),
+            (
+                "join_unmatched_left_row_count".to_string(),
+                self.unmatched_left_row_count.to_string(),
+            ),
+            (
+                "join_unmatched_right_row_count".to_string(),
+                self.unmatched_right_row_count.to_string(),
             ),
             (
                 "join_left_rows_scanned".to_string(),
@@ -15764,35 +16256,30 @@ fn parse_order_by(raw: Option<&str>) -> Result<Option<ParsedOrderBy>, ShardLoomE
 }
 
 fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> {
-    let Some((join_index, join_keyword_len)) = find_keyword_outside_quotes(raw, "inner join")
-        .map(|index| (index, "inner join".len()))
-        .or_else(|| find_keyword_outside_quotes(raw, "join").map(|index| (index, "join".len())))
-    else {
+    let Some((join_index, join_keyword_len, join_type)) = find_join_keyword(raw) else {
         return Ok(ParsedSourceClause {
             source_path: parse_source_path(raw)?,
             source_alias: None,
             join: None,
         });
     };
-    if contains_keyword_outside_quotes(raw, "left join")
-        || contains_keyword_outside_quotes(raw, "right join")
-        || contains_keyword_outside_quotes(raw, "full join")
-        || contains_keyword_outside_quotes(raw, "cross join")
-        || contains_keyword_outside_quotes(raw, "outer join")
-        || contains_keyword_outside_quotes(raw, "semi join")
-        || contains_keyword_outside_quotes(raw, "anti join")
-    {
-        return Err(unsupported_sql_error(
-            "JOIN smoke admits explicit INNER-style equi-join only; outer/cross/semi/anti joins remain blocked",
-        ));
-    }
     let left_raw = raw[..join_index].trim();
     let join_tail = raw[join_index + join_keyword_len..].trim();
-    let on_index = find_keyword_outside_quotes(join_tail, "on").ok_or_else(|| {
-        unsupported_sql_error("JOIN smoke requires an ON <left> = <right> clause")
-    })?;
-    let right_raw = join_tail[..on_index].trim();
-    let on_raw = join_tail[on_index + "on".len()..].trim();
+    let (right_raw, key_pairs) = if join_type.requires_equi_on() {
+        let on_index = find_keyword_outside_quotes(join_tail, "on").ok_or_else(|| {
+            unsupported_sql_error("JOIN smoke requires an ON <left> = <right> clause")
+        })?;
+        let right_raw = join_tail[..on_index].trim();
+        let on_raw = join_tail[on_index + "on".len()..].trim();
+        (right_raw, parse_join_on(on_raw)?)
+    } else {
+        if find_keyword_outside_quotes(join_tail, "on").is_some() {
+            return Err(unsupported_sql_error(
+                "CROSS JOIN smoke does not admit an ON clause; use WHERE for scoped filters",
+            ));
+        }
+        (join_tail, Vec::new())
+    };
     let (source_path, left_alias) = parse_aliased_source(left_raw, "left")?;
     let (right_source_path, right_alias) = parse_aliased_source(right_raw, "right")?;
     let _left_format = LocalSourceFormat::from_path(&source_path)?;
@@ -15802,7 +16289,6 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
             "JOIN smoke requires distinct left and right aliases",
         ));
     }
-    let key_pairs = parse_join_on(on_raw)?;
     if key_pairs
         .iter()
         .any(|pair| pair.left.alias != left_alias || pair.right.alias != right_alias)
@@ -15815,10 +16301,33 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
         source_path,
         source_alias: Some(left_alias),
         join: Some(ParsedJoin {
+            join_type,
             right_source_path,
             right_alias,
             key_pairs,
         }),
+    })
+}
+
+fn find_join_keyword(raw: &str) -> Option<(usize, usize, ParsedJoinType)> {
+    [
+        ("left outer join", ParsedJoinType::LeftOuterEqui),
+        ("left join", ParsedJoinType::LeftOuterEqui),
+        ("right outer join", ParsedJoinType::RightOuterEqui),
+        ("right join", ParsedJoinType::RightOuterEqui),
+        ("full outer join", ParsedJoinType::FullOuterEqui),
+        ("full join", ParsedJoinType::FullOuterEqui),
+        ("left semi join", ParsedJoinType::LeftSemiEqui),
+        ("semi join", ParsedJoinType::LeftSemiEqui),
+        ("left anti join", ParsedJoinType::LeftAntiEqui),
+        ("anti join", ParsedJoinType::LeftAntiEqui),
+        ("cross join", ParsedJoinType::Cross),
+        ("inner join", ParsedJoinType::InnerEqui),
+        ("join", ParsedJoinType::InnerEqui),
+    ]
+    .into_iter()
+    .find_map(|(keyword, join_type)| {
+        find_keyword_outside_quotes(raw, keyword).map(|index| (index, keyword.len(), join_type))
     })
 }
 

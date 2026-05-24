@@ -2819,7 +2819,7 @@ class SqlLocalSourceSmokeReport:
 
     @property
     def join_runtime_execution(self) -> bool:
-        """Whether this smoke executed the admitted inner equi-join path."""
+        """Whether this smoke executed an admitted join path."""
 
         return self.envelope.field_bool("join_runtime_execution", False) is True
 
@@ -2861,7 +2861,7 @@ class SqlLocalSourceSmokeReport:
 
     @property
     def join_multi_key_runtime_execution(self) -> bool:
-        """Whether this smoke executed a multi-key inner equi-join path."""
+        """Whether this smoke executed a multi-key equi-join path."""
 
         return self.envelope.field_bool("join_multi_key_runtime_execution", False) is True
 
@@ -2870,6 +2870,24 @@ class SqlLocalSourceSmokeReport:
         """Return the number of matched join rows before filtering."""
 
         return self.envelope.field_int("join_matched_row_count", 0) or 0
+
+    @property
+    def join_candidate_row_count(self) -> int:
+        """Return the number of join candidate pairs evaluated."""
+
+        return self.envelope.field_int("join_candidate_row_count", 0) or 0
+
+    @property
+    def join_unmatched_left_row_count(self) -> int:
+        """Return the number of unmatched left rows emitted by an outer/anti join."""
+
+        return self.envelope.field_int("join_unmatched_left_row_count", 0) or 0
+
+    @property
+    def join_unmatched_right_row_count(self) -> int:
+        """Return the number of unmatched right rows emitted by a right/full outer join."""
+
+        return self.envelope.field_int("join_unmatched_right_row_count", 0) or 0
 
     @property
     def join_rows_output(self) -> int:
