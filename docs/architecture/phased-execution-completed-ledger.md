@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4L/5I Python session workflow entrypoints
   - Date: 2026-05-24
-  - Branch/PR: `runtime-session-workflow-entrypoints-4l` / pending.
+  - Branch/PR: `runtime-session-workflow-entrypoints-4l` / #946.
   - Source:
     - `GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse runtime`.
     - `GAR-RUNTIME-IMPL-5I optimizer, session runtime, reuse, and buffer-pool promotion`.
