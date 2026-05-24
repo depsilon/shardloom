@@ -1344,9 +1344,14 @@ class SqlLocalSourceSmokeReport:
         """Return window PARTITION BY columns emitted by the smoke."""
 
         value = self.envelope.field("window_partition_columns")
-        if value in {None, "", "none", "not_applicable"}:
+        if value in {None, "", "not_applicable"}:
             return ()
-        return _csv_values(value)
+        return tuple(
+            part.strip()
+            for group in value.split(";")
+            for part in group.split(",")
+            if part.strip() and part.strip() != "none"
+        )
 
     @property
     def window_order_by_columns(self) -> tuple[str, ...]:
@@ -1378,6 +1383,21 @@ class SqlLocalSourceSmokeReport:
 
         return (
             self.envelope.field_bool("window_row_number_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def window_rank_runtime_execution(self) -> bool:
+        """Whether this smoke executed admitted RANK window semantics."""
+
+        return self.envelope.field_bool("window_rank_runtime_execution", False) is True
+
+    @property
+    def window_dense_rank_runtime_execution(self) -> bool:
+        """Whether this smoke executed admitted DENSE_RANK window semantics."""
+
+        return (
+            self.envelope.field_bool("window_dense_rank_runtime_execution", False)
             is True
         )
 

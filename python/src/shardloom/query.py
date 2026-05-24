@@ -2958,8 +2958,63 @@ def row_number(
 ) -> WindowExpression:
     """Return a scoped `ROW_NUMBER() OVER (...) AS alias` expression."""
 
+    return _ranking_window_expression(
+        "ROW_NUMBER",
+        order_by=order_by,
+        partition_by=partition_by,
+        descending=descending,
+        alias=alias,
+    )
+
+
+def rank(
+    *,
+    order_by: object,
+    partition_by: object | None = None,
+    descending: bool = False,
+    alias: object = "rank",
+) -> WindowExpression:
+    """Return a scoped `RANK() OVER (...) AS alias` expression."""
+
+    return _ranking_window_expression(
+        "RANK",
+        order_by=order_by,
+        partition_by=partition_by,
+        descending=descending,
+        alias=alias,
+    )
+
+
+def dense_rank(
+    *,
+    order_by: object,
+    partition_by: object | None = None,
+    descending: bool = False,
+    alias: object = "dense_rank",
+) -> WindowExpression:
+    """Return a scoped `DENSE_RANK() OVER (...) AS alias` expression."""
+
+    return _ranking_window_expression(
+        "DENSE_RANK",
+        order_by=order_by,
+        partition_by=partition_by,
+        descending=descending,
+        alias=alias,
+    )
+
+
+def _ranking_window_expression(
+    function_name: str,
+    *,
+    order_by: object,
+    partition_by: object | None,
+    descending: bool,
+    alias: object,
+) -> WindowExpression:
+    """Return a scoped ranking window expression."""
+
     if order_by is None:
-        raise ValueError("row_number order_by must not be empty")
+        raise ValueError(f"{function_name.lower()} order_by must not be empty")
     order_columns = _normalize_columns((order_by,))
     partition_columns = _normalize_optional_columns(partition_by)
     direction = "DESC" if descending else "ASC"
@@ -2969,7 +3024,7 @@ def row_number(
     )
     output_alias = _normalize_output_column_name(alias)
     return WindowExpression(
-        f"ROW_NUMBER() OVER ({partition_clause}ORDER BY {order_clause}) AS {output_alias}"
+        f"{function_name}() OVER ({partition_clause}ORDER BY {order_clause}) AS {output_alias}"
     )
 
 

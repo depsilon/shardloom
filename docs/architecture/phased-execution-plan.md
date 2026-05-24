@@ -954,10 +954,10 @@ docs/website parity, and a completed-ledger entry.
     multi-key scalar joined top-N, and scalar/grouped join-aggregate ordering by aggregate output
     aliases or group keys. Scalar/grouped aggregate and join-aggregate rows also admit scoped
     post-aggregate `HAVING` predicates bound to emitted aggregate output aliases or selected group
-    keys. Scoped local-source `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...) AS <alias>` now
-    executes through the same format-neutral SQL/Python runtime with deterministic partitioned
-    ranking evidence; richer expressions, casts, dates, strings, broad window functions/frames,
-    subqueries,
+    keys. Scoped local-source `ROW_NUMBER()`, `RANK()`, and `DENSE_RANK()` window projections now
+    execute through the same format-neutral SQL/Python runtime with
+    deterministic partitioned ranking and peer-group tie evidence; richer expressions, casts,
+    dates, strings, broad window functions/frames, subqueries,
     catalogs, arbitrary join predicates, null/collation ordering, and broad planner behavior remain
     incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
@@ -991,8 +991,8 @@ docs/website parity, and a completed-ledger entry.
     group-by, multi-key scalar top-N, aggregate-output top-N, scoped local-source equi/cross and
     expression-condition joins, computed projections and multi-key scalar top-N over joined rows, scalar/grouped join
     aggregate, post-aggregate `having(...)` / post-`agg(...)` `filter(...)`, scoped
-    `.window(sl.row_number(...))` projection, explicit-projection literal `with_column(...)`, and
-    `count()` workflows, but
+    `.window(sl.row_number(...), sl.rank(...), sl.dense_rank(...))` projections,
+    explicit-projection literal `with_column(...)`, and `count()` workflows, but
     complete end-to-end generated/local/Vortex workflows and
     unsupported-method diagnostics are not yet ordinary user-grade coverage.
   - Next slice outcome: make one import path support generated, local file, and prepared/native
@@ -1112,8 +1112,9 @@ docs/website parity, and a completed-ledger entry.
   - Source: `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4J`, RFC 0015, RFC 0016, RFC 0021.
   - Current state: selected residual-native operators exist; broad type/null/string/date/decimal,
     join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Scoped local-source
-    `ROW_NUMBER()` window projection now has native partition/order evaluation and runtime
-    evidence, but general window functions, frames, encoded ranking kernels, and
+    ranking window projections now cover `ROW_NUMBER()`, `RANK()`, and `DENSE_RANK()` with native
+    partition/order evaluation, peer-group tie semantics, and runtime evidence, but general window
+    functions, frames, encoded ranking kernels, and
     distributed/object-store window execution remain open. Scoped
     `COUNT(DISTINCT column)` is runtime-admitted for local scalar and grouped aggregate rows with
     `distinct_aggregate_*` evidence, SQL `NULL`-ignoring distinct-count semantics, Python
@@ -1523,7 +1524,7 @@ runnable, documented, tested, and claim-safe.
     now support `limit(...)`, `head(...)`, and `take(...)` bound adjustment before local writes, with
     DataFrame capability rows separating generic `write`, JSONL, and CSV evidence requirements.
     The DataFrame method matrix now marks scoped local-source `with_column(...)`, `.join(...)`,
-    `.agg(...)`/`.aggregate(...)`, `.sort(...)`, scoped `.window(sl.row_number(...))`, bounded
+    `.agg(...)`/`.aggregate(...)`, `.sort(...)`, scoped ranking `.window(...)`, bounded
     `.to_python_objects()`, bounded
     `.schema()`/`.describe_schema()`/`.validate_schema(...)`, and bounded
     `.data_quality_summary()`/`.data_quality_check(...)` as fixture-smoke-supported where they
