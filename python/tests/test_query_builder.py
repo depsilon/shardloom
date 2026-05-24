@@ -9441,10 +9441,10 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     ("local_output_only_generated_source_posture", "Generated-source local-output-only posture", "output_boundary", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "local_output_certificate_required", "not_emitted_report_only", "not_claim_grade", "gar-compat-1b.non_local_generated_output_blocked"),
                     ("sql_literal_select", "SQL SELECT literal expressions", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_literal_select_jsonl_csv_smoke_only"),
                     ("sql_values", "SQL VALUES (...)", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_values_jsonl_csv_smoke_only"),
-                    ("sql_source_free_projection", "SQL source-free projection", "sql_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.sql_source_free_projection_runtime_not_implemented"),
+                    ("sql_source_free_projection", "SQL source-free range projection", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_range_projection_jsonl_csv_smoke_only"),
                     ("sql_generate_series_range", "SQL generate_series/range", "sql_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only"),
                     ("dataframe_source_free_projection", "DataFrame source-free projection", "dataframe_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented"),
-                    ("dataframe_generated_with_column", "DataFrame generated with_column", "dataframe_generated_source", "report-only", "false", "false", "false", "false", "not_applicable_no_source_dataset", "not_emitted_report_only", "not_emitted_report_only", "not_claim_grade", "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented"),
+                    ("dataframe_generated_with_column", "Scoped generated DataFrame with_column", "dataframe_generated_source", "smoke-supported", "true", "true", "true", "true", "not_applicable_no_source_dataset", "required_for_runtime_output", "required_for_runtime", "fixture_smoke_only", "none_scoped_local_generated_with_column_jsonl_csv_smoke_only"),
                 ]:
                     prefix = f"universal_compatibility_generated_output_row_{row_id}"
                     fields.extend([
@@ -9557,8 +9557,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(generated.row("python_ctx_calendar").runtime_execution)
         self.assertTrue(generated.row("sql_values").fixture_smoke_supported)
         self.assertTrue(generated.row("sql_values").runtime_execution)
+        self.assertTrue(generated.row("sql_source_free_projection").fixture_smoke_supported)
+        self.assertTrue(generated.row("sql_source_free_projection").runtime_execution)
         self.assertTrue(generated.row("sql_generate_series_range").fixture_smoke_supported)
         self.assertTrue(generated.row("sql_generate_series_range").runtime_execution)
+        self.assertTrue(generated.row("dataframe_generated_with_column").fixture_smoke_supported)
+        self.assertTrue(generated.row("dataframe_generated_with_column").runtime_execution)
         self.assertEqual(
             generated.row("local_output_only_generated_source_posture").blocker_id,
             "gar-compat-1b.non_local_generated_output_blocked",

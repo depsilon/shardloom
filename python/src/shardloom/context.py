@@ -473,15 +473,18 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "dataframe_generated_with_column",
         "source_free_generation",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="dataframe-generated-with-column",
-        blocker_id="gar-gen-1.dataframe_generated_with_column_runtime_not_implemented",
+        "fixture_smoke_supported",
+        runtime_execution=True,
+        write_io=True,
+        blocker_id="none_scoped_local_generated_with_column_jsonl_csv_smoke_only",
         required_evidence=(
-            "dataframe_plan_contract",
-            "expression_registry",
+            "generated_row_literal_projection",
+            "range_projection_expression_semantics",
             "generated_source_certificate",
+            "output_native_io_certificate",
+            "execution_certificate",
         ),
-        claim_boundary=_UNSUPPORTED_BOUNDARY,
+        claim_boundary=_GENERATED_OUTPUT_BOUNDARY,
     ),
     _df_method(
         "object_store_generated_output",
@@ -5056,7 +5059,11 @@ class ShardLoomContext:
         *,
         check: bool = False,
     ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for generated DataFrame with_column."""
+        """Return the unsupported report for broad generated DataFrame with_column.
+
+        Scoped generated-row literal columns use `ctx.from_rows(...).with_column(...)`.
+        Scoped generated-range int64 expressions use `ctx.range(...).with_column(...)`.
+        """
 
         column_name = _require_non_empty_text("column name", name)
         expression_text = _require_non_empty_text("column expression", expression)

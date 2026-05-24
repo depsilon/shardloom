@@ -535,7 +535,7 @@
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "Local user-row, literal-table, calendar, range, sequence, SQL VALUES, SQL literal SELECT, and SQL generate_series/range JSONL/CSV fixture-smoke generated-output runtime only."
+      "claim_boundary": "Local user-row, literal-table, calendar, range, sequence, SQL VALUES, SQL literal SELECT, SQL generate_series/range, scoped range projection, and scoped generated with_column JSONL/CSV fixture-smoke generated-output runtime only."
     },
     {
       "source_surface_id": "python_rows_dataframe",

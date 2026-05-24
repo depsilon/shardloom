@@ -888,15 +888,21 @@ subset stay report-only or blocked capability rows.
 DataFrame-style builder methods should classify source-free builders and local writes without
 implying broad DataFrame runtime. The runtime-supported generated-output builders today are scoped
 local user-row, literal-table, calendar/date-dimension, range, sequence, SQL `VALUES`, SQL literal
-`SELECT`, and SQL `generate_series`/`range` JSONL smokes; expression-backed `with_column`, joins, aggregations, broad SQL, non-local
-output, and other source-free builders require future admission evidence.
+`SELECT`, SQL `generate_series`/`range`, scoped range projection, generated-row literal
+`with_column`, and generated-range int64 `with_column` JSONL smokes; joins, aggregations, broad
+SQL/DataFrame source-free projection, non-local output, and other source-free builders require
+future admission evidence.
 
-Python context helpers now expose deterministic unsupported reports for the remaining source-free
-runtime candidates: `ctx.dataframe_source_free_projection(...)`, `ctx.dataframe_generated_with_column(...)`,
-`ctx.generated_output_to_object_store(...)`, and `ctx.foundry_generated_output(...)`. These helpers
-return `workflow-unsupported-plan` envelopes with source-free blocker IDs and required evidence;
-they do not execute DataFrame plans, generate rows, write outputs, probe object stores, invoke
-Foundry, invoke external engines, or attempt fallback.
+Python context helpers now expose deterministic unsupported reports for the remaining broad
+source-free runtime candidates: `ctx.dataframe_source_free_projection(...)`,
+`ctx.dataframe_generated_with_column(...)`, `ctx.generated_output_to_object_store(...)`, and
+`ctx.foundry_generated_output(...)`. The broad diagnostic helpers return
+`workflow-unsupported-plan` envelopes with source-free blocker IDs and required evidence; they do
+not execute DataFrame plans, generate rows, write outputs, probe object stores, invoke Foundry,
+invoke external engines, or attempt fallback. Scoped generated `with_column` execution remains
+available through the concrete generated builders, for example
+`ctx.from_rows(...).with_column(literal).write(...)` and
+`ctx.range(...).with_column(int64_expression).write(...)`.
 
 ### Source-Free API Admission Matrix
 
@@ -911,13 +917,13 @@ planner, runtime, or write operation.
 | `python_ctx_sequence` | `fixture_smoke_supported` | Admits only scoped local JSONL/CSV sequence writes with generated-source and output evidence. |
 | `python_ctx_literal_table` | `fixture_smoke_supported` | Admits only scoped local JSONL/CSV literal-table writes with generated-source and output evidence. |
 | `python_ctx_calendar` | `fixture_smoke_supported` | Admits only scoped local JSONL/CSV calendar/date-dimension writes with generated-source and output evidence. |
-| `python_generated_source_write` | `fixture_smoke_supported` | Write helper is admitted only when attached to supported `user_rows`, `literal_table`, `calendar`, `range`, `sequence`, `sql_values`, `sql_literal_select`, or `sql_generate_series_range` generated sources. |
+| `python_generated_source_write` | `fixture_smoke_supported` | Write helper is admitted only when attached to supported `user_rows`, `literal_table`, `calendar`, `range`, `sequence`, `sql_values`, `sql_literal_select`, `sql_generate_series_range`, scoped range projection, or scoped generated `with_column` generated sources. |
 | `sql_literal_select` | `fixture_smoke_supported` | Admits only scoped source-free literal `SELECT` local JSONL/CSV writes with parser/binder/planner, generated-source, output, execution, and no-fallback evidence. |
 | `sql_values` | `fixture_smoke_supported` | Admits only scoped source-free `VALUES` local JSONL/CSV writes with parser/binder/planner, generated-source, output, execution, and no-fallback evidence. |
-| `sql_source_free_projection` | `report_only` | `blocker_id=gar-gen-1.sql_source_free_projection_runtime_not_implemented`; no SQL runtime or output claim. |
+| `sql_source_free_projection` | `fixture_smoke_supported` | Admits scoped range-generator projections over the generated `value` column with admitted int64 expressions, local JSONL/CSV writes, generated-source evidence, output evidence, and no-fallback evidence; arbitrary source-free SQL projection remains blocked. |
 | `sql_generate_series_range` | `fixture_smoke_supported` | Admits `SELECT * FROM generate_series/range(...)` plus scoped range projections over the generated `value` column with int64 arithmetic, local JSONL/CSV writes, generated-source evidence, output evidence, and no-fallback evidence. |
 | `dataframe_source_free_projection` | `report_only` | `blocker_id=gar-gen-1.dataframe_source_free_projection_runtime_not_implemented`; no broad DataFrame runtime. |
-| `dataframe_generated_with_column` | `report_only` | `blocker_id=gar-gen-1.dataframe_generated_with_column_runtime_not_implemented`; no expression-backed generation. |
+| `dataframe_generated_with_column` | `fixture_smoke_supported` | Admits scoped generated-row literal columns and generated-range int64 expression columns before local output; broad expression-backed generation remains blocked. |
 
 Every row reports `support_status`, `runtime_execution`, `data_read`, `write_io`,
 `source_io_performed`, `generated_source_created`, `blocker_id`, `required_evidence`,

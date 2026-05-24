@@ -336,7 +336,7 @@ or documentation updates alone are insufficient.
     fixtures, and SQL/Python lowering.
   - Ledger rule: ledger entry must enumerate expression families, dtypes, and blockers.
 
-- [ ] GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime
+- [x] GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime
   - Source: `GAR-GEN-1`, `GAR-COMPAT-1B`, Use Case Atlas generated-source rows.
   - Current state: scoped local JSONL/CSV generated-output smokes now exist for `from_rows`,
     `literal_table`, `calendar`, `range`, `sequence`, SQL `VALUES`, SQL literal `SELECT`, scoped
@@ -367,12 +367,17 @@ or documentation updates alone are insufficient.
     `sql_source_free_limit_*` evidence. The Python
     `ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)` workflow lowers
     to that same generated-source SQL runtime while preserving the caller-facing range column alias.
-    Remaining gaps are broader SQL source-free projection beyond that admitted range-generator
-    subset, arbitrary SQL table functions, broad DataFrame expression-backed projection/
-    `with_column`, object-store/Foundry generated-output paths, broader structured-format fidelity,
-    persistent OutputPlan reuse, and claim-grade output coverage.
-  - Next slice outcome: implement broader generator/expression coverage and persistent reusable
-    OutputPlan replay policy where admitted.
+    The closeout update aligns the API-admission and compatibility rows with the existing scoped
+    range-projection and generated `with_column` runtime evidence instead of leaving those surfaces
+    report-only. Remaining broad SQL source-free projection, arbitrary SQL table functions, broad
+    DataFrame expression-backed projection/`with_column`, object-store/Foundry generated-output
+    paths, broader structured-format fidelity, persistent OutputPlan reuse, and claim-grade output
+    coverage are split to `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4G`,
+    `GAR-RUNTIME-IMPL-4L`, `GAR-RUNTIME-IMPL-4O`, `GAR-RUNTIME-IMPL-5E`,
+    `GAR-RUNTIME-IMPL-5P`, and final release/claim-gate items. They are not prerequisites for the
+    local deterministic generated-source builder section.
+  - Next slice outcome: complete; continue the split residuals through the owning runtime/output/
+    release queues above rather than reopening this generated-source builder parent.
   - Runtime enablement: end-user generated-source execution that writes local output and emits a
     GeneratedSourceCertificate.
   - User-visible surface: Python `ctx.range`, `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`,
@@ -395,8 +400,8 @@ or documentation updates alone are insufficient.
   - Fallback boundary: no generated rows or expressions may be produced by an external engine.
   - Dependencies/blockers: generated-source schema contract, local output writer registry,
     expression semantics, and Python/SQL surface admission.
-  - Ledger rule: ledger entry must list generator kind, output format/fanout combinations, Vortex
-    output feature gate, replay proof, and unsupported generators.
+  - Ledger rule: completed ledger entry lists generator kind, output format/fanout combinations,
+    Vortex output feature gate, replay proof, and unsupported generators.
 
 - [ ] GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format
   - Source: `GAR-IOREUSE-1A`, universal compatibility scoreboard, local input adapter docs,
@@ -944,7 +949,7 @@ surface is broadly usable through real runtime evidence or split the remaining r
 smaller implementation slices. Completing a 5-series item requires evidence, validators,
 docs/website parity, and a completed-ledger entry.
 
-- [ ] GAR-RUNTIME-IMPL-5A generated-source end-user runtime builders
+- [x] GAR-RUNTIME-IMPL-5A generated-source end-user runtime builders
   - Source: `GAR-RUNTIME-IMPL-4E`, `GAR-GEN-1`, `GAR-COMPAT-1B`, Use Case Atlas generated-source
     rows.
   - Current state: no-dataset smoke remains separate. Scoped local generated-output runtime now
@@ -957,9 +962,12 @@ docs/website parity, and a completed-ledger entry.
     Parquet/Arrow IPC/Avro/ORC and Vortex sinks are feature-gated local smokes with deterministic
     blockers in default builds. Broad DataFrame expression-backed source-free output, arbitrary
     source-free projection, object-store sinks, Foundry generated-output runtime, and claim-grade
-    structured-format fidelity remain incomplete or blocked.
-  - Next slice outcome: promote one coherent local generated-source workflow set across CLI,
-    Python, and SQL/DataFrame admission, writing local output with generated-source evidence.
+    structured-format fidelity are now explicitly split to their owning broad SQL/DataFrame,
+    output/fanout, object-store/table, Foundry, and release/claim-grade queues rather than counted
+    as generated-source builder prerequisites.
+  - Next slice outcome: complete; admitted CLI/Python/SQL generated-source builders write local
+    output with generated-source, output, replay/fanout, and no-fallback evidence, and residuals
+    are owned by separate runtime queues.
   - Runtime enablement: ordinary end-user generated-source workflows that execute locally and write
     evidence-backed outputs.
   - User-visible surface: `ctx.range(...)`, `ctx.sequence(...)`, `ctx.from_rows(...)`,
@@ -981,8 +989,8 @@ docs/website parity, and a completed-ledger entry.
   - Fallback boundary: generated rows and expressions must be produced by ShardLoom-native code.
   - Dependencies/blockers: generated-source certificate schema, local output writers, expression
     semantics, and Python/CLI envelope parity.
-  - Ledger rule: ledger entry must list each admitted builder, output format, evidence refs, and
-    blocked generator/sink shapes.
+  - Ledger rule: completed ledger entry lists each admitted builder, output format, evidence refs,
+    and blocked generator/sink shapes.
 
 - [ ] GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder
   - Source: `GAR-RUNTIME-IMPL-4B`, `GAR-RUNTIME-IMPL-4C`, `GAR-RUNTIME-IMPL-4D`, RFC 0032.
