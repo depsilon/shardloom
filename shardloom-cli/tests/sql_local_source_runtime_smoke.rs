@@ -4085,6 +4085,100 @@ fn sql_local_source_smoke_executes_window_rank_dense_rank_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_window_lag_lead_without_fallback() {
+    let source_path = unique_path("sql-local-source-window-lag-lead", "csv");
+    fs::write(
+        &source_path,
+        "id,region,amount,label\n\
+         1,east,10,alpha\n\
+         2,east,30,gamma\n\
+         3,west,15,kappa\n\
+         4,east,20,beta\n\
+         5,west,5,omega\n\
+         6,west,25,zeta\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,region,label,LAG(label) OVER (PARTITION BY region ORDER BY amount ASC) AS previous_label,LEAD(label, 2) OVER (PARTITION BY region ORDER BY amount ASC) AS next2_label FROM '{}' LIMIT 6",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("sql_statement_kind", "local_source_window_limit")));
+    assert!(stdout.contains(&field("window_runtime_execution", "true")));
+    assert!(stdout.contains(&field("window_operator_family", "offset")));
+    assert!(stdout.contains(&field("window_function", "lag,lead")));
+    assert!(stdout.contains(&field("window_partition_columns", "region;region")));
+    assert!(stdout.contains(&field("window_order_by_columns", "amount;amount")));
+    assert!(stdout.contains(&field("window_order_by_directions", "asc;asc")));
+    assert!(stdout.contains(&field(
+        "window_output_columns",
+        "previous_label,next2_label"
+    )));
+    assert!(stdout.contains(&field("window_value_columns", "label,label")));
+    assert!(stdout.contains(&field("window_offset_rows", "1,2")));
+    assert!(stdout.contains(&field("window_row_number_runtime_execution", "false")));
+    assert!(stdout.contains(&field("window_rank_runtime_execution", "false")));
+    assert!(stdout.contains(&field("window_dense_rank_runtime_execution", "false")));
+    assert!(stdout.contains(&field("window_lag_runtime_execution", "true")));
+    assert!(stdout.contains(&field("window_lead_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,region,label,previous_label,next2_label"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "6")));
+    assert!(stdout.contains(&field("output_row_count", "6")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"region\\\":\\\"east\\\",\\\"label\\\":\\\"alpha\\\",\\\"previous_label\\\":null,\\\"next2_label\\\":\\\"gamma\\\"}\\n{\\\"id\\\":2,\\\"region\\\":\\\"east\\\",\\\"label\\\":\\\"gamma\\\",\\\"previous_label\\\":\\\"beta\\\",\\\"next2_label\\\":null}\\n{\\\"id\\\":3,\\\"region\\\":\\\"west\\\",\\\"label\\\":\\\"kappa\\\",\\\"previous_label\\\":\\\"omega\\\",\\\"next2_label\\\":null}\\n{\\\"id\\\":4,\\\"region\\\":\\\"east\\\",\\\"label\\\":\\\"beta\\\",\\\"previous_label\\\":\\\"alpha\\\",\\\"next2_label\\\":null}\\n{\\\"id\\\":5,\\\"region\\\":\\\"west\\\",\\\"label\\\":\\\"omega\\\",\\\"previous_label\\\":null,\\\"next2_label\\\":\\\"zeta\\\"}\\n{\\\"id\\\":6,\\\"region\\\":\\\"west\\\",\\\"label\\\":\\\"zeta\\\",\\\"previous_label\\\":\\\"kappa\\\",\\\"next2_label\\\":null}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    let blocked_statement = format!(
+        "SELECT id,LEAD(label, 0) OVER (PARTITION BY region ORDER BY amount ASC) AS bad_lead FROM '{}' LIMIT 6",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(blocked_output.contains("LEAD window offset must be between 1 and 50000"));
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_utf8_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-utf8-order-by", "csv");
     fs::write(

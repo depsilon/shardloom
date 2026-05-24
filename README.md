@@ -62,8 +62,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   `ingest_minimal` / `ingest_certified` certification-depth semantics;
 - Python query-builder workflows that expose normal read/filter/select/write calls while preserving
   internal SourceState, Vortex preparation, OutputPlan, replay, reuse, and no-fallback evidence
-  behind the user surface, including scoped local-source `sl.row_number(...)`, `sl.rank(...)`, and
-  `sl.dense_rank(...)` window projections;
+  behind the user surface, including scoped local-source `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`,
+  `LAG()`, and `LEAD()` window projections;
 - report-only or blocked status for broader SQL/DataFrame, object-store, lakehouse/table,
   distributed, live/hybrid production, Foundry production, and package-publication claims.
 
@@ -94,7 +94,7 @@ Normal Python use:
 ```python
 import shardloom as sl
 
-ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
+ctx = sl.context()
 result = (
     ctx.read_csv("target/orders.csv")
     .filter(sl.col("amount") >= 10)
@@ -107,12 +107,19 @@ print(result.output_row_count)
 print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
-The Python and SQL front doors should stay format-neutral after the read/ingest boundary. A caller
-chooses a source reader such as `read_csv(...)` or `read_parquet(...)`, writes to a requested sink,
-and lets ShardLoom manage SourceState, Vortex preparation, execution, OutputPlan, replay, reuse,
-certificates, and no-fallback evidence internally. Lower-level helpers such as explicit
-`prepare_vortex(...)`, runtime-envelope inspection, and session evidence are engine-development and
-diagnostic surfaces, not the normal path for using ShardLoom.
+`sl.context()` is the normal entry point. Source-tree or CI runs can set `SHARDLOOM_BIN` or
+`SHARDLOOM_REPO_ROOT` in the environment when the CLI is not on `PATH`; ordinary Python snippets
+should not need `repo_root` or build-profile arguments.
+
+The Python and SQL front doors should stay format-neutral after the read/ingest boundary. Today the
+Python surface still exposes explicit local reader helpers such as `read_csv(...)` and
+`read_json(...)`; the runtime adapter path is centralized underneath them, and the intended public
+direction is a single inferred `read(path)` surface after the remaining engine runtime work is
+complete. A caller writes to a requested sink and lets ShardLoom manage SourceState, Vortex
+preparation, execution, OutputPlan, replay, reuse, certificates, and no-fallback evidence
+internally. Lower-level helpers such as explicit `prepare_vortex(...)`, runtime-envelope
+inspection, and session evidence are engine-development and diagnostic surfaces, not the normal
+path for using ShardLoom.
 
 Exact smoke commands, feature flags, expected outputs, and claim boundaries live in the linked
 getting-started docs.

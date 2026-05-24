@@ -1341,6 +1341,45 @@ class ShardLoomClientTests(unittest.TestCase):
         with self.assertRaisesRegex(ShardLoomProtocolError, "line 1 is not a JSON object"):
             _ = report_for("1\n").result_rows
 
+    def test_sql_local_source_report_window_offset_evidence_accessors(self) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "sql-local-source-smoke",
+                "status": "success",
+                "summary": "sql local source",
+                "human_text": "sql local source",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {"fields": []},
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [
+                    {"key": "result_jsonl", "value": "{}\n"},
+                    {"key": "window_value_columns", "value": "label,label"},
+                    {"key": "window_offset_rows", "value": "1,2"},
+                    {"key": "window_lag_runtime_execution", "value": "true"},
+                    {"key": "window_lead_runtime_execution", "value": "true"},
+                ],
+            }
+        )
+        report = SqlLocalSourceSmokeReport(envelope)
+
+        self.assertEqual(report.window_value_columns, ("label", "label"))
+        self.assertEqual(report.window_offset_rows, (1, 2))
+        self.assertTrue(report.window_lag_runtime_execution)
+        self.assertTrue(report.window_lead_runtime_execution)
+
     def test_vortex_ingest_smoke_helper_dispatches_prepare_once_route(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
