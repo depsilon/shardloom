@@ -298,6 +298,7 @@ struct ParsedSqlLocalSource {
     string_function_projections: Vec<ParsedStringFunctionProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
+    window_projections: Vec<ParsedWindowProjection>,
     aggregates: Vec<ParsedAggregate>,
     group_by: Vec<String>,
     order_by: Option<ParsedOrderBy>,
@@ -529,6 +530,19 @@ struct ParsedTimestampExtractProjection {
     op: TimestampExtractOp,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedWindowProjection {
+    alias: String,
+    function: WindowFunction,
+    partition_by: Vec<String>,
+    order_by: ParsedOrderBy,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WindowFunction {
+    RowNumber,
+}
+
 trait ProjectionAlias {
     fn alias(&self) -> &str;
 }
@@ -563,6 +577,7 @@ impl_projection_alias!(
     ParsedStringFunctionProjection,
     ParsedDateExtractProjection,
     ParsedTimestampExtractProjection,
+    ParsedWindowProjection,
 );
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -749,6 +764,7 @@ struct ParsedProjectionList {
     string_function_projections: Vec<ParsedStringFunctionProjection>,
     date_extract_projections: Vec<ParsedDateExtractProjection>,
     timestamp_extract_projections: Vec<ParsedTimestampExtractProjection>,
+    window_projections: Vec<ParsedWindowProjection>,
     aggregates: Vec<ParsedAggregate>,
 }
 
@@ -772,6 +788,7 @@ enum ParsedProjectionOutput {
     StringFunction(String),
     DateExtract(String),
     TimestampExtract(String),
+    Window(String),
 }
 
 impl ParsedProjectionOutput {
@@ -794,7 +811,8 @@ impl ParsedProjectionOutput {
             | Self::StringTransform(alias)
             | Self::StringFunction(alias)
             | Self::DateExtract(alias)
-            | Self::TimestampExtract(alias) => Some(alias),
+            | Self::TimestampExtract(alias)
+            | Self::Window(alias) => Some(alias),
         }
     }
 }
@@ -2779,6 +2797,7 @@ fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPla
         columns.insert(column.to_string());
     }
     push_projection_required_columns(parsed, &mut columns);
+    push_window_required_columns(parsed, &mut columns);
 
     LocalSourceReadPlan::required(columns, "sql_required_source_columns")
 }
@@ -2841,6 +2860,15 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
     }
     for projection in &parsed.timestamp_extract_projections {
         columns.insert(projection.column.clone());
+    }
+}
+
+fn push_window_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut BTreeSet<String>) {
+    for projection in &parsed.window_projections {
+        columns.extend(projection.partition_by.iter().cloned());
+        for key in &projection.order_by.keys {
+            columns.insert(key.column.clone());
+        }
     }
 }
 
@@ -3012,6 +3040,12 @@ fn evaluate_non_join_output(
                 aggregate.having_input_row_count,
                 aggregate.having_selected_row_count,
                 aggregate.rows,
+            )
+        } else if parsed.has_window_projection() {
+            (
+                0,
+                0,
+                evaluate_window_projection_output(parsed, source, &selected_row_indexes)?,
             )
         } else if parsed.has_computed_projection() && parsed.order_by.is_some() {
             (
@@ -3204,6 +3238,124 @@ fn evaluate_computed_projection_ordered_output(
         .collect())
 }
 
+fn evaluate_window_projection_output(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+    let rank_maps = window_rank_maps(parsed, source, selected_row_indexes)?;
+    let mut output_rows = Vec::new();
+    for row_index in selected_row_indexes.iter().take(parsed.limit) {
+        let row = source.rows.get(*row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
+        })?;
+        let mut output_row = Vec::new();
+        for output in &parsed.projection_order {
+            match output {
+                ParsedProjectionOutput::Raw(column) if column == "*" => {
+                    for column in &source.header {
+                        let value = row.get(column).cloned().ok_or_else(|| {
+                            unsupported_sql_error(&format!(
+                                "projection column {column:?} is not present in the row"
+                            ))
+                        })?;
+                        output_row.push((column.clone(), value));
+                    }
+                }
+                ParsedProjectionOutput::Raw(column) => {
+                    let value = row.get(column).cloned().ok_or_else(|| {
+                        unsupported_sql_error(&format!(
+                            "projection column {column:?} is not present in the row"
+                        ))
+                    })?;
+                    output_row.push((column.clone(), value));
+                }
+                ParsedProjectionOutput::Window(alias) => {
+                    let ranks = rank_maps.get(alias).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "window projection rank map missing for alias {alias:?}"
+                        ))
+                    })?;
+                    let rank = ranks.get(row_index).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(format!(
+                            "window projection rank missing for selected row {row_index}"
+                        ))
+                    })?;
+                    output_row.push((alias.clone(), ScalarValue::Int64(*rank)));
+                }
+                _ => {
+                    return Err(unsupported_sql_error(
+                        "window projection smoke admits raw columns plus ROW_NUMBER() windows only",
+                    ));
+                }
+            }
+        }
+        output_rows.push(output_row);
+    }
+    Ok(output_rows)
+}
+
+fn window_rank_maps(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<BTreeMap<String, BTreeMap<usize, i64>>, ShardLoomError> {
+    let mut rank_maps = BTreeMap::new();
+    for projection in &parsed.window_projections {
+        let mut partitions: BTreeMap<Vec<String>, Vec<(usize, Vec<SortValue>)>> = BTreeMap::new();
+        for row_index in selected_row_indexes {
+            let row = source.rows.get(*row_index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
+            })?;
+            let partition_key = window_partition_key(row, &projection.partition_by)?;
+            let sort_values =
+                sort_values_for_row(row, &projection.order_by, "window ORDER BY column")?;
+            partitions
+                .entry(partition_key)
+                .or_default()
+                .push((*row_index, sort_values));
+        }
+
+        let mut ranks = BTreeMap::new();
+        for mut entries in partitions.into_values() {
+            validate_sort_value_families(&entries)?;
+            entries.sort_by(|(left_index, left_values), (right_index, right_values)| {
+                let ordering =
+                    compare_order_by_values(&projection.order_by, left_values, right_values);
+                ordering.then_with(|| left_index.cmp(right_index))
+            });
+            for (rank_index, (row_index, _values)) in entries.into_iter().enumerate() {
+                let rank = i64::try_from(rank_index + 1).map_err(|_| {
+                    ShardLoomError::InvalidOperation(
+                        "window rank exceeded int64 bounds".to_string(),
+                    )
+                })?;
+                ranks.insert(row_index, rank);
+            }
+        }
+        rank_maps.insert(projection.alias.clone(), ranks);
+    }
+    Ok(rank_maps)
+}
+
+fn window_partition_key(
+    row: &ExpressionInputRow,
+    partition_by: &[String],
+) -> Result<Vec<String>, ShardLoomError> {
+    partition_by
+        .iter()
+        .map(|column| {
+            row.get(column)
+                .map(|value| format!("{value:?}"))
+                .ok_or_else(|| {
+                    unsupported_sql_error(&format!(
+                        "window PARTITION BY column {column:?} is not present in the row"
+                    ))
+                })
+        })
+        .collect()
+}
+
 fn evaluate_projection_row(
     projection_expressions: &[Expression],
     row: &ExpressionInputRow,
@@ -3388,6 +3540,11 @@ fn append_ordered_projection_expression(
                 "timestamp extract projection",
             )?)?,
         ),
+        ParsedProjectionOutput::Window(_) => {
+            return Err(unsupported_sql_error(
+                "window projections require the row-set window evaluator",
+            ));
+        }
     }
     Ok(())
 }
@@ -5915,6 +6072,7 @@ fn bind_sql_local_source(
     if parsed.is_join() {
         return bind_join_sql_local_source(parsed, header, right_header);
     }
+    validate_window_projection_shape(parsed)?;
     validate_order_by_source(parsed, header)?;
     validate_computed_projection_shape(parsed)?;
     validate_projection_output_names(parsed)?;
@@ -6016,6 +6174,33 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
     Ok(())
 }
 
+fn validate_window_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
+    if !parsed.has_window_projection() {
+        return Ok(());
+    }
+    if parsed.is_aggregate() || !parsed.group_by.is_empty() {
+        return Err(unsupported_sql_error(
+            "window projection smoke cannot be mixed with aggregate or GROUP BY clauses in this runtime slice",
+        ));
+    }
+    if parsed.has_computed_projection() {
+        return Err(unsupported_sql_error(
+            "window projection smoke admits raw columns plus ROW_NUMBER() windows only",
+        ));
+    }
+    if parsed.order_by.is_some() {
+        return Err(unsupported_sql_error(
+            "top-level ORDER BY after window projection is not admitted in this scoped runtime slice",
+        ));
+    }
+    if parsed.projections.is_empty() {
+        return Err(unsupported_sql_error(
+            "window projection smoke requires explicit projection columns or SELECT * before ROW_NUMBER() windows",
+        ));
+    }
+    Ok(())
+}
+
 fn validate_grouped_aggregate_sources(
     parsed: &ParsedSqlLocalSource,
     header: &[String],
@@ -6101,7 +6286,33 @@ fn validate_projection_source_columns(
     }
     validate_numeric_projection_source_columns(parsed, header)?;
     validate_value_projection_source_columns(parsed, header)?;
-    validate_text_time_projection_source_columns(parsed, header)
+    validate_text_time_projection_source_columns(parsed, header)?;
+    validate_window_projection_source_columns(parsed, header)
+}
+
+fn validate_window_projection_source_columns(
+    parsed: &ParsedSqlLocalSource,
+    header: &[String],
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.window_projections {
+        for column in &projection.partition_by {
+            require_header_column(
+                header,
+                column,
+                "window PARTITION BY column",
+                "local source header",
+            )?;
+        }
+        for key in &projection.order_by.keys {
+            require_header_column(
+                header,
+                &key.column,
+                "window ORDER BY column",
+                "local source header",
+            )?;
+        }
+    }
+    Ok(())
 }
 
 fn validate_numeric_projection_source_columns(
@@ -6327,16 +6538,19 @@ fn validate_having_source_columns(
 }
 
 fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
-    if !parsed.has_computed_projection() {
+    if !parsed.has_computed_projection() && !parsed.has_window_projection() {
         return Ok(());
     }
     let mut output_names = BTreeSet::new();
     for column in &parsed.projections {
-        require_unique_projection_output_name(&mut output_names, column)?;
+        if column != "*" {
+            require_unique_projection_output_name(&mut output_names, column)?;
+        }
     }
     validate_literal_numeric_output_names(parsed, &mut output_names)?;
     validate_value_output_names(parsed, &mut output_names)?;
     validate_text_time_output_names(parsed, &mut output_names)?;
+    validate_window_output_names(parsed, &mut output_names)?;
     Ok(())
 }
 
@@ -6412,6 +6626,16 @@ fn validate_text_time_output_names<'a>(
     Ok(())
 }
 
+fn validate_window_output_names<'a>(
+    parsed: &'a ParsedSqlLocalSource,
+    output_names: &mut BTreeSet<&'a str>,
+) -> Result<(), ShardLoomError> {
+    for projection in &parsed.window_projections {
+        require_unique_projection_output_name(output_names, &projection.alias)?;
+    }
+    Ok(())
+}
+
 fn require_unique_projection_output_name<'a>(
     output_names: &mut BTreeSet<&'a str>,
     name: &'a str,
@@ -6443,6 +6667,11 @@ fn bind_join_sql_local_source(
             "JOIN smoke requires a readable local right source",
         ));
     };
+    if parsed.has_window_projection() {
+        return Err(unsupported_sql_error(
+            "JOIN window projections are not admitted in this runtime slice",
+        ));
+    }
     if parsed.has_computed_projection() && parsed.is_aggregate() {
         return Err(unsupported_sql_error(
             "computed JOIN projections cannot be mixed with aggregate functions in this scoped smoke",
@@ -7039,6 +7268,10 @@ impl ParsedSqlLocalSource {
         !self.timestamp_extract_projections.is_empty()
     }
 
+    fn has_window_projection(&self) -> bool {
+        !self.window_projections.is_empty()
+    }
+
     fn has_computed_projection(&self) -> bool {
         self.has_literal_projection()
             || self.has_cast_projection()
@@ -7159,6 +7392,10 @@ impl ParsedSqlLocalSource {
                 "local_source_{}",
                 self.aggregate_statement_suffix("aggregate_order_by_topn_limit")
             )
+        } else if self.has_window_projection() && self.has_filter() {
+            "local_source_window_filter_limit".to_string()
+        } else if self.has_window_projection() {
+            "local_source_window_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
             "local_source_computed_projection_order_by_topn_filter_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
@@ -7241,6 +7478,10 @@ impl ParsedSqlLocalSource {
             self.aggregate_certificate_suffix("aggregate-order-by-topn-filter-limit")
         } else if self.is_aggregate() && self.order_by.is_some() {
             self.aggregate_certificate_suffix("aggregate-order-by-topn-limit")
+        } else if self.has_window_projection() && self.has_filter() {
+            "window-filter-limit".to_string()
+        } else if self.has_window_projection() {
+            "window-limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
             "computed-projection-order-by-topn-filter-limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
@@ -7311,6 +7552,10 @@ impl ParsedSqlLocalSource {
             self.aggregate_statement_suffix("scalar_aggregate_order_by_topn_filter_limit")
         } else if self.is_aggregate() && self.order_by.is_some() {
             self.aggregate_statement_suffix("scalar_aggregate_order_by_topn_limit")
+        } else if self.has_window_projection() && self.has_filter() {
+            "window_filter_limit".to_string()
+        } else if self.has_window_projection() {
+            "window_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
             "computed_projection_order_by_topn_filter_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
@@ -7391,7 +7636,8 @@ impl ParsedSqlLocalSource {
                 | ParsedProjectionOutput::StringTransform(column)
                 | ParsedProjectionOutput::StringFunction(column)
                 | ParsedProjectionOutput::DateExtract(column)
-                | ParsedProjectionOutput::TimestampExtract(column) => {
+                | ParsedProjectionOutput::TimestampExtract(column)
+                | ParsedProjectionOutput::Window(column) => {
                     output_columns.push(column.clone());
                 }
             }
@@ -8146,6 +8392,70 @@ impl ParsedSqlLocalSource {
                 .join(",")
         }
     }
+
+    fn window_functions(&self) -> String {
+        if self.window_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.window_projections
+                .iter()
+                .map(|projection| projection.function.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn window_partition_columns(&self) -> String {
+        if self.window_projections.is_empty() {
+            return "not_applicable".to_string();
+        }
+        let columns = self
+            .window_projections
+            .iter()
+            .flat_map(|projection| projection.partition_by.iter().map(String::as_str))
+            .collect::<Vec<_>>();
+        if columns.is_empty() {
+            "none".to_string()
+        } else {
+            columns.join(",")
+        }
+    }
+
+    fn window_order_by_columns(&self) -> String {
+        if self.window_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.window_projections
+                .iter()
+                .map(|projection| projection.order_by.columns_label())
+                .collect::<Vec<_>>()
+                .join(";")
+        }
+    }
+
+    fn window_order_by_directions(&self) -> String {
+        if self.window_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.window_projections
+                .iter()
+                .map(|projection| projection.order_by.directions_label())
+                .collect::<Vec<_>>()
+                .join(";")
+        }
+    }
+
+    fn window_output_columns(&self) -> String {
+        if self.window_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.window_projections
+                .iter()
+                .map(|projection| projection.alias.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
 }
 
 impl ParsedAggregate {
@@ -8189,6 +8499,14 @@ impl AggregateFunction {
             Self::Avg => "avg",
             Self::Min => "min",
             Self::Max => "max",
+        }
+    }
+}
+
+impl WindowFunction {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::RowNumber => "row_number",
         }
     }
 }
@@ -12243,6 +12561,47 @@ impl SqlLocalSourceReport {
                 .to_string(),
             ),
             (
+                "window_runtime_execution".to_string(),
+                self.parsed.has_window_projection().to_string(),
+            ),
+            (
+                "window_operator_family".to_string(),
+                if self.parsed.has_window_projection() {
+                    "row_number"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
+            ),
+            (
+                "window_function".to_string(),
+                self.parsed.window_functions(),
+            ),
+            (
+                "window_partition_columns".to_string(),
+                self.parsed.window_partition_columns(),
+            ),
+            (
+                "window_order_by_columns".to_string(),
+                self.parsed.window_order_by_columns(),
+            ),
+            (
+                "window_order_by_directions".to_string(),
+                self.parsed.window_order_by_directions(),
+            ),
+            (
+                "window_output_columns".to_string(),
+                self.parsed.window_output_columns(),
+            ),
+            (
+                "window_row_number_runtime_execution".to_string(),
+                self.parsed
+                    .window_projections
+                    .iter()
+                    .any(|projection| projection.function == WindowFunction::RowNumber)
+                    .to_string(),
+            ),
+            (
                 "aggregate_runtime_execution".to_string(),
                 self.parsed.is_aggregate().to_string(),
             ),
@@ -14560,19 +14919,21 @@ fn earliest_clause_index_after(start: usize, indexes: &[Option<usize>]) -> usize
 fn sql_local_source_clause_indexes(
     statement: &str,
 ) -> Result<SqlLocalSourceClauseIndexes, ShardLoomError> {
-    let from_clause = find_keyword_outside_quotes(statement, "from").ok_or_else(|| {
-        unsupported_sql_error("SQL local-source smoke requires a FROM <local.csv> clause")
-    })?;
-    let limit_clause = find_keyword_outside_quotes(statement, "limit").ok_or_else(|| {
-        unsupported_sql_error("SQL local-source smoke requires a LIMIT <n> clause")
-    })?;
+    let from_clause =
+        find_keyword_outside_quotes_and_parentheses(statement, "from")?.ok_or_else(|| {
+            unsupported_sql_error("SQL local-source smoke requires a FROM <local.csv> clause")
+        })?;
+    let limit_clause = find_keyword_outside_quotes_and_parentheses(statement, "limit")?
+        .ok_or_else(|| {
+            unsupported_sql_error("SQL local-source smoke requires a LIMIT <n> clause")
+        })?;
     let indexes = SqlLocalSourceClauseIndexes {
         from: from_clause,
         limit: limit_clause,
-        filter: find_keyword_outside_quotes(statement, "where"),
-        group_by: find_keyword_outside_quotes(statement, "group by"),
-        having: find_keyword_outside_quotes(statement, "having"),
-        order_by: find_keyword_outside_quotes(statement, "order by"),
+        filter: find_keyword_outside_quotes_and_parentheses(statement, "where")?,
+        group_by: find_keyword_outside_quotes_and_parentheses(statement, "group by")?,
+        having: find_keyword_outside_quotes_and_parentheses(statement, "having")?,
+        order_by: find_keyword_outside_quotes_and_parentheses(statement, "order by")?,
     };
     validate_sql_local_source_clause_order(indexes)?;
     Ok(indexes)
@@ -14751,6 +15112,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
         string_function_projections: projection_list.string_function_projections,
         date_extract_projections: projection_list.date_extract_projections,
         timestamp_extract_projections: projection_list.timestamp_extract_projections,
+        window_projections: projection_list.window_projections,
         aggregates: projection_list.aggregates,
         group_by,
         order_by,
@@ -14806,6 +15168,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut string_function_projections = Vec::new();
     let mut date_extract_projections = Vec::new();
     let mut timestamp_extract_projections = Vec::new();
+    let mut window_projections = Vec::new();
     let mut aggregates = Vec::new();
     for projection in entries {
         let projection = projection.trim();
@@ -14814,6 +15177,11 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             projections.push("*".to_string());
         } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
             aggregates.push(aggregate);
+        } else if let Some(window_projection) = parse_window_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::Window(
+                window_projection.alias.clone(),
+            ));
+            window_projections.push(window_projection);
         } else if let Some(generic_projection) = parse_generic_expression_projection(projection)? {
             projection_order.push(ParsedProjectionOutput::GenericExpression(
                 generic_projection.alias.clone(),
@@ -14922,7 +15290,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             .any(|output| matches!(output, ParsedProjectionOutput::Raw(column) if column != "*"))
         {
             return Err(unsupported_sql_error(
-                "SELECT * can be mixed only with computed or literal projections in this scoped smoke",
+                "SELECT * can be mixed only with computed, literal, or window projections in this scoped smoke",
             ));
         }
     }
@@ -14946,6 +15314,7 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         string_function_projections,
         date_extract_projections,
         timestamp_extract_projections,
+        window_projections,
         aggregates,
     })
 }
@@ -14972,6 +15341,130 @@ fn parse_literal_projection(raw: &str) -> Result<Option<ParsedLiteralProjection>
         alias: alias.to_string(),
         value,
     }))
+}
+
+fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, ShardLoomError> {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
+        if find_keyword_outside_quotes_and_parentheses(raw, "over")?.is_some() {
+            return Err(unsupported_sql_error(
+                "window projections must be written as ROW_NUMBER() OVER (...) AS <column>",
+            ));
+        }
+        return Ok(None);
+    };
+    let expression_raw = raw[..as_index].trim();
+    let alias = raw[as_index + "as".len()..].trim();
+    let Some(over_index) = find_keyword_outside_quotes_and_parentheses(expression_raw, "over")?
+    else {
+        return Ok(None);
+    };
+    let function_raw = expression_raw[..over_index].trim();
+    let spec_raw = expression_raw[over_index + "over".len()..].trim();
+    let Some(function) = parse_window_function(function_raw) else {
+        return Err(unsupported_sql_error(
+            "window projection smoke admits ROW_NUMBER() OVER (...) AS <column> only",
+        ));
+    };
+    if alias.is_empty() {
+        return Err(unsupported_sql_error(
+            "window projections require an output alias",
+        ));
+    }
+    validate_sql_identifier(alias)?;
+    let (partition_by, order_by) = parse_window_spec(spec_raw)?;
+    Ok(Some(ParsedWindowProjection {
+        alias: alias.to_string(),
+        function,
+        partition_by,
+        order_by,
+    }))
+}
+
+fn parse_window_function(raw: &str) -> Option<WindowFunction> {
+    let compact = raw
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect::<String>()
+        .to_ascii_lowercase();
+    if compact == "row_number()" {
+        Some(WindowFunction::RowNumber)
+    } else {
+        None
+    }
+}
+
+fn parse_window_spec(raw: &str) -> Result<(Vec<String>, ParsedOrderBy), ShardLoomError> {
+    let spec = raw.trim();
+    if !spec.starts_with('(') {
+        return Err(unsupported_sql_error(
+            "window specifications must be written as OVER (<window-spec>)",
+        ));
+    }
+    let close_index = matching_closing_parenthesis(spec, 0)?.ok_or_else(|| {
+        unsupported_sql_error("window specification parentheses must be balanced")
+    })?;
+    if !spec[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "window specifications must be a single parenthesized clause",
+        ));
+    }
+    let inner = spec[1..close_index].trim();
+    let order_by_index = find_keyword_outside_quotes_and_parentheses(inner, "order by")?
+        .ok_or_else(|| {
+            unsupported_sql_error(
+                "ROW_NUMBER window projections require ORDER BY for deterministic ranking",
+            )
+        })?;
+    let partition_raw = inner[..order_by_index].trim();
+    let order_by_raw = inner[order_by_index + "order by".len()..].trim();
+    if order_by_raw.is_empty() {
+        return Err(unsupported_sql_error(
+            "ROW_NUMBER window projections require at least one ORDER BY key",
+        ));
+    }
+    if find_keyword_outside_quotes_and_parentheses(order_by_raw, "partition by")?.is_some() {
+        return Err(unsupported_sql_error(
+            "window PARTITION BY must appear before ORDER BY",
+        ));
+    }
+    let partition_by = parse_window_partition_by(partition_raw)?;
+    let order_by = parse_order_by(Some(order_by_raw))?.expect("ORDER BY raw was provided");
+    Ok((partition_by, order_by))
+}
+
+fn parse_window_partition_by(raw: &str) -> Result<Vec<String>, ShardLoomError> {
+    if raw.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let partition_index = find_keyword_outside_quotes_and_parentheses(raw, "partition by")?
+        .ok_or_else(|| {
+            unsupported_sql_error(
+                "window specifications admit optional PARTITION BY followed by required ORDER BY",
+            )
+        })?;
+    if partition_index != 0 {
+        return Err(unsupported_sql_error(
+            "window PARTITION BY must appear before ORDER BY",
+        ));
+    }
+    let partition_raw = raw[partition_index + "partition by".len()..].trim();
+    if partition_raw.is_empty() {
+        return Err(unsupported_sql_error(
+            "window PARTITION BY requires at least one column",
+        ));
+    }
+    let columns = split_sql_csv(partition_raw)?;
+    let mut parsed = Vec::with_capacity(columns.len());
+    for column in columns {
+        validate_sql_column_ref(&column)?;
+        if parsed.iter().any(|existing| existing == &column) {
+            return Err(unsupported_sql_error(
+                "window PARTITION BY duplicate columns are not admitted in this scoped smoke",
+            ));
+        }
+        parsed.push(column);
+    }
+    Ok(parsed)
 }
 
 fn parse_numeric_arithmetic_projection(
@@ -19556,6 +20049,31 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_window_row_number_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,region,amount,ROW_NUMBER() OVER (PARTITION BY region ORDER BY amount DESC) AS rn FROM 'target/input.csv' WHERE amount >= 10 LIMIT 4",
+        )
+        .expect("window row-number statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "region", "amount"]);
+        assert_eq!(parsed.window_projections.len(), 1);
+        let window = &parsed.window_projections[0];
+        assert_eq!(window.alias, "rn");
+        assert_eq!(window.function, WindowFunction::RowNumber);
+        assert_eq!(window.partition_by, vec!["region".to_string()]);
+        assert_eq!(window.order_by.columns_label(), "amount");
+        assert_eq!(window.order_by.directions_label(), "desc");
+        assert_eq!(parsed.window_functions(), "row_number");
+        assert_eq!(parsed.window_partition_columns(), "region");
+        assert_eq!(parsed.window_order_by_columns(), "amount");
+        assert_eq!(parsed.window_order_by_directions(), "desc");
+        assert_eq!(parsed.window_output_columns(), "rn");
+        assert_eq!(parsed.statement_kind(), "local_source_window_filter_limit");
+        assert_eq!(parsed.execution_certificate_suffix(), "window-filter-limit");
+        assert_eq!(parsed.claim_gate_reason_suffix(), "window_filter_limit");
+    }
+
+    #[test]
     fn parser_blocks_star_plus_raw_projection_without_fallback() {
         let error = parse_sql_local_source_statement(
             "SELECT *,id FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
@@ -19563,7 +20081,7 @@ mod tests {
         .expect_err("star plus raw projection is not admitted");
 
         assert!(error.to_string().contains(
-            "SELECT * can be mixed only with computed or literal projections in this scoped smoke"
+            "SELECT * can be mixed only with computed, literal, or window projections in this scoped smoke"
         ));
     }
 

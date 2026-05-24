@@ -2972,7 +2972,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIn("select", dataframe_methods.plan_only_methods)
         self.assertNotIn("join", dataframe_methods.unsupported_methods)
         self.assertNotIn("agg", dataframe_methods.unsupported_methods)
-        self.assertIn("window", dataframe_methods.unsupported_methods)
+        self.assertNotIn("window", dataframe_methods.unsupported_methods)
         self.assertNotIn("data_quality", dataframe_methods.unsupported_methods)
         self.assertIn("from_pandas", dataframe_methods.unsupported_methods)
         self.assertEqual(
@@ -3025,6 +3025,12 @@ class ShardLoomClientTests(unittest.TestCase):
             "fixture_smoke_supported",
         )
         self.assertIn("sort_operator", dataframe_methods.row("sort").required_evidence)
+        self.assertEqual(
+            dataframe_methods.row("window").support_status,
+            "fixture_smoke_supported",
+        )
+        self.assertTrue(dataframe_methods.row("window").runtime_execution)
+        self.assertIn("window_operator", dataframe_methods.row("window").required_evidence)
         self.assertEqual(
             dataframe_methods.row("to_python_objects").support_status,
             "fixture_smoke_supported",

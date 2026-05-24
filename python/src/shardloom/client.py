@@ -1322,6 +1322,66 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field("computed_projection_operator_family")
 
     @property
+    def window_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted window projection path."""
+
+        return self.envelope.field_bool("window_runtime_execution", False) is True
+
+    @property
+    def window_operator_family(self) -> str | None:
+        """Return the admitted window operator family emitted by the smoke."""
+
+        return self.envelope.field("window_operator_family")
+
+    @property
+    def window_function(self) -> tuple[str, ...]:
+        """Return admitted window function names emitted by the smoke."""
+
+        return _csv_values(self.envelope.field("window_function"))
+
+    @property
+    def window_partition_columns(self) -> tuple[str, ...]:
+        """Return window PARTITION BY columns emitted by the smoke."""
+
+        value = self.envelope.field("window_partition_columns")
+        if value in {None, "", "none", "not_applicable"}:
+            return ()
+        return _csv_values(value)
+
+    @property
+    def window_order_by_columns(self) -> tuple[str, ...]:
+        """Return window ORDER BY columns emitted by the smoke."""
+
+        value = self.envelope.field("window_order_by_columns")
+        if value in {None, "", "not_applicable"}:
+            return ()
+        return tuple(part for group in value.split(";") for part in group.split(",") if part)
+
+    @property
+    def window_order_by_directions(self) -> tuple[str, ...]:
+        """Return window ORDER BY directions emitted by the smoke."""
+
+        value = self.envelope.field("window_order_by_directions")
+        if value in {None, "", "not_applicable"}:
+            return ()
+        return tuple(part for group in value.split(";") for part in group.split(",") if part)
+
+    @property
+    def window_output_columns(self) -> tuple[str, ...]:
+        """Return window projection output columns emitted by the smoke."""
+
+        return _csv_values(self.envelope.field("window_output_columns"))
+
+    @property
+    def window_row_number_runtime_execution(self) -> bool:
+        """Whether this smoke executed admitted ROW_NUMBER window semantics."""
+
+        return (
+            self.envelope.field_bool("window_row_number_runtime_execution", False)
+            is True
+        )
+
+    @property
     def predicate_operator_family(self) -> str | None:
         """Return the predicate operator family emitted by the smoke."""
 

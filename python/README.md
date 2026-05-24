@@ -557,7 +557,11 @@ explicit `having(...)` or through `filter(...)` after `agg(...)`, and binds only
 output aliases and selected group keys before optional `sort(...).limit(n)`. A multi-key
 scalar top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric or UTF-8 sort
-keys. Local-source joins also admit scalar and grouped aggregates, including scalar top-N
+keys. Scoped local-source window projection is admitted through
+`.window(sl.row_number(order_by=..., partition_by=..., alias=...))`, lowering to
+`ROW_NUMBER() OVER (...) AS <alias>` with deterministic partition/order evidence and
+`window_*` typed report fields. Local-source joins also admit scalar and grouped aggregates,
+including scalar top-N
 ordering over aggregate output aliases and group keys, when the workflow keeps the
 same explicit aliases, qualified join-side columns, optional pre-aggregate filter, and bounded
 `limit(...)`; joined aggregate rows can use the same aggregate-output `HAVING` filter before
@@ -655,6 +659,14 @@ rounding_column = (
     .select("id")
     .with_column("amount_floor", sl.floor(sl.col("amount")))
     .filter(sl.col("amount").round() >= 10)
+    .limit(10)
+    .collect()
+)
+ranked = (
+    ctx.read_csv("target/sql-local-source-smoke.csv")
+    .select("id", "label", "amount")
+    .filter(sl.col("amount") >= 10)
+    .window(sl.row_number(order_by="amount", descending=True, alias="rn"))
     .limit(10)
     .collect()
 )
@@ -1117,14 +1129,15 @@ This matrix is mostly report-only, with the scoped local CSV `collect` and
 `write` rows plus the flat JSON/JSONL/NDJSON and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
 projection/optional-filter/limit bridges marked as
 fixture-smoke-supported only for the admitted projection/optional-filter/limit,
-preview/select-star, scalar aggregate, and multi-key grouped aggregate shapes described above.
+preview/select-star, scalar aggregate, multi-key grouped aggregate, join, sort, computed-column,
+and row-number window shapes described above.
 It does not import DataFrame
 libraries, invoke external engines, or upgrade DataFrame/notebook support to
 claim-grade status. Other lazy source, `filter`, `select`, `limit`, and
 `group_by` helpers remain side-effect-free declarations unless an admitted
-terminal method is called. Joins, aggregations beyond admitted slices, windows,
+terminal method is called. Joins, aggregations, and windows beyond admitted slices,
 schema/data-quality helpers, materialization to Python objects, and notebook
-display remain deterministic unsupported diagnostic surfaces unless later
+display remain deterministic unsupported or fixture-scoped surfaces unless later
 evidence-backed slices promote them.
 
 Package, DataFrame, and notebook readiness are also exposed as a separate typed
