@@ -562,12 +562,12 @@ JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are 
 `COUNT(*)` scalar aggregate smoke with a bounded `LIMIT 1`. Multi-key grouped aggregates shaped as
 `group_by(...).agg(...).limit(n)` with an optional filter are supported, including named
 aggregate aliases such as `agg(rows="count(*)", total="sum(amount)")`; those grouped aggregate
-rows can also use numeric top-N ordering over aggregate output aliases via
+rows can also use scalar top-N ordering over aggregate output aliases and group keys via
 `group_by(...).agg(...).sort(...).limit(n)`. A multi-key
-numeric top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
-over non-null numeric sort
-keys. Local-source joins also admit scalar and grouped aggregates, including numeric top-N
-ordering over aggregate output aliases, when the workflow keeps the
+scalar top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
+over non-null numeric or UTF-8 sort
+keys. Local-source joins also admit scalar and grouped aggregates, including scalar top-N
+ordering over aggregate output aliases and group keys, when the workflow keeps the
 same explicit aliases, qualified join-side columns, optional pre-aggregate filter, and bounded
 `limit(...)`. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL/CSV file
 by default, and local-source workflows can use `write(..., output_format="csv")`
@@ -847,11 +847,11 @@ projection/optional-filter/limit, scalar aggregate, scalar aggregate-output top-
 multi-key grouped aggregate, grouped aggregate-output top-N,
 preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
 ABS, scoped numeric rounding, and scoped UTF-8 string length `with_column`,
-multi-key numeric top-N, and scoped single- or multi-key local-source inner equi-join shapes.
+multi-key scalar top-N, and scoped single- or multi-key local-source inner equi-join shapes.
 Joined workflows also admit scoped computed projections over qualified columns plus multi-key
-numeric top-N over joined rows. Scoped scalar/grouped join aggregates over those same join shapes
-lower through the same runtime and may order by numeric aggregate output aliases before a bounded
-`limit(...)`.
+scalar top-N over joined rows. Scoped scalar/grouped join aggregates over those same join shapes
+lower through the same runtime and may order by numeric aggregate output aliases or UTF-8 group
+keys before a bounded `limit(...)`.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 expression-backed `with_column` beyond the admitted numeric/string/null/temporal/predicate families,
@@ -869,10 +869,10 @@ qualified projection columns such as
 `f.id` and `d.segment`, a qualified predicate such as `f.amount >= 10`, and an
 explicit `limit(...)`. A joined workflow can add admitted `with_column(...)` expressions over
 qualified columns and may use `sort("f.amount", "f.id", descending=True).limit(n)` for the scoped
-multi-key numeric joined top-N path. A joined workflow can also end in `agg(...).limit(...)` or
+multi-key scalar joined top-N path. A joined workflow can also end in `agg(...).limit(...)` or
 `group_by(...).agg(...).limit(...)` for the admitted scalar/grouped join-aggregate subset, and can
 place `sort("total_amount", descending=True).limit(n)` after those aggregates when the sort keys
-are numeric aggregate output aliases. Broad
+are numeric aggregate output aliases or UTF-8 group keys. Broad
 DataFrame joins remain blocked: outer/semi/anti/cross
 joins, expression joins,
 unqualified join predicates, nested/complex structured data, and

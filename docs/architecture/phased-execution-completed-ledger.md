@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5C scalar local top-N runtime promotion
+  - Date: 2026-05-23
+  - Branch/PR: `compute-engine-runtime-next-33-20260523` / #926.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - `GAR-RUNTIME-IMPL-5D local input adapter runtime parity`.
+    - User direction to continue actual compute-engine runtime completion, avoid tiny sliver PRs,
+      keep SQL/Python surfaces format-neutral, and isolate per-format behavior to read/ingest and
+      write/sink boundaries.
+  - Scope:
+    - Promoted scoped local-source `ORDER BY ... LIMIT ...` top-N from numeric-only sort keys to
+      non-null scalar sort keys over numeric and UTF-8 values.
+    - Admitted UTF-8 ordering for projection rows, joined projection rows, grouped aggregate group
+      keys, and aggregate-output rows produced by admitted local scalar/grouped aggregate workflows.
+    - Replaced numeric-only evidence labels with `single_key_scalar_topn` and
+      `multi_key_scalar_topn` while preserving stable `sort_keys`, `sort_direction`,
+      `top_n_limit`, no-fallback, and certificate fields.
+    - Added deterministic blockers for null ordering, boolean sort columns, unsigned overflow, and
+      mixed numeric/UTF-8 values within the same sort key.
+    - Extended Python query-builder tests so `.sort(...).limit(...)` over UTF-8 projection columns
+      and grouped aggregate group keys lowers through the same format-neutral SQL local-source path.
+    - Refreshed Python README, compute-flow reference, and phase-plan current-state language so
+      admitted local scalar top-N is no longer described as numeric-only.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke order_by_topn -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli sql_local_source_runtime -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli sql_local_source_runtime::tests::runs_scoped_multi_key_order_by_topn_csv_statement -- --nocapture`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_order_by_topn_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_utf8_order_by_topn_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_multi_key_order_by_topn_invokes_sql_smoke`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_utf8_order_by_topn_invokes_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_group_key_order_by_topn_invokes_sql_smoke`
+    - `python -m compileall -q python\src python\tests scripts benchmarks\traditional_analytics`
+    - `python -m unittest discover -s python/tests`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-source scalar top-N over non-null numeric and UTF-8 keys only. This does not add
+      null ordering, locale/collation parity, boolean ordering, mixed-type coercion, window ranking,
+      object-store/table ordering, distributed sort, broad SQL/DataFrame parity, production
+      performance claims, package-publication readiness, or Spark-replacement claims.
+  - Remaining gates:
+    - Continue runtime completion on richer expression/operator parity, local output/fanout and
+      replay ergonomics, Vortex scan pushdown, encoded kernel pairs, session/reuse depth,
+      memory/spill safety, package-proof evidence, and production release validation.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C aggregate-output top-N runtime promotion
   - Date: 2026-05-23
   - Branch/PR: `compute-engine-runtime-next-32-20260523` / #925.
