@@ -393,8 +393,9 @@ or documentation updates alone are insufficient.
     `.parquet`/Arrow IPC/Avro/ORC
     projection/optional-filter/limit,
     preview/select-star, scalar aggregate/optional-filter/limit with aliases, multi-key group-by
-    aggregate/optional-filter/limit, multi-key scalar top-N workflows, scoped single- or
-    multi-key local-source inner equi-join bridges, computed projections and multi-key scalar
+    aggregate/optional-filter/limit, multi-key scalar top-N workflows, scoped local-source
+    join bridges covering inner, left/right/full outer, left semi/anti, and cross joins,
+    computed projections and multi-key scalar
     top-N over joined rows, and scalar/grouped join aggregates into that runtime path.
     Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC
@@ -928,10 +929,11 @@ docs/website parity, and a completed-ledger entry.
   - Current state: scoped local CSV/flat JSONL SQL smoke paths exist for
     projection/optional-filter/limit, preview/select-star, scalar and grouped aggregates with
     optional filters and output aliases, multi-key scalar top-N over projection rows, aggregate
-    output aliases, and group keys, explicit single- or multi-key inner equi-join, scoped computed
+    output aliases, and group keys, explicit single- or multi-key inner equi-join,
+    left/right/full outer equi-join, left semi/anti equi-join, cross join, scoped computed
     join projections, multi-key scalar joined top-N, and scalar/grouped join-aggregate ordering by
     aggregate output aliases or group keys; richer expressions, casts, dates, strings, windows, subqueries,
-    catalogs, Python/DataFrame joins, expression/outer/semi/anti/cross joins,
+    catalogs, expression/non-equi joins,
     null/collation ordering, and broad planner behavior
     remain incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
@@ -962,7 +964,7 @@ docs/website parity, and a completed-ledger entry.
     Use Case Atlas.
   - Current state: Python wrapper and selected query-builder methods exist. The local CSV/flat
     JSONL query builder now covers projection/filter/limit, preview, scalar aggregate, multi-key
-    group-by, multi-key scalar top-N, aggregate-output top-N, scoped single- or multi-key local-source inner equi-join,
+    group-by, multi-key scalar top-N, aggregate-output top-N, scoped local-source joins,
     computed projections and multi-key scalar top-N over joined rows, scalar/grouped join
     aggregate, explicit-projection literal `with_column(...)`, and `count()` workflows, but
     complete end-to-end generated/local/Vortex workflows and
@@ -1478,8 +1480,7 @@ runnable, documented, tested, and claim-safe.
     `sl.col(...).not_in(...)`, `head(...)`/
     `take(...)`, `count()`, scalar aggregate/optional-filter/limit with aliases, multi-key grouped
     aggregate/optional-filter/limit, and multi-key top-N plus aggregate-output top-N collect/write
-    workflows. Scoped single- or
-    multi-key local-source inner equi-join, joined computed projection/multi-key top-N, joined
+    workflows. Scoped local-source joins, joined computed projection/multi-key top-N, joined
     aggregate-output top-N, local
     `write_jsonl(...)`/`write_csv(...)` sink aliases, and generated-output
     helpers also exist for scoped local workflows. Engine-native range/sequence generated sources

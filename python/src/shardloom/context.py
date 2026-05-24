@@ -305,7 +305,8 @@ _LOCAL_QUERY_BUILDER_RUNTIME_BOUNDARY = (
     "Scoped local-source query-builder runtime only: local CSV, flat JSON/JSONL/NDJSON, and "
     "feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC lower through ShardLoom SQL "
     "local-source execution for admitted projection, filter, bounded limit, computed-column, "
-    "scalar/grouped aggregate, single-key top-N, and inner equi-join workflows. No pandas/Polars "
+    "scalar/grouped aggregate, single-key top-N, inner/outer/semi/anti equi-join, and cross-join "
+    "workflows. No pandas/Polars "
     "backend, object-store/table source, broad SQL/DataFrame runtime, external engine, fallback, "
     "or production claim."
 )
@@ -725,7 +726,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Scoped local CSV and flat JSONL/NDJSON projection/optional-filter/limit, "
             "scalar aggregate, multi-key group-by aggregate, single-key top-N, "
-            "and scoped local-source inner equi-join collect smoke only; no broad "
+            "and scoped local-source join collect smoke only; no broad "
             "DataFrame runtime, object-store/table source, external engine, fallback, "
             "or production claim."
         ),
@@ -748,7 +749,7 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
         claim_boundary=(
             "Scoped local CSV and flat JSONL/NDJSON projection/optional-filter/limit, "
             "scalar aggregate, multi-key group-by aggregate, single-key top-N, "
-            "and scoped local-source inner equi-join JSONL/CSV and feature-gated flat "
+            "and scoped local-source join JSONL/CSV and feature-gated flat "
             "scalar Parquet/Arrow IPC/Avro/ORC output smoke only; no broad DataFrame "
             "runtime, object-store/table sink, "
             "external engine, fallback, fanout, or production claim."

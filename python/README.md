@@ -855,7 +855,8 @@ projection/optional-filter/limit, scalar aggregate, scalar aggregate-output top-
 multi-key grouped aggregate, grouped aggregate-output top-N,
 preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
 ABS, scoped numeric rounding, and scoped UTF-8 string length `with_column`,
-multi-key scalar top-N, and scoped single- or multi-key local-source inner equi-join shapes.
+multi-key scalar top-N, and scoped local-source join shapes covering inner, left/right/full outer,
+left semi/anti, and cross joins.
 Joined workflows also admit scoped computed projections over qualified columns plus multi-key
 scalar top-N over joined rows. Scoped scalar/grouped join aggregates over those same join shapes
 lower through the same runtime and may order by numeric aggregate output aliases or UTF-8 group
@@ -867,22 +868,23 @@ generalized grouped aggregation, ordering/collation parity, nested JSON,
 broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
-The Python query builder admits scoped local-source inner equi-join shapes
-through the same scoped SQL local-source smoke. Both sides must be admitted
-local sources such as CSV or flat JSON/JSONL/NDJSON, with feature-gated flat
-scalar Parquet/Arrow IPC/Avro/ORC using the same deterministic adapter gates as
+The Python query builder admits scoped local-source joins through the same scoped SQL local-source
+smoke. Both sides must be admitted local sources such as CSV or flat JSON/JSONL/NDJSON, with
+feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC using the same deterministic adapter gates as
 other local-source smokes. Use `join(..., on="key")` or
-`join(..., on=("customer_id", "region"))` for matching same-named key columns on both sides,
-qualified projection columns such as
-`f.id` and `d.segment`, a qualified predicate such as `f.amount >= 10`, and an
-explicit `limit(...)`. A joined workflow can add admitted `with_column(...)` expressions over
+`join(..., on=("customer_id", "region"))` for inner, left/right/full outer, left semi, or left
+anti joins over matching same-named key columns on both sides. Use `join(..., how="cross")`
+without `on` for a scoped cross join and place filters in `filter(...)` / SQL `WHERE`. Qualified
+projection columns such as `f.id` and `d.segment`, a qualified predicate such as `f.amount >= 10`,
+and an explicit `limit(...)` are required. Left semi and left anti joins emit the left source only;
+right-side projections outside the `ON` clause fail closed. A joined workflow can add admitted
+`with_column(...)` expressions over
 qualified columns and may use `sort("f.amount", "f.id", descending=True).limit(n)` for the scoped
 multi-key scalar joined top-N path. A joined workflow can also end in `agg(...).limit(...)` or
 `group_by(...).agg(...).limit(...)` for the admitted scalar/grouped join-aggregate subset, and can
 place `sort("total_amount", descending=True).limit(n)` after those aggregates when the sort keys
 are numeric aggregate output aliases or UTF-8 group keys. Broad
-DataFrame joins remain blocked: outer/semi/anti/cross
-joins, expression joins,
+DataFrame joins remain blocked: expression joins, non-equi join predicates,
 unqualified join predicates, nested/complex structured data, and
 object-store/table joins still return deterministic unsupported diagnostics or
 fail closed through the scoped SQL binder.
@@ -912,7 +914,7 @@ print(claim.public_performance_claim_allowed)
 
 The lower-level `client.sql_local_source_smoke(...)` helper can also call the
 scoped local CSV scalar aggregate, grouped aggregate, aggregate-output order/top-N, projection
-order/top-N, explicit inner equi-join, joined row top-N, and joined aggregate-output order/top-N
+order/top-N, explicit local-source joins, joined row top-N, and joined aggregate-output order/top-N
 smokes directly. Direct client calls are only a typed wrapper around the CLI fixture-smoke evidence:
 
 ```python
@@ -1004,8 +1006,8 @@ That path is still fixture-smoke evidence only. Broader grouped aggregate genera
 null ordering, collation parity,
 broader correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
-the scoped local-source inner-equi query-builder bridge, broad expression-backed input-backed `with_column`,
-outer/semi/anti/cross joins, expression joins, broad SQL/DataFrame planning, and
+the scoped local-source query-builder bridge, broad expression-backed input-backed `with_column`,
+expression/non-equi joins, broad SQL/DataFrame planning, and
 production query support remain blocked until later runtime slices.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A

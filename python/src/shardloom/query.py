@@ -1989,7 +1989,7 @@ class LazyFrame:
                 "optional filter(...), group_by(...).agg(...), and limit(...) operations, "
                 "select(...), optional filter(...), sort(...), and limit(...) operations, "
                 "with_column(...), optional filter(...), and limit(...) operations, or "
-                "a scoped local-source inner equi-join with select(...), optional filter(...), and limit(...)"
+                "a scoped local-source join with select(...), optional filter(...), and limit(...)"
             )
         return self.client.sql_local_source_smoke(
             statement,
@@ -2211,17 +2211,22 @@ class LazyFrame:
         self,
         other: "LazyFrame | str",
         *,
-        on: str | Sequence[str],
+        on: str | Sequence[str] | None = None,
         how: str = "inner",
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
-        """Return a scoped local-source inner equi-join workflow when admitted."""
+        """Return a scoped local-source join workflow when admitted."""
 
-        normalized_columns = tuple(
-            _normalize_output_column_name(column) for column in _normalize_columns((on,))
+        normalized_how = _normalize_join_how(how)
+        normalized_columns = (
+            ()
+            if on is None
+            else tuple(
+                _normalize_output_column_name(column)
+                for column in _normalize_columns((on,))
+            )
         )
         columns = ",".join(normalized_columns)
-        normalized_how = how.strip().lower()
         right_uri: str
         right_summary: str
         right_operations: tuple[WorkflowOperation, ...] = ()
@@ -2240,13 +2245,12 @@ class LazyFrame:
             _is_query_builder_local_source(self.source)
             and right_source_local
             and not right_operations
-            and normalized_how in {"inner", "inner_equi", "inner-equi"}
-            and normalized_columns
+            and (normalized_columns or normalized_how == "cross")
         ):
             return self._append(
                 WorkflowOperation(
                     "join",
-                    (right_uri, columns, columns, "inner", "f", "d"),
+                    (right_uri, columns, columns, normalized_how, "f", "d"),
                 )
             )
         return self._unsupported_operation("join", target, check=check)
@@ -2645,15 +2649,20 @@ class LazyFrame:
         if group_by_list is not None and aggregate_list is None:
             return None
         if join_info is not None:
-            right_uri, left_key, right_key, _how, left_alias, right_alias = join_info
+            right_uri, left_key, right_key, how, left_alias, right_alias = join_info
             left_keys = tuple(column for column in left_key.split(",") if column)
             right_keys = tuple(column for column in right_key.split(",") if column)
-            if len(left_keys) != len(right_keys) or not left_keys:
+            if how == "cross":
+                if left_keys or right_keys:
+                    return None
+                on_clause = ""
+            elif len(left_keys) != len(right_keys) or not left_keys:
                 return None
-            on_clause = " AND ".join(
-                f"{left_alias}.{left_column} = {right_alias}.{right_column}"
-                for left_column, right_column in zip(left_keys, right_keys)
-            )
+            else:
+                on_clause = " ON " + " AND ".join(
+                    f"{left_alias}.{left_column} = {right_alias}.{right_column}"
+                    for left_column, right_column in zip(left_keys, right_keys)
+                )
             if aggregate_list is not None:
                 if projection_list is not None or literal_columns:
                     return None
@@ -2678,10 +2687,11 @@ class LazyFrame:
                 order_by_clause = _format_order_by_clause(columns, direction)
             source_uri = _quote_sql_local_source_path(self.source.uri)
             right_source_uri = _quote_sql_local_source_path(right_uri)
+            join_keyword = _sql_join_keyword(how)
             return (
                 f"SELECT {select_clause} FROM {source_uri} AS {left_alias} "
-                f"INNER JOIN {right_source_uri} AS {right_alias} "
-                f"ON {on_clause}"
+                f"{join_keyword} {right_source_uri} AS {right_alias}"
+                f"{on_clause}"
                 f"{_optional_sql_where_clause(predicate)}{group_by_clause}{order_by_clause} LIMIT {limit}"
             )
         if projection_list is not None:
@@ -3752,6 +3762,32 @@ def _normalize_columns(columns: Sequence[object]) -> tuple[str, ...]:
     if not values:
         raise ValueError("select columns must not be empty")
     return tuple(values)
+
+
+def _normalize_join_how(value: object) -> str:
+    normalized = _require_non_empty("join how", value).lower().replace("-", "_")
+    aliases = {
+        "inner": "inner",
+        "inner_equi": "inner",
+        "left": "left",
+        "left_outer": "left",
+        "right": "right",
+        "right_outer": "right",
+        "full": "full",
+        "full_outer": "full",
+        "outer": "full",
+        "semi": "semi",
+        "left_semi": "semi",
+        "anti": "anti",
+        "left_anti": "anti",
+        "cross": "cross",
+    }
+    try:
+        return aliases[normalized]
+    except KeyError as exc:
+        raise ValueError(
+            "join how must be one of inner, left, right, full, semi, anti, or cross"
+        ) from exc
 
 
 def _require_non_empty(name: str, value: object) -> str:
@@ -4859,6 +4895,18 @@ def _format_order_by_clause(columns: tuple[str, ...], direction: str) -> str:
     direction_label = direction.upper()
     keys = ",".join(f"{column} {direction_label}" for column in columns)
     return f" ORDER BY {keys}"
+
+
+def _sql_join_keyword(how: str) -> str:
+    return {
+        "inner": "INNER JOIN",
+        "left": "LEFT JOIN",
+        "right": "RIGHT JOIN",
+        "full": "FULL JOIN",
+        "semi": "LEFT SEMI JOIN",
+        "anti": "LEFT ANTI JOIN",
+        "cross": "CROSS JOIN",
+    }[how]
 
 
 def _optional_sql_where_clause(predicate: str | None) -> str:

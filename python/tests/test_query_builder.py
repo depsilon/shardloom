@@ -3241,6 +3241,207 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_left_outer_join_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.csv' AS f LEFT JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id ORDER BY f.id ASC LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source left outer join",
+                    "human_text": "sql local source left outer join",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":4,\\"d.segment\\":null}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_left_outer_equi_join_order_by_topn_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "left_outer_equi"},
+                        {"key": "join_left_key", "value": "f.customer_id"},
+                        {"key": "join_right_key", "value": "d.customer_id"},
+                        {"key": "join_key_arity", "value": "1"},
+                        {"key": "join_matched_row_count", "value": "3"},
+                        {"key": "join_candidate_row_count", "value": "3"},
+                        {"key": "join_unmatched_left_row_count", "value": "1"},
+                        {"key": "join_unmatched_right_row_count", "value": "0"},
+                        {"key": "join_rows_output", "value": "4"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), on="customer_id", how="left")
+            .select("f.id", "d.segment")
+            .sort("f.id")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_type, "left_outer_equi")
+        self.assertEqual(report.join_key_arity, 1)
+        self.assertEqual(report.join_matched_row_count, 3)
+        self.assertEqual(report.join_candidate_row_count, 3)
+        self.assertEqual(report.join_unmatched_left_row_count, 1)
+        self.assertEqual(report.join_unmatched_right_row_count, 0)
+        self.assertEqual(report.join_rows_output, 4)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_cross_join_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.csv' AS f CROSS JOIN 'target/dim.csv' AS d WHERE f.id = 2 LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source cross join",
+                    "human_text": "sql local source cross join",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":2,\\"d.segment\\":\\"seed\\"}\\n{\\"f.id\\":2,\\"d.segment\\":\\"enterprise\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_cross_join_filter_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "cross"},
+                        {"key": "join_key_arity", "value": "0"},
+                        {"key": "join_matched_row_count", "value": "4"},
+                        {"key": "join_candidate_row_count", "value": "4"},
+                        {"key": "join_rows_output", "value": "2"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), how="cross")
+            .select("f.id", "d.segment")
+            .filter("f.id = 2")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_type, "cross")
+        self.assertEqual(report.join_key_arity, 0)
+        self.assertEqual(report.join_candidate_row_count, 4)
+        self.assertEqual(report.join_rows_output, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_right_join_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.csv' AS f RIGHT JOIN 'target/dim.csv' AS d ON f.customer_id = d.customer_id LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source right outer join",
+                    "human_text": "sql local source right outer join",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":null,\\"d.segment\\":\\"orphan\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_right_outer_equi_join_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "right_outer_equi"},
+                        {"key": "join_key_arity", "value": "1"},
+                        {"key": "join_matched_row_count", "value": "3"},
+                        {"key": "join_candidate_row_count", "value": "3"},
+                        {"key": "join_unmatched_left_row_count", "value": "0"},
+                        {"key": "join_unmatched_right_row_count", "value": "1"},
+                        {"key": "join_rows_output", "value": "4"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), on="customer_id", how="right_outer")
+            .select("f.id", "d.segment")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_type, "right_outer_equi")
+        self.assertEqual(report.join_key_arity, 1)
+        self.assertEqual(report.join_matched_row_count, 3)
+        self.assertEqual(report.join_candidate_row_count, 3)
+        self.assertEqual(report.join_unmatched_left_row_count, 0)
+        self.assertEqual(report.join_unmatched_right_row_count, 1)
+        self.assertEqual(report.join_rows_output, 4)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_invalid_join_how_is_deterministic(self) -> None:
+        ctx = ShardLoomContext(ShardLoomClient(binary=self.fake_cli("")))
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "join how must be one of inner, left, right, full, semi, anti, or cross",
+        ):
+            ctx.read_csv("target/fact.csv").join(
+                ctx.read_csv("target/dim.csv"),
+                on="customer_id",
+                how="natural",
+            )
+
     def test_local_csv_query_builder_join_topn_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -8407,7 +8608,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             ctx.sql_bind("select * from events"),
             ctx.sql_plan("select * from events"),
             ctx.sql_execute("select * from events"),
-            workflow.join("dim.csv", on=("id", "other_id"), how="left"),
+            workflow.join(
+                sl.read_csv("dim.csv", client=ShardLoomClient(binary=binary)).filter("id > 0"),
+                on=("id", "other_id"),
+                how="left",
+            ),
             workflow.aggregate("sum(amount)"),
             workflow.window("row_number() over (partition by id)"),
             workflow.schema_contract({"id": "int64"}),
