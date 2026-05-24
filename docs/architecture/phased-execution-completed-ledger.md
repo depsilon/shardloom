@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E/5C generated-source range top-N runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-generated-range-topn-runtime-20260524` / #930.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - User direction that SQL/Python should stay format-neutral, with per-format differences only at
+      read/ingest and write/sink boundaries.
+  - Scope:
+    - Promoted scoped source-free SQL `generate_series`/`range` `ORDER BY ... LIMIT ...` from a
+      deterministic blocker into executable ShardLoom-native generated-source runtime.
+    - Sorts generated range rows after projection so `ORDER BY` can resolve either the range source
+      column or a projected computed int64 alias, then applies `LIMIT` as top-N.
+    - Added Python `ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)`
+      lowering through the same `generated-source-sql-smoke` runtime path.
+    - Added source-free order/top-N evidence fields and typed Python accessors.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli --test generated_source_runtime_smoke sql_smoke_writes_generate_series_projection_order_by_topn_jsonl -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test generated_source_runtime_smoke sql_smoke_writes_generate_series_source_order_by_topn_jsonl -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test generated_source_runtime_smoke sql_smoke_prefers_projected_order_by_alias_over_source_column -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test generated_source_runtime_smoke sql_smoke_blocks_unadmitted_generate_series_forms -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_range_filter_with_column_sort_limit_invokes_generated_source_sql_smoke`
+    - `cargo +1.91.1 test -p shardloom-cli --test generated_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest discover -s python/tests`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local source-free generated-range int64 sort/top-N only. This does not add arbitrary
+      SQL table functions, broad source-free SQL, broad DataFrame expression parity,
+      object-store/table/lakehouse sources, production/performance claims, or fallback execution.
+  - Remaining gates:
+    - Continue generated-source expression parity, local output/fanout replay, Vortex scan pushdown,
+      encoded kernel pairs, session/prepared reuse, memory/spill safety, object-store and
+      table/lakehouse runtime ladders, and final release validation.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D/5C computed-projection top-N runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-computed-topn-runtime-20260524` / #929.

@@ -11,7 +11,7 @@
 //! fallback engines.
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
     path::{Path, PathBuf},
     process::ExitCode,
@@ -432,10 +432,70 @@ struct GeneratedSqlProjectionMetadata {
     expressions: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedSqlOrderMetadata {
+    keys: Vec<GeneratedSqlOrderKeyMetadata>,
+    input_row_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedSqlOrderKeyMetadata {
+    column: String,
+    direction: GeneratedSqlSortDirection,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GeneratedSqlSortDirection {
+    Asc,
+    Desc,
+}
+
+impl GeneratedSqlSortDirection {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Asc => "asc",
+            Self::Desc => "desc",
+        }
+    }
+}
+
+impl GeneratedSqlOrderMetadata {
+    fn columns_label(&self) -> String {
+        self.keys
+            .iter()
+            .map(|key| key.column.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn directions_label(&self) -> String {
+        self.keys
+            .iter()
+            .map(|key| key.direction.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    fn operator_family_label(&self, has_limit: bool) -> &'static str {
+        match (self.keys.len(), has_limit) {
+            (0, _) => "not_applicable",
+            (1, true) => "single_key_int64_topn",
+            (_, true) => "multi_key_int64_topn",
+            (1, false) => "single_key_int64_sort",
+            _ => "multi_key_int64_sort",
+        }
+    }
+}
+
 type ProjectedSqlRangeRows = (
     Vec<GeneratedColumn>,
     Vec<GeneratedRow>,
     Option<GeneratedSqlProjectionMetadata>,
+);
+type ParsedSqlRangeTail = (
+    Option<SqlRangeProjectionPredicate>,
+    Option<GeneratedSqlOrderMetadata>,
+    Option<usize>,
 );
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -450,6 +510,7 @@ struct GeneratedSqlSmokeRequest {
     filter: Option<GeneratedSqlFilterMetadata>,
     limit: Option<GeneratedSqlLimitMetadata>,
     projection: Option<GeneratedSqlProjectionMetadata>,
+    order_by: Option<GeneratedSqlOrderMetadata>,
     allow_overwrite: bool,
 }
 
@@ -465,6 +526,7 @@ struct GeneratedSqlSmokeReport {
     filter: Option<GeneratedSqlFilterMetadata>,
     limit: Option<GeneratedSqlLimitMetadata>,
     projection: Option<GeneratedSqlProjectionMetadata>,
+    order_by: Option<GeneratedSqlOrderMetadata>,
     output_bytes: u64,
     output_digest: String,
     schema_digest: String,
@@ -1349,6 +1411,7 @@ impl GeneratedSqlSmokeRequest {
             filter: parsed.filter,
             limit: parsed.limit,
             projection: parsed.projection,
+            order_by: parsed.order_by,
             allow_overwrite,
         })
     }
@@ -1555,6 +1618,42 @@ impl GeneratedSqlSmokeReport {
                 ),
             ]);
         }
+        if let Some(order_by) = &self.order_by {
+            fields.extend([
+                (
+                    "sql_source_free_order_by_runtime_execution".to_string(),
+                    "true".to_string(),
+                ),
+                (
+                    "sql_source_free_top_n_runtime_execution".to_string(),
+                    self.limit.is_some().to_string(),
+                ),
+                (
+                    "sql_source_free_sort_operator_family".to_string(),
+                    order_by
+                        .operator_family_label(self.limit.is_some())
+                        .to_string(),
+                ),
+                (
+                    "sql_source_free_sort_keys".to_string(),
+                    order_by.columns_label(),
+                ),
+                (
+                    "sql_source_free_sort_direction".to_string(),
+                    order_by.directions_label(),
+                ),
+                (
+                    "sql_source_free_sort_input_row_count".to_string(),
+                    order_by.input_row_count.to_string(),
+                ),
+                (
+                    "sql_source_free_top_n_limit".to_string(),
+                    self.limit
+                        .as_ref()
+                        .map_or_else(|| "0".to_string(), |limit| limit.count.to_string()),
+                ),
+            ]);
+        }
         if let Some(projection) = &self.projection {
             fields.extend([
                 (
@@ -1696,6 +1795,7 @@ fn run_generated_sql_smoke(
         filter: request.filter.clone(),
         limit: request.limit.clone(),
         projection: request.projection.clone(),
+        order_by: request.order_by.clone(),
         output_bytes: write_report.output_bytes,
         output_digest: write_report.output_digest,
         schema_digest: fnv64_digest(&schema_text),
@@ -2014,6 +2114,7 @@ struct ParsedSourceFreeSql {
     filter: Option<GeneratedSqlFilterMetadata>,
     limit: Option<GeneratedSqlLimitMetadata>,
     projection: Option<GeneratedSqlProjectionMetadata>,
+    order_by: Option<GeneratedSqlOrderMetadata>,
 }
 
 fn parse_source_free_sql(raw: &str) -> Result<ParsedSourceFreeSql, ShardLoomError> {
@@ -2084,6 +2185,7 @@ fn parse_sql_literal_select(statement: &str) -> Result<ParsedSourceFreeSql, Shar
         filter: None,
         limit: None,
         projection: None,
+        order_by: None,
     })
 }
 
@@ -2159,6 +2261,7 @@ fn parse_sql_values(statement: &str) -> Result<ParsedSourceFreeSql, ShardLoomErr
         filter: None,
         limit: None,
         projection: None,
+        order_by: None,
     })
 }
 
@@ -2175,12 +2278,16 @@ fn parse_sql_generate_series_range(
     let GeneratedSqlRangeClause {
         range,
         filter_predicate,
+        order_by,
         limit,
     } = range_clause;
     let base_rows = generated_sql_range_rows(&range)?;
     let (filtered_rows, filter) = filter_sql_range_rows(&range, &base_rows, filter_predicate)?;
-    let (limited_rows, limit_metadata) = limit_sql_range_rows(filtered_rows, limit)?;
-    let (schema, rows, projection) = project_sql_range_rows(select_list, &range, &limited_rows)?;
+    let (schema, projected_rows, projection) =
+        project_sql_range_rows(select_list, &range, &filtered_rows)?;
+    let (ordered_rows, order_metadata) =
+        order_sql_range_rows(&range, &schema, &filtered_rows, projected_rows, order_by)?;
+    let (rows, limit_metadata) = limit_sql_range_rows(ordered_rows, limit)?;
     Ok(Some(ParsedSourceFreeSql {
         statement: statement.to_string(),
         source_kind: SqlGeneratedSourceKind::GenerateSeriesRange,
@@ -2190,6 +2297,7 @@ fn parse_sql_generate_series_range(
         filter,
         limit: limit_metadata,
         projection,
+        order_by: order_metadata,
     }))
 }
 
@@ -2197,6 +2305,7 @@ fn parse_sql_generate_series_range(
 struct GeneratedSqlRangeClause {
     range: GeneratedSqlRangeMetadata,
     filter_predicate: Option<SqlRangeProjectionPredicate>,
+    order_by: Option<GeneratedSqlOrderMetadata>,
     limit: Option<usize>,
 }
 
@@ -2220,6 +2329,7 @@ fn parse_sql_range_source_clause(
     let trimmed = raw.trim();
     let clause_start = [
         find_keyword_outside_quotes_and_parens(trimmed, "WHERE"),
+        find_keyword_outside_quotes_and_parens(trimmed, "ORDER BY"),
         find_keyword_outside_quotes_and_parens(trimmed, "LIMIT"),
     ]
     .into_iter()
@@ -2233,40 +2343,68 @@ fn parse_sql_range_source_clause(
     let Some(range) = parse_sql_range_function_ref(source_ref)? else {
         return Ok(None);
     };
-    let (filter_predicate, tail) = if tail.is_empty() {
-        (None, "")
-    } else if keyword_prefix(tail, "WHERE") {
+    let (filter_predicate, order_by, limit) = parse_sql_range_ordered_tail(tail, &range)?;
+    Ok(Some(GeneratedSqlRangeClause {
+        range,
+        filter_predicate,
+        order_by,
+        limit,
+    }))
+}
+
+fn parse_sql_range_ordered_tail(
+    raw: &str,
+    range: &GeneratedSqlRangeMetadata,
+) -> Result<ParsedSqlRangeTail, ShardLoomError> {
+    let mut tail = raw.trim();
+    let mut filter_predicate = None;
+    let mut order_by = None;
+    let mut limit = None;
+    if tail.is_empty() {
+        return Ok((None, None, None));
+    }
+    if keyword_prefix(tail, "WHERE") {
         let where_body = tail["WHERE".len()..].trim();
-        let limit_index = find_keyword_outside_quotes_and_parens(where_body, "LIMIT");
-        let (predicate_raw, limit_tail) = if let Some(index) = limit_index {
+        let clause_index = first_sql_range_tail_clause_index(where_body, &["ORDER BY", "LIMIT"]);
+        let (predicate_raw, remaining_tail) = if let Some(index) = clause_index {
             (where_body[..index].trim(), where_body[index..].trim())
         } else {
             (where_body, "")
         };
-        (
-            Some(parse_sql_range_case_projection_predicate(
-                predicate_raw,
-                &range.column_name,
-            )?),
-            limit_tail,
-        )
-    } else {
-        (None, tail)
-    };
-    let limit = if tail.is_empty() {
-        None
-    } else if keyword_prefix(tail, "LIMIT") {
-        Some(parse_sql_range_limit(tail["LIMIT".len()..].trim())?)
-    } else {
+        filter_predicate = Some(parse_sql_range_case_projection_predicate(
+            predicate_raw,
+            &range.column_name,
+        )?);
+        tail = remaining_tail;
+    }
+    if !tail.is_empty() && keyword_prefix(tail, "ORDER BY") {
+        let order_body = tail["ORDER BY".len()..].trim();
+        let clause_index = first_sql_range_tail_clause_index(order_body, &["LIMIT"]);
+        let (order_raw, remaining_tail) = if let Some(index) = clause_index {
+            (order_body[..index].trim(), order_body[index..].trim())
+        } else {
+            (order_body, "")
+        };
+        order_by = Some(parse_sql_range_order_by(order_raw)?);
+        tail = remaining_tail;
+    }
+    if !tail.is_empty() && keyword_prefix(tail, "LIMIT") {
+        limit = Some(parse_sql_range_limit(tail["LIMIT".len()..].trim())?);
+        tail = "";
+    }
+    if !tail.is_empty() {
         return Err(unsupported_sql_error(
-            "SQL source-free range source admits only optional WHERE <range-column> <comparison> <int64> and LIMIT <count> clauses",
+            "SQL source-free range source admits only optional WHERE <range-column> <comparison> <int64>, ORDER BY <column> [ASC|DESC], and LIMIT <count> clauses in that order",
         ));
-    };
-    Ok(Some(GeneratedSqlRangeClause {
-        range,
-        filter_predicate,
-        limit,
-    }))
+    }
+    Ok((filter_predicate, order_by, limit))
+}
+
+fn first_sql_range_tail_clause_index(raw: &str, keywords: &[&str]) -> Option<usize> {
+    keywords
+        .iter()
+        .filter_map(|keyword| find_keyword_outside_quotes_and_parens(raw, keyword))
+        .min()
 }
 
 fn generated_sql_range_rows(
@@ -2411,6 +2549,90 @@ fn project_sql_range_rows(
             columns: schema.into_iter().map(|column| column.name).collect(),
             expressions: expression_labels,
         }),
+    ))
+}
+
+fn order_sql_range_rows(
+    range: &GeneratedSqlRangeMetadata,
+    schema: &[GeneratedColumn],
+    source_rows: &[GeneratedRow],
+    projected_rows: Vec<GeneratedRow>,
+    order_by: Option<GeneratedSqlOrderMetadata>,
+) -> Result<(Vec<GeneratedRow>, Option<GeneratedSqlOrderMetadata>), ShardLoomError> {
+    let Some(order_by) = order_by else {
+        return Ok((projected_rows, None));
+    };
+    if source_rows.len() != projected_rows.len() {
+        return Err(ShardLoomError::InvalidOperation(
+            "SQL source-free range internal sort row count mismatch".to_string(),
+        ));
+    }
+    let mut sortable = Vec::with_capacity(projected_rows.len());
+    for (index, row) in projected_rows.into_iter().enumerate() {
+        let source_value = sql_range_row_value(&source_rows[index])?;
+        let keys = order_by
+            .keys
+            .iter()
+            .map(|key| sql_range_sort_key_value(range, schema, &row, source_value, &key.column))
+            .collect::<Result<Vec<_>, _>>()?;
+        sortable.push((index, keys, row));
+    }
+    sortable.sort_by(|left, right| {
+        for (key_index, key) in order_by.keys.iter().enumerate() {
+            let ordering = left.1[key_index].cmp(&right.1[key_index]);
+            let ordering = match key.direction {
+                GeneratedSqlSortDirection::Asc => ordering,
+                GeneratedSqlSortDirection::Desc => ordering.reverse(),
+            };
+            if !ordering.is_eq() {
+                return ordering;
+            }
+        }
+        left.0.cmp(&right.0)
+    });
+    let input_row_count = sortable.len();
+    let rows = sortable.into_iter().map(|(_, _, row)| row).collect();
+    Ok((
+        rows,
+        Some(GeneratedSqlOrderMetadata {
+            keys: order_by.keys,
+            input_row_count,
+        }),
+    ))
+}
+
+fn sql_range_sort_key_value(
+    range: &GeneratedSqlRangeMetadata,
+    schema: &[GeneratedColumn],
+    projected_row: &GeneratedRow,
+    source_value: i64,
+    column: &str,
+) -> Result<i64, ShardLoomError> {
+    if let Some(index) = schema
+        .iter()
+        .position(|field| field.name.eq_ignore_ascii_case(column))
+    {
+        return projected_row
+            .values
+            .get(index)
+            .ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "SQL source-free range internal sort row is missing a projected value"
+                        .to_string(),
+                )
+            })?
+            .parse::<i64>()
+            .map_err(|_| {
+                unsupported_sql_error(
+                    "SQL source-free range ORDER BY keys currently admit only int64 sort values",
+                )
+            });
+    }
+    if column.eq_ignore_ascii_case(&range.column_name) {
+        return Ok(source_value);
+    }
+    Err(unsupported_sql_error(
+        "SQL source-free range ORDER BY keys must resolve to the range source column or projected int64 output aliases",
     ))
 }
 
@@ -2774,6 +2996,50 @@ fn parse_sql_range_limit(raw: &str) -> Result<usize, ShardLoomError> {
         unsupported_sql_error(
             "SQL source-free range LIMIT requires a single non-negative integer literal",
         )
+    })
+}
+
+fn parse_sql_range_order_by(raw: &str) -> Result<GeneratedSqlOrderMetadata, ShardLoomError> {
+    let text = raw.trim();
+    if text.is_empty() {
+        return Err(unsupported_sql_error(
+            "SQL source-free range ORDER BY requires at least one sort key",
+        ));
+    }
+    let parts = split_sql_csv(text)?;
+    let mut seen = BTreeSet::new();
+    let mut keys = Vec::with_capacity(parts.len());
+    for part in parts {
+        let tokens = part.split_whitespace().collect::<Vec<_>>();
+        let (column, direction) = match tokens.as_slice() {
+            [column] => (*column, GeneratedSqlSortDirection::Asc),
+            [column, direction] if direction.eq_ignore_ascii_case("ASC") => {
+                (*column, GeneratedSqlSortDirection::Asc)
+            }
+            [column, direction] if direction.eq_ignore_ascii_case("DESC") => {
+                (*column, GeneratedSqlSortDirection::Desc)
+            }
+            _ => {
+                return Err(unsupported_sql_error(
+                    "SQL source-free range ORDER BY admits only <column> [ASC|DESC] keys",
+                ));
+            }
+        };
+        validate_sql_identifier(column)?;
+        let normalized = column.to_ascii_lowercase();
+        if !seen.insert(normalized) {
+            return Err(unsupported_sql_error(
+                "SQL source-free range ORDER BY keys must be unique",
+            ));
+        }
+        keys.push(GeneratedSqlOrderKeyMetadata {
+            column: column.to_string(),
+            direction,
+        });
+    }
+    Ok(GeneratedSqlOrderMetadata {
+        keys,
+        input_row_count: 0,
     })
 }
 

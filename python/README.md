@@ -1426,6 +1426,14 @@ series_report = ctx.sql("SELECT * FROM generate_series(0, 4)").write(
     "target/generated-sql-series.jsonl",
     allow_overwrite=True,
 )
+range_topn_report = (
+    ctx.range(1, 8, column="id")
+    .filter(sl.col("id") >= 3)
+    .with_column("doubled", sl.col("id") * 2)
+    .sort("doubled", descending=True)
+    .limit(2)
+    .write("target/generated-range-topn.jsonl", allow_overwrite=True)
+)
 
 print(values_report.generated_source_kind)
 print(values_report.generated_source_row_count)
@@ -1434,6 +1442,8 @@ print(select_report.claim_gate_status)
 print(ctx_sql_report.generated_source_kind)
 print(series_report.generated_source_kind)
 print(series_report.generated_source_range_end_inclusive)
+print(range_topn_report.sql_source_free_top_n_runtime_execution)
+print(range_topn_report.sql_source_free_sort_keys)
 ```
 
 Equivalent CLI command:
@@ -1447,12 +1457,20 @@ This SQL smoke accepts only source-free literal `SELECT` expressions and `VALUES
 finite float64, bool, and single-quoted UTF-8 string literals, plus `SELECT * FROM
 generate_series(start, end[, step])` and `SELECT * FROM range(start, end[, step])` over int64
 arguments. `generate_series` uses an inclusive end, while `range` uses the same exclusive-end
-semantics as `ctx.range(...)`. `ctx.sql(...).write(...)` dispatches those source-free forms to the
+semantics as `ctx.range(...)`. The range SQL subset also admits scoped int64 projections,
+single-branch int64 `CASE`, one range-column filter, `ORDER BY` over the range source column or
+projected int64 aliases, and `LIMIT`, so fluent
+`ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)` lowers through the
+same generated-source SQL smoke. Source-free top-N reports
+`sql_source_free_order_by_runtime_execution`, `sql_source_free_top_n_runtime_execution`,
+`sql_source_free_sort_keys`, `sql_source_free_sort_direction`,
+`sql_source_free_sort_operator_family`, and `sql_source_free_top_n_limit` alongside projection,
+filter, and limit evidence. `ctx.sql(...).write(...)` dispatches those source-free forms to the
 same generated-source SQL smoke. Source-free `ctx.sql(...).collect()` remains a deterministic
 unsupported diagnostic because the generated-source evidence contract requires an explicit output
-sink. The source-free path rejects input datasets, arbitrary `FROM` sources, function projections,
-joins, subqueries, UDFs, object-store paths, table writes, and broad SQL with deterministic
-no-fallback errors.
+sink. The source-free path rejects input datasets, arbitrary `FROM` sources, unsupported function
+projections, joins, subqueries, UDFs, object-store paths, table writes, and broad SQL with
+deterministic no-fallback errors.
 
 The contract separates three cases:
 
@@ -1469,9 +1487,9 @@ The contract separates three cases:
   generated-source APIs remain report-only.
 - `engine_native_generated_source`: scoped local `range`, `sequence`, and SQL
   `generate_series`/`range` JSONL/CSV fixture smokes are supported through
-  `ctx.range(...).write(...)`, `ctx.sequence(...).write(...)`, and
-  `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`; the same feature-gated flat
-  scalar structured and Vortex sinks are available through the generated-source write helpers.
+  `ctx.range(...).write(...)`, `ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)`,
+  `ctx.sequence(...).write(...)`, and `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`;
+  the same feature-gated flat scalar structured and Vortex sinks are available through the generated-source write helpers.
   Engine-native `values` and deterministic synthetic profiles remain report-only.
 
 Source-free SQL `VALUES` and literal `SELECT` are runtime-supported as local JSONL/CSV fixture

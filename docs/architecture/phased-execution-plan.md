@@ -334,11 +334,12 @@ or documentation updates alone are insufficient.
     adjusting generator bounds before invoking the same engine-native range/sequence smoke. Scoped
     source-free SQL `generate_series`/`range` runtime now admits direct range-column output, int64
     literals, range-column `+`/`-`/`*` int64 arithmetic, single-branch int64 CASE projections, and
-    optional `WHERE <range-column> <comparison> <int64>` / `LIMIT <count>` clauses with
-    `sql_source_free_projection_*`, `sql_source_free_filter_*`, and `sql_source_free_limit_*`
-    evidence. The Python `ctx.range(...).filter(...).with_column(...).limit(...).write(...)`
-    workflow lowers to that same generated-source SQL runtime while preserving the caller-facing
-    range column alias.
+    optional `WHERE <range-column> <comparison> <int64>`, `ORDER BY <range-or-output-column>
+    [ASC|DESC]`, and `LIMIT <count>` clauses with `sql_source_free_projection_*`,
+    `sql_source_free_filter_*`, `sql_source_free_order_by_*`, `sql_source_free_top_n_*`, and
+    `sql_source_free_limit_*` evidence. The Python
+    `ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)` workflow lowers
+    to that same generated-source SQL runtime while preserving the caller-facing range column alias.
     Remaining gaps are broader SQL source-free projection beyond that admitted range-generator
     subset, arbitrary SQL table functions, broad DataFrame expression-backed projection/
     `with_column`, object-store/Foundry generated-output paths, broader structured-format fidelity,

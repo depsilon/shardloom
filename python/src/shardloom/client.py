@@ -893,6 +893,60 @@ class GeneratedSourceWriteReport:
         return self.envelope.field_int("sql_source_free_limit_count")
 
     @property
+    def sql_source_free_order_by_runtime_execution(self) -> bool:
+        """Whether scoped SQL source-free ORDER BY executed in the smoke command."""
+
+        return (
+            self.envelope.field_bool(
+                "sql_source_free_order_by_runtime_execution",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def sql_source_free_top_n_runtime_execution(self) -> bool:
+        """Whether scoped SQL source-free ORDER BY plus LIMIT executed as top-N."""
+
+        return (
+            self.envelope.field_bool(
+                "sql_source_free_top_n_runtime_execution",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def sql_source_free_sort_operator_family(self) -> str | None:
+        """Return the source-free range sort operator family when present."""
+
+        return self.envelope.field("sql_source_free_sort_operator_family")
+
+    @property
+    def sql_source_free_sort_keys(self) -> tuple[str, ...]:
+        """Return source-free range ORDER BY keys when present."""
+
+        return _csv_values(self.envelope.field("sql_source_free_sort_keys"))
+
+    @property
+    def sql_source_free_sort_direction(self) -> tuple[str, ...]:
+        """Return source-free range ORDER BY directions when present."""
+
+        return _csv_values(self.envelope.field("sql_source_free_sort_direction"))
+
+    @property
+    def sql_source_free_sort_input_row_count(self) -> int | None:
+        """Return source-free range sort input row count when present."""
+
+        return self.envelope.field_int("sql_source_free_sort_input_row_count")
+
+    @property
+    def sql_source_free_top_n_limit(self) -> int | None:
+        """Return source-free range top-N limit when present."""
+
+        return self.envelope.field_int("sql_source_free_top_n_limit")
+
+    @property
     def sql_source_free_projection_runtime_execution(self) -> bool:
         """Whether scoped SQL source-free projection executed in the smoke command."""
 
