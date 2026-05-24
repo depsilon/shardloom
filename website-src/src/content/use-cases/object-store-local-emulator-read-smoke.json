@@ -30,7 +30,7 @@
     "fallback_attempted=false",
     "external_engine_invoked=false"
   ],
-  "claim_boundary": "Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, writes, commits, table/lakehouse runtime, distributed runtime, production use, and performance claims remain blocked.",
+  "claim_boundary": "Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.",
   "runnable_example": "target\\debug\\shardloom object-store-read-smoke target\\object-store-fixture.bin --profile local-emulator --range 0:16 --format json",
   "expected_output_evidence": "A fixture-smoke report with SourceState digest fields, selected byte-range evidence, Native I/O certificate status, credential/network probes disabled, fallback_attempted=false, and external_engine_invoked=false.",
   "common_mistakes": [
@@ -45,6 +45,7 @@
     "python/README.md"
   ],
   "related_use_cases": [
+    "object-store-local-emulator-write-smoke",
     "object-store-boundary-report",
     "table-lakehouse-boundary-report",
     "output-result-sink-and-fanout-boundary"

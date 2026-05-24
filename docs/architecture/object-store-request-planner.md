@@ -175,6 +175,58 @@ The local-emulator smoke does not authorize credential lookup, provider listing,
 reads, authenticated reads, object-store writes, table/lakehouse commits, distributed execution,
 performance claims, production use, or external-engine fallback.
 
+## GAR-RUNTIME-IMPL-4O Local-Emulator Write/Commit Smoke
+
+`GAR-RUNTIME-IMPL-4O` now admits one fixture-scoped write profile:
+
+```powershell
+shardloom object-store-write-smoke <local-source-path> <local-object-path> --profile local-emulator [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit] --format json
+```
+
+This is not real S3/GCS/ADLS support and not a table/lakehouse commit protocol. The profile treats
+a local file path as a local-emulator object target, writes through a staging path, commits by
+renaming the object and writing a ShardLoom sidecar commit manifest, and can immediately roll the
+object and manifest back for cleanup proof. It does not resolve credentials, list objects, probe a
+network provider, or invoke any external query engine.
+
+Successful local-emulator rows emit:
+
+```text
+provider_profile=local-emulator
+object_store_write_status=committed | rolled_back
+write_staging_status=performed_local_emulator
+commit_protocol=local_emulator_sidecar_manifest
+commit_protocol_status=committed | rolled_back
+commit_status=committed_local_emulator_object | committed_then_rolled_back
+rollback_status=not_requested | performed_local_emulator_cleanup
+cleanup_deleted_count
+idempotency_key
+idempotency_status=caller_supplied | derived_from_payload_digest
+payload_bytes
+written_bytes
+payload_digest
+target_content_digest
+commit_manifest_digest
+claim_gate_status=fixture_smoke_only
+object_store_io=true
+object_store_write_io=true
+write_io=true
+table_commit_allowed=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Remote provider URIs such as `s3://`, `gs://`, `abfs://`, and `abfss://` remain blocked by this
+runtime path with `object_store_write_status=blocked_remote_provider`,
+`credential_resolution_performed=false`, `network_probe_performed=false`, `provider_probe_performed=false`,
+`object_store_io=false`, `write_io=false`, `fallback_attempted=false`, and
+`external_engine_invoked=false`.
+
+The local-emulator write smoke does not authorize credential lookup, provider listing, public-object
+reads or writes, authenticated object-store writes, table metadata writes, table/lakehouse commits,
+catalog interaction, distributed execution, performance claims, production use, or external-engine
+fallback.
+
 ## GAR-COMPAT-1C Universal Compatibility Admission Ladder
 
 The universal compatibility scoreboard projects the same fail-closed posture through

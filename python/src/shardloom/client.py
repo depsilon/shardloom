@@ -8298,6 +8298,34 @@ class ShardLoomClient:
             command.extend(["--range", f"{offset}:{length}"])
         return self.run(command, check=check)
 
+    def object_store_write_smoke(
+        self,
+        source_path: str | os.PathLike[str],
+        target_object_path: str | os.PathLike[str],
+        *,
+        profile: str = "local-emulator",
+        idempotency_key: str | None = None,
+        allow_overwrite: bool = False,
+        rollback_after_commit: bool = False,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the explicit local-emulator staged object-store write smoke."""
+
+        command = [
+            "object-store-write-smoke",
+            str(source_path),
+            str(target_object_path),
+            "--profile",
+            profile,
+        ]
+        if idempotency_key is not None:
+            command.extend(["--idempotency-key", idempotency_key])
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        if rollback_after_commit:
+            command.append("--rollback-after-commit")
+        return self.run(command, check=check)
+
     def correctness_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the correctness evidence planning surface."""
 

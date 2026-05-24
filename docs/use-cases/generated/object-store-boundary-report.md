@@ -8,7 +8,7 @@
 - **Status:** `blocked`
 - **Execution mode:** `report_only_blocked`
 - **Engine mode:** `none`
-- **Claim boundary:** Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.
+- **Claim boundary:** Cloud object-store read/write runtime is blocked/report-only; local-emulator smokes do not create S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claims.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Object-store and cloud storage boundary is blocked or unsupported until the list
 
 ## Claim Boundary
 
-Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.
+Cloud object-store read/write runtime is blocked/report-only; local-emulator smokes do not create S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claims.
 
 ## How To Try It
 
@@ -26,7 +26,7 @@ target\debug\shardloom object-store-request-plan --format json
 
 ## Blocker
 
-Runtime object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed.
+Cloud object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed beyond local-emulator smokes.
 
 ## Internal Flow
 
@@ -63,6 +63,7 @@ A blocked or report-only object-store plan with no provider probe and no externa
 ## Related Use Cases
 
 - `object-store-local-emulator-read-smoke`
+- `object-store-local-emulator-write-smoke`
 - `table-lakehouse-boundary-report`
 - `output-result-sink-and-fanout-boundary`
 

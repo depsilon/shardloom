@@ -1016,6 +1016,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("object-store-read-smoke") => {
             object_store_runtime::handle_object_store_read_smoke(args, format)
         }
+        Some("object-store-write-smoke") => {
+            object_store_runtime::handle_object_store_write_smoke(args, format)
+        }
         Some("incremental-plan") => workflow_planning::handle_incremental_plan(args, format),
         Some("stateful-reuse-plan") => workflow_planning::handle_stateful_reuse_plan(format),
         Some("cg17-stateful-reuse-gate") => workflow_planning::handle_stateful_reuse_gate(format),
@@ -1957,6 +1960,45 @@ mod tests {
             "object-store-read-smoke".to_string(),
             "s3://bucket/object.vortex".to_string(),
         ]);
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn object_store_write_smoke_local_emulator_returns_success() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "shardloom-cli-object-store-write-smoke-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&temp_dir).expect("temp dir");
+        let source = temp_dir.join("source.bin");
+        let target = temp_dir.join("target.bin");
+        std::fs::write(&source, b"abcdef").expect("fixture write");
+        let code = run(vec![
+            "object-store-write-smoke".to_string(),
+            source.to_string_lossy().into_owned(),
+            target.to_string_lossy().into_owned(),
+            "--idempotency-key".to_string(),
+            "main-unit-write".to_string(),
+        ]);
+        std::fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn object_store_write_smoke_remote_provider_returns_non_zero() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "shardloom-cli-object-store-write-smoke-remote-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&temp_dir).expect("temp dir");
+        let source = temp_dir.join("source.bin");
+        std::fs::write(&source, b"abcdef").expect("fixture write");
+        let code = run(vec![
+            "object-store-write-smoke".to_string(),
+            source.to_string_lossy().into_owned(),
+            "s3://bucket/object.vortex".to_string(),
+        ]);
+        std::fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
@@ -3135,6 +3177,10 @@ mod tests {
     #[test]
     fn usage_includes_object_store_read_smoke() {
         assert!(cli_usage_line().contains("object-store-read-smoke"));
+    }
+    #[test]
+    fn usage_includes_object_store_write_smoke() {
+        assert!(cli_usage_line().contains("object-store-write-smoke"));
     }
     #[test]
     fn usage_includes_optimizer_adaptive_memory_plan() {

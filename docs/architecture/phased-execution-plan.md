@@ -810,23 +810,29 @@ or documentation updates alone are insufficient.
 
 - [ ] GAR-RUNTIME-IMPL-4O object-store write and table/lakehouse commit ladder
   - Source: table/lakehouse commit semantics gate, object-store scale ladder.
-  - Current state: object-store writes, table metadata/snapshot scans, append, merge/delete, commit,
-    rollback, and catalog integration are blocked or report-only.
-  - Next slice outcome: after read proof, implement staged write/commit/recovery in an approved
-    provider/emulator, then one fixture-backed table metadata/snapshot operation and one append or
-    commit rehearsal where admitted.
-  - Runtime enablement: staged object-store write/table operation runtime in declared fixture
-    profiles, with commit and rollback evidence.
+  - Current state: local-emulator staged object writes are admitted through
+    `object-store-write-smoke`, which writes from a local source file into a local-emulator target,
+    uses a staging path, emits a sidecar commit manifest, reports idempotency and digest evidence,
+    and can roll the committed object/manifest back for cleanup proof. Real S3/GCS/ADLS writes,
+    credentialed providers, table metadata writes, table append/merge/delete, table commits,
+    rollbacks, catalog integration, and production lakehouse support remain blocked or report-only.
+  - Next slice outcome: promote a fixture-backed table metadata/snapshot operation and one append or
+    table-commit rehearsal where admitted, without upgrading the local-emulator object write smoke
+    into production object-store or lakehouse support.
+  - Runtime enablement: staged local-emulator object write/commit smoke with rollback evidence;
+    table/lakehouse operation runtime remains a separate fixture gate.
   - User-visible surface: table/object-store capability views, CLI/Python diagnostics, status/use
     cases, scale benchmark rows.
-  - Implementation scope: write staging, commit protocol, idempotency, cleanup/retry, table metadata
-    adapter, snapshot reader, manifest writer or commit rehearsal.
+  - Implementation scope: completed for local-emulator object write staging, sidecar commit
+    manifest, idempotency, and rollback cleanup; remaining scope is table metadata adapter,
+    snapshot reader, table manifest writer or commit rehearsal, and table rollback evidence.
   - Evidence required: provider/profile, table format, snapshot id, manifest/data-file counts,
     commit protocol/status, rollback/cleanup status, idempotency key, no-fallback fields.
   - Acceptance: read/write/commit and metadata/read/append/commit are separate gates; fixture proof
     does not imply production lakehouse support.
-  - Verification: policy tests, emulator write smoke, table fixture tests, commit rehearsal smoke,
-    unsupported diagnostics, release readiness.
+  - Verification: emulator write smoke and unsupported remote diagnostics now exist; remaining
+    verification is table fixture tests, commit rehearsal smoke, rollback diagnostics, release
+    readiness.
   - Non-goals: no blanket S3/GCS/ADLS support, production Iceberg/Delta/Hudi claim, catalog
     service, or production table claim.
   - Claim boundary: provider/table-format operation in declared fixture/profile only.
@@ -1373,23 +1379,28 @@ docs/website parity, and a completed-ledger entry.
 
 - [ ] GAR-RUNTIME-IMPL-5L object-store write and table/lakehouse operation ladder
   - Source: `GAR-RUNTIME-IMPL-4O`, `GAR-COMPAT-1D`, `GAR-SCALE-1E`.
-  - Current state: object-store writes, table metadata/snapshot scans, append, merge/delete, commit,
-    rollback, and catalog integration are blocked or report-only.
-  - Next slice outcome: after read proof, implement staged write/commit/recovery in an approved
-    profile, then one fixture-backed table metadata/snapshot operation and one append or commit
-    rehearsal where admitted.
-  - Runtime enablement: staged object-store write and table/lakehouse operation runtime for declared
-    fixture profiles only.
+  - Current state: local-emulator staged object writes now run through
+    `object-store-write-smoke` with staged-object, sidecar commit-manifest, idempotency,
+    digest, rollback cleanup, Native I/O, and no-fallback evidence. Real cloud-provider writes,
+    table metadata/snapshot writes, append, merge/delete, table commit/rollback, and catalog
+    integration remain blocked or report-only.
+  - Next slice outcome: keep the object write smoke as the fixture proof, then add one
+    fixture-backed table metadata/snapshot operation and one append or table-commit rehearsal where
+    admitted.
+  - Runtime enablement: staged local-emulator object write and commit smoke for the declared fixture
+    profile only; table/lakehouse operation runtime remains unpromoted.
   - User-visible surface: table/object-store capability views, CLI/Python diagnostics, status/use
     cases, scale benchmark rows.
-  - Implementation scope: write staging, commit protocol, idempotency, cleanup/retry, table metadata
+  - Implementation scope: completed for local-emulator object write staging, sidecar commit
+    protocol, idempotency, digest evidence, and rollback cleanup; remaining scope is table metadata
     adapter, snapshot reader, manifest writer or commit rehearsal.
   - Evidence required: provider/profile, table format, snapshot id, manifest/data-file counts,
     commit protocol/status, rollback/cleanup status, idempotency key, no-fallback fields.
   - Acceptance: object-store read/write/commit and table metadata/read/append/commit are separate
     gates; fixture proof does not imply production lakehouse support.
-  - Verification: policy tests, emulator write smoke, table fixture tests, commit rehearsal smoke,
-    unsupported diagnostics, release readiness.
+  - Verification: emulator write smoke and unsupported remote diagnostics now exist; remaining
+    verification is table fixture tests, commit rehearsal smoke, rollback diagnostics, release
+    readiness.
   - Non-goals: no blanket S3/GCS/ADLS support, production Iceberg/Delta/Hudi claim, catalog service,
     or production table claim.
   - Claim boundary: provider/table-format operation in declared fixture/profile only.

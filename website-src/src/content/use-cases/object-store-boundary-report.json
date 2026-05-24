@@ -25,9 +25,9 @@
     "fallback_attempted=false",
     "external_engine_invoked=false"
   ],
-  "claim_boundary": "Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim.",
+  "claim_boundary": "Cloud object-store read/write runtime is blocked/report-only; local-emulator smokes do not create S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claims.",
   "runnable_example": "target\\debug\\shardloom object-store-request-plan --format json",
-  "blocked_explanation": "Runtime object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed.",
+  "blocked_explanation": "Cloud object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed beyond local-emulator smokes.",
   "expected_output_evidence": "A blocked or report-only object-store plan with no provider probe and no external engine invocation.",
   "common_mistakes": [
     "expecting_public_s3_read",
@@ -42,6 +42,7 @@
   ],
   "related_use_cases": [
     "object-store-local-emulator-read-smoke",
+    "object-store-local-emulator-write-smoke",
     "table-lakehouse-boundary-report",
     "output-result-sink-and-fanout-boundary"
   ]

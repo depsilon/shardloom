@@ -257,13 +257,13 @@ use_cases:
     inputs: [s3_uri, gcs_uri, adls_uri]
     outputs: [object_store_plan, deterministic_blocker]
     evidence_fields: [credential_policy_status, network_probe_allowed=false, byte_range_read_allowed, object_store_io=false, write_io=false, native_io_certificate_status=blocked, fallback_attempted=false, external_engine_invoked=false]
-    claim_boundary: "Object-store read/write runtime is blocked/report-only; no S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claim."
+    claim_boundary: "Cloud object-store read/write runtime is blocked/report-only; local-emulator smokes do not create S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claims."
     runnable_example: "target\\debug\\shardloom object-store-request-plan --format json"
-    blocked_explanation: "Runtime object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed."
+    blocked_explanation: "Cloud object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed beyond local-emulator smokes."
     expected_output_evidence: "A blocked or report-only object-store plan with no provider probe and no external engine invocation."
     common_mistakes: [expecting_public_s3_read, assuming_signed_url_support, treating_planner_as_runtime_io]
     references: [docs/architecture/compute-engine-flow-reference.md, docs/architecture/universal-input-contract.md, docs/architecture/object-store-request-planner.md, docs/architecture/universal-compatibility-coverage-scoreboard.md]
-    related_use_cases: [object-store-local-emulator-read-smoke, table-lakehouse-boundary-report, output-result-sink-and-fanout-boundary]
+    related_use_cases: [object-store-local-emulator-read-smoke, object-store-local-emulator-write-smoke, table-lakehouse-boundary-report, output-result-sink-and-fanout-boundary]
   - id: object-store-local-emulator-read-smoke
     title: Object-store local-emulator read smoke
     capability_family: object_store_boundaries
@@ -274,12 +274,28 @@ use_cases:
     inputs: [local_emulator_object_file]
     outputs: [source_state_evidence, native_io_certificate, read_digest]
     evidence_fields: [provider_profile=local-emulator, object_store_read_status, byte_range_read_status, full_file_read_status, source_state_id, source_state_digest, source_fingerprint_kind, source_content_digest, credential_resolution_performed=false, network_probe_performed=false, native_io_certificate_status, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
-    claim_boundary: "Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, writes, commits, table/lakehouse runtime, distributed runtime, production use, and performance claims remain blocked."
+    claim_boundary: "Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked."
     runnable_example: "target\\debug\\shardloom object-store-read-smoke target\\object-store-fixture.bin --profile local-emulator --range 0:16 --format json"
     expected_output_evidence: "A fixture-smoke report with SourceState digest fields, selected byte-range evidence, Native I/O certificate status, credential/network probes disabled, fallback_attempted=false, and external_engine_invoked=false."
     common_mistakes: [using_real_s3_uri, expecting_credentials_to_resolve, treating_local_emulator_smoke_as_production_object_store_support]
     references: [docs/architecture/object-store-request-planner.md, docs/architecture/universal-input-contract.md, docs/architecture/vortex-public-api-inventory.md, python/README.md]
-    related_use_cases: [object-store-boundary-report, table-lakehouse-boundary-report, output-result-sink-and-fanout-boundary]
+    related_use_cases: [object-store-local-emulator-write-smoke, object-store-boundary-report, table-lakehouse-boundary-report, output-result-sink-and-fanout-boundary]
+  - id: object-store-local-emulator-write-smoke
+    title: Object-store local-emulator write/commit smoke
+    capability_family: object_store_boundaries
+    audience: "user validating ShardLoom's first provider/profile-scoped object-store write proof without cloud credentials"
+    status: smoke_supported
+    execution_mode: object_store_write_smoke
+    engine_mode: batch
+    inputs: [local_source_file, local_emulator_object_path]
+    outputs: [committed_local_object, sidecar_commit_manifest, rollback_cleanup_evidence, native_io_certificate]
+    evidence_fields: [provider_profile=local-emulator, object_store_write_status, write_staging_status, commit_protocol_status, commit_status, rollback_status, cleanup_deleted_count, idempotency_key, idempotency_status, payload_digest, target_content_digest, commit_manifest_digest, credential_resolution_performed=false, network_probe_performed=false, native_io_certificate_status, claim_gate_status, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Local-emulator staged object write/commit smoke only; real S3/GCS/ADLS providers, credentials, network probes, provider listing, public/authenticated cloud writes, table/lakehouse commits, catalogs, distributed runtime, production use, and performance claims remain blocked."
+    runnable_example: "target\\debug\\shardloom object-store-write-smoke target\\source.bin target\\object-store-fixture.bin --profile local-emulator --idempotency-key orders-batch-001 --rollback-after-commit --format json"
+    expected_output_evidence: "A fixture-smoke report with staged write, sidecar commit-manifest, idempotency, payload/target/manifest digest, optional rollback cleanup, Native I/O, credential/network-disabled, fallback_attempted=false, and external_engine_invoked=false evidence."
+    common_mistakes: [using_real_s3_uri, treating_sidecar_manifest_as_lakehouse_commit, expecting_credentials_to_resolve, treating_local_emulator_smoke_as_production_object_store_support]
+    references: [docs/architecture/object-store-request-planner.md, docs/architecture/compute-engine-flow-reference.md, docs/architecture/phased-execution-completed-ledger.md, python/README.md]
+    related_use_cases: [object-store-local-emulator-read-smoke, object-store-boundary-report, table-lakehouse-boundary-report, output-result-sink-and-fanout-boundary]
   - id: table-lakehouse-boundary-report
     title: Table and lakehouse boundary
     capability_family: table_lakehouse_boundaries

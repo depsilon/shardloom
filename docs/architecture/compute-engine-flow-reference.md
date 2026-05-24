@@ -2212,6 +2212,15 @@ byte-range read, full-file read, local cache, write staging, and commit protocol
 object-store runtime, local cache runtime, object-store writes, table/lakehouse runtime, production
 use, performance claims, or fallback execution.
 
+The runtime exceptions are explicit local-emulator smokes, not broad object-store support:
+`object-store-read-smoke` can read a local fixture object with full-file or byte-range evidence, and
+`object-store-write-smoke` can stage a local source file into a local-emulator target, commit a
+sidecar manifest, and optionally roll the object and manifest back. Both emit provider/profile,
+Native I/O, credential/network-disabled, no-fallback, and claim-gate evidence. They still leave real
+S3/GCS/ADLS providers, credentials, network probes, provider listing, local cache runtime,
+table/lakehouse commits, catalogs, distributed execution, production support, and performance claims
+blocked.
+
 GAR-COMPAT-1D adds the table-format boundary matrix through
 `shardloom.universal_compatibility.table_format_boundary_matrix.v1`. The matrix is visibility only:
 it separates Iceberg, Delta, and Hudi metadata read, table scan, snapshot/time-travel, partition

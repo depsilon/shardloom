@@ -4308,6 +4308,66 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(envelope.field_bool("fallback_attempted"))
         self.assertFalse(envelope.field_bool("external_engine_invoked"))
 
+    def test_object_store_write_smoke_wrapper_calls_local_emulator_profile(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "object-store-write-smoke",
+                    "source/object.bin",
+                    "target/object.bin",
+                    "--profile",
+                    "local-emulator",
+                    "--idempotency-key",
+                    "orders-batch-001",
+                    "--allow-overwrite",
+                    "--rollback-after-commit",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "object-store-write-smoke",
+                    "status": "success",
+                    "summary": "object-store local-emulator write smoke",
+                    "human_text": "local-emulator object-store write smoke",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "object_store_write_status", "value": "rolled_back"},
+                        {"key": "provider_profile", "value": "local-emulator"},
+                        {"key": "commit_protocol_status", "value": "rolled_back"},
+                        {"key": "rollback_status", "value": "performed_local_emulator_cleanup"},
+                        {"key": "idempotency_key", "value": "orders-batch-001"},
+                        {"key": "idempotency_status", "value": "caller_supplied"},
+                        {"key": "native_io_certificate_status", "value": "fixture_smoke_only"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "object_store_io", "value": "true"},
+                        {"key": "object_store_write_io", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        envelope = ShardLoomClient(binary=binary).object_store_write_smoke(
+            "source/object.bin",
+            "target/object.bin",
+            idempotency_key="orders-batch-001",
+            allow_overwrite=True,
+            rollback_after_commit=True,
+        )
+
+        self.assertEqual(envelope.status, "success")
+        self.assertEqual(envelope.field("object_store_write_status"), "rolled_back")
+        self.assertTrue(envelope.field_bool("object_store_io"))
+        self.assertTrue(envelope.field_bool("object_store_write_io"))
+        self.assertFalse(envelope.field_bool("fallback_attempted"))
+        self.assertFalse(envelope.field_bool("external_engine_invoked"))
+
     def test_invalid_json_raises_protocol_error(self) -> None:
         binary = self.fake_cli("print('not-json')")
 

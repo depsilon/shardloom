@@ -125,6 +125,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "object-store-checkpoint-retry-plan",
     "object-store-commit-plan",
     "object-store-read-smoke",
+    "object-store-write-smoke",
     "incremental-plan",
     "stateful-reuse-plan",
     "cg17-stateful-reuse-gate",
@@ -817,6 +818,11 @@ fn command_usage_fragment(command: &str) -> String {
         "object-store-read-smoke" => {
             format!(
                 "{command} <local-object-path> [--profile local-emulator] [--range offset:length]"
+            )
+        }
+        "object-store-write-smoke" => {
+            format!(
+                "{command} <local-source-path> <local-object-path> [--profile local-emulator] [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit]"
             )
         }
         "engine-selection-plan" => {

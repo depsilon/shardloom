@@ -2040,8 +2040,7 @@ Important row IDs include `object_store_uri_parse`, `credential_policy`,
 For the first explicit object-store read runtime proof, use the local-emulator
 smoke. It reads a local fixture file through an object-store-style profile and
 emits SourceState, byte-range/full-file read, Native I/O, and no-fallback
-evidence. Real S3/GCS/ADLS URIs, credentials, network probes, writes, commits,
-lakehouse runtime, and production object-store claims remain blocked.
+evidence.
 
 ```python
 read = client.object_store_read_smoke(
@@ -2053,6 +2052,30 @@ print(read.field("source_state_id"))
 print(read.field_bool("network_probe_performed"))
 print(read.field_bool("fallback_attempted"))
 ```
+
+For the first explicit object-store write runtime proof, use the separate
+local-emulator write smoke. It stages a local source file into a local-emulator
+target path, commits a sidecar manifest, emits idempotency and digest evidence,
+and can immediately roll back the object plus manifest for cleanup proof.
+
+```python
+write = client.object_store_write_smoke(
+    "target/source.bin",
+    "target/object-store-fixture.bin",
+    idempotency_key="orders-batch-001",
+    rollback_after_commit=True,
+)
+print(write.field("object_store_write_status"))
+print(write.field("commit_protocol_status"))
+print(write.field("rollback_status"))
+print(write.field_bool("object_store_write_io"))
+print(write.field_bool("fallback_attempted"))
+```
+
+Both object-store smokes are local-emulator fixtures only. Real S3/GCS/ADLS
+URIs, credentials, network probes, provider listing, public/authenticated cloud
+reads or writes, table/lakehouse commits, catalog interaction, distributed
+runtime, and production object-store claims remain blocked.
 
 The same scoreboard exposes table-format boundaries:
 
