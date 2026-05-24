@@ -1106,6 +1106,32 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("selected_row_count", 0) or 0
 
     @property
+    def computed_projection_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted computed projection path."""
+
+        return (
+            self.envelope.field_bool("computed_projection_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def computed_projection_top_n_runtime_execution(self) -> bool:
+        """Whether this smoke ordered a computed projection path through top-N."""
+
+        return (
+            self.envelope.field_bool(
+                "computed_projection_top_n_runtime_execution", False
+            )
+            is True
+        )
+
+    @property
+    def computed_projection_operator_family(self) -> str | None:
+        """Return the computed projection operator family emitted by the smoke."""
+
+        return self.envelope.field("computed_projection_operator_family")
+
+    @property
     def predicate_operator_family(self) -> str | None:
         """Return the predicate operator family emitted by the smoke."""
 

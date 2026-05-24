@@ -16,6 +16,51 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D/5C computed-projection top-N runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-computed-topn-runtime-20260524` / #929.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - User direction that SQL/Python should stay format-neutral, with per-format differences only at
+      read/ingest and write/sink boundaries.
+  - Scope:
+    - Promoted scoped local-source computed-projection top-N from a deterministic blocker into
+      executable ShardLoom-native runtime for `SELECT ..., <computed> AS <alias> ... ORDER BY
+      <alias> LIMIT <n>` and Python `.with_column(...).sort(...).limit(...)` workflows.
+    - Evaluates projected rows before sorting when an `ORDER BY` key resolves to a computed output
+      alias, while preserving source-column ordering for computed workflows whose sort key is a
+      source column that is not projected.
+    - Fixed the local read plan so computed `ORDER BY` aliases are not requested from source
+      adapters as physical input columns.
+    - Added evidence fields for computed projection execution and computed-projection top-N
+      operator family, plus Python convenience accessors over those fields.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli parses_computed_projection_order_by_topn_statement -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli computed_projection_order_by --test sql_local_source_runtime_smoke -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli computed_projection_source_order_by --test sql_local_source_runtime_smoke -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_json_query_builder_with_column_sort_invokes_sql_smoke`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest discover -s python/tests`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-source computed projection plus bounded scalar top-N over non-null numeric or
+      UTF-8 sort keys only. This does not add arbitrary SQL planner semantics, joins without
+      explicit projection, broad DataFrame parity, object-store/table/lakehouse sources,
+      production/performance claims, or fallback execution.
+  - Remaining gates:
+    - Continue expression parity, generated-source parity, local output/fanout replay, Vortex scan
+      pushdown, encoded kernel pairs, session/prepared reuse, memory/spill safety, object-store and
+      table/lakehouse runtime ladders, and final release validation.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D/5C star-plus-computed local `with_column` runtime
   - Date: 2026-05-23
   - Branch/PR: `compute-engine-star-with-column-runtime-20260523` / #928.

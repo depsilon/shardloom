@@ -506,7 +506,7 @@ UTF-8 `length()` helper, numeric `abs()` / `floor()` / `ceil()` / `round()` help
 ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
 Input-backed computed `with_column(...)` is also admitted with or without an explicit `select(...)`
 for local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
-projection/filter/limit workflows. Without an explicit projection it lowers to ShardLoom-native
+projection/filter/sort/limit workflows. Without an explicit projection it lowers to ShardLoom-native
 `SELECT *, <computed> AS <column>` over the shared local-source runtime path. The current slice
 accepts deterministic `lit(...)` values,
 direct bool/int/float literals, scoped numeric arithmetic expressions shaped as
@@ -550,7 +550,11 @@ projections emit `date_arithmetic_projection_*` evidence; UTC timestamp arithmet
 projections emit `timestamp_arithmetic_*` and `timestamp_arithmetic_projection_*` evidence; null coalesce projections emit
 `null_coalesce_projection_*` evidence; nullif projections emit `nullif_projection_*` evidence;
 conditional projections emit
-`conditional_projection_*` evidence. Mixed `int64`/`float64` arithmetic promotes to `float64`
+`conditional_projection_*` evidence. Sorting after an input-backed computed projection is admitted
+for bounded top-N workflows when the sort key resolves to a projected computed alias or a source
+column; those workflows emit `computed_projection_top_n_runtime_execution=true`,
+`computed_projection_operator_family=computed_projection_topn`, and the ordinary `sort_*` and
+`top_n_*` evidence fields. Mixed `int64`/`float64` arithmetic promotes to `float64`
 only when the `int64` operand is exactly representable as `float64`; lossy mixed coercions,
 generic expression missing-source-column and division-by-zero cases, `COALESCE(..., NULL)`,
 `NULLIF(..., NULL)`, non-null source/fallback dtype mismatches, and non-null source/sentinel dtype

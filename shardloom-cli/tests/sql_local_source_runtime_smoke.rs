@@ -1305,6 +1305,111 @@ fn sql_local_source_smoke_executes_star_plus_computed_projection_without_fallbac
 }
 
 #[test]
+fn sql_local_source_smoke_executes_computed_projection_order_by_alias_topn_without_fallback() {
+    let source_path = unique_path("sql-local-source-computed-projection-topn", "csv");
+    fs::write(
+        &source_path,
+        "id,amount,label\n1,8,alpha\n2,15,beta\n3,21,gamma\n4,13,delta\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,amount + 5 AS adjusted FROM '{}' WHERE amount >= 10 ORDER BY adjusted DESC LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_order_by_topn_filter_limit"
+    )));
+    assert!(stdout.contains(&field("computed_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "computed_projection_top_n_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "computed_projection_operator_family",
+        "computed_projection_topn"
+    )));
+    assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sort_operator_family", "single_key_scalar_topn")));
+    assert!(stdout.contains(&field("sort_keys", "adjusted")));
+    assert!(stdout.contains(&field("sort_direction", "desc")));
+    assert!(stdout.contains(&field("selected_row_count", "3")));
+    assert!(stdout.contains(&field("output_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":3,\\\"adjusted\\\":26}\\n{\\\"id\\\":2,\\\"adjusted\\\":20}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.computed-projection-order-by-topn-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_computed_projection_source_order_by_topn_without_fallback() {
+    let source_path = unique_path("sql-local-source-computed-projection-source-topn", "csv");
+    fs::write(
+        &source_path,
+        "id,amount,label\n1,8,alpha\n2,15,beta\n3,21,gamma\n4,13,delta\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,amount + 5 AS adjusted FROM '{}' WHERE amount >= 10 ORDER BY label ASC LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_order_by_topn_filter_limit"
+    )));
+    assert!(stdout.contains(&field(
+        "computed_projection_top_n_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field("sort_keys", "label")));
+    assert!(stdout.contains(&field("sort_direction", "asc")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"adjusted\\\":20}\\n{\\\"id\\\":4,\\\"adjusted\\\":18}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_generic_expression_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-generic-expression-projection", "csv");
     fs::write(
