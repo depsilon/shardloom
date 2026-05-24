@@ -1369,12 +1369,12 @@ fn workflow_unsupported_sql_execute() -> WorkflowUnsupportedOperation {
 fn workflow_unsupported_sql_source_free_projection() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "sql_source_free_projection",
-        label: "SQL source-free literal projection",
+        label: "Broad SQL source-free projection",
         surface: "sql_generated_source",
         feature: "gar_gen_1.sql_source_free_projection",
-        blocker_id: "gar-gen-1.sql_source_free_projection_runtime_not_implemented",
+        blocker_id: "gar-gen-1.sql_source_free_projection_broad_runtime_blocked",
         required_evidence: "sql_parser,binder,planner,source_free_projection_contract,generated_source_certificate,output_native_io_certificate,no_fallback_evidence",
-        suggested_next_action: "Use ctx.sql_values(...).write(...) or ctx.sql_literal_select(...).write(...) for scoped local JSONL/CSV smokes; broader SQL source-free projection remains blocked until expression evidence is certified.",
+        suggested_next_action: "Use ctx.sql_values(...).write(...), ctx.sql_literal_select(...).write(...), or ctx.sql(\"SELECT ... FROM range(...)\").write(...) for scoped local output smokes; arbitrary source-free SQL projection remains blocked until expression evidence is certified.",
         diagnostic_code: DiagnosticCode::UnsupportedSql,
         materialization_required: false,
         write_required: false,
@@ -1401,12 +1401,12 @@ fn workflow_unsupported_dataframe_source_free_projection() -> WorkflowUnsupporte
 fn workflow_unsupported_dataframe_generated_with_column() -> WorkflowUnsupportedOperation {
     WorkflowUnsupportedOperation {
         operation: "dataframe_generated_with_column",
-        label: "DataFrame generated with_column expression",
+        label: "Broad generated DataFrame with_column expression",
         surface: "dataframe_generated_source",
         feature: "gar_gen_1.dataframe_generated_with_column",
-        blocker_id: "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented",
+        blocker_id: "gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked",
         required_evidence: "dataframe_plan_contract,expression_registry,type_coercion_contract,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence",
-        suggested_next_action: "Use literal/user rows that already contain the desired values; generated expression columns remain blocked until expression lowering and evidence are certified.",
+        suggested_next_action: "Use ctx.from_rows(...).with_column(...) for scoped literal generated columns or ctx.range(...).with_column(...) for scoped int64 generated-range expressions; broad generated DataFrame expression columns remain blocked until expression lowering and evidence are certified.",
         diagnostic_code: DiagnosticCode::NotImplemented,
         materialization_required: false,
         write_required: false,

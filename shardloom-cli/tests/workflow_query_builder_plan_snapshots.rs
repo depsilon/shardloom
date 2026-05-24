@@ -477,7 +477,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     );
     assert!(sql_source_free_projection.contains(&field(
         "blocker_id",
-        "gar-gen-1.sql_source_free_projection_runtime_not_implemented"
+        "gar-gen-1.sql_source_free_projection_broad_runtime_blocked"
     )));
     assert!(sql_source_free_projection.contains("\"code\":\"SL_UNSUPPORTED_SQL\""));
     assert!(dataframe_source_free_projection.contains(&field(
@@ -494,7 +494,7 @@ fn workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects() {
     )));
     assert!(dataframe_generated_with_column.contains(&field(
         "blocker_id",
-        "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented"
+        "gar-gen-1.dataframe_generated_with_column_broad_expression_runtime_blocked"
     )));
     assert!(object_store_generated_output.contains(&field(
         "workflow_operation",

@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E/5A generated-source builder closeout
+  - Date: 2026-05-24
+  - Branch/PR: pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime`.
+    - `GAR-RUNTIME-IMPL-5A generated-source end-user runtime builders`.
+    - User direction to complete directly related phase sections end to end instead of landing
+      tiny leaf slices.
+  - Scope:
+    - Closed the local generated-source builder section around the already admitted
+      `generated-source-user-rows-smoke`, `generated-source-range-smoke`,
+      `generated-source-sequence-smoke`, and `generated-source-sql-smoke` runtime paths.
+    - Promoted stale API-admission and compatibility rows for scoped SQL range projections and
+      scoped generated `with_column` workflows from report-only posture to fixture-smoke supported
+      posture with generated-source, output Native I/O, execution-certificate, and no-fallback
+      evidence requirements.
+    - Preserved deterministic broad blockers for arbitrary SQL source-free projection and broad
+      expression-backed generated DataFrame `with_column` diagnostics, using blocker IDs that state
+      the residual scope instead of contradicting the scoped admitted runtime.
+    - Updated Python typed capability metadata, compatibility scoreboard docs/JSON, route taxonomy,
+      compute-flow docs, and traceability docs so local deterministic generated-output support is
+      visible without implying broad SQL/DataFrame, object-store, Foundry, production, package, or
+      performance claims.
+    - Split residual work to the owning runtime queues: expression/SQL parity (`4D`/`5B`), output
+      writer/fidelity and fanout (`4G`/`5E`), session/OutputPlan reuse (`4L`/`5I`),
+      object-store/table write ladders (`4O`/`5L`), Foundry generated-output proof (`5P`), and
+      final release/claim gates.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-core generated_source -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test capability_discovery_snapshots compatibility_capabilities_expose_universal_scoreboard -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test capability_discovery_snapshots generated_source_api_admission_matrix_classifies_source_free_surfaces -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo +1.91.1 test -p shardloom-cli --test generated_source_runtime_smoke`
+    - `cargo +1.91.1 test -p shardloom-cli --test workflow_query_builder_plan_snapshots workflow_unsupported_plan_json_covers_dataframe_gaps_without_effects -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test workflow_query_builder_plan_snapshots`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_exposes_universal_compatibility_scoreboard`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m unittest discover -s python\tests`
+    - `python -m compileall -q python\src python\tests`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `python scripts\check_universal_ingress_routes.py`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local deterministic generated-source builder runtime only: local user rows,
+      literal tables, calendars, range/sequence builders, SQL `VALUES`, SQL literal `SELECT`,
+      SQL `generate_series`/`range`, scoped range projections, scoped generated-row literal
+      `with_column`, generated-range int64 `with_column`, local JSONL/CSV default sinks,
+      feature-gated flat scalar structured sinks, feature-gated local Vortex sinks, and existing
+      fanout/replay evidence. This does not claim broad SQL/DataFrame runtime, arbitrary
+      source-free SQL projection, object-store/table/lakehouse writes, Foundry output APIs,
+      production/package readiness, performance superiority, or fallback execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F/4F1 local source, adapter, and `vortex_ingest` coverage
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-source-prepare-coverage-20260524` / #941.

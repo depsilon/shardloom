@@ -1142,14 +1142,17 @@ plan before coding.
   DataFrame/query-builder affordances without reading data, materializing rows, writing outputs,
   invoking external engines, or upgrading support to claim-grade runtime.
 - [ ] Source-free generated-output workflows such as `ctx.from_rows(...).write(...)`,
+  `ctx.from_rows(...).with_column(literal).write(...)`,
   `ctx.literal_table(...).write(...)`, `ctx.calendar(...).write(...)`, and
-  `ctx.range(...).write(...)`/`ctx.sequence(...).write(...)` now have scoped local JSONL/CSV smoke paths, and
+  `ctx.range(...).write(...)`/`ctx.range(...).with_column(int64_expression).write(...)`/
+  `ctx.sequence(...).write(...)` now have scoped local JSONL/CSV smoke paths, and
   `shardloom.generated_source_api_admission.v1` exposes deterministic admission rows for
-  SQL literal `SELECT`, SQL `VALUES`, SQL source-free projection, SQL `generate_series`/`range`,
-  DataFrame source-free projection, and generated `with_column`. `GAR-COMPAT-1B` projects the same
-  posture into the universal compatibility scoreboard and website/status rows without broadening
-  runtime. Broad SQL execution beyond the scoped source-free literal/VALUES smokes, broad DataFrame
-  generation, engine-native values/synthetic generators, object-store output, and Foundry
+  SQL literal `SELECT`, SQL `VALUES`, scoped SQL source-free range projection, SQL
+  `generate_series`/`range`, DataFrame source-free projection blockers, and scoped generated
+  `with_column`. `GAR-COMPAT-1B` projects the same posture into the universal compatibility
+  scoreboard and website/status rows without broadening runtime. Broad SQL execution beyond the
+  scoped source-free literal/VALUES/range-generator smokes, broad DataFrame generation,
+  engine-native values/synthetic generators, object-store output, and Foundry
   generated-output runtime remain report-only/planned
   under `GAR-GEN-1` and `GAR-RUNTIME-COMPLETE-1A`. No-input smoke does not count as
   generated-output execution.
