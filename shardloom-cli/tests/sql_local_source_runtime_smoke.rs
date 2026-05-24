@@ -60,6 +60,46 @@ fn assert_required_source_state_projection_evidence(stdout: &str, pushdown_statu
     assert!(stdout.contains(&field("source_state_column_pruning_applied", "true")));
 }
 
+#[derive(Clone, Copy)]
+struct ExpectedAdapterEvidence<'a> {
+    source_format: &'a str,
+    extension: &'a str,
+    adapter_id: &'a str,
+    registry_entry_id: &'a str,
+    admitted_extensions: &'a str,
+    feature_gate: &'a str,
+    boundary: &'a str,
+}
+
+fn assert_inferred_adapter_evidence(stdout: &str, expected: ExpectedAdapterEvidence<'_>) {
+    assert!(stdout.contains(&field("source_format", expected.source_format)));
+    assert!(stdout.contains(&field("source_format_inferred", "true")));
+    assert!(stdout.contains(&field("source_format_inference_kind", "path_extension")));
+    assert!(stdout.contains(&field(
+        "source_format_inference_extension",
+        expected.extension
+    )));
+    assert!(stdout.contains(&field(
+        "source_format_inference_registry_route",
+        "local_path_extension_adapter_registry"
+    )));
+    assert!(stdout.contains(&field("source_adapter_id", expected.adapter_id)));
+    assert!(stdout.contains(&field(
+        "source_adapter_registry_entry_id",
+        expected.registry_entry_id
+    )));
+    assert!(stdout.contains(&field(
+        "source_adapter_admitted_extensions",
+        expected.admitted_extensions
+    )));
+    assert!(stdout.contains(&field("source_adapter_feature_gate", expected.feature_gate)));
+    assert!(stdout.contains(&field("source_adapter_boundary", expected.boundary)));
+    assert!(stdout.contains(&field(
+        "source_adapter_selection_reason",
+        "inferred_at_read_ingest_boundary"
+    )));
+}
+
 #[cfg(feature = "universal-format-io")]
 fn assert_zero_column_reader_projection_count_star<F>(
     extension: &str,
@@ -198,7 +238,18 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
     assert!(stdout.contains(&field("execution_mode", "prepared_vortex")));
     assert!(stdout.contains(&field("runtime_execution", "true")));
     assert!(stdout.contains(&field("source_io_performed", "true")));
-    assert!(stdout.contains(&field("source_format", "csv")));
+    assert_inferred_adapter_evidence(
+        &stdout,
+        ExpectedAdapterEvidence {
+            source_format: "csv",
+            extension: ".csv",
+            adapter_id: "local_csv_input_adapter",
+            registry_entry_id: "shardloom.local_input_adapter.csv.v1",
+            admitted_extensions: ".csv",
+            feature_gate: "default",
+            boundary: "local_text_source_state_adapter",
+        },
+    );
     assert!(stdout.contains(&field("source_adapter_id", "local_csv_input_adapter")));
     assert!(stdout.contains(&field("ingress_route", "vortex_ingest")));
     assert!(stdout.contains(&field("vortex_ingest_status", "prepared_state_created")));
@@ -655,7 +706,18 @@ fn sql_local_source_smoke_executes_csv_projection_filter_limit_without_fallback(
     assert!(stdout.contains(&field("sql_planner_executed", "true")));
     assert!(stdout.contains(&field("sql_runtime_execution", "true")));
     assert!(stdout.contains(&field("source_io_performed", "true")));
-    assert!(stdout.contains(&field("source_format", "csv")));
+    assert_inferred_adapter_evidence(
+        &stdout,
+        ExpectedAdapterEvidence {
+            source_format: "csv",
+            extension: ".csv",
+            adapter_id: "local_csv_input_adapter",
+            registry_entry_id: "shardloom.local_input_adapter.csv.v1",
+            admitted_extensions: ".csv",
+            feature_gate: "default",
+            boundary: "local_text_source_state_adapter",
+        },
+    );
     assert!(stdout.contains(&field(
         "source_state_contract_schema_version",
         "shardloom.local_source_state.v1"
@@ -740,8 +802,18 @@ fn sql_local_source_smoke_executes_parquet_projection_filter_limit_with_source_s
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"command\":\"sql-local-source-smoke\""));
     assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field("source_format", "parquet")));
-    assert!(stdout.contains(&field("source_adapter_id", "local_parquet_input_adapter")));
+    assert_inferred_adapter_evidence(
+        &stdout,
+        ExpectedAdapterEvidence {
+            source_format: "parquet",
+            extension: ".parquet",
+            adapter_id: "local_parquet_input_adapter",
+            registry_entry_id: "shardloom.local_input_adapter.parquet.v1",
+            admitted_extensions: ".parquet",
+            feature_gate: "universal-format-io",
+            boundary: "local_columnar_source_state_adapter",
+        },
+    );
     assert!(stdout.contains(&field("source_adapter_status", "smoke_supported")));
     assert!(stdout.contains(&field("ingress_route", "direct_transient")));
     assert!(stdout.contains(&field(
@@ -5810,7 +5882,18 @@ fn sql_local_source_smoke_executes_is_not_null_predicates_without_fallback() {
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field("source_format", "jsonl")));
+    assert_inferred_adapter_evidence(
+        &stdout,
+        ExpectedAdapterEvidence {
+            source_format: "jsonl",
+            extension: ".jsonl",
+            adapter_id: "local_jsonl_input_adapter",
+            registry_entry_id: "shardloom.local_input_adapter.jsonl.v1",
+            admitted_extensions: ".jsonl,.ndjson",
+            feature_gate: "default",
+            boundary: "local_text_source_state_adapter",
+        },
+    );
     assert!(stdout.contains(&field("predicate_operator_family", "null_predicate")));
     assert!(stdout.contains(&field("filter_runtime_execution", "true")));
     assert!(stdout.contains(&field("null_predicate_runtime_execution", "true")));
@@ -6794,6 +6877,46 @@ fn sql_local_source_smoke_executes_jsonl_projection_filter_limit_with_source_sta
 }
 
 #[test]
+fn sql_local_source_smoke_infers_ndjson_as_jsonl_adapter_without_fallback() {
+    let source_path = unique_path("sql-local-source-ndjson", "ndjson");
+    fs::write(
+        &source_path,
+        "{\"id\":1,\"label\":\"alpha\",\"amount\":8}\n\
+         {\"id\":2,\"label\":\"beta\",\"amount\":15}\n",
+    )
+    .expect("write source ndjson");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE amount >= 10 LIMIT 1",
+        source_path.display()
+    );
+    let stdout = run_sql_local_source_smoke_json(&statement);
+
+    assert_inferred_adapter_evidence(
+        &stdout,
+        ExpectedAdapterEvidence {
+            source_format: "jsonl",
+            extension: ".ndjson",
+            adapter_id: "local_jsonl_input_adapter",
+            registry_entry_id: "shardloom.local_input_adapter.jsonl.v1",
+            admitted_extensions: ".jsonl,.ndjson",
+            feature_gate: "default",
+            boundary: "local_text_source_state_adapter",
+        },
+    );
+    assert!(stdout.contains(&field("input_row_count", "2")));
+    assert!(
+        stdout.contains(
+            "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n\""
+        )
+    );
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source ndjson");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_json_projection_filter_limit_with_source_state_evidence() {
     let source_path = unique_path("sql-local-source-json", "json");
     fs::write(
@@ -6823,9 +6946,19 @@ fn sql_local_source_smoke_executes_json_projection_filter_limit_with_source_stat
     );
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"status\":\"success\""));
-    assert!(stdout.contains(&field("source_format", "json")));
+    assert_inferred_adapter_evidence(
+        &stdout,
+        ExpectedAdapterEvidence {
+            source_format: "json",
+            extension: ".json",
+            adapter_id: "local_json_input_adapter",
+            registry_entry_id: "shardloom.local_input_adapter.json.v1",
+            admitted_extensions: ".json",
+            feature_gate: "default",
+            boundary: "local_text_source_state_adapter",
+        },
+    );
     assert!(stdout.contains(&field("source_kind", "local_non_vortex_file")));
-    assert!(stdout.contains(&field("source_adapter_id", "local_json_input_adapter")));
     assert!(stdout.contains(&field("source_adapter_status", "smoke_supported")));
     assert!(stdout.contains(&field("ingress_route", "direct_transient")));
     assert!(stdout.contains(&field("vortex_ingest_performed", "false")));
@@ -6874,6 +7007,44 @@ fn sql_local_source_smoke_executes_json_projection_filter_limit_with_source_stat
     assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
 
     fs::remove_file(source_path).expect("remove source json");
+}
+
+#[test]
+fn sql_local_source_smoke_blocks_unregistered_extension_before_reading_without_fallback() {
+    let source_path = unique_path("sql-local-source-unregistered-adapter", "sqlite");
+    let statement = format!("SELECT id FROM '{}' LIMIT 1", source_path.display());
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains(
+        "local input adapter registry cannot infer a supported source adapter from extension '.sqlite'"
+    ));
+    assert!(stdout.contains(
+        "admitted local source extensions are .csv,.json,.jsonl,.ndjson,.parquet,.arrow,.ipc,.feather,.avro,.orc"
+    ));
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+    assert!(
+        !source_path.exists(),
+        "format blocker should not require the source file to exist"
+    );
 }
 
 #[test]
@@ -8464,7 +8635,7 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
                 unsupported_fact_path.display(),
                 unsupported_dim_path.display()
             ),
-            "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC sources only in this slice",
+            "local input adapter registry cannot infer a supported source adapter from extension '.sqlite'",
         ),
     ];
 

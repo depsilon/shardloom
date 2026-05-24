@@ -16,6 +16,41 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F local input adapter registry inference runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-adapter-registry-runtime-20260524` / #938.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`.
+    - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest
+      attribution`.
+    - User direction to finish engine/runtime internals before final Python/user-surface cleanup,
+      with format-specific behavior confined to read/ingest and write/sink boundaries.
+  - Scope:
+    - Added a single `LocalInputAdapterSelection` path-extension registry for local source adapter
+      selection across SQL direct reads, joins, IN-subquery sources, and feature-gated
+      `vortex_ingest` structured ingress.
+    - Centralized adapter identity, registry entry IDs, admitted extensions, feature-gate labels,
+      and adapter-boundary labels on the runtime source-format descriptor instead of repeating
+      per-call format mappings.
+    - Extended SQL direct and prepared-ingest evidence with `source_format_inferred`,
+      `source_format_inference_kind`, `source_format_inference_extension`,
+      `source_format_inference_registry_route`, `source_adapter_registry_entry_id`,
+      `source_adapter_admitted_extensions`, `source_adapter_feature_gate`,
+      `source_adapter_boundary`, and `source_adapter_selection_reason`.
+    - Added right-side join adapter evidence for inferred source format, extension, adapter ID, and
+      registry entry where a second local source is present.
+    - Added deterministic unregistered-extension diagnostics that block before file reads and list
+      admitted local source extensions without invoking fallback execution.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy -p shardloom-cli --all-targets -- -D warnings`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke`
+  - Claim boundary:
+    - Local file path-extension adapter selection and evidence only. This does not claim broader
+      nested structured-type coverage, object-store/table/catalog input, persistent SourceState
+      cache, production package readiness, benchmark superiority, or a final simplified Python
+      `read(path)` user surface.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped local-source ranking window runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-ranking-window-runtime-20260524` / #937.
