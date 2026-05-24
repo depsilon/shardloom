@@ -3241,6 +3241,88 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_expression_join_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT f.id,d.segment FROM 'target/fact.csv' AS f INNER JOIN 'target/dim.csv' AS d ON f.amount > d.threshold ORDER BY f.id ASC,d.threshold ASC LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source expression join",
+                    "human_text": "sql local source expression join",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"f.id\\":2,\\"d.segment\\":\\"base\\"}\\n{\\"f.id\\":3,\\"d.segment\\":\\"base\\"}\\n{\\"f.id\\":3,\\"d.segment\\":\\"premium\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_inner_expression_join_order_by_topn_limit"},
+                        {"key": "join_runtime_execution", "value": "true"},
+                        {"key": "join_type", "value": "inner_expression"},
+                        {"key": "join_on_predicate_runtime_execution", "value": "true"},
+                        {"key": "join_on_predicate_operator_family", "value": "column_compare"},
+                        {"key": "join_on_predicate_source_column", "value": "f.amount,d.threshold"},
+                        {"key": "join_key_arity", "value": "0"},
+                        {"key": "join_multi_key_runtime_execution", "value": "false"},
+                        {"key": "join_matched_row_count", "value": "3"},
+                        {"key": "join_candidate_row_count", "value": "6"},
+                        {"key": "join_rows_output", "value": "3"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.inner-expression-join-order-by-topn-limit.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/fact.csv")
+            .join(ctx.read_csv("target/dim.csv"), condition="f.amount > d.threshold")
+            .select("f.id", "d.segment")
+            .sort("f.id", "d.threshold")
+            .limit(10)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertTrue(report.join_runtime_execution)
+        self.assertEqual(report.join_type, "inner_expression")
+        self.assertTrue(report.join_on_predicate_runtime_execution)
+        self.assertEqual(report.join_on_predicate_operator_family, "column_compare")
+        self.assertEqual(
+            report.join_on_predicate_source_columns, ("f.amount", "d.threshold")
+        )
+        self.assertEqual(report.join_key_arity, 0)
+        self.assertFalse(report.join_multi_key_runtime_execution)
+        self.assertEqual(report.join_matched_row_count, 3)
+        self.assertEqual(report.join_candidate_row_count, 6)
+        self.assertEqual(report.join_rows_output, 3)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
+    def test_local_csv_query_builder_rejects_ambiguous_join_condition_api(self) -> None:
+        ctx = ShardLoomContext(ShardLoomClient(binary=["definitely-missing-shardloom"]))
+        frame = ctx.read_csv("target/fact.csv")
+        dim = ctx.read_csv("target/dim.csv")
+
+        with self.assertRaisesRegex(ValueError, "either on= equi keys or condition="):
+            frame.join(dim, on="customer_id", condition="f.amount > d.threshold")
+
+        with self.assertRaisesRegex(ValueError, "cross joins do not accept condition="):
+            frame.join(dim, how="cross", condition="f.amount > d.threshold")
+
     def test_local_csv_query_builder_left_outer_join_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

@@ -856,7 +856,7 @@ multi-key grouped aggregate, grouped aggregate-output top-N,
 preview/head/take select-star, input-backed literal, scoped numeric arithmetic, scoped numeric
 ABS, scoped numeric rounding, and scoped UTF-8 string length `with_column`,
 multi-key scalar top-N, and scoped local-source join shapes covering inner, left/right/full outer,
-left semi/anti, and cross joins.
+left semi/anti, cross joins, and scoped expression-condition joins.
 Joined workflows also admit scoped computed projections over qualified columns plus multi-key
 scalar top-N over joined rows. Scoped scalar/grouped join aggregates over those same join shapes
 lower through the same runtime and may order by numeric aggregate output aliases or UTF-8 group
@@ -875,6 +875,9 @@ other local-source smokes. Use `join(..., on="key")` or
 `join(..., on=("customer_id", "region"))` for inner, left/right/full outer, left semi, or left
 anti joins over matching same-named key columns on both sides. Use `join(..., how="cross")`
 without `on` for a scoped cross join and place filters in `filter(...)` / SQL `WHERE`. Qualified
+expression joins use `join(..., condition="f.amount > d.threshold")` or direct SQL `ON`
+predicates; the condition must bind qualified columns from both sides and remains independent of
+the source file format. Qualified
 projection columns such as `f.id` and `d.segment`, a qualified predicate such as `f.amount >= 10`,
 and an explicit `limit(...)` are required. Left semi and left anti joins emit the left source only;
 right-side projections outside the `ON` clause fail closed. A joined workflow can add admitted
@@ -884,8 +887,8 @@ multi-key scalar joined top-N path. A joined workflow can also end in `agg(...).
 `group_by(...).agg(...).limit(...)` for the admitted scalar/grouped join-aggregate subset, and can
 place `sort("total_amount", descending=True).limit(n)` after those aggregates when the sort keys
 are numeric aggregate output aliases or UTF-8 group keys. Broad
-DataFrame joins remain blocked: expression joins, non-equi join predicates,
-unqualified join predicates, nested/complex structured data, and
+DataFrame joins remain blocked: arbitrary join predicate trees beyond the admitted expression ON
+families, unqualified join predicates, nested/complex structured data, and
 object-store/table joins still return deterministic unsupported diagnostics or
 fail closed through the scoped SQL binder.
 
@@ -1007,7 +1010,8 @@ null ordering, collation parity,
 broader correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source query-builder bridge, broad expression-backed input-backed `with_column`,
-expression/non-equi joins, broad SQL/DataFrame planning, and
+arbitrary expression/non-equi join predicates beyond the admitted expression ON families, broad
+SQL/DataFrame planning, and
 production query support remain blocked until later runtime slices.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A

@@ -2212,12 +2212,20 @@ class LazyFrame:
         other: "LazyFrame | str",
         *,
         on: str | Sequence[str] | None = None,
+        condition: str | None = None,
         how: str = "inner",
         check: bool = False,
     ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
         """Return a scoped local-source join workflow when admitted."""
 
         normalized_how = _normalize_join_how(how)
+        if on is not None and condition is not None:
+            raise ValueError("join() accepts either on= equi keys or condition=, not both")
+        normalized_condition = (
+            None if condition is None else _normalize_join_condition(condition)
+        )
+        if normalized_how == "cross" and normalized_condition is not None:
+            raise ValueError("cross joins do not accept condition=; use filter() after join()")
         normalized_columns = (
             ()
             if on is None
@@ -2240,17 +2248,25 @@ class LazyFrame:
             right_uri = _require_non_empty("join right source", other)
             right_summary = right_uri
             right_source_local = _source_format_for_local_source_ref(right_uri) is not None
-        target = f"{normalized_how}:{columns}:{right_summary}"
+        target = f"{normalized_how}:{columns}:{normalized_condition or ''}:{right_summary}"
         if (
             _is_query_builder_local_source(self.source)
             and right_source_local
             and not right_operations
-            and (normalized_columns or normalized_how == "cross")
+            and (normalized_columns or normalized_condition is not None or normalized_how == "cross")
         ):
             return self._append(
                 WorkflowOperation(
                     "join",
-                    (right_uri, columns, columns, normalized_how, "f", "d"),
+                    (
+                        right_uri,
+                        columns,
+                        columns,
+                        normalized_how,
+                        "f",
+                        "d",
+                        normalized_condition or "",
+                    ),
                 )
             )
         return self._unsupported_operation("join", target, check=check)
@@ -2617,7 +2633,7 @@ class LazyFrame:
         aggregate_list: tuple[str, ...] | None = None
         group_by_list: tuple[str, ...] | None = None
         literal_columns: list[tuple[str, str]] = []
-        join_info: tuple[str, str, str, str, str, str] | None = None
+        join_info: tuple[str, ...] | None = None
         sort_key: tuple[str, tuple[str, ...]] | None = None
         predicate: str | None = None
         limit: str | None = None
@@ -2649,13 +2665,31 @@ class LazyFrame:
         if group_by_list is not None and aggregate_list is None:
             return None
         if join_info is not None:
-            right_uri, left_key, right_key, how, left_alias, right_alias = join_info
+            if len(join_info) == 6:
+                right_uri, left_key, right_key, how, left_alias, right_alias = join_info
+                join_condition = ""
+            elif len(join_info) == 7:
+                (
+                    right_uri,
+                    left_key,
+                    right_key,
+                    how,
+                    left_alias,
+                    right_alias,
+                    join_condition,
+                ) = join_info
+            else:
+                return None
             left_keys = tuple(column for column in left_key.split(",") if column)
             right_keys = tuple(column for column in right_key.split(",") if column)
             if how == "cross":
-                if left_keys or right_keys:
+                if left_keys or right_keys or join_condition:
                     return None
                 on_clause = ""
+            elif join_condition:
+                if left_keys or right_keys:
+                    return None
+                on_clause = f" ON {join_condition}"
             elif len(left_keys) != len(right_keys) or not left_keys:
                 return None
             else:
@@ -4887,6 +4921,13 @@ def _quote_sql_local_source_path(value: str) -> str:
             "by the scoped Python query-builder smoke"
         )
     return f"'{path}'"
+
+
+def _normalize_join_condition(value: str) -> str:
+    condition = _require_non_empty("join condition", value).strip()
+    if ";" in condition:
+        raise ValueError("join condition cannot contain statement separators")
+    return condition
 
 
 def _format_order_by_clause(columns: tuple[str, ...], direction: str) -> str:

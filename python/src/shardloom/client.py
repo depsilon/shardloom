@@ -2830,6 +2830,27 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field("join_type")
 
     @property
+    def join_on_predicate_runtime_execution(self) -> bool:
+        """Whether this smoke executed a non-equi/expression ON predicate."""
+
+        return (
+            self.envelope.field_bool("join_on_predicate_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def join_on_predicate_operator_family(self) -> str | None:
+        """Return the expression ON predicate operator family emitted by the smoke."""
+
+        return self.envelope.field("join_on_predicate_operator_family")
+
+    @property
+    def join_on_predicate_source_columns(self) -> tuple[str, ...]:
+        """Return source columns referenced by the expression ON predicate."""
+
+        return _csv_values(self.envelope.field("join_on_predicate_source_column", ""))
+
+    @property
     def join_left_key(self) -> str | None:
         """Return the left join key emitted by the smoke."""
 

@@ -7052,6 +7052,133 @@ fn sql_local_source_smoke_executes_cross_join_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_inner_expression_join_without_fallback() {
+    let fact_path = unique_path("sql-local-source-expression-join-fact", "csv");
+    let dim_path = unique_path("sql-local-source-expression-join-dim", "csv");
+    fs::write(&fact_path, "id,amount\n1,8\n2,15\n3,21\n").expect("write fact csv");
+    fs::write(&dim_path, "threshold,segment\n10,base\n20,premium\n").expect("write dim csv");
+
+    let statement = format!(
+        "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.amount > d.threshold ORDER BY f.id ASC,d.threshold ASC LIMIT 10",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let stdout = run_sql_local_source_smoke_json(&statement);
+
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_inner_expression_join_order_by_topn_limit"
+    )));
+    assert!(stdout.contains(&field("join_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_type", "inner_expression")));
+    assert!(stdout.contains(&field("join_on_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "join_on_predicate_operator_family",
+        "column_compare"
+    )));
+    assert!(stdout.contains(&field(
+        "join_on_predicate_source_column",
+        "f.amount,d.threshold"
+    )));
+    assert!(stdout.contains(&field("join_key_arity", "0")));
+    assert!(stdout.contains(&field("join_matched_row_count", "3")));
+    assert!(stdout.contains(&field("join_candidate_row_count", "6")));
+    assert!(stdout.contains(&field("join_unmatched_left_row_count", "0")));
+    assert!(stdout.contains(&field("join_unmatched_right_row_count", "0")));
+    assert!(stdout.contains(&field("join_rows_output", "3")));
+    assert!(stdout.contains(&field("selected_row_count", "3")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"f.id\\\":2,\\\"d.segment\\\":\\\"base\\\"}\\n{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"base\\\"}\\n{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"premium\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.inner-expression-join-order-by-topn-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let generic_statement = format!(
+        "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.amount + d.threshold >= 35 LIMIT 10",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let generic_stdout = run_sql_local_source_smoke_json(&generic_statement);
+
+    assert!(generic_stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_inner_expression_join_limit"
+    )));
+    assert!(generic_stdout.contains(&field("join_type", "inner_expression")));
+    assert!(generic_stdout.contains(&field("join_on_predicate_runtime_execution", "true")));
+    assert!(generic_stdout.contains(&field(
+        "join_on_predicate_operator_family",
+        "generic_expression"
+    )));
+    assert!(generic_stdout.contains(&field(
+        "join_on_predicate_source_column",
+        "d.threshold,f.amount"
+    )));
+    assert!(generic_stdout.contains(&field("join_candidate_row_count", "6")));
+    assert!(generic_stdout.contains(&field("join_matched_row_count", "2")));
+    assert!(generic_stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"f.id\\\":2,\\\"d.segment\\\":\\\"premium\\\"}\\n{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"premium\\\"}\\n\""
+    ));
+    assert!(generic_stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.inner-expression-join-limit.execution.v1"
+    )));
+    assert!(generic_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(generic_stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_left_outer_expression_join_without_fallback() {
+    let fact_path = unique_path("sql-local-source-left-expression-join-fact", "csv");
+    let dim_path = unique_path("sql-local-source-left-expression-join-dim", "csv");
+    fs::write(&fact_path, "id,amount\n1,8\n2,15\n3,21\n").expect("write fact csv");
+    fs::write(&dim_path, "threshold,segment\n10,base\n20,premium\n").expect("write dim csv");
+
+    let statement = format!(
+        "SELECT f.id,d.segment FROM '{}' AS f LEFT JOIN '{}' AS d ON f.amount > d.threshold ORDER BY f.id ASC LIMIT 10",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let stdout = run_sql_local_source_smoke_json(&statement);
+
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_left_outer_expression_join_order_by_topn_limit"
+    )));
+    assert!(stdout.contains(&field("join_type", "left_outer_expression")));
+    assert!(stdout.contains(&field("join_on_predicate_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "join_on_predicate_operator_family",
+        "column_compare"
+    )));
+    assert!(stdout.contains(&field("join_key_arity", "0")));
+    assert!(stdout.contains(&field("join_matched_row_count", "3")));
+    assert!(stdout.contains(&field("join_candidate_row_count", "6")));
+    assert!(stdout.contains(&field("join_unmatched_left_row_count", "1")));
+    assert!(stdout.contains(&field("join_unmatched_right_row_count", "0")));
+    assert!(stdout.contains(&field("join_rows_output", "4")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"f.id\\\":1,\\\"d.segment\\\":null}\\n{\\\"f.id\\\":2,\\\"d.segment\\\":\\\"base\\\"}\\n{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"base\\\"}\\n{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"premium\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.left-outer-expression-join-order-by-topn-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_multi_key_inner_equi_join_without_fallback() {
     let fact_path = unique_path("sql-local-source-multi-key-join-fact", "csv");
     let dim_path = unique_path("sql-local-source-multi-key-join-dim", "csv");
@@ -7977,11 +8104,11 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
         ),
         (
             format!(
-                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id <> d.customer_id WHERE f.amount >= 0 LIMIT 10",
+                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id = 10 WHERE f.amount >= 0 LIMIT 10",
                 fact_path.display(),
                 dim_path.display()
             ),
-            "JOIN smoke admits equi-join ON predicates only",
+            "SQL identifiers must start with an ASCII letter or underscore",
         ),
         (
             format!(
@@ -7993,11 +8120,11 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
         ),
         (
             format!(
-                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.customer_id + 1 = d.customer_id WHERE f.amount >= 0 LIMIT 10",
+                "SELECT f.id,d.segment FROM '{}' AS f JOIN '{}' AS d ON f.amount > f.id WHERE f.amount >= 0 LIMIT 10",
                 fact_path.display(),
                 dim_path.display()
             ),
-            "JOIN smoke admits equi-join ON predicates only",
+            "JOIN expression ON predicates must reference both left and right sources",
         ),
         (
             format!(
@@ -8013,7 +8140,7 @@ fn sql_local_source_smoke_blocks_unsupported_join_shapes_without_fallback() {
                 fact_path.display(),
                 dim_path.display()
             ),
-            "qualified JOIN columns must use <alias>.<column> syntax",
+            "JOIN smoke requires left source syntax <local-source> AS <alias>",
         ),
         (
             format!(

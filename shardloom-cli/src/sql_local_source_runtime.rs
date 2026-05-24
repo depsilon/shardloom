@@ -575,12 +575,14 @@ struct ParsedOrderKey {
     direction: SortDirection,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 struct ParsedJoin {
     join_type: ParsedJoinType,
     right_source_path: PathBuf,
     right_alias: String,
     key_pairs: Vec<ParsedJoinKeyPair>,
+    on_predicate: Option<ParsedPredicate>,
+    on_predicate_family: ParsedJoinOnPredicateFamily,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -594,13 +596,29 @@ enum ParsedJoinType {
     Cross,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ParsedJoinOnPredicateFamily {
+    NotApplicable,
+    EquiKeys,
+    ColumnCompare,
+    GenericExpression,
+    Logical,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ParsedJoinKeyPair {
     left: QualifiedColumn,
     right: QualifiedColumn,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
+struct ParsedJoinOn {
+    key_pairs: Vec<ParsedJoinKeyPair>,
+    predicate: Option<ParsedPredicate>,
+    predicate_family: ParsedJoinOnPredicateFamily,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 struct ParsedSourceClause {
     source_path: PathBuf,
     source_alias: Option<String>,
@@ -796,6 +814,11 @@ enum ParsedPredicate {
         column: String,
         op: ComparisonOp,
         value: ScalarValue,
+    },
+    ColumnCompare {
+        left_column: String,
+        op: ComparisonOp,
+        right_column: String,
     },
     CastCompare {
         column: String,
@@ -1549,9 +1572,20 @@ type SqlOutputRows = Vec<SqlOutputRow>;
 #[derive(Debug, Clone, PartialEq)]
 struct JoinEvaluationOutput {
     joined_row_count: usize,
+    candidate_row_count: usize,
     unmatched_left_row_count: usize,
     unmatched_right_row_count: usize,
     selected_row_count: usize,
+    output_rows: Vec<Vec<(String, ScalarValue)>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct SqlLocalSourceEvaluationOutput {
+    selected_row_count: usize,
+    joined_row_count: usize,
+    candidate_row_count: usize,
+    unmatched_left_row_count: usize,
+    unmatched_right_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
 }
 
@@ -1563,6 +1597,7 @@ struct SqlLocalSourceReport {
     right_source: Option<CsvSourceData>,
     selected_row_count: usize,
     joined_row_count: usize,
+    candidate_row_count: usize,
     unmatched_left_row_count: usize,
     unmatched_right_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
@@ -2790,36 +2825,20 @@ fn run_sql_local_source_smoke(
     validate_nullif_projection_values(&parsed, &source, right_source.as_ref())?;
 
     let compute_start = Instant::now();
-    let (
-        selected_row_count,
-        joined_row_count,
-        unmatched_left_row_count,
-        unmatched_right_row_count,
-        output_rows,
-    ) = if let Some(right_source) = right_source.as_ref() {
-        let join_output = evaluate_join_output(&parsed, &source, right_source)?;
-        (
-            join_output.selected_row_count,
-            join_output.joined_row_count,
-            join_output.unmatched_left_row_count,
-            join_output.unmatched_right_row_count,
-            join_output.output_rows,
-        )
-    } else {
-        let (selected_row_count, output_rows) = evaluate_non_join_output(&parsed, &source)?;
-        (selected_row_count, 0, 0, 0, output_rows)
-    };
+    let evaluated_output =
+        evaluate_sql_local_source_output(&parsed, &source, right_source.as_ref())?;
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
     let output_columns = output_column_names(&parsed, &source);
-    let result_jsonl = rows_to_jsonl(&output_rows);
+    let result_jsonl = rows_to_jsonl(&evaluated_output.output_rows);
     let result_digest = fnv64_digest(&result_jsonl);
     let inline_output_content = request
         .output_format
-        .inline_result_rows(&output_columns, &output_rows)?;
+        .inline_result_rows(&output_columns, &evaluated_output.output_rows)?;
     let inline_output_digest = fnv64_digest_bytes(&inline_output_content);
-    let prepared_outputs = prepare_sql_outputs(request, &output_columns, &output_rows)?;
+    let prepared_outputs =
+        prepare_sql_outputs(request, &output_columns, &evaluated_output.output_rows)?;
     let source_schema_digest = fnv64_digest(&source.header.join(","));
     let plan_digest = sql_local_source_plan_digest(
         &parsed,
@@ -2834,7 +2853,7 @@ fn run_sql_local_source_smoke(
     let written_outputs = write_sql_outputs(
         prepared_outputs,
         &output_columns,
-        &output_rows,
+        &evaluated_output.output_rows,
         request.allow_overwrite,
     )?;
     let output_write_millis = written_outputs
@@ -2853,11 +2872,12 @@ fn run_sql_local_source_smoke(
         parsed,
         source,
         right_source,
-        selected_row_count,
-        joined_row_count,
-        unmatched_left_row_count,
-        unmatched_right_row_count,
-        output_rows,
+        selected_row_count: evaluated_output.selected_row_count,
+        joined_row_count: evaluated_output.joined_row_count,
+        candidate_row_count: evaluated_output.candidate_row_count,
+        unmatched_left_row_count: evaluated_output.unmatched_left_row_count,
+        unmatched_right_row_count: evaluated_output.unmatched_right_row_count,
+        output_rows: evaluated_output.output_rows,
         result_jsonl,
         plan_digest,
         source_schema_digest,
@@ -2870,6 +2890,34 @@ fn run_sql_local_source_smoke(
         evidence_render_millis,
         total_runtime_millis: total_start.elapsed().as_millis(),
     })
+}
+
+fn evaluate_sql_local_source_output(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+    right_source: Option<&CsvSourceData>,
+) -> Result<SqlLocalSourceEvaluationOutput, ShardLoomError> {
+    if let Some(right_source) = right_source {
+        let join_output = evaluate_join_output(parsed, source, right_source)?;
+        Ok(SqlLocalSourceEvaluationOutput {
+            selected_row_count: join_output.selected_row_count,
+            joined_row_count: join_output.joined_row_count,
+            candidate_row_count: join_output.candidate_row_count,
+            unmatched_left_row_count: join_output.unmatched_left_row_count,
+            unmatched_right_row_count: join_output.unmatched_right_row_count,
+            output_rows: join_output.output_rows,
+        })
+    } else {
+        let (selected_row_count, output_rows) = evaluate_non_join_output(parsed, source)?;
+        Ok(SqlLocalSourceEvaluationOutput {
+            selected_row_count,
+            joined_row_count: 0,
+            candidate_row_count: 0,
+            unmatched_left_row_count: 0,
+            unmatched_right_row_count: 0,
+            output_rows,
+        })
+    }
 }
 
 fn sql_local_source_plan_digest(
@@ -2962,6 +3010,7 @@ fn materialize_in_subquery_predicates(
         ParsedPredicate::Not { inner } => materialize_in_subquery_predicates(inner),
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
+        | ParsedPredicate::ColumnCompare { .. }
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::NumericAbsCompare { .. }
@@ -3710,6 +3759,11 @@ fn evaluate_join_output(
     } else {
         Some(parsed.predicate.to_expression()?)
     };
+    let on_predicate_expression = join
+        .on_predicate
+        .as_ref()
+        .map(ParsedPredicate::to_expression)
+        .transpose()?;
     let projection_expressions = if parsed.is_aggregate() {
         Vec::new()
     } else {
@@ -3720,12 +3774,15 @@ fn evaluate_join_output(
         left_alias,
         left_source,
         right_source,
+        on_predicate_expression: on_predicate_expression.as_ref(),
         predicate_expression: predicate_expression.as_ref(),
     };
     let mut accumulator = JoinRowAccumulator::default();
 
     if join.join_type == ParsedJoinType::Cross {
         collect_cross_join_rows(&mut accumulator, &join_context, &mut right_matched_rows)?;
+    } else if join.uses_expression_on() {
+        collect_expression_join_rows(&mut accumulator, &join_context, &mut right_matched_rows)?;
     } else {
         collect_equi_join_rows(
             &mut accumulator,
@@ -3740,6 +3797,7 @@ fn evaluate_join_output(
 
     Ok(JoinEvaluationOutput {
         joined_row_count: accumulator.joined_row_count,
+        candidate_row_count: accumulator.candidate_row_count,
         unmatched_left_row_count: accumulator.unmatched_left_row_count,
         unmatched_right_row_count: accumulator.unmatched_right_row_count,
         selected_row_count: accumulator.selected_row_count,
@@ -3752,12 +3810,14 @@ struct JoinEvaluationContext<'a> {
     left_alias: &'a str,
     left_source: &'a CsvSourceData,
     right_source: &'a CsvSourceData,
+    on_predicate_expression: Option<&'a Expression>,
     predicate_expression: Option<&'a Expression>,
 }
 
 #[derive(Default)]
 struct JoinRowAccumulator {
     joined_row_count: usize,
+    candidate_row_count: usize,
     unmatched_left_row_count: usize,
     unmatched_right_row_count: usize,
     selected_row_count: usize,
@@ -3824,10 +3884,34 @@ impl JoinRowAccumulator {
     }
 
     fn increment_joined_candidate(&mut self) -> Result<(), ShardLoomError> {
+        self.increment_candidate()?;
         self.joined_row_count = self.joined_row_count.checked_add(1).ok_or_else(|| {
+            unsupported_sql_error("JOIN matched row count overflowed scoped smoke accounting")
+        })?;
+        Ok(())
+    }
+
+    fn increment_candidate(&mut self) -> Result<(), ShardLoomError> {
+        self.candidate_row_count = self.candidate_row_count.checked_add(1).ok_or_else(|| {
             unsupported_sql_error("JOIN candidate row count overflowed scoped smoke accounting")
         })?;
-        enforce_join_candidate_cap(self.joined_row_count)
+        enforce_join_candidate_cap(self.candidate_row_count)
+    }
+
+    fn increment_matched(&mut self) -> Result<(), ShardLoomError> {
+        self.joined_row_count = self.joined_row_count.checked_add(1).ok_or_else(|| {
+            unsupported_sql_error("JOIN matched row count overflowed scoped smoke accounting")
+        })?;
+        Ok(())
+    }
+
+    fn push_matched_join_row(
+        &mut self,
+        context: &JoinEvaluationContext<'_>,
+        joined_row: ExpressionInputRow,
+    ) -> Result<(), ShardLoomError> {
+        self.increment_matched()?;
+        self.push_if_selected(context.predicate_expression, joined_row)
     }
 
     fn push_if_selected(
@@ -3857,6 +3941,49 @@ fn collect_cross_join_rows(
         }
     }
     Ok(())
+}
+
+fn collect_expression_join_rows(
+    accumulator: &mut JoinRowAccumulator,
+    context: &JoinEvaluationContext<'_>,
+    right_matched_rows: &mut [bool],
+) -> Result<(), ShardLoomError> {
+    let Some(on_expression) = context.on_predicate_expression else {
+        return Err(ShardLoomError::InvalidOperation(
+            "expression join evaluation requested without ON expression".to_string(),
+        ));
+    };
+    for left_row in &context.left_source.rows {
+        let mut left_match_count = 0usize;
+        for (right_index, right_row) in context.right_source.rows.iter().enumerate() {
+            accumulator.increment_candidate()?;
+            let joined_row = qualified_join_row(
+                context.left_alias,
+                &context.left_source.header,
+                left_row,
+                &context.join.right_alias,
+                &context.right_source.header,
+                right_row,
+            );
+            if evaluate_join_predicate(Some(on_expression), &joined_row)? {
+                left_match_count += 1;
+                if let Some(matched) = right_matched_rows.get_mut(right_index) {
+                    *matched = true;
+                }
+                if context.join.join_type.emits_matched_pairs() {
+                    accumulator.push_matched_join_row(context, joined_row)?;
+                } else {
+                    accumulator.increment_matched()?;
+                }
+            }
+        }
+        if context.join.join_type == ParsedJoinType::LeftSemiEqui && left_match_count > 0 {
+            accumulator.push_left_source_only(context, left_row)?;
+        } else if left_match_count == 0 && context.join.join_type.preserves_unmatched_left() {
+            accumulator.push_unmatched_left(context, left_row)?;
+        }
+    }
+    collect_unmatched_right_rows(accumulator, context, right_matched_rows)
 }
 
 fn collect_equi_join_rows(
@@ -4116,7 +4243,7 @@ fn build_join_right_rows_by_key<'a>(
     right_source: &'a CsvSourceData,
 ) -> Result<JoinRightRowsByKey<'a>, ShardLoomError> {
     let mut right_rows_by_key: JoinRightRowsByKey<'_> = BTreeMap::new();
-    if !join.join_type.requires_equi_on() {
+    if !join.join_type.requires_equi_on() || join.uses_expression_on() {
         return Ok(right_rows_by_key);
     }
     for (right_index, right_row) in right_source.rows.iter().enumerate() {
@@ -4573,6 +4700,7 @@ fn apply_temporal_difference_predicate_coercions(
         }
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
+        | ParsedPredicate::ColumnCompare { .. }
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::NumericAbsCompare { .. }
@@ -4668,6 +4796,7 @@ fn apply_date_literal_predicate_coercions(
         }
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
+        | ParsedPredicate::ColumnCompare { .. }
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::NumericAbsCompare { .. }
@@ -4734,6 +4863,7 @@ fn apply_timestamp_literal_predicate_coercions(
         }
         ParsedPredicate::All
         | ParsedPredicate::Compare { .. }
+        | ParsedPredicate::ColumnCompare { .. }
         | ParsedPredicate::CastCompare { .. }
         | ParsedPredicate::NumericArithmeticCompare { .. }
         | ParsedPredicate::NumericAbsCompare { .. }
@@ -6163,6 +6293,7 @@ fn bind_join_sql_local_source(
         validate_join_order_by_source(parsed, &qualified_header)?;
     }
     validate_join_key_pairs(join, left_alias, left_header, right_header)?;
+    validate_join_on_predicate_sources(join, left_alias, left_header, right_header)?;
     validate_join_type_surface(parsed, left_alias)?;
     if parsed.is_grouped_aggregate() {
         validate_join_grouped_aggregate_sources(
@@ -6294,6 +6425,53 @@ fn validate_join_key_pairs(
                 key_pair.right.column
             )));
         }
+    }
+    Ok(())
+}
+
+fn validate_join_on_predicate_sources(
+    join: &ParsedJoin,
+    left_alias: &str,
+    left_header: &[String],
+    right_header: &[String],
+) -> Result<(), ShardLoomError> {
+    let Some(predicate) = join.on_predicate.as_ref() else {
+        return Ok(());
+    };
+    let mut references_left = false;
+    let mut references_right = false;
+    for column_ref in predicate.columns() {
+        let qualified = parse_qualified_column_ref(column_ref)?;
+        if qualified.alias == left_alias {
+            references_left = true;
+            if !left_header
+                .iter()
+                .any(|candidate| candidate == &qualified.column)
+            {
+                return Err(unsupported_sql_error(&format!(
+                    "JOIN ON left predicate column {column_ref:?} is not present in the left source header"
+                )));
+            }
+        } else if qualified.alias == join.right_alias {
+            references_right = true;
+            if !right_header
+                .iter()
+                .any(|candidate| candidate == &qualified.column)
+            {
+                return Err(unsupported_sql_error(&format!(
+                    "JOIN ON right predicate column {column_ref:?} is not present in the right source header"
+                )));
+            }
+        } else {
+            return Err(unsupported_sql_error(&format!(
+                "JOIN ON predicate column {column_ref:?} does not use an admitted JOIN alias"
+            )));
+        }
+    }
+    if !references_left || !references_right {
+        return Err(unsupported_sql_error(
+            "JOIN expression ON predicates must reference both left and right sources",
+        ));
     }
     Ok(())
 }
@@ -7817,20 +7995,40 @@ impl QualifiedColumn {
 }
 
 impl ParsedJoin {
-    fn statement_join_prefix(&self) -> &'static str {
-        self.join_type.statement_prefix()
+    fn statement_join_prefix(&self) -> String {
+        if self.uses_expression_on() {
+            self.join_type.expression_statement_prefix().to_string()
+        } else {
+            self.join_type.statement_prefix().to_string()
+        }
     }
 
-    fn certificate_join_prefix(&self) -> &'static str {
-        self.join_type.certificate_prefix()
+    fn certificate_join_prefix(&self) -> String {
+        if self.uses_expression_on() {
+            self.join_type.expression_certificate_prefix().to_string()
+        } else {
+            self.join_type.certificate_prefix().to_string()
+        }
     }
 
-    fn claim_join_prefix(&self) -> &'static str {
-        self.join_type.claim_prefix()
+    fn claim_join_prefix(&self) -> String {
+        if self.uses_expression_on() {
+            self.join_type.expression_claim_prefix().to_string()
+        } else {
+            self.join_type.claim_prefix().to_string()
+        }
     }
 
-    fn kind(&self) -> &'static str {
-        self.join_type.as_str()
+    fn kind(&self) -> String {
+        if self.uses_expression_on() {
+            self.join_type.expression_as_str().to_string()
+        } else {
+            self.join_type.as_str().to_string()
+        }
+    }
+
+    fn uses_expression_on(&self) -> bool {
+        self.on_predicate.is_some()
     }
 
     fn key_arity(&self) -> usize {
@@ -7856,6 +8054,17 @@ impl ParsedJoin {
             .collect::<Vec<_>>()
             .join(",")
     }
+
+    fn on_predicate_source_columns(&self) -> String {
+        self.on_predicate
+            .as_ref()
+            .map(|predicate| predicate.columns().join(","))
+            .unwrap_or_default()
+    }
+
+    fn on_predicate_family(&self) -> &'static str {
+        self.on_predicate_family.as_str()
+    }
 }
 
 impl ParsedJoinType {
@@ -7867,6 +8076,18 @@ impl ParsedJoinType {
             Self::FullOuterEqui => "full_outer_equi",
             Self::LeftSemiEqui => "left_semi_equi",
             Self::LeftAntiEqui => "left_anti_equi",
+            Self::Cross => "cross",
+        }
+    }
+
+    const fn expression_as_str(self) -> &'static str {
+        match self {
+            Self::InnerEqui => "inner_expression",
+            Self::LeftOuterEqui => "left_outer_expression",
+            Self::RightOuterEqui => "right_outer_expression",
+            Self::FullOuterEqui => "full_outer_expression",
+            Self::LeftSemiEqui => "left_semi_expression",
+            Self::LeftAntiEqui => "left_anti_expression",
             Self::Cross => "cross",
         }
     }
@@ -7883,6 +8104,18 @@ impl ParsedJoinType {
         }
     }
 
+    const fn expression_statement_prefix(self) -> &'static str {
+        match self {
+            Self::InnerEqui => "inner_expression_join",
+            Self::LeftOuterEqui => "left_outer_expression_join",
+            Self::RightOuterEqui => "right_outer_expression_join",
+            Self::FullOuterEqui => "full_outer_expression_join",
+            Self::LeftSemiEqui => "left_semi_expression_join",
+            Self::LeftAntiEqui => "left_anti_expression_join",
+            Self::Cross => "cross_join",
+        }
+    }
+
     const fn certificate_prefix(self) -> &'static str {
         match self {
             Self::InnerEqui => "inner-equi-join",
@@ -7895,6 +8128,18 @@ impl ParsedJoinType {
         }
     }
 
+    const fn expression_certificate_prefix(self) -> &'static str {
+        match self {
+            Self::InnerEqui => "inner-expression-join",
+            Self::LeftOuterEqui => "left-outer-expression-join",
+            Self::RightOuterEqui => "right-outer-expression-join",
+            Self::FullOuterEqui => "full-outer-expression-join",
+            Self::LeftSemiEqui => "left-semi-expression-join",
+            Self::LeftAntiEqui => "left-anti-expression-join",
+            Self::Cross => "cross-join",
+        }
+    }
+
     const fn claim_prefix(self) -> &'static str {
         match self {
             Self::InnerEqui => "inner_equi_join",
@@ -7903,6 +8148,18 @@ impl ParsedJoinType {
             Self::FullOuterEqui => "full_outer_equi_join",
             Self::LeftSemiEqui => "left_semi_equi_join",
             Self::LeftAntiEqui => "left_anti_equi_join",
+            Self::Cross => "cross_join",
+        }
+    }
+
+    const fn expression_claim_prefix(self) -> &'static str {
+        match self {
+            Self::InnerEqui => "inner_expression_join",
+            Self::LeftOuterEqui => "left_outer_expression_join",
+            Self::RightOuterEqui => "right_outer_expression_join",
+            Self::FullOuterEqui => "full_outer_expression_join",
+            Self::LeftSemiEqui => "left_semi_expression_join",
+            Self::LeftAntiEqui => "left_anti_expression_join",
             Self::Cross => "cross_join",
         }
     }
@@ -7943,6 +8200,18 @@ impl SortDirection {
     }
 }
 
+impl ParsedJoinOnPredicateFamily {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::NotApplicable => "not_applicable",
+            Self::EquiKeys => "equi_keys",
+            Self::ColumnCompare => "column_compare",
+            Self::GenericExpression => "generic_expression",
+            Self::Logical => "logical",
+        }
+    }
+}
+
 impl ParsedPredicate {
     const fn is_all(&self) -> bool {
         matches!(self, Self::All)
@@ -7974,6 +8243,14 @@ impl ParsedPredicate {
             | Self::InSubquery { column, .. }
             | Self::StringMatch { column, .. }
             | Self::StringTransformCompare { column, .. } => columns.push(column),
+            Self::ColumnCompare {
+                left_column,
+                right_column,
+                ..
+            } => {
+                columns.push(left_column);
+                columns.push(right_column);
+            }
             Self::StringFunctionCompare { source_columns, .. }
             | Self::GenericExpressionCompare { source_columns, .. } => {
                 columns.extend(source_columns.iter().map(String::as_str));
@@ -7993,6 +8270,11 @@ impl ParsedPredicate {
                     .to_string(),
             )),
             Self::Compare { column, op, value } => compare_expression(column, *op, value),
+            Self::ColumnCompare {
+                left_column,
+                op,
+                right_column,
+            } => column_compare_expression(left_column, *op, right_column),
             Self::CastCompare { .. } => self.cast_compare_expression(),
             Self::NumericArithmeticCompare {
                 column,
@@ -8121,7 +8403,7 @@ impl ParsedPredicate {
     fn family(&self) -> &'static str {
         match self {
             Self::All => "none",
-            Self::Compare { .. } => "comparison",
+            Self::Compare { .. } | Self::ColumnCompare { .. } => "comparison",
             Self::CastCompare { .. } => "cast",
             Self::NumericArithmeticCompare { .. } => "numeric_arithmetic",
             Self::NumericAbsCompare { .. } => "numeric_abs",
@@ -8152,6 +8434,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_null_predicate(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8192,6 +8475,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_null_predicate_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8231,6 +8515,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_null_predicate_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8259,6 +8544,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_boolean_predicate(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8318,6 +8604,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_boolean_predicate_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8358,6 +8645,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_boolean_predicate_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8413,6 +8701,7 @@ impl ParsedPredicate {
             }
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8443,6 +8732,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_string_predicate(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8483,6 +8773,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_string_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8512,6 +8803,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_string_transform(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8552,6 +8844,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_string_transform_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8592,6 +8885,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_string_transform_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8621,6 +8915,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_string_length(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8661,6 +8956,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_string_length_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8703,6 +8999,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_string_length_rhs_dtypes(dtypes),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8732,6 +9029,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_string_function(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8772,6 +9070,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_string_function_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8814,6 +9113,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_string_function_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8856,6 +9156,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_string_function_literal_counts(counts),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8898,6 +9199,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_string_function_rhs_dtypes(dtypes),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -8927,6 +9229,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_numeric_arithmetic(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -8967,6 +9270,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_numeric_arithmetic_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -9007,6 +9311,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_numeric_arithmetic_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -9049,6 +9354,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_numeric_arithmetic_rhs_dtypes(dtypes),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -9078,6 +9384,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_numeric_abs(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -9118,6 +9425,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_numeric_abs_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -9160,6 +9468,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_numeric_abs_rhs_dtypes(dtypes),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -9189,6 +9498,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_numeric_rounding(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9229,6 +9539,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_numeric_rounding_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9269,6 +9580,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_numeric_rounding_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9311,6 +9623,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_numeric_rounding_rhs_dtypes(dtypes),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9340,6 +9653,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_generic_expression(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9382,6 +9696,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_generic_expression_source_columns(groups),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9426,6 +9741,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_generic_expression_operator_families(groups),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9459,6 +9775,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.generic_expression_binary_operator_count(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9501,6 +9818,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_generic_expression_comparison_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9548,6 +9866,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_date_literal(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9574,6 +9893,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_cast(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -9610,6 +9930,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_cast_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -9652,6 +9973,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_cast_target_dtypes(dtypes),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -9692,6 +10014,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_cast_modes(modes),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
             | Self::NumericRoundingCompare { .. }
@@ -9722,6 +10045,7 @@ impl ParsedPredicate {
             Self::Not { .. } => "not",
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9751,6 +10075,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.logical_leaf_count(),
             Self::All => 0,
             Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9779,6 +10104,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_in_list(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9808,6 +10134,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.in_list_value_count(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9844,6 +10171,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.in_list_null_value_count(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9872,6 +10200,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.in_subquery_value_count(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9905,6 +10234,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.in_subquery_null_value_count(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9934,6 +10264,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_in_subquery(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -9974,6 +10305,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_in_subquery_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10020,6 +10352,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_in_subquery_source_formats(formats),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10065,6 +10398,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_in_subquery_plan_digest_fragments(fragments),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10094,6 +10428,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_date_extract(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10134,6 +10469,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_date_extract_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10174,6 +10510,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_date_extract_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10222,6 +10559,7 @@ impl ParsedPredicate {
             Self::TimestampArithmeticCompare { .. }
             | Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10249,6 +10587,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_timestamp_extract(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10289,6 +10628,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_timestamp_extract_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10329,6 +10669,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_timestamp_extract_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10358,6 +10699,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_timestamp_arithmetic(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10398,6 +10740,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_timestamp_arithmetic_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10440,6 +10783,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_timestamp_arithmetic_seconds(values),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10480,6 +10824,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_timestamp_arithmetic_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10509,6 +10854,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.uses_date_arithmetic(),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10549,6 +10895,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_date_arithmetic_operators(operators),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10589,6 +10936,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_date_arithmetic_days(values),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10629,6 +10977,7 @@ impl ParsedPredicate {
             Self::Not { inner } => inner.push_date_arithmetic_source_columns(columns),
             Self::All
             | Self::Compare { .. }
+            | Self::ColumnCompare { .. }
             | Self::CastCompare { .. }
             | Self::NumericArithmeticCompare { .. }
             | Self::NumericAbsCompare { .. }
@@ -10666,6 +11015,27 @@ fn compare_expression(
             right: Box::new(Expression::literal(
                 ExprId::new("where.literal")?,
                 value.clone(),
+            )),
+        },
+    ))
+}
+
+fn column_compare_expression(
+    left_column: &str,
+    op: ComparisonOp,
+    right_column: &str,
+) -> Result<Expression, ShardLoomError> {
+    Ok(Expression::new(
+        ExprId::new("where.column_compare")?,
+        ExpressionKind::Compare {
+            left: Box::new(Expression::column(
+                ExprId::new(format!("where.{left_column}"))?,
+                ColumnRef::new(left_column.to_string())?,
+            )),
+            op,
+            right: Box::new(Expression::column(
+                ExprId::new(format!("where.{right_column}"))?,
+                ColumnRef::new(right_column.to_string())?,
             )),
         },
     ))
@@ -11438,8 +11808,30 @@ impl SqlLocalSourceReport {
                 self.parsed
                     .join
                     .as_ref()
-                    .map_or("not_applicable", ParsedJoin::kind)
+                    .map_or_else(|| "not_applicable".to_string(), ParsedJoin::kind),
+            ),
+            (
+                "join_on_predicate_runtime_execution".to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .is_some_and(ParsedJoin::uses_expression_on)
                     .to_string(),
+            ),
+            (
+                "join_on_predicate_operator_family".to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .map_or("not_applicable", ParsedJoin::on_predicate_family)
+                    .to_string(),
+            ),
+            (
+                "join_on_predicate_source_column".to_string(),
+                self.parsed
+                    .join
+                    .as_ref()
+                    .map_or_else(String::new, ParsedJoin::on_predicate_source_columns),
             ),
             (
                 "join_left_key".to_string(),
@@ -11491,7 +11883,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "join_candidate_row_count".to_string(),
-                self.joined_row_count.to_string(),
+                self.candidate_row_count.to_string(),
             ),
             (
                 "join_unmatched_left_row_count".to_string(),
@@ -16265,7 +16657,7 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
     };
     let left_raw = raw[..join_index].trim();
     let join_tail = raw[join_index + join_keyword_len..].trim();
-    let (right_raw, key_pairs) = if join_type.requires_equi_on() {
+    let (right_raw, join_on) = if join_type.requires_equi_on() {
         let on_index = find_keyword_outside_quotes(join_tail, "on").ok_or_else(|| {
             unsupported_sql_error("JOIN smoke requires an ON <left> = <right> clause")
         })?;
@@ -16278,7 +16670,14 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
                 "CROSS JOIN smoke does not admit an ON clause; use WHERE for scoped filters",
             ));
         }
-        (join_tail, Vec::new())
+        (
+            join_tail,
+            ParsedJoinOn {
+                key_pairs: Vec::new(),
+                predicate: None,
+                predicate_family: ParsedJoinOnPredicateFamily::NotApplicable,
+            },
+        )
     };
     let (source_path, left_alias) = parse_aliased_source(left_raw, "left")?;
     let (right_source_path, right_alias) = parse_aliased_source(right_raw, "right")?;
@@ -16289,7 +16688,8 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
             "JOIN smoke requires distinct left and right aliases",
         ));
     }
-    if key_pairs
+    if join_on
+        .key_pairs
         .iter()
         .any(|pair| pair.left.alias != left_alias || pair.right.alias != right_alias)
     {
@@ -16304,7 +16704,9 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
             join_type,
             right_source_path,
             right_alias,
-            key_pairs,
+            key_pairs: join_on.key_pairs,
+            on_predicate: join_on.predicate,
+            on_predicate_family: join_on.predicate_family,
         }),
     })
 }
@@ -16347,7 +16749,29 @@ fn parse_aliased_source(raw: &str, side: &str) -> Result<(PathBuf, String), Shar
     Ok((parse_source_path(path_raw)?, alias.clone()))
 }
 
-fn parse_join_on(raw: &str) -> Result<Vec<ParsedJoinKeyPair>, ShardLoomError> {
+fn parse_join_on(raw: &str) -> Result<ParsedJoinOn, ShardLoomError> {
+    match parse_join_on_key_pairs(raw) {
+        Ok(key_pairs) => Ok(ParsedJoinOn {
+            key_pairs,
+            predicate: None,
+            predicate_family: ParsedJoinOnPredicateFamily::EquiKeys,
+        }),
+        Err(key_error) => {
+            let predicate = parse_join_on_predicate(raw)?;
+            if predicate.columns().is_empty() {
+                return Err(key_error);
+            }
+            let predicate_family = join_on_predicate_family(&predicate);
+            Ok(ParsedJoinOn {
+                key_pairs: Vec::new(),
+                predicate: Some(predicate),
+                predicate_family,
+            })
+        }
+    }
+}
+
+fn parse_join_on_key_pairs(raw: &str) -> Result<Vec<ParsedJoinKeyPair>, ShardLoomError> {
     let tokens = split_whitespace_outside_quotes(raw)?;
     if tokens.len() < 3 {
         return Err(unsupported_sql_error(
@@ -16386,6 +16810,86 @@ fn parse_join_on(raw: &str) -> Result<Vec<ParsedJoinKeyPair>, ShardLoomError> {
         index += 1;
     }
     Ok(key_pairs)
+}
+
+fn parse_join_on_predicate(raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
+    let raw = trim_enclosing_predicate_parentheses(raw)?;
+    if let Some(predicate) = parse_join_on_logical_predicate(raw)? {
+        return Ok(predicate);
+    }
+    if let Some(predicate) = parse_join_on_column_compare_predicate(raw)? {
+        return Ok(predicate);
+    }
+    if let Some(predicate) = parse_generic_expression_predicate(raw)? {
+        return Ok(predicate);
+    }
+    Err(unsupported_sql_error(
+        "JOIN smoke admits equi-key, column-comparison, or numeric expression ON predicates only",
+    ))
+}
+
+fn parse_join_on_logical_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    if let Some(or_index) = find_keyword_outside_quotes_and_parentheses(raw, "or")? {
+        return parse_join_on_logical_binary_predicate(raw, or_index, "or", LogicalPredicateOp::Or)
+            .map(Some);
+    }
+    if let Some(and_index) = find_keyword_outside_quotes_and_parentheses(raw, "and")? {
+        return parse_join_on_logical_binary_predicate(
+            raw,
+            and_index,
+            "and",
+            LogicalPredicateOp::And,
+        )
+        .map(Some);
+    }
+    Ok(None)
+}
+
+fn parse_join_on_logical_binary_predicate(
+    raw: &str,
+    keyword_index: usize,
+    keyword: &str,
+    op: LogicalPredicateOp,
+) -> Result<ParsedPredicate, ShardLoomError> {
+    let left_raw = raw[..keyword_index].trim();
+    let right_raw = raw[keyword_index + keyword.len()..].trim();
+    if left_raw.is_empty() || right_raw.is_empty() {
+        return Err(unsupported_sql_error(
+            "JOIN ON logical predicates require non-empty predicates on both sides",
+        ));
+    }
+    Ok(ParsedPredicate::Logical {
+        op,
+        left: Box::new(parse_join_on_predicate(left_raw)?),
+        right: Box::new(parse_join_on_predicate(right_raw)?),
+    })
+}
+
+fn parse_join_on_column_compare_predicate(
+    raw: &str,
+) -> Result<Option<ParsedPredicate>, ShardLoomError> {
+    let tokens = split_whitespace_outside_quotes(raw)?;
+    let [left, op_raw, right] = tokens.as_slice() else {
+        return Ok(None);
+    };
+    validate_sql_column_ref(left)?;
+    validate_sql_column_ref(right)?;
+    Ok(Some(ParsedPredicate::ColumnCompare {
+        left_column: left.clone(),
+        op: parse_comparison_op(op_raw)?,
+        right_column: right.clone(),
+    }))
+}
+
+fn join_on_predicate_family(predicate: &ParsedPredicate) -> ParsedJoinOnPredicateFamily {
+    match predicate {
+        ParsedPredicate::ColumnCompare { .. } => ParsedJoinOnPredicateFamily::ColumnCompare,
+        ParsedPredicate::GenericExpressionCompare { .. } => {
+            ParsedJoinOnPredicateFamily::GenericExpression
+        }
+        ParsedPredicate::Logical { .. } => ParsedJoinOnPredicateFamily::Logical,
+        _ => ParsedJoinOnPredicateFamily::GenericExpression,
+    }
 }
 
 fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
