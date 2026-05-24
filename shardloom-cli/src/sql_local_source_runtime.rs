@@ -547,6 +547,9 @@ enum WindowFunction {
     DenseRank,
     Lag { column: String, offset: usize },
     Lead { column: String, offset: usize },
+    Ntile { bucket_count: usize },
+    PercentRank,
+    CumeDist,
 }
 
 trait ProjectionAlias {
@@ -3512,6 +3515,9 @@ fn window_values_for_sorted_entries(
     if function.is_offset() {
         return window_offset_values_for_sorted_entries(function, &entries, source);
     }
+    if function.is_distribution() {
+        return window_distribution_values_for_sorted_entries(function, &entries);
+    }
 
     let mut output_values = BTreeMap::new();
     let mut previous_values: Option<Vec<SortValue>> = None;
@@ -3542,9 +3548,13 @@ fn window_values_for_sorted_entries(
                 }
                 dense_rank
             }
-            WindowFunction::Lag { .. } | WindowFunction::Lead { .. } => {
-                unreachable!("offset window functions are handled before ranking evaluation")
-            }
+            WindowFunction::Lag { .. }
+            | WindowFunction::Lead { .. }
+            | WindowFunction::Ntile { .. }
+            | WindowFunction::PercentRank
+            | WindowFunction::CumeDist => unreachable!(
+                "offset and distribution window functions are handled before ranking evaluation"
+            ),
         };
         if is_new_peer_group {
             previous_values = Some(sort_values);
@@ -3574,7 +3584,12 @@ fn window_offset_values_for_sorted_entries(
             WindowFunction::Lead { .. } => position
                 .checked_add(offset)
                 .filter(|candidate| *candidate < entries.len()),
-            WindowFunction::RowNumber | WindowFunction::Rank | WindowFunction::DenseRank => None,
+            WindowFunction::RowNumber
+            | WindowFunction::Rank
+            | WindowFunction::DenseRank
+            | WindowFunction::Ntile { .. }
+            | WindowFunction::PercentRank
+            | WindowFunction::CumeDist => None,
         };
         let value = if let Some(source_position) = source_position {
             let source_row_index = entries[source_position].0;
@@ -3593,6 +3608,113 @@ fn window_offset_values_for_sorted_entries(
         };
         values.insert(*row_index, value);
     }
+    Ok(values)
+}
+
+fn window_distribution_values_for_sorted_entries(
+    function: &WindowFunction,
+    entries: &[(usize, Vec<SortValue>)],
+) -> Result<BTreeMap<usize, ScalarValue>, ShardLoomError> {
+    match function {
+        WindowFunction::Ntile { bucket_count } => {
+            window_ntile_values_for_sorted_entries(*bucket_count, entries)
+        }
+        WindowFunction::PercentRank | WindowFunction::CumeDist => {
+            window_rank_distribution_values_for_sorted_entries(function, entries)
+        }
+        WindowFunction::RowNumber
+        | WindowFunction::Rank
+        | WindowFunction::DenseRank
+        | WindowFunction::Lag { .. }
+        | WindowFunction::Lead { .. } => Err(ShardLoomError::InvalidOperation(
+            "non-distribution window function reached distribution evaluator".to_string(),
+        )),
+    }
+}
+
+fn window_ntile_values_for_sorted_entries(
+    bucket_count: usize,
+    entries: &[(usize, Vec<SortValue>)],
+) -> Result<BTreeMap<usize, ScalarValue>, ShardLoomError> {
+    let mut values = BTreeMap::new();
+    let row_count = entries.len();
+    if row_count == 0 {
+        return Ok(values);
+    }
+    if bucket_count == 0 {
+        return Err(ShardLoomError::InvalidOperation(
+            "NTILE bucket count cannot be zero after parsing".to_string(),
+        ));
+    }
+    let base_bucket_size = row_count / bucket_count;
+    let larger_bucket_count = row_count % bucket_count;
+    let larger_bucket_size = base_bucket_size.saturating_add(1);
+    let larger_bucket_boundary = larger_bucket_count.saturating_mul(larger_bucket_size);
+    for (position, (row_index, _values)) in entries.iter().enumerate() {
+        let ordinal = position + 1;
+        let bucket = if base_bucket_size == 0 {
+            ordinal
+        } else if ordinal <= larger_bucket_boundary {
+            ordinal.div_ceil(larger_bucket_size)
+        } else {
+            let remaining_ordinal = ordinal - larger_bucket_boundary;
+            larger_bucket_count + remaining_ordinal.div_ceil(base_bucket_size)
+        };
+        let bucket = i64::try_from(bucket).map_err(|_| {
+            ShardLoomError::InvalidOperation("NTILE bucket exceeded int64 bounds".to_string())
+        })?;
+        values.insert(*row_index, ScalarValue::Int64(bucket));
+    }
+    Ok(values)
+}
+
+fn window_rank_distribution_values_for_sorted_entries(
+    function: &WindowFunction,
+    entries: &[(usize, Vec<SortValue>)],
+) -> Result<BTreeMap<usize, ScalarValue>, ShardLoomError> {
+    let mut values = BTreeMap::new();
+    let row_count = entries.len();
+    if row_count == 0 {
+        return Ok(values);
+    }
+
+    let mut peer_start = 0_usize;
+    while peer_start < row_count {
+        let peer_values = &entries[peer_start].1;
+        let mut peer_end = peer_start + 1;
+        while peer_end < row_count && &entries[peer_end].1 == peer_values {
+            peer_end += 1;
+        }
+        let value = match function {
+            WindowFunction::PercentRank if row_count == 1 => ScalarValue::Float64(0.0),
+            WindowFunction::PercentRank => {
+                let numerator = usize_to_f64(peer_start);
+                let denominator = usize_to_f64(row_count - 1);
+                ScalarValue::Float64(numerator / denominator)
+            }
+            WindowFunction::CumeDist => {
+                let numerator = usize_to_f64(peer_end);
+                let denominator = usize_to_f64(row_count);
+                ScalarValue::Float64(numerator / denominator)
+            }
+            _ => {
+                return Err(ShardLoomError::InvalidOperation(
+                    "non-rank-distribution window function reached rank distribution evaluator"
+                        .to_string(),
+                ));
+            }
+        };
+        for (row_index, _values) in entries
+            .iter()
+            .take(peer_end)
+            .skip(peer_start)
+            .map(|(row_index, values)| (row_index, values))
+        {
+            values.insert(*row_index, value.clone());
+        }
+        peer_start = peer_end;
+    }
+
     Ok(values)
 }
 
@@ -6443,7 +6565,7 @@ fn validate_window_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(),
     }
     if parsed.has_computed_projection() {
         return Err(unsupported_sql_error(
-            "window projection smoke admits raw columns plus ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(), and LEAD() windows only",
+            "window projection smoke admits raw columns plus ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(), LEAD(), NTILE(), PERCENT_RANK(), and CUME_DIST() windows only",
         ));
     }
     if parsed.order_by.is_some() {
@@ -8692,6 +8814,12 @@ impl ParsedSqlLocalSource {
             .all(|projection| projection.function.is_offset())
         {
             "offset".to_string()
+        } else if self
+            .window_projections
+            .iter()
+            .all(|projection| projection.function.is_distribution())
+        {
+            "distribution".to_string()
         } else {
             "mixed".to_string()
         }
@@ -8778,6 +8906,23 @@ impl ParsedSqlLocalSource {
                 .join(",")
         }
     }
+
+    fn window_bucket_counts(&self) -> String {
+        if self.window_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.window_projections
+                .iter()
+                .map(|projection| {
+                    projection.function.bucket_count().map_or_else(
+                        || "none".to_string(),
+                        |bucket_count| bucket_count.to_string(),
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
 }
 
 impl ParsedAggregate {
@@ -8833,6 +8978,9 @@ impl WindowFunction {
             Self::DenseRank => "dense_rank",
             Self::Lag { .. } => "lag",
             Self::Lead { .. } => "lead",
+            Self::Ntile { .. } => "ntile",
+            Self::PercentRank => "percent_rank",
+            Self::CumeDist => "cume_dist",
         }
     }
 
@@ -8864,17 +9012,47 @@ impl WindowFunction {
         matches!(self, Self::Lag { .. } | Self::Lead { .. })
     }
 
+    const fn is_distribution(&self) -> bool {
+        matches!(
+            self,
+            Self::Ntile { .. } | Self::PercentRank | Self::CumeDist
+        )
+    }
+
     fn value_column(&self) -> Option<&str> {
         match self {
             Self::Lag { column, .. } | Self::Lead { column, .. } => Some(column.as_str()),
-            Self::RowNumber | Self::Rank | Self::DenseRank => None,
+            Self::RowNumber
+            | Self::Rank
+            | Self::DenseRank
+            | Self::Ntile { .. }
+            | Self::PercentRank
+            | Self::CumeDist => None,
         }
     }
 
     const fn offset_rows(&self) -> Option<usize> {
         match self {
             Self::Lag { offset, .. } | Self::Lead { offset, .. } => Some(*offset),
-            Self::RowNumber | Self::Rank | Self::DenseRank => None,
+            Self::RowNumber
+            | Self::Rank
+            | Self::DenseRank
+            | Self::Ntile { .. }
+            | Self::PercentRank
+            | Self::CumeDist => None,
+        }
+    }
+
+    const fn bucket_count(&self) -> Option<usize> {
+        match self {
+            Self::Ntile { bucket_count } => Some(*bucket_count),
+            Self::RowNumber
+            | Self::Rank
+            | Self::DenseRank
+            | Self::Lag { .. }
+            | Self::Lead { .. }
+            | Self::PercentRank
+            | Self::CumeDist => None,
         }
     }
 }
@@ -13026,6 +13204,10 @@ impl SqlLocalSourceReport {
                 self.parsed.window_offset_rows(),
             ),
             (
+                "window_bucket_counts".to_string(),
+                self.parsed.window_bucket_counts(),
+            ),
+            (
                 "window_row_number_runtime_execution".to_string(),
                 self.parsed
                     .window_projections
@@ -13063,6 +13245,30 @@ impl SqlLocalSourceReport {
                     .window_projections
                     .iter()
                     .any(|projection| projection.function.is_lead())
+                    .to_string(),
+            ),
+            (
+                "window_ntile_runtime_execution".to_string(),
+                self.parsed
+                    .window_projections
+                    .iter()
+                    .any(|projection| matches!(projection.function, WindowFunction::Ntile { .. }))
+                    .to_string(),
+            ),
+            (
+                "window_percent_rank_runtime_execution".to_string(),
+                self.parsed
+                    .window_projections
+                    .iter()
+                    .any(|projection| matches!(projection.function, WindowFunction::PercentRank))
+                    .to_string(),
+            ),
+            (
+                "window_cume_dist_runtime_execution".to_string(),
+                self.parsed
+                    .window_projections
+                    .iter()
+                    .any(|projection| matches!(projection.function, WindowFunction::CumeDist))
                     .to_string(),
             ),
             (
@@ -15805,7 +16011,7 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
     let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
         if find_keyword_outside_quotes_and_parentheses(raw, "over")?.is_some() {
             return Err(unsupported_sql_error(
-                "window projections must be written as ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(<column>[, <offset>]), or LEAD(<column>[, <offset>]) OVER (...) AS <column>",
+                "window projections must be written as ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(<column>[, <offset>]), LEAD(<column>[, <offset>]), NTILE(<bucket-count>), PERCENT_RANK(), or CUME_DIST() OVER (...) AS <column>",
             ));
         }
         return Ok(None);
@@ -15820,7 +16026,7 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
     let spec_raw = expression_raw[over_index + "over".len()..].trim();
     let Some(function) = parse_window_function(function_raw)? else {
         return Err(unsupported_sql_error(
-            "window projection smoke admits ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(<column>[, <offset>]), or LEAD(<column>[, <offset>]) OVER (...) AS <column> only",
+            "window projection smoke admits ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(<column>[, <offset>]), LEAD(<column>[, <offset>]), NTILE(<bucket-count>), PERCENT_RANK(), or CUME_DIST() OVER (...) AS <column> only",
         ));
     };
     if alias.is_empty() {
@@ -15848,6 +16054,8 @@ fn parse_window_function(raw: &str) -> Result<Option<WindowFunction>, ShardLoomE
         "row_number()" => return Ok(Some(WindowFunction::RowNumber)),
         "rank()" => return Ok(Some(WindowFunction::Rank)),
         "dense_rank()" => return Ok(Some(WindowFunction::DenseRank)),
+        "percent_rank()" => return Ok(Some(WindowFunction::PercentRank)),
+        "cume_dist()" => return Ok(Some(WindowFunction::CumeDist)),
         _ => {}
     }
 
@@ -15856,6 +16064,9 @@ fn parse_window_function(raw: &str) -> Result<Option<WindowFunction>, ShardLoomE
     }
     if let Some(args) = parse_window_function_args(raw, "lead")? {
         return parse_offset_window_function("LEAD", args).map(Some);
+    }
+    if let Some(args) = parse_window_function_args(raw, "ntile")? {
+        return parse_ntile_window_function(args).map(Some);
     }
 
     Ok(None)
@@ -15928,21 +16139,44 @@ fn parse_offset_window_function(
     }
 }
 
+fn parse_ntile_window_function(args_raw: &str) -> Result<WindowFunction, ShardLoomError> {
+    let args = split_sql_csv(args_raw)?;
+    if args.len() != 1 {
+        return Err(unsupported_sql_error(
+            "NTILE window function requires exactly one positive integer bucket count",
+        ));
+    }
+    let bucket_count = parse_positive_window_integer(
+        "NTILE",
+        "bucket count",
+        args.first().expect("length checked"),
+    )?;
+    Ok(WindowFunction::Ntile { bucket_count })
+}
+
 fn parse_window_offset(function_name: &str, raw: &str) -> Result<usize, ShardLoomError> {
+    parse_positive_window_integer(function_name, "offset", raw)
+}
+
+fn parse_positive_window_integer(
+    function_name: &str,
+    value_label: &str,
+    raw: &str,
+) -> Result<usize, ShardLoomError> {
     let trimmed = raw.trim();
     if trimmed.is_empty() || !trimmed.chars().all(|ch| ch.is_ascii_digit()) {
         return Err(unsupported_sql_error(&format!(
-            "{function_name} window offset must be a positive integer literal"
+            "{function_name} window {value_label} must be a positive integer literal"
         )));
     }
     let offset = trimmed.parse::<usize>().map_err(|_| {
         unsupported_sql_error(&format!(
-            "{function_name} window offset must be a positive integer literal"
+            "{function_name} window {value_label} must be a positive integer literal"
         ))
     })?;
     if offset == 0 || offset > MAX_INPUT_ROWS {
         return Err(unsupported_sql_error(&format!(
-            "{function_name} window offset must be between 1 and {MAX_INPUT_ROWS}"
+            "{function_name} window {value_label} must be between 1 and {MAX_INPUT_ROWS}"
         )));
     }
     Ok(offset)
@@ -20690,6 +20924,43 @@ mod tests {
     }
 
     #[test]
+    fn parses_scoped_window_distribution_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,region,NTILE(4) OVER (PARTITION BY region ORDER BY amount DESC) AS bucket,PERCENT_RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS percent_rank,CUME_DIST() OVER (PARTITION BY region ORDER BY amount DESC) AS cume_dist FROM 'target/input.csv' LIMIT 6",
+        )
+        .expect("window distribution statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "region"]);
+        assert_eq!(parsed.window_projections.len(), 3);
+        assert_eq!(parsed.window_projections[0].alias, "bucket");
+        assert_eq!(
+            parsed.window_projections[0].function,
+            WindowFunction::Ntile { bucket_count: 4 }
+        );
+        assert_eq!(parsed.window_projections[1].alias, "percent_rank");
+        assert_eq!(
+            parsed.window_projections[1].function,
+            WindowFunction::PercentRank
+        );
+        assert_eq!(parsed.window_projections[2].alias, "cume_dist");
+        assert_eq!(
+            parsed.window_projections[2].function,
+            WindowFunction::CumeDist
+        );
+        assert_eq!(parsed.window_operator_family(), "distribution");
+        assert_eq!(parsed.window_functions(), "ntile,percent_rank,cume_dist");
+        assert_eq!(parsed.window_partition_columns(), "region;region;region");
+        assert_eq!(parsed.window_order_by_columns(), "amount;amount;amount");
+        assert_eq!(parsed.window_order_by_directions(), "desc;desc;desc");
+        assert_eq!(
+            parsed.window_output_columns(),
+            "bucket,percent_rank,cume_dist"
+        );
+        assert_eq!(parsed.window_bucket_counts(), "4,none,none");
+        assert_eq!(parsed.statement_kind(), "local_source_window_limit");
+    }
+
+    #[test]
     fn parser_blocks_invalid_window_offset_without_fallback() {
         let error = parse_sql_local_source_statement(
             "SELECT id,LAG(label, 0) OVER (ORDER BY amount ASC) AS previous_label FROM 'target/input.csv' LIMIT 6",
@@ -20700,6 +20971,20 @@ mod tests {
             error
                 .to_string()
                 .contains("LAG window offset must be between 1 and 50000")
+        );
+    }
+
+    #[test]
+    fn parser_blocks_invalid_window_bucket_count_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,NTILE(0) OVER (ORDER BY amount ASC) AS bucket FROM 'target/input.csv' LIMIT 6",
+        )
+        .expect_err("zero bucket count is not admitted");
+
+        assert!(
+            error
+                .to_string()
+                .contains("NTILE window bucket count must be between 1 and 50000")
         );
     }
 

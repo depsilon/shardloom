@@ -16,6 +16,43 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5G scoped local-source distribution window runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-window-distribution-runtime-20260524` / #940.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage`.
+    - User direction to continue meaty compute-engine runtime work before final user-surface
+      cleanup.
+  - Scope:
+    - Promoted scoped local-source `NTILE(<bucket-count>) OVER (...) AS <alias>`,
+      `PERCENT_RANK() OVER (...) AS <alias>`, and `CUME_DIST() OVER (...) AS <alias>` into the
+      ShardLoom-native local-source window runtime.
+    - Added deterministic bucket assignment with larger buckets first, tie-aware percent-rank and
+      cumulative-distribution semantics, and finite `float64` JSON/CSV rendering through the
+      existing scalar result path.
+    - Added deterministic blockers for zero, non-literal, and out-of-range `NTILE` bucket counts
+      without invoking fallback execution.
+    - Added runtime evidence fields for `window_bucket_counts`,
+      `window_ntile_runtime_execution`, `window_percent_rank_runtime_execution`, and
+      `window_cume_dist_runtime_execution`, plus typed Python report accessors over those fields.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test -p shardloom-cli parses_scoped_window_distribution_statement -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_window_distribution_without_fallback -- --nocapture`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest discover -s python\tests`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+  - Claim boundary:
+    - Scoped local-source fixture-smoke distribution windows only. This does not claim window
+      frames, analytic window aggregates, broader value windows, encoded-native window kernels,
+      distributed/object-store/table windows, broad SQL/DataFrame parity, performance superiority,
+      or package readiness.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5G scoped local-source offset window runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-window-offset-runtime-20260524` / #939.

@@ -60,10 +60,9 @@ Current runtime support is intentionally scoped and evidence-gated:
 - feature-gated local `vortex_ingest` smoke that prepares admitted flat scalar local sources into a
   local `.vortex` artifact and emits `VortexPreparedState` evidence with explicit
   `ingest_minimal` / `ingest_certified` certification-depth semantics;
-- Python query-builder workflows that expose normal read/filter/select/write calls while preserving
+- Python and SQL workflows that expose normal read/filter/select/write calls while preserving
   internal SourceState, Vortex preparation, OutputPlan, replay, reuse, and no-fallback evidence
-  behind the user surface, including scoped local-source `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`,
-  `LAG()`, and `LEAD()` window projections;
+  behind the user surface;
 - report-only or blocked status for broader SQL/DataFrame, object-store, lakehouse/table,
   distributed, live/hybrid production, Foundry production, and package-publication claims.
 
