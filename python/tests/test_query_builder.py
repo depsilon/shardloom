@@ -6455,6 +6455,110 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_range_filter_with_column_sort_limit_invokes_generated_source_sql_smoke(
+        self,
+    ) -> None:
+        statement = (
+            "SELECT value AS id, value * 2 AS doubled "
+            "FROM range(1, 8, 1) WHERE value >= 3 ORDER BY doubled DESC LIMIT 2"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-sql-smoke",
+                    "target/range-query-topn.jsonl",
+                    {statement!r},
+                    "--output-format",
+                    "jsonl",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-sql-smoke",
+                    "status": "success",
+                    "summary": "generated sql",
+                    "human_text": "generated sql",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "output_path", "value": "target/range-query-topn.jsonl"}},
+                        {{"key": "generated_source_kind", "value": "sql_generate_series_range"}},
+                        {{"key": "generated_source_row_count", "value": "2"}},
+                        {{"key": "generated_source_range_start", "value": "1"}},
+                        {{"key": "generated_source_range_end", "value": "8"}},
+                        {{"key": "generated_source_range_step", "value": "1"}},
+                        {{"key": "generated_source_range_column", "value": "value"}},
+                        {{"key": "generated_source_sql_generator_function", "value": "range"}},
+                        {{"key": "generated_source_range_end_inclusive", "value": "false"}},
+                        {{"key": "sql_source_free_filter_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_filter_source_column", "value": "value"}},
+                        {{"key": "sql_source_free_filter_predicate", "value": "value>=3"}},
+                        {{"key": "sql_source_free_filter_selected_row_count", "value": "5"}},
+                        {{"key": "sql_source_free_order_by_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_top_n_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_sort_operator_family", "value": "single_key_int64_topn"}},
+                        {{"key": "sql_source_free_sort_keys", "value": "doubled"}},
+                        {{"key": "sql_source_free_sort_direction", "value": "desc"}},
+                        {{"key": "sql_source_free_sort_input_row_count", "value": "5"}},
+                        {{"key": "sql_source_free_top_n_limit", "value": "2"}},
+                        {{"key": "sql_source_free_limit_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_limit_count", "value": "2"}},
+                        {{"key": "sql_source_free_projection_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_projection_source_column", "value": "value"}},
+                        {{"key": "sql_source_free_projection_columns", "value": "id,doubled"}},
+                        {{"key": "sql_source_free_projection_expressions", "value": "value,value*2"}},
+                        {{"key": "generated_source_created", "value": "true"}},
+                        {{"key": "generated_source_certificate_status", "value": "present"}},
+                        {{"key": "output_native_io_certificate_status", "value": "certified_local_file_sink"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.range(1, 8, column="id")
+            .filter(sl.col("id") >= 3)
+            .with_column("doubled", sl.col("id") * 2)
+            .sort("doubled", descending=True)
+            .limit(2)
+            .write("target/range-query-topn.jsonl", allow_overwrite=True)
+        )
+
+        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.generated_source_kind, "sql_generate_series_range")
+        self.assertEqual(report.generated_source_row_count, 2)
+        self.assertTrue(report.sql_source_free_filter_runtime_execution)
+        self.assertTrue(report.sql_source_free_order_by_runtime_execution)
+        self.assertTrue(report.sql_source_free_top_n_runtime_execution)
+        self.assertEqual(
+            report.sql_source_free_sort_operator_family,
+            "single_key_int64_topn",
+        )
+        self.assertEqual(report.sql_source_free_sort_keys, ("doubled",))
+        self.assertEqual(report.sql_source_free_sort_direction, ("desc",))
+        self.assertEqual(report.sql_source_free_sort_input_row_count, 5)
+        self.assertEqual(report.sql_source_free_top_n_limit, 2)
+        self.assertTrue(report.sql_source_free_limit_runtime_execution)
+        self.assertEqual(report.sql_source_free_limit_count, 2)
+        self.assertTrue(report.sql_source_free_projection_runtime_execution)
+        self.assertEqual(report.sql_source_free_projection_columns, ("id", "doubled"))
+        self.assertEqual(
+            report.sql_source_free_projection_expressions,
+            ("value", "value*2"),
+        )
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_range_validates_scoped_generated_source_inputs(self) -> None:
         with self.assertRaises(TypeError):
             sl.range(True, 10, binary=["definitely-missing-shardloom"])

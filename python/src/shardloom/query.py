@@ -836,6 +836,15 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
 
         return self._query().with_column(name, expression)
 
+    def sort(
+        self,
+        *columns: object,
+        descending: bool = False,
+    ) -> "GeneratedRangeQuerySource":
+        """Return a scoped generated-range SQL query with one ORDER BY clause."""
+
+        return self._query().sort(*columns, descending=descending)
+
     def limit(self, count: int) -> "GeneratedRangeSource":
         """Limit an engine-native range/sequence before writing local output."""
 
@@ -950,6 +959,7 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
     client: ShardLoomClient
     predicate: str | None = None
     select_items: tuple[str, ...] = ()
+    sort_key: tuple[str, tuple[str, ...]] | None = None
     limit_count: int | None = None
 
     def filter(self, predicate: object) -> "GeneratedRangeQuerySource":
@@ -965,6 +975,7 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             client=self.client,
             predicate=_sql_generated_range_expression_sql(predicate, self.column),
             select_items=self.select_items,
+            sort_key=self.sort_key,
             limit_count=self.limit_count,
         )
 
@@ -984,6 +995,7 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             client=self.client,
             predicate=self.predicate,
             select_items=_normalize_generated_range_select_items(columns, self.column),
+            sort_key=self.sort_key,
             limit_count=self.limit_count,
         )
 
@@ -1012,6 +1024,30 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             client=self.client,
             predicate=self.predicate,
             select_items=select_items + (f"{expression_sql} AS {column_name}",),
+            sort_key=self.sort_key,
+            limit_count=self.limit_count,
+        )
+
+    def sort(
+        self,
+        *columns: object,
+        descending: bool = False,
+    ) -> "GeneratedRangeQuerySource":
+        """Return this generated-range query with one source-free ORDER BY clause."""
+
+        if self.sort_key is not None:
+            raise ValueError("generated range queries admit one ORDER BY clause")
+        sort_columns = _normalize_generated_range_sort_columns(columns)
+        direction = "desc" if descending else "asc"
+        return GeneratedRangeQuerySource(
+            start=self.start,
+            end=self.end,
+            step=self.step,
+            column=self.column,
+            client=self.client,
+            predicate=self.predicate,
+            select_items=self.select_items,
+            sort_key=(direction, sort_columns),
             limit_count=self.limit_count,
         )
 
@@ -1026,6 +1062,7 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             client=self.client,
             predicate=self.predicate,
             select_items=self.select_items,
+            sort_key=self.sort_key,
             limit_count=_normalize_non_negative_int("generated range SQL limit", count),
         )
 
@@ -1099,6 +1136,9 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
         )
         if self.predicate is not None:
             statement = f"{statement} WHERE {self.predicate}"
+        if self.sort_key is not None:
+            direction, columns = self.sort_key
+            statement = f"{statement}{_format_order_by_clause(columns, direction)}"
         if self.limit_count is not None:
             statement = f"{statement} LIMIT {self.limit_count}"
         return statement
@@ -3339,6 +3379,15 @@ def _generated_range_select_aliases(select_items: tuple[str, ...]) -> tuple[str,
         else:
             aliases.append(item.strip())
     return tuple(aliases)
+
+
+def _normalize_generated_range_sort_columns(columns: tuple[object, ...]) -> tuple[str, ...]:
+    normalized = tuple(
+        _normalize_output_column_name(column) for column in _normalize_columns(columns)
+    )
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("generated range ORDER BY keys must be unique")
+    return normalized
 
 
 def _sql_generated_range_expression_sql(expression: object, public_column: str) -> str:

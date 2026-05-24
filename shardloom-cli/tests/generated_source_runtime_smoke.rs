@@ -1179,6 +1179,142 @@ fn sql_smoke_writes_generate_series_filter_limit_projection_jsonl() {
 }
 
 #[test]
+fn sql_smoke_writes_generate_series_projection_order_by_topn_jsonl() {
+    let output_path = unique_output_path("generated-sql-range-projection-topn");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "SELECT value AS id, value * 2 AS doubled FROM range(1, 6) WHERE value >= 2 ORDER BY doubled DESC LIMIT 2",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(
+        written,
+        "{\"id\":5,\"doubled\":10}\n{\"id\":4,\"doubled\":8}\n"
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("sql_statement_kind", "sql_generate_series_range")));
+    assert!(stdout.contains(&field("generated_source_kind", "sql_generate_series_range")));
+    assert!(stdout.contains(&field("generated_source_range_start", "1")));
+    assert!(stdout.contains(&field("generated_source_range_end", "6")));
+    assert!(stdout.contains(&field("generated_source_range_step", "1")));
+    assert!(stdout.contains(&field("sql_source_free_filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sql_source_free_filter_selected_row_count", "4")));
+    assert!(stdout.contains(&field("sql_source_free_order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sql_source_free_top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field(
+        "sql_source_free_sort_operator_family",
+        "single_key_int64_topn"
+    )));
+    assert!(stdout.contains(&field("sql_source_free_sort_keys", "doubled")));
+    assert!(stdout.contains(&field("sql_source_free_sort_direction", "desc")));
+    assert!(stdout.contains(&field("sql_source_free_sort_input_row_count", "4")));
+    assert!(stdout.contains(&field("sql_source_free_top_n_limit", "2")));
+    assert!(stdout.contains(&field("sql_source_free_limit_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sql_source_free_limit_count", "2")));
+    assert!(stdout.contains(&field(
+        "sql_source_free_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field("sql_source_free_projection_columns", "id,doubled")));
+    assert!(stdout.contains(&field(
+        "sql_source_free_projection_expressions",
+        "value,value*2"
+    )));
+    assert!(stdout.contains(&field("generated_source_row_count", "2")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
+fn sql_smoke_writes_generate_series_source_order_by_topn_jsonl() {
+    let output_path = unique_output_path("generated-sql-range-source-topn");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "SELECT value * 2 AS doubled FROM range(1, 6) ORDER BY value DESC LIMIT 2",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(written, "{\"doubled\":10}\n{\"doubled\":8}\n");
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("sql_source_free_sort_keys", "value")));
+    assert!(stdout.contains(&field("sql_source_free_sort_direction", "desc")));
+    assert!(stdout.contains(&field("sql_source_free_top_n_limit", "2")));
+    assert!(stdout.contains(&field("generated_source_row_count", "2")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
+fn sql_smoke_prefers_projected_order_by_alias_over_source_column() {
+    let output_path = unique_output_path("generated-sql-range-alias-precedence-topn");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "SELECT value * -1 AS value FROM range(1, 6) ORDER BY value DESC LIMIT 2",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let written = fs::read_to_string(&output_path).expect("output jsonl was written");
+    assert_eq!(written, "{\"value\":-1}\n{\"value\":-2}\n");
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field("sql_source_free_sort_keys", "value")));
+    assert!(stdout.contains(&field("sql_source_free_sort_direction", "desc")));
+    assert!(stdout.contains(&field("sql_source_free_top_n_limit", "2")));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+}
+
+#[test]
 fn sql_smoke_allows_from_in_projection_alias_identifier() {
     let output_path = unique_output_path("generated-sql-range-from-alias");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
@@ -1241,6 +1377,16 @@ fn sql_smoke_blocks_unadmitted_generate_series_forms() {
             "generated-sql-generate-series-limit-trailing-clause",
             "SELECT * FROM range(1, 4) LIMIT 1 ORDER BY value",
             "LIMIT requires a single non-negative integer literal",
+        ),
+        (
+            "generated-sql-generate-series-order-by-missing-column",
+            "SELECT value AS id FROM range(1, 4) ORDER BY missing LIMIT 1",
+            "ORDER BY keys must resolve to the range source column or projected int64 output aliases",
+        ),
+        (
+            "generated-sql-generate-series-order-by-duplicate-key",
+            "SELECT * FROM range(1, 4) ORDER BY value, value LIMIT 1",
+            "ORDER BY keys must be unique",
         ),
         (
             "generated-sql-generate-series-project",
