@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D/5B/5C composed UTF-8 string expression runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-string-expression-composition-20260524` / pending PR.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - User direction to complete directly related phase sections end to end instead of landing
+      tiny leaf slices.
+  - Scope:
+    - Admitted composed UTF-8 string expression trees for scoped local-source SQL/Python
+      predicates and projections across nested `LOWER`, `UPPER`, `TRIM`, `CONCAT`,
+      `SUBSTR` / `SUBSTRING`, `LEFT`, `RIGHT`, `REPLACE`, and `LENGTH` shapes.
+    - Stored parsed string expressions in predicate/projection admission records instead of
+      rebuilding single-column call shapes, so native evaluation executes the admitted nested
+      expression tree directly.
+    - Walks expression trees for source-column evidence, preserves existing string transform,
+      string function, and string length report fields, and keeps source-free or unsupported
+      string expression shapes deterministic blockers.
+    - Extends Python query-builder validation and rendering so string helper chains such as
+      `sl.col("label").trim().lower()`, `sl.concat(...)`, `.substr(...)`, `.left(...)`,
+      `.right(...)`, `.replace(...)`, and `.length()` lower to the same admitted SQL surface.
+  - Verification:
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_column_expression_builder_formats_admitted_predicate_families`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_with_column_string_function_invokes_sql_smoke`
+    - `cargo +1.91.1 test -p shardloom-cli parses_composed_string_expression_projection_and_predicate_statement -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_composed_string_expressions_without_fallback -- --nocapture`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-source fixture-smoke UTF-8 string expression composition only. This does not
+      add broad SQL/DataFrame string parity, regex/collation/locale completeness, arbitrary
+      expression parity, encoded-native string kernels, production SQL/DataFrame support,
+      performance claims, package publication, or fallback execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D/5B/5C HAVING aggregate-expression runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-having-aggregate-closeout-20260524` / #944.

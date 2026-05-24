@@ -492,14 +492,16 @@ struct ParsedTimestampArithmeticProjection {
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedStringLengthProjection {
     alias: String,
-    column: String,
+    expression: Expression,
+    source_columns: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedStringTransformProjection {
     alias: String,
-    column: String,
+    expression: Expression,
     op: StringTransformOp,
+    source_columns: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -903,9 +905,10 @@ enum ParsedPredicate {
         value: ScalarValue,
     },
     StringLengthCompare {
-        column: String,
+        expression: Box<Expression>,
         comparison: ComparisonOp,
         value: ScalarValue,
+        source_columns: Vec<String>,
     },
     TimestampExtractCompare {
         column: String,
@@ -939,10 +942,11 @@ enum ParsedPredicate {
         value: String,
     },
     StringTransformCompare {
-        column: String,
+        expression: Box<Expression>,
         op: StringTransformOp,
         comparison: ComparisonOp,
         value: ScalarValue,
+        source_columns: Vec<String>,
     },
     StringFunctionCompare {
         expression: Box<Expression>,
@@ -3023,10 +3027,10 @@ fn push_projection_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut
         columns.insert(projection.column.clone());
     }
     for projection in &parsed.string_length_projections {
-        columns.insert(projection.column.clone());
+        columns.extend(projection.source_columns.iter().cloned());
     }
     for projection in &parsed.string_transform_projections {
-        columns.insert(projection.column.clone());
+        columns.extend(projection.source_columns.iter().cloned());
     }
     for projection in &parsed.string_function_projections {
         columns.extend(projection.source_columns.iter().cloned());
@@ -4218,20 +4222,10 @@ fn numeric_rounding_projection_expression(
 fn string_transform_projection_expression(
     projection: &ParsedStringTransformProjection,
 ) -> Result<Expression, ShardLoomError> {
-    let transformed = Expression::new(
-        ExprId::new(format!("project.string_transform.{}", projection.alias))?,
-        ExpressionKind::FunctionCall {
-            name: projection.op.function_name().to_string(),
-            args: vec![Expression::column(
-                ExprId::new(format!("project.{}", projection.column))?,
-                ColumnRef::new(projection.column.clone())?,
-            )],
-        },
-    );
     Ok(Expression::new(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
-            expr: Box::new(transformed),
+            expr: Box::new(projection.expression.clone()),
             alias: projection.alias.clone(),
         },
     ))
@@ -4240,20 +4234,10 @@ fn string_transform_projection_expression(
 fn string_length_projection_expression(
     projection: &ParsedStringLengthProjection,
 ) -> Result<Expression, ShardLoomError> {
-    let length = Expression::new(
-        ExprId::new(format!("project.string_length.{}", projection.alias))?,
-        ExpressionKind::FunctionCall {
-            name: "length".to_string(),
-            args: vec![Expression::column(
-                ExprId::new(format!("project.{}", projection.column))?,
-                ColumnRef::new(projection.column.clone())?,
-            )],
-        },
-    );
     Ok(Expression::new(
         ExprId::new(format!("project.alias.{}", projection.alias))?,
         ExpressionKind::Alias {
-            expr: Box::new(length),
+            expr: Box::new(projection.expression.clone()),
             alias: projection.alias.clone(),
         },
     ))
@@ -6867,20 +6851,24 @@ fn validate_text_time_projection_source_columns(
         )?;
     }
     for projection in &parsed.string_length_projections {
-        require_header_column(
-            header,
-            &projection.column,
-            "string length projection source column",
-            "local source header",
-        )?;
+        for column in &projection.source_columns {
+            require_header_column(
+                header,
+                column,
+                "string length projection source column",
+                "local source header",
+            )?;
+        }
     }
     for projection in &parsed.string_transform_projections {
-        require_header_column(
-            header,
-            &projection.column,
-            "string transform projection source column",
-            "CSV header",
-        )?;
+        for column in &projection.source_columns {
+            require_header_column(
+                header,
+                column,
+                "string transform projection source column",
+                "CSV header",
+            )?;
+        }
     }
     for projection in &parsed.string_function_projections {
         for column in &projection.source_columns {
@@ -7402,10 +7390,14 @@ fn join_left_existence_source_refs(parsed: &ParsedSqlLocalSource) -> BTreeSet<&s
         source_refs.insert(projection.column.as_str());
     }
     for projection in &parsed.string_length_projections {
-        source_refs.insert(projection.column.as_str());
+        for column in &projection.source_columns {
+            source_refs.insert(column.as_str());
+        }
     }
     for projection in &parsed.string_transform_projections {
-        source_refs.insert(projection.column.as_str());
+        for column in &projection.source_columns {
+            source_refs.insert(column.as_str());
+        }
     }
     for projection in &parsed.string_function_projections {
         for column in &projection.source_columns {
@@ -8707,7 +8699,7 @@ impl ParsedSqlLocalSource {
         } else {
             self.string_length_projections
                 .iter()
-                .map(|projection| projection.column.as_str())
+                .map(|projection| projection.source_columns.join("+"))
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -8743,7 +8735,7 @@ impl ParsedSqlLocalSource {
         } else {
             self.string_transform_projections
                 .iter()
-                .map(|projection| projection.column.as_str())
+                .map(|projection| projection.source_columns.join("+"))
                 .collect::<Vec<_>>()
                 .join(",")
         }
@@ -9433,15 +9425,13 @@ impl ParsedPredicate {
             | Self::DateArithmeticCompare { column, .. }
             | Self::TimestampArithmeticCompare { column, .. }
             | Self::DateExtractCompare { column, .. }
-            | Self::StringLengthCompare { column, .. }
             | Self::TimestampExtractCompare { column, .. }
             | Self::BooleanPredicate { column, .. }
             | Self::IsNull { column }
             | Self::IsNotNull { column }
             | Self::InList { column, .. }
             | Self::InSubquery { column, .. }
-            | Self::StringMatch { column, .. }
-            | Self::StringTransformCompare { column, .. } => columns.push(column),
+            | Self::StringMatch { column, .. } => columns.push(column),
             Self::ColumnCompare {
                 left_column,
                 right_column,
@@ -9450,7 +9440,9 @@ impl ParsedPredicate {
                 columns.push(left_column);
                 columns.push(right_column);
             }
-            Self::StringFunctionCompare { source_columns, .. }
+            Self::StringLengthCompare { source_columns, .. }
+            | Self::StringTransformCompare { source_columns, .. }
+            | Self::StringFunctionCompare { source_columns, .. }
             | Self::GenericExpressionCompare { source_columns, .. } => {
                 columns.extend(source_columns.iter().map(String::as_str));
             }
@@ -9513,11 +9505,9 @@ impl ParsedPredicate {
                 comparison,
                 value,
             } => date_extract_compare_expression(column, *op, *comparison, value),
-            Self::StringLengthCompare {
-                column,
-                comparison,
-                value,
-            } => string_length_compare_expression(column, *comparison, value),
+            Self::StringLengthCompare { .. }
+            | Self::StringTransformCompare { .. }
+            | Self::StringFunctionCompare { .. } => self.string_compare_expression(),
             Self::TimestampExtractCompare {
                 column,
                 op,
@@ -9530,18 +9520,6 @@ impl ParsedPredicate {
                 null_is_false,
                 negated,
             } => boolean_predicate_expression(column, *expected, *null_is_false, *negated),
-            Self::StringTransformCompare {
-                column,
-                op,
-                comparison,
-                value,
-            } => string_transform_compare_expression(column, *op, *comparison, value),
-            Self::StringFunctionCompare {
-                expression,
-                comparison,
-                value,
-                ..
-            } => string_function_compare_expression(expression, *comparison, value),
             Self::IsNull { column } => null_predicate_expression(column, true),
             Self::IsNotNull { column } => null_predicate_expression(column, false),
             Self::InList { column, values } => in_list_expression(column, values),
@@ -9561,6 +9539,33 @@ impl ParsedPredicate {
                     op: UnaryOp::Not,
                     expr: Box::new(inner.to_expression()?),
                 },
+            )),
+        }
+    }
+
+    fn string_compare_expression(&self) -> Result<Expression, ShardLoomError> {
+        match self {
+            Self::StringLengthCompare {
+                expression,
+                comparison,
+                value,
+                ..
+            } => string_length_compare_expression(expression, *comparison, value),
+            Self::StringTransformCompare {
+                expression,
+                comparison,
+                value,
+                ..
+            } => string_transform_compare_expression(expression, *comparison, value),
+            Self::StringFunctionCompare {
+                expression,
+                comparison,
+                value,
+                ..
+            } => string_function_compare_expression(expression, *comparison, value),
+            _ => Err(ShardLoomError::InvalidOperation(
+                "internal error: non-string predicate cannot lower through string expression"
+                    .to_string(),
             )),
         }
     }
@@ -10076,7 +10081,9 @@ impl ParsedPredicate {
 
     fn push_string_transform_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
         match self {
-            Self::StringTransformCompare { column, .. } => columns.push(column),
+            Self::StringTransformCompare { source_columns, .. } => {
+                columns.extend(source_columns.iter().map(String::as_str));
+            }
             Self::Logical { left, right, .. } => {
                 left.push_string_transform_source_columns(columns);
                 right.push_string_transform_source_columns(columns);
@@ -10147,7 +10154,9 @@ impl ParsedPredicate {
 
     fn push_string_length_source_columns<'a>(&'a self, columns: &mut Vec<&'a str>) {
         match self {
-            Self::StringLengthCompare { column, .. } => columns.push(column),
+            Self::StringLengthCompare { source_columns, .. } => {
+                columns.extend(source_columns.iter().map(String::as_str));
+            }
             Self::Logical { left, right, .. } => {
                 left.push_string_length_source_columns(columns);
                 right.push_string_length_source_columns(columns);
@@ -12394,24 +12403,14 @@ fn string_match_expression(
 }
 
 fn string_transform_compare_expression(
-    column: &str,
-    op: StringTransformOp,
+    expression: &Expression,
     comparison: ComparisonOp,
     value: &ScalarValue,
 ) -> Result<Expression, ShardLoomError> {
     Ok(Expression::new(
         ExprId::new("where.string_transform_compare")?,
         ExpressionKind::Compare {
-            left: Box::new(Expression::new(
-                ExprId::new(format!("where.string_transform.{column}"))?,
-                ExpressionKind::FunctionCall {
-                    name: op.function_name().to_string(),
-                    args: vec![Expression::column(
-                        ExprId::new(format!("where.{column}"))?,
-                        ColumnRef::new(column.to_string())?,
-                    )],
-                },
-            )),
+            left: Box::new(expression.clone()),
             op: comparison,
             right: Box::new(Expression::literal(
                 ExprId::new("where.string_transform.literal")?,
@@ -12422,23 +12421,14 @@ fn string_transform_compare_expression(
 }
 
 fn string_length_compare_expression(
-    column: &str,
+    expression: &Expression,
     comparison: ComparisonOp,
     value: &ScalarValue,
 ) -> Result<Expression, ShardLoomError> {
     Ok(Expression::new(
         ExprId::new("where.string_length_compare")?,
         ExpressionKind::Compare {
-            left: Box::new(Expression::new(
-                ExprId::new(format!("where.string_length.{column}"))?,
-                ExpressionKind::FunctionCall {
-                    name: "length".to_string(),
-                    args: vec![Expression::column(
-                        ExprId::new(format!("where.{column}"))?,
-                        ColumnRef::new(column.to_string())?,
-                    )],
-                },
-            )),
+            left: Box::new(expression.clone()),
             op: comparison,
             right: Box::new(Expression::literal(
                 ExprId::new("where.string_length.literal")?,
@@ -17876,75 +17866,230 @@ fn parse_timestamp_arithmetic_projection(
     }))
 }
 
+fn parse_string_scalar_expression(
+    raw: &str,
+    id_prefix: &str,
+) -> Result<Expression, ShardLoomError> {
+    let trimmed = trim_enclosing_string_expression_parentheses(raw)?;
+    if let Some(expression) = parse_string_transform_call_expression(trimmed, id_prefix)? {
+        return Ok(expression);
+    }
+    if let Some(call) = parse_string_function_call_expression(trimmed, id_prefix)? {
+        return Ok(call.expression);
+    }
+    if trimmed.starts_with('\'') {
+        return Ok(Expression::literal(
+            ExprId::new(format!("{id_prefix}.literal"))?,
+            ScalarValue::Utf8(parse_sql_string_literal(trimmed)?),
+        ));
+    }
+    validate_sql_column_ref(trimmed)?;
+    Ok(Expression::column(
+        ExprId::new(format!("{id_prefix}.{trimmed}"))?,
+        ColumnRef::new(trimmed.to_string())?,
+    ))
+}
+
+fn trim_enclosing_string_expression_parentheses(mut raw: &str) -> Result<&str, ShardLoomError> {
+    raw = raw.trim();
+    loop {
+        if !raw.starts_with('(') {
+            return Ok(raw);
+        }
+        let Some(close_index) = matching_closing_parenthesis(raw, 0)? else {
+            return Err(unsupported_sql_error(
+                "string expression parentheses must be balanced",
+            ));
+        };
+        if close_index != raw.len() - 1 {
+            return Ok(raw);
+        }
+        raw = raw[1..close_index].trim();
+        if raw.is_empty() {
+            return Err(unsupported_sql_error(
+                "string expression parentheses must contain an expression",
+            ));
+        }
+    }
+}
+
+fn parse_string_transform_prefix(raw: &str) -> Option<(StringTransformOp, usize)> {
+    [
+        ("lower", StringTransformOp::Lower),
+        ("upper", StringTransformOp::Upper),
+        ("trim", StringTransformOp::Trim),
+    ]
+    .into_iter()
+    .find_map(|(name, op)| {
+        raw.get(..name.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
+            .then_some(())
+            .filter(|()| raw.as_bytes().get(name.len()) == Some(&b'('))
+            .map(|()| (op, name.len()))
+    })
+}
+
+fn parse_string_transform_call_expression(
+    raw: &str,
+    id_prefix: &str,
+) -> Result<Option<Expression>, ShardLoomError> {
+    let trimmed = raw.trim();
+    let Some((op, open_index)) = parse_string_transform_prefix(trimmed) else {
+        return Ok(None);
+    };
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(
+            "string transform expressions must use LOWER|UPPER|TRIM(<string-expression>)",
+        )
+    })?;
+    if !trimmed[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "string transform expressions must be a single function call",
+        ));
+    }
+    let inner = trimmed[open_index + 1..close_index].trim();
+    let args = split_sql_csv(inner)?;
+    let [arg] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "string transform expressions require exactly one argument",
+        ));
+    };
+    Ok(Some(Expression::new(
+        ExprId::new(id_prefix.to_string())?,
+        ExpressionKind::FunctionCall {
+            name: op.function_name().to_string(),
+            args: vec![parse_string_scalar_expression(
+                arg,
+                &format!("{id_prefix}.arg"),
+            )?],
+        },
+    )))
+}
+
+fn parse_string_length_call_expression(
+    raw: &str,
+    id_prefix: &str,
+) -> Result<Option<Expression>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if !trimmed
+        .get(..6)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("length"))
+        || trimmed.as_bytes().get(6) != Some(&b'(')
+    {
+        return Ok(None);
+    }
+    let open_index = "length".len();
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error("string length expressions must use LENGTH(<string-expression>)")
+    })?;
+    if !trimmed[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(
+            "string length expressions must be a single LENGTH function call",
+        ));
+    }
+    let inner = trimmed[open_index + 1..close_index].trim();
+    let args = split_sql_csv(inner)?;
+    let [arg] = args.as_slice() else {
+        return Err(unsupported_sql_error(
+            "string length expressions require exactly one argument",
+        ));
+    };
+    Ok(Some(Expression::new(
+        ExprId::new(id_prefix.to_string())?,
+        ExpressionKind::FunctionCall {
+            name: "length".to_string(),
+            args: vec![parse_string_scalar_expression(
+                arg,
+                &format!("{id_prefix}.arg"),
+            )?],
+        },
+    )))
+}
+
+fn string_expression_literal_count(expression: &Expression) -> usize {
+    match &expression.kind {
+        ExpressionKind::Literal(_) => 1,
+        ExpressionKind::Alias { expr, .. }
+        | ExpressionKind::Cast { expr, .. }
+        | ExpressionKind::TryCast { expr, .. }
+        | ExpressionKind::Unary { expr, .. } => string_expression_literal_count(expr),
+        ExpressionKind::Binary { left, right, .. }
+        | ExpressionKind::Compare { left, right, .. } => {
+            string_expression_literal_count(left) + string_expression_literal_count(right)
+        }
+        ExpressionKind::FunctionCall { args, .. } => {
+            args.iter().map(string_expression_literal_count).sum()
+        }
+        ExpressionKind::Column(_) | ExpressionKind::Unsupported { .. } => 0,
+    }
+}
+
 fn parse_string_transform_projection(
     raw: &str,
 ) -> Result<Option<ParsedStringTransformProjection>, ShardLoomError> {
-    let Some(as_index) = find_keyword_outside_quotes(raw, "as") else {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
         return Ok(None);
     };
     let expression_raw = raw[..as_index].trim();
     let alias = raw[as_index + "as".len()..].trim();
-    let Some(open_index) = expression_raw.find('(') else {
+    let Some((op, _)) = parse_string_transform_prefix(expression_raw) else {
         return Ok(None);
     };
-    let function_raw = expression_raw[..open_index].trim();
-    let op = match function_raw.to_ascii_lowercase().as_str() {
-        "lower" => StringTransformOp::Lower,
-        "upper" => StringTransformOp::Upper,
-        "trim" => StringTransformOp::Trim,
-        _ => return Ok(None),
-    };
-    if expression_raw.is_empty() || alias.is_empty() || !expression_raw.ends_with(')') {
+    if alias.is_empty() {
         return Err(unsupported_sql_error(
-            "string transform projections must be written as LOWER|UPPER|TRIM(<column>) AS <column>",
+            "string transform projections require an output alias",
         ));
     }
     validate_sql_identifier(alias)?;
-    let argument = expression_raw[open_index + 1..expression_raw.len() - 1].trim();
-    if argument.is_empty() {
+    let expression = parse_string_scalar_expression(
+        expression_raw,
+        &format!("project.string_transform.{alias}"),
+    )?;
+    let source_columns = expression_source_columns(&expression);
+    if source_columns.is_empty() {
         return Err(unsupported_sql_error(
-            "string transform projections require one source column argument",
+            "string transform projections require at least one source column argument",
         ));
     }
-    validate_sql_column_ref(argument)?;
     Ok(Some(ParsedStringTransformProjection {
         alias: alias.to_string(),
-        column: argument.to_string(),
+        expression,
         op,
+        source_columns,
     }))
 }
 
 fn parse_string_length_projection(
     raw: &str,
 ) -> Result<Option<ParsedStringLengthProjection>, ShardLoomError> {
-    let Some(as_index) = find_keyword_outside_quotes(raw, "as") else {
+    let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
         return Ok(None);
     };
     let expression_raw = raw[..as_index].trim();
     let alias = raw[as_index + "as".len()..].trim();
-    let Some(open_index) = expression_raw.find('(') else {
+    let Some(expression) = parse_string_length_call_expression(
+        expression_raw,
+        &format!("project.string_length.{alias}"),
+    )?
+    else {
         return Ok(None);
     };
-    let function_raw = expression_raw[..open_index].trim();
-    if !function_raw.eq_ignore_ascii_case("length") {
-        return Ok(None);
-    }
-    if expression_raw.is_empty() || alias.is_empty() || !expression_raw.ends_with(')') {
+    if alias.is_empty() {
         return Err(unsupported_sql_error(
-            "string length projections must be written as LENGTH(<column>) AS <column>",
+            "string length projections require an output alias",
         ));
     }
     validate_sql_identifier(alias)?;
-    let argument = expression_raw[open_index + 1..expression_raw.len() - 1].trim();
-    if argument.is_empty() {
+    let source_columns = expression_source_columns(&expression);
+    if source_columns.is_empty() {
         return Err(unsupported_sql_error(
-            "string length projections require one source column argument",
+            "string length projections require at least one source column argument",
         ));
     }
-    validate_sql_column_ref(argument)?;
     Ok(Some(ParsedStringLengthProjection {
         alias: alias.to_string(),
-        column: argument.to_string(),
+        expression,
+        source_columns,
     }))
 }
 
@@ -18004,11 +18149,6 @@ fn parse_string_function_call_expression(
     let inner = trimmed[open_index + 1..close_index].trim();
     let args = split_sql_csv(inner)?;
     let parsed_args = parse_string_function_args(op, &args, id_prefix)?;
-    if parsed_args.source_columns.is_empty() {
-        return Err(unsupported_sql_error(
-            "string function expressions require at least one source column argument",
-        ));
-    }
     Ok(Some(ParsedStringFunctionCall {
         expression: Expression::new(
             ExprId::new(id_prefix.to_string())?,
@@ -18056,10 +18196,12 @@ fn parse_concat_string_function_args(
     let mut literal_count = 0_usize;
     let mut expression_args = Vec::with_capacity(args.len());
     for (index, arg) in args.iter().enumerate() {
-        let (expression, source_column, arg_literal_count) =
-            parse_string_function_text_arg(arg, id_prefix, index)?;
-        push_unique_string_function_source_column(&mut source_columns, source_column);
-        literal_count += arg_literal_count;
+        let expression = parse_string_scalar_expression(arg, &format!("{id_prefix}.arg{index}"))?;
+        push_unique_string_function_source_columns(
+            &mut source_columns,
+            expression_source_columns(&expression),
+        );
+        literal_count += string_expression_literal_count(&expression);
         expression_args.push(expression);
     }
     Ok(ParsedStringFunctionArgs {
@@ -18078,8 +18220,8 @@ fn parse_substr_string_function_args(
             "SUBSTR/SUBSTRING string function expressions require exactly three arguments: <column>, <start>, <length>",
         ));
     };
-    let (value_expression, source_column, arg_literal_count) =
-        parse_string_function_text_arg(value_raw, id_prefix, 0)?;
+    let value_expression = parse_string_scalar_expression(value_raw, &format!("{id_prefix}.arg0"))?;
+    let value_literal_count = string_expression_literal_count(&value_expression);
     let start = parse_string_function_int_literal(start_raw, "substring start")?;
     if start < 1 {
         return Err(unsupported_sql_error(
@@ -18093,7 +18235,10 @@ fn parse_substr_string_function_args(
         ));
     }
     let mut source_columns = Vec::new();
-    push_unique_string_function_source_column(&mut source_columns, source_column);
+    push_unique_string_function_source_columns(
+        &mut source_columns,
+        expression_source_columns(&value_expression),
+    );
     Ok(ParsedStringFunctionArgs {
         expression_args: vec![
             value_expression,
@@ -18107,7 +18252,7 @@ fn parse_substr_string_function_args(
             ),
         ],
         source_columns,
-        literal_count: arg_literal_count + 2,
+        literal_count: value_literal_count + 2,
     })
 }
 
@@ -18121,8 +18266,8 @@ fn parse_left_right_string_function_args(
             "{function_name} string function expressions require exactly two arguments: <column>, <count>"
         )));
     };
-    let (value_expression, source_column, arg_literal_count) =
-        parse_string_function_text_arg(value_raw, id_prefix, 0)?;
+    let value_expression = parse_string_scalar_expression(value_raw, &format!("{id_prefix}.arg0"))?;
+    let value_literal_count = string_expression_literal_count(&value_expression);
     let count = parse_string_function_int_literal(count_raw, "left/right count")?;
     if count < 0 {
         return Err(unsupported_sql_error(
@@ -18130,7 +18275,10 @@ fn parse_left_right_string_function_args(
         ));
     }
     let mut source_columns = Vec::new();
-    push_unique_string_function_source_column(&mut source_columns, source_column);
+    push_unique_string_function_source_columns(
+        &mut source_columns,
+        expression_source_columns(&value_expression),
+    );
     Ok(ParsedStringFunctionArgs {
         expression_args: vec![
             value_expression,
@@ -18140,7 +18288,7 @@ fn parse_left_right_string_function_args(
             ),
         ],
         source_columns,
-        literal_count: arg_literal_count + 1,
+        literal_count: value_literal_count + 1,
     })
 }
 
@@ -18153,8 +18301,8 @@ fn parse_replace_string_function_args(
             "REPLACE string function expressions require exactly three arguments: <column>, <string-literal>, <string-literal>",
         ));
     };
-    let (value_expression, source_column, arg_literal_count) =
-        parse_string_function_text_arg(value_raw, id_prefix, 0)?;
+    let value_expression = parse_string_scalar_expression(value_raw, &format!("{id_prefix}.arg0"))?;
+    let value_literal_count = string_expression_literal_count(&value_expression);
     let needle = parse_sql_string_literal(needle_raw)?;
     if needle.is_empty() {
         return Err(unsupported_sql_error(
@@ -18163,7 +18311,10 @@ fn parse_replace_string_function_args(
     }
     let replacement = parse_sql_string_literal(replacement_raw)?;
     let mut source_columns = Vec::new();
-    push_unique_string_function_source_column(&mut source_columns, source_column);
+    push_unique_string_function_source_columns(
+        &mut source_columns,
+        expression_source_columns(&value_expression),
+    );
     Ok(ParsedStringFunctionArgs {
         expression_args: vec![
             value_expression,
@@ -18177,7 +18328,7 @@ fn parse_replace_string_function_args(
             ),
         ],
         source_columns,
-        literal_count: arg_literal_count + 2,
+        literal_count: value_literal_count + 2,
     })
 }
 
@@ -18200,33 +18351,6 @@ fn parse_string_function_prefix(raw: &str) -> Option<(StringFunctionOp, usize)> 
     })
 }
 
-fn parse_string_function_text_arg(
-    raw: &str,
-    id_prefix: &str,
-    index: usize,
-) -> Result<(Expression, Option<String>, usize), ShardLoomError> {
-    let trimmed = raw.trim();
-    if trimmed.starts_with('\'') {
-        return Ok((
-            Expression::literal(
-                ExprId::new(format!("{id_prefix}.arg{index}"))?,
-                ScalarValue::Utf8(parse_sql_string_literal(trimmed)?),
-            ),
-            None,
-            1,
-        ));
-    }
-    validate_sql_column_ref(trimmed)?;
-    Ok((
-        Expression::column(
-            ExprId::new(format!("{id_prefix}.arg{index}.{trimmed}"))?,
-            ColumnRef::new(trimmed.to_string())?,
-        ),
-        Some(trimmed.to_string()),
-        0,
-    ))
-}
-
 fn parse_string_function_int_literal(raw: &str, label: &str) -> Result<i64, ShardLoomError> {
     match parse_sql_literal(raw)? {
         ScalarValue::Int64(value) => Ok(value),
@@ -18236,8 +18360,11 @@ fn parse_string_function_int_literal(raw: &str, label: &str) -> Result<i64, Shar
     }
 }
 
-fn push_unique_string_function_source_column(columns: &mut Vec<String>, column: Option<String>) {
-    if let Some(column) = column {
+fn push_unique_string_function_source_columns(
+    columns: &mut Vec<String>,
+    source_columns: Vec<String>,
+) {
+    for column in source_columns {
         if !columns.iter().any(|candidate| candidate == &column) {
             columns.push(column);
         }
@@ -19769,24 +19896,30 @@ fn parse_numeric_rounding_predicate(raw: &str) -> Result<Option<ParsedPredicate>
 fn parse_string_length_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
     let trimmed = raw.trim();
     if !trimmed
-        .get(..6)
+        .get(.."length".len())
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("length"))
-        || trimmed.as_bytes().get(6) != Some(&b'(')
+        || trimmed.as_bytes().get("length".len()) != Some(&b'(')
     {
         return Ok(None);
     }
-    let open_index = "length".len();
-    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
-        unsupported_sql_error("string length predicates must use LENGTH(<column>)")
+    let close_index = matching_closing_parenthesis(trimmed, "length".len())?.ok_or_else(|| {
+        unsupported_sql_error("string length predicates must use LENGTH(<string-expression>)")
     })?;
-    let inner = trimmed[open_index + 1..close_index].trim();
+    let expression_raw = trimmed[..=close_index].trim();
+    let expression = parse_string_length_call_expression(expression_raw, "where.string_length")?
+        .expect("string length prefix produced a string length expression");
     let tail = trimmed[close_index + 1..].trim();
-    if inner.is_empty() || tail.is_empty() {
+    if tail.is_empty() {
         return Err(unsupported_sql_error(
             "string length predicates require a source column, comparison operator, and int64 literal",
         ));
     }
-    validate_sql_column_ref(inner)?;
+    let source_columns = expression_source_columns(&expression);
+    if source_columns.is_empty() {
+        return Err(unsupported_sql_error(
+            "string length predicates require at least one source column argument",
+        ));
+    }
     let tokens = split_whitespace_outside_quotes(tail)?;
     let [op_raw, literal_raw] = tokens.as_slice() else {
         return Err(unsupported_sql_error(
@@ -19799,42 +19932,37 @@ fn parse_string_length_predicate(raw: &str) -> Result<Option<ParsedPredicate>, S
         ));
     };
     Ok(Some(ParsedPredicate::StringLengthCompare {
-        column: inner.to_string(),
+        expression: Box::new(expression),
         comparison: parse_comparison_op(op_raw)?,
         value,
+        source_columns,
     }))
 }
 
 fn parse_string_transform_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLoomError> {
     let trimmed = raw.trim();
-    let Some((function_name, op)) = [
-        ("lower", StringTransformOp::Lower),
-        ("upper", StringTransformOp::Upper),
-        ("trim", StringTransformOp::Trim),
-    ]
-    .into_iter()
-    .find(|(name, _)| {
-        trimmed
-            .get(..name.len())
-            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(name))
-            && trimmed.as_bytes().get(name.len()) == Some(&b'(')
-    }) else {
+    let Some((op, open_index)) = parse_string_transform_prefix(trimmed) else {
         return Ok(None);
     };
-    let open_index = function_name.len();
     let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
         unsupported_sql_error(
-            "string transform predicates must use LOWER(<column>), UPPER(<column>), or TRIM(<column>)",
+            "string transform predicates must use LOWER|UPPER|TRIM(<string-expression>)",
         )
     })?;
-    let inner = trimmed[open_index + 1..close_index].trim();
+    let expression_raw = trimmed[..=close_index].trim();
+    let expression = parse_string_scalar_expression(expression_raw, "where.string_transform")?;
     let tail = trimmed[close_index + 1..].trim();
-    if inner.is_empty() || tail.is_empty() {
+    if tail.is_empty() {
         return Err(unsupported_sql_error(
             "string transform predicates require a source column, comparison operator, and string literal",
         ));
     }
-    validate_sql_column_ref(inner)?;
+    let source_columns = expression_source_columns(&expression);
+    if source_columns.is_empty() {
+        return Err(unsupported_sql_error(
+            "string transform predicates require at least one source column argument",
+        ));
+    }
     let tokens = split_whitespace_outside_quotes(tail)?;
     let [op_raw, literal_raw] = tokens.as_slice() else {
         return Err(unsupported_sql_error(
@@ -19843,10 +19971,11 @@ fn parse_string_transform_predicate(raw: &str) -> Result<Option<ParsedPredicate>
     };
     let literal = parse_sql_string_literal(literal_raw)?;
     Ok(Some(ParsedPredicate::StringTransformCompare {
-        column: inner.to_string(),
+        expression: Box::new(expression),
         op,
         comparison: parse_comparison_op(op_raw)?,
         value: ScalarValue::Utf8(literal),
+        source_columns,
     }))
 }
 
@@ -19863,6 +19992,11 @@ fn parse_string_function_predicate(raw: &str) -> Result<Option<ParsedPredicate>,
     if right_raw.is_empty() {
         return Err(unsupported_sql_error(
             "string function predicates require a string literal right-hand side",
+        ));
+    }
+    if call.source_columns.is_empty() {
+        return Err(unsupported_sql_error(
+            "string function predicates require at least one source column argument",
         ));
     }
     let literal = parse_sql_string_literal(right_raw)?;
@@ -21807,7 +21941,10 @@ mod tests {
         assert!(parsed.numeric_arithmetic_projections.is_empty());
         assert_eq!(parsed.string_transform_projections.len(), 3);
         assert_eq!(parsed.string_transform_projections[0].alias, "lowered");
-        assert_eq!(parsed.string_transform_projections[0].column, "label");
+        assert_eq!(
+            parsed.string_transform_projections[0].source_columns,
+            vec!["label".to_string()]
+        );
         assert_eq!(
             parsed.string_transform_projections[0].op,
             StringTransformOp::Lower
@@ -21846,7 +21983,10 @@ mod tests {
         assert!(parsed.string_transform_projections.is_empty());
         assert_eq!(parsed.string_length_projections.len(), 1);
         assert_eq!(parsed.string_length_projections[0].alias, "label_len");
-        assert_eq!(parsed.string_length_projections[0].column, "label");
+        assert_eq!(
+            parsed.string_length_projections[0].source_columns,
+            vec!["label".to_string()]
+        );
         assert_eq!(
             parsed.string_length_projection_output_columns(),
             "label_len"
@@ -21944,6 +22084,42 @@ mod tests {
             parsed.execution_certificate_suffix(),
             "computed-projection-filter-limit"
         );
+    }
+
+    #[test]
+    fn parses_composed_string_expression_projection_and_predicate_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CONCAT(LOWER(TRIM(label)), '-', UPPER(segment)) AS label_key,LENGTH(REPLACE(TRIM(label), ' ', '')) AS compact_len FROM 'target/input.csv' WHERE CONCAT(LOWER(TRIM(label)), '-', UPPER(segment)) = 'alpha-north' AND LENGTH(REPLACE(TRIM(label), ' ', '')) >= 10 LIMIT 5",
+        )
+        .expect("composed string expression statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.string_function_projections.len(), 1);
+        assert_eq!(parsed.string_function_projections[0].alias, "label_key");
+        assert_eq!(
+            parsed.string_function_projections[0].source_columns,
+            vec!["label".to_string(), "segment".to_string()]
+        );
+        assert_eq!(parsed.string_function_projections[0].literal_count, 1);
+        assert_eq!(parsed.string_length_projections.len(), 1);
+        assert_eq!(parsed.string_length_projections[0].alias, "compact_len");
+        assert_eq!(
+            parsed.string_length_projections[0].source_columns,
+            vec!["label".to_string()]
+        );
+        assert_eq!(
+            parsed.string_function_projection_source_columns(),
+            "label+segment"
+        );
+        assert_eq!(parsed.string_length_projection_source_columns(), "label");
+        assert_eq!(parsed.predicate.family(), "logical_predicate");
+        assert_eq!(
+            parsed.predicate.string_function_source_columns(),
+            "label+segment"
+        );
+        assert_eq!(parsed.predicate.string_length_source_columns(), "label");
+        assert_eq!(parsed.predicate.string_function_literal_counts(), "2");
+        assert_eq!(parsed.predicate.string_length_rhs_dtypes(), "int64");
     }
 
     #[test]
@@ -22584,10 +22760,11 @@ mod tests {
         assert!(matches!(
             parsed.predicate,
             ParsedPredicate::StringLengthCompare {
-                ref column,
+                ref source_columns,
                 comparison: ComparisonOp::GtEq,
-                value: ScalarValue::Int64(4)
-            } if column == "label"
+                value: ScalarValue::Int64(4),
+                ..
+            } if source_columns == &vec!["label".to_string()]
         ));
         assert_eq!(parsed.predicate.family(), "string_length");
         assert!(parsed.predicate.uses_string_length());
