@@ -540,11 +540,13 @@ struct ParsedWindowProjection {
     order_by: ParsedOrderBy,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum WindowFunction {
     RowNumber,
     Rank,
     DenseRank,
+    Lag { column: String, offset: usize },
+    Lead { column: String, offset: usize },
 }
 
 trait ProjectionAlias {
@@ -3033,6 +3035,9 @@ fn push_window_required_columns(parsed: &ParsedSqlLocalSource, columns: &mut BTr
         for key in &projection.order_by.keys {
             columns.insert(key.column.clone());
         }
+        if let Some(value_column) = projection.function.value_column() {
+            columns.insert(value_column.to_string());
+        }
     }
 }
 
@@ -3407,7 +3412,7 @@ fn evaluate_window_projection_output(
     source: &CsvSourceData,
     selected_row_indexes: &[usize],
 ) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
-    let rank_maps = window_rank_maps(parsed, source, selected_row_indexes)?;
+    let window_maps = window_value_maps(parsed, source, selected_row_indexes)?;
     let mut output_rows = Vec::new();
     for row_index in selected_row_indexes.iter().take(parsed.limit) {
         let row = source.rows.get(*row_index).ok_or_else(|| {
@@ -3435,21 +3440,21 @@ fn evaluate_window_projection_output(
                     output_row.push((column.clone(), value));
                 }
                 ParsedProjectionOutput::Window(alias) => {
-                    let ranks = rank_maps.get(alias).ok_or_else(|| {
+                    let values = window_maps.get(alias).ok_or_else(|| {
                         ShardLoomError::InvalidOperation(format!(
-                            "window projection rank map missing for alias {alias:?}"
+                            "window projection value map missing for alias {alias:?}"
                         ))
                     })?;
-                    let rank = ranks.get(row_index).ok_or_else(|| {
+                    let value = values.get(row_index).ok_or_else(|| {
                         ShardLoomError::InvalidOperation(format!(
-                            "window projection rank missing for selected row {row_index}"
+                            "window projection value missing for selected row {row_index}"
                         ))
                     })?;
-                    output_row.push((alias.clone(), ScalarValue::Int64(*rank)));
+                    output_row.push((alias.clone(), value.clone()));
                 }
                 _ => {
                     return Err(unsupported_sql_error(
-                        "window projection smoke admits raw columns plus ROW_NUMBER() windows only",
+                        "window projection smoke admits raw columns plus admitted window functions only",
                     ));
                 }
             }
@@ -3459,12 +3464,12 @@ fn evaluate_window_projection_output(
     Ok(output_rows)
 }
 
-fn window_rank_maps(
+fn window_value_maps(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
     selected_row_indexes: &[usize],
-) -> Result<BTreeMap<String, BTreeMap<usize, i64>>, ShardLoomError> {
-    let mut rank_maps = BTreeMap::new();
+) -> Result<BTreeMap<String, BTreeMap<usize, ScalarValue>>, ShardLoomError> {
+    let mut value_maps = BTreeMap::new();
     for projection in &parsed.window_projections {
         let mut partitions: BTreeMap<Vec<String>, Vec<(usize, Vec<SortValue>)>> = BTreeMap::new();
         for row_index in selected_row_indexes {
@@ -3480,7 +3485,7 @@ fn window_rank_maps(
                 .push((*row_index, sort_values));
         }
 
-        let mut ranks = BTreeMap::new();
+        let mut projection_values = BTreeMap::new();
         for mut entries in partitions.into_values() {
             validate_sort_value_families(&entries)?;
             entries.sort_by(|(left_index, left_values), (right_index, right_values)| {
@@ -3488,31 +3493,37 @@ fn window_rank_maps(
                     compare_order_by_values(&projection.order_by, left_values, right_values);
                 ordering.then_with(|| left_index.cmp(right_index))
             });
-            ranks.extend(window_ranks_for_sorted_entries(
-                projection.function,
+            projection_values.extend(window_values_for_sorted_entries(
+                &projection.function,
                 entries,
+                source,
             )?);
         }
-        rank_maps.insert(projection.alias.clone(), ranks);
+        value_maps.insert(projection.alias.clone(), projection_values);
     }
-    Ok(rank_maps)
+    Ok(value_maps)
 }
 
-fn window_ranks_for_sorted_entries(
-    function: WindowFunction,
+fn window_values_for_sorted_entries(
+    function: &WindowFunction,
     entries: Vec<(usize, Vec<SortValue>)>,
-) -> Result<BTreeMap<usize, i64>, ShardLoomError> {
-    let mut ranks = BTreeMap::new();
+    source: &CsvSourceData,
+) -> Result<BTreeMap<usize, ScalarValue>, ShardLoomError> {
+    if function.is_offset() {
+        return window_offset_values_for_sorted_entries(function, &entries, source);
+    }
+
+    let mut output_values = BTreeMap::new();
     let mut previous_values: Option<Vec<SortValue>> = None;
     let mut rank_for_peer_group = 0_i64;
     let mut dense_rank = 0_i64;
-    for (rank_index, (row_index, values)) in entries.into_iter().enumerate() {
+    for (rank_index, (row_index, sort_values)) in entries.into_iter().enumerate() {
         let ordinal_rank = i64::try_from(rank_index + 1).map_err(|_| {
             ShardLoomError::InvalidOperation("window rank exceeded int64 bounds".to_string())
         })?;
         let is_new_peer_group = previous_values
             .as_ref()
-            .is_none_or(|previous| previous != &values);
+            .is_none_or(|previous| previous != &sort_values);
         let rank = match function {
             WindowFunction::RowNumber => ordinal_rank,
             WindowFunction::Rank => {
@@ -3531,13 +3542,58 @@ fn window_ranks_for_sorted_entries(
                 }
                 dense_rank
             }
+            WindowFunction::Lag { .. } | WindowFunction::Lead { .. } => {
+                unreachable!("offset window functions are handled before ranking evaluation")
+            }
         };
         if is_new_peer_group {
-            previous_values = Some(values);
+            previous_values = Some(sort_values);
         }
-        ranks.insert(row_index, rank);
+        output_values.insert(row_index, ScalarValue::Int64(rank));
     }
-    Ok(ranks)
+    Ok(output_values)
+}
+
+fn window_offset_values_for_sorted_entries(
+    function: &WindowFunction,
+    entries: &[(usize, Vec<SortValue>)],
+    source: &CsvSourceData,
+) -> Result<BTreeMap<usize, ScalarValue>, ShardLoomError> {
+    let mut values = BTreeMap::new();
+    let value_column = function.value_column().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "offset window function is missing its value column".to_string(),
+        )
+    })?;
+    let offset = function.offset_rows().ok_or_else(|| {
+        ShardLoomError::InvalidOperation("offset window function is missing offset".to_string())
+    })?;
+    for (position, (row_index, _values)) in entries.iter().enumerate() {
+        let source_position = match function {
+            WindowFunction::Lag { .. } => position.checked_sub(offset),
+            WindowFunction::Lead { .. } => position
+                .checked_add(offset)
+                .filter(|candidate| *candidate < entries.len()),
+            WindowFunction::RowNumber | WindowFunction::Rank | WindowFunction::DenseRank => None,
+        };
+        let value = if let Some(source_position) = source_position {
+            let source_row_index = entries[source_position].0;
+            let row = source.rows.get(source_row_index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "window offset source row index is out of bounds".to_string(),
+                )
+            })?;
+            row.get(value_column).cloned().ok_or_else(|| {
+                unsupported_sql_error(&format!(
+                    "window offset source column {value_column:?} is not present in the row"
+                ))
+            })?
+        } else {
+            ScalarValue::Null
+        };
+        values.insert(*row_index, value);
+    }
+    Ok(values)
 }
 
 fn window_partition_key(
@@ -6387,7 +6443,7 @@ fn validate_window_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(),
     }
     if parsed.has_computed_projection() {
         return Err(unsupported_sql_error(
-            "window projection smoke admits raw columns plus ROW_NUMBER() windows only",
+            "window projection smoke admits raw columns plus ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(), and LEAD() windows only",
         ));
     }
     if parsed.order_by.is_some() {
@@ -6397,7 +6453,7 @@ fn validate_window_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(),
     }
     if parsed.projections.is_empty() {
         return Err(unsupported_sql_error(
-            "window projection smoke requires explicit projection columns or SELECT * before ROW_NUMBER() windows",
+            "window projection smoke requires explicit projection columns or SELECT * before admitted window projections",
         ));
     }
     Ok(())
@@ -6510,6 +6566,14 @@ fn validate_window_projection_source_columns(
                 header,
                 &key.column,
                 "window ORDER BY column",
+                "local source header",
+            )?;
+        }
+        if let Some(value_column) = projection.function.value_column() {
+            require_header_column(
+                header,
+                value_column,
+                "window offset source column",
                 "local source header",
             )?;
         }
@@ -8613,11 +8677,23 @@ impl ParsedSqlLocalSource {
         } else if self
             .window_projections
             .iter()
-            .all(|projection| projection.function == WindowFunction::RowNumber)
+            .all(|projection| projection.function.is_row_number())
         {
             "row_number".to_string()
-        } else {
+        } else if self
+            .window_projections
+            .iter()
+            .all(|projection| projection.function.is_ranking())
+        {
             "ranking".to_string()
+        } else if self
+            .window_projections
+            .iter()
+            .all(|projection| projection.function.is_offset())
+        {
+            "offset".to_string()
+        } else {
+            "mixed".to_string()
         }
     }
 
@@ -8673,6 +8749,35 @@ impl ParsedSqlLocalSource {
                 .join(",")
         }
     }
+
+    fn window_value_columns(&self) -> String {
+        if self.window_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.window_projections
+                .iter()
+                .map(|projection| projection.function.value_column().unwrap_or("none"))
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
+
+    fn window_offset_rows(&self) -> String {
+        if self.window_projections.is_empty() {
+            "not_applicable".to_string()
+        } else {
+            self.window_projections
+                .iter()
+                .map(|projection| {
+                    projection
+                        .function
+                        .offset_rows()
+                        .map_or_else(|| "none".to_string(), |offset| offset.to_string())
+                })
+                .collect::<Vec<_>>()
+                .join(",")
+        }
+    }
 }
 
 impl ParsedAggregate {
@@ -8721,11 +8826,55 @@ impl AggregateFunction {
 }
 
 impl WindowFunction {
-    const fn as_str(self) -> &'static str {
+    const fn as_str(&self) -> &'static str {
         match self {
             Self::RowNumber => "row_number",
             Self::Rank => "rank",
             Self::DenseRank => "dense_rank",
+            Self::Lag { .. } => "lag",
+            Self::Lead { .. } => "lead",
+        }
+    }
+
+    const fn is_row_number(&self) -> bool {
+        matches!(self, Self::RowNumber)
+    }
+
+    const fn is_rank(&self) -> bool {
+        matches!(self, Self::Rank)
+    }
+
+    const fn is_dense_rank(&self) -> bool {
+        matches!(self, Self::DenseRank)
+    }
+
+    const fn is_ranking(&self) -> bool {
+        matches!(self, Self::RowNumber | Self::Rank | Self::DenseRank)
+    }
+
+    const fn is_lag(&self) -> bool {
+        matches!(self, Self::Lag { .. })
+    }
+
+    const fn is_lead(&self) -> bool {
+        matches!(self, Self::Lead { .. })
+    }
+
+    const fn is_offset(&self) -> bool {
+        matches!(self, Self::Lag { .. } | Self::Lead { .. })
+    }
+
+    fn value_column(&self) -> Option<&str> {
+        match self {
+            Self::Lag { column, .. } | Self::Lead { column, .. } => Some(column.as_str()),
+            Self::RowNumber | Self::Rank | Self::DenseRank => None,
+        }
+    }
+
+    const fn offset_rows(&self) -> Option<usize> {
+        match self {
+            Self::Lag { offset, .. } | Self::Lead { offset, .. } => Some(*offset),
+            Self::RowNumber | Self::Rank | Self::DenseRank => None,
         }
     }
 }
@@ -12869,11 +13018,19 @@ impl SqlLocalSourceReport {
                 self.parsed.window_output_columns(),
             ),
             (
+                "window_value_columns".to_string(),
+                self.parsed.window_value_columns(),
+            ),
+            (
+                "window_offset_rows".to_string(),
+                self.parsed.window_offset_rows(),
+            ),
+            (
                 "window_row_number_runtime_execution".to_string(),
                 self.parsed
                     .window_projections
                     .iter()
-                    .any(|projection| projection.function == WindowFunction::RowNumber)
+                    .any(|projection| projection.function.is_row_number())
                     .to_string(),
             ),
             (
@@ -12881,7 +13038,7 @@ impl SqlLocalSourceReport {
                 self.parsed
                     .window_projections
                     .iter()
-                    .any(|projection| projection.function == WindowFunction::Rank)
+                    .any(|projection| projection.function.is_rank())
                     .to_string(),
             ),
             (
@@ -12889,7 +13046,23 @@ impl SqlLocalSourceReport {
                 self.parsed
                     .window_projections
                     .iter()
-                    .any(|projection| projection.function == WindowFunction::DenseRank)
+                    .any(|projection| projection.function.is_dense_rank())
+                    .to_string(),
+            ),
+            (
+                "window_lag_runtime_execution".to_string(),
+                self.parsed
+                    .window_projections
+                    .iter()
+                    .any(|projection| projection.function.is_lag())
+                    .to_string(),
+            ),
+            (
+                "window_lead_runtime_execution".to_string(),
+                self.parsed
+                    .window_projections
+                    .iter()
+                    .any(|projection| projection.function.is_lead())
                     .to_string(),
             ),
             (
@@ -15632,7 +15805,7 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
     let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
         if find_keyword_outside_quotes_and_parentheses(raw, "over")?.is_some() {
             return Err(unsupported_sql_error(
-                "window projections must be written as ROW_NUMBER(), RANK(), or DENSE_RANK() OVER (...) AS <column>",
+                "window projections must be written as ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(<column>[, <offset>]), or LEAD(<column>[, <offset>]) OVER (...) AS <column>",
             ));
         }
         return Ok(None);
@@ -15645,9 +15818,9 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
     };
     let function_raw = expression_raw[..over_index].trim();
     let spec_raw = expression_raw[over_index + "over".len()..].trim();
-    let Some(function) = parse_window_function(function_raw) else {
+    let Some(function) = parse_window_function(function_raw)? else {
         return Err(unsupported_sql_error(
-            "window projection smoke admits ROW_NUMBER(), RANK(), or DENSE_RANK() OVER (...) AS <column> only",
+            "window projection smoke admits ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(<column>[, <offset>]), or LEAD(<column>[, <offset>]) OVER (...) AS <column> only",
         ));
     };
     if alias.is_empty() {
@@ -15665,18 +15838,114 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
     }))
 }
 
-fn parse_window_function(raw: &str) -> Option<WindowFunction> {
+fn parse_window_function(raw: &str) -> Result<Option<WindowFunction>, ShardLoomError> {
     let compact = raw
         .chars()
         .filter(|ch| !ch.is_whitespace())
         .collect::<String>()
         .to_ascii_lowercase();
     match compact.as_str() {
-        "row_number()" => Some(WindowFunction::RowNumber),
-        "rank()" => Some(WindowFunction::Rank),
-        "dense_rank()" => Some(WindowFunction::DenseRank),
-        _ => None,
+        "row_number()" => return Ok(Some(WindowFunction::RowNumber)),
+        "rank()" => return Ok(Some(WindowFunction::Rank)),
+        "dense_rank()" => return Ok(Some(WindowFunction::DenseRank)),
+        _ => {}
     }
+
+    if let Some(args) = parse_window_function_args(raw, "lag")? {
+        return parse_offset_window_function("LAG", args).map(Some);
+    }
+    if let Some(args) = parse_window_function_args(raw, "lead")? {
+        return parse_offset_window_function("LEAD", args).map(Some);
+    }
+
+    Ok(None)
+}
+
+fn parse_window_function_args<'a>(
+    raw: &'a str,
+    function_name: &str,
+) -> Result<Option<&'a str>, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.len() < function_name.len() {
+        return Ok(None);
+    }
+    let Some(function_prefix) = trimmed.get(..function_name.len()) else {
+        return Ok(None);
+    };
+    if !function_prefix.eq_ignore_ascii_case(function_name) {
+        return Ok(None);
+    }
+    let after_name = trimmed
+        .get(function_name.len()..)
+        .expect("function prefix slice succeeded");
+    let after_name_trimmed = after_name.trim_start();
+    if !after_name_trimmed.starts_with('(') {
+        return Ok(None);
+    }
+    let open_index = trimmed.len() - after_name_trimmed.len();
+    let close_index = matching_closing_parenthesis(trimmed, open_index)?.ok_or_else(|| {
+        unsupported_sql_error(&format!(
+            "{function_name} window function parentheses must be balanced"
+        ))
+    })?;
+    if !trimmed[close_index + 1..].trim().is_empty() {
+        return Err(unsupported_sql_error(&format!(
+            "{function_name} window function must be a single function call"
+        )));
+    }
+    Ok(Some(trimmed[open_index + 1..close_index].trim()))
+}
+
+fn parse_offset_window_function(
+    function_name: &str,
+    args_raw: &str,
+) -> Result<WindowFunction, ShardLoomError> {
+    let args = split_sql_csv(args_raw)?;
+    if !(1..=2).contains(&args.len()) {
+        return Err(unsupported_sql_error(&format!(
+            "{function_name} window function requires a value column and optional positive integer offset"
+        )));
+    }
+    let column = args[0].trim();
+    validate_sql_column_ref(column)?;
+    let offset = if let Some(offset_raw) = args.get(1) {
+        parse_window_offset(function_name, offset_raw)?
+    } else {
+        1
+    };
+    match function_name {
+        "LAG" => Ok(WindowFunction::Lag {
+            column: column.to_string(),
+            offset,
+        }),
+        "LEAD" => Ok(WindowFunction::Lead {
+            column: column.to_string(),
+            offset,
+        }),
+        _ => Err(ShardLoomError::InvalidOperation(format!(
+            "unknown offset window function {function_name}"
+        ))),
+    }
+}
+
+fn parse_window_offset(function_name: &str, raw: &str) -> Result<usize, ShardLoomError> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || !trimmed.chars().all(|ch| ch.is_ascii_digit()) {
+        return Err(unsupported_sql_error(&format!(
+            "{function_name} window offset must be a positive integer literal"
+        )));
+    }
+    let offset = trimmed.parse::<usize>().map_err(|_| {
+        unsupported_sql_error(&format!(
+            "{function_name} window offset must be a positive integer literal"
+        ))
+    })?;
+    if offset == 0 || offset > MAX_INPUT_ROWS {
+        return Err(unsupported_sql_error(&format!(
+            "{function_name} window offset must be between 1 and {MAX_INPUT_ROWS}"
+        )));
+    }
+    Ok(offset)
 }
 
 fn parse_window_spec(raw: &str) -> Result<(Vec<String>, ParsedOrderBy), ShardLoomError> {
@@ -15698,14 +15967,14 @@ fn parse_window_spec(raw: &str) -> Result<(Vec<String>, ParsedOrderBy), ShardLoo
     let order_by_index = find_keyword_outside_quotes_and_parentheses(inner, "order by")?
         .ok_or_else(|| {
             unsupported_sql_error(
-                "ROW_NUMBER window projections require ORDER BY for deterministic ranking",
+                "window projections require ORDER BY for deterministic ranking or offset semantics",
             )
         })?;
     let partition_raw = inner[..order_by_index].trim();
     let order_by_raw = inner[order_by_index + "order by".len()..].trim();
     if order_by_raw.is_empty() {
         return Err(unsupported_sql_error(
-            "ROW_NUMBER window projections require at least one ORDER BY key",
+            "window projections require at least one ORDER BY key",
         ));
     }
     if find_keyword_outside_quotes_and_parentheses(order_by_raw, "partition by")?.is_some() {
@@ -20382,6 +20651,56 @@ mod tests {
         assert_eq!(parsed.window_order_by_directions(), "desc;desc");
         assert_eq!(parsed.window_output_columns(), "r,dr");
         assert_eq!(parsed.statement_kind(), "local_source_window_limit");
+    }
+
+    #[test]
+    fn parses_scoped_window_offset_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,region,LAG(label) OVER (PARTITION BY region ORDER BY amount ASC) AS previous_label,LEAD(label, 2) OVER (PARTITION BY region ORDER BY amount ASC) AS next2_label FROM 'target/input.csv' LIMIT 6",
+        )
+        .expect("window offset statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "region"]);
+        assert_eq!(parsed.window_projections.len(), 2);
+        assert_eq!(parsed.window_projections[0].alias, "previous_label");
+        assert_eq!(
+            parsed.window_projections[0].function,
+            WindowFunction::Lag {
+                column: "label".to_string(),
+                offset: 1,
+            }
+        );
+        assert_eq!(parsed.window_projections[1].alias, "next2_label");
+        assert_eq!(
+            parsed.window_projections[1].function,
+            WindowFunction::Lead {
+                column: "label".to_string(),
+                offset: 2,
+            }
+        );
+        assert_eq!(parsed.window_operator_family(), "offset");
+        assert_eq!(parsed.window_functions(), "lag,lead");
+        assert_eq!(parsed.window_partition_columns(), "region;region");
+        assert_eq!(parsed.window_order_by_columns(), "amount;amount");
+        assert_eq!(parsed.window_order_by_directions(), "asc;asc");
+        assert_eq!(parsed.window_output_columns(), "previous_label,next2_label");
+        assert_eq!(parsed.window_value_columns(), "label,label");
+        assert_eq!(parsed.window_offset_rows(), "1,2");
+        assert_eq!(parsed.statement_kind(), "local_source_window_limit");
+    }
+
+    #[test]
+    fn parser_blocks_invalid_window_offset_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,LAG(label, 0) OVER (ORDER BY amount ASC) AS previous_label FROM 'target/input.csv' LIMIT 6",
+        )
+        .expect_err("zero offset is not admitted");
+
+        assert!(
+            error
+                .to_string()
+                .contains("LAG window offset must be between 1 and 50000")
+        );
     }
 
     #[test]

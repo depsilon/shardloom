@@ -965,10 +965,10 @@ docs/website parity, and a completed-ledger entry.
     multi-key scalar joined top-N, and scalar/grouped join-aggregate ordering by aggregate output
     aliases or group keys. Scalar/grouped aggregate and join-aggregate rows also admit scoped
     post-aggregate `HAVING` predicates bound to emitted aggregate output aliases or selected group
-    keys. Scoped local-source `ROW_NUMBER()`, `RANK()`, and `DENSE_RANK()` window projections now
-    execute through the same format-neutral SQL/Python runtime with
-    deterministic partitioned ranking and peer-group tie evidence; richer expressions, casts,
-    dates, strings, broad window functions/frames, subqueries,
+    keys. Scoped local-source `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, and `LEAD()`
+    window projections now execute through the same format-neutral SQL runtime with deterministic
+    partitioned ranking, offset semantics, peer-group tie evidence, and typed report evidence;
+    richer expressions, casts, dates, strings, broad window functions/frames, subqueries,
     catalogs, arbitrary join predicates, null/collation ordering, and broad planner behavior remain
     incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
@@ -1123,9 +1123,10 @@ docs/website parity, and a completed-ledger entry.
   - Source: `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4J`, RFC 0015, RFC 0016, RFC 0021.
   - Current state: selected residual-native operators exist; broad type/null/string/date/decimal,
     join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Scoped local-source
-    ranking window projections now cover `ROW_NUMBER()`, `RANK()`, and `DENSE_RANK()` with native
-    partition/order evaluation, peer-group tie semantics, and runtime evidence, but general window
-    functions, frames, encoded ranking kernels, and
+    ranking and offset window projections now cover `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`,
+    `LAG()`, and `LEAD()` with native partition/order evaluation, peer-group tie semantics,
+    offset lookups, and runtime evidence, but general window functions, frames, encoded window
+    kernels, and
     distributed/object-store window execution remain open. Scoped
     `COUNT(DISTINCT column)` is runtime-admitted for local scalar and grouped aggregate rows with
     `distinct_aggregate_*` evidence, SQL `NULL`-ignoring distinct-count semantics, Python

@@ -16,6 +16,46 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5G scoped local-source offset window runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-window-offset-runtime-20260524` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage`.
+    - User direction to finish compute-engine runtime semantics before final user-surface cleanup.
+  - Scope:
+    - Promoted scoped local-source `LAG(<column>[, <offset>]) OVER (...) AS <alias>` and
+      `LEAD(<column>[, <offset>]) OVER (...) AS <alias>` into the same ShardLoom-native
+      local-source window runtime as `ROW_NUMBER()`, `RANK()`, and `DENSE_RANK()`.
+    - Evaluates offset values per partition over deterministic `ORDER BY` keys after filtering and
+      before limit, preserving source-row output order and emitting `NULL` where the requested
+      offset falls outside the partition.
+    - Extends required-column pruning so offset value columns are materialized at read/ingest
+      boundaries only when needed, keeping user-facing SQL format-neutral.
+    - Added deterministic offset blockers for zero, non-literal, and out-of-range offsets without
+      invoking fallback execution.
+    - Added runtime evidence fields for `window_value_columns`, `window_offset_rows`,
+      `window_lag_runtime_execution`, and `window_lead_runtime_execution`, plus typed Python report
+      accessors over those fields.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test -p shardloom-cli parses_scoped_window_offset_statement -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_window_lag_lead_without_fallback`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `cargo +1.91.1 test -p shardloom-cli`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest discover -s python\tests`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+  - Claim boundary:
+    - Scoped local-source fixture-smoke offset windows only. This does not claim window frames,
+      analytic window aggregates, `NTILE`, encoded-native window kernels,
+      distributed/object-store/table windows, broad SQL/DataFrame parity, performance superiority,
+      or package readiness.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F local input adapter registry inference runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-adapter-registry-runtime-20260524` / #938.

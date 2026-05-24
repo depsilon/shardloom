@@ -123,15 +123,21 @@ surface over existing `OutputEnvelope` fields and diagnostics. Unsupported or
 report-only scopes remain unsupported or report-only, and
 `fallback_attempted=false` / `external_engine_invoked=false` stay visible.
 
-For normal Python use, start from the format-neutral query surface. The source reader and sink writer
-are the only places a user should need to name a file format; ShardLoom owns the SourceState,
-preparation, execution, OutputPlan, replay, reuse, certificate, and no-fallback evidence behind that
-surface:
+For normal Python use, start from the simple context and query surface. `repo_root` and
+`profile_order` are optional development configuration overrides, not arguments users should have
+to put in ordinary application code. Source-tree or CI runs can set `SHARDLOOM_BIN` or
+`SHARDLOOM_REPO_ROOT` in the environment when the CLI is not on `PATH`.
+
+Today the Python package still exposes explicit local reader helpers such as `read_csv(...)` and
+`read_json(...)`; those should be treated as compatibility helpers over the centralized runtime
+adapter path. The intended public direction is a single inferred `read(path)` surface after the
+remaining engine runtime work is complete. ShardLoom owns SourceState, preparation, execution,
+OutputPlan, replay, reuse, certificate, and no-fallback evidence behind the query surface:
 
 ```python
 import shardloom as sl
 
-ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
+ctx = sl.context()
 result = (
     ctx.read_csv("target/orders.csv")
     .filter(sl.col("amount") >= 10)
@@ -182,7 +188,8 @@ cargo run -q -p shardloom-cli --features vortex-write -- `
   --allow-overwrite --format json
 
 $env:PYTHONPATH = "python\src"
-python -c "from shardloom import context; ctx=context(repo_root='.', profile_order=('debug','release')); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.fallback_attempted, r.external_engine_invoked)"
+$env:SHARDLOOM_REPO_ROOT = "."
+python -c "from shardloom import context; ctx=context(); r=ctx.prepare_vortex('target/vortex-ingest-source.csv','target/vortex-ingest-source.vortex', allow_overwrite=True); print(r.vortex_ingest_status, r.prepared_state_created, r.fallback_attempted, r.external_engine_invoked)"
 ```
 
 Default CLI builds return a deterministic feature-gate blocker instead of writing an artifact. This
@@ -607,7 +614,7 @@ $env:PYTHONPATH = "python\src"
 @'
 import shardloom as sl
 
-ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
+ctx = sl.context()
 workflow = (
     ctx.read_csv("target/sql-local-source-smoke.csv")
     .select("id", "label")
@@ -1313,7 +1320,7 @@ writes a local JSONL/CSV file, and returns generated-source/output evidence:
 ```python
 from shardloom import context
 
-ctx = context(repo_root=".")
+ctx = context()
 report = ctx.from_rows(
     [
         {"id": 1, "label": "alpha"},
@@ -1843,7 +1850,7 @@ current CG-2/CG-13/CG-16/CG-19 evidence path:
 ```python
 from shardloom import ShardLoomClient
 
-client = ShardLoomClient.from_repo(profile_order=("debug", "release"))
+client = ShardLoomClient.from_repo()
 result = client.local_vortex_primitive_smoke(
     "shardloom-vortex/tests/fixtures/local_primitive_struct_five.vortex",
 )
@@ -1899,7 +1906,7 @@ migration/correctness/benchmark evidence status.
 ```python
 from shardloom import ShardLoomClient
 
-client = ShardLoomClient.from_repo(profile_order=("debug", "release"))
+client = ShardLoomClient.from_repo()
 readiness = client.workflow_readiness_smoke()
 
 print(readiness.plan_names)

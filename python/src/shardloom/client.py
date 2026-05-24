@@ -1378,6 +1378,26 @@ class SqlLocalSourceSmokeReport:
         return _csv_values(self.envelope.field("window_output_columns"))
 
     @property
+    def window_value_columns(self) -> tuple[str, ...]:
+        """Return LAG/LEAD value columns emitted by the smoke."""
+
+        return tuple(
+            value
+            for value in _csv_values(self.envelope.field("window_value_columns"))
+            if value != "none"
+        )
+
+    @property
+    def window_offset_rows(self) -> tuple[int, ...]:
+        """Return LAG/LEAD offsets emitted by the smoke."""
+
+        return tuple(
+            int(value)
+            for value in _csv_values(self.envelope.field("window_offset_rows"))
+            if value != "none"
+        )
+
+    @property
     def window_row_number_runtime_execution(self) -> bool:
         """Whether this smoke executed admitted ROW_NUMBER window semantics."""
 
@@ -1400,6 +1420,18 @@ class SqlLocalSourceSmokeReport:
             self.envelope.field_bool("window_dense_rank_runtime_execution", False)
             is True
         )
+
+    @property
+    def window_lag_runtime_execution(self) -> bool:
+        """Whether this smoke executed admitted LAG window semantics."""
+
+        return self.envelope.field_bool("window_lag_runtime_execution", False) is True
+
+    @property
+    def window_lead_runtime_execution(self) -> bool:
+        """Whether this smoke executed admitted LEAD window semantics."""
+
+        return self.envelope.field_bool("window_lead_runtime_execution", False) is True
 
     @property
     def predicate_operator_family(self) -> str | None:
