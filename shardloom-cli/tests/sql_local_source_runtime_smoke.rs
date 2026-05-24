@@ -4179,6 +4179,102 @@ fn sql_local_source_smoke_executes_window_lag_lead_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_window_distribution_without_fallback() {
+    let source_path = unique_path("sql-local-source-window-distribution", "csv");
+    fs::write(
+        &source_path,
+        "id,region,amount\n\
+         1,east,30\n\
+         2,east,30\n\
+         3,east,20\n\
+         4,east,10\n\
+         5,west,10\n\
+         6,west,5\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,region,amount,NTILE(2) OVER (PARTITION BY region ORDER BY amount DESC) AS bucket,PERCENT_RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS percent_rank,CUME_DIST() OVER (PARTITION BY region ORDER BY amount DESC) AS cume_dist FROM '{}' LIMIT 6",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("sql_statement_kind", "local_source_window_limit")));
+    assert!(stdout.contains(&field("window_runtime_execution", "true")));
+    assert!(stdout.contains(&field("window_operator_family", "distribution")));
+    assert!(stdout.contains(&field("window_function", "ntile,percent_rank,cume_dist")));
+    assert!(stdout.contains(&field("window_partition_columns", "region;region;region")));
+    assert!(stdout.contains(&field("window_order_by_columns", "amount;amount;amount")));
+    assert!(stdout.contains(&field("window_order_by_directions", "desc;desc;desc")));
+    assert!(stdout.contains(&field(
+        "window_output_columns",
+        "bucket,percent_rank,cume_dist"
+    )));
+    assert!(stdout.contains(&field("window_bucket_counts", "2,none,none")));
+    assert!(stdout.contains(&field("window_ntile_runtime_execution", "true")));
+    assert!(stdout.contains(&field("window_percent_rank_runtime_execution", "true")));
+    assert!(stdout.contains(&field("window_cume_dist_runtime_execution", "true")));
+    assert!(stdout.contains(&field("window_row_number_runtime_execution", "false")));
+    assert!(stdout.contains(&field("window_rank_runtime_execution", "false")));
+    assert!(stdout.contains(&field("window_dense_rank_runtime_execution", "false")));
+    assert!(stdout.contains(&field("window_lag_runtime_execution", "false")));
+    assert!(stdout.contains(&field("window_lead_runtime_execution", "false")));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,region,amount,bucket,percent_rank,cume_dist"
+    )));
+    assert!(stdout.contains(&field("selected_row_count", "6")));
+    assert!(stdout.contains(&field("output_row_count", "6")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"region\\\":\\\"east\\\",\\\"amount\\\":30,\\\"bucket\\\":1,\\\"percent_rank\\\":0.0,\\\"cume_dist\\\":0.5}\\n{\\\"id\\\":2,\\\"region\\\":\\\"east\\\",\\\"amount\\\":30,\\\"bucket\\\":1,\\\"percent_rank\\\":0.0,\\\"cume_dist\\\":0.5}\\n{\\\"id\\\":3,\\\"region\\\":\\\"east\\\",\\\"amount\\\":20,\\\"bucket\\\":2,\\\"percent_rank\\\":0.6666666666666666,\\\"cume_dist\\\":0.75}\\n{\\\"id\\\":4,\\\"region\\\":\\\"east\\\",\\\"amount\\\":10,\\\"bucket\\\":2,\\\"percent_rank\\\":1.0,\\\"cume_dist\\\":1.0}\\n{\\\"id\\\":5,\\\"region\\\":\\\"west\\\",\\\"amount\\\":10,\\\"bucket\\\":1,\\\"percent_rank\\\":0.0,\\\"cume_dist\\\":0.5}\\n{\\\"id\\\":6,\\\"region\\\":\\\"west\\\",\\\"amount\\\":5,\\\"bucket\\\":2,\\\"percent_rank\\\":1.0,\\\"cume_dist\\\":1.0}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    let blocked_statement = format!(
+        "SELECT id,NTILE(0) OVER (PARTITION BY region ORDER BY amount DESC) AS bucket FROM '{}' LIMIT 6",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(blocked_output.contains("NTILE window bucket count must be between 1 and 50000"));
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_utf8_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-utf8-order-by", "csv");
     fs::write(

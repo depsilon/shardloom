@@ -1398,6 +1398,16 @@ class SqlLocalSourceSmokeReport:
         )
 
     @property
+    def window_bucket_counts(self) -> tuple[int, ...]:
+        """Return NTILE bucket counts emitted by the smoke."""
+
+        return tuple(
+            int(value)
+            for value in _csv_values(self.envelope.field("window_bucket_counts"))
+            if value != "none"
+        )
+
+    @property
     def window_row_number_runtime_execution(self) -> bool:
         """Whether this smoke executed admitted ROW_NUMBER window semantics."""
 
@@ -1432,6 +1442,27 @@ class SqlLocalSourceSmokeReport:
         """Whether this smoke executed admitted LEAD window semantics."""
 
         return self.envelope.field_bool("window_lead_runtime_execution", False) is True
+
+    @property
+    def window_ntile_runtime_execution(self) -> bool:
+        """Whether this smoke executed admitted NTILE window semantics."""
+
+        return self.envelope.field_bool("window_ntile_runtime_execution", False) is True
+
+    @property
+    def window_percent_rank_runtime_execution(self) -> bool:
+        """Whether this smoke executed admitted PERCENT_RANK window semantics."""
+
+        return (
+            self.envelope.field_bool("window_percent_rank_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def window_cume_dist_runtime_execution(self) -> bool:
+        """Whether this smoke executed admitted CUME_DIST window semantics."""
+
+        return self.envelope.field_bool("window_cume_dist_runtime_execution", False) is True
 
     @property
     def predicate_operator_family(self) -> str | None:

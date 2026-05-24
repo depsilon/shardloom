@@ -1341,7 +1341,7 @@ class ShardLoomClientTests(unittest.TestCase):
         with self.assertRaisesRegex(ShardLoomProtocolError, "line 1 is not a JSON object"):
             _ = report_for("1\n").result_rows
 
-    def test_sql_local_source_report_window_offset_evidence_accessors(self) -> None:
+    def test_sql_local_source_report_window_evidence_accessors(self) -> None:
         envelope = OutputEnvelope.from_json(
             {
                 "schema_version": "shardloom.output.v2",
@@ -1368,8 +1368,12 @@ class ShardLoomClientTests(unittest.TestCase):
                     {"key": "result_jsonl", "value": "{}\n"},
                     {"key": "window_value_columns", "value": "label,label"},
                     {"key": "window_offset_rows", "value": "1,2"},
+                    {"key": "window_bucket_counts", "value": "4,none"},
                     {"key": "window_lag_runtime_execution", "value": "true"},
                     {"key": "window_lead_runtime_execution", "value": "true"},
+                    {"key": "window_ntile_runtime_execution", "value": "true"},
+                    {"key": "window_percent_rank_runtime_execution", "value": "true"},
+                    {"key": "window_cume_dist_runtime_execution", "value": "true"},
                 ],
             }
         )
@@ -1377,8 +1381,12 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertEqual(report.window_value_columns, ("label", "label"))
         self.assertEqual(report.window_offset_rows, (1, 2))
+        self.assertEqual(report.window_bucket_counts, (4,))
         self.assertTrue(report.window_lag_runtime_execution)
         self.assertTrue(report.window_lead_runtime_execution)
+        self.assertTrue(report.window_ntile_runtime_execution)
+        self.assertTrue(report.window_percent_rank_runtime_execution)
+        self.assertTrue(report.window_cume_dist_runtime_execution)
 
     def test_vortex_ingest_smoke_helper_dispatches_prepare_once_route(self) -> None:
         binary = self.fake_cli(
