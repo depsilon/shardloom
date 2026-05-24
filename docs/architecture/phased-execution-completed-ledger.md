@@ -16,6 +16,58 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: DEP-RUNTIME-COMPAT-1 Dependabot, Vortex 0.72, and TurboQuant capability gate
+  - Date: 2026-05-23
+  - Branch/PR: `compute-engine-dependency-runtime-compat-20260523` / #927.
+  - Source:
+    - User request to merge #926 first, then review/implement all open Dependabot PRs.
+    - Open Dependabot PRs #920, #921, #922, #923, and #783.
+    - User request to research the Vortex update for broader incorporation and review TurboQuant
+      capabilities.
+  - Scope:
+    - Incorporated GitHub Actions major bumps in one branch: `actions/upload-artifact@v7`,
+      `actions/setup-node@v6`, and `actions/setup-python@v6`.
+    - Bumped Parquet usage from `58.2.0` to `58.3.0` in `shardloom-cli` dev-dependencies and
+      `shardloom-vortex` optional universal-format IO dependencies.
+    - Bumped ShardLoom's optional upstream Vortex dependency from `0.71` to `0.72` and refreshed
+      `Cargo.lock` so the upstream Vortex crate family resolves to `0.72.0`.
+    - Reviewed upstream Vortex/TurboQuant sources and recorded the integration posture in
+      `docs/architecture/vortex-public-api-inventory.md` and
+      `docs/dependencies/vortex-dependency-footprint.md`.
+    - Added the tested `vortex_turboquant_vector_encoding` capability row as blocked metadata,
+      preserving no vector quantization, ANN, similarity-search, GPU, external-engine, or fallback
+      runtime claim.
+    - Updated the phase-plan Vortex mapping from the active optional `0.71` dependency to `0.72`
+      and kept TurboQuant under encoded-kernel/vector capability admission gates.
+  - Verification:
+    - `cargo +1.91.1 update -p parquet --precise 58.3.0`
+    - `cargo +1.91.1 check -p shardloom-vortex --features upstream-vortex`
+    - `cargo +1.91.1 check -p shardloom-vortex --features universal-format-io`
+    - `cargo +1.91.1 check -p shardloom-vortex --features vortex-file-io`
+    - `cargo +1.91.1 check -p shardloom-vortex --features vortex-write`
+    - `cargo +1.91.1 check -p shardloom-vortex --features vortex-local-primitives`
+    - `cargo +1.91.1 check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+    - `cargo +1.91.1 test -p shardloom-cli unstructured_and_adapter_capabilities_expose_report_only_matrix -- --nocapture`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m compileall -q python\src python\tests scripts benchmarks\traditional_analytics`
+    - `python -m unittest discover -s python/tests`
+    - `python scripts\check_ci_gate_matrix.py`
+    - `python scripts\check_dependency_audit.py --release-gate --json-output target\dependency-audit-report.json`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `git diff --check`
+  - Claim boundary:
+    - Optional dependency/build compatibility, CI action maintenance, and blocked capability
+      discovery only. This does not add TurboQuant runtime support, vector quantization, vector
+      search, GPU execution, object-store/table support, production package readiness,
+      performance/superiority claims, or fallback execution.
+  - Remaining gates:
+    - Close or supersede the individual Dependabot PRs after merge, then return to actual
+      compute-engine runtime feature completion.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C scalar local top-N runtime promotion
   - Date: 2026-05-23
   - Branch/PR: `compute-engine-runtime-next-33-20260523` / #926.
