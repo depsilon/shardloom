@@ -5328,11 +5328,10 @@ fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(
         && (parsed.is_aggregate()
             || !parsed.group_by.is_empty()
             || parsed.order_by.is_some()
-            || parsed.projections.is_empty()
-            || (parsed.projections.len() == 1 && parsed.projections[0] == "*"))
+            || parsed.projections.is_empty())
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns or SELECT * plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
         ));
     }
     Ok(())
@@ -13418,15 +13417,9 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
     let mut date_extract_projections = Vec::new();
     let mut timestamp_extract_projections = Vec::new();
     let mut aggregates = Vec::new();
-    let projection_count = entries.len();
     for projection in entries {
         let projection = projection.trim();
         if projection == "*" {
-            if projection_count > 1 {
-                return Err(unsupported_sql_error(
-                    "SELECT * cannot be mixed with explicit columns in this scoped smoke",
-                ));
-            }
             projection_order.push(ParsedProjectionOutput::Raw("*".to_string()));
             projections.push("*".to_string());
         } else if let Some(aggregate) = parse_aggregate_projection(projection)? {
@@ -13523,6 +13516,24 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
             validate_sql_column_ref(projection)?;
             projection_order.push(ParsedProjectionOutput::Raw(projection.to_string()));
             projections.push(projection.to_string());
+        }
+    }
+    let has_star_projection = projection_order
+        .iter()
+        .any(|output| matches!(output, ParsedProjectionOutput::Raw(column) if column == "*"));
+    if has_star_projection {
+        if !aggregates.is_empty() {
+            return Err(unsupported_sql_error(
+                "SELECT * cannot be mixed with aggregate functions in this scoped smoke",
+            ));
+        }
+        if projection_order
+            .iter()
+            .any(|output| matches!(output, ParsedProjectionOutput::Raw(column) if column != "*"))
+        {
+            return Err(unsupported_sql_error(
+                "SELECT * can be mixed only with computed or literal projections in this scoped smoke",
+            ));
         }
     }
     Ok(ParsedProjectionList {
@@ -17977,6 +17988,36 @@ mod tests {
             parsed.execution_certificate_suffix(),
             "computed-projection-filter-limit"
         );
+    }
+
+    #[test]
+    fn parses_star_plus_computed_projection_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT *,amount + 5 AS adjusted,LOWER(label) AS normalized FROM 'target/input.jsonl' WHERE amount >= 10 LIMIT 5",
+        )
+        .expect("star plus computed projection statement parses");
+
+        assert_eq!(parsed.projections, vec!["*"]);
+        assert_eq!(parsed.numeric_arithmetic_projections.len(), 1);
+        assert_eq!(parsed.numeric_arithmetic_projections[0].alias, "adjusted");
+        assert_eq!(parsed.string_transform_projections.len(), 1);
+        assert_eq!(parsed.string_transform_projections[0].alias, "normalized");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_filter_limit"
+        );
+    }
+
+    #[test]
+    fn parser_blocks_star_plus_raw_projection_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT *,id FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+        )
+        .expect_err("star plus raw projection is not admitted");
+
+        assert!(error.to_string().contains(
+            "SELECT * can be mixed only with computed or literal projections in this scoped smoke"
+        ));
     }
 
     #[test]

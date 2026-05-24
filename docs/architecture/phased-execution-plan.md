@@ -269,7 +269,11 @@ or documentation updates alone are insufficient.
     `docs/architecture/vortex-public-api-inventory.md`.
   - Current state: scoped SQL/Python local-source expression coverage has moved well past the first
     predicate/projection leaves; detailed completed 4D slices live in
-    `docs/architecture/phased-execution-completed-ledger.md`. The remaining work is the parity gap
+    `docs/architecture/phased-execution-completed-ledger.md`. Scoped local-source computed
+    projections now also admit `SELECT *` plus computed/literal projection outputs, so Python
+    `read_csv(...)`, flat `read_json(...)`, and feature-gated flat scalar structured readers can
+    lower `with_column(...).filter(...).limit(...)` without requiring an explicit `select(...)`.
+    The remaining work is the parity gap
     around broader non-numeric/generalized expression families, broader coercion/function coverage,
     interval/date-time and timezone-database semantics, correlated/multi-column/nested subquery
     semantics, arbitrary predicate-tree completeness beyond the currently admitted leaves, and final

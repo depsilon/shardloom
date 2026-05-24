@@ -16,6 +16,40 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D/5C star-plus-computed local `with_column` runtime
+  - Date: 2026-05-23
+  - Branch/PR: `compute-engine-star-with-column-runtime-20260523` / #928.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - User direction to keep SQL/Python compute format-neutral and isolate per-format behavior to
+      read/ingest and write/sink boundaries.
+  - Scope:
+    - Promoted scoped SQL local-source `SELECT *, <computed-or-literal> AS <column> ... LIMIT <n>`
+      from a deterministic parser blocker into executable ShardLoom-native projection runtime.
+    - Kept `SELECT *` mixed with raw explicit columns and `SELECT *` mixed with aggregates blocked
+      with deterministic no-fallback diagnostics.
+    - Extended Python `LazyFrame.with_column(...)` so local CSV, flat JSON/JSONL/NDJSON, and
+      feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC workflows can lower
+      `with_column(...).filter(...).limit(...)` through the same `sql-local-source-smoke` path
+      without requiring an earlier `select(...)`.
+    - Added runtime and Python lowering tests for star-plus-computed projection and format-neutral
+      JSONL `with_column` lowering.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli sql_local_source_smoke_executes_star_plus_computed_projection_without_fallback --test sql_local_source_runtime_smoke -- --nocapture`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_json_query_builder_with_column_without_select_invokes_sql_smoke`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `cargo +1.91.1 test -p shardloom-cli star_plus -- --nocapture`
+  - Claim boundary:
+    - Scoped local-source `SELECT *` plus admitted computed/literal projections only. This does not
+      add arbitrary projection expressions, aggregate/star mixing, raw-column/star mixing, object
+      stores, table/lakehouse sources, pandas/Polars execution, broad DataFrame parity,
+      production/performance claims, or fallback execution.
+  - Remaining gates:
+    - Continue expression parity, local output/fanout replay, Vortex scan pushdown, encoded kernel
+      pairs, session/prepared reuse, memory/spill safety, and final release validation.
+
 - [x] Session label: DEP-RUNTIME-COMPAT-1 Dependabot, Vortex 0.72, and TurboQuant capability gate
   - Date: 2026-05-23
   - Branch/PR: `compute-engine-dependency-runtime-compat-20260523` / #927.

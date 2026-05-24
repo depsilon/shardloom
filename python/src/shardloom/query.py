@@ -1836,7 +1836,8 @@ class LazyFrame:
                 "select(...), optional filter(...), and limit(...) operations, "
                 "aggregate(...), optional filter(...), and limit(...) operations, or "
                 "optional filter(...), group_by(...).agg(...), and limit(...) operations, "
-                "select(...), optional filter(...), sort(...), and limit(...) operations, or "
+                "select(...), optional filter(...), sort(...), and limit(...) operations, "
+                "with_column(...), optional filter(...), and limit(...) operations, or "
                 "a scoped local-source inner equi-join with select(...), optional filter(...), and limit(...)"
             )
         return self.client.sql_local_source_smoke(
@@ -2409,9 +2410,11 @@ class LazyFrame:
     def _can_append_projection_column(self, column_name: str) -> bool:
         if not _is_query_builder_local_source(self.source):
             return False
+        saw_join = False
         saw_projection = False
         for operation in self.operations:
             if operation.kind == "join":
+                saw_join = True
                 continue
             if operation.kind == "select":
                 saw_projection = True
@@ -2425,7 +2428,9 @@ class LazyFrame:
                 continue
             else:
                 return False
-        return saw_projection
+        if saw_join and not saw_projection:
+            return False
+        return True
 
     def _bounded_schema_report(self, *, check: bool) -> WorkflowSchemaReport | None:
         statement = self._sql_local_source_statement(default_limit=100)
@@ -2548,8 +2553,13 @@ class LazyFrame:
                 group_by_clause = ""
         else:
             if literal_columns:
-                return None
-            select_clause = "*"
+                select_values = ["*"]
+                select_values.extend(
+                    f"{literal} AS {column}" for column, literal in literal_columns
+                )
+                select_clause = ",".join(select_values)
+            else:
+                select_clause = "*"
             group_by_clause = ""
         order_by_clause = ""
         if sort_key is not None:

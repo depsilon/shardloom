@@ -504,9 +504,11 @@ runtime predicates. It lowers comparisons, `is_null()`, `is_not_null()`, `contai
 `date_diff_days(other)`, and `timestamp_diff_seconds(other)` comparisons, and the scoped
 UTF-8 `length()` helper, numeric `abs()` / `floor()` / `ceil()` / `round()` helpers, and numeric `+`, `-`, `*`, and `/` operators for arithmetic predicates, including scoped generalized numeric expression-tree filters such as `(sl.col("amount") + sl.col("tax")) * 2 >= 40`, into the same
 ShardLoom SQL smoke path; unsupported shapes still block in ShardLoom before fallback.
-Input-backed computed `with_column(...)` is also admitted after an explicit `select(...)` for local
-CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
-projection/filter/limit workflows. The current slice accepts deterministic `lit(...)` values,
+Input-backed computed `with_column(...)` is also admitted with or without an explicit `select(...)`
+for local CSV, flat JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
+projection/filter/limit workflows. Without an explicit projection it lowers to ShardLoom-native
+`SELECT *, <computed> AS <column>` over the shared local-source runtime path. The current slice
+accepts deterministic `lit(...)` values,
 direct bool/int/float literals, scoped numeric arithmetic expressions shaped as
 `sl.col("amount") + 5`, `-`, `*`, or `/` with an int/finite-float literal, scoped
 generalized numeric expression-tree projections such as
