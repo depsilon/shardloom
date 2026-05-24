@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4D/5B/5C composed UTF-8 string expression runtime
   - Date: 2026-05-24
-  - Branch/PR: `compute-string-expression-composition-20260524` / pending PR.
+  - Branch/PR: `compute-string-expression-composition-20260524` / #945.
   - Source:
     - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
     - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
