@@ -743,6 +743,31 @@ enum ParsedProjectionOutput {
     TimestampExtract(String),
 }
 
+impl ParsedProjectionOutput {
+    fn computed_alias(&self) -> Option<&str> {
+        match self {
+            Self::Raw(_) => None,
+            Self::Literal(alias)
+            | Self::Cast(alias)
+            | Self::NullCoalesce(alias)
+            | Self::NullIf(alias)
+            | Self::Conditional(alias)
+            | Self::Predicate(alias)
+            | Self::NumericArithmetic(alias)
+            | Self::NumericAbs(alias)
+            | Self::NumericRounding(alias)
+            | Self::GenericExpression(alias)
+            | Self::DateArithmetic(alias)
+            | Self::TimestampArithmetic(alias)
+            | Self::StringLength(alias)
+            | Self::StringTransform(alias)
+            | Self::StringFunction(alias)
+            | Self::DateExtract(alias)
+            | Self::TimestampExtract(alias) => Some(alias),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct ParsedInSubquery {
     source_column: String,
@@ -1505,6 +1530,9 @@ struct GroupedAggregateBucket {
     values: Vec<(String, ScalarValue)>,
     row_indexes: Vec<usize>,
 }
+
+type SqlOutputRow = Vec<(String, ScalarValue)>;
+type SqlOutputRows = Vec<SqlOutputRow>;
 
 #[derive(Debug, Clone, PartialEq)]
 struct JoinEvaluationOutput {
@@ -2648,7 +2676,9 @@ fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPla
     }
     if let Some(order_by) = parsed.order_by.as_ref().filter(|_| !parsed.is_aggregate()) {
         for key in &order_by.keys {
-            columns.insert(key.column.clone());
+            if !parsed.has_computed_projection_output(&key.column) {
+                columns.insert(key.column.clone());
+            }
         }
     }
     for column in parsed.predicate.columns() {
@@ -2753,19 +2783,8 @@ fn run_sql_local_source_smoke(
                 join_output.output_rows,
             )
         } else {
-            let selected_row_indexes = selected_row_indexes(&parsed, &source)?;
-            let output_rows = if parsed.is_grouped_aggregate() {
-                let selected_rows = selected_input_rows(&source, &selected_row_indexes)?;
-                evaluate_grouped_aggregate_output(&parsed, &selected_rows)?
-            } else if parsed.is_aggregate() {
-                let selected_rows = selected_input_rows(&source, &selected_row_indexes)?;
-                evaluate_scalar_aggregate_output(&parsed, &selected_rows)?
-            } else {
-                let selected_row_indexes =
-                    ordered_projection_row_indexes(&parsed, &source, &selected_row_indexes)?;
-                evaluate_projection_output(&parsed, &source, &selected_row_indexes)?
-            };
-            (selected_row_indexes.len(), 0, output_rows)
+            let (selected_row_count, output_rows) = evaluate_non_join_output(&parsed, &source)?;
+            (selected_row_count, 0, output_rows)
         };
     let operator_compute_millis = compute_start.elapsed().as_millis();
 
@@ -2846,6 +2865,27 @@ fn sql_local_source_plan_digest(
         fanout_plan_digest_fragment(request),
         source.read_plan.requested_columns()
     ))
+}
+
+fn evaluate_non_join_output(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+) -> Result<(usize, SqlOutputRows), ShardLoomError> {
+    let selected_row_indexes = selected_row_indexes(parsed, source)?;
+    let output_rows = if parsed.is_grouped_aggregate() {
+        let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
+        evaluate_grouped_aggregate_output(parsed, &selected_rows)?
+    } else if parsed.is_aggregate() {
+        let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
+        evaluate_scalar_aggregate_output(parsed, &selected_rows)?
+    } else if parsed.has_computed_projection() && parsed.order_by.is_some() {
+        evaluate_computed_projection_ordered_output(parsed, source, &selected_row_indexes)?
+    } else {
+        let selected_row_indexes =
+            ordered_projection_row_indexes(parsed, source, &selected_row_indexes)?;
+        evaluate_projection_output(parsed, source, &selected_row_indexes)?
+    };
+    Ok((selected_row_indexes.len(), output_rows))
 }
 
 fn materialize_in_subquery_predicates(
@@ -2966,28 +3006,77 @@ fn evaluate_projection_output(
         let row = source.rows.get(*row_index).ok_or_else(|| {
             ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
         })?;
-        let projection = evaluate_projection(&projection_expressions, row);
-        if projection.has_errors() {
-            return Err(ShardLoomError::InvalidOperation(format!(
-                "SQL local-source projection evaluation failed: {}",
-                projection
-                    .diagnostics
-                    .first()
-                    .map_or("unknown diagnostic", |diagnostic| diagnostic
-                        .reason
-                        .as_deref()
-                        .unwrap_or(diagnostic.message.as_str()))
-            )));
-        }
-        output_rows.push(
-            projection
-                .projected_columns
-                .into_iter()
-                .map(|column| (column.name, column.value))
-                .collect(),
-        );
+        output_rows.push(evaluate_projection_row(&projection_expressions, row)?);
     }
     Ok(output_rows)
+}
+
+fn evaluate_computed_projection_ordered_output(
+    parsed: &ParsedSqlLocalSource,
+    source: &CsvSourceData,
+    selected_row_indexes: &[usize],
+) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+    let order_by = parsed.order_by.as_ref().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(
+            "computed projection ordered output requested without ORDER BY".to_string(),
+        )
+    })?;
+    let projection_expressions = projection_expressions(parsed, source)?;
+    let mut projected_rows = Vec::with_capacity(selected_row_indexes.len());
+    let mut sort_entries = Vec::with_capacity(selected_row_indexes.len());
+    for row_index in selected_row_indexes {
+        let row = source.rows.get(*row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("selected row index is out of bounds".to_string())
+        })?;
+        let output_row = evaluate_projection_row(&projection_expressions, row)?;
+        let output_index = projected_rows.len();
+        let values = sort_values_for_projected_or_source_row(row, &output_row, order_by)?;
+        projected_rows.push(output_row);
+        sort_entries.push((*row_index, output_index, values));
+    }
+
+    let family_entries = sort_entries
+        .iter()
+        .map(|(row_index, _output_index, values)| (*row_index, values.clone()))
+        .collect::<Vec<_>>();
+    validate_sort_value_families(&family_entries)?;
+    sort_entries.sort_by(
+        |(left_source_index, _left_output_index, left_values),
+         (right_source_index, _right_output_index, right_values)| {
+            let ordering = compare_order_by_values(order_by, left_values, right_values);
+            ordering.then_with(|| left_source_index.cmp(right_source_index))
+        },
+    );
+
+    Ok(sort_entries
+        .into_iter()
+        .take(parsed.limit)
+        .map(|(_source_index, output_index, _values)| projected_rows[output_index].clone())
+        .collect())
+}
+
+fn evaluate_projection_row(
+    projection_expressions: &[Expression],
+    row: &ExpressionInputRow,
+) -> Result<Vec<(String, ScalarValue)>, ShardLoomError> {
+    let projection = evaluate_projection(projection_expressions, row);
+    if projection.has_errors() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "SQL local-source projection evaluation failed: {}",
+            projection
+                .diagnostics
+                .first()
+                .map_or("unknown diagnostic", |diagnostic| diagnostic
+                    .reason
+                    .as_deref()
+                    .unwrap_or(diagnostic.message.as_str()))
+        )));
+    }
+    Ok(projection
+        .projected_columns
+        .into_iter()
+        .map(|column| (column.name, column.value))
+        .collect())
 }
 
 fn projection_expressions(
@@ -3710,6 +3799,29 @@ fn sort_values_for_row(
                 key.column
             ))
         })?;
+        values.push(SortValue::try_from_scalar(value)?);
+    }
+    Ok(values)
+}
+
+fn sort_values_for_projected_or_source_row(
+    source_row: &ExpressionInputRow,
+    output_row: &[(String, ScalarValue)],
+    order_by: &ParsedOrderBy,
+) -> Result<Vec<SortValue>, ShardLoomError> {
+    let mut values = Vec::with_capacity(order_by.keys.len());
+    for key in &order_by.keys {
+        let value = output_row
+            .iter()
+            .find(|(column, _value)| column == &key.column)
+            .map(|(_column, value)| value)
+            .or_else(|| source_row.get(&key.column))
+            .ok_or_else(|| {
+                unsupported_sql_error(&format!(
+                    "ORDER BY computed projection or source column {:?} is not present in the row",
+                    key.column
+                ))
+            })?;
         values.push(SortValue::try_from_scalar(value)?);
     }
     Ok(values)
@@ -5302,7 +5414,37 @@ fn validate_order_by_source(
                 "ORDER BY aggregate output column",
             );
         }
+        if parsed.has_computed_projection() {
+            let output_columns = parsed.output_columns(header);
+            return validate_order_by_projection_or_source_columns(
+                order_by,
+                header,
+                &output_columns,
+            );
+        }
         validate_order_by_output_columns(order_by, header, "ORDER BY column")?;
+    }
+    Ok(())
+}
+
+fn validate_order_by_projection_or_source_columns(
+    order_by: &ParsedOrderBy,
+    source_columns: &[String],
+    output_columns: &[String],
+) -> Result<(), ShardLoomError> {
+    for key in &order_by.keys {
+        if !output_columns
+            .iter()
+            .any(|candidate| candidate == &key.column)
+            && !source_columns
+                .iter()
+                .any(|candidate| candidate == &key.column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "ORDER BY computed projection or source column {:?} is not present in the row",
+                key.column
+            )));
+        }
     }
     Ok(())
 }
@@ -5325,13 +5467,10 @@ fn validate_order_by_output_columns(
 
 fn validate_computed_projection_shape(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
     if parsed.has_computed_projection()
-        && (parsed.is_aggregate()
-            || !parsed.group_by.is_empty()
-            || parsed.order_by.is_some()
-            || parsed.projections.is_empty())
+        && (parsed.is_aggregate() || !parsed.group_by.is_empty() || parsed.projections.is_empty())
     {
         return Err(unsupported_sql_error(
-            "computed projection smoke currently admits explicit projection columns or SELECT * plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/limit only",
+            "computed projection smoke currently admits explicit projection columns or SELECT * plus <literal> AS <column>, CAST(<column> AS <dtype>) AS <column>, COALESCE(<column>, <literal>) AS <column>, CASE WHEN <predicate> THEN <literal-or-column> ELSE <literal-or-column> END AS <column>, admitted predicate expressions AS <column>, <column> (+|-|*|/) <numeric-literal> AS <column>, generalized numeric expression trees AS <column>, DATE_DIFF_DAYS(...) or TIMESTAMP_DIFF_SECONDS(...) AS <column>, DATE_ADD_DAYS|DATE_SUB_DAYS(<column>, <days>) AS <column>, LOWER|UPPER|TRIM(<column>) AS <column>, LENGTH(<column>) AS <column>, CONCAT(<column-or-string-literal>, ...) AS <column>, SUBSTR|SUBSTRING(<column>, <start>, <length>) AS <column>, LEFT|RIGHT(<column>, <count>) AS <column>, REPLACE(<column>, <string-literal>, <string-literal>) AS <column>, DATE_YEAR|DATE_MONTH|DATE_DAY(<column>) AS <column>, or TIMESTAMP_YEAR|TIMESTAMP_MONTH|TIMESTAMP_DAY|TIMESTAMP_HOUR|TIMESTAMP_MINUTE|TIMESTAMP_SECOND(<column>) AS <column> before optional filter/order-by/limit only",
         ));
     }
     Ok(())
@@ -6166,6 +6305,12 @@ impl ParsedSqlLocalSource {
             || self.has_timestamp_extract_projection()
     }
 
+    fn has_computed_projection_output(&self, column: &str) -> bool {
+        self.projection_order
+            .iter()
+            .any(|output| output.computed_alias().is_some_and(|alias| alias == column))
+    }
+
     fn join_projection_shape(&self) -> Option<JoinProjectionShape> {
         if !self.is_join() || self.is_aggregate() {
             return None;
@@ -6224,6 +6369,10 @@ impl ParsedSqlLocalSource {
             "local_source_aggregate_order_by_topn_filter_limit"
         } else if self.is_aggregate() && self.order_by.is_some() {
             "local_source_aggregate_order_by_topn_limit"
+        } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
+            "local_source_computed_projection_order_by_topn_filter_limit"
+        } else if self.has_computed_projection() && self.order_by.is_some() {
+            "local_source_computed_projection_order_by_topn_limit"
         } else if self.order_by.is_some() && self.has_filter() {
             "local_source_order_by_topn_filter_limit"
         } else if self.order_by.is_some() {
@@ -6290,6 +6439,10 @@ impl ParsedSqlLocalSource {
             "aggregate-order-by-topn-filter-limit"
         } else if self.is_aggregate() && self.order_by.is_some() {
             "aggregate-order-by-topn-limit"
+        } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
+            "computed-projection-order-by-topn-filter-limit"
+        } else if self.has_computed_projection() && self.order_by.is_some() {
+            "computed-projection-order-by-topn-limit"
         } else if self.order_by.is_some() && self.has_filter() {
             "order-by-topn-filter-limit"
         } else if self.order_by.is_some() {
@@ -6356,6 +6509,10 @@ impl ParsedSqlLocalSource {
             "scalar_aggregate_order_by_topn_filter_limit"
         } else if self.is_aggregate() && self.order_by.is_some() {
             "scalar_aggregate_order_by_topn_limit"
+        } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
+            "computed_projection_order_by_topn_filter_limit"
+        } else if self.has_computed_projection() && self.order_by.is_some() {
+            "computed_projection_order_by_topn_limit"
         } else if self.order_by.is_some() && self.has_filter() {
             "order_by_topn_filter_limit"
         } else if self.order_by.is_some() {
@@ -10945,6 +11102,26 @@ impl SqlLocalSourceReport {
             (
                 "projected_columns".to_string(),
                 self.parsed.output_columns(&self.source.header).join(","),
+            ),
+            (
+                "computed_projection_runtime_execution".to_string(),
+                self.parsed.has_computed_projection().to_string(),
+            ),
+            (
+                "computed_projection_top_n_runtime_execution".to_string(),
+                (self.parsed.has_computed_projection() && self.parsed.order_by.is_some())
+                    .to_string(),
+            ),
+            (
+                "computed_projection_operator_family".to_string(),
+                if self.parsed.has_computed_projection() && self.parsed.order_by.is_some() {
+                    "computed_projection_topn"
+                } else if self.parsed.has_computed_projection() {
+                    "computed_projection"
+                } else {
+                    "not_applicable"
+                }
+                .to_string(),
             ),
             (
                 "aggregate_runtime_execution".to_string(),
@@ -18005,6 +18182,34 @@ mod tests {
         assert_eq!(
             parsed.statement_kind(),
             "local_source_computed_projection_filter_limit"
+        );
+    }
+
+    #[test]
+    fn parses_computed_projection_order_by_topn_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,amount + 5 AS adjusted FROM 'target/input.csv' WHERE amount >= 10 ORDER BY adjusted DESC LIMIT 2",
+        )
+        .expect("computed projection order-by statement parses");
+
+        assert_eq!(parsed.projections, vec!["id"]);
+        assert_eq!(parsed.numeric_arithmetic_projections.len(), 1);
+        assert_eq!(parsed.numeric_arithmetic_projections[0].alias, "adjusted");
+        let order_by = parsed.order_by.as_ref().expect("order by parsed");
+        assert_eq!(order_by.columns_label(), "adjusted");
+        assert_eq!(order_by.directions_label(), "desc");
+        assert_eq!(order_by.operator_family_label(), "single_key_scalar_topn");
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_computed_projection_order_by_topn_filter_limit"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "computed-projection-order-by-topn-filter-limit"
+        );
+        assert_eq!(
+            parsed.claim_gate_reason_suffix(),
+            "computed_projection_order_by_topn_filter_limit"
         );
     }
 

@@ -272,7 +272,9 @@ or documentation updates alone are insufficient.
     `docs/architecture/phased-execution-completed-ledger.md`. Scoped local-source computed
     projections now also admit `SELECT *` plus computed/literal projection outputs, so Python
     `read_csv(...)`, flat `read_json(...)`, and feature-gated flat scalar structured readers can
-    lower `with_column(...).filter(...).limit(...)` without requiring an explicit `select(...)`.
+    lower `with_column(...).filter(...).sort(...).limit(...)` without requiring an explicit
+    `select(...)`; computed-projection top-N now sorts projected rows by computed aliases and can
+    still sort by source columns when the source column is not projected.
     The remaining work is the parity gap
     around broader non-numeric/generalized expression families, broader coercion/function coverage,
     interval/date-time and timezone-database semantics, correlated/multi-column/nested subquery
@@ -291,7 +293,7 @@ or documentation updates alone are insufficient.
   - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.
   - Implementation scope: expression IR, type coercion policy, null semantics, parser lowering,
     native evaluators, diagnostics.
-  - Vortex 0.71 opportunity mapping:
+  - Vortex 0.71/0.72 opportunity mapping:
     - Pluggable struct cast informs ShardLoom-native cast/coercion admission only after local
       correctness tests and output evidence exist.
     - Variant array and `VariantGet` inform nested/semi-structured expression blockers and later
@@ -426,7 +428,7 @@ or documentation updates alone are insufficient.
     source-format rows.
   - Implementation scope: format detection, local reader, schema/dtype inference, fingerprinting,
     SourceState digest, decode/materialization evidence.
-  - Vortex 0.71 opportunity mapping:
+  - Vortex 0.71/0.72 opportunity mapping:
     - Pluggable Arrow input kernel registry is a candidate adapter boundary, not a default
       decode-to-Arrow execution path.
     - `DType::Union`, Variant, and extension dtype metadata fixes should feed schema/dtype
@@ -550,7 +552,7 @@ or documentation updates alone are insufficient.
   - Implementation scope: OutputPlan builder, Vortex writer promotion, schema translation,
     output digests, replay verifier, fanout orchestration, and broader writer registry
     consolidation.
-  - Vortex 0.71 opportunity mapping:
+  - Vortex 0.71/0.72 opportunity mapping:
     - Pluggable Arrow export kernels may inform compatibility-output boundaries, but export remains
       translation/fanout and cannot execute unsupported compute.
     - Local async file write behavior and `Executor::spawn_io` are candidates for later explicit
@@ -754,7 +756,7 @@ or documentation updates alone are insufficient.
   - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
   - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
     cancellation/recovery, output commit status, scale benchmark rows.
-  - Vortex 0.71 opportunity mapping:
+  - Vortex 0.71/0.72 opportunity mapping:
     - `register_splits` offset and relative row-range support should inform `SplitManifest`
       row-range evidence and per-split blockers.
     - `VortexReadAt::read_at` validation and async I/O hooks are candidate inputs for local split
