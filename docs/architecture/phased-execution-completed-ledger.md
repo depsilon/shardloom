@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4E/5A generated-source builder closeout
   - Date: 2026-05-24
-  - Branch/PR: pending.
+  - Branch/PR: `compute-engine-generated-source-closeout-20260524` / #942.
   - Source:
     - `GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime`.
     - `GAR-RUNTIME-IMPL-5A generated-source end-user runtime builders`.
