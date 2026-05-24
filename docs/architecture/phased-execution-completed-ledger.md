@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4D/5B/5C scoped aggregate HAVING runtime
   - Date: 2026-05-24
-  - Branch/PR: `compute-engine-aggregate-having-runtime-20260524` / pending.
+  - Branch/PR: `compute-engine-aggregate-having-runtime-20260524` / #934.
   - Source:
     - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
     - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
