@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4G/5E local output writer and fanout closeout
   - Date: 2026-05-24
-  - Branch/PR: pending.
+  - Branch/PR: `compute-engine-output-fanout-closeout-20260524` / #943.
   - Source:
     - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`.
     - `GAR-RUNTIME-IMPL-5E local output writers, replay proof, and fanout runtime`.
