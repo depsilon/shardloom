@@ -166,7 +166,10 @@ from .query import (
 )
 from .session import (
     LocalFileFingerprint,
+    SessionGroupedLazyFrame,
+    SessionLazyFrame,
     SessionPreparedState,
+    SessionSqlWorkflow,
     SessionSqlResult,
     ShardLoomSession,
 )
@@ -256,7 +259,10 @@ __all__ = [
     "WorkflowReadinessSmokeReport",
     "ShardLoomContext",
     "ShardLoomSession",
+    "SessionLazyFrame",
+    "SessionGroupedLazyFrame",
     "SessionPreparedState",
+    "SessionSqlWorkflow",
     "SessionSqlResult",
     "LocalFileFingerprint",
     "context",

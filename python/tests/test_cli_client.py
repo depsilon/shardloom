@@ -42,7 +42,9 @@ from shardloom import (
     ShardLoomProtocolError,
     SqlLocalSourceSmokeReport,
     SessionPreparedState,
+    SessionLazyFrame,
     SessionSqlResult,
+    SessionSqlWorkflow,
     OutputEnvelope,
     PreparedVortexArtifacts,
     PreparedVortexBatchResult,
@@ -1701,6 +1703,218 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(evidence["external_engine_invoked"])
         self.assertFalse(evidence["session_closed"])
         self.assertTrue(sess.close()["session_closed"])
+
+    def test_session_read_csv_workflow_collect_reuses_source_state_when_fingerprints_match(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source_path = root / "source.csv"
+            count_path = root / "session-read-count.txt"
+            source_path.write_text("id,label\n1,alpha\n2,beta\n", encoding="utf-8")
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    from pathlib import Path
+                    count_path = Path({str(count_path)!r})
+                    count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
+                    count += 1
+                    count_path.write_text(str(count), encoding="utf-8")
+                    assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                    assert "--output" not in sys.argv, sys.argv
+                    assert sys.argv[sys.argv.index("--output-format") + 1] == "inline-jsonl", sys.argv
+                    statement = sys.argv[2]
+                    assert "source.csv" in statement, statement
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": "sql-local-source-smoke",
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "output_format", "value": "inline-jsonl"}},
+                            {{"key": "result_jsonl", "value": "{{\\"id\\":1,\\"count\\":" + str(count) + "}}\\n{{\\"id\\":2,\\"count\\":" + str(count) + "}}\\n"}},
+                            {{"key": "source_state_id", "value": f"sql-source-state-{{count}}"}},
+                            {{"key": "source_state_digest", "value": f"fnv64:sql-source-{{count}}"}},
+                            {{"key": "source_schema_digest", "value": f"fnv64:sql-schema-{{count}}"}},
+                            {{"key": "plan_digest", "value": f"fnv64:sql-plan-{{count}}"}},
+                            {{"key": "execution_certificate_ref", "value": "sql-local-source.csv.projection-limit.execution.v1"}},
+                            {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
+                            {{"key": "source_state_read_plan", "value": "projected_source_state"}},
+                            {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
+                            {{"key": "user_surface_runtime_scope", "value": "format_neutral_sql_python_runtime"}},
+                            {{"key": "format_specific_boundary_scope", "value": "read_ingest_and_write_only"}},
+                            {{"key": "format_specific_compute_path", "value": "false"}},
+                            {{"key": "source_state_materialization_layout", "value": "arrow_record_batch_columnar_source_state_then_scalar_row_map"}},
+                            {{"key": "source_state_parse_normalization", "value": "structured_reader_to_arrow_record_batches_then_scalar_rows"}},
+                            {{"key": "source_state_columnar_preserved", "value": "true"}},
+                            {{"key": "source_state_record_batch_count", "value": "1"}},
+                            {{"key": "source_to_columnar_millis", "value": "3"}},
+                            {{"key": "source_state_runtime_consumption_layout", "value": "scalar_row_map_expression_runtime"}},
+                            {{"key": "source_state_scalar_runtime_materialization_required", "value": "true"}},
+                            {{"key": "source_state_materialized_columns", "value": "id"}},
+                            {{"key": "source_state_reader_projection_columns", "value": "id"}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+            sess = ctx.session(session_id="ordinary-workflow-session")
+            frame = sess.read_csv(source_path).select("id").limit(2)
+
+            first = frame.collect()
+            second = frame.collect()
+
+            self.assertIsInstance(frame, SessionLazyFrame)
+            self.assertIsInstance(first, SessionSqlResult)
+            self.assertFalse(first.reuse_hit)
+            self.assertEqual(first.reuse_reason, "no_cached_result")
+            self.assertEqual(first.report.result_rows, ({"id": 1, "count": 1}, {"id": 2, "count": 1}))
+            self.assertTrue(second.reuse_hit)
+            self.assertEqual(
+                second.reuse_reason,
+                "source_and_output_fingerprints_match",
+            )
+            self.assertTrue(second.source_state_reuse_hit)
+            self.assertFalse(second.output_plan_reuse_hit)
+            self.assertEqual(second.source_state_id, "sql-source-state-1")
+            self.assertEqual(second.report.result_rows, ({"id": 1, "count": 1}, {"id": 2, "count": 1}))
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
+
+            source_path.write_text("id,label\n1,alpha\n3,gamma\n", encoding="utf-8")
+            third = frame.collect()
+            self.assertFalse(third.reuse_hit)
+            self.assertEqual(third.reuse_reason, "source_fingerprint_changed")
+            self.assertEqual(third.source_state_id, "sql-source-state-2")
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
+
+            evidence = sess.evidence()
+            self.assertEqual(evidence["session_id"], "ordinary-workflow-session")
+            self.assertEqual(evidence["cache_hit_count"], 1)
+            self.assertEqual(evidence["cache_miss_count"], 2)
+            self.assertEqual(evidence["source_state_reuse_count"], 1)
+            self.assertEqual(evidence["output_plan_reuse_count"], 0)
+            self.assertFalse(evidence["fallback_attempted"])
+            self.assertFalse(evidence["external_engine_invoked"])
+
+            sess.close()
+            with self.assertRaisesRegex(RuntimeError, "ShardLoomSession is closed"):
+                frame.collect()
+
+    def test_session_sql_workflow_write_reuses_output_when_fingerprints_match(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source_path = root / "source.csv"
+            output_path = root / "sql-session-out.jsonl"
+            count_path = root / "session-sql-write-count.txt"
+            source_path.write_text("id,label\n1,alpha\n2,beta\n", encoding="utf-8")
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    from pathlib import Path
+                    count_path = Path({str(count_path)!r})
+                    count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
+                    count += 1
+                    count_path.write_text(str(count), encoding="utf-8")
+                    assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                    assert sys.argv[sys.argv.index("--output-format") + 1] == "jsonl", sys.argv
+                    assert "--output" in sys.argv, sys.argv
+                    output_path = Path(sys.argv[sys.argv.index("--output") + 1])
+                    output_path.write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": "sql-local-source-smoke",
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "output_format", "value": "jsonl"}},
+                            {{"key": "output_path", "value": str(output_path)}},
+                            {{"key": "output_plan_digest", "value": f"sha256:session-sql-output-plan-{{count}}"}},
+                            {{"key": "source_state_id", "value": f"sql-source-state-{{count}}"}},
+                            {{"key": "source_state_digest", "value": f"fnv64:sql-source-{{count}}"}},
+                            {{"key": "source_schema_digest", "value": f"fnv64:sql-schema-{{count}}"}},
+                            {{"key": "plan_digest", "value": f"fnv64:sql-plan-{{count}}"}},
+                            {{"key": "execution_certificate_ref", "value": "sql-local-source.csv.projection-limit.execution.v1"}},
+                            {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
+                            {{"key": "source_state_read_plan", "value": "projected_source_state"}},
+                            {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
+                            {{"key": "user_surface_runtime_scope", "value": "format_neutral_sql_python_runtime"}},
+                            {{"key": "format_specific_boundary_scope", "value": "read_ingest_and_write_only"}},
+                            {{"key": "format_specific_compute_path", "value": "false"}},
+                            {{"key": "source_state_materialization_layout", "value": "arrow_record_batch_columnar_source_state_then_scalar_row_map"}},
+                            {{"key": "source_state_parse_normalization", "value": "structured_reader_to_arrow_record_batches_then_scalar_rows"}},
+                            {{"key": "source_state_columnar_preserved", "value": "true"}},
+                            {{"key": "source_state_record_batch_count", "value": "1"}},
+                            {{"key": "source_to_columnar_millis", "value": "3"}},
+                            {{"key": "source_state_runtime_consumption_layout", "value": "scalar_row_map_expression_runtime"}},
+                            {{"key": "source_state_scalar_runtime_materialization_required", "value": "true"}},
+                            {{"key": "source_state_materialized_columns", "value": "id"}},
+                            {{"key": "source_state_reader_projection_columns", "value": "id"}},
+                            {{"key": "result_replay_verified", "value": "true"}},
+                            {{"key": "output_replay_status", "value": "verified_local_file_digest"}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+            sess = ctx.session(session_id="ordinary-sql-session")
+            workflow = sess.sql(f"SELECT id FROM '{source_path}' LIMIT 2")
+
+            first = workflow.write_jsonl(output_path, allow_overwrite=True)
+            second = workflow.write_jsonl(output_path)
+
+            self.assertIsInstance(workflow, SessionSqlWorkflow)
+            self.assertIsInstance(first, SessionSqlResult)
+            self.assertFalse(first.reuse_hit)
+            self.assertEqual(first.reuse_reason, "no_cached_result")
+            self.assertTrue(second.reuse_hit)
+            self.assertEqual(
+                second.reuse_reason,
+                "source_and_output_fingerprints_match",
+            )
+            self.assertTrue(second.output_plan_reuse_hit)
+            self.assertTrue(second.result_replay_reuse_hit)
+            self.assertEqual(second.output_plan_digest, "sha256:session-sql-output-plan-1")
+            self.assertEqual(second.source_state_id, "sql-source-state-1")
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
+
+            output_path.write_text('{"id":99,"count":99}\n', encoding="utf-8")
+            third = workflow.write_jsonl(output_path, allow_overwrite=True)
+            self.assertFalse(third.reuse_hit)
+            self.assertEqual(third.reuse_reason, "output_artifact_fingerprint_changed")
+            self.assertEqual(third.output_plan_digest, "sha256:session-sql-output-plan-2")
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
+
+            evidence = sess.evidence()
+            self.assertEqual(evidence["session_id"], "ordinary-sql-session")
+            self.assertEqual(evidence["cache_hit_count"], 1)
+            self.assertEqual(evidence["cache_miss_count"], 2)
+            self.assertEqual(evidence["source_state_reuse_count"], 1)
+            self.assertEqual(evidence["output_plan_reuse_count"], 1)
+            self.assertEqual(evidence["result_replay_reuse_count"], 1)
+            self.assertEqual(
+                evidence["last_invalidation_reason"],
+                "output_artifact_fingerprint_changed",
+            )
+            self.assertFalse(evidence["fallback_attempted"])
+            self.assertFalse(evidence["external_engine_invoked"])
 
     def test_context_session_reuses_local_query_output_when_fingerprints_match(
         self,

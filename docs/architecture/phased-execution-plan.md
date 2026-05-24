@@ -775,17 +775,19 @@ or documentation updates alone are insufficient.
 - [ ] GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse runtime
   - Source: `GAR-IOREUSE-1`, `GAR-PERF-2F`, in-process session runtime docs.
   - Current state: scoped batch/session evidence exists, and Python now exposes a caller-owned
-    `ShardLoomSession` for local `vortex_ingest` prepared-state reuse plus admitted local
-    query-builder collect/write/fanout result reuse when source, output, and prepared-artifact
-    fingerprints still match. Session SQL results surface SourceState id/digest, read-plan,
-    projection-pushdown, materialized/reader projection columns, `source_schema_digest`,
-    `plan_digest`, `output_plan_digest`, `execution_certificate_ref`, reuse/invalidation reason,
-    and runtime-envelope validation status from the local source runtime. Broader CLI batch/session
-    reuse, cross-workflow OutputPlan reuse, schema/dictionary cache reuse, buffer pools,
-    object-store/table reuse, and non-local workflows are still planned.
-  - Next slice outcome: extend the scoped in-process `ShardLoomSession` from prepared-state reuse
-    into admitted SourceState, VortexPreparedState, schema/dictionary state, and OutputPlan reuse
-    where fingerprints remain valid.
+    `ShardLoomSession` for local `vortex_ingest` prepared-state reuse plus session-bound `read_*`
+    and `sql(...)` workflows. Admitted local session terminal calls (`collect`, `write`, `fanout`)
+    reuse query/result/OutputPlan reports when source, output, and prepared-artifact fingerprints
+    still match, and invalidate on changed source/output artifacts. Session SQL results surface
+    SourceState id/digest, read-plan, projection-pushdown, materialized/reader projection columns,
+    `source_schema_digest`, `plan_digest`, `output_plan_digest`, `execution_certificate_ref`,
+    reuse/invalidation reason, and runtime-envelope validation status from the local source runtime.
+    Remaining 4L work is now the non-ergonomic session layer: CLI batch/session reuse,
+    cross-workflow or persistent OutputPlan reuse, schema/dictionary cache reuse, buffer pools,
+    object-store/table reuse, and non-local workflows.
+  - Next slice outcome: add a CLI-visible scoped session/batch lifecycle or cache contract that
+    reuses admitted local SourceState/VortexPreparedState/OutputPlan state beyond one Python object
+    while preserving explicit close/cleanup and fingerprint invalidation.
   - Runtime enablement: scoped in-process session runtime with safe source/prepared/output reuse and
     explicit invalidation.
   - User-visible surface: CLI batch/session command, Python context/session, benchmark timing rows.
@@ -794,9 +796,9 @@ or documentation updates alone are insufficient.
   - Evidence required: session id, cache hit/miss, reuse digest/reason, source/prepared/output
     state ids, invalidation reason, no-fallback fields.
   - Acceptance: repeated admitted workflows reuse state safely; stale source/schema/plan changes
-    invalidate cache; session state is explicitly scoped and closed; Python prepared-state and
-    local query/output reuse remain fingerprint-gated and do not imply broad runtime/session
-    support.
+    invalidate cache; session state is explicitly scoped and closed; Python prepared-state,
+    session-bound read/SQL, and local query/output reuse remain fingerprint-gated and do not imply
+    broad runtime/session support.
   - Verification: session smoke, invalidation tests, source/prepared/output reuse tests, benchmark
     harness contract tests.
   - Non-goals: no daemon/service, distributed cache, hidden fast mode, or performance claim.
@@ -1264,10 +1266,12 @@ docs/website parity, and a completed-ledger entry.
   - Current state: optimizer traces, source-state reuse, and batch/session evidence exist in scoped
     forms. Prepared/native benchmark batches emit evidence-only SourceState digests and per-family
     reuse digests, while Python local sessions expose SourceState identity/read-plan evidence for
-    admitted query/output reuse. Ordinary workflows do not yet have a reusable session/cache
-    lifecycle.
-  - Next slice outcome: implement a scoped in-process session with optimizer trace, SourceState/
-    VortexPreparedState/OutputPlan reuse, invalidation, and buffer reuse evidence.
+    admitted session-bound `read_*` and `sql(...)` collect/write/fanout reuse. Ordinary Python
+    workflows now have an explicit caller-owned reuse lifecycle; optimizer trace integration, CLI
+    batch/session lifecycle, schema/dictionary caches, buffer-pool reuse evidence, persistent or
+    cross-workflow cache promotion, and non-local/object-store/table workflows remain planned.
+  - Next slice outcome: integrate optimizer trace evidence and a scoped CLI/session cache contract
+    with SourceState/VortexPreparedState/OutputPlan invalidation plus buffer reuse evidence.
   - Runtime enablement: scoped optimizer/session/cache runtime that safely reuses work across
     admitted local workflows.
   - User-visible surface: CLI batch/session command, Python context/session, explain output,
@@ -1546,29 +1550,29 @@ external-engine fallback. Existing runtime items (`GAR-RUNTIME-IMPL-5B`, `GAR-RU
 the user-surface parity target visible until the full import/context/session/SQL/DataFrame path is
 runnable, documented, tested, and claim-safe.
 
-- [ ] GAR-USER-SURFACE-1A import, context, and session entrypoint completion
+- [x] GAR-USER-SURFACE-1A import, context, and session entrypoint completion
   - Source: PySpark `SparkSession` user model as a usability reference, `python/README.md`,
     `python/src/shardloom/context.py`, `python/src/shardloom/query.py`, `GAR-RUNTIME-IMPL-4L`,
     `GAR-RUNTIME-IMPL-5I`.
-  - Current state: users can `import shardloom as sl`, create `ctx = sl.context()`, run smoke/
-    capability commands, and execute scoped CLI-backed workflows through normal
-    `read_* -> filter/select/aggregate/join -> collect/write/fanout` chains. README and Python
-    README now present this format-neutral query/write route as the default user path and label
-    `ctx.session(...)`, `sl.session(...)`, `ctx.prepare_vortex(...)`, and raw runtime-envelope
-    inspection as advanced engine-development/diagnostic surfaces. Existing sessions cover local
-    `vortex_ingest` prepared-state reuse and admitted local query-builder collect/write/fanout
-    reuse. The Python layer is not yet a broad long-lived runtime session with reusable
-    SourceState, PreparedState, OutputPlan, schema/dictionary, and buffer-pool caches across all
-    workflows.
-  - Next slice outcome: implement a user-owned `ShardLoomSession`/context lifecycle that feels as
-    simple as `SparkSession.builder...getOrCreate()` without creating a daemon, global hidden cache,
-    or remote service.
+  - Current state: complete for admitted local Python entrypoints. Users can
+    `import shardloom as sl`, create `ctx = sl.context()`, run smoke/capability commands, execute
+    scoped CLI-backed workflows through normal `read_* -> filter/select/aggregate/join ->
+    collect/write/fanout` chains, and create caller-owned `ctx.session(...)` / `sl.session(...)`
+    handles. Session handles now expose session-bound `read_*` and `sql(...)` workflows whose
+    admitted local terminal calls reuse SourceState/result/OutputPlan reports only when fingerprints
+    still match. `ctx.prepare_vortex(...)`, `ShardLoomClient.vortex_ingest_smoke(...)`, and raw
+    runtime-envelope inspection remain advanced diagnostic surfaces. Broader schema/dictionary,
+    buffer-pool, CLI batch/session, object-store/table, persistent, and non-local reuse work stays
+    in `GAR-RUNTIME-IMPL-4L` / `GAR-RUNTIME-IMPL-5I`, not this user-entrypoint item.
+  - Next slice outcome: complete; future user-surface work continues under DataFrame parity,
+    package/release, examples, and the remaining runtime session/cache items rather than this
+    import/context/session entrypoint.
   - Runtime enablement: explicit local session lifecycle for admitted runtime workflows, including
     session id, close/cleanup, cache hit/miss, invalidation, and no-fallback evidence.
   - User-visible surface: `import shardloom as sl`, `sl.context(...)`, normal `ctx.read_*` /
-    `ctx.sql(...)` workflows, Python README, getting-started docs, use-case pages. Session and
-    explicit prepare helpers remain visible only as advanced diagnostic/development APIs until the
-    runtime can hide preparation and reuse behind ordinary query execution.
+    `ctx.sql(...)` workflows, `ctx.session(...)` / `sl.session(...)` with session-bound `read_*` and
+    `sql(...)` workflows, Python README, getting-started docs, and use-case pages. Explicit prepare
+    helpers remain advanced diagnostic/development APIs.
   - Implementation scope: Python context/session classes, Rust/CLI session command or local batch
     surface, session evidence fields, cleanup semantics, examples.
   - Evidence required: `session_id`, `session_state_scope`, `cache_hit`, `cache_miss`,
@@ -1581,8 +1585,8 @@ runnable, documented, tested, and claim-safe.
   - Verification: Python session smoke tests, session invalidation tests, `cargo test -p
     shardloom-contract-tests --test release_readiness_metadata`, Python compileall, README/use-case
     examples.
-  - Dependencies/blockers: `GAR-RUNTIME-IMPL-4L`, `GAR-RUNTIME-IMPL-5I`, SourceState/
-    VortexPreparedState/OutputPlan reuse, and session cache invalidation evidence.
+  - Dependencies/blockers: remaining runtime depth lives in `GAR-RUNTIME-IMPL-4L` and
+    `GAR-RUNTIME-IMPL-5I`; broader DataFrame parity lives in `GAR-USER-SURFACE-1C`.
   - Non-goals: no daemon/service, remote cluster, distributed scheduler, hidden global session,
     Spark-compatible API promise, or performance claim.
   - Claim boundary: PySpark-like simplicity of entry only; not PySpark API parity, Spark
