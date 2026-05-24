@@ -1886,6 +1886,140 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertFalse(evidence["fallback_attempted"])
             self.assertFalse(evidence["external_engine_invoked"])
 
+    def test_context_session_reuses_local_fanout_outputs_when_fingerprints_match(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            source_path = root / "source.csv"
+            jsonl_output_path = root / "out.jsonl"
+            csv_output_path = root / "out.csv"
+            count_path = root / "fanout-count.txt"
+            source_path.write_text("id,label\n1,alpha\n2,beta\n", encoding="utf-8")
+            binary = self.fake_cli(
+                textwrap.dedent(
+                    f"""
+                    import json, sys
+                    from pathlib import Path
+                    count_path = Path({str(count_path)!r})
+                    count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
+                    count += 1
+                    count_path.write_text(str(count), encoding="utf-8")
+                    assert sys.argv[1] == "sql-local-source-smoke", sys.argv
+                    fanout_args = [arg for arg in sys.argv if arg.startswith(("jsonl=", "csv="))]
+                    assert len(fanout_args) == 2, sys.argv
+                    outputs = {{}}
+                    for item in fanout_args:
+                        fmt, path = item.split("=", 1)
+                        outputs[fmt] = Path(path)
+                    outputs["jsonl"].write_text(json.dumps({{"id": 1, "count": count}}) + "\\n", encoding="utf-8")
+                    outputs["csv"].write_text("id,count\\n1," + str(count) + "\\n", encoding="utf-8")
+                    print(json.dumps({{
+                        "schema_version": "shardloom.output.v2",
+                        "command": "sql-local-source-smoke",
+                        "status": "success",
+                        "summary": "ok",
+                        "human_text": "ok",
+                        "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                        "diagnostics": [],
+                        "fields": [
+                            {{"key": "output_route", "value": "local_fanout"}},
+                            {{"key": "output_fanout_performed", "value": "true"}},
+                            {{"key": "fanout_output_count", "value": "2"}},
+                            {{"key": "fanout_output_formats", "value": "jsonl,csv"}},
+                            {{"key": "fanout_output_paths", "value": str(outputs["jsonl"]) + "," + str(outputs["csv"])}},
+                            {{"key": "fanout_output_digests", "value": f"jsonl:sha256:jsonl-{{count}},csv:sha256:csv-{{count}}"}},
+                            {{"key": "fanout_output_workspace_path_safety_statuses", "value": "jsonl:true,csv:true"}},
+                            {{"key": "fanout_output_commit_modes", "value": "jsonl:atomic_rename_same_directory,csv:atomic_rename_same_directory"}},
+                            {{"key": "fanout_output_native_io_certificate_statuses", "value": "jsonl:certified_local_file_sink,csv:certified_local_file_sink"}},
+                            {{"key": "fanout_output_replay_statuses", "value": "jsonl:verified_local_file_digest,csv:verified_local_file_digest"}},
+                            {{"key": "fanout_output_fidelity_statuses", "value": "jsonl:logical_rows_replay_verified,csv:logical_rows_replay_verified_type_metadata_not_preserved"}},
+                            {{"key": "fanout_output_fidelity_loss", "value": "jsonl:jsonl_text_roundtrip_not_full_type_metadata_fidelity,csv:csv_text_roundtrip_loses_static_type_metadata"}},
+                            {{"key": "output_plan_digest", "value": f"sha256:fanout-output-plan-{{count}}"}},
+                            {{"key": "source_state_id", "value": f"sql-source-state-{{count}}"}},
+                            {{"key": "source_state_digest", "value": f"fnv64:sql-source-{{count}}"}},
+                            {{"key": "source_schema_digest", "value": f"fnv64:sql-schema-{{count}}"}},
+                            {{"key": "plan_digest", "value": f"fnv64:sql-plan-{{count}}"}},
+                            {{"key": "execution_certificate_ref", "value": "sql-local-source.csv.fanout.execution.v1"}},
+                            {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
+                            {{"key": "source_state_read_plan", "value": "projected_source_state"}},
+                            {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
+                            {{"key": "user_surface_runtime_scope", "value": "format_neutral_sql_python_runtime"}},
+                            {{"key": "format_specific_boundary_scope", "value": "read_ingest_and_write_only"}},
+                            {{"key": "format_specific_compute_path", "value": "false"}},
+                            {{"key": "source_state_materialization_layout", "value": "arrow_record_batch_columnar_source_state_then_scalar_row_map"}},
+                            {{"key": "source_state_parse_normalization", "value": "structured_reader_to_arrow_record_batches_then_scalar_rows"}},
+                            {{"key": "source_state_columnar_preserved", "value": "true"}},
+                            {{"key": "source_state_record_batch_count", "value": "1"}},
+                            {{"key": "source_to_columnar_millis", "value": "3"}},
+                            {{"key": "source_state_runtime_consumption_layout", "value": "scalar_row_map_expression_runtime"}},
+                            {{"key": "source_state_scalar_runtime_materialization_required", "value": "true"}},
+                            {{"key": "source_state_materialized_columns", "value": "id"}},
+                            {{"key": "source_state_reader_projection_columns", "value": "id"}},
+                            {{"key": "result_reuse_for_fanout", "value": "true"}},
+                            {{"key": "fanout_result_reuse_hit", "value": "true"}},
+                            {{"key": "result_replay_verified", "value": "true"}},
+                            {{"key": "output_replay_status", "value": "verified_local_sink_artifacts"}},
+                            {{"key": "claim_gate_status", "value": "fixture_smoke_only"}},
+                            {{"key": "fallback_attempted", "value": "false"}},
+                            {{"key": "external_engine_invoked", "value": "false"}}
+                        ],
+                    }}))
+                    """
+                )
+            )
+            ctx = ShardLoomContext(client=ShardLoomClient(binary=binary))
+            frame = ctx.read_csv(source_path).select("id").limit(2)
+            sess = ctx.session(session_id="fanout-session")
+            outputs = {
+                "jsonl": str(jsonl_output_path),
+                "csv": str(csv_output_path),
+            }
+
+            first = sess.fanout(frame, outputs, allow_overwrite=True)
+            second = sess.fanout(frame, outputs)
+
+            self.assertIsInstance(first, SessionSqlResult)
+            self.assertFalse(first.reuse_hit)
+            self.assertEqual(first.reuse_reason, "no_cached_result")
+            self.assertTrue(second.reuse_hit)
+            self.assertTrue(second.output_plan_reuse_hit)
+            self.assertTrue(second.result_replay_reuse_hit)
+            self.assertEqual(
+                second.reuse_reason,
+                "source_and_output_fingerprints_match",
+            )
+            self.assertEqual(second.output_plan_digest, "sha256:fanout-output-plan-1")
+            self.assertEqual(second.source_state_id, "sql-source-state-1")
+            self.assertEqual(
+                second.execution_certificate_ref,
+                "sql-local-source.csv.fanout.execution.v1",
+            )
+            self.assertFalse(second.fallback_attempted)
+            self.assertFalse(second.external_engine_invoked)
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "1")
+
+            csv_output_path.write_text("id,count\n99,99\n", encoding="utf-8")
+            third = sess.fanout(frame, outputs, allow_overwrite=True)
+            self.assertFalse(third.reuse_hit)
+            self.assertEqual(third.reuse_reason, "output_artifact_fingerprint_changed")
+            self.assertEqual(third.output_plan_digest, "sha256:fanout-output-plan-2")
+            self.assertEqual(count_path.read_text(encoding="utf-8"), "2")
+
+            evidence = sess.evidence()
+            self.assertEqual(evidence["session_id"], "fanout-session")
+            self.assertEqual(evidence["cache_hit_count"], 1)
+            self.assertEqual(evidence["cache_miss_count"], 2)
+            self.assertEqual(evidence["source_state_reuse_count"], 1)
+            self.assertEqual(evidence["output_plan_reuse_count"], 1)
+            self.assertEqual(evidence["result_replay_reuse_count"], 1)
+            self.assertEqual(
+                evidence["last_invalidation_reason"],
+                "output_artifact_fingerprint_changed",
+            )
+            self.assertFalse(evidence["fallback_attempted"])
+            self.assertFalse(evidence["external_engine_invoked"])
+
     def test_capabilities_scope_uses_explicit_scope(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

@@ -899,9 +899,12 @@ plan before coding.
   local source/prepared/plan/output posture. `GAR-IOREUSE-1F` now adds evidence-safe reuse-level
   rows so discovery, schema, parse-plan, prepared-state, operator-source-state, output-plan, and
   result-replay reuse stay separate from execution mode, evidence level, output format, and claim
-  gate. The next work is runtime fanout, broader sink artifact proof, benchmark timing fields, and
-  no-fallback/no-external-engine evidence so reuse cannot silently become claim-grade, cache-hit
-  proof, or performance proof.
+  gate. Scoped local-source and generated-output runtime fanout now write admitted local sinks with
+  OutputPlan digests, per-output certificates, replay/fidelity evidence, and no-fallback fields;
+  Python `ShardLoomSession` reuses matching local output/fanout reports only when fingerprints
+  still match. Remaining `GAR-IOREUSE-1` work is broader sink artifact proof, benchmark-family
+  fanout promotion, persistent cache/session promotion, and claim-grade gates so reuse cannot
+  silently become production, cache-hit, or performance proof.
 - [ ] `GAR-SCALE-1` adds the Spark-level scale contract and any-volume readiness follow-through.
   ShardLoom must not claim literal "any volume" support; future scale work must classify rows as
   `local_smoke`, `local_claim_grade`, `larger_than_memory_local`, `split_parallel_local`,
@@ -1503,7 +1506,10 @@ plan before coding.
 - [ ] `GAR-IOREUSE-1` adds planned I/O reuse and fanout follow-through across Vortex-adjacent
   source/sink boundaries. It must check Vortex Source/Sink/Split, file I/O, prepared artifact, and
   output concepts before inventing parallel abstractions; any wrapper must preserve Native I/O,
-  materialization/decode, no-fallback, output metadata, and claim-gate evidence.
+  materialization/decode, no-fallback, output metadata, and claim-gate evidence. Scoped local
+  SQL/Python and generated-output fanout has landed; remaining follow-through is persistent
+  session/cache reuse, benchmark-family fanout promotion, broader sink metadata proof, and
+  object-store/table/Foundry sink boundaries.
 - [ ] Generalized Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write
   runtime evidence, object-store runtime I/O, GPU/device execution, and managed-platform benchmark
   lanes remain incomplete.
@@ -1718,10 +1724,11 @@ plan before coding.
   no-fallback fields, and claim boundaries in benchmark artifacts. `GAR-IOREUSE-1F` now exposes
   evidence-safe reuse levels, per-level status/hit/digest/blocker fields, evidence-level linkage,
   output-format separation, invalidation reasons, `claim_grade_requirements_met=false`,
-  no-fallback fields, and claim boundaries in benchmark artifacts. The remaining flow must add
-  broader sink evidence while preserving distinct direct-transient, compatibility-import-certified,
-  prepared-vortex, and native-vortex lanes without adding persistent cache, object-store/lakehouse,
-  performance, or fallback claims.
+  no-fallback fields, and claim boundaries in benchmark artifacts. Scoped local SQL/Python and
+  generated-output fanout now adds local runtime sink evidence outside the benchmark matrix. The
+  remaining flow must add broader sink evidence while preserving distinct direct-transient,
+  compatibility-import-certified, prepared-vortex, and native-vortex lanes without adding
+  persistent cache, object-store/lakehouse, performance, or fallback claims.
 - [ ] `GAR-NOVEL-1` adds the evidence-native generated execution, lineage, observability, and
   confidence follow-up. OpenLineage facets are now mapped as opt-in/report-only placeholders;
   OpenTelemetry spans remain opt-in/report-only, and Bayesian confidence can block claims but
