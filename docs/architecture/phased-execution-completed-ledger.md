@@ -16,6 +16,62 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F/4F1 local source, adapter, and `vortex_ingest` coverage
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-source-prepare-coverage-20260524` / #941.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`.
+    - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest
+      attribution`.
+    - `GAR-RUNTIME-IMPL-5D local input adapter runtime parity`.
+    - User direction to fully complete source/adapter/ingest coverage before moving to later
+      runtime items.
+  - Scope:
+    - Removed the CSV-only admission island from traditional analytics
+      `direct_compatibility_transient`; CSV, JSONL/NDJSON, and feature-gated
+      Parquet/Arrow IPC/Avro/ORC inputs now share the local read/adapter evidence boundary for the
+      scoped selective-filter and filter/project/limit paths.
+    - Added direct-transient SourceState fields for source parse timing, source-to-columnar timing,
+      materialization layout, parse normalization, columnar preservation, and record-batch count.
+    - Added dynamic direct-transient adapter IDs, local adapter-registry entry/admitted-extension/
+      feature-gate/boundary evidence, certificate IDs, benchmark row refs, coverage refs,
+      provider surfaces, and representation-transition evidence by input format.
+    - Extended `vortex_ingest` so scalar and columnar prepared-state writes admit non-null boolean
+      columns alongside the existing int64/uint64/float64/UTF-8/date32/timestamp families.
+    - Added `vortex-ingest-smoke` runtime coverage for JSON, JSONL, NDJSON, and feature-gated
+      Parquet/Arrow IPC/Avro/ORC local adapters, including columnar SourceState preservation for
+      structured formats.
+    - Added Python `read(path)` adapter inference as the normal format-neutral user read entrypoint
+      over the same local extension registry, while leaving explicit `read_csv`/`read_json`/
+      structured helpers as aliases.
+    - Updated Python typed `VortexIngestSmokeReport` accessors for source adapter id, registry row,
+      feature gate, and adapter boundary.
+    - Promoted the local file compatibility/status rows and UniversalIngress taxonomy rows for CSV,
+      JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC from stale
+      smoke-only/broader-evidence-missing posture to runtime-supported local SourceState,
+      `vortex_ingest`, direct-transient, and certified-import evidence.
+  - Verification:
+    - `cargo +1.91.1 fmt --all`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 check -p shardloom-vortex --features vortex-write,universal-format-io,vortex-traditional-analytics-benchmark`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-write,universal-format-io vortex_ingest -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --features vortex-write,universal-format-io --test sql_local_source_runtime_smoke vortex_ingest_smoke -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark direct_transient -- --nocapture`
+    - `cargo +1.91.1 clippy -p shardloom-vortex --features vortex-write,universal-format-io,vortex-traditional-analytics-benchmark --all-targets -- -D warnings`
+    - `cargo +1.91.1 clippy -p shardloom-cli --features vortex-write,universal-format-io --all-targets -- -D warnings`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test traditional_benchmark_harness -- --nocapture`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python scripts\check_universal_ingress_routes.py`
+    - `python -m unittest discover -s python/tests`
+    - `python -m compileall -q python/src python/tests scripts`
+    - `git diff --check`
+  - Claim boundary:
+    - Local file source/adapter/ingest runtime coverage for admitted text and feature-gated flat
+      structured formats. This does not claim nested JSON/JSONPath, broad complex/nested structured
+      schemas, object-store/table/lakehouse sources, persistent distributed cache, production
+      package readiness, SQL/DataFrame parity, or performance superiority.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5G scoped local-source distribution window runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-window-distribution-runtime-20260524` / #940.

@@ -54,6 +54,20 @@ exist, tests/snapshots/release checks exist, evidence refs are attached where cl
 unsupported paths remain explicit, no fallback engine was invoked, completed details are moved to the
 completed ledger, and supporting docs are updated without becoming a second active queue.
 
+Section-completion rule:
+
+- Prefer one substantial PR/session that completes an entire runtime section over a sequence of
+  tiny row/format/operator PRs. Split work only when the remaining section has independent safety,
+  dependency, or verification boundaries that cannot reasonably land together.
+- For a section-completion PR, derive the full checklist from the owning `GAR-*` item, companion
+  5-series runtime equivalent, status/capability files, route taxonomy, tests, and user-visible
+  surfaces before editing. The PR should close the section across runtime code, typed reports,
+  Python/CLI surfaces, docs/status artifacts, and verification evidence together.
+- Avoid wording such as "promote one format/operator at a time" unless a format/operator truly has
+  a separate external dependency or deterministic blocker. When the engine architecture expects a
+  unified route, complete the unified route and keep per-format differences confined to read/ingest
+  and write/sink boundaries.
+
 No item may create or imply a public claim unless it explicitly lists the evidence that supports the
 claim. Performance, superiority, Spark-displacement, production, SQL/DataFrame, object-store,
 Foundry, REST, live/hybrid, and package-release claims require workload-scoped evidence and release
@@ -251,6 +265,9 @@ Runtime completion rule:
   runtime-claim validator that directly protects a usable workflow.
 - Every runtime item below must include a `Runtime enablement:` field naming the behavior,
   admission/blocker, or validator it enables.
+- Runtime work should be grouped by completed engine section, not by the smallest testable sliver.
+  The default PR shape is a complete source/adapter/ingest, expression-family, output/fanout,
+  envelope/session, or scan/kernel section with all companion docs and validators updated.
 - A docs-only or report-only update cannot complete a runtime item unless the item explicitly says
   it is a runtime-safety blocker or validator.
 - Completed runtime details belong in `docs/architecture/phased-execution-completed-ledger.md`, not
@@ -433,24 +450,36 @@ or documentation updates alone are insufficient.
     `source_adapter_admitted_extensions`, `source_adapter_feature_gate`,
     `source_adapter_boundary`, and `source_adapter_selection_reason` evidence. `.ndjson`
     inference is tested as JSONL adapter selection, and unregistered extensions block before file
-    reads with admitted-extension diagnostics and no-fallback evidence.
+    reads with admitted-extension diagnostics and no-fallback evidence. The traditional analytics
+    `direct_compatibility_transient` path now uses the same local read/adapter evidence boundary
+    for CSV, JSONL/NDJSON, and feature-gated Parquet/Arrow IPC/Avro/ORC inputs instead of a
+    CSV-only island; reports expose per-format direct-transient adapter IDs, SourceState
+    parse/columnar timing, record-batch preservation evidence for columnar inputs, dynamic
+    certificate/benchmark/coverage refs, and unchanged no-persistence/no-fallback execution
+    evidence. The scoped `vortex_ingest` prepare-once route now has runtime tests for CSV, JSON,
+    JSONL, NDJSON, Parquet, Arrow IPC, Avro, and ORC adapter selection; text formats enter through
+    scalar SourceState, feature-gated structured formats preserve Arrow `RecordBatch` SourceState
+    through Vortex array build, and both scalar and columnar `vortex_ingest` admit non-null boolean
+    columns in addition to int64/uint64/float64/UTF-8/date32/timestamp values.
     Nested/general JSON, broader Parquet/Arrow IPC/Avro/ORC type/nesting and output coverage does
     not all have ordinary user-facing SourceState runtime parity.
-  - Next slice outcome: continue promoting remaining local input and operator combinations one at
-    a time into UniversalIngress/InputAdapter registry coverage with SourceState evidence,
-    `vortex_ingest_status`, certified route status, and deterministic blockers for unsupported
-    formats/features. Keep engine/runtime completion ahead of final user-surface cleanup: the
-    eventual format-neutral `read(path)` surface should be a thin layer over this registry, while
-    remaining format-specific work stays confined to read/ingest and write/sink boundaries. The
-    next optimization step is extending columnar SourceState reuse from the prepare-once route into
-    repeated prepared workflows and benchmark rows without adding a hidden Arrow-default execution
-    model. Recent join/operator slices should keep using the same local-source admission universe
-    instead of creating CSV-only islands unless a format has a deterministic blocker.
+  - Next slice outcome: close the source/adapter/ingest section as one coherent bundle rather than
+    as one-format increments: UniversalIngress/InputAdapter registry coverage, SourceState evidence,
+    `vortex_ingest_status`, certified route status, deterministic blockers for unsupported
+    formats/features, typed report accessors, capability/status rows, taxonomy rows, and
+    cross-format runtime tests should move together. Keep engine/runtime completion ahead of final
+    user-surface cleanup: the format-neutral Python `read(path)` surface is a thin layer over this
+    registry, while remaining format-specific work stays confined to read/ingest and write/sink
+    boundaries. The next optimization step after section closeout is extending columnar
+    SourceState reuse from the prepare-once route into repeated prepared workflows and benchmark
+    rows without adding a hidden Arrow-default execution model. Recent join/operator slices should
+    keep using the same local-source admission universe instead of creating CSV-only islands unless
+    a format has a deterministic blocker.
   - Runtime enablement: admitted local input adapters that create reusable SourceState evidence for
     actual user reads and can feed `vortex_ingest` into `VortexPreparedState` when preparation is
     admitted.
-  - User-visible surface: CLI/Python read helpers, use cases, capability/status matrix, benchmark
-    source-format rows.
+  - User-visible surface: CLI/Python `read(path)` and explicit read aliases, use cases,
+    capability/status matrix, benchmark source-format rows.
   - Implementation scope: format detection, local reader, schema/dtype inference, fingerprinting,
     SourceState digest, decode/materialization evidence.
   - Vortex 0.71/0.72 opportunity mapping:
@@ -490,16 +519,17 @@ or documentation updates alone are insufficient.
     `shardloom-prepare-batch` comparative-harness lane, which prepare local compatibility inputs
     once and run a prepared Vortex scenario batch in the same process with explicit preparation,
     query, reuse, no-fallback, and claim-boundary evidence.
-  - Remaining gap: direct-transient local CSV/JSON paths and several generated/admitted
-    local-source workflows still cross scalar row-map normalization without a reusable columnar
-    SourceState boundary, and feature-gated Parquet/Arrow IPC/Avro/ORC direct-transient workflows
-    still materialize scalar rows for the scoped expression runtime after preserving reader-level
-    columnar ingress evidence. The prepare-once route is local/scoped evidence only; it is not a
-    persistent cache, object-store/table workflow, SQL/DataFrame production runtime, performance
-    claim, or package-readiness claim.
-  - Next slice outcome: keep reducing the UniversalIngress/adapter bottleneck by carrying
-    columnar SourceState into more direct-transient and generated/admitted local-source paths, while
-    preserving certification-depth policy and claim-safe cold/warm timing separation.
+  - Remaining gap: the local source/adapter/ingest routes now share adapter-registry evidence for
+    text and feature-gated structured local formats across direct transient, SQL local-source, and
+    `vortex_ingest`; remaining optimization belongs to carrying reusable columnar SourceState deeper
+    into operator execution, generated/admitted local-source workflows, prepared-state/session reuse,
+    and benchmark rows. The prepare-once route is local/scoped evidence only; it is not a persistent
+    cache, object-store/table workflow, SQL/DataFrame production runtime, performance claim, or
+    package-readiness claim.
+  - Next slice outcome: finish the source/adapter/ingest closeout bundle by carrying the shared
+    adapter-registry and SourceState evidence through direct-transient, generated/admitted local
+    source, and `vortex_ingest` paths in one PR, then leave deeper session/benchmark reuse as the
+    next section only after the ingest/adapter section has runtime tests and status evidence.
   - Runtime enablement: certified ingest/stage execution remains supported, and repeated local
     benchmark/workflow commands can certify or prepare once and then run `prepared_vortex` from
     `VortexPreparedState`.
@@ -1044,15 +1074,24 @@ docs/website parity, and a completed-ledger entry.
     workflows, post-aggregate HAVING over aggregate output rows, joined computed projection/top-N
     workflows, scalar/grouped join aggregates with optional HAVING, and local-source
     evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON versus admitted
-    Parquet/Arrow IPC/Avro/ORC rows. Nested JSON/JSONPath, broader
+    Parquet/Arrow IPC/Avro/ORC rows. Traditional analytics direct-transient smokes now admit CSV,
+    JSONL/NDJSON, and feature-gated Parquet/Arrow IPC/Avro/ORC through the shared local adapter
+    boundary with per-format SourceState evidence and dynamic no-fallback certificates, while
+    keeping compute logic format-neutral after read/ingest. The scoped `vortex_ingest`
+    prepare-once route has runtime coverage for CSV, JSON, JSONL, NDJSON, Parquet, Arrow IPC,
+    Avro, and ORC, including boolean columns, adapter-registry evidence, and columnar SourceState
+    preservation for structured formats. Nested JSON/JSONPath, broader
     Parquet/Arrow IPC/Avro/ORC type/nesting coverage,
     Excel, database files, and unsupported formats are
     not uniformly represented by runtime SourceState adapters.
-  - Next slice outcome: promote one local input format at a time into a SourceState adapter registry
-    with deterministic blockers for unsupported formats.
+  - Next slice outcome: close the local input adapter parity section as a cross-format runtime
+    bundle: every admitted local file format should use the same SourceState adapter registry,
+    deterministic unsupported-format blockers, typed evidence fields, CLI/Python smoke coverage,
+    and status/taxonomy rows.
   - Runtime enablement: local SourceState adapter runtime for admitted file formats and explicit
     blockers for unsupported formats.
-  - User-visible surface: CLI/Python read APIs, capability/status views, benchmark rows, use cases.
+  - User-visible surface: CLI/Python `read(path)` and explicit read aliases, capability/status
+    views, benchmark rows, use cases.
   - Implementation scope: adapter registry, format detection, schema/dtype inference, fingerprints,
     row-count posture, parse/decode planning, diagnostics.
   - Evidence required: source format/location/fingerprint, SourceState id/digest, schema digest,
@@ -1523,8 +1562,9 @@ runnable, documented, tested, and claim-safe.
 - [ ] GAR-USER-SURFACE-1C DataFrame/query-builder parity for ordinary local workflows
   - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python
     capability matrix, `docs/getting-started/examples.md`.
-  - Current state: Python `read_csv(...)`, local flat JSON/JSONL/NDJSON `read_json(...)`, and
-    feature-gated local flat scalar `read_parquet(...)` / `read_arrow_ipc(...)` /
+  - Current state: Python `read(path)` now infers the local source adapter from the extension over
+    the same registry as explicit `read_csv(...)`, local flat JSON/JSONL/NDJSON `read_json(...)`,
+    and feature-gated local flat scalar `read_parquet(...)` / `read_arrow_ipc(...)` /
     `read_avro(...)` / `read_orc(...)`
     query-builder chains support scoped projection/optional-filter/limit, preview/select-star, explicit-projection
     literal `with_column(...)`, `where(...)`, Python `sl.col(...).between(...)` and
@@ -1552,7 +1592,7 @@ runnable, documented, tested, and claim-safe.
     ergonomics.
   - Runtime enablement: familiar DataFrame/query-builder workflows that execute through ShardLoom
     native runtime paths for admitted local inputs and outputs.
-  - User-visible surface: `ctx.read_csv`, `ctx.read_json`, `ctx.read_parquet`,
+  - User-visible surface: `ctx.read`, `ctx.read_csv`, `ctx.read_json`, `ctx.read_parquet`,
     `ctx.read_arrow_ipc`, `ctx.read_avro`, `ctx.read_orc`, `ctx.read_vortex`,
     `.select`, `.filter`, `.with_column`, `.group_by`, `.agg`, `.join`, `.sort`, `.window`,
     `.limit`, `.collect`, `.write`, `.explain`, method capability matrix.

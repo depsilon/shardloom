@@ -506,6 +506,30 @@ class VortexIngestSmokeReport:
         return _required_field(self.envelope, "source_format")
 
     @property
+    def source_adapter_id(self) -> str | None:
+        """Return the selected local input adapter identifier."""
+
+        return self.envelope.field("source_adapter_id")
+
+    @property
+    def source_adapter_registry_entry_id(self) -> str | None:
+        """Return the selected local input adapter registry row."""
+
+        return self.envelope.field("source_adapter_registry_entry_id")
+
+    @property
+    def source_adapter_feature_gate(self) -> str | None:
+        """Return the feature gate required by the selected source adapter."""
+
+        return self.envelope.field("source_adapter_feature_gate")
+
+    @property
+    def source_adapter_boundary(self) -> str | None:
+        """Return the read/ingest boundary used by the selected source adapter."""
+
+        return self.envelope.field("source_adapter_boundary")
+
+    @property
     def vortex_ingest_status(self) -> str:
         """Return the `vortex_ingest` route status."""
 
@@ -1097,7 +1121,7 @@ class GeneratedSourceWriteReport:
 
 @dataclass(frozen=True, slots=True)
 class SqlLocalSourceSmokeReport:
-    """Typed view over scoped local CSV SQL smoke reports."""
+    """Typed view over scoped local-source SQL smoke reports."""
 
     envelope: OutputEnvelope
 
@@ -7354,7 +7378,7 @@ class ShardLoomClient:
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> SqlLocalSourceSmokeReport:
-        """Run the scoped local CSV SQL projection/filter/limit smoke command."""
+        """Run the scoped local-source SQL smoke command."""
 
         command: list[CommandPart] = [
             "sql-local-source-smoke",

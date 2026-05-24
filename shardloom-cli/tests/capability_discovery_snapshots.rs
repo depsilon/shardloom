@@ -2678,6 +2678,16 @@ fn assert_dataframe_notebook_package_readiness_rows(output: &str) {
 fn compatibility_capabilities_expose_universal_scoreboard() {
     let output = run_capabilities_scope("compatibility");
 
+    assert_universal_compatibility_top_level_keys(&output);
+    assert_universal_compatibility_source_rows(&output);
+    assert_universal_compatibility_unsupported_boundaries(&output);
+    assert_generated_output_compatibility_fields(&output);
+    assert_object_store_ladder_fields(&output);
+    assert_table_format_matrix_fields(&output);
+    assert_database_warehouse_matrix_fields(&output);
+}
+
+fn assert_universal_compatibility_top_level_keys(output: &str) {
     for key in [
         "universal_compatibility_scoreboard_schema_version",
         "universal_compatibility_scoreboard_id",
@@ -2722,8 +2732,30 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_row_order",
-        "csv,jsonl_json,parquet,arrow_ipc,avro,orc,excel,sqlite,postgres_mysql,jdbc_odbc,object_store_s3_gcs_adls,table_lakehouse_iceberg_delta_hudi,vortex,generated_source_free_outputs,python_rows_dataframe,sql_values_literals,rest_flight_adbc,foundry"
+        "csv,jsonl_ndjson,json,parquet,arrow_ipc,avro,orc,excel,sqlite,postgres_mysql,jdbc_odbc,object_store_s3_gcs_adls,table_lakehouse_iceberg_delta_hudi,vortex,generated_source_free_outputs,python_rows_dataframe,sql_values_literals,rest_flight_adbc,foundry"
     )));
+}
+
+fn assert_universal_compatibility_source_rows(output: &str) {
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_row_csv_support_status",
+        "runtime-supported"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_row_jsonl_ndjson_support_status",
+        "runtime-supported"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_row_json_support_status",
+        "runtime-supported"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_row_json_output_io_performed",
+        false
+    )));
+}
+
+fn assert_universal_compatibility_unsupported_boundaries(output: &str) {
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_row_object_store_s3_gcs_adls_support_status",
         "blocked"
@@ -2760,10 +2792,6 @@ fn compatibility_capabilities_expose_universal_scoreboard() {
         "universal_compatibility_all_rows_external_engine_invoked_false",
         true
     )));
-    assert_generated_output_compatibility_fields(&output);
-    assert_object_store_ladder_fields(&output);
-    assert_table_format_matrix_fields(&output);
-    assert_database_warehouse_matrix_fields(&output);
 }
 
 #[test]

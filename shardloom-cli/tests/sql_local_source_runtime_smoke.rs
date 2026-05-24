@@ -71,6 +71,17 @@ struct ExpectedAdapterEvidence<'a> {
     boundary: &'a str,
 }
 
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+type StructuredVortexIngestCase = (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static str,
+    fn(&Path),
+);
+
 fn assert_inferred_adapter_evidence(stdout: &str, expected: ExpectedAdapterEvidence<'_>) {
     assert!(stdout.contains(&field("source_format", expected.source_format)));
     assert!(stdout.contains(&field("source_format_inferred", "true")));
@@ -201,10 +212,15 @@ fn vortex_ingest_smoke_blocks_without_vortex_write_feature() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
+#[allow(clippy::too_many_lines)]
 fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
     let source_path = unique_path("vortex-ingest-source", "csv");
     let target_path = unique_path("vortex-ingest-target", "vortex");
-    fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n").expect("write source csv");
+    fs::write(
+        &source_path,
+        "id,label,amount,active\n1,alpha,8,true\n2,beta,15,false\n",
+    )
+    .expect("write source csv");
 
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
@@ -283,6 +299,11 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
         "false"
     )));
     assert!(stdout.contains(&field("input_row_count", "2")));
+    assert!(stdout.contains(&field("source_columns", "id,label,amount,active")));
+    assert!(stdout.contains(&field(
+        "column_family_summary",
+        "id:int64,label:utf8,amount:int64,active:boolean"
+    )));
     assert!(stdout.contains(&field("writer_row_count", "2")));
     assert!(stdout.contains(&field("reopen_row_count", "2")));
     assert!(stdout.contains(&field(
@@ -299,6 +320,112 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
 
     fs::remove_file(source_path).expect("remove source csv");
     fs::remove_file(target_path).expect("remove target vortex");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+#[allow(clippy::too_many_lines)]
+fn vortex_ingest_smoke_prepares_json_jsonl_and_ndjson_through_text_adapter_registry() {
+    let cases = [
+        (
+            "json",
+            "json",
+            "local_json_input_adapter",
+            "shardloom.local_input_adapter.json.v1",
+            ".json",
+            "[{\"id\":1,\"label\":\"alpha\",\"amount\":8,\"active\":true},{\"id\":2,\"label\":\"beta\",\"amount\":15,\"active\":false}]\n",
+        ),
+        (
+            "jsonl",
+            "jsonl",
+            "local_jsonl_input_adapter",
+            "shardloom.local_input_adapter.jsonl.v1",
+            ".jsonl,.ndjson",
+            "{\"id\":1,\"label\":\"alpha\",\"amount\":8,\"active\":true}\n{\"id\":2,\"label\":\"beta\",\"amount\":15,\"active\":false}\n",
+        ),
+        (
+            "ndjson",
+            "jsonl",
+            "local_jsonl_input_adapter",
+            "shardloom.local_input_adapter.jsonl.v1",
+            ".jsonl,.ndjson",
+            "{\"id\":1,\"label\":\"alpha\",\"amount\":8,\"active\":true}\n{\"id\":2,\"label\":\"beta\",\"amount\":15,\"active\":false}\n",
+        ),
+    ];
+
+    for (extension, source_format, adapter_id, registry_entry_id, admitted_extensions, content) in
+        cases
+    {
+        let source_path = unique_path("vortex-ingest-text-source", extension);
+        let target_path = unique_path("vortex-ingest-text-target", "vortex");
+        fs::write(&source_path, content).expect("write source");
+
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args([
+                "vortex-ingest-smoke",
+                &source_path.display().to_string(),
+                &target_path.display().to_string(),
+                "--allow-overwrite",
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("vortex-ingest-smoke command runs");
+
+        assert!(
+            output.status.success(),
+            "stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "stderr={}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert_inferred_adapter_evidence(
+            &stdout,
+            ExpectedAdapterEvidence {
+                source_format,
+                extension: &format!(".{extension}"),
+                adapter_id,
+                registry_entry_id,
+                admitted_extensions,
+                feature_gate: "default",
+                boundary: "local_text_source_state_adapter",
+            },
+        );
+        assert!(stdout.contains(&field("ingress_route", "vortex_ingest")));
+        assert!(stdout.contains(&field("vortex_ingest_status", "prepared_state_created")));
+        assert!(stdout.contains(&field(
+            "source_state_materialization_layout",
+            "scalar_row_map"
+        )));
+        assert!(stdout.contains(&field(
+            "source_state_parse_normalization",
+            "local_text_to_scalar_rows"
+        )));
+        assert!(stdout.contains(&field("source_state_columnar_preserved", "false")));
+        assert!(stdout.contains(&field("source_state_record_batch_count", "0")));
+        assert!(stdout.contains(&field("source_columns", "id,label,amount,active")));
+        assert!(stdout.contains(&field("input_row_count", "2")));
+        assert!(stdout.contains(&field(
+            "column_family_summary",
+            "id:int64,label:utf8,amount:int64,active:boolean"
+        )));
+        assert!(stdout.contains(&field("writer_row_count", "2")));
+        assert!(stdout.contains(&field("reopen_row_count", "2")));
+        assert!(stdout.contains(&field("fallback_attempted", "false")));
+        assert!(stdout.contains(&field("external_engine_invoked", "false")));
+        assert!(target_path.exists());
+
+        fs::remove_file(source_path).expect("remove source");
+        fs::remove_file(target_path).expect("remove target vortex");
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -513,6 +640,163 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_parquet() {
 
     fs::remove_file(source_path).expect("remove source parquet");
     fs::remove_file(target_path).expect("remove target vortex");
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+#[test]
+#[allow(clippy::too_many_lines)]
+fn vortex_ingest_smoke_preserves_columnar_source_state_for_all_structured_formats() {
+    let cases: [StructuredVortexIngestCase; 4] = [
+        (
+            "parquet",
+            "parquet",
+            "local_parquet_input_adapter",
+            "shardloom.local_input_adapter.parquet.v1",
+            ".parquet",
+            "Parquet",
+            write_parquet_smoke_source,
+        ),
+        (
+            "arrow",
+            "arrow_ipc",
+            "local_arrow_ipc_input_adapter",
+            "shardloom.local_input_adapter.arrow_ipc.v1",
+            ".arrow,.ipc,.feather",
+            "Arrow IPC",
+            write_arrow_ipc_smoke_source,
+        ),
+        (
+            "avro",
+            "avro",
+            "local_avro_input_adapter",
+            "shardloom.local_input_adapter.avro.v1",
+            ".avro",
+            "Avro",
+            write_avro_smoke_source,
+        ),
+        (
+            "orc",
+            "orc",
+            "local_orc_input_adapter",
+            "shardloom.local_input_adapter.orc.v1",
+            ".orc",
+            "ORC",
+            write_orc_smoke_source,
+        ),
+    ];
+
+    for (
+        extension,
+        source_format,
+        adapter_id,
+        registry_entry_id,
+        admitted_extensions,
+        _label,
+        write_source,
+    ) in cases
+    {
+        let source_path = unique_path("vortex-ingest-structured-source", extension);
+        let target_path = unique_path("vortex-ingest-structured-target", "vortex");
+        write_source(&source_path);
+
+        let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+            .args([
+                "vortex-ingest-smoke",
+                &source_path.display().to_string(),
+                &target_path.display().to_string(),
+                "--allow-overwrite",
+                "--format",
+                "json",
+            ])
+            .output()
+            .expect("vortex-ingest-smoke command runs");
+
+        assert!(
+            output.status.success(),
+            "stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "stderr={}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+        assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+        assert!(stdout.contains("\"status\":\"success\""));
+        assert_inferred_adapter_evidence(
+            &stdout,
+            ExpectedAdapterEvidence {
+                source_format,
+                extension: &format!(".{extension}"),
+                adapter_id,
+                registry_entry_id,
+                admitted_extensions,
+                feature_gate: "universal-format-io",
+                boundary: "local_columnar_source_state_adapter",
+            },
+        );
+        assert!(stdout.contains(&field("source_state_read_plan", "full_columns")));
+        assert!(stdout.contains(&field(
+            "source_state_materialization_layout",
+            "arrow_record_batch_columnar_source_state"
+        )));
+        assert!(stdout.contains(&field(
+            "source_state_parse_normalization",
+            "structured_reader_to_arrow_record_batches"
+        )));
+        assert!(stdout.contains(&field("source_state_columnar_preserved", "true")));
+        assert!(stdout.contains(&field("source_state_record_batch_count", "1")));
+        assert!(stdout.contains(&field(
+            "source_state_materialized_columns",
+            "id,label,amount,active"
+        )));
+        assert!(stdout.contains(&field(
+            "source_state_reader_projection_columns",
+            "id,label,amount,active"
+        )));
+        assert!(stdout.contains(&field("compatibility_parse_millis", "0")));
+        assert!(stdout.contains(&field(
+            "vortex_array_build_provider_kind",
+            "vortex_array_kernel"
+        )));
+        assert!(stdout.contains(&field(
+            "vortex_array_build_provider_surface",
+            "ArrayRef::from_arrow(RecordBatch)"
+        )));
+        assert!(stdout.contains(&field(
+            "vortex_array_build_strategy",
+            "vortex_from_arrow_record_batch"
+        )));
+        assert!(stdout.contains(&field(
+            "vortex_array_build_input_layout",
+            "arrow_record_batch_columnar_source_state"
+        )));
+        assert!(stdout.contains(&field("vortex_array_build_record_batch_count", "1")));
+        assert!(stdout.contains(&field(
+            "vortex_array_build_manual_scalar_copy_avoided",
+            "true"
+        )));
+        assert!(stdout.contains(&field("input_row_count", "4")));
+        assert!(stdout.contains(&field(
+            "column_family_summary",
+            "id:int64,label:utf8,amount:int64,active:boolean"
+        )));
+        assert!(stdout.contains(&field("writer_row_count", "4")));
+        assert!(stdout.contains(&field("reopen_row_count", "4")));
+        assert!(stdout.contains(&field(
+            "materialization_boundary",
+            &format!("local_{source_format}_arrow_record_batch_columnar_source_state_to_vortex_prepared_state")
+        )));
+        assert!(stdout.contains(&field("fallback_attempted", "false")));
+        assert!(stdout.contains(&field("external_engine_invoked", "false")));
+        assert!(target_path.exists());
+
+        fs::remove_file(source_path).expect("remove source");
+        fs::remove_file(target_path).expect("remove target vortex");
+    }
 }
 
 #[cfg(feature = "universal-format-io")]

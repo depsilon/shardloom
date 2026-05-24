@@ -16,8 +16,8 @@ use std::collections::BTreeMap;
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use arrow_array::{
-    Array, ArrayRef as ArrowArrayRef, Date32Array, Float32Array, Float64Array, Int8Array,
-    Int16Array, Int32Array, Int64Array, LargeStringArray, StringArray, StringViewArray,
+    Array, ArrayRef as ArrowArrayRef, BooleanArray, Date32Array, Float32Array, Float64Array,
+    Int8Array, Int16Array, Int32Array, Int64Array, LargeStringArray, StringArray, StringViewArray,
     TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
 };
 use shardloom_core::{Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWriteReport};
@@ -581,7 +581,7 @@ fn scalar_column_families(
                 let value = &row[column_index].1;
                 let candidate = scalar_family(value).ok_or_else(|| {
                     ShardLoomError::InvalidOperation(format!(
-                        "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits non-null int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted",
+                        "local vortex_ingest column '{column}' contains unsupported value {}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted",
                         value.summary()
                     ))
                 })?;
@@ -603,16 +603,14 @@ fn scalar_column_families(
 #[cfg(feature = "vortex-write")]
 fn scalar_family(value: &ScalarValue) -> Option<&'static str> {
     match value {
+        ScalarValue::Boolean(_) => Some("boolean"),
         ScalarValue::Int64(_) => Some("int64"),
         ScalarValue::UInt64(_) => Some("uint64"),
         ScalarValue::Float64(value) if value.is_finite() => Some("float64"),
         ScalarValue::Utf8(_) => Some("utf8"),
         ScalarValue::Date32(_) => Some("date32"),
         ScalarValue::TimestampMicros(_) => Some("timestamp_micros"),
-        ScalarValue::Null
-        | ScalarValue::Boolean(_)
-        | ScalarValue::Binary(_)
-        | ScalarValue::Float64(_) => None,
+        ScalarValue::Null | ScalarValue::Binary(_) | ScalarValue::Float64(_) => None,
     }
 }
 
@@ -763,7 +761,7 @@ fn columnar_column_families(
 fn reject_columnar_nulls(column: &str, array: &dyn Array) -> Result<()> {
     if array.null_count() > 0 {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "local vortex_ingest column '{column}' contains nulls; scoped Vortex ingest admits non-null int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted"
+            "local vortex_ingest column '{column}' contains nulls; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted"
         )));
     }
     Ok(())
@@ -771,6 +769,9 @@ fn reject_columnar_nulls(column: &str, array: &dyn Array) -> Result<()> {
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn arrow_column_family(column: &str, array: &dyn Array) -> Result<&'static str> {
+    if array.as_any().is::<BooleanArray>() {
+        return Ok("boolean");
+    }
     if array.as_any().is::<Int8Array>()
         || array.as_any().is::<Int16Array>()
         || array.as_any().is::<Int32Array>()
@@ -801,7 +802,7 @@ fn arrow_column_family(column: &str, array: &dyn Array) -> Result<&'static str> 
         return Ok("timestamp_micros");
     }
     Err(ShardLoomError::InvalidOperation(format!(
-        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits non-null int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted",
+        "local vortex_ingest column '{column}' has unsupported Arrow type {:?}; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted",
         array.data_type()
     )))
 }
@@ -813,9 +814,16 @@ fn columnar_column_to_vortex_array(
     arrays: &[ArrowArrayRef],
 ) -> Result<vortex::array::ArrayRef> {
     use vortex::array::IntoArray as _;
-    use vortex::array::arrays::{PrimitiveArray, VarBinViewArray};
+    use vortex::array::arrays::{BoolArray, PrimitiveArray, VarBinViewArray};
+    use vortex::array::validity::Validity;
+    use vortex::buffer::BitBuffer;
 
     match family {
+        "boolean" => Ok(BoolArray::new(
+            BitBuffer::from(columnar_boolean_values(column, arrays)?),
+            Validity::NonNullable,
+        )
+        .into_array()),
         "int64" => Ok(columnar_int64_values(column, arrays)?
             .into_iter()
             .collect::<PrimitiveArray>()
@@ -844,6 +852,19 @@ fn columnar_column_to_vortex_array(
             "local vortex_ingest column '{column}' has unsupported columnar family {other}; no fallback execution was attempted"
         ))),
     }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_boolean_values(column: &str, arrays: &[ArrowArrayRef]) -> Result<Vec<bool>> {
+    let mut values = Vec::with_capacity(columnar_array_len(arrays));
+    for array in arrays {
+        if let Some(array) = array.as_any().downcast_ref::<BooleanArray>() {
+            values.extend((0..array.len()).map(|index| array.value(index)));
+        } else {
+            return Err(unexpected_columnar_array(column, "boolean", array.as_ref()));
+        }
+    }
+    Ok(values)
 }
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
@@ -1013,9 +1034,23 @@ fn column_to_vortex_array(
     rows: &[Vec<(String, ScalarValue)>],
 ) -> Result<vortex::array::ArrayRef> {
     use vortex::array::IntoArray as _;
-    use vortex::array::arrays::{PrimitiveArray, VarBinViewArray};
+    use vortex::array::arrays::{BoolArray, PrimitiveArray, VarBinViewArray};
+    use vortex::array::validity::Validity;
+    use vortex::buffer::BitBuffer;
 
     match family {
+        "boolean" => Ok(BoolArray::new(
+            BitBuffer::from(
+                rows.iter()
+                    .map(|row| match &row[column_index].1 {
+                        ScalarValue::Boolean(value) => Ok(*value),
+                        value => Err(unexpected_vortex_ingest_value(column, family, value)),
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+            ),
+            Validity::NonNullable,
+        )
+        .into_array()),
         "int64" => Ok(rows
             .iter()
             .map(|row| match &row[column_index].1 {
@@ -1234,17 +1269,24 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let request = VortexPreparedStateWriteRequest::new(
             &path,
-            vec!["id".to_string(), "label".to_string(), "metric".to_string()],
+            vec![
+                "id".to_string(),
+                "label".to_string(),
+                "metric".to_string(),
+                "active".to_string(),
+            ],
             vec![
                 vec![
                     ("id".to_string(), ScalarValue::Int64(1)),
                     ("label".to_string(), ScalarValue::Utf8("alpha".to_string())),
                     ("metric".to_string(), ScalarValue::Float64(1.5)),
+                    ("active".to_string(), ScalarValue::Boolean(true)),
                 ],
                 vec![
                     ("id".to_string(), ScalarValue::Int64(2)),
                     ("label".to_string(), ScalarValue::Utf8("beta".to_string())),
                     ("metric".to_string(), ScalarValue::Float64(2.5)),
+                    ("active".to_string(), ScalarValue::Boolean(false)),
                 ],
             ],
         );
@@ -1260,6 +1302,10 @@ mod tests {
         assert!(report.artifact_digest.starts_with("fnv64:"));
         assert_eq!(report.timing_scope, "vortex_ingest_prepare_once");
         assert_eq!(report.certification_level, "ingest_certified");
+        assert_eq!(
+            report.column_family_summary(),
+            "id:int64,label:utf8,metric:float64,active:boolean"
+        );
         assert!(report.preparation_included);
         assert!(!report.query_timing_starts_after_preparation);
         assert_eq!(report.array_build_provider_kind, "shardloom_kernel");
@@ -1314,7 +1360,7 @@ mod tests {
     fn local_flat_columnar_source_writes_and_reopens_vortex_artifact() {
         use std::sync::Arc;
 
-        use arrow_array::{Float64Array, Int64Array, RecordBatch, StringArray};
+        use arrow_array::{BooleanArray, Float64Array, Int64Array, RecordBatch, StringArray};
         use arrow_schema::{DataType, Field, Schema};
 
         let path = std::env::temp_dir().join(format!(
@@ -1323,11 +1369,17 @@ mod tests {
             1
         ));
         let _ = std::fs::remove_file(&path);
-        let columns = vec!["id".to_string(), "label".to_string(), "metric".to_string()];
+        let columns = vec![
+            "id".to_string(),
+            "label".to_string(),
+            "metric".to_string(),
+            "active".to_string(),
+        ];
         let schema = Arc::new(Schema::new(vec![
             Field::new("id", DataType::Int64, false),
             Field::new("label", DataType::Utf8, false),
             Field::new("metric", DataType::Float64, false),
+            Field::new("active", DataType::Boolean, false),
         ]));
         let batch = RecordBatch::try_new(
             schema,
@@ -1335,6 +1387,7 @@ mod tests {
                 Arc::new(Int64Array::from(vec![1, 2])),
                 Arc::new(StringArray::from(vec!["alpha", "beta"])),
                 Arc::new(Float64Array::from(vec![1.5, 2.5])),
+                Arc::new(BooleanArray::from(vec![true, false])),
             ],
         )
         .expect("record batch");
@@ -1353,7 +1406,7 @@ mod tests {
         assert_eq!(report.reopen_row_count, 2);
         assert_eq!(
             report.column_family_summary(),
-            "id:int64,label:utf8,metric:float64"
+            "id:int64,label:utf8,metric:float64,active:boolean"
         );
         assert_eq!(
             report.reopen_verification_status,
