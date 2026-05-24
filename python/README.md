@@ -156,15 +156,29 @@ The same query shape can read other admitted local formats through `read_json(..
 behavior belongs at read/ingest and write/sink boundaries only; compute semantics should lower
 through the shared ShardLoom SQL/Python runtime or return a deterministic unsupported report.
 
-`ShardLoomSession`, `ctx.prepare_vortex(...)`, `ShardLoomClient.vortex_ingest_smoke(...)`, and raw
-runtime-envelope inspection are lower-level engine-development and diagnostic surfaces. They remain
-useful for validating prepare-once, cache invalidation, VortexPreparedState, OutputPlan, replay, and
-claim evidence, but they should not be required for ordinary Python or SQL users. When a session is
-used, it is in-process and caller-owned; it is not a daemon, remote server, hidden global cache,
-object-store/table cache, broad DataFrame/SQL runtime, or performance claim. Reuse is invalidated
-when source, prepared artifact, or output artifact fingerprints change. Schema/dictionary caches,
-buffer pools, CLI batch sessions, object-store/table reuse, and broader workflow session reuse remain
-planned under GAR-RUNTIME-IMPL-4L/5I.
+For workflows that need caller-scoped reuse evidence, `ctx.session(...)` and `sl.session(...)` expose
+the same local read/SQL shapes as session-bound workflows:
+
+```python
+with ctx.session(session_id="orders-run") as sess:
+    result = (
+        sess.read_csv("target/orders.csv")
+        .select("id", "amount")
+        .limit(100)
+        .write_jsonl("target/orders-out.jsonl", allow_overwrite=True)
+    )
+    repeat = sess.sql("SELECT id FROM 'target/orders.csv' LIMIT 100").collect()
+    print(result.reuse_hit, repeat.source_state_reuse_hit)
+```
+
+The session is explicit, in-process, caller-owned, and closeable. It can reuse admitted local
+`vortex_ingest` prepared-state reports plus admitted local `collect`/`write`/`fanout` reports when
+source, prepared artifact, and output artifact fingerprints still match. `ctx.prepare_vortex(...)`,
+`ShardLoomClient.vortex_ingest_smoke(...)`, and raw runtime-envelope inspection remain lower-level
+diagnostic surfaces. Session reuse is not a daemon, remote server, hidden global cache,
+object-store/table cache, broad DataFrame/SQL runtime, or performance claim. Schema/dictionary
+caches, buffer pools, CLI batch sessions, object-store/table reuse, persistent cross-process cache,
+and non-local workflow reuse remain planned under GAR-RUNTIME-IMPL-4L/5I.
 
 Allocation profiling and scoped buffer-pool optimization are planned as `GAR-PERF-2G`, not current
 Python runtime support. Any future Python-visible buffer reuse must stay opt-in or explicitly

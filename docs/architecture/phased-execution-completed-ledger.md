@@ -16,6 +16,44 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4L/5I Python session workflow entrypoints
+  - Date: 2026-05-24
+  - Branch/PR: `runtime-session-workflow-entrypoints-4l` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse runtime`.
+    - `GAR-RUNTIME-IMPL-5I optimizer, session runtime, reuse, and buffer-pool promotion`.
+    - `GAR-USER-SURFACE-1A import, context, and session entrypoint completion`.
+    - User direction to complete directly related phase items end to end and trim completed plan
+      items so remaining work is clear.
+  - Scope:
+    - Added session-bound Python workflow entrypoints: `ShardLoomSession.read(...)`,
+      `read_csv(...)`, `read_json(...)`, `read_parquet(...)`, `read_arrow_ipc(...)`,
+      `read_avro(...)`, `read_orc(...)`, `read_vortex(...)`, and `sql(...)`.
+    - Added `SessionLazyFrame`, `SessionGroupedLazyFrame`, and `SessionSqlWorkflow` wrappers that
+      preserve normal chaining while routing admitted local `collect`, `write`, and `fanout`
+      terminal calls through the caller-owned session cache.
+    - Reused the existing fingerprint-gated local cache semantics: source/output/prepared artifact
+      fingerprints must still match, changed artifacts invalidate reuse, and unsupported or
+      non-local workflows continue to return existing deterministic diagnostics.
+    - Marked `GAR-USER-SURFACE-1A` complete for admitted local Python entrypoints and narrowed the
+      remaining `4L`/`5I` work to CLI batch/session lifecycle, schema/dictionary caches,
+      buffer-pool evidence, persistent or cross-workflow cache promotion, object-store/table reuse,
+      and non-local workflows.
+  - Verification:
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_session_read_csv_workflow_collect_reuses_source_state_when_fingerprints_match`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_session_sql_workflow_write_reuses_output_when_fingerprints_match`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `git diff --check`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+  - Claim boundary:
+    - Scoped local Python session ergonomics and fingerprint-gated report reuse only. This does not
+      add a daemon/service, hidden global cache, distributed cache, persistent cross-process cache,
+      object-store/table/lakehouse support, non-local workflow reuse, broad SQL/DataFrame runtime
+      claims, package/release claims, performance superiority, or fallback execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D/5B/5C composed UTF-8 string expression runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-string-expression-composition-20260524` / #945.
