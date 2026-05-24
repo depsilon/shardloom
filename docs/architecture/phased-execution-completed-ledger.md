@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5G scoped local-source offset window runtime
   - Date: 2026-05-24
-  - Branch/PR: `compute-engine-window-offset-runtime-20260524` / pending.
+  - Branch/PR: `compute-engine-window-offset-runtime-20260524` / #939.
   - Source:
     - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
     - `GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage`.
