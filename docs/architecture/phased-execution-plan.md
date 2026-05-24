@@ -424,17 +424,28 @@ or documentation updates alone are insufficient.
     through reader projection and disclose the explicit scalar-row expression-runtime consumption
     boundary with format-neutral SQL/Python runtime scope, `format_specific_compute_path=false`,
     `source_state_columnar_preserved`, record-batch count, source-to-columnar timing, runtime
-    consumption layout, and scalar materialization-required evidence.
+    consumption layout, and scalar materialization-required evidence. The local runtime now routes
+    SQL direct reads, joins, IN-subquery sources, and feature-gated `vortex_ingest` structured
+    ingress through one path-extension `LocalInputAdapterSelection` registry instead of parallel
+    per-call format checks; reports emit `source_format_inferred`,
+    `source_format_inference_kind=path_extension`, `source_format_inference_extension`,
+    `source_format_inference_registry_route`, `source_adapter_registry_entry_id`,
+    `source_adapter_admitted_extensions`, `source_adapter_feature_gate`,
+    `source_adapter_boundary`, and `source_adapter_selection_reason` evidence. `.ndjson`
+    inference is tested as JSONL adapter selection, and unregistered extensions block before file
+    reads with admitted-extension diagnostics and no-fallback evidence.
     Nested/general JSON, broader Parquet/Arrow IPC/Avro/ORC type/nesting and output coverage does
     not all have ordinary user-facing SourceState runtime parity.
   - Next slice outcome: continue promoting remaining local input and operator combinations one at
     a time into UniversalIngress/InputAdapter registry coverage with SourceState evidence,
     `vortex_ingest_status`, certified route status, and deterministic blockers for unsupported
-    formats/features. The next optimization step is extending columnar SourceState reuse from the
-    prepare-once route into repeated prepared workflows and benchmark rows without adding a hidden
-    Arrow-default execution model. Recent join slices should keep using the same local-source
-    admission universe instead of creating CSV-only islands unless a format has a deterministic
-    blocker.
+    formats/features. Keep engine/runtime completion ahead of final user-surface cleanup: the
+    eventual format-neutral `read(path)` surface should be a thin layer over this registry, while
+    remaining format-specific work stays confined to read/ingest and write/sink boundaries. The
+    next optimization step is extending columnar SourceState reuse from the prepare-once route into
+    repeated prepared workflows and benchmark rows without adding a hidden Arrow-default execution
+    model. Recent join/operator slices should keep using the same local-source admission universe
+    instead of creating CSV-only islands unless a format has a deterministic blocker.
   - Runtime enablement: admitted local input adapters that create reusable SourceState evidence for
     actual user reads and can feed `vortex_ingest` into `VortexPreparedState` when preparation is
     admitted.

@@ -52,6 +52,8 @@ const MAX_JOIN_CANDIDATE_ROWS: usize = MAX_INPUT_ROWS;
 const MAX_IN_LIST_VALUES: usize = 32;
 const MAX_DATE_ARITHMETIC_DAYS: i32 = 366_000;
 const MAX_TIMESTAMP_ARITHMETIC_SECONDS: i64 = (MAX_DATE_ARITHMETIC_DAYS as i64) * 86_400;
+const ADMITTED_LOCAL_SOURCE_EXTENSIONS: &str =
+    ".csv,.json,.jsonl,.ndjson,.parquet,.arrow,.ipc,.feather,.avro,.orc";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct LocalSourceReadPlan {
@@ -1225,23 +1227,16 @@ enum LocalSourceFormat {
 }
 
 impl LocalSourceFormat {
-    fn from_path(path: &Path) -> Result<Self, ShardLoomError> {
-        let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
-            return Err(unsupported_sql_error(
-                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC sources only in this slice",
-            ));
-        };
+    fn from_extension(extension: &str) -> Option<Self> {
         match extension.to_ascii_lowercase().as_str() {
-            "csv" => Ok(Self::Csv),
-            "json" => Ok(Self::Json),
-            "jsonl" | "ndjson" => Ok(Self::JsonLines),
-            "parquet" => Ok(Self::Parquet),
-            "arrow" | "ipc" | "feather" => Ok(Self::ArrowIpc),
-            "avro" => Ok(Self::Avro),
-            "orc" => Ok(Self::Orc),
-            _ => Err(unsupported_sql_error(
-                "GAR-RUNTIME-IMPL-4F admits local CSV, JSONL/NDJSON, flat JSON, and feature-gated Parquet/Arrow IPC/Avro/ORC sources only in this slice",
-            )),
+            "csv" => Some(Self::Csv),
+            "json" => Some(Self::Json),
+            "jsonl" | "ndjson" => Some(Self::JsonLines),
+            "parquet" => Some(Self::Parquet),
+            "arrow" | "ipc" | "feather" => Some(Self::ArrowIpc),
+            "avro" => Some(Self::Avro),
+            "orc" => Some(Self::Orc),
+            _ => None,
         }
     }
 
@@ -1266,6 +1261,58 @@ impl LocalSourceFormat {
             Self::ArrowIpc => "Arrow IPC",
             Self::Avro => "Avro",
             Self::Orc => "ORC",
+        }
+    }
+
+    const fn adapter_id(self) -> &'static str {
+        match self {
+            Self::Csv => "local_csv_input_adapter",
+            Self::Json => "local_json_input_adapter",
+            Self::JsonLines => "local_jsonl_input_adapter",
+            Self::Parquet => "local_parquet_input_adapter",
+            Self::ArrowIpc => "local_arrow_ipc_input_adapter",
+            Self::Avro => "local_avro_input_adapter",
+            Self::Orc => "local_orc_input_adapter",
+        }
+    }
+
+    const fn adapter_registry_entry_id(self) -> &'static str {
+        match self {
+            Self::Csv => "shardloom.local_input_adapter.csv.v1",
+            Self::Json => "shardloom.local_input_adapter.json.v1",
+            Self::JsonLines => "shardloom.local_input_adapter.jsonl.v1",
+            Self::Parquet => "shardloom.local_input_adapter.parquet.v1",
+            Self::ArrowIpc => "shardloom.local_input_adapter.arrow_ipc.v1",
+            Self::Avro => "shardloom.local_input_adapter.avro.v1",
+            Self::Orc => "shardloom.local_input_adapter.orc.v1",
+        }
+    }
+
+    const fn admitted_extensions(self) -> &'static str {
+        match self {
+            Self::Csv => ".csv",
+            Self::Json => ".json",
+            Self::JsonLines => ".jsonl,.ndjson",
+            Self::Parquet => ".parquet",
+            Self::ArrowIpc => ".arrow,.ipc,.feather",
+            Self::Avro => ".avro",
+            Self::Orc => ".orc",
+        }
+    }
+
+    const fn feature_gate(self) -> &'static str {
+        match self {
+            Self::Csv | Self::Json | Self::JsonLines => "default",
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => "universal-format-io",
+        }
+    }
+
+    const fn adapter_boundary(self) -> &'static str {
+        match self {
+            Self::Csv | Self::Json | Self::JsonLines => "local_text_source_state_adapter",
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
+                "local_columnar_source_state_adapter"
+            }
         }
     }
 
@@ -1301,6 +1348,48 @@ impl LocalSourceFormat {
             self,
             Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc
         )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LocalInputAdapterSelection {
+    source_format: LocalSourceFormat,
+    source_extension: String,
+}
+
+impl LocalInputAdapterSelection {
+    fn infer_from_path(path: &Path) -> Result<Self, ShardLoomError> {
+        let Some(extension) = path.extension().and_then(|value| value.to_str()) else {
+            return Err(unsupported_sql_error(&format!(
+                "local input adapter registry requires a supported file extension; admitted local source extensions are {ADMITTED_LOCAL_SOURCE_EXTENSIONS}"
+            )));
+        };
+        let normalized_extension = extension.to_ascii_lowercase();
+        let Some(source_format) = LocalSourceFormat::from_extension(&normalized_extension) else {
+            return Err(unsupported_sql_error(&format!(
+                "local input adapter registry cannot infer a supported source adapter from extension '.{normalized_extension}'; admitted local source extensions are {ADMITTED_LOCAL_SOURCE_EXTENSIONS}"
+            )));
+        };
+        Ok(Self {
+            source_format,
+            source_extension: normalized_extension,
+        })
+    }
+
+    const fn inference_kind() -> &'static str {
+        "path_extension"
+    }
+
+    const fn inference_registry_route() -> &'static str {
+        "local_path_extension_adapter_registry"
+    }
+
+    const fn selection_reason() -> &'static str {
+        "inferred_at_read_ingest_boundary"
+    }
+
+    fn source_extension_field(&self) -> String {
+        format!(".{}", self.source_extension)
     }
 }
 
@@ -1374,6 +1463,7 @@ impl LocalSourceReadContent {
 
 #[derive(Debug, Clone, PartialEq)]
 struct CsvSourceData {
+    source_adapter: LocalInputAdapterSelection,
     source_format: LocalSourceFormat,
     header: Vec<String>,
     rows: Vec<ExpressionInputRow>,
@@ -1393,6 +1483,26 @@ struct CsvSourceData {
 }
 
 impl CsvSourceData {
+    fn adapter_id(&self) -> &'static str {
+        self.source_format.adapter_id()
+    }
+
+    fn adapter_registry_entry_id(&self) -> &'static str {
+        self.source_format.adapter_registry_entry_id()
+    }
+
+    fn adapter_admitted_extensions(&self) -> &'static str {
+        self.source_format.admitted_extensions()
+    }
+
+    fn adapter_feature_gate(&self) -> &'static str {
+        self.source_format.feature_gate()
+    }
+
+    fn adapter_boundary(&self) -> &'static str {
+        self.source_format.adapter_boundary()
+    }
+
     fn materialized_columns_field(&self) -> String {
         if self.materialized_columns.is_empty() {
             "none".to_string()
@@ -1441,8 +1551,10 @@ impl CsvSourceData {
 
     fn source_state_digest(&self, source_schema_digest: &str) -> String {
         fnv64_digest(&format!(
-            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             self.source_format.as_str(),
+            self.source_adapter.source_extension,
+            LocalInputAdapterSelection::inference_kind(),
             self.source_digest,
             source_schema_digest,
             self.rows.len(),
@@ -1460,6 +1572,7 @@ impl CsvSourceData {
 
 #[derive(Debug, Clone, PartialEq)]
 struct VortexIngestSourceData {
+    source_adapter: LocalInputAdapterSelection,
     source_format: LocalSourceFormat,
     header: Vec<String>,
     read_plan: LocalSourceReadPlan,
@@ -1481,6 +1594,7 @@ struct VortexIngestSourceData {
 impl VortexIngestSourceData {
     fn from_scalar_source(source: CsvSourceData) -> Self {
         Self {
+            source_adapter: source.source_adapter.clone(),
             row_count: source.rows.len(),
             compatibility_parse_millis: source.parse_millis,
             source_to_columnar_millis: source.source_to_columnar_millis,
@@ -1502,7 +1616,7 @@ impl VortexIngestSourceData {
 
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     fn from_columnar_source(
-        source_format: LocalSourceFormat,
+        source_adapter: LocalInputAdapterSelection,
         columnar_source: &shardloom_vortex::FlatLocalColumnarSource,
         source_bytes: u64,
         source_digest: String,
@@ -1510,7 +1624,8 @@ impl VortexIngestSourceData {
         source_to_columnar_millis: u128,
     ) -> Self {
         Self {
-            source_format,
+            source_format: source_adapter.source_format,
+            source_adapter,
             header: columnar_source.header.clone(),
             read_plan: LocalSourceReadPlan::full("full_columnar_source_state_default"),
             materialized_columns: columnar_source.materialized_columns.clone(),
@@ -1555,6 +1670,26 @@ impl VortexIngestSourceData {
         self.pruned_column_count() > 0
     }
 
+    fn adapter_id(&self) -> &'static str {
+        self.source_format.adapter_id()
+    }
+
+    fn adapter_registry_entry_id(&self) -> &'static str {
+        self.source_format.adapter_registry_entry_id()
+    }
+
+    fn adapter_admitted_extensions(&self) -> &'static str {
+        self.source_format.admitted_extensions()
+    }
+
+    fn adapter_feature_gate(&self) -> &'static str {
+        self.source_format.feature_gate()
+    }
+
+    fn adapter_boundary(&self) -> &'static str {
+        self.source_format.adapter_boundary()
+    }
+
     fn source_state_id(&self) -> String {
         format!(
             "local-{}-{}",
@@ -1565,8 +1700,10 @@ impl VortexIngestSourceData {
 
     fn source_state_digest(&self, source_schema_digest: &str) -> String {
         fnv64_digest(&format!(
-            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+            "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
             self.source_format.as_str(),
+            self.source_adapter.source_extension,
+            LocalInputAdapterSelection::inference_kind(),
             self.source_digest,
             source_schema_digest,
             self.row_count,
@@ -1973,9 +2110,12 @@ fn run_vortex_ingest_smoke(
 ) -> Result<VortexIngestReport, ShardLoomError> {
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     {
-        let source_format = LocalSourceFormat::from_path(&request.source_path)?;
-        if source_format.preserves_columnar_vortex_ingest_source_state() {
-            return run_columnar_vortex_ingest_smoke(request, source_format);
+        let source_adapter = LocalInputAdapterSelection::infer_from_path(&request.source_path)?;
+        if source_adapter
+            .source_format
+            .preserves_columnar_vortex_ingest_source_state()
+        {
+            return run_columnar_vortex_ingest_smoke(request, source_adapter);
         }
     }
     run_scalar_vortex_ingest_smoke(request)
@@ -2032,9 +2172,10 @@ fn run_scalar_vortex_ingest_smoke(
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 fn run_columnar_vortex_ingest_smoke(
     request: VortexIngestRequest,
-    source_format: LocalSourceFormat,
+    source_adapter: LocalInputAdapterSelection,
 ) -> Result<VortexIngestReport, ShardLoomError> {
     reject_remote_source_path(&request.source_path)?;
+    let source_format = source_adapter.source_format;
     let prepare_start = Instant::now();
     let read_start = Instant::now();
     let bytes = fs::read(&request.source_path).map_err(|error| {
@@ -2061,7 +2202,7 @@ fn run_columnar_vortex_ingest_smoke(
     }
 
     let source = VortexIngestSourceData::from_columnar_source(
-        source_format,
+        source_adapter,
         &columnar_source,
         source_bytes,
         source_digest,
@@ -2207,13 +2348,46 @@ impl VortexIngestReport {
                 "source_format".to_string(),
                 self.source.source_format.as_str().to_string(),
             ),
+            ("source_format_inferred".to_string(), "true".to_string()),
+            (
+                "source_format_inference_kind".to_string(),
+                LocalInputAdapterSelection::inference_kind().to_string(),
+            ),
+            (
+                "source_format_inference_extension".to_string(),
+                self.source.source_adapter.source_extension_field(),
+            ),
+            (
+                "source_format_inference_registry_route".to_string(),
+                LocalInputAdapterSelection::inference_registry_route().to_string(),
+            ),
             (
                 "source_adapter_id".to_string(),
-                source_adapter_id_for_format(self.source.source_format).to_string(),
+                self.source.adapter_id().to_string(),
+            ),
+            (
+                "source_adapter_registry_entry_id".to_string(),
+                self.source.adapter_registry_entry_id().to_string(),
             ),
             (
                 "source_adapter_status".to_string(),
                 "smoke_supported".to_string(),
+            ),
+            (
+                "source_adapter_admitted_extensions".to_string(),
+                self.source.adapter_admitted_extensions().to_string(),
+            ),
+            (
+                "source_adapter_feature_gate".to_string(),
+                self.source.adapter_feature_gate().to_string(),
+            ),
+            (
+                "source_adapter_boundary".to_string(),
+                self.source.adapter_boundary().to_string(),
+            ),
+            (
+                "source_adapter_selection_reason".to_string(),
+                LocalInputAdapterSelection::selection_reason().to_string(),
             ),
             (
                 "source_adapter_blocker_id".to_string(),
@@ -2754,18 +2928,6 @@ fn source_state_digest_for_source(
     source_schema_digest: &str,
 ) -> String {
     source.source_state_digest(source_schema_digest)
-}
-
-fn source_adapter_id_for_format(source_format: LocalSourceFormat) -> &'static str {
-    match source_format {
-        LocalSourceFormat::Csv => "local_csv_input_adapter",
-        LocalSourceFormat::Json => "local_json_input_adapter",
-        LocalSourceFormat::JsonLines => "local_jsonl_input_adapter",
-        LocalSourceFormat::Parquet => "local_parquet_input_adapter",
-        LocalSourceFormat::ArrowIpc => "local_arrow_ipc_input_adapter",
-        LocalSourceFormat::Avro => "local_avro_input_adapter",
-        LocalSourceFormat::Orc => "local_orc_input_adapter",
-    }
 }
 
 fn source_read_plan_for_sql(parsed: &ParsedSqlLocalSource) -> LocalSourceReadPlan {
@@ -12166,6 +12328,19 @@ impl SqlLocalSourceReport {
                 "source_format".to_string(),
                 self.source.source_format.as_str().to_string(),
             ),
+            ("source_format_inferred".to_string(), "true".to_string()),
+            (
+                "source_format_inference_kind".to_string(),
+                LocalInputAdapterSelection::inference_kind().to_string(),
+            ),
+            (
+                "source_format_inference_extension".to_string(),
+                self.source.source_adapter.source_extension_field(),
+            ),
+            (
+                "source_format_inference_registry_route".to_string(),
+                LocalInputAdapterSelection::inference_registry_route().to_string(),
+            ),
             (
                 "source_kind".to_string(),
                 "local_non_vortex_file".to_string(),
@@ -12175,8 +12350,28 @@ impl SqlLocalSourceReport {
                 self.source_adapter_id().to_string(),
             ),
             (
+                "source_adapter_registry_entry_id".to_string(),
+                self.source.adapter_registry_entry_id().to_string(),
+            ),
+            (
                 "source_adapter_status".to_string(),
                 "smoke_supported".to_string(),
+            ),
+            (
+                "source_adapter_admitted_extensions".to_string(),
+                self.source.adapter_admitted_extensions().to_string(),
+            ),
+            (
+                "source_adapter_feature_gate".to_string(),
+                self.source.adapter_feature_gate().to_string(),
+            ),
+            (
+                "source_adapter_boundary".to_string(),
+                self.source.adapter_boundary().to_string(),
+            ),
+            (
+                "source_adapter_selection_reason".to_string(),
+                LocalInputAdapterSelection::selection_reason().to_string(),
             ),
             (
                 "source_adapter_blocker_id".to_string(),
@@ -12376,6 +12571,34 @@ impl SqlLocalSourceReport {
                     .as_ref()
                     .map_or_else(String::new, |source| {
                         source.source_format.as_str().to_string()
+                    }),
+            ),
+            (
+                "right_source_format_inferred".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or_else(String::new, |_source| "true".to_string()),
+            ),
+            (
+                "right_source_format_inference_extension".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or_else(String::new, |source| {
+                        source.source_adapter.source_extension_field()
+                    }),
+            ),
+            (
+                "right_source_adapter_id".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or_else(String::new, |source| source.adapter_id().to_string()),
+            ),
+            (
+                "right_source_adapter_registry_entry_id".to_string(),
+                self.right_source
+                    .as_ref()
+                    .map_or_else(String::new, |source| {
+                        source.adapter_registry_entry_id().to_string()
                     }),
             ),
             (
@@ -13805,15 +14028,7 @@ impl SqlLocalSourceReport {
     }
 
     fn source_adapter_id(&self) -> &'static str {
-        match self.source.source_format {
-            LocalSourceFormat::Csv => "local_csv_input_adapter",
-            LocalSourceFormat::Json => "local_json_input_adapter",
-            LocalSourceFormat::JsonLines => "local_jsonl_input_adapter",
-            LocalSourceFormat::Parquet => "local_parquet_input_adapter",
-            LocalSourceFormat::ArrowIpc => "local_arrow_ipc_input_adapter",
-            LocalSourceFormat::Avro => "local_avro_input_adapter",
-            LocalSourceFormat::Orc => "local_orc_input_adapter",
-        }
+        self.source.adapter_id()
     }
 
     fn source_certificate_ref(&self) -> String {
@@ -14258,7 +14473,8 @@ fn read_local_source_with_plan(
     read_plan: &LocalSourceReadPlan,
 ) -> Result<CsvSourceData, ShardLoomError> {
     reject_remote_source_path(path)?;
-    let source_format = LocalSourceFormat::from_path(path)?;
+    let source_adapter = LocalInputAdapterSelection::infer_from_path(path)?;
+    let source_format = source_adapter.source_format;
     let read_start = Instant::now();
     let bytes = fs::read(path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -14313,6 +14529,7 @@ fn read_local_source_with_plan(
         reader_projection_columns.unwrap_or_else(|| materialized_columns.clone());
     let projection_pushdown_status = source_format.projection_pushdown_status(read_plan);
     Ok(CsvSourceData {
+        source_adapter,
         source_format,
         header,
         rows,
@@ -17572,8 +17789,8 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
     };
     let (source_path, left_alias) = parse_aliased_source(left_raw, "left")?;
     let (right_source_path, right_alias) = parse_aliased_source(right_raw, "right")?;
-    let _left_format = LocalSourceFormat::from_path(&source_path)?;
-    let _right_format = LocalSourceFormat::from_path(&right_source_path)?;
+    let _left_adapter = LocalInputAdapterSelection::infer_from_path(&source_path)?;
+    let _right_adapter = LocalInputAdapterSelection::infer_from_path(&right_source_path)?;
     if left_alias == right_alias {
         return Err(unsupported_sql_error(
             "JOIN smoke requires distinct left and right aliases",
@@ -17795,7 +18012,7 @@ fn parse_source_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
         raw.to_string()
     };
     let path = PathBuf::from(path);
-    let _format = LocalSourceFormat::from_path(&path)?;
+    let _source_adapter = LocalInputAdapterSelection::infer_from_path(&path)?;
     Ok(path)
 }
 
@@ -19038,7 +19255,7 @@ fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicat
         ));
     }
     let source_path = parse_source_path(source_raw)?;
-    let _source_format = LocalSourceFormat::from_path(&source_path)?;
+    let _source_adapter = LocalInputAdapterSelection::infer_from_path(&source_path)?;
     Ok(ParsedPredicate::InSubquery {
         column: column.to_string(),
         subquery: Box::new(ParsedInSubquery {
