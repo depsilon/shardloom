@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `object_store_read_smoke`
 - **Engine mode:** `batch`
-- **Claim boundary:** Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, writes, commits, table/lakehouse runtime, distributed runtime, production use, and performance claims remain blocked.
+- **Claim boundary:** Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ ShardLoom can run an explicit local-emulator object-store read smoke over a loca
 
 ## Claim Boundary
 
-Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, writes, commits, table/lakehouse runtime, distributed runtime, production use, and performance claims remain blocked.
+Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.
 
 ## How To Try It
 
@@ -64,6 +64,7 @@ A fixture-smoke report with SourceState digest fields, selected byte-range evide
 
 ## Related Use Cases
 
+- `object-store-local-emulator-write-smoke`
 - `object-store-boundary-report`
 - `table-lakehouse-boundary-report`
 - `output-result-sink-and-fanout-boundary`

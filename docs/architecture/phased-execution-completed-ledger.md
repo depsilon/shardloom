@@ -16,6 +16,47 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4O/5L local-emulator object-store write smoke
+  - Date: 2026-05-24
+  - Branch/PR: `runtime-object-store-write-4o` / #947.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4O object-store write and table/lakehouse commit ladder`.
+    - `GAR-RUNTIME-IMPL-5L object-store write and table/lakehouse operation ladder`.
+    - `docs/architecture/object-store-request-planner.md`.
+    - User direction to finish directly related 4/5-series phase items end to end and trim the
+      phase plan so remaining work is clear.
+  - Scope:
+    - Added `object-store-write-smoke` as a local-emulator-only CLI command with staged writes,
+      sidecar commit manifests, explicit idempotency-key reporting, optional overwrite, and
+      optional post-commit rollback cleanup.
+    - Added the Python `ShardLoomClient.object_store_write_smoke(...)` wrapper for the same
+      admitted local-emulator profile.
+    - Blocked remote object-store provider targets deterministically before credential resolution,
+      network probes, provider probes, staging, or writes.
+    - Added local-emulator commit, rollback, and remote-target blocker regression coverage plus
+      status/use-case/website artifacts for the new proof.
+    - Trimmed `GAR-RUNTIME-IMPL-4O` and `GAR-RUNTIME-IMPL-5L` so remaining work is limited to
+      table metadata/snapshot handling, append/table-commit rehearsal, cloud-provider write
+      adapters, and production lakehouse commit semantics.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli --test object_store_write_smoke`
+    - `cargo +1.91.1 test -p shardloom-cli object_store_write_smoke --bin shardloom`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_object_store_write_smoke_wrapper_calls_local_emulator_profile`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_website_readiness.py`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-emulator fixture-smoke object-write proof only. This does not add S3/GCS/ADLS
+      credentials, network/cloud writes, production object-store commit protocols,
+      table/lakehouse/catalog commits, distributed runtime, performance claims, package/release
+      claims, or fallback execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4L/5I Python session workflow entrypoints
   - Date: 2026-05-24
   - Branch/PR: `runtime-session-workflow-entrypoints-4l` / #946.

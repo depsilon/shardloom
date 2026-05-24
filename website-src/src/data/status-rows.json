@@ -344,10 +344,51 @@
       "external_engine_invoked=false"
     ],
     "works": "An explicit local-emulator profile can read a local fixture object as full-file or byte-range smoke and emit SourceState plus Native I/O evidence.",
-    "blocked": "Real S3/GCS/ADLS providers, credentials, network probes, object-store writes, table commits, distributed runtime, and production object-store claims remain blocked.",
+    "blocked": "Real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table commits, distributed runtime, and production object-store claims remain blocked.",
     "references": [
       "docs/architecture/object-store-request-planner.md",
       "docs/use-cases/use-case-index.yml"
+    ]
+  },
+  {
+    "capability": "Object-store local-emulator write/commit",
+    "status": "smoke_supported",
+    "inputs": [
+      "local_source_file",
+      "local_emulator_object_path"
+    ],
+    "outputs": [
+      "committed_local_object",
+      "sidecar_commit_manifest",
+      "rollback_cleanup_evidence"
+    ],
+    "route": "object_store_write_smoke",
+    "platform": "local_emulator",
+    "evidence": [
+      "provider_profile=local-emulator",
+      "object_store_write_status",
+      "write_staging_status",
+      "commit_protocol_status",
+      "commit_status",
+      "rollback_status",
+      "cleanup_deleted_count",
+      "idempotency_key",
+      "payload_digest",
+      "target_content_digest",
+      "commit_manifest_digest",
+      "credential_resolution_performed=false",
+      "network_probe_performed=false",
+      "native_io_certificate_status",
+      "claim_gate_status",
+      "fallback_attempted=false",
+      "external_engine_invoked=false"
+    ],
+    "works": "An explicit local-emulator profile can stage a local source file into a local object path, commit a sidecar manifest, and optionally roll back the object plus manifest for cleanup proof.",
+    "blocked": "Real S3/GCS/ADLS providers, credentials, network probes, provider listing, cloud writes, table commits, catalogs, distributed runtime, and production object-store claims remain blocked.",
+    "references": [
+      "docs/architecture/object-store-request-planner.md",
+      "docs/use-cases/use-case-index.yml",
+      "python/README.md"
     ]
   },
   {
