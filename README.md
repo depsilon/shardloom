@@ -62,7 +62,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   `ingest_minimal` / `ingest_certified` certification-depth semantics;
 - Python query-builder workflows that expose normal read/filter/select/write calls while preserving
   internal SourceState, Vortex preparation, OutputPlan, replay, reuse, and no-fallback evidence
-  behind the user surface, including scoped local-source `sl.row_number(...)` window projections;
+  behind the user surface, including scoped local-source `sl.row_number(...)`, `sl.rank(...)`, and
+  `sl.dense_rank(...)` window projections;
 - report-only or blocked status for broader SQL/DataFrame, object-store, lakehouse/table,
   distributed, live/hybrid production, Foundry production, and package-publication claims.
 

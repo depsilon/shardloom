@@ -16,6 +16,39 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped local-source ranking window runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-ranking-window-runtime-20260524` / #937.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - `GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage`.
+    - Follow-on from #936 to reduce the broad-window gap while preserving a format-neutral
+      Python/SQL front door.
+  - Scope:
+    - Promoted scoped local-source `RANK() OVER (...) AS <alias>` and
+      `DENSE_RANK() OVER (...) AS <alias>` into the same ShardLoom-native local-source window
+      runtime as `ROW_NUMBER()`.
+    - Added peer-group tie semantics for `RANK()` gaps and `DENSE_RANK()` dense numbering per
+      partition, with deterministic source-row tie-breaking for output order only.
+    - Added Python `sl.rank(...)` and `sl.dense_rank(...)` helpers so users keep using
+      `.window(...)` instead of source- or format-specific commands.
+    - Added ranking evidence fields for `window_rank_runtime_execution`,
+      `window_dense_rank_runtime_execution`, grouped partition/order evidence, and a typed Python
+      report view over those fields.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli parses_scoped_window_ranking_statement`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_window_rank_dense_rank_without_fallback`
+    - `cargo +1.91.1 test -p shardloom-cli parses_scoped_window_row_number_statement`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_window_row_number_without_fallback`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_window_rank_dense_rank_invokes_sql_smoke`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_window_row_number_invokes_sql_smoke`
+  - Claim boundary:
+    - Scoped local-source fixture-smoke ranking windows only. This does not claim window frames,
+      analytic aggregates, `LAG`/`LEAD`, `NTILE`, encoded-native window kernels,
+      distributed/object-store/table windows, broad SQL/DataFrame parity, performance superiority,
+      or package readiness.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped local-source ROW_NUMBER window runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-window-runtime-20260524` / #936.

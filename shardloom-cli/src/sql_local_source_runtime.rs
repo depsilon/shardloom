@@ -541,6 +541,8 @@ struct ParsedWindowProjection {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum WindowFunction {
     RowNumber,
+    Rank,
+    DenseRank,
 }
 
 trait ProjectionAlias {
@@ -3324,18 +3326,56 @@ fn window_rank_maps(
                     compare_order_by_values(&projection.order_by, left_values, right_values);
                 ordering.then_with(|| left_index.cmp(right_index))
             });
-            for (rank_index, (row_index, _values)) in entries.into_iter().enumerate() {
-                let rank = i64::try_from(rank_index + 1).map_err(|_| {
-                    ShardLoomError::InvalidOperation(
-                        "window rank exceeded int64 bounds".to_string(),
-                    )
-                })?;
-                ranks.insert(row_index, rank);
-            }
+            ranks.extend(window_ranks_for_sorted_entries(
+                projection.function,
+                entries,
+            )?);
         }
         rank_maps.insert(projection.alias.clone(), ranks);
     }
     Ok(rank_maps)
+}
+
+fn window_ranks_for_sorted_entries(
+    function: WindowFunction,
+    entries: Vec<(usize, Vec<SortValue>)>,
+) -> Result<BTreeMap<usize, i64>, ShardLoomError> {
+    let mut ranks = BTreeMap::new();
+    let mut previous_values: Option<Vec<SortValue>> = None;
+    let mut rank_for_peer_group = 0_i64;
+    let mut dense_rank = 0_i64;
+    for (rank_index, (row_index, values)) in entries.into_iter().enumerate() {
+        let ordinal_rank = i64::try_from(rank_index + 1).map_err(|_| {
+            ShardLoomError::InvalidOperation("window rank exceeded int64 bounds".to_string())
+        })?;
+        let is_new_peer_group = previous_values
+            .as_ref()
+            .is_none_or(|previous| previous != &values);
+        let rank = match function {
+            WindowFunction::RowNumber => ordinal_rank,
+            WindowFunction::Rank => {
+                if is_new_peer_group {
+                    rank_for_peer_group = ordinal_rank;
+                }
+                rank_for_peer_group
+            }
+            WindowFunction::DenseRank => {
+                if is_new_peer_group {
+                    dense_rank = dense_rank.checked_add(1).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "dense window rank exceeded int64 bounds".to_string(),
+                        )
+                    })?;
+                }
+                dense_rank
+            }
+        };
+        if is_new_peer_group {
+            previous_values = Some(values);
+        }
+        ranks.insert(row_index, rank);
+    }
+    Ok(ranks)
 }
 
 fn window_partition_key(
@@ -8405,20 +8445,35 @@ impl ParsedSqlLocalSource {
         }
     }
 
+    fn window_operator_family(&self) -> String {
+        if self.window_projections.is_empty() {
+            "not_applicable".to_string()
+        } else if self
+            .window_projections
+            .iter()
+            .all(|projection| projection.function == WindowFunction::RowNumber)
+        {
+            "row_number".to_string()
+        } else {
+            "ranking".to_string()
+        }
+    }
+
     fn window_partition_columns(&self) -> String {
         if self.window_projections.is_empty() {
             return "not_applicable".to_string();
         }
-        let columns = self
-            .window_projections
+        self.window_projections
             .iter()
-            .flat_map(|projection| projection.partition_by.iter().map(String::as_str))
-            .collect::<Vec<_>>();
-        if columns.is_empty() {
-            "none".to_string()
-        } else {
-            columns.join(",")
-        }
+            .map(|projection| {
+                if projection.partition_by.is_empty() {
+                    "none".to_string()
+                } else {
+                    projection.partition_by.join(",")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(";")
     }
 
     fn window_order_by_columns(&self) -> String {
@@ -8507,6 +8562,8 @@ impl WindowFunction {
     const fn as_str(self) -> &'static str {
         match self {
             Self::RowNumber => "row_number",
+            Self::Rank => "rank",
+            Self::DenseRank => "dense_rank",
         }
     }
 }
@@ -12566,12 +12623,7 @@ impl SqlLocalSourceReport {
             ),
             (
                 "window_operator_family".to_string(),
-                if self.parsed.has_window_projection() {
-                    "row_number"
-                } else {
-                    "not_applicable"
-                }
-                .to_string(),
+                self.parsed.window_operator_family(),
             ),
             (
                 "window_function".to_string(),
@@ -12599,6 +12651,22 @@ impl SqlLocalSourceReport {
                     .window_projections
                     .iter()
                     .any(|projection| projection.function == WindowFunction::RowNumber)
+                    .to_string(),
+            ),
+            (
+                "window_rank_runtime_execution".to_string(),
+                self.parsed
+                    .window_projections
+                    .iter()
+                    .any(|projection| projection.function == WindowFunction::Rank)
+                    .to_string(),
+            ),
+            (
+                "window_dense_rank_runtime_execution".to_string(),
+                self.parsed
+                    .window_projections
+                    .iter()
+                    .any(|projection| projection.function == WindowFunction::DenseRank)
                     .to_string(),
             ),
             (
@@ -15347,7 +15415,7 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
     let Some(as_index) = find_keyword_outside_quotes_and_parentheses(raw, "as")? else {
         if find_keyword_outside_quotes_and_parentheses(raw, "over")?.is_some() {
             return Err(unsupported_sql_error(
-                "window projections must be written as ROW_NUMBER() OVER (...) AS <column>",
+                "window projections must be written as ROW_NUMBER(), RANK(), or DENSE_RANK() OVER (...) AS <column>",
             ));
         }
         return Ok(None);
@@ -15362,7 +15430,7 @@ fn parse_window_projection(raw: &str) -> Result<Option<ParsedWindowProjection>, 
     let spec_raw = expression_raw[over_index + "over".len()..].trim();
     let Some(function) = parse_window_function(function_raw) else {
         return Err(unsupported_sql_error(
-            "window projection smoke admits ROW_NUMBER() OVER (...) AS <column> only",
+            "window projection smoke admits ROW_NUMBER(), RANK(), or DENSE_RANK() OVER (...) AS <column> only",
         ));
     };
     if alias.is_empty() {
@@ -15386,10 +15454,11 @@ fn parse_window_function(raw: &str) -> Option<WindowFunction> {
         .filter(|ch| !ch.is_whitespace())
         .collect::<String>()
         .to_ascii_lowercase();
-    if compact == "row_number()" {
-        Some(WindowFunction::RowNumber)
-    } else {
-        None
+    match compact.as_str() {
+        "row_number()" => Some(WindowFunction::RowNumber),
+        "rank()" => Some(WindowFunction::Rank),
+        "dense_rank()" => Some(WindowFunction::DenseRank),
+        _ => None,
     }
 }
 
@@ -20071,6 +20140,31 @@ mod tests {
         assert_eq!(parsed.statement_kind(), "local_source_window_filter_limit");
         assert_eq!(parsed.execution_certificate_suffix(), "window-filter-limit");
         assert_eq!(parsed.claim_gate_reason_suffix(), "window_filter_limit");
+    }
+
+    #[test]
+    fn parses_scoped_window_ranking_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,region,RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS r,DENSE_RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS dr FROM 'target/input.csv' LIMIT 6",
+        )
+        .expect("window ranking statement parses");
+
+        assert_eq!(parsed.projections, vec!["id", "region"]);
+        assert_eq!(parsed.window_projections.len(), 2);
+        assert_eq!(parsed.window_projections[0].alias, "r");
+        assert_eq!(parsed.window_projections[0].function, WindowFunction::Rank);
+        assert_eq!(parsed.window_projections[1].alias, "dr");
+        assert_eq!(
+            parsed.window_projections[1].function,
+            WindowFunction::DenseRank
+        );
+        assert_eq!(parsed.window_operator_family(), "ranking");
+        assert_eq!(parsed.window_functions(), "rank,dense_rank");
+        assert_eq!(parsed.window_partition_columns(), "region;region");
+        assert_eq!(parsed.window_order_by_columns(), "amount;amount");
+        assert_eq!(parsed.window_order_by_directions(), "desc;desc");
+        assert_eq!(parsed.window_output_columns(), "r,dr");
+        assert_eq!(parsed.statement_kind(), "local_source_window_limit");
     }
 
     #[test]

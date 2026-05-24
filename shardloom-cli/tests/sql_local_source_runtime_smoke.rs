@@ -3957,6 +3957,62 @@ fn sql_local_source_smoke_executes_window_row_number_without_fallback() {
 }
 
 #[test]
+fn sql_local_source_smoke_executes_window_rank_dense_rank_without_fallback() {
+    let source_path = unique_path("sql-local-source-window-rank-dense-rank", "csv");
+    fs::write(
+        &source_path,
+        "id,region,amount\n1,east,30\n2,east,30\n3,east,20\n4,east,10\n5,west,10\n6,west,5\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,region,amount,RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS r,DENSE_RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS dr FROM '{}' LIMIT 6",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("sql_statement_kind", "local_source_window_limit")));
+    assert!(stdout.contains(&field("window_runtime_execution", "true")));
+    assert!(stdout.contains(&field("window_operator_family", "ranking")));
+    assert!(stdout.contains(&field("window_function", "rank,dense_rank")));
+    assert!(stdout.contains(&field("window_partition_columns", "region;region")));
+    assert!(stdout.contains(&field("window_order_by_columns", "amount;amount")));
+    assert!(stdout.contains(&field("window_order_by_directions", "desc;desc")));
+    assert!(stdout.contains(&field("window_output_columns", "r,dr")));
+    assert!(stdout.contains(&field("window_row_number_runtime_execution", "false")));
+    assert!(stdout.contains(&field("window_rank_runtime_execution", "true")));
+    assert!(stdout.contains(&field("window_dense_rank_runtime_execution", "true")));
+    assert!(stdout.contains(&field("projected_columns", "id,region,amount,r,dr")));
+    assert!(stdout.contains(&field("selected_row_count", "6")));
+    assert!(stdout.contains(&field("output_row_count", "6")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"region\\\":\\\"east\\\",\\\"amount\\\":30,\\\"r\\\":1,\\\"dr\\\":1}\\n{\\\"id\\\":2,\\\"region\\\":\\\"east\\\",\\\"amount\\\":30,\\\"r\\\":1,\\\"dr\\\":1}\\n{\\\"id\\\":3,\\\"region\\\":\\\"east\\\",\\\"amount\\\":20,\\\"r\\\":3,\\\"dr\\\":2}\\n{\\\"id\\\":4,\\\"region\\\":\\\"east\\\",\\\"amount\\\":10,\\\"r\\\":4,\\\"dr\\\":3}\\n{\\\"id\\\":5,\\\"region\\\":\\\"west\\\",\\\"amount\\\":10,\\\"r\\\":1,\\\"dr\\\":1}\\n{\\\"id\\\":6,\\\"region\\\":\\\"west\\\",\\\"amount\\\":5,\\\"r\\\":2,\\\"dr\\\":2}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_utf8_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-utf8-order-by", "csv");
     fs::write(

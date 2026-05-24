@@ -4711,6 +4711,87 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertIsNone(workflow.filter("amount > 1").limit(5)._sql_local_source_statement())
         self.assertIsNone(workflow.sort("amount").limit(5)._sql_local_source_statement())
 
+    def test_local_csv_query_builder_window_rank_dense_rank_invokes_sql_smoke(self) -> None:
+        statement = "SELECT id,region,amount,RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS r,DENSE_RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS dr FROM 'target/input.csv' LIMIT 6"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source window rank",
+                    "human_text": "sql local source window rank",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "result_jsonl", "value": "{{\\"id\\":1,\\"region\\":\\"east\\",\\"amount\\":30,\\"r\\":1,\\"dr\\":1}}\\n"}},
+                        {{"key": "sql_statement_kind", "value": "local_source_window_limit"}},
+                        {{"key": "window_runtime_execution", "value": "true"}},
+                        {{"key": "window_operator_family", "value": "ranking"}},
+                        {{"key": "window_function", "value": "rank,dense_rank"}},
+                        {{"key": "window_partition_columns", "value": "region;region"}},
+                        {{"key": "window_order_by_columns", "value": "amount;amount"}},
+                        {{"key": "window_order_by_directions", "value": "desc;desc"}},
+                        {{"key": "window_output_columns", "value": "r,dr"}},
+                        {{"key": "window_row_number_runtime_execution", "value": "false"}},
+                        {{"key": "window_rank_runtime_execution", "value": "true"}},
+                        {{"key": "window_dense_rank_runtime_execution", "value": "true"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "region", "amount")
+            .window(
+                sl.rank(
+                    partition_by="region",
+                    order_by="amount",
+                    descending=True,
+                    alias="r",
+                ),
+                sl.dense_rank(
+                    partition_by="region",
+                    order_by="amount",
+                    descending=True,
+                    alias="dr",
+                ),
+            )
+            .limit(6)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(report.window_operator_family, "ranking")
+        self.assertEqual(report.window_function, ("rank", "dense_rank"))
+        self.assertEqual(report.window_partition_columns, ("region", "region"))
+        self.assertEqual(report.window_order_by_columns, ("amount", "amount"))
+        self.assertEqual(report.window_order_by_directions, ("desc", "desc"))
+        self.assertEqual(report.window_output_columns, ("r", "dr"))
+        self.assertFalse(report.window_row_number_runtime_execution)
+        self.assertTrue(report.window_rank_runtime_execution)
+        self.assertTrue(report.window_dense_rank_runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_with_column_generic_expression_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
