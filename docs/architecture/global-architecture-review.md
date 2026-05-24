@@ -568,6 +568,12 @@ plan before coding.
   null-propagating UTF-8 semantics, and keep literal-only calls, invalid substring bounds, empty
   replace search strings, non-UTF-8 operands, and unsupported shapes deterministic blockers with no
   fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D/5B/5C composed UTF-8 string expression runtime admits nested
+  `LOWER` / `UPPER` / `TRIM`, `CONCAT`, `SUBSTR` / `SUBSTRING`, `LEFT` / `RIGHT`, `REPLACE`, and
+  `LENGTH` expression trees for scoped local-source SQL/Python predicates and projections, walks
+  expression trees for source-column evidence, preserves null-propagating UTF-8 semantics, and
+  keeps source-free or unsupported string expression shapes deterministic blockers with no
+  fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D scoped UTC timestamp second arithmetic adds native
   `TIMESTAMP_ADD_SECONDS` / `TIMESTAMP_SUB_SECONDS` predicate/projection execution for admitted
   local-source SQL/Python paths, emits `timestamp_arithmetic_*` and

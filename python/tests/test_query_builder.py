@@ -1030,6 +1030,17 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             str(sl.col("label").replace(" ", "_") == "alpha_beta"),
             "REPLACE(label, ' ', '_') = 'alpha_beta'",
         )
+        self.assertEqual(
+            str(
+                sl.concat(sl.col("label").trim().lower(), "-", sl.col("segment").upper())
+                == "alpha-north"
+            ),
+            "CONCAT(LOWER(TRIM(label)), '-', UPPER(segment)) = 'alpha-north'",
+        )
+        self.assertEqual(
+            str(sl.col("label").trim().replace(" ", "_").length() >= 5),
+            "LENGTH(REPLACE(TRIM(label), ' ', '_')) >= 5",
+        )
         self.assertEqual(str(sl.col("amount") + 5 >= 20), "amount + 5 >= 20")
         self.assertEqual(str(sl.col("amount") - 3 < 10), "amount - 3 < 10")
         self.assertEqual(str(sl.col("amount") * 2 == 40), "amount * 2 = 40")
@@ -1082,8 +1093,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             sl.col("amount") * "2"
         with self.assertRaisesRegex(ValueError, "at least one shardloom column"):
             sl.concat("alpha", "beta")
-        with self.assertRaisesRegex(ValueError, "bare column names"):
-            sl.concat(sl.col("label").lower(), "x")
+        with self.assertRaisesRegex(ValueError, "string expressions currently admit"):
+            sl.concat(sl.col("label").length(), "x")
         with self.assertRaisesRegex(ValueError, "substring start"):
             sl.col("label").substr(0, 2)
         with self.assertRaisesRegex(ValueError, "left count"):
@@ -5320,7 +5331,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 1, 3) AS prefix,LEFT(label, 2) AS left_edge,RIGHT(label, 2) AS right_edge,REPLACE(label, 'a', '') AS scrubbed FROM 'target/input.csv' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 2",
+                    "SELECT id,CONCAT(LOWER(TRIM(label)), '-', UPPER(segment)) AS label_key,SUBSTR(TRIM(label), 1, 3) AS prefix,LEFT(LOWER(label), 2) AS left_edge,RIGHT(UPPER(label), 2) AS right_edge,REPLACE(TRIM(label), 'a', '') AS scrubbed FROM 'target/input.csv' WHERE CONCAT(LOWER(TRIM(label)), '-', UPPER(segment)) = 'alpha-north' LIMIT 2",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -5362,12 +5373,18 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         report = (
             ctx.read_csv("target/input.csv")
             .select("id")
-            .with_column("label_key", sl.concat(sl.col("label"), "-", sl.col("segment")))
-            .with_column("prefix", sl.col("label").substr(1, 3))
-            .with_column("left_edge", sl.left(sl.col("label"), 2))
-            .with_column("right_edge", sl.col("label").right("2"))
-            .with_column("scrubbed", sl.replace(sl.col("label"), "a", ""))
-            .filter(sl.concat(sl.col("label"), "-", sl.col("segment")) == "alpha-north")
+            .with_column(
+                "label_key",
+                sl.concat(sl.col("label").trim().lower(), "-", sl.col("segment").upper()),
+            )
+            .with_column("prefix", sl.col("label").trim().substr(1, 3))
+            .with_column("left_edge", sl.left(sl.col("label").lower(), 2))
+            .with_column("right_edge", sl.col("label").upper().right("2"))
+            .with_column("scrubbed", sl.replace(sl.col("label").trim(), "a", ""))
+            .filter(
+                sl.concat(sl.col("label").trim().lower(), "-", sl.col("segment").upper())
+                == "alpha-north"
+            )
             .limit(2)
             .collect()
         )

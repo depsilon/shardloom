@@ -305,7 +305,7 @@ class ColumnExpression:
     def substr(self, start: object, length: object) -> "ColumnExpression":
         """Return a scoped 1-based `SUBSTR(column, start, length)` expression."""
 
-        column = _normalize_expression_column(self.sql)
+        column, _ = _normalize_string_scalar_expression_sql(self.sql)
         normalized_start = _normalize_substring_bound("substring start", start, minimum=1)
         normalized_length = _normalize_substring_bound(
             "substring length", length, minimum=0
@@ -320,21 +320,21 @@ class ColumnExpression:
     def left(self, count: object) -> "ColumnExpression":
         """Return a scoped `LEFT(column, count)` UTF-8 expression."""
 
-        column = _normalize_expression_column(self.sql)
+        column, _ = _normalize_string_scalar_expression_sql(self.sql)
         normalized_count = _normalize_substring_bound("left count", count, minimum=0)
         return ColumnExpression(f"LEFT({column}, {normalized_count})")
 
     def right(self, count: object) -> "ColumnExpression":
         """Return a scoped `RIGHT(column, count)` UTF-8 expression."""
 
-        column = _normalize_expression_column(self.sql)
+        column, _ = _normalize_string_scalar_expression_sql(self.sql)
         normalized_count = _normalize_substring_bound("right count", count, minimum=0)
         return ColumnExpression(f"RIGHT({column}, {normalized_count})")
 
     def replace(self, needle: object, replacement: object) -> "ColumnExpression":
         """Return a scoped `REPLACE(column, needle, replacement)` expression."""
 
-        column = _normalize_expression_column(self.sql)
+        column, _ = _normalize_string_scalar_expression_sql(self.sql)
         needle_literal = _sql_string_function_literal(
             "replace search literal", needle, allow_empty=False
         )
@@ -4580,8 +4580,12 @@ def _sql_string_transform_projection_expression(expression: object) -> str:
             "computed with_column currently admits LOWER/UPPER/TRIM column expressions"
         )
     column = text[open_index + 1 : -1].strip()
-    _normalize_expression_column(column)
-    return f"{function}({column})"
+    normalized, has_source_column = _normalize_string_scalar_expression_sql(column)
+    if not has_source_column:
+        raise ValueError(
+            "string transform with_column expressions require at least one source column"
+        )
+    return f"{function}({normalized})"
 
 
 def _sql_string_length_projection_expression(expression: object) -> str:
@@ -4595,7 +4599,9 @@ def _sql_string_length_projection_expression(expression: object) -> str:
     if function != "LENGTH":
         raise ValueError("computed with_column currently admits LENGTH column expressions")
     column = text[open_index + 1 : -1].strip()
-    normalized = _normalize_expression_column(column)
+    normalized, has_source_column = _normalize_string_scalar_expression_sql(column)
+    if not has_source_column:
+        raise ValueError("LENGTH with_column expressions require at least one source column")
     return f"LENGTH({normalized})"
 
 
@@ -4620,7 +4626,7 @@ def _sql_string_function_projection_expression(expression: object) -> str:
         normalized_args: list[str] = []
         has_source_column = False
         for arg in args:
-            normalized, is_source_column = _normalize_string_function_text_arg_sql(arg)
+            normalized, is_source_column = _normalize_string_scalar_expression_sql(arg)
             normalized_args.append(normalized)
             has_source_column = has_source_column or is_source_column
         if not has_source_column:
@@ -4633,7 +4639,7 @@ def _sql_string_function_projection_expression(expression: object) -> str:
             raise ValueError(
                 "SUBSTR/SUBSTRING with_column expressions require exactly three arguments"
             )
-        value_arg, is_source_column = _normalize_string_function_text_arg_sql(args[0])
+        value_arg, is_source_column = _normalize_string_scalar_expression_sql(args[0])
         if not is_source_column:
             raise ValueError(
                 "SUBSTR/SUBSTRING with_column expressions require a source column argument"
@@ -4646,7 +4652,7 @@ def _sql_string_function_projection_expression(expression: object) -> str:
             raise ValueError(
                 "LEFT/RIGHT with_column expressions require exactly two arguments"
             )
-        value_arg, is_source_column = _normalize_string_function_text_arg_sql(args[0])
+        value_arg, is_source_column = _normalize_string_scalar_expression_sql(args[0])
         if not is_source_column:
             raise ValueError(
                 "LEFT/RIGHT with_column expressions require a source column argument"
@@ -4655,7 +4661,7 @@ def _sql_string_function_projection_expression(expression: object) -> str:
         return f"{function}({value_arg}, {count})"
     if len(args) != 3:
         raise ValueError("REPLACE with_column expressions require exactly three arguments")
-    value_arg, is_source_column = _normalize_string_function_text_arg_sql(args[0])
+    value_arg, is_source_column = _normalize_string_scalar_expression_sql(args[0])
     if not is_source_column:
         raise ValueError("REPLACE with_column expressions require a source column argument")
     needle = _parse_sql_string_literal_token(args[1])
@@ -4736,7 +4742,7 @@ def _split_projection_function_args(expression: str) -> tuple[str, ...]:
 
 def _sql_string_function_text_arg(value: object, name: str) -> tuple[str, bool]:
     if isinstance(value, ColumnExpression):
-        return _normalize_expression_column(value.sql), True
+        return _normalize_string_scalar_expression_sql(value.sql)
     return _sql_string_function_literal(name, value, allow_empty=True), False
 
 
@@ -4750,7 +4756,71 @@ def _normalize_string_function_text_arg_sql(raw: str) -> tuple[str, bool]:
             ),
             False,
         )
-    return _normalize_expression_column(text), True
+    return _normalize_string_scalar_expression_sql(text)
+
+
+def _normalize_string_scalar_expression_sql(raw: str) -> tuple[str, bool]:
+    text = _require_non_empty("string expression", raw)
+    if text.startswith("'"):
+        value = _parse_sql_string_literal_token(text)
+        return (
+            _sql_string_function_literal(
+                "string function literal", value, allow_empty=True
+            ),
+            False,
+        )
+    open_index = text.find("(")
+    if open_index < 0:
+        return _normalize_expression_column(text), True
+    if not text.endswith(")"):
+        raise ValueError("string expression function call must be closed")
+    function = text[:open_index].strip().upper()
+    args = _split_projection_function_args(text[open_index + 1 : -1].strip())
+    if function in {"LOWER", "UPPER", "TRIM"}:
+        if len(args) != 1:
+            raise ValueError("string transform expressions require exactly one argument")
+        arg_sql, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        return f"{function}({arg_sql})", has_source_column
+    if function == "CONCAT":
+        if len(args) < 2:
+            raise ValueError("CONCAT string expressions require at least two arguments")
+        normalized_args: list[str] = []
+        has_source_column = False
+        for arg in args:
+            arg_sql, arg_has_source = _normalize_string_scalar_expression_sql(arg)
+            normalized_args.append(arg_sql)
+            has_source_column = has_source_column or arg_has_source
+        return f"CONCAT({', '.join(normalized_args)})", has_source_column
+    if function in {"SUBSTR", "SUBSTRING"}:
+        if len(args) != 3:
+            raise ValueError("SUBSTR/SUBSTRING string expressions require exactly three arguments")
+        value_arg, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        start = _normalize_substring_bound("substring start", args[1], minimum=1)
+        length = _normalize_substring_bound("substring length", args[2], minimum=0)
+        return f"SUBSTR({value_arg}, {start}, {length})", has_source_column
+    if function in {"LEFT", "RIGHT"}:
+        if len(args) != 2:
+            raise ValueError("LEFT/RIGHT string expressions require exactly two arguments")
+        value_arg, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        count = _normalize_substring_bound("left/right count", args[1], minimum=0)
+        return f"{function}({value_arg}, {count})", has_source_column
+    if function == "REPLACE":
+        if len(args) != 3:
+            raise ValueError("REPLACE string expressions require exactly three arguments")
+        value_arg, has_source_column = _normalize_string_scalar_expression_sql(args[0])
+        needle = _parse_sql_string_literal_token(args[1])
+        if needle == "":
+            raise ValueError("REPLACE string expressions require a non-empty search literal")
+        replacement = _parse_sql_string_literal_token(args[2])
+        return (
+            f"REPLACE({value_arg}, "
+            f"{_sql_string_function_literal('replace search literal', needle, allow_empty=False)}, "
+            f"{_sql_string_function_literal('replace replacement literal', replacement, allow_empty=True)})",
+            has_source_column,
+        )
+    raise ValueError(
+        "string expressions currently admit columns, string literals, LOWER/UPPER/TRIM, CONCAT, SUBSTR/SUBSTRING, LEFT/RIGHT, and REPLACE"
+    )
 
 
 def _parse_sql_string_literal_token(raw: str) -> str:

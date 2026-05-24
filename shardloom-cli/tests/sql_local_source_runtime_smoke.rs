@@ -2413,6 +2413,70 @@ fn sql_local_source_smoke_executes_string_function_projection_without_fallback()
 }
 
 #[test]
+fn sql_local_source_smoke_executes_composed_string_expressions_without_fallback() {
+    let source_path = unique_path("sql-local-source-composed-string-expressions", "csv");
+    fs::write(
+        &source_path,
+        "id,label,segment\n1, Alpha ,NORTH\n2,beta,east\n3,alpha,north\n4, alpha beta ,NORTH\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,CONCAT(LOWER(TRIM(label)), '-', LOWER(segment)) AS label_key,LENGTH(REPLACE(TRIM(label), ' ', '')) AS compact_len,SUBSTR(LOWER(TRIM(label)), 1, 5) AS prefix FROM '{}' WHERE CONCAT(LOWER(TRIM(label)), '-', LOWER(segment)) = 'alpha-north' AND LENGTH(REPLACE(TRIM(label), ' ', '')) >= 5 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field("predicate_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("string_function_runtime_execution", "true")));
+    assert!(stdout.contains(&field("string_function_operator", "concat")));
+    assert!(stdout.contains(&field("string_function_source_column", "label+segment")));
+    assert!(stdout.contains(&field("string_function_literal_count", "2")));
+    assert!(stdout.contains(&field("string_length_runtime_execution", "true")));
+    assert!(stdout.contains(&field("string_length_source_column", "label")));
+    assert!(stdout.contains(&field("string_length_projection_runtime_execution", "true")));
+    assert!(stdout.contains(&field("string_length_projection_source_column", "label")));
+    assert!(stdout.contains(&field(
+        "string_function_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "string_function_projection_operator",
+        "concat,substr"
+    )));
+    assert!(stdout.contains(&field(
+        "string_function_projection_source_column",
+        "label+segment,label"
+    )));
+    assert!(stdout.contains(&field("string_function_projection_literal_count", "1,2")));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,label_key,compact_len,prefix"
+    )));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":1,\\\"label_key\\\":\\\"alpha-north\\\",\\\"compact_len\\\":5,\\\"prefix\\\":\\\"alpha\\\"}\\n{\\\"id\\\":3,\\\"label_key\\\":\\\"alpha-north\\\",\\\"compact_len\\\":5,\\\"prefix\\\":\\\"alpha\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_temporal_extract_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-temporal-extract-projection", "csv");
     fs::write(
@@ -9363,7 +9427,7 @@ fn sql_local_source_smoke_blocks_unsupported_string_transform_shapes_without_fal
                 "SELECT id FROM '{}' WHERE LOWER(label, id) = 'alpha' LIMIT 10",
                 source_path.display()
             ),
-            "SQL identifiers may contain only ASCII letters, numbers, and underscores",
+            "string transform expressions require exactly one argument",
         ),
     ];
 
@@ -9408,7 +9472,7 @@ fn sql_local_source_smoke_blocks_unsupported_string_length_shapes_without_fallba
                 "SELECT id FROM '{}' WHERE LENGTH(label, id) >= 4 LIMIT 10",
                 source_path.display()
             ),
-            "SQL identifiers may contain only ASCII letters, numbers, and underscores",
+            "string length expressions require exactly one argument",
         ),
     ];
 
@@ -9446,7 +9510,7 @@ fn sql_local_source_smoke_blocks_unsupported_string_function_shapes_without_fall
                 "SELECT id FROM '{}' WHERE CONCAT('a', 'b') = 'ab' LIMIT 10",
                 source_path.display()
             ),
-            "string function expressions require at least one source column argument",
+            "string function predicates require at least one source column argument",
         ),
         (
             format!(

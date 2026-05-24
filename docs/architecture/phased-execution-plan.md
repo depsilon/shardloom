@@ -297,9 +297,12 @@ or documentation updates alone are insufficient.
     admits unprojected `COUNT(*)`, `COUNT(column)`, `COUNT(DISTINCT column)`, `SUM`, `AVG`, `MIN`,
     and `MAX` aggregate functions as hidden HAVING-only evaluation columns, strips those columns
     from user output, and keeps unsupported aggregate shapes or non-output source-column references
-    deterministically blocked.
+    deterministically blocked. Scoped UTF-8 string predicates/projections now also admit composed
+    expression trees across `LOWER` / `UPPER` / `TRIM`, `CONCAT`, `SUBSTR` / `SUBSTRING`,
+    `LEFT` / `RIGHT`, `REPLACE`, and `LENGTH` for local-source SQL/Python paths while preserving
+    deterministic blockers for source-free or unsupported string expression shapes.
     The remaining work is the parity gap
-    around broader non-numeric/generalized expression families, broader coercion/function coverage,
+    around broader non-UTF-8 non-numeric expression families, broader coercion/function coverage,
     broader HAVING expression trees, interval/date-time and timezone-database semantics,
     correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness beyond
     the currently admitted leaves, and final SQL/Python ergonomics. Unsupported residual work must
@@ -1010,18 +1013,19 @@ docs/website parity, and a completed-ledger entry.
     optional filters and output aliases, multi-key scalar top-N over projection rows, aggregate
     output aliases, and group keys, explicit single- or multi-key inner equi-join,
     left/right/full outer equi-join, left semi/anti equi-join, cross join, scoped
-    column-comparison and generic numeric-expression ON joins, scoped computed join projections,
-    multi-key scalar joined top-N, and scalar/grouped join-aggregate ordering by aggregate output
-    aliases or group keys. Scalar/grouped aggregate and join-aggregate rows also admit scoped
+    column-comparison and generic numeric-expression ON joins, scoped UTF-8 string
+    predicate/projection expression trees, scoped computed join projections, multi-key scalar
+    joined top-N, and scalar/grouped join-aggregate ordering by aggregate output aliases or group
+    keys. Scalar/grouped aggregate and join-aggregate rows also admit scoped
     post-aggregate `HAVING` predicates bound to emitted aggregate output aliases, selected group
     keys, or admitted unprojected aggregate functions evaluated as hidden HAVING-only columns.
     Scoped local-source `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`,
     `NTILE()`, `PERCENT_RANK()`, and `CUME_DIST()` window projections now execute through the same
     format-neutral SQL runtime with deterministic partitioned ranking, offset semantics,
     distribution semantics, peer-group tie evidence, and typed report evidence;
-    richer expressions, casts, dates, strings, broad window functions/frames, subqueries,
-    catalogs, arbitrary join predicates, null/collation ordering, and broad planner behavior remain
-    incomplete or blocked.
+    richer expressions, casts, dates, broader string semantics, broad window functions/frames,
+    subqueries, catalogs, arbitrary join predicates, null/collation ordering, and broad planner
+    behavior remain incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
     and emits stable blockers for unsupported syntax.
   - Runtime enablement: ShardLoom-native SQL execution for admitted syntax families plus stable
@@ -1055,7 +1059,8 @@ docs/website parity, and a completed-ledger entry.
     aggregate, post-aggregate `having(...)` / post-`agg(...)` `filter(...)` over aggregate output
     aliases or admitted unprojected aggregate functions, scoped
     `.window(sl.row_number(...), sl.rank(...), sl.dense_rank(...))` projections,
-    explicit-projection literal `with_column(...)`, and `count()` workflows, but
+    composed UTF-8 string helper chains for predicates/projections, explicit-projection literal
+    `with_column(...)`, and `count()` workflows, but
     complete end-to-end generated/local/Vortex workflows and
     unsupported-method diagnostics are not yet ordinary user-grade coverage.
   - Next slice outcome: make one import path support generated, local file, and prepared/native

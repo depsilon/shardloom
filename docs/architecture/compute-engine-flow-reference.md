@@ -1349,7 +1349,7 @@ computed projections and multi-key scalar top-N over joined rows, scoped
 scalar/grouped join aggregates with aggregate-output/group-key `HAVING` plus top-N, and scoped
 parenthesized logical predicates over admitted comparison, cast, date-literal, null, and string
 predicate leaves, including bounded `IN (...)` lists with non-null scalar literals and scoped
-UTF-8 string-function leaves.
+composed UTF-8 string-expression leaves.
 That SQL path can render bounded inline JSONL or write local JSONL/CSV plus
 feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC output with format-specific output Native I/O
 certificate fields.
@@ -1357,8 +1357,9 @@ Python `ctx.read(path)` plus explicit `ctx.read_csv(...)` / flat `ctx.read_json(
 the same admitted projection/scalar/multi-key grouped/top-N/aggregate-output-top-N/join/
 join-computed-top-N/join-aggregate runtime for local `.csv`, `.json`, `.jsonl`, `.ndjson`, and
 feature-gated `.parquet`, `.arrow`, `.ipc`, `.feather`, `.avro`, and `.orc` files, including
-aggregate aliases and scoped `sl.concat(...)`, `.substr(...)`, `.substring(...)`, and
-`.replace(...)` string-function helpers. Adjacent formats, nested JSON/JSONPath,
+aggregate aliases and scoped composed UTF-8 helper chains across `sl.concat(...)`,
+`.lower()`, `.upper()`, `.trim()`, `.substr(...)`, `.substring(...)`, `.left(...)`,
+`.right(...)`, `.replace(...)`, and `.length()`. Adjacent formats, nested JSON/JSONPath,
 null ordering, collation parity, arbitrary join predicate trees beyond the admitted expression ON
 families, windows, broader result sinks, broad
 SQL/DataFrame access, and broader transient operator behavior still return deterministic unsupported
@@ -1377,7 +1378,8 @@ shapes. Bounded `IN`
 predicates expose `in_predicate_runtime_execution` and `in_list_value_count`; scoped local
 IN-subquery predicates also expose `in_subquery_runtime_execution` and materialized source-set
 counts. Scoped HAVING rows expose `having_runtime_execution`, `having_source_column`,
-`having_aggregate_*`, and before/after aggregate-row counts. Scoped string-function predicates/projections expose
+`having_aggregate_*`, and before/after aggregate-row counts. Scoped composed string
+predicates/projections expose
 `string_function_*` and
 `string_function_projection_*` evidence. Empty literal lists, mixed DATE/non-DATE lists, oversized lists/subquery sets, and broader
 correlated/multi-column/nested subquery shapes remain deterministic blockers.
