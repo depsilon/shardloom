@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4K/4L runtime-envelope validator and session evidence
   - Date: 2026-05-24
-  - Branch/PR: `compute-engine-envelope-session-validator-20260524` / pending.
+  - Branch/PR: `compute-engine-envelope-session-validator-20260524` / #935.
   - Source:
     - `GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators`.
     - `GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse
@@ -43,11 +43,16 @@ phase plan first.
       last reuse/invalidation reason while preserving explicit local, caller-owned session scope.
     - Hooked hard release readiness and release validation evidence inventories so the validator is
       visible to production-readiness gates.
+    - Reworked the root and Python README examples so normal users see the format-neutral
+      `ctx.read_* -> filter/select -> write_*` path first, while explicit `prepare_vortex(...)`,
+      session evidence, and runtime-envelope inspection are documented as advanced
+      engine-development/diagnostic surfaces.
   - Verification:
     - `python -m unittest python.tests.test_cli_client`
     - `python -m compileall -q python\src python\tests scripts`
     - `python scripts\check_runtime_execution_envelopes.py` using the local Python executable
       after the `python` shim failed in PowerShell.
+    - `python -m unittest python.tests.test_query_builder`
   - Claim boundary:
     - Evidence-standardization and scoped Python session evidence only. This does not complete the
       4K parent for every runtime path, does not complete 4L for CLI/object-store/table/buffer-pool

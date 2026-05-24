@@ -1457,18 +1457,24 @@ runnable, documented, tested, and claim-safe.
     `python/src/shardloom/context.py`, `python/src/shardloom/query.py`, `GAR-RUNTIME-IMPL-4L`,
     `GAR-RUNTIME-IMPL-5I`.
   - Current state: users can `import shardloom as sl`, create `ctx = sl.context()`, run smoke/
-    capability commands, execute scoped CLI-backed workflows, and create caller-owned
-    `ctx.session()` / `sl.session(...)` objects for local `vortex_ingest` prepared-state reuse and
-    admitted local query-builder collect/write/fanout reuse. The Python layer is not yet a broad
-    long-lived runtime session with reusable SourceState, PreparedState, OutputPlan,
-    schema/dictionary, and buffer-pool caches across all workflows.
+    capability commands, and execute scoped CLI-backed workflows through normal
+    `read_* -> filter/select/aggregate/join -> collect/write/fanout` chains. README and Python
+    README now present this format-neutral query/write route as the default user path and label
+    `ctx.session(...)`, `sl.session(...)`, `ctx.prepare_vortex(...)`, and raw runtime-envelope
+    inspection as advanced engine-development/diagnostic surfaces. Existing sessions cover local
+    `vortex_ingest` prepared-state reuse and admitted local query-builder collect/write/fanout
+    reuse. The Python layer is not yet a broad long-lived runtime session with reusable
+    SourceState, PreparedState, OutputPlan, schema/dictionary, and buffer-pool caches across all
+    workflows.
   - Next slice outcome: implement a user-owned `ShardLoomSession`/context lifecycle that feels as
     simple as `SparkSession.builder...getOrCreate()` without creating a daemon, global hidden cache,
     or remote service.
   - Runtime enablement: explicit local session lifecycle for admitted runtime workflows, including
     session id, close/cleanup, cache hit/miss, invalidation, and no-fallback evidence.
-  - User-visible surface: `import shardloom as sl`, `sl.context(...)`, `sl.session(...)`,
-    `ctx.session()`, Python README, getting-started docs, use-case pages.
+  - User-visible surface: `import shardloom as sl`, `sl.context(...)`, normal `ctx.read_*` /
+    `ctx.sql(...)` workflows, Python README, getting-started docs, use-case pages. Session and
+    explicit prepare helpers remain visible only as advanced diagnostic/development APIs until the
+    runtime can hide preparation and reuse behind ordinary query execution.
   - Implementation scope: Python context/session classes, Rust/CLI session command or local batch
     surface, session evidence fields, cleanup semantics, examples.
   - Evidence required: `session_id`, `session_state_scope`, `cache_hit`, `cache_miss`,
