@@ -1254,6 +1254,57 @@ fn sql_local_source_smoke_executes_numeric_arithmetic_projection_without_fallbac
 }
 
 #[test]
+fn sql_local_source_smoke_executes_star_plus_computed_projection_without_fallback() {
+    let source_path = unique_path("sql-local-source-star-computed-projection", "csv");
+    fs::write(
+        &source_path,
+        "id,amount,label\n1,8,Alpha\n2,15,Beta\n3,21,Gamma\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT *,amount + 2 AS adjusted,LOWER(label) AS normalized FROM '{}' WHERE amount >= 10 LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_computed_projection_filter_limit"
+    )));
+    assert!(stdout.contains(&field(
+        "numeric_arithmetic_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "string_transform_projection_runtime_execution",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "projected_columns",
+        "id,amount,label,adjusted,normalized"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+    assert!(stdout.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":2,\\\"amount\\\":15,\\\"label\\\":\\\"Beta\\\",\\\"adjusted\\\":17,\\\"normalized\\\":\\\"beta\\\"}\\n{\\\"id\\\":3,\\\"amount\\\":21,\\\"label\\\":\\\"Gamma\\\",\\\"adjusted\\\":23,\\\"normalized\\\":\\\"gamma\\\"}\\n\""
+    ));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_generic_expression_projection_without_fallback() {
     let source_path = unique_path("sql-local-source-generic-expression-projection", "csv");
     fs::write(
