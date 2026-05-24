@@ -590,7 +590,9 @@ Parquet/Arrow IPC/Avro/ORC when the CLI is built with `--features universal-form
 and feature-gated local Vortex when built with `--features vortex-write`. Written local sinks emit
 format-specific output Native I/O certificate fields plus scoped local replay/fidelity fields such
 as `result_replay_verified`, `output_replay_status`, `output_fidelity_report_status`, and
-`output_fidelity_loss`:
+`output_fidelity_loss`. Generated-source helpers use the same format-neutral rule: SQL/Python
+expressions are planned before the write boundary, and `.fanout(...)` treats the first requested
+sink as the primary output while writing remaining sinks from the same computed generated rows:
 
 ```powershell
 New-Item -ItemType Directory -Force target | Out-Null
@@ -1013,11 +1015,12 @@ SQL/DataFrame execution or Polars/DataFusion optimizer parity.
 
 Reusable I/O state and broad cross-format fanout are planned as `GAR-IOREUSE-1`. The current Python
 runtime exposes scoped local-source `.fanout(...)` smokes over admitted local compatibility sinks and
-feature-gated local Vortex output/fanout with local artifact replay/fidelity reporting. Current
-typed result objects expose scoped `SourceState`, `VortexPreparedState`, and `OutputPlan` evidence
-where the CLI emits it; future Python capability/write views may broaden cache invalidation, reuse
-levels, generated-source fanout, persistent OutputPlan reuse, and claim-grade replay/fidelity
-evidence. Input and output formats remain decoupled, and reuse evidence will not imply performance,
+feature-gated local Vortex output/fanout with local artifact replay/fidelity reporting. Generated
+source-free helpers also expose `.fanout(...)` over admitted generated rows and source-free SQL.
+Current typed result objects expose scoped `SourceState`, `VortexPreparedState`, and `OutputPlan`
+evidence where the CLI emits it; future Python capability/write views may broaden cache
+invalidation, reuse levels, persistent OutputPlan reuse, and claim-grade replay/fidelity evidence.
+Input and output formats remain decoupled, and reuse evidence will not imply performance,
 production, object-store/lakehouse, Foundry, or SQL/DataFrame support.
 
 Unsupported workflow affordances are explicit report surfaces too. These calls
@@ -1434,6 +1437,20 @@ range_topn_report = (
     .limit(2)
     .write("target/generated-range-topn.jsonl", allow_overwrite=True)
 )
+range_fanout_report = (
+    ctx.range(1, 8, column="id")
+    .filter(sl.col("id") >= 3)
+    .with_column("doubled", sl.col("id") * 2)
+    .sort("doubled", descending=True)
+    .limit(2)
+    .fanout(
+        {
+            "jsonl": "target/generated-range-topn.jsonl",
+            "csv": "target/generated-range-topn.csv",
+        },
+        allow_overwrite=True,
+    )
+)
 
 print(values_report.generated_source_kind)
 print(values_report.generated_source_row_count)
@@ -1444,6 +1461,9 @@ print(series_report.generated_source_kind)
 print(series_report.generated_source_range_end_inclusive)
 print(range_topn_report.sql_source_free_top_n_runtime_execution)
 print(range_topn_report.sql_source_free_sort_keys)
+print(range_fanout_report.output_route)
+print(range_fanout_report.fanout_output_count)
+print(range_fanout_report.fanout_result_reuse_hit)
 ```
 
 Equivalent CLI command:
@@ -1466,11 +1486,15 @@ same generated-source SQL smoke. Source-free top-N reports
 `sql_source_free_sort_keys`, `sql_source_free_sort_direction`,
 `sql_source_free_sort_operator_family`, and `sql_source_free_top_n_limit` alongside projection,
 filter, and limit evidence. `ctx.sql(...).write(...)` dispatches those source-free forms to the
-same generated-source SQL smoke. Source-free `ctx.sql(...).collect()` remains a deterministic
-unsupported diagnostic because the generated-source evidence contract requires an explicit output
-sink. The source-free path rejects input datasets, arbitrary `FROM` sources, unsupported function
-projections, joins, subqueries, UDFs, object-store paths, table writes, and broad SQL with
-deterministic no-fallback errors.
+same generated-source SQL smoke, and `ctx.sql(...).fanout(...)` dispatches source-free generated
+forms to the same generated-source fanout contract. Generated-source fanout reports
+`output_route=local_sink_and_fanout`, `result_reuse_for_fanout=true`,
+`fanout_result_reuse_hit=true`, per-fanout output formats/paths/digests, workspace path-safety,
+certificate, replay, and fidelity fields. Source-free `ctx.sql(...).collect()` remains a
+deterministic unsupported diagnostic because the generated-source evidence contract requires an
+explicit output sink. The source-free path rejects input datasets, arbitrary `FROM` sources,
+unsupported function projections, joins, subqueries, UDFs, object-store paths, table writes, and
+broad SQL with deterministic no-fallback errors.
 
 The contract separates three cases:
 
@@ -1483,13 +1507,16 @@ The contract separates three cases:
   Parquet/Arrow IPC/Avro/ORC local sinks are available through `write_parquet(...)`,
   `write_arrow_ipc(...)`, `write_avro(...)`, and `write_orc(...)` when the CLI is built with
   `--features universal-format-io`, and feature-gated local Vortex output is available through
-  `write_vortex(...)` when the CLI is built with `--features vortex-write`; broader
-  generated-source APIs remain report-only.
+  `write_vortex(...)` when the CLI is built with `--features vortex-write`; `.fanout(...)` reuses
+  the computed generated rows for primary plus fanout local sinks. Broader generated-source APIs
+  remain report-only.
 - `engine_native_generated_source`: scoped local `range`, `sequence`, and SQL
   `generate_series`/`range` JSONL/CSV fixture smokes are supported through
   `ctx.range(...).write(...)`, `ctx.range(...).filter(...).with_column(...).sort(...).limit(...).write(...)`,
   `ctx.sequence(...).write(...)`, and `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`;
-  the same feature-gated flat scalar structured and Vortex sinks are available through the generated-source write helpers.
+  `.fanout(...)` is available for generated range/sequence and source-free SQL, and the same
+  feature-gated flat scalar structured and Vortex sinks are available through the generated-source
+  write helpers.
   Engine-native `values` and deterministic synthetic profiles remain report-only.
 
 Source-free SQL `VALUES` and literal `SELECT` are runtime-supported as local JSONL/CSV fixture

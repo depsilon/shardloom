@@ -173,7 +173,8 @@ Source evidence:
   `shardloom-vortex/Cargo.toml`.
 - Initial compatibility check: `cargo update -p vortex --precise 0.71.0 --dry-run` failed under the
   original `^0.70` requirement, so `GAR-VORTEX-071B` edited the manifest before the real bump.
-- Current ShardLoom requirement after `GAR-VORTEX-071B`: optional `vortex = "0.71"`.
+- Historical ShardLoom requirement after `GAR-VORTEX-071B`: optional `vortex = "0.71"`.
+  Current dependency status is recorded in the Vortex 0.72 section above.
 
 Classification vocabulary:
 

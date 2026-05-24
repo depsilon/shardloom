@@ -1248,6 +1248,132 @@ fn sql_smoke_writes_generate_series_projection_order_by_topn_jsonl() {
 }
 
 #[test]
+fn sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence() {
+    let output_path = unique_output_path("generated-sql-range-fanout-primary");
+    let fanout_path = unique_output_path_with_extension("generated-sql-range-fanout-csv", "csv");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "SELECT value AS id, value * 2 AS doubled FROM range(1, 6) ORDER BY doubled DESC LIMIT 2",
+            "--output-format",
+            "jsonl",
+            "--fanout-output",
+        ])
+        .arg(format!("csv={}", fanout_path.display()))
+        .args(["--format", "json"])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let written = fs::read_to_string(&output_path).expect("primary jsonl was written");
+    assert_eq!(
+        written,
+        "{\"id\":5,\"doubled\":10}\n{\"id\":4,\"doubled\":8}\n"
+    );
+    let fanout = fs::read_to_string(&fanout_path).expect("fanout csv was written");
+    assert_eq!(fanout, "id,doubled\n5,10\n4,8\n");
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("output_route", "local_sink_and_fanout")));
+    assert!(stdout.contains(&field("result_reuse_for_fanout", "true")));
+    assert!(stdout.contains(&field("fanout_result_reuse_hit", "true")));
+    assert!(stdout.contains(&field("result_replay_verified", "true")));
+    assert!(stdout.contains(&field(
+        "output_replay_status",
+        "verified_local_sink_artifacts"
+    )));
+    assert!(stdout.contains(&field(
+        "output_fidelity_report_status",
+        "scoped_local_output_fidelity_reported"
+    )));
+    assert!(stdout.contains(&field("output_fanout_performed", "true")));
+    assert!(stdout.contains(&field("fanout_output_count", "1")));
+    assert!(stdout.contains(&field("fanout_output_formats", "csv")));
+    assert!(stdout.contains("\"fanout_output_paths\",\"value\":\""));
+    assert!(stdout.contains("\"fanout_output_bytes\",\"value\":\"csv:"));
+    assert!(stdout.contains("\"fanout_output_digests\",\"value\":\"csv:fnv64:"));
+    assert!(stdout.contains(&field(
+        "fanout_output_native_io_certificate_statuses",
+        "csv:certified_local_file_sink"
+    )));
+    assert!(stdout.contains(&field(
+        "fanout_output_replay_statuses",
+        "csv:verified_local_file_digest"
+    )));
+    assert!(stdout.contains(&field(
+        "fanout_output_fidelity_statuses",
+        "csv:logical_rows_replay_verified_type_metadata_not_preserved"
+    )));
+    assert!(stdout.contains(&field(
+        "fanout_output_fidelity_loss",
+        "csv:csv_text_roundtrip_loses_static_type_metadata"
+    )));
+    assert!(stdout.contains(&field(
+        "fanout_output_workspace_path_safety_statuses",
+        "csv:true"
+    )));
+    assert!(stdout.contains(&field(
+        "fanout_output_commit_modes",
+        "csv:atomic_rename_same_directory"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(output_path).expect("remove output jsonl");
+    fs::remove_file(fanout_path).expect("remove fanout csv");
+}
+
+#[test]
+fn generated_source_fanout_rejects_duplicate_paths_before_writes() {
+    let output_path = unique_output_path("generated-sql-range-fanout-duplicate");
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "generated-source-sql-smoke",
+            output_path.to_str().expect("temp path is utf8"),
+            "SELECT * FROM range(1, 3)",
+            "--fanout-output",
+        ])
+        .arg(format!("csv={}", output_path.display()))
+        .args(["--format", "json"])
+        .output()
+        .expect("generated-source-sql-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!output_path.exists());
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"generated-source-sql-smoke\""));
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(stdout.contains("generated-source fanout output path is duplicated"));
+    assert!(stdout.contains("no fallback execution was attempted"));
+    assert!(stdout.contains("\"attempted\":false"));
+    assert!(stdout.contains("\"allowed\":false"));
+}
+
+#[test]
 fn sql_smoke_writes_generate_series_source_order_by_topn_jsonl() {
     let output_path = unique_output_path("generated-sql-range-source-topn");
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))

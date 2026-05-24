@@ -14,11 +14,12 @@ executable support from older PR-specific sections that say "this PR" or
 ## Current support snapshot
 
 - Upstream Vortex remains optional and isolated in `shardloom-vortex`.
-- The tracked direct dependency is `vortex = 0.71`.
-- Vortex `0.71.0` was released on 2026-05-18, inventoried in
-  `docs/dependencies/vortex-0.71-upstream-intake.md`, classified in
-  `docs/architecture/vortex-public-api-inventory.md`, and admitted as an optional dependency bump
-  only.
+- The tracked direct dependency is `vortex = 0.72`.
+- Vortex `0.72.0` is the current optional dependency family after the dependency compatibility
+  update recorded in `docs/architecture/vortex-public-api-inventory.md` and
+  `docs/dependencies/vortex-dependency-footprint.md`.
+- Vortex `0.71.0` remains historical intake material in
+  `docs/dependencies/vortex-0.71-upstream-intake.md`.
 - Approved historical metadata/footer fixture IO and approved local primitive
   scan paths are recorded in `docs/architecture/phased-execution-plan.md`.
 - Vortex-native array, compute, scan, source, and sink APIs may be future native
@@ -31,7 +32,21 @@ executable support from older PR-specific sections that say "this PR" or
   ShardLoom residual work.
 - Fallback execution remains disabled.
 
+## Vortex 0.72 compatibility update
+
+- `shardloom-vortex` now requests optional `vortex = 0.72`.
+- `Cargo.lock` records Vortex `0.72.0` crate family versions.
+- The update is a dependency/build compatibility admission only. It does not by itself admit new
+  Vortex runtime behavior, object-store/table support, SQL/DataFrame production support,
+  performance claims, package publication, or fallback execution.
+- TurboQuant remains blocked capability metadata only (`vortex_turboquant_vector_encoding`) until
+  ShardLoom has an admitted vector dtype contract, feature-gated compile/runtime proof, correctness
+  tests, no-fallback policy evidence, and workload-scoped benchmark evidence.
+
 ## Vortex 0.71 bump update
+
+Historical note; superseded by the Vortex 0.72 compatibility update above for current dependency
+status.
 
 - `shardloom-vortex` now requests optional `vortex = 0.71`.
 - `Cargo.lock` records Vortex `0.71.0` crate family versions.

@@ -6559,6 +6559,141 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
 
+    def test_range_filter_with_column_sort_limit_fanout_invokes_generated_source_sql_smoke(
+        self,
+    ) -> None:
+        statement = (
+            "SELECT value AS id, value * 2 AS doubled "
+            "FROM range(1, 8, 1) WHERE value >= 3 ORDER BY doubled DESC LIMIT 2"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-sql-smoke",
+                    "target/range-query-topn.jsonl",
+                    {statement!r},
+                    "--output-format",
+                    "jsonl",
+                    "--fanout-output",
+                    "csv=target/range-query-topn.csv",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-sql-smoke",
+                    "status": "success",
+                    "summary": "generated sql fanout",
+                    "human_text": "generated sql fanout",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "output_path", "value": "target/range-query-topn.jsonl"}},
+                        {{"key": "output_route", "value": "local_sink_and_fanout"}},
+                        {{"key": "generated_source_kind", "value": "sql_generate_series_range"}},
+                        {{"key": "generated_source_row_count", "value": "2"}},
+                        {{"key": "sql_source_free_order_by_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_top_n_runtime_execution", "value": "true"}},
+                        {{"key": "sql_source_free_sort_operator_family", "value": "single_key_int64_topn"}},
+                        {{"key": "sql_source_free_sort_keys", "value": "doubled"}},
+                        {{"key": "sql_source_free_sort_direction", "value": "desc"}},
+                        {{"key": "output_io_performed", "value": "true"}},
+                        {{"key": "output_fanout_performed", "value": "true"}},
+                        {{"key": "result_reuse_for_fanout", "value": "true"}},
+                        {{"key": "fanout_result_reuse_hit", "value": "true"}},
+                        {{"key": "result_replay_verified", "value": "true"}},
+                        {{"key": "output_replay_status", "value": "verified_local_sink_artifacts"}},
+                        {{"key": "output_replay_millis", "value": "1"}},
+                        {{"key": "output_fidelity_report_status", "value": "scoped_local_output_fidelity_reported"}},
+                        {{"key": "output_fidelity_loss", "value": "jsonl:jsonl_text_roundtrip_not_full_type_metadata_fidelity,csv:csv_text_roundtrip_loses_static_type_metadata"}},
+                        {{"key": "fanout_output_count", "value": "1"}},
+                        {{"key": "fanout_output_formats", "value": "csv"}},
+                        {{"key": "fanout_output_paths", "value": "target/range-query-topn.csv"}},
+                        {{"key": "fanout_output_digests", "value": "csv:fnv64:abc"}},
+                        {{"key": "fanout_output_workspace_path_safety_statuses", "value": "csv:true"}},
+                        {{"key": "fanout_output_commit_modes", "value": "csv:atomic_rename_same_directory"}},
+                        {{"key": "fanout_output_native_io_certificate_statuses", "value": "csv:certified_local_file_sink"}},
+                        {{"key": "fanout_output_replay_statuses", "value": "csv:verified_local_file_digest"}},
+                        {{"key": "fanout_output_fidelity_statuses", "value": "csv:logical_rows_replay_verified_type_metadata_not_preserved"}},
+                        {{"key": "fanout_output_fidelity_loss", "value": "csv:csv_text_roundtrip_loses_static_type_metadata"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.range(1, 8, column="id")
+            .filter(sl.col("id") >= 3)
+            .with_column("doubled", sl.col("id") * 2)
+            .sort("doubled", descending=True)
+            .limit(2)
+            .fanout(
+                {"jsonl": "target/range-query-topn.jsonl", "csv": "target/range-query-topn.csv"},
+                allow_overwrite=True,
+            )
+        )
+
+        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.output_route, "local_sink_and_fanout")
+        self.assertTrue(report.output_fanout_performed)
+        self.assertTrue(report.result_reuse_for_fanout)
+        self.assertTrue(report.fanout_result_reuse_hit)
+        self.assertTrue(report.result_replay_verified)
+        self.assertEqual(report.output_replay_status, "verified_local_sink_artifacts")
+        self.assertEqual(report.output_replay_millis, 1)
+        self.assertEqual(
+            report.output_fidelity_report_status,
+            "scoped_local_output_fidelity_reported",
+        )
+        self.assertEqual(
+            report.output_fidelity_loss,
+            (
+                "jsonl:jsonl_text_roundtrip_not_full_type_metadata_fidelity",
+                "csv:csv_text_roundtrip_loses_static_type_metadata",
+            ),
+        )
+        self.assertEqual(report.fanout_output_count, 1)
+        self.assertEqual(report.fanout_output_formats, ("csv",))
+        self.assertEqual(report.fanout_output_paths, ("target/range-query-topn.csv",))
+        self.assertEqual(report.fanout_output_digests, ("csv:fnv64:abc",))
+        self.assertEqual(
+            report.fanout_output_workspace_path_safety_statuses,
+            ("csv:true",),
+        )
+        self.assertEqual(
+            report.fanout_output_commit_modes,
+            ("csv:atomic_rename_same_directory",),
+        )
+        self.assertEqual(
+            report.fanout_output_native_io_certificate_statuses,
+            ("csv:certified_local_file_sink",),
+        )
+        self.assertEqual(
+            report.fanout_output_replay_statuses,
+            ("csv:verified_local_file_digest",),
+        )
+        self.assertEqual(
+            report.fanout_output_fidelity_statuses,
+            ("csv:logical_rows_replay_verified_type_metadata_not_preserved",),
+        )
+        self.assertEqual(
+            report.fanout_output_fidelity_loss,
+            ("csv:csv_text_roundtrip_loses_static_type_metadata",),
+        )
+        self.assertTrue(report.sql_source_free_order_by_runtime_execution)
+        self.assertTrue(report.sql_source_free_top_n_runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+
     def test_range_validates_scoped_generated_source_inputs(self) -> None:
         with self.assertRaises(TypeError):
             sl.range(True, 10, binary=["definitely-missing-shardloom"])
@@ -6737,6 +6872,67 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_context_sql_source_free_fanout_invokes_generated_source_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-sql-smoke",
+                    "target/sql-select.jsonl",
+                    "SELECT 1 AS id, 'alpha' AS label",
+                    "--output-format",
+                    "jsonl",
+                    "--fanout-output",
+                    "csv=target/sql-select.csv",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-sql-smoke",
+                    "status": "success",
+                    "summary": "generated sql fanout",
+                    "human_text": "generated sql fanout",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "output_path", "value": "target/sql-select.jsonl"},
+                        {"key": "output_route", "value": "local_sink_and_fanout"},
+                        {"key": "generated_source_kind", "value": "sql_literal_select"},
+                        {"key": "generated_source_row_count", "value": "1"},
+                        {"key": "output_fanout_performed", "value": "true"},
+                        {"key": "fanout_output_count", "value": "1"},
+                        {"key": "fanout_output_formats", "value": "csv"},
+                        {"key": "fanout_result_reuse_hit", "value": "true"},
+                        {"key": "result_replay_verified", "value": "true"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = ctx.sql("SELECT 1 AS id, 'alpha' AS label", check=False).fanout(
+            (("jsonl", "target/sql-select.jsonl"), ("csv", "target/sql-select.csv")),
+            allow_overwrite=True,
+        )
+
+        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.output_route, "local_sink_and_fanout")
+        self.assertTrue(report.output_fanout_performed)
+        self.assertEqual(report.fanout_output_count, 1)
+        self.assertEqual(report.fanout_output_formats, ("csv",))
+        self.assertTrue(report.fanout_result_reuse_hit)
+        self.assertTrue(report.result_replay_verified)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_context_sql_generate_series_projection_write_invokes_generated_source_sql_smoke(
         self,

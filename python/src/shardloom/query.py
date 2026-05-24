@@ -801,6 +801,30 @@ class GeneratedRowsSource(_GeneratedStructuredOutputMixin):
             check=check,
         )
 
+    def fanout(
+        self,
+        outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Write generated user rows to a primary output plus fanout sinks."""
+
+        output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
+            outputs
+        )
+        return self.client.generated_source_user_rows_smoke(
+            output_path,
+            self.schema_arg,
+            self.rows_arg,
+            source_kind=self.source_kind,
+            output_format=output_format,
+            fanout_outputs=fanout_outputs,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
     """Scoped ShardLoom-native integer generator that can write a local smoke output."""
@@ -934,6 +958,42 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
         return self.write(
             target_uri,
             output_format="csv",
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
+    def fanout(
+        self,
+        outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Write an engine-native range/sequence to primary and fanout sinks."""
+
+        output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
+            outputs
+        )
+        if self.source_kind == "sequence":
+            return self.client.generated_source_sequence_smoke(
+                output_path,
+                self.start,
+                self.end,
+                step=self.step,
+                column=self.column,
+                output_format=output_format,
+                fanout_outputs=fanout_outputs,
+                allow_overwrite=allow_overwrite,
+                check=check,
+            )
+        return self.client.generated_source_range_smoke(
+            output_path,
+            self.start,
+            self.end,
+            step=self.step,
+            column=self.column,
+            output_format=output_format,
+            fanout_outputs=fanout_outputs,
             allow_overwrite=allow_overwrite,
             check=check,
         )
@@ -1126,6 +1186,27 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             check=check,
         )
 
+    def fanout(
+        self,
+        outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Write the admitted generated-range SQL query to multiple local sinks."""
+
+        output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
+            outputs
+        )
+        return self.client.generated_source_sql_smoke(
+            output_path,
+            self._statement(),
+            output_format=output_format,
+            fanout_outputs=fanout_outputs,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
     def _statement(self) -> str:
         select_items = self.select_items or _default_generated_range_select_items(
             self.column
@@ -1200,6 +1281,28 @@ class GeneratedSqlSource(_GeneratedStructuredOutputMixin):
             allow_overwrite=allow_overwrite,
             check=check,
         )
+
+    def fanout(
+        self,
+        outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
+        *,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> GeneratedSourceWriteReport:
+        """Write source-free SQL generated rows to primary and fanout sinks."""
+
+        output_path, output_format, fanout_outputs = _generated_primary_and_fanout_outputs(
+            outputs
+        )
+        return self.client.generated_source_sql_smoke(
+            output_path,
+            self.statement,
+            output_format=output_format,
+            fanout_outputs=fanout_outputs,
+            allow_overwrite=allow_overwrite,
+            check=check,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class SqlWorkflow:
@@ -1404,14 +1507,22 @@ class SqlWorkflow:
         *,
         allow_overwrite: bool = False,
         check: bool = True,
-    ) -> SqlLocalSourceSmokeReport | UnsupportedWorkflowOperationReport:
-        """Write an admitted local-source SQL result to multiple local sinks."""
+    ) -> (
+        GeneratedSourceWriteReport
+        | SqlLocalSourceSmokeReport
+        | UnsupportedWorkflowOperationReport
+    ):
+        """Write an admitted SQL result to primary and fanout local sinks."""
 
         normalized_outputs = _normalize_fanout_outputs(outputs)
         if _is_source_free_sql_statement(self.statement):
-            return self._unsupported_operation(
-                "fanout",
-                "source_free_sql_fanout_requires_generated_output_fanout_runtime",
+            output_format, output_path = normalized_outputs[0]
+            return self.client.generated_source_sql_smoke(
+                output_path,
+                self.statement,
+                output_format=output_format,
+                fanout_outputs=normalized_outputs[1:],
+                allow_overwrite=allow_overwrite,
                 check=check,
             )
         if _is_local_source_sql_statement(self.statement):
@@ -5019,6 +5130,14 @@ def _normalize_fanout_outputs(
     if not normalized:
         raise ValueError("fanout outputs must not be empty")
     return tuple(normalized)
+
+
+def _generated_primary_and_fanout_outputs(
+    outputs: Mapping[str, CommandPart] | Sequence[tuple[str, CommandPart]],
+) -> tuple[CommandPart, str, tuple[tuple[str, CommandPart], ...]]:
+    normalized = _normalize_fanout_outputs(outputs)
+    output_format, output_path = normalized[0]
+    return output_path, output_format, normalized[1:]
 
 
 def _is_non_string_sequence(value: object) -> bool:

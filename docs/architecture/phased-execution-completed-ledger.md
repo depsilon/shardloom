@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4E/4G/5C generated-source fanout and replay runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-generated-fanout-runtime-20260524` / #931.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4E generated-source builders as ordinary local runtime`.
+    - `GAR-RUNTIME-IMPL-4G local output writer registry and fanout promotion`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - User direction that SQL/Python should stay format-neutral, with per-format differences only at
+      read/ingest and write/sink boundaries.
+  - Scope:
+    - Added generated-source `--fanout-output format=local-path` runtime support for generated
+      user rows, range, sequence, and source-free SQL smokes.
+    - Preflights primary and fanout output paths and format gates before writing any generated
+      artifact, rejecting duplicated paths with deterministic no-fallback diagnostics.
+    - Reuses one computed generated row set across primary and fanout sinks and emits replay/digest,
+      fidelity-loss, workspace path-safety, fanout result-reuse, timing, certificate, and no-fallback
+      evidence.
+    - Extended Python generated rows, generated range/sequence, generated range SQL, and source-free
+      SQL `.fanout(...)` helpers so the first requested output is the primary sink and remaining
+      outputs are write-boundary fanouts.
+    - Refreshed stale Vortex dependency-review wording to point current support at optional Vortex
+      `0.72` while keeping TurboQuant blocked as vector capability metadata only.
+  - Verification:
+    - `cargo +1.91.1 check -p shardloom-cli --tests`
+    - `cargo +1.91.1 test -p shardloom-cli --test generated_source_runtime_smoke sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence -- --nocapture`
+    - `cargo +1.91.1 test -p shardloom-cli --test generated_source_runtime_smoke generated_source_fanout_rejects_duplicate_paths_before_writes -- --nocapture`
+    - `python -m compileall -q python\src python\tests`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_range_filter_with_column_sort_limit_fanout_invokes_generated_source_sql_smoke python.tests.test_query_builder.LazyWorkflowBuilderTests.test_context_sql_source_free_fanout_invokes_generated_source_sql_smoke`
+    - `cargo +1.91.1 test -p shardloom-cli --test generated_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest discover -s python/tests`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local generated-source fanout only. This does not add arbitrary SQL source-free
+      planning, object-store/table/lakehouse output, production/performance claims, or fallback
+      execution.
+  - Remaining gates:
+    - Continue broader expression parity, persistent OutputPlan reuse, Vortex scan pushdown,
+      encoded kernel pairs, session/prepared reuse, memory/spill safety, object-store and
+      table/lakehouse runtime ladders, and final release validation.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4E/5C generated-source range top-N runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-generated-range-topn-runtime-20260524` / #930.
