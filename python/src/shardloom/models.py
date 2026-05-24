@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 OUTPUT_ENVELOPE_SCHEMA_VERSION = "shardloom.output.v2"
+RUNTIME_EXECUTION_ENVELOPE_VALIDATION_SCHEMA_VERSION = (
+    "shardloom.runtime_execution_envelope_validation.v1"
+)
 REQUIRED_OUTPUT_ENVELOPE_FIELDS = frozenset(
     {
         "schema_version",
@@ -158,6 +161,94 @@ class ClaimSummary:
             "fallback_attempted": self.fallback_attempted,
             "external_engine_invoked": self.external_engine_invoked,
             "public_performance_claim_allowed": self.public_performance_claim_allowed,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeEnvelopeValidationIssue:
+    """One runtime-envelope validation blocker."""
+
+    code: str
+    field: str
+    message: str
+
+    def as_dict(self) -> dict[str, str]:
+        """Return this issue as a plain JSON-serializable mapping."""
+
+        return {
+            "code": self.code,
+            "field": self.field,
+            "message": self.message,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeEnvelopeValidationReport:
+    """Versioned validation result for a runtime-claim envelope."""
+
+    schema_version: str
+    surface_id: str
+    command: str
+    status: str
+    runtime_expected: bool
+    execution_mode: str | None
+    claim_gate_status: str | None
+    fallback_attempted: bool
+    external_engine_invoked: bool
+    issues: tuple[RuntimeEnvelopeValidationIssue, ...]
+
+    @property
+    def passed(self) -> bool:
+        """Whether the runtime envelope satisfied the required evidence contract."""
+
+        return self.status == "passed"
+
+    @property
+    def blockers(self) -> tuple[str, ...]:
+        """Return human-readable blockers for release gates and tests."""
+
+        return tuple(issue.message for issue in self.issues)
+
+    @property
+    def missing_fields(self) -> tuple[str, ...]:
+        """Return required fields or field groups that were missing."""
+
+        return tuple(
+            issue.field for issue in self.issues if issue.code == "missing_required_field"
+        )
+
+    @property
+    def invalid_fields(self) -> tuple[str, ...]:
+        """Return fields present with invalid or unsafe values."""
+
+        return tuple(
+            issue.field for issue in self.issues if issue.code != "missing_required_field"
+        )
+
+    @property
+    def runtime_claim_allowed(self) -> bool:
+        """Whether this envelope can support a production runtime claim."""
+
+        return self.passed and self.claim_gate_status == "claim_grade"
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return this validation report as a plain mapping."""
+
+        return {
+            "schema_version": self.schema_version,
+            "surface_id": self.surface_id,
+            "command": self.command,
+            "status": self.status,
+            "runtime_expected": self.runtime_expected,
+            "execution_mode": self.execution_mode,
+            "claim_gate_status": self.claim_gate_status,
+            "fallback_attempted": self.fallback_attempted,
+            "external_engine_invoked": self.external_engine_invoked,
+            "runtime_claim_allowed": self.runtime_claim_allowed,
+            "missing_fields": self.missing_fields,
+            "invalid_fields": self.invalid_fields,
+            "blockers": self.blockers,
+            "issues": [issue.as_dict() for issue in self.issues],
         }
 
 
@@ -342,6 +433,221 @@ class OutputEnvelope:
             is True,
             public_performance_claim_allowed=claim_gate_status == "claim_grade",
         )
+
+    def runtime_execution_validation(
+        self,
+        *,
+        surface_id: str = "runtime",
+        runtime_expected: bool = True,
+        execution_mode: str | None = None,
+    ) -> RuntimeEnvelopeValidationReport:
+        """Validate this envelope before treating it as runtime evidence."""
+
+        return validate_runtime_execution_envelope(
+            self,
+            surface_id=surface_id,
+            runtime_expected=runtime_expected,
+            execution_mode=execution_mode,
+        )
+
+
+def validate_runtime_execution_envelope(
+    envelope: OutputEnvelope,
+    *,
+    surface_id: str = "runtime",
+    runtime_expected: bool = True,
+    execution_mode: str | None = None,
+) -> RuntimeEnvelopeValidationReport:
+    """Return a versioned no-fallback runtime evidence validation report."""
+
+    issues: list[RuntimeEnvelopeValidationIssue] = []
+    selected_execution_mode = (
+        execution_mode
+        or envelope.field("selected_execution_mode")
+        or envelope.field("execution_mode")
+    )
+
+    for field in ("fallback_attempted", "external_engine_invoked", "claim_gate_status"):
+        if not _field_present(envelope, field):
+            issues.append(
+                RuntimeEnvelopeValidationIssue(
+                    code="missing_required_field",
+                    field=field,
+                    message=f"runtime envelope is missing required field {field}",
+                )
+            )
+    for field in ("fallback_attempted", "external_engine_invoked"):
+        if _field_present(envelope, field) and _safe_field_bool(envelope, field) is None:
+            issues.append(
+                RuntimeEnvelopeValidationIssue(
+                    code="invalid_runtime_field",
+                    field=field,
+                    message=f"runtime envelope field {field} must be true or false",
+                )
+            )
+
+    fallback_attempted = envelope.fallback.attempted or (
+        _safe_field_bool(envelope, "fallback_attempted") is True
+    )
+    external_engine_invoked = (
+        _safe_field_bool(envelope, "external_engine_invoked") is True
+    )
+    if fallback_attempted:
+        issues.append(
+            RuntimeEnvelopeValidationIssue(
+                code="unsafe_runtime_field",
+                field="fallback_attempted",
+                message="runtime envelope attempted fallback execution",
+            )
+        )
+    if external_engine_invoked:
+        issues.append(
+            RuntimeEnvelopeValidationIssue(
+                code="unsafe_runtime_field",
+                field="external_engine_invoked",
+                message="runtime envelope invoked an external execution engine",
+            )
+        )
+
+    if runtime_expected and envelope.status == "success":
+        _require_any_field(
+            envelope,
+            issues,
+            field_group="route_state_ref",
+            fields=(
+                "source_state_id",
+                "source_state_digest",
+                "prepared_state_id",
+                "prepared_state_digest",
+                "output_plan_digest",
+                "generated_source_plan_digest",
+                "vortex_artifact_digest",
+                "plan_id",
+            ),
+        )
+        _require_any_field(
+            envelope,
+            issues,
+            field_group="materialization_or_decode_evidence",
+            fields=(
+                "materialization_boundary",
+                "source_state_materialization_layout",
+                "source_state_runtime_consumption_layout",
+                "source_state_scalar_runtime_materialization_required",
+                "operator_temporary_materialization_used",
+                "representation_transitions",
+                "data_decoded",
+                "data_materialized",
+            ),
+        )
+        if not _execution_certificate_present(envelope):
+            issues.append(
+                RuntimeEnvelopeValidationIssue(
+                    code="missing_required_field",
+                    field="execution_certificate",
+                    message=(
+                        "runtime envelope is missing execution_certificate_ref, "
+                        "execution_certificate_refs, or a typed execution_certificate"
+                    ),
+                )
+            )
+
+    if selected_execution_mode == "prepared_vortex":
+        for field in ("prepared_state_id", "prepared_state_digest"):
+            if not _field_present(envelope, field):
+                issues.append(
+                    RuntimeEnvelopeValidationIssue(
+                        code="missing_required_field",
+                        field=field,
+                        message=f"prepared_vortex envelope is missing {field}",
+                    )
+                )
+
+    if selected_execution_mode == "compatibility_import_certified":
+        if envelope.field("timing_scope") != "cold_certified_end_to_end":
+            issues.append(
+                RuntimeEnvelopeValidationIssue(
+                    code="invalid_runtime_field",
+                    field="timing_scope",
+                    message=(
+                        "compatibility_import_certified envelope must disclose "
+                        "timing_scope=cold_certified_end_to_end"
+                    ),
+                )
+            )
+        if _safe_field_bool(envelope, "preparation_included") is not True:
+            issues.append(
+                RuntimeEnvelopeValidationIssue(
+                    code="invalid_runtime_field",
+                    field="preparation_included",
+                    message=(
+                        "compatibility_import_certified envelope must disclose "
+                        "preparation_included=true"
+                    ),
+                )
+            )
+
+    status = "passed" if not issues else "blocked"
+    return RuntimeEnvelopeValidationReport(
+        schema_version=RUNTIME_EXECUTION_ENVELOPE_VALIDATION_SCHEMA_VERSION,
+        surface_id=surface_id,
+        command=envelope.command,
+        status=status,
+        runtime_expected=runtime_expected,
+        execution_mode=selected_execution_mode,
+        claim_gate_status=envelope.field("claim_gate_status"),
+        fallback_attempted=fallback_attempted,
+        external_engine_invoked=external_engine_invoked,
+        issues=tuple(issues),
+    )
+
+
+def _field_present(envelope: OutputEnvelope, key: str) -> bool:
+    value = envelope.field(key)
+    if value is None:
+        return False
+    return value.strip().lower() not in {"", "none", "not_applicable", "missing"}
+
+
+def _safe_field_bool(envelope: OutputEnvelope, key: str) -> bool | None:
+    try:
+        return envelope.field_bool(key)
+    except ValueError:
+        return None
+
+
+def _require_any_field(
+    envelope: OutputEnvelope,
+    issues: list[RuntimeEnvelopeValidationIssue],
+    *,
+    field_group: str,
+    fields: tuple[str, ...],
+) -> None:
+    if any(_field_present(envelope, field) for field in fields):
+        return
+    issues.append(
+        RuntimeEnvelopeValidationIssue(
+            code="missing_required_field",
+            field=field_group,
+            message=(
+                "runtime envelope is missing required evidence group "
+                f"{field_group}: one of {','.join(fields)}"
+            ),
+        )
+    )
+
+
+def _execution_certificate_present(envelope: OutputEnvelope) -> bool:
+    if _field_present(envelope, "execution_certificate_ref"):
+        return True
+    if _field_present(envelope, "execution_certificate_refs"):
+        return True
+    return any(
+        str(certificate.get("kind", "")) == "execution_certificate"
+        or str(certificate.get("id", "")).startswith("execution.")
+        or ".execution." in str(certificate.get("id", ""))
+        for certificate in envelope.certificates
+    )
 
 
 def _optional_str(value: Any) -> str | None:

@@ -5996,6 +5996,58 @@ fn gar_0039_a_typed_envelope_api_surface_migration_remains_claim_safe() {
 }
 
 #[test]
+fn runtime_execution_envelope_validator_is_release_visible() {
+    let python_models = read_repo_file("python/src/shardloom/models.py");
+    for required in [
+        "shardloom.runtime_execution_envelope_validation.v1",
+        "RuntimeEnvelopeValidationReport",
+        "validate_runtime_execution_envelope",
+        "compatibility_import_certified envelope must disclose",
+        "prepared_vortex envelope is missing",
+    ] {
+        assert!(
+            python_models.contains(required),
+            "missing runtime envelope validator model marker {required}"
+        );
+    }
+
+    let validator = read_repo_file("scripts/check_runtime_execution_envelopes.py");
+    for required in [
+        "shardloom.runtime_execution_envelope_validation_report.v1",
+        "complete_sql_local_source",
+        "prepared_vortex_missing_state",
+        "compatibility_import_certified_timing_drift",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ] {
+        assert!(
+            validator.contains(required),
+            "missing runtime envelope validator script marker {required}"
+        );
+    }
+
+    let status = read_repo_file("docs/status/runtime-execution-envelope-validation.md");
+    for required in [
+        "GAR-RUNTIME-IMPL-4K",
+        "route_state_ref",
+        "materialization_or_decode_evidence",
+        "execution_certificate",
+        "compatibility_import_certified",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            status.contains(required),
+            "missing runtime envelope status marker {required}"
+        );
+    }
+
+    let release_gate = read_repo_file("scripts/check_release_readiness.py");
+    assert!(release_gate.contains("check_runtime_execution_envelopes.py"));
+    assert!(release_gate.contains("runtime-execution-envelope-validation.json"));
+}
+
+#[test]
 fn security_rfc_and_p80_completion_are_traceable() {
     let rfc =
         read_repo_file("docs/rfcs/0043-security-vulnerability-exploit-supply-chain-hardening.md");

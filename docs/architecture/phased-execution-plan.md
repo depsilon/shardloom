@@ -675,9 +675,20 @@ or documentation updates alone are insufficient.
 - [ ] GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators
   - Source: release readiness metadata, benchmark artifact policy, runtime evidence-level docs.
   - Current state: runtime reports have useful fields, but command, Python, benchmark, and website
-    envelopes can diverge.
-  - Next slice outcome: add a versioned execution-envelope schema and validators for every runtime
-    path.
+    envelopes can diverge. Python now exposes
+    `shardloom.runtime_execution_envelope_validation.v1` through
+    `OutputEnvelope.runtime_execution_validation(...)` /
+    `validate_runtime_execution_envelope(...)`, and
+    `scripts/check_runtime_execution_envelopes.py` verifies complete and deliberately broken
+    fixture envelopes. The validator rejects runtime envelopes missing explicit parseable
+    no-fallback fields, claim-gate status, route-state refs, materialization/decode evidence,
+    execution certificates, prepared-state refs for `prepared_vortex`, or cold timing attribution for
+    `compatibility_import_certified`. The hard release gate now checks that the validator script
+    and status artifacts remain present. The parent stays open until the same validator is applied
+    to every runtime command family, benchmark artifact row, and website/status render path.
+  - Next slice outcome: migrate each runtime command family and benchmark row through the versioned
+    validator, then fail release readiness when any supported runtime path lacks certificate,
+    materialization/decode, claim-gate, or no-fallback evidence.
   - Runtime enablement: runtime-claim validator that rejects paths missing certificate,
     materialization/decode, claim-gate, or no-fallback fields.
   - User-visible surface: CLI JSON, Python typed reports, benchmark artifacts, website evidence,
@@ -707,9 +718,11 @@ or documentation updates alone are insufficient.
     `ShardLoomSession` for local `vortex_ingest` prepared-state reuse plus admitted local
     query-builder collect/write/fanout result reuse when source, output, and prepared-artifact
     fingerprints still match. Session SQL results surface SourceState id/digest, read-plan,
-    projection-pushdown, and materialized/reader projection columns from the local source runtime.
-    Broader CLI batch/session reuse, cross-workflow OutputPlan reuse, schema/dictionary cache reuse,
-    buffer pools, object-store/table reuse, and non-local workflows are still planned.
+    projection-pushdown, materialized/reader projection columns, `source_schema_digest`,
+    `plan_digest`, `output_plan_digest`, `execution_certificate_ref`, reuse/invalidation reason,
+    and runtime-envelope validation status from the local source runtime. Broader CLI batch/session
+    reuse, cross-workflow OutputPlan reuse, schema/dictionary cache reuse, buffer pools,
+    object-store/table reuse, and non-local workflows are still planned.
   - Next slice outcome: extend the scoped in-process `ShardLoomSession` from prepared-state reuse
     into admitted SourceState, VortexPreparedState, schema/dictionary state, and OutputPlan reuse
     where fingerprints remain valid.

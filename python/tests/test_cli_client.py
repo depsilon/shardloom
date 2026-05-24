@@ -1098,6 +1098,207 @@ class ShardLoomClientTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "capability_snapshot"):
             OutputEnvelope.from_json(payload)
 
+    def test_runtime_execution_envelope_validation_accepts_complete_local_runtime(
+        self,
+    ) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "sql-local-source-smoke",
+                "status": "success",
+                "summary": "sql local source",
+                "human_text": "sql local source",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {
+                    "fields": [
+                        {"key": "source_state_id", "value": "source-state-1"},
+                        {"key": "source_state_digest", "value": "fnv64:source"},
+                        {"key": "source_state_materialization_layout", "value": "scalar_row_map"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.execution.v1"},
+                    ]
+                },
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {
+                    "fields": [
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    ]
+                },
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [],
+            }
+        )
+
+        validation = envelope.runtime_execution_validation(
+            surface_id="sql_local_source_smoke"
+        )
+
+        self.assertTrue(validation.passed)
+        self.assertEqual(
+            validation.schema_version,
+            "shardloom.runtime_execution_envelope_validation.v1",
+        )
+        self.assertEqual(validation.surface_id, "sql_local_source_smoke")
+        self.assertFalse(validation.runtime_claim_allowed)
+        self.assertEqual(validation.blockers, ())
+
+    def test_runtime_execution_envelope_validation_blocks_missing_runtime_evidence(
+        self,
+    ) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "prepared-run",
+                "status": "success",
+                "summary": "prepared run",
+                "human_text": "prepared run",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {"fields": [{"key": "execution_mode", "value": "prepared_vortex"}]},
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {
+                    "fields": [
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    ]
+                },
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [],
+            }
+        )
+
+        validation = envelope.runtime_execution_validation(surface_id="prepared_run")
+
+        self.assertFalse(validation.passed)
+        self.assertIn("execution_certificate", validation.missing_fields)
+        self.assertIn("route_state_ref", validation.missing_fields)
+        self.assertIn("materialization_or_decode_evidence", validation.missing_fields)
+        self.assertIn("prepared_state_id", validation.missing_fields)
+        self.assertIn("prepared_state_digest", validation.missing_fields)
+
+    def test_runtime_execution_envelope_validation_blocks_certified_timing_drift(
+        self,
+    ) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "traditional-analytics-run",
+                "status": "success",
+                "summary": "compat certified",
+                "human_text": "compat certified",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {
+                    "fields": [
+                        {"key": "execution_mode", "value": "compatibility_import_certified"},
+                        {"key": "source_state_id", "value": "source-state-1"},
+                        {"key": "source_state_materialization_layout", "value": "columnar_source_state"},
+                        {"key": "execution_certificate_ref", "value": "compat.execution.v1"},
+                        {"key": "timing_scope", "value": "warm_query_only"},
+                        {"key": "preparation_included", "value": "false"},
+                    ]
+                },
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {
+                    "fields": [
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    ]
+                },
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [],
+            }
+        )
+
+        validation = envelope.runtime_execution_validation()
+
+        self.assertFalse(validation.passed)
+        self.assertIn("timing_scope", validation.invalid_fields)
+        self.assertIn("preparation_included", validation.invalid_fields)
+
+    def test_runtime_execution_envelope_validation_blocks_invalid_no_fallback_flags(
+        self,
+    ) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "sql-local-source-smoke",
+                "status": "success",
+                "summary": "sql local source",
+                "human_text": "sql local source",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {
+                    "fields": [
+                        {"key": "source_state_id", "value": "source-state-1"},
+                        {
+                            "key": "source_state_materialization_layout",
+                            "value": "scalar_row_map",
+                        },
+                        {
+                            "key": "execution_certificate_ref",
+                            "value": "sql-local-source.execution.v1",
+                        },
+                    ]
+                },
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [],
+                "policy": {
+                    "fields": [
+                        {"key": "fallback_attempted", "value": "maybe"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                    ]
+                },
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [],
+            }
+        )
+
+        validation = envelope.runtime_execution_validation()
+
+        self.assertFalse(validation.passed)
+        self.assertIn("fallback_attempted", validation.invalid_fields)
+
     def test_sql_local_source_report_result_rows_validate_jsonl_objects(self) -> None:
         def report_for(result_jsonl: str) -> SqlLocalSourceSmokeReport:
             envelope = OutputEnvelope.from_json(
@@ -1476,6 +1677,9 @@ class ShardLoomClientTests(unittest.TestCase):
                             {{"key": "output_plan_digest", "value": f"sha256:output-plan-{{count}}"}},
                             {{"key": "source_state_id", "value": f"sql-source-state-{{count}}"}},
                             {{"key": "source_state_digest", "value": f"fnv64:sql-source-{{count}}"}},
+                            {{"key": "source_schema_digest", "value": f"fnv64:sql-schema-{{count}}"}},
+                            {{"key": "plan_digest", "value": f"fnv64:sql-plan-{{count}}"}},
+                            {{"key": "execution_certificate_ref", "value": "sql-local-source.csv.projection-limit.execution.v1"}},
                             {{"key": "source_state_contract_schema_version", "value": "shardloom.local_source_state.v1"}},
                             {{"key": "source_state_read_plan", "value": "projected_source_state"}},
                             {{"key": "source_state_projection_pushdown_status", "value": "reader_projection_applied"}},
@@ -1517,6 +1721,14 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertTrue(second.result_replay_reuse_hit)
             self.assertEqual(second.source_state_id, "sql-source-state-1")
             self.assertEqual(second.source_state_digest, "fnv64:sql-source-1")
+            self.assertEqual(second.source_schema_digest, "fnv64:sql-schema-1")
+            self.assertEqual(second.plan_digest, "fnv64:sql-plan-1")
+            self.assertEqual(
+                second.execution_certificate_ref,
+                "sql-local-source.csv.projection-limit.execution.v1",
+            )
+            self.assertTrue(second.runtime_validation.passed)
+            self.assertFalse(second.runtime_validation.runtime_claim_allowed)
             self.assertEqual(
                 second.source_state_contract_schema_version,
                 "shardloom.local_source_state.v1",
@@ -1558,6 +1770,16 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertEqual(
                 second.evidence()["source_state_digest"], "fnv64:sql-source-1"
             )
+            self.assertEqual(second.evidence()["source_schema_digest"], "fnv64:sql-schema-1")
+            self.assertEqual(second.evidence()["plan_digest"], "fnv64:sql-plan-1")
+            self.assertEqual(
+                second.evidence()["execution_certificate_ref"],
+                "sql-local-source.csv.projection-limit.execution.v1",
+            )
+            self.assertEqual(
+                second.evidence()["runtime_envelope_validation_status"],
+                "passed",
+            )
             self.assertEqual(
                 second.evidence()["source_state_read_plan"], "projected_source_state"
             )
@@ -1596,6 +1818,10 @@ class ShardLoomClientTests(unittest.TestCase):
             self.assertEqual(evidence["source_state_reuse_count"], 1)
             self.assertEqual(evidence["output_plan_reuse_count"], 1)
             self.assertEqual(evidence["result_replay_reuse_count"], 1)
+            self.assertEqual(
+                evidence["last_invalidation_reason"],
+                "output_artifact_fingerprint_changed",
+            )
             self.assertFalse(evidence["fallback_attempted"])
             self.assertFalse(evidence["external_engine_invoked"])
 

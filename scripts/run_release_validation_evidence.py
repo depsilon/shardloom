@@ -90,6 +90,7 @@ REQUIRED_VALIDATION_COMMANDS = [
     ),
     ("golden_workflow_validator", [sys.executable, "scripts/check_golden_workflows.py"]),
     ("admitted_semantics_matrix", [sys.executable, "scripts/check_admitted_semantics_matrix.py"]),
+    ("runtime_execution_envelopes", [sys.executable, "scripts/check_runtime_execution_envelopes.py"]),
     (
         "final_release_rehearsal",
         [sys.executable, "scripts/final_release_rehearsal.py", "--allow-blocked"],

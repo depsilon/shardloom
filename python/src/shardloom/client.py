@@ -1145,6 +1145,24 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field("source_state_contract_schema_version")
 
     @property
+    def source_schema_digest(self) -> str | None:
+        """Return the local source-schema digest when emitted."""
+
+        return self.envelope.field("source_schema_digest")
+
+    @property
+    def plan_digest(self) -> str | None:
+        """Return the SQL local-source plan digest when emitted."""
+
+        return self.envelope.field("plan_digest")
+
+    @property
+    def execution_certificate_ref(self) -> str | None:
+        """Return the execution certificate reference when emitted."""
+
+        return self.envelope.field("execution_certificate_ref")
+
+    @property
     def source_state_read_plan(self) -> str | None:
         """Return the local SourceState read-plan status."""
 
