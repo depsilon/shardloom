@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped expression ON join runtime
   - Date: 2026-05-24
-  - Branch/PR: `compute-engine-expression-join-runtime-20260524` / pending.
+  - Branch/PR: `compute-engine-expression-join-runtime-20260524` / #933.
   - Source:
     - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
     - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
