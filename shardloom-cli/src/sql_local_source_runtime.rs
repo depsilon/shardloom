@@ -305,6 +305,7 @@ struct ParsedSqlLocalSource {
     source_alias: Option<String>,
     join: Option<ParsedJoin>,
     predicate: ParsedPredicate,
+    having: ParsedPredicate,
     limit: usize,
     normalized_statement: String,
 }
@@ -1576,12 +1577,52 @@ struct JoinEvaluationOutput {
     unmatched_left_row_count: usize,
     unmatched_right_row_count: usize,
     selected_row_count: usize,
+    having_input_row_count: usize,
+    having_selected_row_count: usize,
     output_rows: Vec<Vec<(String, ScalarValue)>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct NonJoinEvaluationOutput {
+    selected_row_count: usize,
+    having_input_row_count: usize,
+    having_selected_row_count: usize,
+    output_rows: SqlOutputRows,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct AggregateEvaluationOutput {
+    having_input_row_count: usize,
+    having_selected_row_count: usize,
+    rows: SqlOutputRows,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct SqlLocalSourceClauseIndexes {
+    from: usize,
+    limit: usize,
+    filter: Option<usize>,
+    group_by: Option<usize>,
+    having: Option<usize>,
+    order_by: Option<usize>,
+}
+
+struct ParsedSqlLocalSourceParts {
+    statement: String,
+    projection_list: ParsedProjectionList,
+    group_by: Vec<String>,
+    order_by: Option<ParsedOrderBy>,
+    source_clause: ParsedSourceClause,
+    predicate: ParsedPredicate,
+    having: ParsedPredicate,
+    limit: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 struct SqlLocalSourceEvaluationOutput {
     selected_row_count: usize,
+    having_input_row_count: usize,
+    having_selected_row_count: usize,
     joined_row_count: usize,
     candidate_row_count: usize,
     unmatched_left_row_count: usize,
@@ -1596,6 +1637,8 @@ struct SqlLocalSourceReport {
     source: CsvSourceData,
     right_source: Option<CsvSourceData>,
     selected_row_count: usize,
+    having_input_row_count: usize,
+    having_selected_row_count: usize,
     joined_row_count: usize,
     candidate_row_count: usize,
     unmatched_left_row_count: usize,
@@ -2819,6 +2862,7 @@ fn run_sql_local_source_smoke(
         right_source.as_ref().map(|source| source.header.as_slice()),
     )?;
     materialize_in_subquery_predicates(&mut parsed.predicate)?;
+    materialize_in_subquery_predicates(&mut parsed.having)?;
     apply_temporal_literal_column_coercions(&parsed, &mut source, right_source.as_mut())?;
     resolve_conditional_projection_branch_dtypes(&mut parsed, &source)?;
     validate_null_coalesce_projection_values(&parsed, &source, right_source.as_ref())?;
@@ -2873,6 +2917,8 @@ fn run_sql_local_source_smoke(
         source,
         right_source,
         selected_row_count: evaluated_output.selected_row_count,
+        having_input_row_count: evaluated_output.having_input_row_count,
+        having_selected_row_count: evaluated_output.having_selected_row_count,
         joined_row_count: evaluated_output.joined_row_count,
         candidate_row_count: evaluated_output.candidate_row_count,
         unmatched_left_row_count: evaluated_output.unmatched_left_row_count,
@@ -2901,6 +2947,8 @@ fn evaluate_sql_local_source_output(
         let join_output = evaluate_join_output(parsed, source, right_source)?;
         Ok(SqlLocalSourceEvaluationOutput {
             selected_row_count: join_output.selected_row_count,
+            having_input_row_count: join_output.having_input_row_count,
+            having_selected_row_count: join_output.having_selected_row_count,
             joined_row_count: join_output.joined_row_count,
             candidate_row_count: join_output.candidate_row_count,
             unmatched_left_row_count: join_output.unmatched_left_row_count,
@@ -2908,14 +2956,16 @@ fn evaluate_sql_local_source_output(
             output_rows: join_output.output_rows,
         })
     } else {
-        let (selected_row_count, output_rows) = evaluate_non_join_output(parsed, source)?;
+        let non_join_output = evaluate_non_join_output(parsed, source)?;
         Ok(SqlLocalSourceEvaluationOutput {
-            selected_row_count,
+            selected_row_count: non_join_output.selected_row_count,
+            having_input_row_count: non_join_output.having_input_row_count,
+            having_selected_row_count: non_join_output.having_selected_row_count,
             joined_row_count: 0,
             candidate_row_count: 0,
             unmatched_left_row_count: 0,
             unmatched_right_row_count: 0,
-            output_rows,
+            output_rows: non_join_output.output_rows,
         })
     }
 }
@@ -2928,12 +2978,13 @@ fn sql_local_source_plan_digest(
     source_schema_digest: &str,
 ) -> String {
     fnv64_digest(&format!(
-        "{}|{}|{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}|{}|{}",
         parsed.normalized_statement,
         source_schema_digest,
         source.source_digest,
         right_source.map_or_else(String::new, |source| source.source_digest.clone()),
         parsed.predicate.in_subquery_plan_digest_fragment(),
+        parsed.having.in_subquery_plan_digest_fragment(),
         request.output_format.as_str(),
         fanout_plan_digest_fragment(request),
         source.read_plan.requested_columns()
@@ -2943,22 +2994,46 @@ fn sql_local_source_plan_digest(
 fn evaluate_non_join_output(
     parsed: &ParsedSqlLocalSource,
     source: &CsvSourceData,
-) -> Result<(usize, SqlOutputRows), ShardLoomError> {
+) -> Result<NonJoinEvaluationOutput, ShardLoomError> {
     let selected_row_indexes = selected_row_indexes(parsed, source)?;
-    let output_rows = if parsed.is_grouped_aggregate() {
-        let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
-        evaluate_grouped_aggregate_output(parsed, &selected_rows)?
-    } else if parsed.is_aggregate() {
-        let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
-        evaluate_scalar_aggregate_output(parsed, &selected_rows)?
-    } else if parsed.has_computed_projection() && parsed.order_by.is_some() {
-        evaluate_computed_projection_ordered_output(parsed, source, &selected_row_indexes)?
-    } else {
-        let selected_row_indexes =
-            ordered_projection_row_indexes(parsed, source, &selected_row_indexes)?;
-        evaluate_projection_output(parsed, source, &selected_row_indexes)?
-    };
-    Ok((selected_row_indexes.len(), output_rows))
+    let (having_input_row_count, having_selected_row_count, output_rows) =
+        if parsed.is_grouped_aggregate() {
+            let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
+            let aggregate = evaluate_grouped_aggregate_output(parsed, &selected_rows)?;
+            (
+                aggregate.having_input_row_count,
+                aggregate.having_selected_row_count,
+                aggregate.rows,
+            )
+        } else if parsed.is_aggregate() {
+            let selected_rows = selected_input_rows(source, &selected_row_indexes)?;
+            let aggregate = evaluate_scalar_aggregate_output(parsed, &selected_rows)?;
+            (
+                aggregate.having_input_row_count,
+                aggregate.having_selected_row_count,
+                aggregate.rows,
+            )
+        } else if parsed.has_computed_projection() && parsed.order_by.is_some() {
+            (
+                0,
+                0,
+                evaluate_computed_projection_ordered_output(parsed, source, &selected_row_indexes)?,
+            )
+        } else {
+            let selected_row_indexes =
+                ordered_projection_row_indexes(parsed, source, &selected_row_indexes)?;
+            (
+                0,
+                0,
+                evaluate_projection_output(parsed, source, &selected_row_indexes)?,
+            )
+        };
+    Ok(NonJoinEvaluationOutput {
+        selected_row_count: selected_row_indexes.len(),
+        having_input_row_count,
+        having_selected_row_count,
+        output_rows,
+    })
 }
 
 fn materialize_in_subquery_predicates(
@@ -3792,7 +3867,7 @@ fn evaluate_join_output(
         )?;
     }
 
-    let output_rows =
+    let (output_rows, having_input_row_count, having_selected_row_count) =
         evaluate_join_selected_output_rows(parsed, &projection_expressions, &accumulator.rows)?;
 
     Ok(JoinEvaluationOutput {
@@ -3801,6 +3876,8 @@ fn evaluate_join_output(
         unmatched_left_row_count: accumulator.unmatched_left_row_count,
         unmatched_right_row_count: accumulator.unmatched_right_row_count,
         selected_row_count: accumulator.selected_row_count,
+        having_input_row_count,
+        having_selected_row_count,
         output_rows,
     })
 }
@@ -4064,13 +4141,23 @@ fn evaluate_join_selected_output_rows(
     parsed: &ParsedSqlLocalSource,
     projection_expressions: &[Expression],
     selected_join_rows: &[ExpressionInputRow],
-) -> Result<SqlOutputRows, ShardLoomError> {
+) -> Result<(SqlOutputRows, usize, usize), ShardLoomError> {
     let selected_join_row_refs = selected_join_rows.iter().collect::<Vec<_>>();
     if parsed.is_grouped_aggregate() {
-        return evaluate_grouped_aggregate_output(parsed, &selected_join_row_refs);
+        let aggregate = evaluate_grouped_aggregate_output(parsed, &selected_join_row_refs)?;
+        return Ok((
+            aggregate.rows,
+            aggregate.having_input_row_count,
+            aggregate.having_selected_row_count,
+        ));
     }
     if parsed.is_aggregate() {
-        return evaluate_scalar_aggregate_output(parsed, &selected_join_row_refs);
+        let aggregate = evaluate_scalar_aggregate_output(parsed, &selected_join_row_refs)?;
+        return Ok((
+            aggregate.rows,
+            aggregate.having_input_row_count,
+            aggregate.having_selected_row_count,
+        ));
     }
     let ordered_join_row_indexes = ordered_join_row_indexes(parsed, &selected_join_row_refs)?;
     let mut output_rows = Vec::new();
@@ -4083,7 +4170,7 @@ fn evaluate_join_selected_output_rows(
             joined_row,
         )?);
     }
-    Ok(output_rows)
+    Ok((output_rows, 0, 0))
 }
 
 fn enforce_join_candidate_cap(joined_row_count: usize) -> Result<(), ShardLoomError> {
@@ -5182,9 +5269,13 @@ fn qualified_join_right_only_row(
 fn evaluate_scalar_aggregate_output(
     parsed: &ParsedSqlLocalSource,
     rows: &[&ExpressionInputRow],
-) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+) -> Result<AggregateEvaluationOutput, ShardLoomError> {
     if parsed.limit == 0 {
-        return Ok(Vec::new());
+        return Ok(AggregateEvaluationOutput {
+            having_input_row_count: 0,
+            having_selected_row_count: 0,
+            rows: Vec::new(),
+        });
     }
     let row_indexes = (0..rows.len()).collect::<Vec<_>>();
     let mut row = Vec::with_capacity(parsed.aggregates.len());
@@ -5194,15 +5285,26 @@ fn evaluate_scalar_aggregate_output(
             evaluate_scalar_aggregate(aggregate, rows, &row_indexes)?,
         ));
     }
-    Ok(vec![row])
+    let (having_input_row_count, having_selected_row_count, mut output_rows) =
+        apply_having_filter(parsed, vec![row])?;
+    output_rows.truncate(parsed.limit);
+    Ok(AggregateEvaluationOutput {
+        having_input_row_count,
+        having_selected_row_count,
+        rows: output_rows,
+    })
 }
 
 fn evaluate_grouped_aggregate_output(
     parsed: &ParsedSqlLocalSource,
     rows: &[&ExpressionInputRow],
-) -> Result<Vec<Vec<(String, ScalarValue)>>, ShardLoomError> {
+) -> Result<AggregateEvaluationOutput, ShardLoomError> {
     if parsed.limit == 0 {
-        return Ok(Vec::new());
+        return Ok(AggregateEvaluationOutput {
+            having_input_row_count: 0,
+            having_selected_row_count: 0,
+            rows: Vec::new(),
+        });
     }
     let mut groups: BTreeMap<String, GroupedAggregateBucket> = BTreeMap::new();
     for (row_index, row) in rows.iter().enumerate() {
@@ -5237,6 +5339,8 @@ fn evaluate_grouped_aggregate_output(
         }
         output_rows.push(row);
     }
+    let (having_input_row_count, having_selected_row_count, mut output_rows) =
+        apply_having_filter(parsed, output_rows)?;
     if let Some(order_by) = parsed.order_by.as_ref() {
         let ordered_indexes =
             ordered_output_row_indexes(&output_rows, order_by, "ORDER BY aggregate output column")?;
@@ -5248,7 +5352,47 @@ fn evaluate_grouped_aggregate_output(
     } else {
         output_rows.truncate(parsed.limit);
     }
-    Ok(output_rows)
+    Ok(AggregateEvaluationOutput {
+        having_input_row_count,
+        having_selected_row_count,
+        rows: output_rows,
+    })
+}
+
+fn apply_having_filter(
+    parsed: &ParsedSqlLocalSource,
+    output_rows: SqlOutputRows,
+) -> Result<(usize, usize, SqlOutputRows), ShardLoomError> {
+    let input_row_count = output_rows.len();
+    if !parsed.has_having() {
+        return Ok((0, 0, output_rows));
+    }
+    let predicate_expression = parsed.having.to_expression()?;
+    let expression_rows = output_rows
+        .iter()
+        .map(|row| row.iter().cloned().collect::<ExpressionInputRow>())
+        .collect::<Vec<_>>();
+    let filter = evaluate_filter(&predicate_expression, &expression_rows);
+    if filter.has_errors() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "SQL local-source HAVING evaluation failed: {}",
+            filter
+                .diagnostics
+                .first()
+                .map_or("unknown diagnostic", |diagnostic| diagnostic
+                    .reason
+                    .as_deref()
+                    .unwrap_or(diagnostic.message.as_str()))
+        )));
+    }
+    let mut selected_rows = Vec::with_capacity(filter.selected_row_count());
+    for row_index in filter.selected_row_indexes {
+        let row = output_rows.get(row_index).ok_or_else(|| {
+            ShardLoomError::InvalidOperation("HAVING row index is out of bounds".to_string())
+        })?;
+        selected_rows.push(row.clone());
+    }
+    Ok((input_row_count, selected_rows.len(), selected_rows))
 }
 
 fn group_key(values: &[(String, ScalarValue)]) -> String {
@@ -5787,6 +5931,12 @@ fn bind_sql_local_source(
             "GROUP BY requires at least one aggregate function in this scoped smoke",
         ));
     }
+    if parsed.has_having() && !parsed.is_aggregate() {
+        return Err(unsupported_sql_error(
+            "HAVING requires aggregate output columns in this scoped smoke",
+        ));
+    }
+    validate_having_source_columns(parsed, &parsed.output_columns(header))?;
     validate_predicate_source_columns(parsed, header)?;
     Ok(())
 }
@@ -6156,6 +6306,26 @@ fn validate_predicate_source_columns(
     Ok(())
 }
 
+fn validate_having_source_columns(
+    parsed: &ParsedSqlLocalSource,
+    output_columns: &[String],
+) -> Result<(), ShardLoomError> {
+    if !parsed.has_having() {
+        return Ok(());
+    }
+    for predicate_column in parsed.having.columns() {
+        if !output_columns
+            .iter()
+            .any(|candidate| candidate == predicate_column)
+        {
+            return Err(unsupported_sql_error(&format!(
+                "HAVING column {predicate_column:?} is not present in the aggregate output row"
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
     if !parsed.has_computed_projection() {
         return Ok(());
@@ -6339,6 +6509,12 @@ fn bind_join_sql_local_source(
         validate_projection_output_names(parsed)?;
     }
     validate_aggregate_output_names(parsed)?;
+    if parsed.has_having() && !parsed.is_aggregate() {
+        return Err(unsupported_sql_error(
+            "HAVING requires aggregate output columns in this scoped smoke",
+        ));
+    }
+    validate_having_source_columns(parsed, &parsed.output_columns(&qualified_header))?;
     bind_qualified_predicate(
         &parsed.predicate,
         left_alias,
@@ -6760,6 +6936,41 @@ impl ParsedSqlLocalSource {
         !self.predicate.is_all()
     }
 
+    fn has_having(&self) -> bool {
+        !self.having.is_all()
+    }
+
+    fn aggregate_statement_suffix(&self, suffix: &str) -> String {
+        if self.has_having() {
+            format!("{suffix}_having")
+        } else {
+            suffix.to_string()
+        }
+    }
+
+    fn aggregate_certificate_suffix(&self, suffix: &str) -> String {
+        if self.has_having() {
+            format!("{suffix}-having")
+        } else {
+            suffix.to_string()
+        }
+    }
+
+    fn join_aggregate_statement_kind(&self, suffix: &str) -> String {
+        let suffix = self.aggregate_statement_suffix(suffix);
+        self.join_statement_kind(&suffix)
+    }
+
+    fn join_aggregate_certificate_suffix(&self, suffix: &str) -> String {
+        let suffix = self.aggregate_certificate_suffix(suffix);
+        self.join_certificate_suffix(&suffix)
+    }
+
+    fn join_aggregate_claim_suffix(&self, suffix: &str) -> String {
+        let suffix = self.aggregate_statement_suffix(suffix);
+        self.join_claim_suffix(&suffix)
+    }
+
     fn has_literal_projection(&self) -> bool {
         !self.literal_projections.is_empty()
     }
@@ -6903,25 +7114,25 @@ impl ParsedSqlLocalSource {
             && self.order_by.is_some()
             && self.has_filter()
         {
-            self.join_statement_kind("group_by_aggregate_order_by_topn_filter_limit")
+            self.join_aggregate_statement_kind("group_by_aggregate_order_by_topn_filter_limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.order_by.is_some() {
-            self.join_statement_kind("group_by_aggregate_order_by_topn_limit")
+            self.join_aggregate_statement_kind("group_by_aggregate_order_by_topn_limit")
         } else if self.is_join()
             && self.is_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
         {
-            self.join_statement_kind("aggregate_order_by_topn_filter_limit")
+            self.join_aggregate_statement_kind("aggregate_order_by_topn_filter_limit")
         } else if self.is_join() && self.is_aggregate() && self.order_by.is_some() {
-            self.join_statement_kind("aggregate_order_by_topn_limit")
+            self.join_aggregate_statement_kind("aggregate_order_by_topn_limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
-            self.join_statement_kind("group_by_aggregate_filter_limit")
+            self.join_aggregate_statement_kind("group_by_aggregate_filter_limit")
         } else if self.is_join() && self.is_grouped_aggregate() {
-            self.join_statement_kind("group_by_aggregate_limit")
+            self.join_aggregate_statement_kind("group_by_aggregate_limit")
         } else if self.is_join() && self.is_aggregate() && self.has_filter() {
-            self.join_statement_kind("aggregate_filter_limit")
+            self.join_aggregate_statement_kind("aggregate_filter_limit")
         } else if self.is_join() && self.is_aggregate() {
-            self.join_statement_kind("aggregate_limit")
+            self.join_aggregate_statement_kind("aggregate_limit")
         } else if let Some(shape) = self.join_projection_shape() {
             self.join_statement_kind(shape.statement_suffix())
         } else if self.is_join() && self.has_filter() {
@@ -6929,13 +7140,25 @@ impl ParsedSqlLocalSource {
         } else if self.is_join() {
             self.join_statement_kind("limit")
         } else if self.is_grouped_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "local_source_group_by_aggregate_order_by_topn_filter_limit".to_string()
+            format!(
+                "local_source_{}",
+                self.aggregate_statement_suffix("group_by_aggregate_order_by_topn_filter_limit")
+            )
         } else if self.is_grouped_aggregate() && self.order_by.is_some() {
-            "local_source_group_by_aggregate_order_by_topn_limit".to_string()
+            format!(
+                "local_source_{}",
+                self.aggregate_statement_suffix("group_by_aggregate_order_by_topn_limit")
+            )
         } else if self.is_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "local_source_aggregate_order_by_topn_filter_limit".to_string()
+            format!(
+                "local_source_{}",
+                self.aggregate_statement_suffix("aggregate_order_by_topn_filter_limit")
+            )
         } else if self.is_aggregate() && self.order_by.is_some() {
-            "local_source_aggregate_order_by_topn_limit".to_string()
+            format!(
+                "local_source_{}",
+                self.aggregate_statement_suffix("aggregate_order_by_topn_limit")
+            )
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
             "local_source_computed_projection_order_by_topn_filter_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
@@ -6945,13 +7168,25 @@ impl ParsedSqlLocalSource {
         } else if self.order_by.is_some() {
             "local_source_order_by_topn_limit".to_string()
         } else if self.is_grouped_aggregate() && self.has_filter() {
-            "local_source_group_by_aggregate_filter_limit".to_string()
+            format!(
+                "local_source_{}",
+                self.aggregate_statement_suffix("group_by_aggregate_filter_limit")
+            )
         } else if self.is_grouped_aggregate() {
-            "local_source_group_by_aggregate_limit".to_string()
+            format!(
+                "local_source_{}",
+                self.aggregate_statement_suffix("group_by_aggregate_limit")
+            )
         } else if self.is_aggregate() && self.has_filter() {
-            "local_source_aggregate_filter_limit".to_string()
+            format!(
+                "local_source_{}",
+                self.aggregate_statement_suffix("aggregate_filter_limit")
+            )
         } else if self.is_aggregate() {
-            "local_source_aggregate_limit".to_string()
+            format!(
+                "local_source_{}",
+                self.aggregate_statement_suffix("aggregate_limit")
+            )
         } else if self.has_literal_projection() && self.has_filter() {
             "local_source_literal_projection_filter_limit".to_string()
         } else if self.has_literal_projection() {
@@ -6973,25 +7208,25 @@ impl ParsedSqlLocalSource {
             && self.order_by.is_some()
             && self.has_filter()
         {
-            self.join_certificate_suffix("group-by-aggregate-order-by-topn-filter-limit")
+            self.join_aggregate_certificate_suffix("group-by-aggregate-order-by-topn-filter-limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.order_by.is_some() {
-            self.join_certificate_suffix("group-by-aggregate-order-by-topn-limit")
+            self.join_aggregate_certificate_suffix("group-by-aggregate-order-by-topn-limit")
         } else if self.is_join()
             && self.is_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
         {
-            self.join_certificate_suffix("aggregate-order-by-topn-filter-limit")
+            self.join_aggregate_certificate_suffix("aggregate-order-by-topn-filter-limit")
         } else if self.is_join() && self.is_aggregate() && self.order_by.is_some() {
-            self.join_certificate_suffix("aggregate-order-by-topn-limit")
+            self.join_aggregate_certificate_suffix("aggregate-order-by-topn-limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
-            self.join_certificate_suffix("group-by-aggregate-filter-limit")
+            self.join_aggregate_certificate_suffix("group-by-aggregate-filter-limit")
         } else if self.is_join() && self.is_grouped_aggregate() {
-            self.join_certificate_suffix("group-by-aggregate-limit")
+            self.join_aggregate_certificate_suffix("group-by-aggregate-limit")
         } else if self.is_join() && self.is_aggregate() && self.has_filter() {
-            self.join_certificate_suffix("aggregate-filter-limit")
+            self.join_aggregate_certificate_suffix("aggregate-filter-limit")
         } else if self.is_join() && self.is_aggregate() {
-            self.join_certificate_suffix("aggregate-limit")
+            self.join_aggregate_certificate_suffix("aggregate-limit")
         } else if let Some(shape) = self.join_projection_shape() {
             self.join_certificate_suffix(shape.certificate_suffix())
         } else if self.is_join() && self.has_filter() {
@@ -6999,13 +7234,13 @@ impl ParsedSqlLocalSource {
         } else if self.is_join() {
             self.join_certificate_suffix("limit")
         } else if self.is_grouped_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "group-by-aggregate-order-by-topn-filter-limit".to_string()
+            self.aggregate_certificate_suffix("group-by-aggregate-order-by-topn-filter-limit")
         } else if self.is_grouped_aggregate() && self.order_by.is_some() {
-            "group-by-aggregate-order-by-topn-limit".to_string()
+            self.aggregate_certificate_suffix("group-by-aggregate-order-by-topn-limit")
         } else if self.is_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "aggregate-order-by-topn-filter-limit".to_string()
+            self.aggregate_certificate_suffix("aggregate-order-by-topn-filter-limit")
         } else if self.is_aggregate() && self.order_by.is_some() {
-            "aggregate-order-by-topn-limit".to_string()
+            self.aggregate_certificate_suffix("aggregate-order-by-topn-limit")
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
             "computed-projection-order-by-topn-filter-limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
@@ -7015,13 +7250,13 @@ impl ParsedSqlLocalSource {
         } else if self.order_by.is_some() {
             "order-by-topn-limit".to_string()
         } else if self.is_grouped_aggregate() && self.has_filter() {
-            "group-by-aggregate-filter-limit".to_string()
+            self.aggregate_certificate_suffix("group-by-aggregate-filter-limit")
         } else if self.is_grouped_aggregate() {
-            "group-by-aggregate-limit".to_string()
+            self.aggregate_certificate_suffix("group-by-aggregate-limit")
         } else if self.is_aggregate() && self.has_filter() {
-            "aggregate-filter-limit".to_string()
+            self.aggregate_certificate_suffix("aggregate-filter-limit")
         } else if self.is_aggregate() {
-            "aggregate-limit".to_string()
+            self.aggregate_certificate_suffix("aggregate-limit")
         } else if self.has_literal_projection() && self.has_filter() {
             "literal-projection-filter-limit".to_string()
         } else if self.has_literal_projection() {
@@ -7043,25 +7278,25 @@ impl ParsedSqlLocalSource {
             && self.order_by.is_some()
             && self.has_filter()
         {
-            self.join_claim_suffix("group_by_aggregate_order_by_topn_filter_limit")
+            self.join_aggregate_claim_suffix("group_by_aggregate_order_by_topn_filter_limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.order_by.is_some() {
-            self.join_claim_suffix("group_by_aggregate_order_by_topn_limit")
+            self.join_aggregate_claim_suffix("group_by_aggregate_order_by_topn_limit")
         } else if self.is_join()
             && self.is_aggregate()
             && self.order_by.is_some()
             && self.has_filter()
         {
-            self.join_claim_suffix("aggregate_order_by_topn_filter_limit")
+            self.join_aggregate_claim_suffix("aggregate_order_by_topn_filter_limit")
         } else if self.is_join() && self.is_aggregate() && self.order_by.is_some() {
-            self.join_claim_suffix("aggregate_order_by_topn_limit")
+            self.join_aggregate_claim_suffix("aggregate_order_by_topn_limit")
         } else if self.is_join() && self.is_grouped_aggregate() && self.has_filter() {
-            self.join_claim_suffix("group_by_aggregate_filter_limit")
+            self.join_aggregate_claim_suffix("group_by_aggregate_filter_limit")
         } else if self.is_join() && self.is_grouped_aggregate() {
-            self.join_claim_suffix("group_by_aggregate_limit")
+            self.join_aggregate_claim_suffix("group_by_aggregate_limit")
         } else if self.is_join() && self.is_aggregate() && self.has_filter() {
-            self.join_claim_suffix("aggregate_filter_limit")
+            self.join_aggregate_claim_suffix("aggregate_filter_limit")
         } else if self.is_join() && self.is_aggregate() {
-            self.join_claim_suffix("aggregate_limit")
+            self.join_aggregate_claim_suffix("aggregate_limit")
         } else if let Some(shape) = self.join_projection_shape() {
             self.join_claim_suffix(shape.claim_suffix())
         } else if self.is_join() && self.has_filter() {
@@ -7069,13 +7304,13 @@ impl ParsedSqlLocalSource {
         } else if self.is_join() {
             self.join_claim_suffix("limit")
         } else if self.is_grouped_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "group_by_aggregate_order_by_topn_filter_limit".to_string()
+            self.aggregate_statement_suffix("group_by_aggregate_order_by_topn_filter_limit")
         } else if self.is_grouped_aggregate() && self.order_by.is_some() {
-            "group_by_aggregate_order_by_topn_limit".to_string()
+            self.aggregate_statement_suffix("group_by_aggregate_order_by_topn_limit")
         } else if self.is_aggregate() && self.order_by.is_some() && self.has_filter() {
-            "scalar_aggregate_order_by_topn_filter_limit".to_string()
+            self.aggregate_statement_suffix("scalar_aggregate_order_by_topn_filter_limit")
         } else if self.is_aggregate() && self.order_by.is_some() {
-            "scalar_aggregate_order_by_topn_limit".to_string()
+            self.aggregate_statement_suffix("scalar_aggregate_order_by_topn_limit")
         } else if self.has_computed_projection() && self.order_by.is_some() && self.has_filter() {
             "computed_projection_order_by_topn_filter_limit".to_string()
         } else if self.has_computed_projection() && self.order_by.is_some() {
@@ -7085,13 +7320,13 @@ impl ParsedSqlLocalSource {
         } else if self.order_by.is_some() {
             "order_by_topn_limit".to_string()
         } else if self.is_grouped_aggregate() && self.has_filter() {
-            "group_by_aggregate_filter_limit".to_string()
+            self.aggregate_statement_suffix("group_by_aggregate_filter_limit")
         } else if self.is_grouped_aggregate() {
-            "group_by_aggregate_limit".to_string()
+            self.aggregate_statement_suffix("group_by_aggregate_limit")
         } else if self.is_aggregate() && self.has_filter() {
-            "scalar_aggregate_filter_limit".to_string()
+            self.aggregate_statement_suffix("scalar_aggregate_filter_limit")
         } else if self.is_aggregate() {
-            "scalar_aggregate_limit".to_string()
+            self.aggregate_statement_suffix("scalar_aggregate_limit")
         } else if self.has_literal_projection() && self.has_filter() {
             "literal_projection_filter_limit".to_string()
         } else if self.has_literal_projection() {
@@ -12088,6 +12323,34 @@ impl SqlLocalSourceReport {
                 },
             ),
             (
+                "having_runtime_execution".to_string(),
+                self.parsed.has_having().to_string(),
+            ),
+            (
+                "having_operator_family".to_string(),
+                if self.parsed.has_having() {
+                    self.parsed.having.family().to_string()
+                } else {
+                    "not_applicable".to_string()
+                },
+            ),
+            (
+                "having_source_column".to_string(),
+                if self.parsed.has_having() {
+                    self.parsed.having.columns().join(",")
+                } else {
+                    "not_applicable".to_string()
+                },
+            ),
+            (
+                "having_input_row_count".to_string(),
+                self.having_input_row_count.to_string(),
+            ),
+            (
+                "having_selected_row_count".to_string(),
+                self.having_selected_row_count.to_string(),
+            ),
+            (
                 "order_by_runtime_execution".to_string(),
                 self.parsed.order_by.is_some().to_string(),
             ),
@@ -14294,6 +14557,75 @@ fn earliest_clause_index_after(start: usize, indexes: &[Option<usize>]) -> usize
         .expect("at least one later SQL clause exists")
 }
 
+fn sql_local_source_clause_indexes(
+    statement: &str,
+) -> Result<SqlLocalSourceClauseIndexes, ShardLoomError> {
+    let from_clause = find_keyword_outside_quotes(statement, "from").ok_or_else(|| {
+        unsupported_sql_error("SQL local-source smoke requires a FROM <local.csv> clause")
+    })?;
+    let limit_clause = find_keyword_outside_quotes(statement, "limit").ok_or_else(|| {
+        unsupported_sql_error("SQL local-source smoke requires a LIMIT <n> clause")
+    })?;
+    let indexes = SqlLocalSourceClauseIndexes {
+        from: from_clause,
+        limit: limit_clause,
+        filter: find_keyword_outside_quotes(statement, "where"),
+        group_by: find_keyword_outside_quotes(statement, "group by"),
+        having: find_keyword_outside_quotes(statement, "having"),
+        order_by: find_keyword_outside_quotes(statement, "order by"),
+    };
+    validate_sql_local_source_clause_order(indexes)?;
+    Ok(indexes)
+}
+
+fn validate_sql_local_source_clause_order(
+    indexes: SqlLocalSourceClauseIndexes,
+) -> Result<(), ShardLoomError> {
+    if !(indexes.from > 6 && indexes.limit > indexes.from)
+        || indexes
+            .filter
+            .is_some_and(|index| !(index > indexes.from && index < indexes.limit))
+        || indexes
+            .group_by
+            .is_some_and(|index| !(index > indexes.from && index < indexes.limit))
+        || indexes
+            .having
+            .is_some_and(|index| !(index > indexes.from && index < indexes.limit))
+        || indexes
+            .order_by
+            .is_some_and(|index| !(index > indexes.from && index < indexes.limit))
+        || indexes
+            .filter
+            .zip(indexes.group_by)
+            .is_some_and(|(filter, group_by)| filter > group_by)
+        || indexes
+            .filter
+            .zip(indexes.having)
+            .is_some_and(|(filter, having)| filter > having)
+        || indexes
+            .filter
+            .zip(indexes.order_by)
+            .is_some_and(|(filter, order_by)| filter > order_by)
+        || indexes
+            .group_by
+            .zip(indexes.having)
+            .is_some_and(|(group_by, having)| group_by > having)
+        || indexes
+            .group_by
+            .zip(indexes.order_by)
+            .is_some_and(|(group_by, order_by)| group_by > order_by)
+        || indexes
+            .having
+            .zip(indexes.order_by)
+            .is_some_and(|(having, order_by)| having > order_by)
+    {
+        return Err(unsupported_sql_error(
+            "SQL local-source smoke requires SELECT ... FROM ... [WHERE ...] [GROUP BY ...] [HAVING ...] [ORDER BY ...] LIMIT ... order",
+        ));
+    }
+    Ok(())
+}
+
 fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, ShardLoomError> {
     let statement = normalize_sql_statement(raw)?;
     if !statement
@@ -14304,62 +14636,51 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
             "SQL local-source smoke admits SELECT statements only",
         ));
     }
-    let from_index = find_keyword_outside_quotes(&statement, "from").ok_or_else(|| {
-        unsupported_sql_error("SQL local-source smoke requires a FROM <local.csv> clause")
-    })?;
-    let limit_index = find_keyword_outside_quotes(&statement, "limit").ok_or_else(|| {
-        unsupported_sql_error("SQL local-source smoke requires a LIMIT <n> clause")
-    })?;
-    let where_index = find_keyword_outside_quotes(&statement, "where");
-    let group_by_index = find_keyword_outside_quotes(&statement, "group by");
-    let order_by_index = find_keyword_outside_quotes(&statement, "order by");
-    if !(from_index > 6 && limit_index > from_index)
-        || where_index.is_some_and(|index| !(index > from_index && index < limit_index))
-        || group_by_index.is_some_and(|index| !(index > from_index && index < limit_index))
-        || order_by_index.is_some_and(|index| !(index > from_index && index < limit_index))
-        || where_index
-            .zip(group_by_index)
-            .is_some_and(|(where_index, group_by)| where_index > group_by)
-        || where_index
-            .zip(order_by_index)
-            .is_some_and(|(where_index, order_by)| where_index > order_by)
-        || group_by_index
-            .zip(order_by_index)
-            .is_some_and(|(group_by, order_by)| group_by > order_by)
-    {
-        return Err(unsupported_sql_error(
-            "SQL local-source smoke requires SELECT ... FROM ... [WHERE ...] [GROUP BY ...] [ORDER BY ...] LIMIT ... order",
-        ));
-    }
+    let indexes = sql_local_source_clause_indexes(&statement)?;
 
-    let select_list = statement[6..from_index].trim();
+    let select_list = statement[6..indexes.from].trim();
     let source_end = earliest_clause_index_after(
-        from_index,
+        indexes.from,
         &[
-            where_index,
-            group_by_index,
-            order_by_index,
-            Some(limit_index),
+            indexes.filter,
+            indexes.group_by,
+            indexes.having,
+            indexes.order_by,
+            Some(indexes.limit),
         ],
     );
-    let source_raw = statement[from_index + 4..source_end].trim();
-    let predicate_raw = where_index.map(|index| {
+    let source_raw = statement[indexes.from + 4..source_end].trim();
+    let predicate_raw = indexes.filter.map(|index| {
         let end = earliest_clause_index_after(
             index,
-            &[group_by_index, order_by_index, Some(limit_index)],
+            &[
+                indexes.group_by,
+                indexes.having,
+                indexes.order_by,
+                Some(indexes.limit),
+            ],
         );
         statement[index + 5..end].trim()
     });
-    let group_by_raw = group_by_index.map(|index| {
-        let end = order_by_index.unwrap_or(limit_index);
+    let group_by_raw = indexes.group_by.map(|index| {
+        let end = earliest_clause_index_after(
+            index,
+            &[indexes.having, indexes.order_by, Some(indexes.limit)],
+        );
         statement[index + "group by".len()..end].trim()
     });
-    let order_by_raw =
-        order_by_index.map(|index| statement[index + "order by".len()..limit_index].trim());
-    let limit_raw = statement[limit_index + 5..].trim();
+    let having_raw = indexes.having.map(|index| {
+        let end = indexes.order_by.unwrap_or(indexes.limit);
+        statement[index + "having".len()..end].trim()
+    });
+    let order_by_raw = indexes
+        .order_by
+        .map(|index| statement[index + "order by".len()..indexes.limit].trim());
+    let limit_raw = statement[indexes.limit + 5..].trim();
     if select_list.is_empty()
         || source_raw.is_empty()
         || predicate_raw.is_some_and(str::is_empty)
+        || having_raw.is_some_and(str::is_empty)
         || limit_raw.is_empty()
     {
         return Err(unsupported_sql_error(
@@ -14369,6 +14690,7 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     if contains_keyword_outside_quotes(limit_raw, "where")
         || contains_keyword_outside_quotes(limit_raw, "from")
         || contains_keyword_outside_quotes(limit_raw, "select")
+        || contains_keyword_outside_quotes(limit_raw, "having")
         || contains_keyword_outside_quotes(limit_raw, "order by")
     {
         return Err(unsupported_sql_error(
@@ -14381,28 +14703,34 @@ fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, S
     let order_by = parse_order_by(order_by_raw)?;
     let source_clause = parse_source_clause(source_raw)?;
     let predicate = predicate_raw.map_or(Ok(ParsedPredicate::All), parse_predicate)?;
+    let having = having_raw.map_or(Ok(ParsedPredicate::All), parse_predicate)?;
     let limit = parse_limit(limit_raw)?;
 
     Ok(parsed_sql_local_source_from_parts(
+        ParsedSqlLocalSourceParts {
+            statement,
+            projection_list,
+            group_by,
+            order_by,
+            source_clause,
+            predicate,
+            having,
+            limit,
+        },
+    ))
+}
+
+fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> ParsedSqlLocalSource {
+    let ParsedSqlLocalSourceParts {
         statement,
         projection_list,
         group_by,
         order_by,
         source_clause,
         predicate,
+        having,
         limit,
-    ))
-}
-
-fn parsed_sql_local_source_from_parts(
-    statement: String,
-    projection_list: ParsedProjectionList,
-    group_by: Vec<String>,
-    order_by: Option<ParsedOrderBy>,
-    source_clause: ParsedSourceClause,
-    predicate: ParsedPredicate,
-    limit: usize,
-) -> ParsedSqlLocalSource {
+    } = parts;
     ParsedSqlLocalSource {
         projection_order: projection_list.projection_order,
         projections: projection_list.projections,
@@ -14430,6 +14758,7 @@ fn parsed_sql_local_source_from_parts(
         source_alias: source_clause.source_alias,
         join: source_clause.join,
         predicate,
+        having,
         limit,
         normalized_statement: statement,
     }
@@ -18121,19 +18450,19 @@ fn parse_in_list_predicate(raw: &str) -> Result<Option<ParsedPredicate>, ShardLo
 }
 
 fn parse_in_subquery_predicate(column: &str, raw: &str) -> Result<ParsedPredicate, ShardLoomError> {
-    let from_index = find_keyword_outside_quotes(raw, "from").ok_or_else(|| {
+    let from_clause = find_keyword_outside_quotes(raw, "from").ok_or_else(|| {
         unsupported_sql_error(
             "IN subquery predicates admit SELECT <column> FROM <local-source> only",
         )
     })?;
-    if from_index <= "select".len() {
+    if from_clause <= "select".len() {
         return Err(unsupported_sql_error(
             "IN subquery predicates require a selected source column",
         ));
     }
-    let select_column = raw["select".len()..from_index].trim();
+    let select_column = raw["select".len()..from_clause].trim();
     validate_sql_identifier(select_column)?;
-    let source_raw = raw[from_index + "from".len()..].trim();
+    let source_raw = raw[from_clause + "from".len()..].trim();
     if source_raw.is_empty()
         || contains_keyword_outside_quotes(source_raw, "where")
         || contains_keyword_outside_quotes(source_raw, "group by")
@@ -20321,6 +20650,27 @@ mod tests {
         assert_eq!(
             parsed.statement_kind(),
             "local_source_group_by_aggregate_filter_limit"
+        );
+    }
+
+    #[test]
+    fn parses_scoped_aggregate_having_statement() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT region,count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region HAVING total_amount >= 10 AND rows >= 2 ORDER BY total_amount DESC LIMIT 10",
+        )
+        .expect("aggregate HAVING statement parses");
+        assert_eq!(parsed.group_by, vec!["region"]);
+        assert_eq!(parsed.aggregates.len(), 2);
+        assert_eq!(parsed.having.family(), "logical_predicate");
+        assert_eq!(parsed.having.columns(), vec!["total_amount", "rows"]);
+        assert!(parsed.has_having());
+        assert_eq!(
+            parsed.statement_kind(),
+            "local_source_group_by_aggregate_order_by_topn_filter_limit_having"
+        );
+        assert_eq!(
+            parsed.execution_certificate_suffix(),
+            "group-by-aggregate-order-by-topn-filter-limit-having"
         );
     }
 

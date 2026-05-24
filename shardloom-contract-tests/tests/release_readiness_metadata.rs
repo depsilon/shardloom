@@ -2340,6 +2340,7 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "temporal_extract_utc_date32_timestamp",
         "null_coalesce_nullif",
         "predicate_projection_three_valued",
+        "aggregate_having_output_rows",
         "unsupported_numeric_division_by_zero",
         "unsupported_cast_decimal128",
         "semantic-conformance-suite",
@@ -2386,8 +2387,8 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
     for required in [
         "shardloom.admitted_semantics_matrix_report.v1",
         "python scripts\\check_admitted_semantics_matrix.py",
-        "matrix_row_count=8",
-        "executable_fixture_count=6",
+        "matrix_row_count=9",
+        "executable_fixture_count=7",
         "unsupported_diagnostic_count=2",
         "property_execution_performed=true",
         "decoded_reference_differential_execution_performed=true",

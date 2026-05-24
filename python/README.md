@@ -569,13 +569,16 @@ JSON/JSONL/NDJSON, and feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC are 
 `group_by(...).agg(...).limit(n)` with an optional filter are supported, including named
 aggregate aliases such as `agg(rows="count(*)", total="sum(amount)")`; those grouped aggregate
 rows can also use scalar top-N ordering over aggregate output aliases and group keys via
-`group_by(...).agg(...).sort(...).limit(n)`. A multi-key
+`group_by(...).agg(...).sort(...).limit(n)`. Post-aggregate filtering is admitted through
+explicit `having(...)` or through `filter(...)` after `agg(...)`, and binds only to aggregate
+output aliases and selected group keys before optional `sort(...).limit(n)`. A multi-key
 scalar top-N shape, `select(...).sort(...).limit(n)` with an optional filter,
 over non-null numeric or UTF-8 sort
 keys. Local-source joins also admit scalar and grouped aggregates, including scalar top-N
 ordering over aggregate output aliases and group keys, when the workflow keeps the
 same explicit aliases, qualified join-side columns, optional pre-aggregate filter, and bounded
-`limit(...)`. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL/CSV file
+`limit(...)`; joined aggregate rows can use the same aggregate-output `HAVING` filter before
+ordering/limit. `collect()` returns bounded inline JSONL; `write()` writes a local JSONL/CSV file
 by default, and local-source workflows can use `write(..., output_format="csv")`
 or `write_csv(...)` for the scoped local CSV sink. They can also use
 `write_parquet(...)` or `write(..., output_format="parquet")` for the scoped
@@ -726,6 +729,15 @@ grouped = (
     .limit(10)
     .collect()
 )
+grouped_having = (
+    ctx.read_json("target/sql-local-source-smoke.jsonl")
+    .group_by("label")
+    .agg(rows="count(*)", total_amount="sum(amount)")
+    .having((sl.col("total_amount") >= 10) & (sl.col("rows") >= 2))
+    .sort("total_amount", descending=True)
+    .limit(10)
+    .collect()
+)
 topn = (
     ctx.read_json("target/sql-local-source-smoke.jsonl")
     .select("id", "label")
@@ -798,6 +810,8 @@ print(row_count.aggregate_functions)
 print(grouped.result_rows)
 print(grouped.aggregate_operator_family)
 print(grouped.group_by_columns)
+print(grouped_having.result_rows)
+print(grouped_having.having_runtime_execution, grouped_having.having_source_columns)
 print(topn.result_rows)
 print(topn.order_by_runtime_execution, topn.sort_keys, topn.sort_direction)
 print(joined.result_rows)
@@ -859,12 +873,13 @@ multi-key scalar top-N, and scoped local-source join shapes covering inner, left
 left semi/anti, cross joins, and scoped expression-condition joins.
 Joined workflows also admit scoped computed projections over qualified columns plus multi-key
 scalar top-N over joined rows. Scoped scalar/grouped join aggregates over those same join shapes
-lower through the same runtime and may order by numeric aggregate output aliases or UTF-8 group
-keys before a bounded `limit(...)`.
+lower through the same runtime, may filter aggregate output rows with `HAVING`, and may order by
+numeric aggregate output aliases or UTF-8 group keys before a bounded `limit(...)`.
 It does not make the Python client a
 pandas/Polars-like execution engine, does not add broad SQL/DataFrame runtime,
 expression-backed `with_column` beyond the admitted numeric/string/null/temporal/predicate families,
-generalized grouped aggregation, ordering/collation parity, nested JSON,
+generalized grouped aggregation or HAVING expressions beyond emitted aggregate output columns,
+ordering/collation parity, nested JSON,
 broader Parquet/Arrow IPC/Avro/ORC type/nesting coverage, object stores, or table/lakehouse inputs, and does not create a performance or
 production claim.
 
@@ -885,8 +900,9 @@ right-side projections outside the `ON` clause fail closed. A joined workflow ca
 qualified columns and may use `sort("f.amount", "f.id", descending=True).limit(n)` for the scoped
 multi-key scalar joined top-N path. A joined workflow can also end in `agg(...).limit(...)` or
 `group_by(...).agg(...).limit(...)` for the admitted scalar/grouped join-aggregate subset, and can
-place `sort("total_amount", descending=True).limit(n)` after those aggregates when the sort keys
-are numeric aggregate output aliases or UTF-8 group keys. Broad
+place `having(...)` or post-aggregate `filter(...)` before
+`sort("total_amount", descending=True).limit(n)` when the HAVING predicate binds only emitted
+aggregate output aliases or group keys. Broad
 DataFrame joins remain blocked: arbitrary join predicate trees beyond the admitted expression ON
 families, unqualified join predicates, nested/complex structured data, and
 object-store/table joins still return deterministic unsupported diagnostics or
@@ -951,6 +967,18 @@ print(grouped_topn.sort_keys)
 print(grouped_topn.sort_direction)
 print(grouped_topn.top_n_limit)
 
+grouped_having = client.sql_local_source_smoke(
+    "SELECT region,count(*) AS rows,sum(amount) AS total_amount "
+    "FROM 'target/sql-local-source-smoke.csv' "
+    "WHERE amount >= 0 GROUP BY region "
+    "HAVING total_amount >= 10 AND rows >= 2 "
+    "ORDER BY total_amount DESC LIMIT 10",
+)
+print(grouped_having.having_runtime_execution)
+print(grouped_having.having_operator_family)
+print(grouped_having.having_source_columns)
+print(grouped_having.having_input_row_count, grouped_having.having_selected_row_count)
+
 topn = client.sql_local_source_smoke(
     "SELECT id,label FROM 'target/sql-local-source-smoke.csv' "
     "WHERE amount >= 0 ORDER BY amount DESC LIMIT 2",
@@ -1011,7 +1039,8 @@ broader correlated/multi-column/nested subquery semantics, arbitrary predicate-t
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source query-builder bridge, broad expression-backed input-backed `with_column`,
 arbitrary expression/non-equi join predicates beyond the admitted expression ON families, broad
-SQL/DataFrame planning, and
+HAVING over non-output source columns or aggregate-function expressions not emitted as aliases,
+broad SQL/DataFrame planning, and
 production query support remain blocked until later runtime slices.
 
 Evidence-aware optimizer traces are planned as `GAR-PERF-2B`, not current Python runtime support. A

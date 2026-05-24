@@ -428,6 +428,39 @@ def executable_cases() -> list[SqlFixtureCase]:
                 "claim_gate_status": "fixture_smoke_only",
             },
         ),
+        SqlFixtureCase(
+            case_id="aggregate_having_output_rows",
+            source_name="aggregate-having.csv",
+            source_text=(
+                "region,amount\n"
+                "east,10\n"
+                "east,12\n"
+                "west,9\n"
+                "west,10\n"
+                "central,3\n"
+            ),
+            statement_template=(
+                "SELECT region,count(*) AS rows,sum(amount) AS total_amount "
+                "FROM '{source}' WHERE amount >= 0 GROUP BY region "
+                "HAVING total_amount >= 10 AND rows >= 2 "
+                "ORDER BY total_amount DESC LIMIT 10"
+            ),
+            expected_jsonl=(
+                '{"region":"east","rows":2,"total_amount":22}\n'
+                '{"region":"west","rows":2,"total_amount":19}\n'
+            ),
+            expected_fields={
+                "aggregate_runtime_execution": "true",
+                "aggregate_operator_family": "grouped_aggregate",
+                "group_by_runtime_execution": "true",
+                "having_runtime_execution": "true",
+                "having_operator_family": "logical_predicate",
+                "having_source_column": "total_amount,rows",
+                "having_input_row_count": "3",
+                "having_selected_row_count": "2",
+                "claim_gate_status": "fixture_smoke_only",
+            },
+        ),
     ]
 
 

@@ -2493,6 +2493,199 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_aggregate_having_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT region,count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 0 GROUP BY region HAVING (total_amount >= 10 AND rows >= 2) ORDER BY total_amount DESC LIMIT 10",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"region\\":\\"east\\",\\"rows\\":2,\\"total_amount\\":22}\\n{\\"region\\":\\"west\\",\\"rows\\":2,\\"total_amount\\":19}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_group_by_aggregate_order_by_topn_filter_limit_having"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "grouped_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(*),sum(amount)"},
+                        {"key": "aggregate_output_columns", "value": "rows,total_amount"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "group_by_columns", "value": "region"},
+                        {"key": "having_runtime_execution", "value": "true"},
+                        {"key": "having_operator_family", "value": "logical_predicate"},
+                        {"key": "having_source_column", "value": "total_amount,rows"},
+                        {"key": "having_input_row_count", "value": "3"},
+                        {"key": "having_selected_row_count", "value": "2"},
+                        {"key": "order_by_runtime_execution", "value": "true"},
+                        {"key": "sort_keys", "value": "total_amount"},
+                        {"key": "sort_direction", "value": "desc"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "5"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.group-by-aggregate-order-by-topn-filter-limit-having.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        grouped_workflow = (
+            ctx.read_csv("target/input.csv")
+            .filter(sl.col("amount") >= 0)
+            .group_by("region")
+            .agg(rows="count(*)", total_amount="sum(amount)")
+        )
+        self.assertIsInstance(grouped_workflow, sl.LazyFrame)
+        having_workflow = grouped_workflow.filter(
+            (sl.col("total_amount") >= 10) & (sl.col("rows") >= 2)
+        )
+        self.assertIsInstance(having_workflow, sl.LazyFrame)
+        self.assertIn(
+            "having((total_amount >= 10 AND rows >= 2))",
+            having_workflow.operation_summary,
+        )
+        report = having_workflow.sort("total_amount", descending=True).limit(10).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.result_jsonl,
+            '{"region":"east","rows":2,"total_amount":22}\n'
+            '{"region":"west","rows":2,"total_amount":19}\n',
+        )
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertTrue(report.group_by_runtime_execution)
+        self.assertTrue(report.having_runtime_execution)
+        self.assertEqual(report.having_operator_family, "logical_predicate")
+        self.assertEqual(report.having_source_columns, ("total_amount", "rows"))
+        self.assertEqual(report.having_input_row_count, 3)
+        self.assertEqual(report.having_selected_row_count, 2)
+        self.assertTrue(report.order_by_runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_filter_after_having_stays_unsupported(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "workflow-unsupported-plan",
+                    "collect",
+                    "read_csv(target/input.csv) -> group_by(region) -> aggregate(count(*) AS rows,sum(amount) AS total_amount) -> having(rows >= 2) -> filter(region = 'east') -> limit(10)",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "workflow operation unsupported",
+                    "human_text": "workflow unsupported operation",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "operation", "value": "collect"},
+                        {"key": "workflow_summary", "value": "read_csv(target/input.csv) -> group_by(region) -> aggregate(count(*) AS rows,sum(amount) AS total_amount) -> having(rows >= 2) -> filter(region = 'east') -> limit(10)"},
+                        {"key": "blocker_id", "value": "cg21.workflow.collect.runtime_not_admitted"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"}
+                    ],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = (
+            ctx.read_csv("target/input.csv")
+            .group_by("region")
+            .agg(rows="count(*)", total_amount="sum(amount)")
+            .filter("rows >= 2")
+            .filter("region = 'east'")
+            .limit(10)
+        )
+        report = workflow.collect()
+
+        self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
+        self.assertEqual(report.operation, "collect")
+        self.assertFalse(report.runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+
+    def test_local_csv_query_builder_filter_after_aggregate_topn_stays_unsupported(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "workflow-unsupported-plan",
+                    "collect",
+                    "read_csv(target/input.csv) -> group_by(region) -> aggregate(count(*) AS rows) -> sort(asc,rows) -> limit(10) -> filter(rows >= 2)",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "workflow-unsupported-plan",
+                    "status": "unsupported",
+                    "summary": "workflow operation unsupported",
+                    "human_text": "workflow unsupported operation",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "operation", "value": "collect"},
+                        {"key": "workflow_summary", "value": "read_csv(target/input.csv) -> group_by(region) -> aggregate(count(*) AS rows) -> sort(asc,rows) -> limit(10) -> filter(rows >= 2)"},
+                        {"key": "blocker_id", "value": "cg21.workflow.collect.runtime_not_admitted"},
+                        {"key": "runtime_execution", "value": "false"},
+                        {"key": "data_read", "value": "false"},
+                        {"key": "write_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"}
+                    ],
+                }))
+                sys.exit(1)
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        workflow = (
+            ctx.read_csv("target/input.csv")
+            .group_by("region")
+            .agg(rows="count(*)")
+            .sort("rows")
+            .limit(10)
+            .filter("rows >= 2")
+        )
+        report = workflow.collect()
+
+        self.assertEqual(report.envelope.command, "workflow-unsupported-plan")
+        self.assertEqual(report.operation, "collect")
+        self.assertFalse(report.runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+
     def test_local_csv_query_builder_group_key_order_by_topn_invokes_sql_smoke(
         self,
     ) -> None:
