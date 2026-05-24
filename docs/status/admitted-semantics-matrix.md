@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=8
-executable_fixture_count=6
+matrix_row_count=9
+executable_fixture_count=7
 unsupported_diagnostic_count=2
 property_lane_count=1
 property_seed_order=20260521
@@ -55,6 +55,7 @@ Covered fixture rows:
 - `temporal_extract_utc_date32_timestamp`
 - `null_coalesce_nullif`
 - `predicate_projection_three_valued`
+- `aggregate_having_output_rows`
 - `unsupported_numeric_division_by_zero`
 - `unsupported_cast_decimal128`
 

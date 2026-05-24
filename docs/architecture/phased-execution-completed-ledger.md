@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D/5B/5C scoped aggregate HAVING runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-aggregate-having-runtime-20260524` / #934.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - User direction that SQL/Python user-surface logic should remain format-neutral, with
+      source-specific behavior isolated to read/ingest and write/sink boundaries.
+  - Scope:
+    - Promoted scoped local-source aggregate `HAVING` from unsupported syntax into
+      ShardLoom-native runtime for scalar aggregates, grouped aggregates, and scalar/grouped
+      join aggregates over admitted local source rows.
+    - Evaluates `HAVING` after aggregate output rows are built and before aggregate-output
+      `ORDER BY` / `LIMIT`, so predicates bind to emitted aggregate aliases and selected group keys
+      instead of source-format-specific columns.
+    - Added deterministic blockers for `HAVING` without aggregate output and for `HAVING`
+      predicates that reference non-output source columns.
+    - Added SQL evidence fields for `having_runtime_execution`, operator family, source columns,
+      input aggregate row count, selected aggregate row count, and `having` statement/certificate
+      suffixes while preserving `fallback_attempted=false` and `external_engine_invoked=false`.
+    - Extended Python query-builder lowering with explicit `.having(...)` plus post-`agg(...)`
+      `.filter(...)` as the familiar HAVING form, and added typed Python report accessors.
+    - Added an admitted-semantics fixture row for aggregate HAVING and refreshed the release
+      readiness expectation from six to seven executable semantics fixtures.
+    - Updated README, Python README, phase-plan current state, compute-flow reference, and mirrored
+      compute-flow website/public snapshots without widening production or benchmark claims.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_aggregate_having_without_fallback`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_join_group_by_aggregate_having_without_fallback`
+    - `cargo +1.91.1 test -p shardloom-cli parses_scoped_aggregate_having_statement`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q python\src python\tests scripts examples`
+    - `python -m unittest discover -s python/tests`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_admitted_semantics_matrix.py`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local-source fixture-smoke aggregate HAVING over emitted aggregate output rows only.
+      This does not add ANSI SQL HAVING parity, aggregate-function expressions inside HAVING that
+      are not emitted as aliases, object-store/table/lakehouse runtime, production SQL/DataFrame
+      support, performance claims, package publication, or fallback execution.
+  - Remaining gates:
+    - Continue broader expression parity, Vortex scan pushdown, encoded kernel pairs,
+      prepared/session reuse, persistent OutputPlan reuse, memory/spill safety, object-store/table
+      runtime ladders, and final release validation.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped expression ON join runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-expression-join-runtime-20260524` / #933.

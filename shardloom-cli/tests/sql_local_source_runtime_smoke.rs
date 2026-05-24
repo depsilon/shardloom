@@ -4366,6 +4366,118 @@ fn sql_local_source_smoke_executes_group_by_aggregates_without_fallback() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
+fn sql_local_source_smoke_executes_aggregate_having_without_fallback() {
+    let source_path = unique_path("sql-local-source-aggregate-having", "csv");
+    fs::write(
+        &source_path,
+        "id,region,amount\n1,east,10\n2,west,5\n3,east,12\n4,west,14\n5,north,3\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT region,count(*) AS rows,sum(amount) AS total_amount FROM '{}' WHERE amount >= 0 GROUP BY region HAVING total_amount >= 10 AND rows >= 2 ORDER BY total_amount DESC LIMIT 10",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_group_by_aggregate_order_by_topn_filter_limit_having"
+    )));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.group-by-aggregate-order-by-topn-filter-limit-having.execution.v1"
+    )));
+    assert!(stdout.contains(&field("aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("aggregate_operator_family", "grouped_aggregate")));
+    assert!(stdout.contains(&field("group_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("group_by_columns", "region")));
+    assert!(stdout.contains(&field("having_runtime_execution", "true")));
+    assert!(stdout.contains(&field("having_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("having_source_column", "total_amount,rows")));
+    assert!(stdout.contains(&field("having_input_row_count", "3")));
+    assert!(stdout.contains(&field("having_selected_row_count", "2")));
+    assert!(stdout.contains(&field("selected_row_count", "5")));
+    assert!(stdout.contains(&field("output_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"region\\\":\\\"east\\\",\\\"rows\\\":2,\\\"total_amount\\\":22}\\n{\\\"region\\\":\\\"west\\\",\\\"rows\\\":2,\\\"total_amount\\\":19}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    let scalar_statement = format!(
+        "SELECT count(*) AS rows,sum(amount) AS total_amount FROM '{}' WHERE amount >= 0 HAVING total_amount >= 40 LIMIT 1",
+        source_path.display()
+    );
+    let scalar = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &scalar_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        scalar.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&scalar.stdout),
+        String::from_utf8_lossy(&scalar.stderr)
+    );
+    let scalar_stdout = String::from_utf8(scalar.stdout).expect("stdout is utf8");
+    assert!(scalar_stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_aggregate_filter_limit_having"
+    )));
+    assert!(scalar_stdout.contains(&field("aggregate_operator_family", "scalar_aggregate")));
+    assert!(scalar_stdout.contains(&field("having_runtime_execution", "true")));
+    assert!(scalar_stdout.contains(&field("having_operator_family", "comparison")));
+    assert!(scalar_stdout.contains(&field("having_source_column", "total_amount")));
+    assert!(scalar_stdout.contains(&field("having_input_row_count", "1")));
+    assert!(scalar_stdout.contains(&field("having_selected_row_count", "1")));
+    assert!(
+        scalar_stdout
+            .contains("\"result_jsonl\",\"value\":\"{\\\"rows\\\":5,\\\"total_amount\\\":44}\\n\"")
+    );
+
+    let blocked_statement = format!(
+        "SELECT region,count(*) AS rows FROM '{}' GROUP BY region HAVING amount >= 10 LIMIT 10",
+        source_path.display()
+    );
+    let blocked = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked.status.success());
+    let blocked_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked.stdout),
+        String::from_utf8_lossy(&blocked.stderr)
+    );
+    assert!(blocked_output.contains("HAVING column \\\"amount\\\" is not present"));
+    assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
 fn sql_local_source_smoke_executes_group_by_aggregate_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-group-by-order-by", "csv");
     fs::write(
@@ -7964,6 +8076,93 @@ customer_id,region,segment
     assert!(stdout.contains(&field(
         "execution_certificate_ref",
         "sql-local-source.csv.inner-equi-join-group-by-aggregate-order-by-topn-filter-limit.execution.v1"
+    )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_join_group_by_aggregate_having_without_fallback() {
+    let fact_path = unique_path("sql-local-source-join-aggregate-having-fact", "csv");
+    let dim_path = unique_path("sql-local-source-join-aggregate-having-dim", "csv");
+    fs::write(
+        &fact_path,
+        "\
+id,customer_id,region,amount
+1,10,east,8
+2,20,west,15
+3,20,east,21
+4,30,east,22
+5,30,west,23
+6,99,west,50
+",
+    )
+    .expect("write fact csv");
+    fs::write(
+        &dim_path,
+        "\
+customer_id,region,segment
+20,west,enterprise
+20,east,consumer
+30,west,startup
+30,east,enterprise
+",
+    )
+    .expect("write dim csv");
+
+    let statement = format!(
+        "SELECT d.segment,count(*) AS rows,sum(f.amount) AS total_amount FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 GROUP BY d.segment HAVING rows >= 2 ORDER BY total_amount DESC LIMIT 10",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_inner_equi_join_group_by_aggregate_order_by_topn_filter_limit_having"
+    )));
+    assert!(stdout.contains(&field("join_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_key_arity", "2")));
+    assert!(stdout.contains(&field("join_multi_key_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_matched_row_count", "4")));
+    assert!(stdout.contains(&field("aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("aggregate_operator_family", "grouped_aggregate")));
+    assert!(stdout.contains(&field("group_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_aggregate_group_count", "1")));
+    assert!(stdout.contains(&field("having_runtime_execution", "true")));
+    assert!(stdout.contains(&field("having_operator_family", "comparison")));
+    assert!(stdout.contains(&field("having_source_column", "rows")));
+    assert!(stdout.contains(&field("having_input_row_count", "3")));
+    assert!(stdout.contains(&field("having_selected_row_count", "1")));
+    assert!(stdout.contains(&field("selected_row_count", "4")));
+    assert!(stdout.contains(&field("output_row_count", "1")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"d.segment\\\":\\\"enterprise\\\",\\\"rows\\\":2,\\\"total_amount\\\":37}\\n\""
+    ));
+    assert!(stdout.contains(&field(
+        "execution_certificate_ref",
+        "sql-local-source.csv.inner-equi-join-group-by-aggregate-order-by-topn-filter-limit-having.execution.v1"
     )));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));

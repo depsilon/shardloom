@@ -49,7 +49,8 @@ Current runtime support is intentionally scoped and evidence-gated:
   group-by, single-key top-N, selected casts/date/timestamp/temporal-difference/string/IN
   predicates, scoped local-source inner/outer/semi/anti equi-joins, cross joins, scoped
   column-comparison/generic numeric expression ON joins, computed projections and single-key top-N
-  over joined rows, and scoped scalar/grouped join aggregates;
+  over joined rows, scoped scalar/grouped join aggregates, and post-aggregate `HAVING` filters over
+  aggregate output rows;
 - source-free generated local outputs through user rows, ranges, sequences, calendars, SQL `VALUES`,
   literal `SELECT`, and `generate_series`/`range` smokes, including feature-gated local Vortex
   output;

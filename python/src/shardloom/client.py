@@ -2779,6 +2779,42 @@ class SqlLocalSourceSmokeReport:
         return self.envelope.field_int("group_by_group_count", 0) or 0
 
     @property
+    def having_runtime_execution(self) -> bool:
+        """Whether this smoke executed an admitted post-aggregate HAVING predicate."""
+
+        return self.envelope.field_bool("having_runtime_execution", False) is True
+
+    @property
+    def having_operator_family(self) -> str | None:
+        """Return the HAVING predicate operator family when present."""
+
+        value = self.envelope.field("having_operator_family")
+        if value == "not_applicable":
+            return None
+        return value
+
+    @property
+    def having_source_columns(self) -> tuple[str, ...]:
+        """Return aggregate output columns referenced by HAVING."""
+
+        value = self.envelope.field("having_source_column")
+        if value == "not_applicable":
+            return ()
+        return _csv_values(value)
+
+    @property
+    def having_input_row_count(self) -> int:
+        """Return aggregate rows evaluated by HAVING before the result limit."""
+
+        return self.envelope.field_int("having_input_row_count", 0) or 0
+
+    @property
+    def having_selected_row_count(self) -> int:
+        """Return aggregate rows retained by HAVING before the result limit."""
+
+        return self.envelope.field_int("having_selected_row_count", 0) or 0
+
+    @property
     def order_by_runtime_execution(self) -> bool:
         """Whether this smoke executed an admitted ORDER BY path."""
 

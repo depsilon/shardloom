@@ -58,6 +58,8 @@ class WorkflowOperation:
 
         if self.kind == "filter":
             return f"filter({self.values[0]})"
+        if self.kind == "having":
+            return f"having({self.values[0]})"
         if self.kind == "select":
             return f"select({','.join(self.values)})"
         if self.kind == "limit":
@@ -1865,12 +1867,29 @@ class LazyFrame:
         value = str(predicate).strip()
         if not value:
             raise ValueError("filter predicate must not be empty")
+        if self._can_append_having():
+            return self._append(WorkflowOperation("having", (value,)))
         return self._append(WorkflowOperation("filter", (value,)))
 
     def where(self, predicate: object) -> "LazyFrame":
         """Alias for `filter(...)` using familiar SQL/DataFrame naming."""
 
         return self.filter(predicate)
+
+    def having(
+        self,
+        predicate: object,
+        *,
+        check: bool = False,
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a lazy plan with an admitted post-aggregate HAVING predicate."""
+
+        value = str(predicate).strip()
+        if not value:
+            raise ValueError("HAVING predicate must not be empty")
+        if self._can_append_having():
+            return self._append(WorkflowOperation("having", (value,)))
+        return self._unsupported_operation("having", value, check=check)
 
     def select(self, *columns: object) -> "LazyFrame":
         """Return a lazy plan with an added projection."""
@@ -2578,6 +2597,18 @@ class LazyFrame:
             return False
         return all(operation.kind != "sort" for operation in self.operations)
 
+    def _can_append_having(self) -> bool:
+        if not _is_query_builder_local_source(self.source):
+            return False
+        saw_aggregate = False
+        for operation in self.operations:
+            if operation.kind == "aggregate":
+                saw_aggregate = True
+                continue
+            if saw_aggregate and operation.kind in {"filter", "having", "sort", "limit"}:
+                return False
+        return saw_aggregate
+
     def _can_append_projection_column(self, column_name: str) -> bool:
         if not _is_query_builder_local_source(self.source):
             return False
@@ -2597,6 +2628,8 @@ class LazyFrame:
                 if column_name == operation.values[0]:
                     return False
                 continue
+            elif operation.kind == "having":
+                return False
             else:
                 return False
         if saw_join and not saw_projection:
@@ -2636,6 +2669,7 @@ class LazyFrame:
         join_info: tuple[str, ...] | None = None
         sort_key: tuple[str, tuple[str, ...]] | None = None
         predicate: str | None = None
+        having: str | None = None
         limit: str | None = None
         for operation in self.operations:
             if operation.kind == "select" and projection_list is None:
@@ -2653,7 +2687,19 @@ class LazyFrame:
                     return None
                 join_info = operation.values  # type: ignore[assignment]
             elif operation.kind == "filter" and predicate is None:
+                if (
+                    aggregate_list is not None
+                    or group_by_list is not None
+                    or having is not None
+                    or sort_key is not None
+                    or limit is not None
+                ):
+                    return None
                 predicate = operation.values[0]
+            elif operation.kind == "having" and having is None:
+                if aggregate_list is None or sort_key is not None or limit is not None:
+                    return None
+                having = operation.values[0]
             elif operation.kind == "limit" and limit is None:
                 limit = operation.values[0]
             else:
@@ -2707,7 +2753,7 @@ class LazyFrame:
                     select_clause = ",".join(aggregate_list)
                     group_by_clause = ""
             else:
-                if projection_list is None or group_by_list is not None:
+                if projection_list is None or group_by_list is not None or having is not None:
                     return None
                 select_values = list(projection_list)
                 select_values.extend(
@@ -2726,7 +2772,8 @@ class LazyFrame:
                 f"SELECT {select_clause} FROM {source_uri} AS {left_alias} "
                 f"{join_keyword} {right_source_uri} AS {right_alias}"
                 f"{on_clause}"
-                f"{_optional_sql_where_clause(predicate)}{group_by_clause}{order_by_clause} LIMIT {limit}"
+                f"{_optional_sql_where_clause(predicate)}{group_by_clause}"
+                f"{_optional_sql_having_clause(having)}{order_by_clause} LIMIT {limit}"
             )
         if projection_list is not None:
             if aggregate_list is not None or group_by_list is not None:
@@ -2747,6 +2794,8 @@ class LazyFrame:
                 select_clause = ",".join(aggregate_list)
                 group_by_clause = ""
         else:
+            if having is not None:
+                return None
             if literal_columns:
                 select_values = ["*"]
                 select_values.extend(
@@ -2763,7 +2812,8 @@ class LazyFrame:
         source_uri = _quote_sql_local_source_path(self.source.uri)
         return (
             f"SELECT {select_clause} FROM {source_uri}"
-            f"{_optional_sql_where_clause(predicate)}{group_by_clause}{order_by_clause} LIMIT {limit}"
+            f"{_optional_sql_where_clause(predicate)}{group_by_clause}"
+            f"{_optional_sql_having_clause(having)}{order_by_clause} LIMIT {limit}"
         )
 
 
@@ -4954,6 +5004,12 @@ def _optional_sql_where_clause(predicate: str | None) -> str:
     if predicate is None:
         return ""
     return f" WHERE {predicate}"
+
+
+def _optional_sql_having_clause(predicate: str | None) -> str:
+    if predicate is None:
+        return ""
+    return f" HAVING {predicate}"
 
 
 def _workflow_schema_report(

@@ -203,7 +203,7 @@ and the non-executing correctness-harness boundary, and intentionally reports:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-executable_fixture_count=6
+executable_fixture_count=7
 unsupported_diagnostic_count=2
 property_execution_performed=true
 decoded_reference_differential_execution_performed=true

@@ -274,12 +274,16 @@ or documentation updates alone are insufficient.
     `read_csv(...)`, flat `read_json(...)`, and feature-gated flat scalar structured readers can
     lower `with_column(...).filter(...).sort(...).limit(...)` without requiring an explicit
     `select(...)`; computed-projection top-N now sorts projected rows by computed aliases and can
-    still sort by source columns when the source column is not projected.
+    still sort by source columns when the source column is not projected. Scoped scalar/grouped
+    aggregate `HAVING` now evaluates admitted predicates over emitted aggregate output rows for
+    local-source SQL/Python and join-aggregate paths, with deterministic blockers when `HAVING`
+    references non-output source columns.
     The remaining work is the parity gap
     around broader non-numeric/generalized expression families, broader coercion/function coverage,
-    interval/date-time and timezone-database semantics, correlated/multi-column/nested subquery
-    semantics, arbitrary predicate-tree completeness beyond the currently admitted leaves, and final
-    SQL/Python ergonomics. Unsupported residual work must continue to fail with deterministic
+    HAVING expressions over unprojected aggregate functions, interval/date-time and
+    timezone-database semantics, correlated/multi-column/nested subquery semantics, arbitrary
+    predicate-tree completeness beyond the currently admitted leaves, and final SQL/Python
+    ergonomics. Unsupported residual work must continue to fail with deterministic
     no-fallback diagnostics.
   - Closeout posture: this parent item remains open for the residual parity gaps above.
     A future closeout PR must either implement those gaps or split each non-goal into separate
@@ -393,10 +397,12 @@ or documentation updates alone are insufficient.
     `.parquet`/Arrow IPC/Avro/ORC
     projection/optional-filter/limit,
     preview/select-star, scalar aggregate/optional-filter/limit with aliases, multi-key group-by
-    aggregate/optional-filter/limit, multi-key scalar top-N workflows, scoped local-source
+    aggregate/optional-filter/limit plus post-aggregate HAVING over aggregate output rows,
+    multi-key scalar top-N workflows, scoped local-source
     join bridges covering inner, left/right/full outer, left semi/anti, and cross joins,
     computed projections and multi-key scalar
-    top-N over joined rows, and scalar/grouped join aggregates into that runtime path.
+    top-N over joined rows, and scalar/grouped join aggregates with optional post-aggregate HAVING
+    into that runtime path.
     Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC
     source certificate refs, execution certificate refs, materialization boundaries, pushdown status,
@@ -933,7 +939,9 @@ docs/website parity, and a completed-ledger entry.
     left/right/full outer equi-join, left semi/anti equi-join, cross join, scoped
     column-comparison and generic numeric-expression ON joins, scoped computed join projections,
     multi-key scalar joined top-N, and scalar/grouped join-aggregate ordering by aggregate output
-    aliases or group keys; richer expressions, casts, dates, strings, windows, subqueries,
+    aliases or group keys. Scalar/grouped aggregate and join-aggregate rows also admit scoped
+    post-aggregate `HAVING` predicates bound to emitted aggregate output aliases or selected group
+    keys; richer expressions, casts, dates, strings, windows, subqueries,
     catalogs, arbitrary join predicates, null/collation ordering, and broad planner behavior remain
     incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
@@ -966,7 +974,8 @@ docs/website parity, and a completed-ledger entry.
     JSONL query builder now covers projection/filter/limit, preview, scalar aggregate, multi-key
     group-by, multi-key scalar top-N, aggregate-output top-N, scoped local-source equi/cross and
     expression-condition joins, computed projections and multi-key scalar top-N over joined rows, scalar/grouped join
-    aggregate, explicit-projection literal `with_column(...)`, and `count()` workflows, but
+    aggregate, post-aggregate `having(...)` / post-`agg(...)` `filter(...)`, explicit-projection
+    literal `with_column(...)`, and `count()` workflows, but
     complete end-to-end generated/local/Vortex workflows and
     unsupported-method diagnostics are not yet ordinary user-grade coverage.
   - Next slice outcome: make one import path support generated, local file, and prepared/native
@@ -1003,7 +1012,8 @@ docs/website parity, and a completed-ledger entry.
     projection/optional-filter/limit,
     preview/select-star, scalar-aggregate/optional-filter/limit with aliases, multi-key group-by
     aggregate/optional-filter/limit, multi-key scalar top-N workflows, aggregate-output top-N
-    workflows, joined computed projection/top-N workflows, scalar/grouped join aggregates, and local-source
+    workflows, post-aggregate HAVING over aggregate output rows, joined computed projection/top-N
+    workflows, scalar/grouped join aggregates with optional HAVING, and local-source
     evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON versus admitted
     Parquet/Arrow IPC/Avro/ORC rows. Nested JSON/JSONPath, broader
     Parquet/Arrow IPC/Avro/ORC type/nesting coverage,
