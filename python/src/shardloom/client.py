@@ -776,6 +776,124 @@ class GeneratedSourceWriteReport:
         return self.envelope.field_bool("upstream_vortex_scan_called", False) is True
 
     @property
+    def output_route(self) -> str | None:
+        """Return the generated-source local sink route label."""
+
+        return self.envelope.field("output_route")
+
+    @property
+    def result_replay_verified(self) -> bool:
+        """Whether generated output artifacts were replay/digest verified."""
+
+        return self.envelope.field_bool("result_replay_verified", False) is True
+
+    @property
+    def output_replay_status(self) -> str | None:
+        """Return generated output replay status."""
+
+        return self.envelope.field("output_replay_status")
+
+    @property
+    def output_replay_millis(self) -> int | None:
+        """Return generated output replay verification time in milliseconds."""
+
+        return self.envelope.field_int("output_replay_millis")
+
+    @property
+    def output_fidelity_report_status(self) -> str | None:
+        """Return the generated output fidelity-report status."""
+
+        return self.envelope.field("output_fidelity_report_status")
+
+    @property
+    def output_fidelity_loss(self) -> tuple[str, ...]:
+        """Return `format:loss` entries for generated output fidelity limits."""
+
+        return _csv_values(self.envelope.field("output_fidelity_loss"))
+
+    @property
+    def output_fanout_performed(self) -> bool:
+        """Whether the generated-source smoke wrote fanout outputs."""
+
+        return self.envelope.field_bool("output_fanout_performed", False) is True
+
+    @property
+    def result_reuse_for_fanout(self) -> bool:
+        """Whether one computed generated result was reused for fanout writes."""
+
+        return self.envelope.field_bool("result_reuse_for_fanout", False) is True
+
+    @property
+    def fanout_result_reuse_hit(self) -> bool:
+        """Whether generated-source fanout reused the computed primary result."""
+
+        return self.envelope.field_bool("fanout_result_reuse_hit", False) is True
+
+    @property
+    def fanout_output_count(self) -> int:
+        """Return the number of generated-source fanout outputs."""
+
+        return self.envelope.field_int("fanout_output_count", 0) or 0
+
+    @property
+    def fanout_output_formats(self) -> tuple[str, ...]:
+        """Return generated-source fanout output formats."""
+
+        return _csv_values(self.envelope.field("fanout_output_formats"))
+
+    @property
+    def fanout_output_paths(self) -> tuple[str, ...]:
+        """Return generated-source fanout output paths."""
+
+        return _csv_values(self.envelope.field("fanout_output_paths"))
+
+    @property
+    def fanout_output_digests(self) -> tuple[str, ...]:
+        """Return `format:digest` entries for generated-source fanout outputs."""
+
+        return _csv_values(self.envelope.field("fanout_output_digests"))
+
+    @property
+    def fanout_output_workspace_path_safety_statuses(self) -> tuple[str, ...]:
+        """Return `format:accepted` entries for generated fanout path safety."""
+
+        return _csv_values(
+            self.envelope.field("fanout_output_workspace_path_safety_statuses")
+        )
+
+    @property
+    def fanout_output_commit_modes(self) -> tuple[str, ...]:
+        """Return `format:commit_mode` entries for generated fanout outputs."""
+
+        return _csv_values(self.envelope.field("fanout_output_commit_modes"))
+
+    @property
+    def fanout_output_native_io_certificate_statuses(self) -> tuple[str, ...]:
+        """Return `format:status` entries for generated fanout output certificates."""
+
+        return _csv_values(
+            self.envelope.field("fanout_output_native_io_certificate_statuses")
+        )
+
+    @property
+    def fanout_output_replay_statuses(self) -> tuple[str, ...]:
+        """Return `format:status` entries for generated fanout replay verification."""
+
+        return _csv_values(self.envelope.field("fanout_output_replay_statuses"))
+
+    @property
+    def fanout_output_fidelity_statuses(self) -> tuple[str, ...]:
+        """Return `format:status` entries for generated fanout fidelity reports."""
+
+        return _csv_values(self.envelope.field("fanout_output_fidelity_statuses"))
+
+    @property
+    def fanout_output_fidelity_loss(self) -> tuple[str, ...]:
+        """Return `format:loss` entries for generated fanout fidelity limits."""
+
+        return _csv_values(self.envelope.field("fanout_output_fidelity_loss"))
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether the smoke command attempted fallback execution."""
 
@@ -6877,6 +6995,7 @@ class ShardLoomClient:
         *,
         source_kind: str = "user_rows",
         output_format: str = "jsonl",
+        fanout_outputs: FanoutOutputs | None = None,
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> GeneratedSourceWriteReport:
@@ -6892,6 +7011,8 @@ class ShardLoomClient:
             "--output-format",
             output_format,
         ]
+        for fanout_format, fanout_path in _iter_fanout_outputs(fanout_outputs):
+            command.extend(["--fanout-output", f"{fanout_format}={fanout_path}"])
         if allow_overwrite:
             command.append("--allow-overwrite")
         return GeneratedSourceWriteReport(self.run(command, check=check))
@@ -6905,6 +7026,7 @@ class ShardLoomClient:
         step: int = 1,
         column: str = "value",
         output_format: str = "jsonl",
+        fanout_outputs: FanoutOutputs | None = None,
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> GeneratedSourceWriteReport:
@@ -6922,6 +7044,8 @@ class ShardLoomClient:
             "--output-format",
             output_format,
         ]
+        for fanout_format, fanout_path in _iter_fanout_outputs(fanout_outputs):
+            command.extend(["--fanout-output", f"{fanout_format}={fanout_path}"])
         if allow_overwrite:
             command.append("--allow-overwrite")
         return GeneratedSourceWriteReport(self.run(command, check=check))
@@ -6935,6 +7059,7 @@ class ShardLoomClient:
         step: int = 1,
         column: str = "value",
         output_format: str = "jsonl",
+        fanout_outputs: FanoutOutputs | None = None,
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> GeneratedSourceWriteReport:
@@ -6952,6 +7077,8 @@ class ShardLoomClient:
             "--output-format",
             output_format,
         ]
+        for fanout_format, fanout_path in _iter_fanout_outputs(fanout_outputs):
+            command.extend(["--fanout-output", f"{fanout_format}={fanout_path}"])
         if allow_overwrite:
             command.append("--allow-overwrite")
         return GeneratedSourceWriteReport(self.run(command, check=check))
@@ -6962,6 +7089,7 @@ class ShardLoomClient:
         statement: str,
         *,
         output_format: str = "jsonl",
+        fanout_outputs: FanoutOutputs | None = None,
         allow_overwrite: bool = False,
         check: bool = True,
     ) -> GeneratedSourceWriteReport:
@@ -6974,6 +7102,8 @@ class ShardLoomClient:
             "--output-format",
             output_format,
         ]
+        for fanout_format, fanout_path in _iter_fanout_outputs(fanout_outputs):
+            command.extend(["--fanout-output", f"{fanout_format}={fanout_path}"])
         if allow_overwrite:
             command.append("--allow-overwrite")
         return GeneratedSourceWriteReport(self.run(command, check=check))

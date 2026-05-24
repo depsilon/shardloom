@@ -330,6 +330,12 @@ or documentation updates alone are insufficient.
     `--output-format vortex` and `write_vortex(...)` when built with `--features vortex-write`,
     emitting Vortex artifact digest, reopen proof, upstream Vortex writer/scan flags, and
     `certified_local_vortex_sink`; default builds return a deterministic Vortex sink blocker.
+    Generated-source commands also admit `--fanout-output format=local-path`; Python generated
+    rows, generated range/sequence, generated range SQL, and source-free SQL expose `.fanout(...)`
+    by treating the first requested sink as the primary output and all remaining sinks as write
+    boundary fanouts over the same computed generated rows. Each written generated artifact emits
+    replay/digest evidence, fidelity-loss evidence, workspace path-safety evidence, fanout result
+    reuse fields, and no-fallback fields.
     Python range/sequence builders also support `limit(...)`, `head(...)`, and `take(...)` by
     adjusting generator bounds before invoking the same engine-native range/sequence smoke. Scoped
     source-free SQL `generate_series`/`range` runtime now admits direct range-column output, int64
@@ -343,15 +349,15 @@ or documentation updates alone are insufficient.
     Remaining gaps are broader SQL source-free projection beyond that admitted range-generator
     subset, arbitrary SQL table functions, broad DataFrame expression-backed projection/
     `with_column`, object-store/Foundry generated-output paths, broader structured-format fidelity,
-    and claim-grade output coverage.
-  - Next slice outcome: implement broader generator/expression coverage and claim-grade
-    replay/fidelity evidence where admitted.
+    persistent OutputPlan reuse, and claim-grade output coverage.
+  - Next slice outcome: implement broader generator/expression coverage and persistent reusable
+    OutputPlan replay policy where admitted.
   - Runtime enablement: end-user generated-source execution that writes local output and emits a
     GeneratedSourceCertificate.
   - User-visible surface: Python `ctx.range`, `ctx.from_rows`, `ctx.literal_table`, `ctx.calendar`,
-    generated-source `write_vortex(...)`, fluent `ctx.range(...)` filter/with-column/limit writes,
-    `ctx.sql(...).write(...)`, SQL `VALUES`, SQL `generate_series`/`range`, generated-output
-    recipes.
+    generated-source `write_vortex(...)`, fluent `ctx.range(...)` filter/with-column/sort/limit
+    writes and fanout, `ctx.sql(...).write(...)`, `ctx.sql(...).fanout(...)`, SQL `VALUES`, SQL
+    `generate_series`/`range`, generated-output recipes.
   - Implementation scope: generator nodes, schema inference, deterministic seed/row-count handling,
     output writer bridge, report/certificate fields.
   - Evidence required: `input_dataset_count=0`, `source_io_performed=false`,
@@ -360,16 +366,16 @@ or documentation updates alone are insufficient.
     no-fallback fields.
   - Acceptance: no-input smoke remains separate; each admitted generator writes local output and
     exposes a GeneratedSourceCertificate.
-  - Verification: CLI/Python/SQL generator tests, output smoke, use-case coverage, release
-    readiness metadata.
+  - Verification: CLI/Python/SQL generator tests, output/fanout/replay smoke, use-case coverage,
+    release readiness metadata.
   - Non-goals: no object-store write, Foundry production claim, package publication, or broad
     SQL/DataFrame claim.
   - Claim boundary: local deterministic generated-output runtime only.
   - Fallback boundary: no generated rows or expressions may be produced by an external engine.
   - Dependencies/blockers: generated-source schema contract, local output writer registry,
     expression semantics, and Python/SQL surface admission.
-  - Ledger rule: ledger entry must list generator kind, output format, Vortex output feature gate,
-    and unsupported generators.
+  - Ledger rule: ledger entry must list generator kind, output format/fanout combinations, Vortex
+    output feature gate, replay proof, and unsupported generators.
 
 - [ ] GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format
   - Source: `GAR-IOREUSE-1A`, universal compatibility scoreboard, local input adapter docs,
@@ -542,8 +548,11 @@ or documentation updates alone are insufficient.
     Parquet/Arrow IPC/Avro/ORC/Vortex sinks, with per-output bytes, digest, certificate evidence,
     Vortex output evidence where applicable, an `output_plan_digest`, local artifact replay
     verification, replay timing/status fields, and scoped output fidelity/loss reporting for
-    admitted local sinks. Broader type/nesting and metadata fidelity for those compatibility
-    exports, persistent OutputPlan registry reuse, and claim-grade fanout are not complete.
+    admitted local sinks. Source-free generated-output fanout now follows the same write-boundary
+    contract for generated rows, generated range/sequence, generated range SQL, and source-free SQL
+    by reusing one computed generated result for primary plus fanout sinks. Broader type/nesting and
+    metadata fidelity for those compatibility exports, persistent OutputPlan registry reuse, and
+    claim-grade fanout are not complete.
   - Next slice outcome: add persistent reusable OutputPlan registry consolidation, replay policy
     levels, and claim-grade fanout admission for formats whose metadata/fidelity proof is complete.
   - Runtime enablement: local output writers and fanout execution with OutputPlan evidence and

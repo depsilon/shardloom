@@ -13,6 +13,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Write as _,
+    fs,
     path::{Path, PathBuf},
     process::ExitCode,
     time::Instant,
@@ -155,6 +156,18 @@ impl GeneratedOutputFormat {
         }
     }
 
+    const fn display_name(self) -> &'static str {
+        match self {
+            Self::Jsonl => "JSONL",
+            Self::Csv => "CSV",
+            Self::Parquet => "Parquet",
+            Self::ArrowIpc => "Arrow IPC",
+            Self::Avro => "Avro",
+            Self::Orc => "ORC",
+            Self::Vortex => "Vortex",
+        }
+    }
+
     const fn certificate_status(self) -> &'static str {
         match self {
             Self::Jsonl | Self::Csv => "certified_local_file_sink",
@@ -193,6 +206,28 @@ struct GeneratedOutputWriteReport {
     write_millis: u128,
     workspace_write_report: WorkspaceSafeLocalWriteReport,
     vortex_report: Option<shardloom_vortex::VortexPreparedStateWriteReport>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedOutputTarget {
+    output_format: GeneratedOutputFormat,
+    output_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedWrittenOutput {
+    target: GeneratedOutputTarget,
+    write_report: GeneratedOutputWriteReport,
+    replay: GeneratedOutputReplayEvidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeneratedOutputReplayEvidence {
+    verified: bool,
+    status: String,
+    replay_millis: u128,
+    fidelity_status: String,
+    fidelity_loss: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -241,6 +276,7 @@ struct GeneratedRow {
 struct GeneratedUserRowsSmokeRequest {
     output_path: PathBuf,
     output_format: GeneratedOutputFormat,
+    fanout_outputs: Vec<GeneratedOutputTarget>,
     source_kind: UserRowsGeneratedSourceKind,
     schema: Vec<GeneratedColumn>,
     rows: Vec<GeneratedRow>,
@@ -256,6 +292,8 @@ struct GeneratedUserRowsSmokeReport {
     rows: Vec<GeneratedRow>,
     output_bytes: u64,
     output_digest: String,
+    primary_replay: GeneratedOutputReplayEvidence,
+    fanout_outputs: Vec<GeneratedWrittenOutput>,
     schema_digest: String,
     plan_digest: String,
     write_millis: u128,
@@ -267,6 +305,7 @@ struct GeneratedUserRowsSmokeReport {
 struct GeneratedRangeSmokeRequest {
     output_path: PathBuf,
     output_format: GeneratedOutputFormat,
+    fanout_outputs: Vec<GeneratedOutputTarget>,
     source_kind: RangeGeneratedSourceKind,
     start: i64,
     end: i64,
@@ -288,6 +327,8 @@ struct GeneratedRangeSmokeReport {
     rows: Vec<GeneratedRow>,
     output_bytes: u64,
     output_digest: String,
+    primary_replay: GeneratedOutputReplayEvidence,
+    fanout_outputs: Vec<GeneratedWrittenOutput>,
     schema_digest: String,
     plan_digest: String,
     write_millis: u128,
@@ -502,6 +543,7 @@ type ParsedSqlRangeTail = (
 struct GeneratedSqlSmokeRequest {
     output_path: PathBuf,
     output_format: GeneratedOutputFormat,
+    fanout_outputs: Vec<GeneratedOutputTarget>,
     statement: String,
     source_kind: SqlGeneratedSourceKind,
     schema: Vec<GeneratedColumn>,
@@ -527,6 +569,8 @@ struct GeneratedSqlSmokeReport {
     limit: Option<GeneratedSqlLimitMetadata>,
     projection: Option<GeneratedSqlProjectionMetadata>,
     order_by: Option<GeneratedSqlOrderMetadata>,
+    primary_replay: GeneratedOutputReplayEvidence,
+    fanout_outputs: Vec<GeneratedWrittenOutput>,
     output_bytes: u64,
     output_digest: String,
     schema_digest: String,
@@ -543,7 +587,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar] [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--allow-overwrite]"
+            "usage: shardloom {USER_ROWS_COMMAND} <local-output-path> <schema> <rows> [--source-kind user_rows|literal_table|calendar] [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -571,6 +615,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
     let mut output_format = GeneratedOutputFormat::Jsonl;
     let mut source_kind = UserRowsGeneratedSourceKind::UserRows;
     let mut allow_overwrite = false;
+    let mut fanout_outputs = Vec::new();
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--output-format" => {
@@ -595,6 +640,29 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
                         );
                     }
                 };
+            }
+            "--fanout-output" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        USER_ROWS_COMMAND,
+                        format,
+                        "generated-source smoke failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--fanout-output requires format=local-path".to_string(),
+                        ),
+                    );
+                };
+                match parse_generated_fanout_output(&value) {
+                    Ok(target) => fanout_outputs.push(target),
+                    Err(error) => {
+                        return emit_error(
+                            USER_ROWS_COMMAND,
+                            format,
+                            "generated-source smoke failed",
+                            &error,
+                        );
+                    }
+                }
             }
             "--source-kind" => {
                 let Some(value) = args.next() else {
@@ -634,6 +702,7 @@ pub(crate) fn handle_generated_source_user_rows_smoke(
     let request = match GeneratedUserRowsSmokeRequest::parse(
         &output_target,
         output_format,
+        fanout_outputs,
         source_kind,
         &schema_raw,
         &rows_raw,
@@ -702,7 +771,7 @@ fn handle_generated_source_range_like_smoke(
     let noun = source_kind.summary_noun();
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {command} <local-output-path> <start> <end> [--step int] [--column name] [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--allow-overwrite]"
+            "usage: shardloom {command} <local-output-path> <start> <end> [--step int] [--column name] [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -729,6 +798,7 @@ fn handle_generated_source_range_like_smoke(
 
     let mut output_format = GeneratedOutputFormat::Jsonl;
     let mut allow_overwrite = false;
+    let mut fanout_outputs = Vec::new();
     let mut step = 1_i64;
     let mut column_name = "value".to_string();
     while let Some(arg) = args.next() {
@@ -755,6 +825,29 @@ fn handle_generated_source_range_like_smoke(
                         );
                     }
                 };
+            }
+            "--fanout-output" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        command,
+                        format,
+                        &format!("generated-source {noun} smoke failed"),
+                        &ShardLoomError::InvalidOperation(
+                            "--fanout-output requires format=local-path".to_string(),
+                        ),
+                    );
+                };
+                match parse_generated_fanout_output(&value) {
+                    Ok(target) => fanout_outputs.push(target),
+                    Err(error) => {
+                        return emit_error(
+                            command,
+                            format,
+                            &format!("generated-source {noun} smoke failed"),
+                            &error,
+                        );
+                    }
+                }
             }
             "--allow-overwrite" => allow_overwrite = true,
             "--step" => {
@@ -845,6 +938,7 @@ fn handle_generated_source_range_like_smoke(
     let request = match GeneratedRangeSmokeRequest::parse(
         &output_target,
         output_format,
+        fanout_outputs,
         source_kind,
         start,
         end,
@@ -897,7 +991,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
 ) -> ExitCode {
     let Some(output_target) = args.next() else {
         eprintln!(
-            "usage: shardloom {SQL_COMMAND} <local-output-path> <sql-statement> [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--allow-overwrite]"
+            "usage: shardloom {SQL_COMMAND} <local-output-path> <sql-statement> [--output-format jsonl|csv|parquet|arrow-ipc|avro|orc|vortex] [--fanout-output format=local-path] [--allow-overwrite]"
         );
         return ExitCode::from(2);
     };
@@ -914,6 +1008,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
 
     let mut output_format = GeneratedOutputFormat::Jsonl;
     let mut allow_overwrite = false;
+    let mut fanout_outputs = Vec::new();
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--output-format" => {
@@ -939,6 +1034,29 @@ pub(crate) fn handle_generated_source_sql_smoke(
                     }
                 };
             }
+            "--fanout-output" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        SQL_COMMAND,
+                        format,
+                        "generated-source SQL smoke failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--fanout-output requires format=local-path".to_string(),
+                        ),
+                    );
+                };
+                match parse_generated_fanout_output(&value) {
+                    Ok(target) => fanout_outputs.push(target),
+                    Err(error) => {
+                        return emit_error(
+                            SQL_COMMAND,
+                            format,
+                            "generated-source SQL smoke failed",
+                            &error,
+                        );
+                    }
+                }
+            }
             "--allow-overwrite" => allow_overwrite = true,
             extra => {
                 return emit_error(
@@ -954,6 +1072,7 @@ pub(crate) fn handle_generated_source_sql_smoke(
     let request = match GeneratedSqlSmokeRequest::parse(
         &output_target,
         output_format,
+        fanout_outputs,
         &statement_raw,
         allow_overwrite,
     ) {
@@ -999,6 +1118,7 @@ impl GeneratedUserRowsSmokeRequest {
     fn parse(
         output_target: &str,
         output_format: GeneratedOutputFormat,
+        fanout_outputs: Vec<GeneratedOutputTarget>,
         source_kind: UserRowsGeneratedSourceKind,
         schema_raw: &str,
         rows_raw: &str,
@@ -1015,6 +1135,7 @@ impl GeneratedUserRowsSmokeRequest {
         Ok(Self {
             output_path,
             output_format,
+            fanout_outputs,
             source_kind,
             schema,
             rows,
@@ -1150,6 +1271,11 @@ impl GeneratedUserRowsSmokeReport {
         ];
         fields.extend(self.workspace_write_report.evidence_fields("output"));
         fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
+        fields.extend(generated_output_fanout_fields(
+            self.output_format,
+            &self.primary_replay,
+            &self.fanout_outputs,
+        ));
         fields
     }
 
@@ -1171,6 +1297,7 @@ impl GeneratedRangeSmokeRequest {
     fn parse(
         output_target: &str,
         output_format: GeneratedOutputFormat,
+        fanout_outputs: Vec<GeneratedOutputTarget>,
         source_kind: RangeGeneratedSourceKind,
         start: i64,
         end: i64,
@@ -1200,6 +1327,7 @@ impl GeneratedRangeSmokeRequest {
         Ok(Self {
             output_path,
             output_format,
+            fanout_outputs,
             source_kind,
             start,
             end,
@@ -1359,6 +1487,11 @@ impl GeneratedRangeSmokeReport {
         ];
         fields.extend(self.workspace_write_report.evidence_fields("output"));
         fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
+        fields.extend(generated_output_fanout_fields(
+            self.output_format,
+            &self.primary_replay,
+            &self.fanout_outputs,
+        ));
         fields
     }
 
@@ -1384,6 +1517,7 @@ impl GeneratedSqlSmokeRequest {
     fn parse(
         output_target: &str,
         output_format: GeneratedOutputFormat,
+        fanout_outputs: Vec<GeneratedOutputTarget>,
         statement_raw: &str,
         allow_overwrite: bool,
     ) -> Result<Self, ShardLoomError> {
@@ -1403,6 +1537,7 @@ impl GeneratedSqlSmokeRequest {
         Ok(Self {
             output_path,
             output_format,
+            fanout_outputs,
             statement: parsed.statement,
             source_kind: parsed.source_kind,
             schema: parsed.schema,
@@ -1558,6 +1693,11 @@ impl GeneratedSqlSmokeReport {
         ];
         fields.extend(self.workspace_write_report.evidence_fields("output"));
         fields.extend(generated_vortex_output_fields(self.vortex_report.as_ref()));
+        fields.extend(generated_output_fanout_fields(
+            self.output_format,
+            &self.primary_replay,
+            &self.fanout_outputs,
+        ));
         if let Some(range) = &self.range {
             fields.extend([
                 (
@@ -1693,9 +1833,10 @@ impl GeneratedSqlSmokeReport {
 fn run_generated_user_rows_smoke(
     request: &GeneratedUserRowsSmokeRequest,
 ) -> Result<GeneratedUserRowsSmokeReport, ShardLoomError> {
-    let write_report = write_generated_output(
+    let (primary_output, fanout_outputs) = write_generated_outputs(
         &request.output_path,
         request.output_format,
+        &request.fanout_outputs,
         &request.schema,
         &request.rows,
         request.allow_overwrite,
@@ -1710,17 +1851,20 @@ fn run_generated_user_rows_smoke(
         source_kind: request.source_kind,
         schema: request.schema.clone(),
         rows: request.rows.clone(),
-        output_bytes: write_report.output_bytes,
-        output_digest: write_report.output_digest,
+        output_bytes: primary_output.write_report.output_bytes,
+        output_digest: primary_output.write_report.output_digest.clone(),
+        primary_replay: primary_output.replay,
+        fanout_outputs,
         schema_digest: fnv64_digest(&schema_text),
         plan_digest: fnv64_digest(&format!(
-            "generated_source_kind={};output_format={};schema={schema_text};rows={canonical_rows}",
+            "generated_source_kind={};output_format={};fanout={};schema={schema_text};rows={canonical_rows}",
             request.source_kind.as_str(),
-            request.output_format.as_str()
+            request.output_format.as_str(),
+            generated_fanout_plan_digest_fragment(&request.fanout_outputs)
         )),
-        write_millis: write_report.write_millis,
-        workspace_write_report: write_report.workspace_write_report,
-        vortex_report: write_report.vortex_report,
+        write_millis: primary_output.write_report.write_millis,
+        workspace_write_report: primary_output.write_report.workspace_write_report,
+        vortex_report: primary_output.write_report.vortex_report,
     })
 }
 
@@ -1732,9 +1876,10 @@ fn run_generated_range_smoke(
         value_type: GeneratedValueType::Int64,
     }];
     let rows = generated_range_rows(request.start, request.end, request.step)?;
-    let write_report = write_generated_output(
+    let (primary_output, fanout_outputs) = write_generated_outputs(
         &request.output_path,
         request.output_format,
+        &request.fanout_outputs,
         &schema,
         &rows,
         request.allow_overwrite,
@@ -1752,30 +1897,34 @@ fn run_generated_range_smoke(
         column_name: request.column_name.clone(),
         schema,
         rows,
-        output_bytes: write_report.output_bytes,
-        output_digest: write_report.output_digest,
+        output_bytes: primary_output.write_report.output_bytes,
+        output_digest: primary_output.write_report.output_digest.clone(),
+        primary_replay: primary_output.replay,
+        fanout_outputs,
         schema_digest: fnv64_digest(&schema_text),
         plan_digest: fnv64_digest(&format!(
-            "generated_source_kind={};output_format={};start={};end={};step={};column={}",
+            "generated_source_kind={};output_format={};fanout={};start={};end={};step={};column={}",
             request.source_kind.as_str(),
             request.output_format.as_str(),
+            generated_fanout_plan_digest_fragment(&request.fanout_outputs),
             request.start,
             request.end,
             request.step,
             request.column_name
         )),
-        write_millis: write_report.write_millis,
-        workspace_write_report: write_report.workspace_write_report,
-        vortex_report: write_report.vortex_report,
+        write_millis: primary_output.write_report.write_millis,
+        workspace_write_report: primary_output.write_report.workspace_write_report,
+        vortex_report: primary_output.write_report.vortex_report,
     })
 }
 
 fn run_generated_sql_smoke(
     request: &GeneratedSqlSmokeRequest,
 ) -> Result<GeneratedSqlSmokeReport, ShardLoomError> {
-    let write_report = write_generated_output(
+    let (primary_output, fanout_outputs) = write_generated_outputs(
         &request.output_path,
         request.output_format,
+        &request.fanout_outputs,
         &request.schema,
         &request.rows,
         request.allow_overwrite,
@@ -1796,18 +1945,21 @@ fn run_generated_sql_smoke(
         limit: request.limit.clone(),
         projection: request.projection.clone(),
         order_by: request.order_by.clone(),
-        output_bytes: write_report.output_bytes,
-        output_digest: write_report.output_digest,
+        primary_replay: primary_output.replay,
+        fanout_outputs,
+        output_bytes: primary_output.write_report.output_bytes,
+        output_digest: primary_output.write_report.output_digest.clone(),
         schema_digest: fnv64_digest(&schema_text),
         plan_digest: fnv64_digest(&format!(
-            "generated_source_kind={};output_format={};statement={};schema={schema_text};rows={canonical_rows}",
+            "generated_source_kind={};output_format={};fanout={};statement={};schema={schema_text};rows={canonical_rows}",
             request.source_kind.as_str(),
             request.output_format.as_str(),
+            generated_fanout_plan_digest_fragment(&request.fanout_outputs),
             request.statement
         )),
-        write_millis: write_report.write_millis,
-        workspace_write_report: write_report.workspace_write_report,
-        vortex_report: write_report.vortex_report,
+        write_millis: primary_output.write_report.write_millis,
+        workspace_write_report: primary_output.write_report.workspace_write_report,
+        vortex_report: primary_output.write_report.vortex_report,
     })
 }
 
@@ -1831,6 +1983,225 @@ fn write_generated_output(
             allow_overwrite,
             output_label,
         ),
+    }
+}
+
+fn parse_generated_fanout_output(value: &str) -> Result<GeneratedOutputTarget, ShardLoomError> {
+    let Some((format_raw, path_raw)) = value.split_once('=') else {
+        return Err(ShardLoomError::InvalidOperation(
+            "--fanout-output must use format=local-path, for example csv=out.csv".to_string(),
+        ));
+    };
+    Ok(GeneratedOutputTarget {
+        output_format: GeneratedOutputFormat::parse(format_raw)?,
+        output_path: normalize_local_output_path(path_raw)?,
+    })
+}
+
+fn normalized_generated_output_path_key(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "/")
+        .to_ascii_lowercase()
+}
+
+fn generated_fanout_plan_digest_fragment(fanout_outputs: &[GeneratedOutputTarget]) -> String {
+    fanout_outputs
+        .iter()
+        .map(|target| {
+            format!(
+                "{}={}",
+                target.output_format.sink_label(),
+                target.output_path.display()
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+fn preflight_generated_output_writes(
+    output_path: &Path,
+    output_format: GeneratedOutputFormat,
+    fanout_outputs: &[GeneratedOutputTarget],
+    allow_overwrite: bool,
+) -> Result<(), ShardLoomError> {
+    let mut paths = BTreeSet::new();
+    validate_generated_output_format_available(output_format, output_path)?;
+    paths.insert(normalized_generated_output_path_key(output_path));
+    for target in fanout_outputs {
+        validate_generated_output_format_available(target.output_format, &target.output_path)?;
+        if !paths.insert(normalized_generated_output_path_key(&target.output_path)) {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "generated-source fanout output path is duplicated: {}; no fallback execution was attempted",
+                target.output_path.display()
+            )));
+        }
+    }
+    for path in std::iter::once(output_path).chain(
+        fanout_outputs
+            .iter()
+            .map(|target| target.output_path.as_path()),
+    ) {
+        let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+        shardloom_core::plan_workspace_safe_local_output(workspace_root, path, allow_overwrite)?;
+    }
+    Ok(())
+}
+
+fn validate_generated_output_format_available(
+    format: GeneratedOutputFormat,
+    output_path: &Path,
+) -> Result<(), ShardLoomError> {
+    match format {
+        GeneratedOutputFormat::Jsonl | GeneratedOutputFormat::Csv => Ok(()),
+        GeneratedOutputFormat::Parquet
+        | GeneratedOutputFormat::ArrowIpc
+        | GeneratedOutputFormat::Avro
+        | GeneratedOutputFormat::Orc => validate_generated_structured_output_available(format),
+        GeneratedOutputFormat::Vortex => validate_generated_vortex_output_available(output_path),
+    }
+}
+
+#[cfg(feature = "universal-format-io")]
+fn validate_generated_structured_output_available(
+    _format: GeneratedOutputFormat,
+) -> Result<(), ShardLoomError> {
+    Ok(())
+}
+
+#[cfg(not(feature = "universal-format-io"))]
+fn validate_generated_structured_output_available(
+    format: GeneratedOutputFormat,
+) -> Result<(), ShardLoomError> {
+    Err(structured_output_feature_error(format.display_name()))
+}
+
+#[cfg(feature = "vortex-write")]
+fn validate_generated_vortex_output_available(output_path: &Path) -> Result<(), ShardLoomError> {
+    validate_generated_vortex_target(output_path)
+}
+
+#[cfg(not(feature = "vortex-write"))]
+fn validate_generated_vortex_output_available(_output_path: &Path) -> Result<(), ShardLoomError> {
+    Err(ShardLoomError::InvalidOperation(
+        "local Vortex generated-source output runtime requires building shardloom-cli with --features vortex-write; default builds expose Vortex generated-source output as a deterministic blocked sink; no fallback execution was attempted"
+            .to_string(),
+    ))
+}
+
+fn write_generated_outputs(
+    output_path: &Path,
+    output_format: GeneratedOutputFormat,
+    fanout_outputs: &[GeneratedOutputTarget],
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+    allow_overwrite: bool,
+    output_label: &str,
+) -> Result<(GeneratedWrittenOutput, Vec<GeneratedWrittenOutput>), ShardLoomError> {
+    preflight_generated_output_writes(output_path, output_format, fanout_outputs, allow_overwrite)?;
+    let primary_target = GeneratedOutputTarget {
+        output_format,
+        output_path: output_path.to_path_buf(),
+    };
+    let primary =
+        write_generated_output_target(primary_target, schema, rows, allow_overwrite, output_label)?;
+    let fanout = fanout_outputs
+        .iter()
+        .cloned()
+        .map(|target| {
+            write_generated_output_target(target, schema, rows, allow_overwrite, output_label)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok((primary, fanout))
+}
+
+fn write_generated_output_target(
+    target: GeneratedOutputTarget,
+    schema: &[GeneratedColumn],
+    rows: &[GeneratedRow],
+    allow_overwrite: bool,
+    output_label: &str,
+) -> Result<GeneratedWrittenOutput, ShardLoomError> {
+    let write_report = write_generated_output(
+        &target.output_path,
+        target.output_format,
+        schema,
+        rows,
+        allow_overwrite,
+        output_label,
+    )?;
+    let replay = replay_generated_output(target.output_format, &target.output_path, &write_report)?;
+    Ok(GeneratedWrittenOutput {
+        target,
+        write_report,
+        replay,
+    })
+}
+
+fn replay_generated_output(
+    format: GeneratedOutputFormat,
+    path: &Path,
+    write_report: &GeneratedOutputWriteReport,
+) -> Result<GeneratedOutputReplayEvidence, ShardLoomError> {
+    if format == GeneratedOutputFormat::Vortex {
+        if let Some(report) = write_report.vortex_report.as_ref() {
+            return Ok(GeneratedOutputReplayEvidence {
+                verified: report.upstream_vortex_scan_called,
+                status: if report.upstream_vortex_scan_called {
+                    "verified_vortex_reopen_row_count".to_string()
+                } else {
+                    "blocked_missing_vortex_reopen_proof".to_string()
+                },
+                replay_millis: report.reopen_scan_micros / 1_000,
+                fidelity_status: generated_output_fidelity_status(format).to_string(),
+                fidelity_loss: generated_output_fidelity_loss(format).to_string(),
+            });
+        }
+    }
+    let replay_start = Instant::now();
+    let bytes = fs::read(path).map_err(|error| {
+        ShardLoomError::Message(format!(
+            "failed to replay generated-source output {}: {error}",
+            path.display()
+        ))
+    })?;
+    let replay_digest = fnv64_digest_bytes(&bytes);
+    if replay_digest != write_report.output_digest {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "generated-source output replay digest mismatch for {}: expected {}, got {replay_digest}",
+            path.display(),
+            write_report.output_digest
+        )));
+    }
+    Ok(GeneratedOutputReplayEvidence {
+        verified: true,
+        status: "verified_local_file_digest".to_string(),
+        replay_millis: replay_start.elapsed().as_millis(),
+        fidelity_status: generated_output_fidelity_status(format).to_string(),
+        fidelity_loss: generated_output_fidelity_loss(format).to_string(),
+    })
+}
+
+fn generated_output_fidelity_status(format: GeneratedOutputFormat) -> &'static str {
+    match format {
+        GeneratedOutputFormat::Jsonl => "logical_rows_replay_verified",
+        GeneratedOutputFormat::Csv => "logical_rows_replay_verified_type_metadata_not_preserved",
+        GeneratedOutputFormat::Parquet
+        | GeneratedOutputFormat::ArrowIpc
+        | GeneratedOutputFormat::Avro
+        | GeneratedOutputFormat::Orc => "flat_scalar_schema_replay_verified",
+        GeneratedOutputFormat::Vortex => "native_vortex_reopen_row_count_verified",
+    }
+}
+
+fn generated_output_fidelity_loss(format: GeneratedOutputFormat) -> &'static str {
+    match format {
+        GeneratedOutputFormat::Jsonl => "jsonl_text_roundtrip_not_full_type_metadata_fidelity",
+        GeneratedOutputFormat::Csv => "csv_text_roundtrip_loses_static_type_metadata",
+        GeneratedOutputFormat::Parquet
+        | GeneratedOutputFormat::ArrowIpc
+        | GeneratedOutputFormat::Avro
+        | GeneratedOutputFormat::Orc => "flat_scalar_structured_schema_preserved",
+        GeneratedOutputFormat::Vortex => "native_vortex_output_highest_fidelity",
     }
 }
 
@@ -2037,6 +2408,217 @@ fn vortex_output_success_fields(
             report.upstream_vortex_scan_called.to_string(),
         ),
     ]
+}
+
+fn generated_output_fanout_fields(
+    primary_format: GeneratedOutputFormat,
+    primary_replay: &GeneratedOutputReplayEvidence,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> Vec<(String, String)> {
+    let mut fields = generated_output_replay_fields(primary_format, primary_replay, fanout_outputs);
+    fields.extend(generated_output_fanout_summary_fields(fanout_outputs));
+    fields.extend(generated_output_fanout_detail_fields(fanout_outputs));
+    fields
+}
+
+fn generated_output_replay_fields(
+    primary_format: GeneratedOutputFormat,
+    primary_replay: &GeneratedOutputReplayEvidence,
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> Vec<(String, String)> {
+    let fanout_performed = !fanout_outputs.is_empty();
+    let all_replayed =
+        primary_replay.verified && fanout_outputs.iter().all(|output| output.replay.verified);
+    vec![
+        (
+            "output_route".to_string(),
+            if fanout_performed {
+                "local_sink_and_fanout"
+            } else {
+                "local_sink"
+            }
+            .to_string(),
+        ),
+        (
+            "result_reuse_for_fanout".to_string(),
+            fanout_performed.to_string(),
+        ),
+        (
+            "fanout_result_reuse_hit".to_string(),
+            fanout_performed.to_string(),
+        ),
+        (
+            "result_replay_verified".to_string(),
+            all_replayed.to_string(),
+        ),
+        (
+            "output_replay_status".to_string(),
+            if all_replayed {
+                "verified_local_sink_artifacts"
+            } else {
+                "blocked_unverified_local_sink_artifact"
+            }
+            .to_string(),
+        ),
+        (
+            "output_replay_millis".to_string(),
+            (primary_replay.replay_millis
+                + fanout_outputs
+                    .iter()
+                    .map(|output| output.replay.replay_millis)
+                    .sum::<u128>())
+            .to_string(),
+        ),
+        (
+            "output_fidelity_report_status".to_string(),
+            if all_replayed {
+                "scoped_local_output_fidelity_reported"
+            } else {
+                "blocked_unverified_output_replay"
+            }
+            .to_string(),
+        ),
+        (
+            "output_fidelity_loss".to_string(),
+            generated_fanout_csv_or_not_applicable(
+                std::iter::once(format!(
+                    "{}:{}",
+                    primary_format.sink_label(),
+                    primary_replay.fidelity_loss
+                ))
+                .chain(fanout_outputs.iter().map(|output| {
+                    format!(
+                        "{}:{}",
+                        output.target.output_format.sink_label(),
+                        output.replay.fidelity_loss
+                    )
+                })),
+            ),
+        ),
+        (
+            "output_fanout_performed".to_string(),
+            fanout_performed.to_string(),
+        ),
+    ]
+}
+
+fn generated_output_fanout_summary_fields(
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "fanout_output_count".to_string(),
+            fanout_outputs.len().to_string(),
+        ),
+        (
+            "fanout_output_formats".to_string(),
+            generated_fanout_csv_or_not_applicable(
+                fanout_outputs
+                    .iter()
+                    .map(|output| output.target.output_format.sink_label().to_string()),
+            ),
+        ),
+        (
+            "fanout_output_paths".to_string(),
+            generated_fanout_csv_or_not_applicable(
+                fanout_outputs
+                    .iter()
+                    .map(|output| output.target.output_path.display().to_string()),
+            ),
+        ),
+    ]
+}
+
+fn generated_output_fanout_detail_fields(
+    fanout_outputs: &[GeneratedWrittenOutput],
+) -> Vec<(String, String)> {
+    vec![
+        (
+            "fanout_output_bytes".to_string(),
+            generated_fanout_labeled_values(fanout_outputs, |output| {
+                output.write_report.output_bytes.to_string()
+            }),
+        ),
+        (
+            "fanout_output_digests".to_string(),
+            generated_fanout_labeled_values(fanout_outputs, |output| {
+                output.write_report.output_digest.clone()
+            }),
+        ),
+        (
+            "fanout_output_native_io_certificate_statuses".to_string(),
+            generated_fanout_labeled_values(fanout_outputs, |output| {
+                output.target.output_format.certificate_status().to_string()
+            }),
+        ),
+        (
+            "fanout_output_write_millis".to_string(),
+            fanout_outputs
+                .iter()
+                .map(|output| output.write_report.write_millis)
+                .sum::<u128>()
+                .to_string(),
+        ),
+        (
+            "fanout_output_replay_statuses".to_string(),
+            generated_fanout_labeled_values(fanout_outputs, |output| output.replay.status.clone()),
+        ),
+        (
+            "fanout_output_fidelity_statuses".to_string(),
+            generated_fanout_labeled_values(fanout_outputs, |output| {
+                output.replay.fidelity_status.clone()
+            }),
+        ),
+        (
+            "fanout_output_fidelity_loss".to_string(),
+            generated_fanout_labeled_values(fanout_outputs, |output| {
+                output.replay.fidelity_loss.clone()
+            }),
+        ),
+        (
+            "fanout_output_workspace_path_safety_statuses".to_string(),
+            generated_fanout_labeled_values(fanout_outputs, |output| {
+                output
+                    .write_report
+                    .workspace_write_report
+                    .path_safety_report
+                    .accepted()
+                    .to_string()
+            }),
+        ),
+        (
+            "fanout_output_commit_modes".to_string(),
+            generated_fanout_labeled_values(fanout_outputs, |output| {
+                output
+                    .write_report
+                    .workspace_write_report
+                    .commit_mode
+                    .clone()
+            }),
+        ),
+    ]
+}
+
+fn generated_fanout_labeled_values(
+    fanout_outputs: &[GeneratedWrittenOutput],
+    value: impl Fn(&GeneratedWrittenOutput) -> String,
+) -> String {
+    generated_fanout_csv_or_not_applicable(fanout_outputs.iter().map(|output| {
+        format!(
+            "{}:{}",
+            output.target.output_format.sink_label(),
+            value(output)
+        )
+    }))
+}
+
+fn generated_fanout_csv_or_not_applicable(values: impl Iterator<Item = String>) -> String {
+    let collected = values.collect::<Vec<_>>();
+    if collected.is_empty() {
+        "not_applicable".to_string()
+    } else {
+        collected.join(",")
+    }
 }
 
 fn micros_to_millis(value: u128) -> u128 {
