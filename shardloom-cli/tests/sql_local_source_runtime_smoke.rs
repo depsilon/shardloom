@@ -3715,7 +3715,7 @@ fn sql_local_source_smoke_executes_numeric_order_by_topn_without_fallback() {
     )));
     assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
     assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
-    assert!(stdout.contains(&field("sort_operator_family", "single_key_numeric_topn")));
+    assert!(stdout.contains(&field("sort_operator_family", "single_key_scalar_topn")));
     assert!(stdout.contains(&field("sort_keys", "amount")));
     assert!(stdout.contains(&field("sort_direction", "desc")));
     assert!(stdout.contains(&field(
@@ -3740,7 +3740,60 @@ fn sql_local_source_smoke_executes_numeric_order_by_topn_without_fallback() {
 }
 
 #[test]
-fn sql_local_source_smoke_executes_multi_key_numeric_order_by_topn_without_fallback() {
+fn sql_local_source_smoke_executes_utf8_order_by_topn_without_fallback() {
+    let source_path = unique_path("sql-local-source-utf8-order-by", "csv");
+    fs::write(
+        &source_path,
+        "id,label,amount\n1,delta,8\n2,beta,15\n3,gamma,21\n4,alpha,13\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE amount >= 10 ORDER BY label ASC LIMIT 3",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_order_by_topn_filter_limit"
+    )));
+    assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sort_operator_family", "single_key_scalar_topn")));
+    assert!(stdout.contains(&field("sort_keys", "label")));
+    assert!(stdout.contains(&field("sort_direction", "asc")));
+    assert!(stdout.contains(&field("top_n_limit", "3")));
+    assert!(stdout.contains(&field("selected_row_count", "3")));
+    assert!(stdout.contains(&field("output_row_count", "3")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":4,\\\"label\\\":\\\"alpha\\\"}\\n{\\\"id\\\":2,\\\"label\\\":\\\"beta\\\"}\\n{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_multi_key_scalar_order_by_topn_without_fallback() {
     let source_path = unique_path("sql-local-source-multi-key-order-by", "csv");
     fs::write(
         &source_path,
@@ -3777,7 +3830,7 @@ fn sql_local_source_smoke_executes_multi_key_numeric_order_by_topn_without_fallb
     )));
     assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
     assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
-    assert!(stdout.contains(&field("sort_operator_family", "multi_key_numeric_topn")));
+    assert!(stdout.contains(&field("sort_operator_family", "multi_key_scalar_topn")));
     assert!(stdout.contains(&field("sort_keys", "amount,id")));
     assert!(stdout.contains(&field("sort_direction", "desc,asc")));
     assert!(stdout.contains(&field("top_n_limit", "3")));
@@ -3956,7 +4009,7 @@ fn sql_local_source_smoke_executes_scalar_aggregate_order_by_topn_without_fallba
     assert!(stdout.contains(&field("aggregate_aliases", "rows,total_amount")));
     assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
     assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
-    assert!(stdout.contains(&field("sort_operator_family", "multi_key_numeric_topn")));
+    assert!(stdout.contains(&field("sort_operator_family", "multi_key_scalar_topn")));
     assert!(stdout.contains(&field("sort_keys", "total_amount,rows")));
     assert!(stdout.contains(&field("sort_direction", "desc,desc")));
     assert!(stdout.contains(&field("top_n_limit", "1")));
@@ -4197,7 +4250,7 @@ fn sql_local_source_smoke_executes_group_by_aggregate_order_by_topn_without_fall
     assert!(stdout.contains(&field("group_by_group_count", "2")));
     assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
     assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
-    assert!(stdout.contains(&field("sort_operator_family", "multi_key_numeric_topn")));
+    assert!(stdout.contains(&field("sort_operator_family", "multi_key_scalar_topn")));
     assert!(stdout.contains(&field("sort_keys", "total_amount,rows")));
     assert!(stdout.contains(&field("sort_direction", "desc,desc")));
     assert!(stdout.contains(&field("top_n_limit", "2")));
@@ -4210,6 +4263,61 @@ fn sql_local_source_smoke_executes_group_by_aggregate_order_by_topn_without_fall
         "execution_certificate_ref",
         "sql-local-source.csv.group-by-aggregate-order-by-topn-filter-limit.execution.v1"
     )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_group_by_aggregate_utf8_order_by_topn_without_fallback() {
+    let source_path = unique_path("sql-local-source-group-by-utf8-order-by", "csv");
+    fs::write(
+        &source_path,
+        "id,region,amount\n1,east,10\n2,west,5\n3,east,12\n4,west,14\n5,north,3\n",
+    )
+    .expect("write source csv");
+
+    let statement = format!(
+        "SELECT region,count(*) AS rows,sum(amount) AS total_amount FROM '{}' WHERE amount >= 0 GROUP BY region ORDER BY region ASC,total_amount DESC LIMIT 2",
+        source_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_group_by_aggregate_order_by_topn_filter_limit"
+    )));
+    assert!(stdout.contains(&field("aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("aggregate_operator_family", "grouped_aggregate")));
+    assert!(stdout.contains(&field("group_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sort_operator_family", "multi_key_scalar_topn")));
+    assert!(stdout.contains(&field("sort_keys", "region,total_amount")));
+    assert!(stdout.contains(&field("sort_direction", "asc,desc")));
+    assert!(stdout.contains(&field("top_n_limit", "2")));
+    assert!(stdout.contains(&field("selected_row_count", "5")));
+    assert!(stdout.contains(&field("output_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"region\\\":\\\"east\\\",\\\"rows\\\":2,\\\"total_amount\\\":22}\\n{\\\"region\\\":\\\"north\\\",\\\"rows\\\":1,\\\"total_amount\\\":3}\\n\""
+    ));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
@@ -6711,6 +6819,7 @@ customer_id,region,segment
     )));
     assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
     assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sort_operator_family", "single_key_scalar_topn")));
     assert!(stdout.contains(&field("sort_keys", "f.amount")));
     assert!(stdout.contains(&field("sort_direction", "desc")));
     assert!(stdout.contains(&field("top_n_limit", "2")));
@@ -6722,6 +6831,84 @@ customer_id,region,segment
         "execution_certificate_ref",
         "sql-local-source.csv.inner-equi-join-order-by-topn-filter-limit.execution.v1"
     )));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(fact_path).expect("remove fact csv");
+    fs::remove_file(dim_path).expect("remove dim csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_join_utf8_order_by_topn_without_fallback() {
+    let fact_path = unique_path("sql-local-source-join-utf8-topn-fact", "csv");
+    let dim_path = unique_path("sql-local-source-join-utf8-topn-dim", "csv");
+    fs::write(
+        &fact_path,
+        "\
+id,customer_id,region,amount
+1,10,east,8
+2,20,west,15
+3,20,east,21
+4,30,east,22
+5,30,west,23
+",
+    )
+    .expect("write fact csv");
+    fs::write(
+        &dim_path,
+        "\
+customer_id,region,segment
+20,west,enterprise
+20,east,consumer
+30,west,startup
+30,east,enterprise
+",
+    )
+    .expect("write dim csv");
+
+    let statement = format!(
+        "SELECT f.id,d.segment FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 ORDER BY d.segment ASC,f.amount DESC LIMIT 3",
+        fact_path.display(),
+        dim_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains(&field(
+        "sql_statement_kind",
+        "local_source_inner_equi_join_order_by_topn_filter_limit"
+    )));
+    assert!(stdout.contains(&field("join_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_key_arity", "2")));
+    assert!(stdout.contains(&field("join_multi_key_runtime_execution", "true")));
+    assert!(stdout.contains(&field("join_matched_row_count", "4")));
+    assert!(stdout.contains(&field("selected_row_count", "4")));
+    assert!(stdout.contains(&field("join_order_by_top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
+    assert!(stdout.contains(&field("sort_operator_family", "multi_key_scalar_topn")));
+    assert!(stdout.contains(&field("sort_keys", "d.segment,f.amount")));
+    assert!(stdout.contains(&field("sort_direction", "asc,desc")));
+    assert!(stdout.contains(&field("top_n_limit", "3")));
+    assert!(stdout.contains(&field("projected_columns", "f.id,d.segment")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"f.id\\\":3,\\\"d.segment\\\":\\\"consumer\\\"}\\n{\\\"f.id\\\":4,\\\"d.segment\\\":\\\"enterprise\\\"}\\n{\\\"f.id\\\":2,\\\"d.segment\\\":\\\"enterprise\\\"}\\n\""
+    ));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
 
@@ -7064,7 +7251,7 @@ customer_id,segment
     )));
     assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
     assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
-    assert!(stdout.contains(&field("sort_operator_family", "multi_key_numeric_topn")));
+    assert!(stdout.contains(&field("sort_operator_family", "multi_key_scalar_topn")));
     assert!(stdout.contains(&field("sort_keys", "total_amount,rows")));
     assert!(stdout.contains(&field("sort_direction", "desc,desc")));
     assert!(stdout.contains(&field("top_n_limit", "1")));
@@ -7247,7 +7434,7 @@ customer_id,region,segment
     assert!(stdout.contains(&field("join_aggregate_runtime_execution", "true")));
     assert!(stdout.contains(&field("order_by_runtime_execution", "true")));
     assert!(stdout.contains(&field("top_n_runtime_execution", "true")));
-    assert!(stdout.contains(&field("sort_operator_family", "multi_key_numeric_topn")));
+    assert!(stdout.contains(&field("sort_operator_family", "multi_key_scalar_topn")));
     assert!(stdout.contains(&field("sort_keys", "total_amount,rows")));
     assert!(stdout.contains(&field("sort_direction", "desc,desc")));
     assert!(stdout.contains(&field("top_n_limit", "2")));
@@ -7476,7 +7663,7 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
     let source_path = unique_path("sql-local-source-order-by-blocked", "csv");
     fs::write(
         &source_path,
-        "id,label,amount\n1,alpha,8\n2,beta,\n3,gamma,21\n",
+        "id,label,amount,active,mixed\n1,alpha,8,true,8\n2,beta,,false,beta\n3,gamma,21,true,21\n",
     )
     .expect("write source csv");
 
@@ -7501,22 +7688,45 @@ fn sql_local_source_smoke_blocks_unsupported_order_by_shapes_without_fallback() 
     assert!(stdout.contains("\"attempted\":false"));
 
     let statement = format!(
-        "SELECT id,label FROM '{}' WHERE id >= 1 ORDER BY label DESC LIMIT 2",
+        "SELECT id,label FROM '{}' WHERE id >= 1 ORDER BY active DESC LIMIT 2",
         source_path.display()
     );
-    let string_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+    let boolean_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args(["sql-local-source-smoke", &statement, "--format", "json"])
         .output()
         .expect("sql-local-source-smoke command runs");
     assert!(
-        !string_output.status.success(),
+        !boolean_output.status.success(),
         "stdout={} stderr={}",
-        String::from_utf8_lossy(&string_output.stdout),
-        String::from_utf8_lossy(&string_output.stderr)
+        String::from_utf8_lossy(&boolean_output.stdout),
+        String::from_utf8_lossy(&boolean_output.stderr)
     );
-    let stdout = String::from_utf8(string_output.stdout).expect("stdout is utf8");
+    let stdout = String::from_utf8(boolean_output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("\"status\":\"error\""));
-    assert!(stdout.contains("ORDER BY top-N smoke admits numeric sort columns only"));
+    assert!(stdout.contains("ORDER BY top-N smoke admits numeric or UTF-8 sort columns only"));
+    assert!(stdout.contains("external_engine_invoked=false"));
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE id >= 1 ORDER BY mixed DESC LIMIT 2",
+        source_path.display()
+    );
+    let mixed_output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        !mixed_output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&mixed_output.stdout),
+        String::from_utf8_lossy(&mixed_output.stderr)
+    );
+    let stdout = String::from_utf8(mixed_output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"error\""));
+    assert!(
+        stdout.contains(
+            "ORDER BY mixed numeric and UTF-8 values within one sort key are not admitted"
+        )
+    );
     assert!(stdout.contains("external_engine_invoked=false"));
 
     let statement = format!(

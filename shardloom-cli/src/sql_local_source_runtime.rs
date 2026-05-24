@@ -616,10 +616,17 @@ enum SortDirection {
     Desc,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 enum SortValue {
     Int(i64),
     Float(f64),
+    Utf8(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SortValueFamily {
+    Numeric,
+    Utf8,
 }
 
 impl SortValue {
@@ -635,12 +642,20 @@ impl SortValue {
                 Ok(Self::Int(value))
             }
             ScalarValue::Float64(value) if value.is_finite() => Ok(Self::Float(*value)),
+            ScalarValue::Utf8(value) => Ok(Self::Utf8(value.clone())),
             ScalarValue::Null => Err(unsupported_sql_error(
                 "ORDER BY NULL ordering is not admitted in this scoped top-N smoke",
             )),
             _ => Err(unsupported_sql_error(
-                "ORDER BY top-N smoke admits numeric sort columns only",
+                "ORDER BY top-N smoke admits numeric or UTF-8 sort columns only",
             )),
+        }
+    }
+
+    fn family(&self) -> SortValueFamily {
+        match self {
+            Self::Int(_) | Self::Float(_) => SortValueFamily::Numeric,
+            Self::Utf8(_) => SortValueFamily::Utf8,
         }
     }
 }
@@ -649,7 +664,13 @@ impl Eq for SortValue {}
 
 impl Ord for SortValue {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.as_f64().total_cmp(&other.as_f64())
+        match (self, other) {
+            (Self::Int(_) | Self::Float(_), Self::Int(_) | Self::Float(_)) => {
+                self.as_f64().total_cmp(&other.as_f64())
+            }
+            (Self::Utf8(left), Self::Utf8(right)) => left.cmp(right),
+            _ => self.family_rank().cmp(&other.family_rank()),
+        }
     }
 }
 
@@ -660,10 +681,18 @@ impl PartialOrd for SortValue {
 }
 
 impl SortValue {
-    fn as_f64(self) -> f64 {
+    fn as_f64(&self) -> f64 {
         match self {
-            Self::Int(value) => i64_to_f64(value),
-            Self::Float(value) => value,
+            Self::Int(value) => i64_to_f64(*value),
+            Self::Float(value) => *value,
+            Self::Utf8(_) => f64::NAN,
+        }
+    }
+
+    fn family_rank(&self) -> u8 {
+        match self.family() {
+            SortValueFamily::Numeric => 0,
+            SortValueFamily::Utf8 => 1,
         }
     }
 }
@@ -3537,6 +3566,7 @@ fn ordered_projection_row_indexes(
         let values = sort_values_for_row(row, order_by, "ORDER BY column")?;
         sort_values.push((*row_index, values));
     }
+    validate_sort_value_families(&sort_values)?;
     sort_values.sort_by(|(left_index, left_values), (right_index, right_values)| {
         let ordering = compare_order_by_values(order_by, left_values, right_values);
         ordering.then_with(|| left_index.cmp(right_index))
@@ -3657,6 +3687,7 @@ fn ordered_join_row_indexes(
         let values = sort_values_for_row(row, order_by, "ORDER BY join column")?;
         sort_values.push((*row_index, values));
     }
+    validate_sort_value_families(&sort_values)?;
     sort_values.sort_by(|(left_index, left_values), (right_index, right_values)| {
         let ordering = compare_order_by_values(order_by, left_values, right_values);
         ordering.then_with(|| left_index.cmp(right_index))
@@ -3720,6 +3751,7 @@ fn ordered_output_row_indexes(
         let values = sort_values_for_row(&input_row, order_by, missing_label)?;
         sort_values.push((row_index, values));
     }
+    validate_sort_value_families(&sort_values)?;
     sort_values.sort_by(|(left_index, left_values), (right_index, right_values)| {
         let ordering = compare_order_by_values(order_by, left_values, right_values);
         ordering.then_with(|| left_index.cmp(right_index))
@@ -3728,6 +3760,27 @@ fn ordered_output_row_indexes(
         .into_iter()
         .map(|(row_index, _values)| row_index)
         .collect())
+}
+
+fn validate_sort_value_families(
+    sort_values: &[(usize, Vec<SortValue>)],
+) -> Result<(), ShardLoomError> {
+    let Some((_, first_values)) = sort_values.first() else {
+        return Ok(());
+    };
+    for (key_index, first_value) in first_values.iter().enumerate() {
+        let expected_family = first_value.family();
+        if sort_values.iter().any(|(_, values)| {
+            values
+                .get(key_index)
+                .is_some_and(|value| value.family() != expected_family)
+        }) {
+            return Err(unsupported_sql_error(
+                "ORDER BY mixed numeric and UTF-8 values within one sort key are not admitted in this scoped top-N smoke",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn build_join_right_rows_by_key<'a>(
@@ -7205,9 +7258,9 @@ impl ParsedOrderBy {
 
     fn operator_family_label(&self) -> &'static str {
         if self.is_multi_key() {
-            "multi_key_numeric_topn"
+            "multi_key_scalar_topn"
         } else {
-            "single_key_numeric_topn"
+            "single_key_scalar_topn"
         }
     }
 }
@@ -19044,7 +19097,7 @@ mod tests {
         let order_by = parsed.order_by.as_ref().expect("order by parsed");
         assert_eq!(order_by.columns_label(), "amount");
         assert_eq!(order_by.directions_label(), "desc");
-        assert_eq!(order_by.operator_family_label(), "single_key_numeric_topn");
+        assert_eq!(order_by.operator_family_label(), "single_key_scalar_topn");
         assert_eq!(order_by.keys[0].column, "amount");
         assert_eq!(order_by.keys[0].direction, SortDirection::Desc);
         assert_eq!(parsed.limit, 3);
@@ -19065,7 +19118,7 @@ mod tests {
         assert!(order_by.is_multi_key());
         assert_eq!(order_by.columns_label(), "amount,id");
         assert_eq!(order_by.directions_label(), "desc,asc");
-        assert_eq!(order_by.operator_family_label(), "multi_key_numeric_topn");
+        assert_eq!(order_by.operator_family_label(), "multi_key_scalar_topn");
         assert_eq!(parsed.limit, 3);
         assert_eq!(
             parsed.statement_kind(),
@@ -19101,7 +19154,7 @@ mod tests {
         );
         assert_field_eq(&fields, "order_by_runtime_execution", "true");
         assert_field_eq(&fields, "top_n_runtime_execution", "true");
-        assert_field_eq(&fields, "sort_operator_family", "multi_key_numeric_topn");
+        assert_field_eq(&fields, "sort_operator_family", "multi_key_scalar_topn");
         assert_field_eq(&fields, "sort_keys", "amount,id");
         assert_field_eq(&fields, "sort_direction", "desc,asc");
         assert_field_eq(&fields, "top_n_limit", "3");
@@ -19743,7 +19796,7 @@ mod tests {
         let order_by = parsed.order_by.as_ref().expect("order by parsed");
         assert_eq!(order_by.columns_label(), "f.amount");
         assert_eq!(order_by.directions_label(), "desc");
-        assert_eq!(order_by.operator_family_label(), "single_key_numeric_topn");
+        assert_eq!(order_by.operator_family_label(), "single_key_scalar_topn");
         assert_eq!(order_by.keys[0].column, "f.amount");
         assert_eq!(order_by.keys[0].direction, SortDirection::Desc);
         assert_eq!(

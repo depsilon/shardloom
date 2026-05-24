@@ -2229,7 +2229,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "aggregate_aliases", "value": "rows,total_amount"},
                         {"key": "order_by_runtime_execution", "value": "true"},
                         {"key": "top_n_runtime_execution", "value": "true"},
-                        {"key": "sort_operator_family", "value": "multi_key_numeric_topn"},
+                        {"key": "sort_operator_family", "value": "multi_key_scalar_topn"},
                         {"key": "sort_keys", "value": "total_amount,rows"},
                         {"key": "sort_direction", "value": "desc,desc"},
                         {"key": "top_n_limit", "value": "1"},
@@ -2441,7 +2441,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "group_by_group_count", "value": "2"},
                         {"key": "order_by_runtime_execution", "value": "true"},
                         {"key": "top_n_runtime_execution", "value": "true"},
-                        {"key": "sort_operator_family", "value": "multi_key_numeric_topn"},
+                        {"key": "sort_operator_family", "value": "multi_key_scalar_topn"},
                         {"key": "sort_keys", "value": "total_amount,rows"},
                         {"key": "sort_direction", "value": "desc,desc"},
                         {"key": "top_n_limit", "value": "2"},
@@ -2488,6 +2488,94 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertTrue(report.top_n_runtime_execution)
         self.assertEqual(report.sort_keys, ("total_amount", "rows"))
         self.assertEqual(report.sort_direction, "desc,desc")
+        self.assertEqual(report.top_n_limit, 2)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_group_key_order_by_topn_invokes_sql_smoke(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT region,count(*) AS rows,sum(amount) AS total_amount FROM 'target/input.csv' WHERE amount >= 10 GROUP BY region ORDER BY region ASC,total_amount ASC LIMIT 2",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"region\\":\\"east\\",\\"rows\\":2,\\"total_amount\\":36}\\n{\\"region\\":\\"north\\",\\"rows\\":1,\\"total_amount\\":12}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_group_by_aggregate_order_by_topn_filter_limit"},
+                        {"key": "aggregate_runtime_execution", "value": "true"},
+                        {"key": "aggregate_operator_family", "value": "grouped_aggregate"},
+                        {"key": "aggregate_functions", "value": "count(*),sum(amount)"},
+                        {"key": "aggregate_output_columns", "value": "rows,total_amount"},
+                        {"key": "aggregate_alias_runtime_execution", "value": "true"},
+                        {"key": "aggregate_aliases", "value": "rows,total_amount"},
+                        {"key": "group_by_runtime_execution", "value": "true"},
+                        {"key": "group_by_columns", "value": "region"},
+                        {"key": "group_by_key_arity", "value": "1"},
+                        {"key": "group_by_group_count", "value": "2"},
+                        {"key": "order_by_runtime_execution", "value": "true"},
+                        {"key": "top_n_runtime_execution", "value": "true"},
+                        {"key": "sort_operator_family", "value": "multi_key_scalar_topn"},
+                        {"key": "sort_keys", "value": "region,total_amount"},
+                        {"key": "sort_direction", "value": "asc,asc"},
+                        {"key": "top_n_limit", "value": "2"},
+                        {"key": "projected_columns", "value": "region,rows,total_amount"},
+                        {"key": "output_row_count", "value": "2"},
+                        {"key": "selected_row_count", "value": "4"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.group-by-aggregate-order-by-topn-filter-limit.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        grouped_workflow = (
+            ctx.read_csv("target/input.csv")
+            .filter("amount >= 10")
+            .group_by("region")
+            .agg(rows="count(*)", total_amount="sum(amount)")
+        )
+        self.assertIsInstance(grouped_workflow, sl.LazyFrame)
+        sorted_workflow = grouped_workflow.sort("region", "total_amount")
+        self.assertIsInstance(sorted_workflow, sl.LazyFrame)
+        report = sorted_workflow.limit(2).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.result_jsonl,
+            '{"region":"east","rows":2,"total_amount":36}\n'
+            '{"region":"north","rows":1,"total_amount":12}\n',
+        )
+        self.assertTrue(report.aggregate_runtime_execution)
+        self.assertEqual(report.aggregate_operator_family, "grouped_aggregate")
+        self.assertTrue(report.group_by_runtime_execution)
+        self.assertTrue(report.order_by_runtime_execution)
+        self.assertTrue(report.top_n_runtime_execution)
+        self.assertEqual(report.sort_keys, ("region", "total_amount"))
+        self.assertEqual(report.sort_direction, "asc,asc")
         self.assertEqual(report.top_n_limit, 2)
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
@@ -2818,7 +2906,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "sql_statement_kind", "value": "local_source_order_by_topn_filter_limit"},
                         {"key": "order_by_runtime_execution", "value": "true"},
                         {"key": "top_n_runtime_execution", "value": "true"},
-                        {"key": "sort_operator_family", "value": "single_key_numeric_topn"},
+                        {"key": "sort_operator_family", "value": "single_key_scalar_topn"},
                         {"key": "sort_keys", "value": "amount"},
                         {"key": "sort_direction", "value": "desc"},
                         {"key": "sort_null_ordering", "value": "nulls_blocked_for_fixture_smoke"},
@@ -2862,6 +2950,79 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_utf8_order_by_topn_invokes_sql_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    "SELECT id,label FROM 'target/input.csv' WHERE amount >= 10 ORDER BY label ASC LIMIT 3",
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source",
+                    "human_text": "sql local source",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "result_jsonl", "value": "{\\"id\\":4,\\"label\\":\\"alpha\\"}\\n{\\"id\\":2,\\"label\\":\\"beta\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n"},
+                        {"key": "sql_statement_kind", "value": "local_source_order_by_topn_filter_limit"},
+                        {"key": "order_by_runtime_execution", "value": "true"},
+                        {"key": "top_n_runtime_execution", "value": "true"},
+                        {"key": "sort_operator_family", "value": "single_key_scalar_topn"},
+                        {"key": "sort_keys", "value": "label"},
+                        {"key": "sort_direction", "value": "asc"},
+                        {"key": "sort_null_ordering", "value": "nulls_blocked_for_fixture_smoke"},
+                        {"key": "top_n_limit", "value": "3"},
+                        {"key": "output_row_count", "value": "3"},
+                        {"key": "selected_row_count", "value": "3"},
+                        {"key": "output_io_performed", "value": "false"},
+                        {"key": "output_native_io_certificate_status", "value": "not_requested"},
+                        {"key": "execution_certificate_ref", "value": "sql-local-source.csv.order-by-topn-filter-limit.execution.v1"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"}
+                    ],
+                }))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        sorted_workflow = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "label")
+            .filter("amount >= 10")
+            .sort("label")
+        )
+        self.assertIsInstance(sorted_workflow, sl.LazyFrame)
+        report = sorted_workflow.limit(3).collect()
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.result_jsonl,
+            '{"id":4,"label":"alpha"}\n'
+            '{"id":2,"label":"beta"}\n'
+            '{"id":3,"label":"gamma"}\n',
+        )
+        self.assertTrue(report.order_by_runtime_execution)
+        self.assertTrue(report.top_n_runtime_execution)
+        self.assertEqual(report.sort_keys, ("label",))
+        self.assertEqual(report.sort_direction, "asc")
+        self.assertEqual(report.sort_null_ordering, "nulls_blocked_for_fixture_smoke")
+        self.assertEqual(report.top_n_limit, 3)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
     def test_local_csv_query_builder_multi_key_order_by_topn_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -2889,7 +3050,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "sql_statement_kind", "value": "local_source_order_by_topn_filter_limit"},
                         {"key": "order_by_runtime_execution", "value": "true"},
                         {"key": "top_n_runtime_execution", "value": "true"},
-                        {"key": "sort_operator_family", "value": "multi_key_numeric_topn"},
+                        {"key": "sort_operator_family", "value": "multi_key_scalar_topn"},
                         {"key": "sort_keys", "value": "amount,id"},
                         {"key": "sort_direction", "value": "desc,desc"},
                         {"key": "sort_null_ordering", "value": "nulls_blocked_for_fixture_smoke"},
@@ -3453,7 +3614,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "join_aggregate_group_count", "value": "0"},
                         {"key": "order_by_runtime_execution", "value": "true"},
                         {"key": "top_n_runtime_execution", "value": "true"},
-                        {"key": "sort_operator_family", "value": "multi_key_numeric_topn"},
+                        {"key": "sort_operator_family", "value": "multi_key_scalar_topn"},
                         {"key": "sort_keys", "value": "total_amount,rows"},
                         {"key": "sort_direction", "value": "desc,desc"},
                         {"key": "top_n_limit", "value": "1"},
@@ -7203,7 +7364,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {{"key": "source_format", "value": "jsonl"}},
                         {{"key": "order_by_runtime_execution", "value": "true"}},
                         {{"key": "top_n_runtime_execution", "value": "true"}},
-                        {{"key": "sort_operator_family", "value": "single_key_numeric_topn"}},
+                        {{"key": "sort_operator_family", "value": "single_key_scalar_topn"}},
                         {{"key": "sort_keys", "value": "amount"}},
                         {{"key": "sort_direction", "value": "desc"}},
                         {{"key": "sort_null_ordering", "value": "nulls_blocked_for_fixture_smoke"}},
