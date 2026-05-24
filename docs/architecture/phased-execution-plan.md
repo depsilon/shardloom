@@ -675,9 +675,20 @@ or documentation updates alone are insufficient.
 - [ ] GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators
   - Source: release readiness metadata, benchmark artifact policy, runtime evidence-level docs.
   - Current state: runtime reports have useful fields, but command, Python, benchmark, and website
-    envelopes can diverge.
-  - Next slice outcome: add a versioned execution-envelope schema and validators for every runtime
-    path.
+    envelopes can diverge. Python now exposes
+    `shardloom.runtime_execution_envelope_validation.v1` through
+    `OutputEnvelope.runtime_execution_validation(...)` /
+    `validate_runtime_execution_envelope(...)`, and
+    `scripts/check_runtime_execution_envelopes.py` verifies complete and deliberately broken
+    fixture envelopes. The validator rejects runtime envelopes missing explicit parseable
+    no-fallback fields, claim-gate status, route-state refs, materialization/decode evidence,
+    execution certificates, prepared-state refs for `prepared_vortex`, or cold timing attribution for
+    `compatibility_import_certified`. The hard release gate now checks that the validator script
+    and status artifacts remain present. The parent stays open until the same validator is applied
+    to every runtime command family, benchmark artifact row, and website/status render path.
+  - Next slice outcome: migrate each runtime command family and benchmark row through the versioned
+    validator, then fail release readiness when any supported runtime path lacks certificate,
+    materialization/decode, claim-gate, or no-fallback evidence.
   - Runtime enablement: runtime-claim validator that rejects paths missing certificate,
     materialization/decode, claim-gate, or no-fallback fields.
   - User-visible surface: CLI JSON, Python typed reports, benchmark artifacts, website evidence,
@@ -707,9 +718,11 @@ or documentation updates alone are insufficient.
     `ShardLoomSession` for local `vortex_ingest` prepared-state reuse plus admitted local
     query-builder collect/write/fanout result reuse when source, output, and prepared-artifact
     fingerprints still match. Session SQL results surface SourceState id/digest, read-plan,
-    projection-pushdown, and materialized/reader projection columns from the local source runtime.
-    Broader CLI batch/session reuse, cross-workflow OutputPlan reuse, schema/dictionary cache reuse,
-    buffer pools, object-store/table reuse, and non-local workflows are still planned.
+    projection-pushdown, materialized/reader projection columns, `source_schema_digest`,
+    `plan_digest`, `output_plan_digest`, `execution_certificate_ref`, reuse/invalidation reason,
+    and runtime-envelope validation status from the local source runtime. Broader CLI batch/session
+    reuse, cross-workflow OutputPlan reuse, schema/dictionary cache reuse, buffer pools,
+    object-store/table reuse, and non-local workflows are still planned.
   - Next slice outcome: extend the scoped in-process `ShardLoomSession` from prepared-state reuse
     into admitted SourceState, VortexPreparedState, schema/dictionary state, and OutputPlan reuse
     where fingerprints remain valid.
@@ -1444,18 +1457,24 @@ runnable, documented, tested, and claim-safe.
     `python/src/shardloom/context.py`, `python/src/shardloom/query.py`, `GAR-RUNTIME-IMPL-4L`,
     `GAR-RUNTIME-IMPL-5I`.
   - Current state: users can `import shardloom as sl`, create `ctx = sl.context()`, run smoke/
-    capability commands, execute scoped CLI-backed workflows, and create caller-owned
-    `ctx.session()` / `sl.session(...)` objects for local `vortex_ingest` prepared-state reuse and
-    admitted local query-builder collect/write/fanout reuse. The Python layer is not yet a broad
-    long-lived runtime session with reusable SourceState, PreparedState, OutputPlan,
-    schema/dictionary, and buffer-pool caches across all workflows.
+    capability commands, and execute scoped CLI-backed workflows through normal
+    `read_* -> filter/select/aggregate/join -> collect/write/fanout` chains. README and Python
+    README now present this format-neutral query/write route as the default user path and label
+    `ctx.session(...)`, `sl.session(...)`, `ctx.prepare_vortex(...)`, and raw runtime-envelope
+    inspection as advanced engine-development/diagnostic surfaces. Existing sessions cover local
+    `vortex_ingest` prepared-state reuse and admitted local query-builder collect/write/fanout
+    reuse. The Python layer is not yet a broad long-lived runtime session with reusable
+    SourceState, PreparedState, OutputPlan, schema/dictionary, and buffer-pool caches across all
+    workflows.
   - Next slice outcome: implement a user-owned `ShardLoomSession`/context lifecycle that feels as
     simple as `SparkSession.builder...getOrCreate()` without creating a daemon, global hidden cache,
     or remote service.
   - Runtime enablement: explicit local session lifecycle for admitted runtime workflows, including
     session id, close/cleanup, cache hit/miss, invalidation, and no-fallback evidence.
-  - User-visible surface: `import shardloom as sl`, `sl.context(...)`, `sl.session(...)`,
-    `ctx.session()`, Python README, getting-started docs, use-case pages.
+  - User-visible surface: `import shardloom as sl`, `sl.context(...)`, normal `ctx.read_*` /
+    `ctx.sql(...)` workflows, Python README, getting-started docs, use-case pages. Session and
+    explicit prepare helpers remain visible only as advanced diagnostic/development APIs until the
+    runtime can hide preparation and reuse behind ordinary query execution.
   - Implementation scope: Python context/session classes, Rust/CLI session command or local batch
     surface, session evidence fields, cleanup semantics, examples.
   - Evidence required: `session_id`, `session_state_scope`, `cache_hit`, `cache_miss`,

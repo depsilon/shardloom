@@ -123,68 +123,52 @@ surface over existing `OutputEnvelope` fields and diagnostics. Unsupported or
 report-only scopes remain unsupported or report-only, and
 `fallback_attempted=false` / `external_engine_invoked=false` stay visible.
 
-`ShardLoomSession` is available as a scoped, caller-owned Python session for local prepare-once and
-local query/output reuse. It caches `ctx.prepare_vortex(...)` / `vortex_ingest` reports only when
-the local source fingerprint and prepared Vortex artifact fingerprint still match. It also caches
-admitted local query-builder `collect(...)`, `write(...)`, and `fanout(...)` results when the SQL
-statement, local source fingerprints, and local output artifact fingerprints still match. Session
-evidence exposes `session_id`, `session_state_scope`, cache hit/miss counts, source/prepared/output
-reuse counts, direct local SourceState read-plan/materialization fields, explicit close status, and
-no-fallback/no-external-engine fields. For feature-gated Parquet/Arrow IPC/Avro/ORC local SQL
-smokes, those SourceState fields disclose preserved columnar `RecordBatch` ingress plus the scalar
-expression-runtime boundary rather than treating Arrow as a hidden execution engine. The report also
-keeps `user_surface_runtime_scope=format_neutral_sql_python_runtime`,
-`format_specific_boundary_scope=read_ingest_and_write_only`, and
-`format_specific_compute_path=false`. It does not imply a daemon, remote server, hidden global cache,
-DataFrame/SQL production runtime,
-object-store/lakehouse runtime, or performance claim.
+For normal Python use, start from the format-neutral query surface. The source reader and sink writer
+are the only places a user should need to name a file format; ShardLoom owns the SourceState,
+preparation, execution, OutputPlan, replay, reuse, certificate, and no-fallback evidence behind that
+surface:
 
 ```python
 import shardloom as sl
 
 ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
-with ctx.session(session_id="local-demo") as session:
-    first = session.prepare_vortex(
-        "target/vortex-ingest-source.csv",
-        "target/vortex-ingest-source.vortex",
-        allow_overwrite=True,
-    )
-    second = session.prepare_vortex(
-        "target/vortex-ingest-source.csv",
-        "target/vortex-ingest-source.vortex",
-    )
-    query = ctx.read_csv("target/vortex-ingest-source.csv").select("id").limit(2)
-    first_output = session.write(
-        query,
-        "target/session-out.jsonl",
-        allow_overwrite=True,
-    )
-    second_output = session.write(query, "target/session-out.jsonl")
+result = (
+    ctx.read_csv("target/orders.csv")
+    .filter(sl.col("amount") >= 10)
+    .select("id", "amount")
+    .limit(100)
+    .write_jsonl("target/orders-out.jsonl", allow_overwrite=True)
+)
 
-print(first.reuse_hit, second.reuse_hit)
-print(first_output.reuse_hit, second_output.output_plan_reuse_hit)
-print(second.evidence())
-print(session.evidence())
+print(result.output_row_count)
+print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
-Reuse is invalidated when the source content/size/mtime or prepared artifact content/size/mtime
-changes. Local query/output reuse is invalidated when a source or output artifact fingerprint
-changes. Schema/dictionary caches, buffer pools, CLI batch sessions, object-store/table reuse, and
-broader workflow session reuse remain planned under GAR-RUNTIME-IMPL-4L/5I.
+The same query shape can read other admitted local formats through `read_json(...)`,
+`read_parquet(...)`, `read_arrow_ipc(...)`, `read_avro(...)`, or `read_orc(...)` and write to
+`write(...)`, `write_jsonl(...)`, `write_csv(...)`, or feature-gated structured sinks. Format-specific
+behavior belongs at read/ingest and write/sink boundaries only; compute semantics should lower
+through the shared ShardLoom SQL/Python runtime or return a deterministic unsupported report.
+
+`ShardLoomSession`, `ctx.prepare_vortex(...)`, `ShardLoomClient.vortex_ingest_smoke(...)`, and raw
+runtime-envelope inspection are lower-level engine-development and diagnostic surfaces. They remain
+useful for validating prepare-once, cache invalidation, VortexPreparedState, OutputPlan, replay, and
+claim evidence, but they should not be required for ordinary Python or SQL users. When a session is
+used, it is in-process and caller-owned; it is not a daemon, remote server, hidden global cache,
+object-store/table cache, broad DataFrame/SQL runtime, or performance claim. Reuse is invalidated
+when source, prepared artifact, or output artifact fingerprints change. Schema/dictionary caches,
+buffer pools, CLI batch sessions, object-store/table reuse, and broader workflow session reuse remain
+planned under GAR-RUNTIME-IMPL-4L/5I.
 
 Allocation profiling and scoped buffer-pool optimization are planned as `GAR-PERF-2G`, not current
 Python runtime support. Any future Python-visible buffer reuse must stay opt-in or explicitly
 scoped to a run/session and preserve correctness, evidence, no-fallback, and no-external-engine
 fields.
 
-The first scoped prepare-once Vortex lifecycle is available through a feature-gated CLI/Python
-surface. Build the CLI with `--features vortex-write`, then call `ctx.prepare_vortex(...)` or
-`ShardLoomClient.vortex_ingest_smoke(...)` to admit a local flat non-null int/uint/float/UTF-8/date32/timestamp CSV/JSON/JSONL source,
-write a local `.vortex` artifact, and emit `VortexPreparedState` refs/digests. The default
-`certification_level="ingest_certified"` reopens/scans the artifact for row-count proof. The
-`ingest_minimal` level records artifact bytes/digest and writer evidence without reopening, and
-`ingest_full_replay` is blocked for this prepare-only helper because it requires downstream output
-replay evidence:
+The explicit prepare-once Vortex lifecycle is available for advanced validation through a
+feature-gated CLI/Python surface. Build the CLI with `--features vortex-write`, then call
+`ShardLoomClient.vortex_ingest_smoke(...)` or `ctx.prepare_vortex(...)` when you intentionally need
+to inspect the `UniversalIngress -> SourceState -> vortex_ingest -> VortexPreparedState` boundary:
 
 ```powershell
 @"
@@ -202,9 +186,8 @@ python -c "from shardloom import context; ctx=context(repo_root='.', profile_ord
 ```
 
 Default CLI builds return a deterministic feature-gate blocker instead of writing an artifact. This
-path is a local fixture smoke for `UniversalIngress -> SourceState -> vortex_ingest ->
-VortexPreparedState`; it is not broad Vortex writer support, object-store/table output support,
-production SQL/DataFrame support, or a performance claim.
+path is a local fixture smoke; it is not the primary user API, broad Vortex writer support,
+object-store/table output support, production SQL/DataFrame support, or a performance claim.
 
 Traditional analytics compatibility inputs can also use a single-process prepare/batch route
 through `ShardLoomClient.traditional_analytics_prepare_batch_run(...)` or the convenience

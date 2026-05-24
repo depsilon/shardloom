@@ -1,0 +1,28 @@
+{
+  "schema_version": "shardloom.runtime_execution_envelope_validation_status.v1",
+  "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1",
+  "owning_phase_item": "GAR-RUNTIME-IMPL-4K",
+  "support_status": "validator_admitted",
+  "required_scalar_fields": [
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_gate_status"
+  ],
+  "required_boolean_fields": [
+    "fallback_attempted",
+    "external_engine_invoked"
+  ],
+  "required_runtime_evidence_groups": [
+    "route_state_ref",
+    "materialization_or_decode_evidence",
+    "execution_certificate"
+  ],
+  "mode_specific_rules": [
+    "prepared_vortex requires prepared_state_id and prepared_state_digest",
+    "compatibility_import_certified requires timing_scope=cold_certified_end_to_end",
+    "compatibility_import_certified requires preparation_included=true"
+  ],
+  "fallback_attempted": false,
+  "external_engine_invoked": false,
+  "claim_gate_status": "not_claim_grade"
+}

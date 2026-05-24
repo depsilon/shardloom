@@ -15,6 +15,7 @@ from .client import (
     SqlLocalSourceSmokeReport,
     VortexIngestSmokeReport,
 )
+from .models import RuntimeEnvelopeValidationReport
 from .query import (
     LazyFrame,
     UnsupportedWorkflowOperationReport,
@@ -133,6 +134,15 @@ class SessionPreparedState:
         """Return the underlying claim-gate status."""
 
         return self.report.claim_gate_status
+
+    @property
+    def runtime_validation(self) -> RuntimeEnvelopeValidationReport:
+        """Validate the prepared-state envelope before using it as runtime evidence."""
+
+        return self.report.envelope.runtime_execution_validation(
+            surface_id="python_session_prepared_state",
+            execution_mode=self.report.envelope.field("execution_mode") or "vortex_ingest",
+        )
 
     def evidence(self) -> dict[str, Any]:
         """Return a compact session reuse evidence dictionary."""
@@ -304,6 +314,32 @@ class SessionSqlResult:
         return self.report.envelope.field("output_plan_digest")
 
     @property
+    def plan_digest(self) -> str | None:
+        """Return the SQL/runtime plan digest when the CLI emitted one."""
+
+        return self.report.envelope.field("plan_digest")
+
+    @property
+    def source_schema_digest(self) -> str | None:
+        """Return the source-schema digest when the CLI emitted one."""
+
+        return self.report.envelope.field("source_schema_digest")
+
+    @property
+    def execution_certificate_ref(self) -> str | None:
+        """Return the execution certificate reference when present."""
+
+        return self.report.envelope.field("execution_certificate_ref")
+
+    @property
+    def runtime_validation(self) -> RuntimeEnvelopeValidationReport:
+        """Validate the SQL/result envelope before using it as runtime evidence."""
+
+        return self.report.envelope.runtime_execution_validation(
+            surface_id=f"python_session_{self.operation}",
+        )
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether fallback execution was attempted."""
 
@@ -351,6 +387,8 @@ class SessionSqlResult:
             "output_plan_reuse_hit": self.output_plan_reuse_hit,
             "result_replay_reuse_hit": self.result_replay_reuse_hit,
             "reuse_reason": self.reuse_reason,
+            "plan_digest": self.plan_digest,
+            "source_schema_digest": self.source_schema_digest,
             "source_fingerprint_digests": tuple(
                 fingerprint.reuse_digest for fingerprint in self.source_fingerprints
             ),
@@ -358,6 +396,11 @@ class SessionSqlResult:
                 fingerprint.reuse_digest for fingerprint in self.output_fingerprints
             ),
             "output_plan_digest": self.output_plan_digest,
+            "execution_certificate_ref": self.execution_certificate_ref,
+            "runtime_envelope_validation_status": self.runtime_validation.status,
+            "runtime_envelope_validation_schema_version": (
+                self.runtime_validation.schema_version
+            ),
             "fallback_attempted": self.fallback_attempted,
             "external_engine_invoked": self.external_engine_invoked,
             "claim_gate_status": self.claim_gate_status,
@@ -414,6 +457,8 @@ class ShardLoomSession:
         self._prepared_artifact_reuse_count = 0
         self._output_plan_reuse_count = 0
         self._result_replay_reuse_count = 0
+        self._last_reuse_reason: str | None = None
+        self._last_invalidation_reason: str | None = None
 
     @property
     def closed(self) -> bool:
@@ -491,6 +536,8 @@ class ShardLoomSession:
                 self._cache_hits += 1
                 self._source_state_reuse_count += 1
                 self._prepared_artifact_reuse_count += 1
+                self._last_reuse_reason = reuse_reason
+                self._last_invalidation_reason = None
                 return SessionPreparedState(
                     session_id=self.session_id,
                     report=entry.report,
@@ -502,6 +549,12 @@ class ShardLoomSession:
         else:
             reuse_reason = "reuse_disabled" if not reuse else "no_cached_prepared_state"
 
+        self._last_reuse_reason = reuse_reason
+        self._last_invalidation_reason = (
+            None
+            if reuse_reason in {"no_cached_prepared_state", "reuse_disabled"}
+            else reuse_reason
+        )
         self._cache_misses += 1
         report = self.client.vortex_ingest_smoke(
             source_path,
@@ -646,6 +699,8 @@ class ShardLoomSession:
             "prepared_artifact_reuse_count": self._prepared_artifact_reuse_count,
             "output_plan_reuse_count": self._output_plan_reuse_count,
             "result_replay_reuse_count": self._result_replay_reuse_count,
+            "last_reuse_reason": self._last_reuse_reason,
+            "last_invalidation_reason": self._last_invalidation_reason,
             "session_closed": self._closed,
             "fallback_attempted": False,
             "external_engine_invoked": False,
@@ -697,6 +752,8 @@ class ShardLoomSession:
                 if operation in {"write", "fanout"}:
                     self._output_plan_reuse_count += 1
                     self._result_replay_reuse_count += 1
+                self._last_reuse_reason = reuse_reason
+                self._last_invalidation_reason = None
                 return SessionSqlResult(
                     session_id=self.session_id,
                     report=entry.report,
@@ -709,6 +766,12 @@ class ShardLoomSession:
         else:
             reuse_reason = "reuse_disabled" if not reuse else "no_cached_result"
 
+        self._last_reuse_reason = reuse_reason
+        self._last_invalidation_reason = (
+            None
+            if reuse_reason in {"no_cached_result", "reuse_disabled"}
+            else reuse_reason
+        )
         self._cache_misses += 1
         report = execute()
         source_fingerprints = _source_fingerprints(statement)

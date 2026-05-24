@@ -16,6 +16,53 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4K/4L runtime-envelope validator and session evidence
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-envelope-session-validator-20260524` / #935.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators`.
+    - `GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse
+      runtime`.
+    - User request to review production/runtime viability items and close or implement the open
+      work with meaty PRs rather than marking broad parents complete prematurely.
+  - Scope:
+    - Added `shardloom.runtime_execution_envelope_validation.v1` as a Python runtime-evidence
+      validator on `OutputEnvelope` with `validate_runtime_execution_envelope(...)`.
+    - Validator blocks runtime envelopes missing explicit parseable `fallback_attempted`,
+      `external_engine_invoked`, `claim_gate_status`, route-state refs,
+      materialization/decode evidence, or execution certificate refs.
+    - Added mode-specific blockers for `prepared_vortex` envelopes without
+      `prepared_state_id`/`prepared_state_digest` and for `compatibility_import_certified` rows
+      that do not disclose `timing_scope=cold_certified_end_to_end` and
+      `preparation_included=true`.
+    - Added `scripts/check_runtime_execution_envelopes.py` and
+      `docs/status/runtime-execution-envelope-validation.*` so release/readiness gates can verify
+      the validator contract without running arbitrary workloads.
+    - Extended `ShardLoomSession` SQL result evidence with `source_schema_digest`,
+      `plan_digest`, `execution_certificate_ref`, runtime-envelope validation status, and
+      last reuse/invalidation reason while preserving explicit local, caller-owned session scope.
+    - Hooked hard release readiness and release validation evidence inventories so the validator is
+      visible to production-readiness gates.
+    - Reworked the root and Python README examples so normal users see the format-neutral
+      `ctx.read_* -> filter/select -> write_*` path first, while explicit `prepare_vortex(...)`,
+      session evidence, and runtime-envelope inspection are documented as advanced
+      engine-development/diagnostic surfaces.
+  - Verification:
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `python scripts\check_runtime_execution_envelopes.py` using the local Python executable
+      after the `python` shim failed in PowerShell.
+    - `python -m unittest python.tests.test_query_builder`
+  - Claim boundary:
+    - Evidence-standardization and scoped Python session evidence only. This does not complete the
+      4K parent for every runtime path, does not complete 4L for CLI/object-store/table/buffer-pool
+      reuse, and does not upgrade production, package, performance, SQL/DataFrame, object-store,
+      lakehouse, or Spark-replacement claims.
+  - Remaining gates:
+    - Apply the validator to every runtime command family, benchmark row, website/status render
+      path, and final release rehearsal; broaden session reuse beyond scoped local Python cache
+      paths; keep all parent GAR items open until those evidence-bearing paths pass.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D/5B/5C scoped aggregate HAVING runtime
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-aggregate-having-runtime-20260524` / #934.

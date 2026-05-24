@@ -634,12 +634,27 @@ def main() -> int:
     evidence_schema_registry = repo_root / "shardloom-cli/src/evidence_schema_registry.rs"
     evidence_schema_doc = repo_root / "docs/status/evidence-field-schema-registry.md"
     evidence_schema_validator = repo_root / "scripts/check_evidence_schema_registry.py"
+    runtime_envelope_status_doc = repo_root / "docs/status/runtime-execution-envelope-validation.md"
+    runtime_envelope_status_json = repo_root / "docs/status/runtime-execution-envelope-validation.json"
+    runtime_envelope_validator = repo_root / "scripts/check_runtime_execution_envelopes.py"
     if not evidence_schema_registry.exists():
         typed_blockers.append("missing evidence schema registry source")
     if "shardloom.evidence_field_schema_registry.v1" not in read_text(evidence_schema_doc):
         typed_blockers.append("missing evidence schema registry status doc")
     if not evidence_schema_validator.exists():
         typed_blockers.append("missing evidence schema registry validator script")
+    if "shardloom.runtime_execution_envelope_validation.v1" not in read_text(runtime_envelope_status_doc):
+        typed_blockers.append("missing runtime execution envelope validation status doc")
+    runtime_envelope_status = load_json(runtime_envelope_status_json)
+    if runtime_envelope_status is None:
+        typed_blockers.append("missing runtime execution envelope validation status json")
+    elif (
+        runtime_envelope_status.get("validator_schema_version")
+        != "shardloom.runtime_execution_envelope_validation.v1"
+    ):
+        typed_blockers.append("runtime execution envelope validator schema mismatch")
+    if not runtime_envelope_validator.exists():
+        typed_blockers.append("missing runtime execution envelope validator script")
     checks.append(check("typed_envelope_compatibility", "shardloom-cli/tests/typed_envelope_contract_snapshots.rs", typed_blockers))
 
     benchmark_constitution_script = repo_root / "scripts/check_benchmark_constitution.py"
@@ -735,6 +750,7 @@ def main() -> int:
         "python scripts/check_package_channel_readiness.py --require-local-evidence",
         "python scripts/check_golden_workflows.py",
         "python scripts/check_admitted_semantics_matrix.py",
+        "python scripts/check_runtime_execution_envelopes.py",
         "python scripts/check_benchmark_constitution.py",
         "python scripts/final_release_rehearsal.py --allow-blocked",
     ]

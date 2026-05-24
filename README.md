@@ -60,9 +60,9 @@ Current runtime support is intentionally scoped and evidence-gated:
 - feature-gated local `vortex_ingest` smoke that prepares admitted flat scalar local sources into a
   local `.vortex` artifact and emits `VortexPreparedState` evidence with explicit
   `ingest_minimal` / `ingest_certified` certification-depth semantics;
-- caller-owned Python `ShardLoomSession` prepared-state and local query/output reuse for scoped
-  local `vortex_ingest` and query-builder workflows, guarded by source/output/prepared-artifact
-  fingerprints with explicit close/evidence fields;
+- Python query-builder workflows that expose normal read/filter/select/write calls while preserving
+  internal SourceState, Vortex preparation, OutputPlan, replay, reuse, and no-fallback evidence
+  behind the user surface;
 - report-only or blocked status for broader SQL/DataFrame, object-store, lakehouse/table,
   distributed, live/hybrid production, Foundry production, and package-publication claims.
 
@@ -88,34 +88,30 @@ $env:PYTHONPATH = "python\src"
 python examples\local-python-smoke\run.py --repo-root .
 ```
 
-Scoped prepare-once reuse from Python:
+Normal Python use:
 
 ```python
 import shardloom as sl
 
 ctx = sl.context(repo_root=".", profile_order=("debug", "release"))
-with ctx.session() as session:
-    first = session.prepare_vortex(
-        "target/vortex-ingest-source.csv",
-        "target/vortex-ingest-source.vortex",
-        allow_overwrite=True,
-    )
-    second = session.prepare_vortex(
-        "target/vortex-ingest-source.csv",
-        "target/vortex-ingest-source.vortex",
-    )
-    print(second.reuse_hit, second.reuse_reason)
-    query = ctx.read_csv("target/vortex-ingest-source.csv").select("id").limit(2)
-    first_output = session.write(query, "target/session-out.jsonl", allow_overwrite=True)
-    second_output = session.write(query, "target/session-out.jsonl")
-    print(first_output.reuse_hit, second_output.output_plan_reuse_hit)
-    print(session.evidence())
+result = (
+    ctx.read_csv("target/orders.csv")
+    .filter(sl.col("amount") >= 10)
+    .select("id", "amount")
+    .limit(100)
+    .write_jsonl("target/orders-out.jsonl", allow_overwrite=True)
+)
+
+print(result.output_row_count)
+print(result.fallback_attempted, result.external_engine_invoked)
 ```
 
-The session is in-process and caller-owned. It is not a daemon, hidden global cache, distributed
-runtime, object-store/table cache, SQL/DataFrame production surface, or performance claim. Query
-output reuse is admitted only when the statement, local source fingerprints, and local output
-artifact fingerprints still match.
+The Python and SQL front doors should stay format-neutral after the read/ingest boundary. A caller
+chooses a source reader such as `read_csv(...)` or `read_parquet(...)`, writes to a requested sink,
+and lets ShardLoom manage SourceState, Vortex preparation, execution, OutputPlan, replay, reuse,
+certificates, and no-fallback evidence internally. Lower-level helpers such as explicit
+`prepare_vortex(...)`, runtime-envelope inspection, and session evidence are engine-development and
+diagnostic surfaces, not the normal path for using ShardLoom.
 
 Exact smoke commands, feature flags, expected outputs, and claim boundaries live in the linked
 getting-started docs.
