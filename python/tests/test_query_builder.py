@@ -4619,6 +4619,98 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
 
+    def test_local_csv_query_builder_window_row_number_invokes_sql_smoke(self) -> None:
+        statement = "SELECT id,region,amount,ROW_NUMBER() OVER (PARTITION BY region ORDER BY amount DESC) AS rn FROM 'target/input.csv' WHERE amount >= 10 LIMIT 4"
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "sql-local-source-smoke",
+                    {statement!r},
+                    "--output-format",
+                    "inline-jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "sql-local-source-smoke",
+                    "status": "success",
+                    "summary": "sql local source window row number",
+                    "human_text": "sql local source window row number",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "result_jsonl", "value": "{{\\"id\\":1,\\"region\\":\\"east\\",\\"amount\\":10,\\"rn\\":3}}\\n{{\\"id\\":2,\\"region\\":\\"east\\",\\"amount\\":30,\\"rn\\":1}}\\n"}},
+                        {{"key": "sql_statement_kind", "value": "local_source_window_filter_limit"}},
+                        {{"key": "window_runtime_execution", "value": "true"}},
+                        {{"key": "window_operator_family", "value": "row_number"}},
+                        {{"key": "window_function", "value": "row_number"}},
+                        {{"key": "window_partition_columns", "value": "region"}},
+                        {{"key": "window_order_by_columns", "value": "amount"}},
+                        {{"key": "window_order_by_directions", "value": "desc"}},
+                        {{"key": "window_output_columns", "value": "rn"}},
+                        {{"key": "window_row_number_runtime_execution", "value": "true"}},
+                        {{"key": "output_row_count", "value": "2"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.read_csv("target/input.csv")
+            .select("id", "region", "amount")
+            .filter(sl.col("amount") >= 10)
+            .window(
+                sl.row_number(
+                    partition_by="region",
+                    order_by="amount",
+                    descending=True,
+                    alias="rn",
+                )
+            )
+            .limit(4)
+            .collect()
+        )
+
+        self.assertEqual(report.envelope.command, "sql-local-source-smoke")
+        self.assertEqual(
+            report.envelope.field("sql_statement_kind"),
+            "local_source_window_filter_limit",
+        )
+        self.assertTrue(report.window_runtime_execution)
+        self.assertEqual(report.window_operator_family, "row_number")
+        self.assertEqual(report.window_function, ("row_number",))
+        self.assertEqual(report.window_partition_columns, ("region",))
+        self.assertEqual(report.window_order_by_columns, ("amount",))
+        self.assertEqual(report.window_order_by_directions, ("desc",))
+        self.assertEqual(report.window_output_columns, ("rn",))
+        self.assertTrue(report.window_row_number_runtime_execution)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
+        self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_local_csv_query_builder_window_blocks_post_window_reordering(self) -> None:
+        workflow = sl.read_csv(
+            "target/input.csv",
+            binary=["definitely-missing-shardloom"],
+        ).window(sl.row_number(order_by="amount", alias="rn"))
+
+        self.assertEqual(
+            workflow.limit(5)._sql_local_source_statement(),
+            "SELECT *,ROW_NUMBER() OVER (ORDER BY amount ASC) AS rn FROM 'target/input.csv' LIMIT 5",
+        )
+        self.assertIsNone(workflow.select("id").limit(5)._sql_local_source_statement())
+        self.assertIsNone(workflow.filter("amount > 1").limit(5)._sql_local_source_statement())
+        self.assertIsNone(workflow.sort("amount").limit(5)._sql_local_source_statement())
+
     def test_local_csv_query_builder_with_column_generic_expression_invokes_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -8889,7 +8981,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                 how="left",
             ),
             workflow.aggregate("sum(amount)"),
-            workflow.window("row_number() over (partition by id)"),
+            workflow.sort("amount").window("row_number() over (partition by id)"),
             workflow.schema_contract({"id": "int64"}),
             workflow.data_quality_check("regex:id"),
             workflow.quarantine("bad.vortex"),

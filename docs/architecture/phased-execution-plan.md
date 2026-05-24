@@ -954,7 +954,10 @@ docs/website parity, and a completed-ledger entry.
     multi-key scalar joined top-N, and scalar/grouped join-aggregate ordering by aggregate output
     aliases or group keys. Scalar/grouped aggregate and join-aggregate rows also admit scoped
     post-aggregate `HAVING` predicates bound to emitted aggregate output aliases or selected group
-    keys; richer expressions, casts, dates, strings, windows, subqueries,
+    keys. Scoped local-source `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...) AS <alias>` now
+    executes through the same format-neutral SQL/Python runtime with deterministic partitioned
+    ranking evidence; richer expressions, casts, dates, strings, broad window functions/frames,
+    subqueries,
     catalogs, arbitrary join predicates, null/collation ordering, and broad planner behavior remain
     incomplete or blocked.
   - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
@@ -987,8 +990,9 @@ docs/website parity, and a completed-ledger entry.
     JSONL query builder now covers projection/filter/limit, preview, scalar aggregate, multi-key
     group-by, multi-key scalar top-N, aggregate-output top-N, scoped local-source equi/cross and
     expression-condition joins, computed projections and multi-key scalar top-N over joined rows, scalar/grouped join
-    aggregate, post-aggregate `having(...)` / post-`agg(...)` `filter(...)`, explicit-projection
-    literal `with_column(...)`, and `count()` workflows, but
+    aggregate, post-aggregate `having(...)` / post-`agg(...)` `filter(...)`, scoped
+    `.window(sl.row_number(...))` projection, explicit-projection literal `with_column(...)`, and
+    `count()` workflows, but
     complete end-to-end generated/local/Vortex workflows and
     unsupported-method diagnostics are not yet ordinary user-grade coverage.
   - Next slice outcome: make one import path support generated, local file, and prepared/native
@@ -1107,7 +1111,10 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage
   - Source: `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4J`, RFC 0015, RFC 0016, RFC 0021.
   - Current state: selected residual-native operators exist; broad type/null/string/date/decimal,
-    join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Scoped
+    join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Scoped local-source
+    `ROW_NUMBER()` window projection now has native partition/order evaluation and runtime
+    evidence, but general window functions, frames, encoded ranking kernels, and
+    distributed/object-store window execution remain open. Scoped
     `COUNT(DISTINCT column)` is runtime-admitted for local scalar and grouped aggregate rows with
     `distinct_aggregate_*` evidence, SQL `NULL`-ignoring distinct-count semantics, Python
     `sl.count_distinct(...)` aggregate lowering, deterministic blockers for unsupported
@@ -1516,7 +1523,8 @@ runnable, documented, tested, and claim-safe.
     now support `limit(...)`, `head(...)`, and `take(...)` bound adjustment before local writes, with
     DataFrame capability rows separating generic `write`, JSONL, and CSV evidence requirements.
     The DataFrame method matrix now marks scoped local-source `with_column(...)`, `.join(...)`,
-    `.agg(...)`/`.aggregate(...)`, `.sort(...)`, bounded `.to_python_objects()`, bounded
+    `.agg(...)`/`.aggregate(...)`, `.sort(...)`, scoped `.window(sl.row_number(...))`, bounded
+    `.to_python_objects()`, bounded
     `.schema()`/`.describe_schema()`/`.validate_schema(...)`, and bounded
     `.data_quality_summary()`/`.data_quality_check(...)` as fixture-smoke-supported where they
     lower through ShardLoom's shared format-neutral SQL local-source runtime. Generalized joins,
@@ -1531,8 +1539,8 @@ runnable, documented, tested, and claim-safe.
     native runtime paths for admitted local inputs and outputs.
   - User-visible surface: `ctx.read_csv`, `ctx.read_json`, `ctx.read_parquet`,
     `ctx.read_arrow_ipc`, `ctx.read_avro`, `ctx.read_orc`, `ctx.read_vortex`,
-    `.select`, `.filter`, `.with_column`, `.group_by`, `.agg`, `.join`, `.sort`, `.limit`,
-    `.collect`, `.write`, `.explain`, method capability matrix.
+    `.select`, `.filter`, `.with_column`, `.group_by`, `.agg`, `.join`, `.sort`, `.window`,
+    `.limit`, `.collect`, `.write`, `.explain`, method capability matrix.
   - Implementation scope: Python query builder, SQL/local runtime lowering, expression IR, local
     input adapters, output writers, typed unsupported reports, examples.
   - Evidence required: method family, source format, execution mode, operator family,

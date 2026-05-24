@@ -606,11 +606,16 @@ DATAFRAME_METHOD_CAPABILITY_ROWS: tuple[DataFrameMethodCapability, ...] = (
     _df_method(
         "window",
         "window",
-        "unsupported_diagnostic_available",
-        diagnostic_operation="window",
-        blocker_id="cg21.workflow.window.operator_unsupported",
-        required_evidence=("window_operator", "execution_certificate", "native_io_certificate"),
-        claim_boundary=_UNSUPPORTED_BOUNDARY,
+        "fixture_smoke_supported",
+        required_evidence=(
+            "sql_local_source_smoke",
+            "window_operator",
+            "execution_certificate",
+            "native_io_certificate",
+        ),
+        runtime_execution=True,
+        data_read=True,
+        claim_boundary=_LOCAL_QUERY_BUILDER_RUNTIME_BOUNDARY,
     ),
     _df_method(
         "schema_contract",

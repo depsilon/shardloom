@@ -16,6 +16,45 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped local-source ROW_NUMBER window runtime
+  - Date: 2026-05-24
+  - Branch/PR: `compute-engine-window-runtime-20260524` / #936.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
+    - `GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage`.
+    - User direction to prioritize actual compute-engine/runtime features and keep the Python/SQL
+      front door format-neutral.
+  - Scope:
+    - Promoted scoped local-source `ROW_NUMBER() OVER (...) AS <alias>` from unsupported workflow
+      status into ShardLoom-native SQL local-source runtime execution.
+    - Added parser/binder support for `ROW_NUMBER() OVER (ORDER BY ...)` and
+      `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)`, requiring deterministic `ORDER BY`
+      keys and explicit output aliases.
+    - Evaluates row numbers per partition over the selected row set without invoking external SQL,
+      DataFrame, or fallback engines; unsupported mixes with joins, aggregates, computed
+      projections, and top-level post-window ordering still block deterministically.
+    - Added runtime evidence fields for `window_runtime_execution`, `window_operator_family`,
+      `window_function`, partition/order columns, window output columns, and
+      `window_row_number_runtime_execution`.
+    - Added Python `WindowExpression`, `sl.row_number(...)`, `.window(...)` query-builder lowering,
+      typed report accessors, and a DataFrame capability-matrix promotion for the scoped window
+      method.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli parses_scoped_window_row_number_statement`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_window_row_number_without_fallback`
+    - `python -m unittest python.tests.test_query_builder.LazyWorkflowBuilderTests.test_local_csv_query_builder_window_row_number_invokes_sql_smoke`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_context_capabilities_collects_typed_views_without_dataset_commands`
+  - Claim boundary:
+    - Scoped local-source fixture-smoke `ROW_NUMBER()` projection only. This does not claim broad
+      SQL window parity, frames, ranking/window aggregates beyond row number, encoded-native window
+      kernels, distributed/object-store/table windows, production SQL/DataFrame support,
+      performance superiority, or package readiness.
+  - Remaining gates:
+    - Continue broad window semantics, encoded kernel admission, SQL/DataFrame parity, Vortex scan
+      pushdown, session/reuse, output/fanout, and release validation before any full-runtime or
+      production claim.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4K/4L runtime-envelope validator and session evidence
   - Date: 2026-05-24
   - Branch/PR: `compute-engine-envelope-session-validator-20260524` / #935.

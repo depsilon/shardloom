@@ -93,6 +93,16 @@ class PredicateExpression:
 
 
 @dataclass(frozen=True, slots=True)
+class WindowExpression:
+    """A scoped SQL window expression for ShardLoom local-source smokes."""
+
+    sql: str
+
+    def __str__(self) -> str:
+        return self.sql
+
+
+@dataclass(frozen=True, slots=True)
 class ColumnExpression:
     """A scoped column expression for Python query-builder predicates."""
 
@@ -2008,6 +2018,7 @@ class LazyFrame:
                 "optional filter(...), group_by(...).agg(...), and limit(...) operations, "
                 "select(...), optional filter(...), sort(...), and limit(...) operations, "
                 "with_column(...), optional filter(...), and limit(...) operations, or "
+                "select(...), optional filter(...), window(...), and limit(...) operations, or "
                 "a scoped local-source join with select(...), optional filter(...), and limit(...)"
             )
         return self.client.sql_local_source_smoke(
@@ -2354,14 +2365,14 @@ class LazyFrame:
         self,
         *expressions: object,
         check: bool = False,
-    ) -> UnsupportedWorkflowOperationReport:
-        """Return the unsupported report for DataFrame window functions."""
+    ) -> "LazyFrame | UnsupportedWorkflowOperationReport":
+        """Return a scoped window projection workflow when admitted."""
 
-        return self._unsupported_operation(
-            "window",
-            ",".join(_normalize_columns(expressions)),
-            check=check,
-        )
+        values = _normalize_window_expressions(expressions)
+        target = ",".join(values)
+        if self._can_append_window(values):
+            return self._append(WorkflowOperation("window", values))
+        return self._unsupported_operation("window", target, check=check)
 
     def schema_contract(
         self,
@@ -2597,6 +2608,15 @@ class LazyFrame:
             return False
         return all(operation.kind != "sort" for operation in self.operations)
 
+    def _can_append_window(self, expressions: tuple[str, ...]) -> bool:
+        if not _is_query_builder_local_source(self.source) or not expressions:
+            return False
+        for operation in self.operations:
+            if operation.kind in {"select", "filter", "window"}:
+                continue
+            return False
+        return True
+
     def _can_append_having(self) -> bool:
         if not _is_query_builder_local_source(self.source):
             return False
@@ -2628,6 +2648,8 @@ class LazyFrame:
                 if column_name == operation.values[0]:
                     return False
                 continue
+            elif operation.kind == "window":
+                return False
             elif operation.kind == "having":
                 return False
             else:
@@ -2666,6 +2688,7 @@ class LazyFrame:
         aggregate_list: tuple[str, ...] | None = None
         group_by_list: tuple[str, ...] | None = None
         literal_columns: list[tuple[str, str]] = []
+        window_expressions: list[str] = []
         join_info: tuple[str, ...] | None = None
         sort_key: tuple[str, tuple[str, ...]] | None = None
         predicate: str | None = None
@@ -2673,14 +2696,32 @@ class LazyFrame:
         limit: str | None = None
         for operation in self.operations:
             if operation.kind == "select" and projection_list is None:
+                if window_expressions:
+                    return None
                 projection_list = operation.values
             elif operation.kind == "aggregate" and aggregate_list is None:
                 aggregate_list = operation.values
             elif operation.kind == "group_by" and group_by_list is None:
                 group_by_list = operation.values
             elif operation.kind == "with_column":
+                if window_expressions:
+                    return None
                 literal_columns.append((operation.values[0], operation.values[1]))
+            elif operation.kind == "window":
+                if (
+                    aggregate_list is not None
+                    or group_by_list is not None
+                    or literal_columns
+                    or join_info is not None
+                    or sort_key is not None
+                    or having is not None
+                    or limit is not None
+                ):
+                    return None
+                window_expressions.extend(operation.values)
             elif operation.kind == "sort" and sort_key is None:
+                if window_expressions:
+                    return None
                 sort_key = (operation.values[0], operation.values[1:])
             elif operation.kind == "join" and join_info is None:
                 if aggregate_list is not None or group_by_list is not None:
@@ -2692,6 +2733,7 @@ class LazyFrame:
                     or group_by_list is not None
                     or having is not None
                     or sort_key is not None
+                    or window_expressions
                     or limit is not None
                 ):
                     return None
@@ -2744,7 +2786,7 @@ class LazyFrame:
                     for left_column, right_column in zip(left_keys, right_keys)
                 )
             if aggregate_list is not None:
-                if projection_list is not None or literal_columns:
+                if projection_list is not None or literal_columns or window_expressions:
                     return None
                 if group_by_list is not None:
                     select_clause = ",".join((*group_by_list, *aggregate_list))
@@ -2753,7 +2795,12 @@ class LazyFrame:
                     select_clause = ",".join(aggregate_list)
                     group_by_clause = ""
             else:
-                if projection_list is None or group_by_list is not None or having is not None:
+                if (
+                    projection_list is None
+                    or group_by_list is not None
+                    or having is not None
+                    or window_expressions
+                ):
                     return None
                 select_values = list(projection_list)
                 select_values.extend(
@@ -2782,10 +2829,11 @@ class LazyFrame:
             select_values.extend(
                 f"{literal} AS {column}" for column, literal in literal_columns
             )
+            select_values.extend(window_expressions)
             select_clause = ",".join(select_values)
             group_by_clause = ""
         elif aggregate_list is not None:
-            if literal_columns:
+            if literal_columns or window_expressions:
                 return None
             if group_by_list is not None:
                 select_clause = ",".join((*group_by_list, *aggregate_list))
@@ -2796,11 +2844,12 @@ class LazyFrame:
         else:
             if having is not None:
                 return None
-            if literal_columns:
+            if literal_columns or window_expressions:
                 select_values = ["*"]
                 select_values.extend(
                     f"{literal} AS {column}" for column, literal in literal_columns
                 )
+                select_values.extend(window_expressions)
                 select_clause = ",".join(select_values)
             else:
                 select_clause = "*"
@@ -2898,6 +2947,30 @@ def col(name: object) -> ColumnExpression:
     """Return a scoped column expression for local ShardLoom predicates."""
 
     return ColumnExpression(_normalize_expression_column(name))
+
+
+def row_number(
+    *,
+    order_by: object,
+    partition_by: object | None = None,
+    descending: bool = False,
+    alias: object = "row_number",
+) -> WindowExpression:
+    """Return a scoped `ROW_NUMBER() OVER (...) AS alias` expression."""
+
+    if order_by is None:
+        raise ValueError("row_number order_by must not be empty")
+    order_columns = _normalize_columns((order_by,))
+    partition_columns = _normalize_optional_columns(partition_by)
+    direction = "DESC" if descending else "ASC"
+    order_clause = ",".join(f"{column} {direction}" for column in order_columns)
+    partition_clause = (
+        "" if not partition_columns else f"PARTITION BY {','.join(partition_columns)} "
+    )
+    output_alias = _normalize_output_column_name(alias)
+    return WindowExpression(
+        f"ROW_NUMBER() OVER ({partition_clause}ORDER BY {order_clause}) AS {output_alias}"
+    )
 
 
 def case_when(predicate: object, then_value: object, else_value: object) -> ColumnExpression:
@@ -3845,6 +3918,23 @@ def _normalize_columns(columns: Sequence[object]) -> tuple[str, ...]:
     values = [value for value in values if value]
     if not values:
         raise ValueError("select columns must not be empty")
+    return tuple(values)
+
+
+def _normalize_optional_columns(columns: object | None) -> tuple[str, ...]:
+    if columns is None:
+        return ()
+    return _normalize_columns((columns,))
+
+
+def _normalize_window_expressions(expressions: Sequence[object]) -> tuple[str, ...]:
+    if len(expressions) == 1 and _is_non_string_sequence(expressions[0]):
+        values = [str(expression).strip() for expression in expressions[0]]
+    else:
+        values = [str(expression).strip() for expression in expressions]
+    values = [value for value in values if value]
+    if not values:
+        raise ValueError("window expressions must not be empty")
     return tuple(values)
 
 
