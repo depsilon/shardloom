@@ -5115,6 +5115,48 @@ fn sql_local_source_smoke_executes_aggregate_having_without_fallback() {
             .contains("\"result_jsonl\",\"value\":\"{\\\"rows\\\":5,\\\"total_amount\\\":44}\\n\"")
     );
 
+    let unprojected_statement = format!(
+        "SELECT region,count(*) AS rows FROM '{}' WHERE amount >= 0 GROUP BY region HAVING sum(amount) >= 10 AND count(*) >= 2 AND count(DISTINCT id) >= 2 ORDER BY rows DESC LIMIT 10",
+        source_path.display()
+    );
+    let unprojected = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &unprojected_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(
+        unprojected.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&unprojected.stdout),
+        String::from_utf8_lossy(&unprojected.stderr)
+    );
+    let unprojected_stdout = String::from_utf8(unprojected.stdout).expect("stdout is utf8");
+    assert!(unprojected_stdout.contains(&field("having_runtime_execution", "true")));
+    assert!(unprojected_stdout.contains(&field("having_operator_family", "logical_predicate")));
+    assert!(unprojected_stdout.contains(&field(
+        "having_source_column",
+        "sum(amount),count(*),count(DISTINCT id)"
+    )));
+    assert!(unprojected_stdout.contains(&field("having_aggregate_runtime_execution", "true")));
+    assert!(unprojected_stdout.contains(&field(
+        "having_aggregate_function",
+        "sum(amount),count(*),count(DISTINCT id)"
+    )));
+    assert!(unprojected_stdout.contains(&field(
+        "having_aggregate_output_column",
+        "__having_sum_amount_1,__having_count_all_2,__having_count_distinct_id_3"
+    )));
+    assert!(unprojected_stdout.contains(&field("output_row_count", "2")));
+    assert!(unprojected_stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"region\\\":\\\"east\\\",\\\"rows\\\":2}\\n{\\\"region\\\":\\\"west\\\",\\\"rows\\\":2}\\n\""
+    ));
+    assert!(unprojected_stdout.contains(&field("fallback_attempted", "false")));
+    assert!(unprojected_stdout.contains(&field("external_engine_invoked", "false")));
+
     let blocked_statement = format!(
         "SELECT region,count(*) AS rows FROM '{}' GROUP BY region HAVING amount >= 10 LIMIT 10",
         source_path.display()
@@ -5136,6 +5178,28 @@ fn sql_local_source_smoke_executes_aggregate_having_without_fallback() {
     );
     assert!(blocked_output.contains("HAVING column \\\"amount\\\" is not present"));
     assert!(blocked_output.contains("external_engine_invoked=false"));
+
+    let blocked_distinct_statement = format!(
+        "SELECT region,count(*) AS rows FROM '{}' GROUP BY region HAVING sum(DISTINCT amount) >= 10 LIMIT 10",
+        source_path.display()
+    );
+    let blocked_distinct = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "sql-local-source-smoke",
+            &blocked_distinct_statement,
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+    assert!(!blocked_distinct.status.success());
+    let blocked_distinct_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&blocked_distinct.stdout),
+        String::from_utf8_lossy(&blocked_distinct.stderr)
+    );
+    assert!(blocked_distinct_output.contains("COUNT(DISTINCT <column>) only"));
+    assert!(blocked_distinct_output.contains("external_engine_invoked=false"));
 
     fs::remove_file(source_path).expect("remove source csv");
 }
@@ -8876,7 +8940,7 @@ customer_id,region,segment
     .expect("write dim csv");
 
     let statement = format!(
-        "SELECT d.segment,count(*) AS rows,sum(f.amount) AS total_amount FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 GROUP BY d.segment HAVING rows >= 2 ORDER BY total_amount DESC LIMIT 10",
+        "SELECT d.segment,count(*) AS rows,sum(f.amount) AS total_amount FROM '{}' AS f INNER JOIN '{}' AS d ON f.customer_id = d.customer_id AND f.region = d.region WHERE f.amount >= 10 GROUP BY d.segment HAVING rows >= 2 AND max(f.amount) >= 22 ORDER BY total_amount DESC LIMIT 10",
         fact_path.display(),
         dim_path.display()
     );
@@ -8913,8 +8977,14 @@ customer_id,region,segment
     assert!(stdout.contains(&field("join_aggregate_runtime_execution", "true")));
     assert!(stdout.contains(&field("join_aggregate_group_count", "1")));
     assert!(stdout.contains(&field("having_runtime_execution", "true")));
-    assert!(stdout.contains(&field("having_operator_family", "comparison")));
-    assert!(stdout.contains(&field("having_source_column", "rows")));
+    assert!(stdout.contains(&field("having_operator_family", "logical_predicate")));
+    assert!(stdout.contains(&field("having_source_column", "rows,max(f.amount)")));
+    assert!(stdout.contains(&field("having_aggregate_runtime_execution", "true")));
+    assert!(stdout.contains(&field("having_aggregate_function", "max(f.amount)")));
+    assert!(stdout.contains(&field(
+        "having_aggregate_output_column",
+        "__having_max_f_amount_1"
+    )));
     assert!(stdout.contains(&field("having_input_row_count", "3")));
     assert!(stdout.contains(&field("having_selected_row_count", "1")));
     assert!(stdout.contains(&field("selected_row_count", "4")));
