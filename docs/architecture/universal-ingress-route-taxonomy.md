@@ -24,8 +24,8 @@ it is the certified cold route. It requires source, ingest, Vortex write/reopen,
 certificate, no-fallback, and claim-gate evidence before a certified ingest/stage claim is allowed.
 
 The two routes must recognize the same potential non-Vortex source universe. A source may be
-`smoke_supported`, `report_only`, `blocked`, `unsupported`, or `not_planned`, but it must not appear
-in one route and silently disappear from the other.
+`runtime_supported`, `smoke_supported`, `report_only`, `blocked`, `unsupported`, or `not_planned`,
+but it must not appear in one route and silently disappear from the other.
 
 ## Route Layers
 
@@ -110,7 +110,7 @@ docs/architecture/universal-ingress-route-taxonomy.json
 
 It projects the existing universal compatibility scoreboard into route status rows for:
 
-- local CSV, JSONL/NDJSON/JSON, Parquet, Arrow IPC, Avro, ORC, Excel
+- local CSV, JSONL/NDJSON, flat JSON, Parquet, Arrow IPC, Avro, ORC, Excel
 - SQLite/local database files, Postgres, MySQL, JDBC/ODBC, Snowflake, BigQuery, Databricks SQL
 - S3, GCS, ADLS
 - Iceberg, Delta, Hudi

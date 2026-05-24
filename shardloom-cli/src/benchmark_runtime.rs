@@ -231,7 +231,6 @@ pub(crate) fn handle_traditional_analytics_run(
     let direct_transient_unsupported =
         direct_transient_unsupported_reason(DirectTransientAdmissionFacts {
             scenario,
-            input_format,
             cdc_delta_requested: cdc_delta_csv.is_some(),
             compatibility_output_requested: compatibility_output_format.is_some(),
             verify_native_vortex_replay,
@@ -268,22 +267,23 @@ pub(crate) fn handle_traditional_analytics_run(
         ),
     );
     if requested_execution_mode == ShardLoomExecutionMode::DirectCompatibilityTransient {
-        let report = match shardloom_vortex::run_traditional_direct_transient_csv_smoke(request) {
-            Ok(report) => report,
-            Err(error) => {
-                return emit_error(
-                    "traditional-analytics-run",
-                    format,
-                    "traditional analytics direct transient smoke failed",
-                    &error,
-                );
-            }
-        };
+        let report =
+            match shardloom_vortex::run_traditional_direct_transient_local_input_smoke(request) {
+                Ok(report) => report,
+                Err(error) => {
+                    return emit_error(
+                        "traditional-analytics-run",
+                        format,
+                        "traditional analytics direct transient smoke failed",
+                        &error,
+                    );
+                }
+            };
         emit(
             "traditional-analytics-run",
             format,
             CommandStatus::Success,
-            "direct compatibility transient CSV smoke".to_string(),
+            "direct compatibility transient local-input smoke".to_string(),
             report.to_human_text(),
             report.diagnostics.clone(),
             report.fields(),
@@ -317,7 +317,6 @@ pub(crate) fn handle_traditional_analytics_run(
 #[allow(clippy::struct_excessive_bools)]
 struct DirectTransientAdmissionFacts {
     scenario: shardloom_vortex::TraditionalAnalyticsScenario,
-    input_format: shardloom_vortex::TraditionalAnalyticsInputFormat,
     cdc_delta_requested: bool,
     compatibility_output_requested: bool,
     verify_native_vortex_replay: bool,
@@ -327,9 +326,6 @@ struct DirectTransientAdmissionFacts {
 fn direct_transient_unsupported_reason(
     facts: DirectTransientAdmissionFacts,
 ) -> Option<&'static str> {
-    if facts.input_format != shardloom_vortex::TraditionalAnalyticsInputFormat::Csv {
-        return Some("direct transient smoke currently supports local CSV input only");
-    }
     if !matches!(
         facts.scenario,
         shardloom_vortex::TraditionalAnalyticsScenario::SelectiveFilter
@@ -398,7 +394,7 @@ fn emit_direct_compatibility_transient_unsupported(
             "direct_compatibility_transient",
             format!("{unsupported_detail}; no runtime execution was attempted"),
             Some(
-                "Use compatibility_import_certified for certified ingest/stage evidence, or restrict direct transient mode to the supported local CSV selective-filter or filter + projection + limit smoke paths."
+                "Use compatibility_import_certified for certified ingest/stage evidence, or restrict direct transient mode to admitted local-input selective-filter or filter + projection + limit smoke paths."
                     .to_string(),
             ),
         )],

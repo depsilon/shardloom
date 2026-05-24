@@ -341,6 +341,84 @@ impl TraditionalAnalyticsInputFormat {
     }
 
     #[must_use]
+    pub const fn direct_transient_adapter_id(self) -> &'static str {
+        match self {
+            Self::Csv => "shardloom.adapter.csv.direct_transient.v1",
+            Self::JsonLines => "shardloom.adapter.jsonl.direct_transient.v1",
+            Self::Parquet => "shardloom.adapter.parquet.direct_transient.v1",
+            Self::ArrowIpc => "shardloom.adapter.arrow_ipc.direct_transient.v1",
+            Self::Avro => "shardloom.adapter.avro.direct_transient.v1",
+            Self::Orc => "shardloom.adapter.orc.direct_transient.v1",
+        }
+    }
+
+    #[must_use]
+    pub const fn local_adapter_registry_entry_id(self) -> &'static str {
+        match self {
+            Self::Csv => "shardloom.local_input_adapter.csv.v1",
+            Self::JsonLines => "shardloom.local_input_adapter.jsonl.v1",
+            Self::Parquet => "shardloom.local_input_adapter.parquet.v1",
+            Self::ArrowIpc => "shardloom.local_input_adapter.arrow_ipc.v1",
+            Self::Avro => "shardloom.local_input_adapter.avro.v1",
+            Self::Orc => "shardloom.local_input_adapter.orc.v1",
+        }
+    }
+
+    #[must_use]
+    pub const fn local_adapter_admitted_extensions(self) -> &'static str {
+        match self {
+            Self::Csv => ".csv",
+            Self::JsonLines => ".jsonl,.ndjson",
+            Self::Parquet => ".parquet",
+            Self::ArrowIpc => ".arrow,.ipc,.feather",
+            Self::Avro => ".avro",
+            Self::Orc => ".orc",
+        }
+    }
+
+    #[must_use]
+    pub const fn local_adapter_feature_gate(self) -> &'static str {
+        match self {
+            Self::Csv | Self::JsonLines => "default",
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => "universal-format-io",
+        }
+    }
+
+    #[must_use]
+    pub const fn local_adapter_boundary(self) -> &'static str {
+        match self {
+            Self::Csv | Self::JsonLines => "local_text_source_state_adapter",
+            Self::Parquet | Self::ArrowIpc | Self::Avro | Self::Orc => {
+                "local_columnar_source_state_adapter"
+            }
+        }
+    }
+
+    #[must_use]
+    pub const fn direct_transient_provider_surface(self) -> &'static str {
+        match self {
+            Self::Csv => "direct_compatibility_transient_csv_smoke",
+            Self::JsonLines => "direct_compatibility_transient_jsonl_smoke",
+            Self::Parquet => "direct_compatibility_transient_parquet_smoke",
+            Self::ArrowIpc => "direct_compatibility_transient_arrow_ipc_smoke",
+            Self::Avro => "direct_compatibility_transient_avro_smoke",
+            Self::Orc => "direct_compatibility_transient_orc_smoke",
+        }
+    }
+
+    #[must_use]
+    pub const fn direct_transient_admission_policy(self) -> &'static str {
+        match self {
+            Self::Csv => "local_csv_direct_transient_no_external_fallback",
+            Self::JsonLines => "local_jsonl_direct_transient_no_external_fallback",
+            Self::Parquet => "local_parquet_direct_transient_no_external_fallback",
+            Self::ArrowIpc => "local_arrow_ipc_direct_transient_no_external_fallback",
+            Self::Avro => "local_avro_direct_transient_no_external_fallback",
+            Self::Orc => "local_orc_direct_transient_no_external_fallback",
+        }
+    }
+
+    #[must_use]
     pub const fn boundary_id(self) -> &'static str {
         match self {
             Self::Csv => "cg19.csv_to_vortex_source_parse",
@@ -2204,7 +2282,7 @@ pub struct TraditionalVortexLayoutAdvisorReport {
     pub external_engine_invoked: bool,
 }
 
-/// Report emitted by the local CSV-to-Vortex benchmark smoke runner.
+/// Report emitted by the local compatibility-to-Vortex benchmark smoke runner.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct TraditionalAnalyticsReport {
@@ -2540,7 +2618,7 @@ struct TraditionalSourceRead<T> {
     evidence: TraditionalSourceReadEvidence,
 }
 
-/// Report emitted by the scoped direct compatibility transient CSV smoke path.
+/// Report emitted by the scoped direct compatibility transient local-input smoke path.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct TraditionalDirectTransientReport {
@@ -2559,6 +2637,12 @@ pub struct TraditionalDirectTransientReport {
     pub dim_source_bytes: u64,
     pub source_bytes_read: u64,
     pub source_read_micros: u64,
+    pub source_parse_micros: u64,
+    pub source_to_columnar_micros: u64,
+    pub source_state_materialization_layout: String,
+    pub source_state_parse_normalization: String,
+    pub source_state_columnar_preserved: bool,
+    pub source_state_record_batch_count: usize,
     pub scenario_compute_micros: u64,
     pub runtime_execution_certificate: ExecutionCertificate,
     pub diagnostics: Vec<Diagnostic>,
@@ -2568,7 +2652,7 @@ impl TraditionalDirectTransientReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "ShardLoom direct compatibility transient CSV smoke\nscenario: {}\nsource format: {}\nrows scanned: {}\nrows materialized: {}\nVortex persistence: false\nruntime certificate: {}\nexternal engine fallback: disabled",
+            "ShardLoom direct compatibility transient local-input smoke\nscenario: {}\nsource format: {}\nrows scanned: {}\nrows materialized: {}\nVortex persistence: false\nruntime certificate: {}\nexternal engine fallback: disabled",
             self.scenario.as_str(),
             self.input_format.as_str(),
             self.rows_scanned,
@@ -2581,6 +2665,9 @@ impl TraditionalDirectTransientReport {
     #[allow(clippy::too_many_lines)]
     pub fn fields(&self) -> Vec<(String, String)> {
         let scenario_slug = direct_transient_scenario_slug(self.scenario);
+        let input_format_slug = self.input_format.as_str();
+        let direct_transient_row_ref =
+            format!("direct_transient_{input_format_slug}_{scenario_slug}");
         let mut fields = vec![
             (
                 "fallback_execution_allowed".to_string(),
@@ -2634,7 +2721,39 @@ impl TraditionalDirectTransientReport {
             ),
             (
                 "source_adapter_id".to_string(),
-                "shardloom.adapter.csv.direct_transient.v1".to_string(),
+                self.input_format.direct_transient_adapter_id().to_string(),
+            ),
+            (
+                "local_input_adapter_registry_version".to_string(),
+                "shardloom.local_input_adapter_registry.v1".to_string(),
+            ),
+            (
+                "source_format_inferred".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "source_format_inference_kind".to_string(),
+                "path_extension_or_explicit_input_format".to_string(),
+            ),
+            (
+                "source_adapter_registry_entry_id".to_string(),
+                self.input_format.local_adapter_registry_entry_id().to_string(),
+            ),
+            (
+                "source_adapter_admitted_extensions".to_string(),
+                self.input_format.local_adapter_admitted_extensions().to_string(),
+            ),
+            (
+                "source_adapter_feature_gate".to_string(),
+                self.input_format.local_adapter_feature_gate().to_string(),
+            ),
+            (
+                "source_adapter_boundary".to_string(),
+                self.input_format.local_adapter_boundary().to_string(),
+            ),
+            (
+                "source_adapter_selection_reason".to_string(),
+                "selected_at_read_ingest_boundary".to_string(),
             ),
             ("result_json".to_string(), self.result_json.clone()),
             ("fact_rows".to_string(), self.fact_rows.to_string()),
@@ -2689,13 +2808,13 @@ impl TraditionalDirectTransientReport {
             ),
             (
                 "benchmark_row_ref".to_string(),
-                format!(
-                    "benchmark://local_vortex_analytics_v1/direct_transient_csv_{scenario_slug}"
-                ),
+                format!("benchmark://local_vortex_analytics_v1/{direct_transient_row_ref}"),
             ),
             (
                 "coverage_row_ref".to_string(),
-                format!("coverage.direct_compatibility_transient.local_csv_{scenario_slug}"),
+                format!(
+                    "coverage.direct_compatibility_transient.local_{input_format_slug}_{scenario_slug}"
+                ),
             ),
             (
                 "output_artifact_schema_summary".to_string(),
@@ -2719,11 +2838,21 @@ impl TraditionalDirectTransientReport {
             ),
             (
                 "fact_csv_bytes".to_string(),
-                self.fact_source_bytes.to_string(),
+                if self.input_format == TraditionalAnalyticsInputFormat::Csv {
+                    self.fact_source_bytes
+                } else {
+                    0
+                }
+                .to_string(),
             ),
             (
                 "dim_csv_bytes".to_string(),
-                self.dim_source_bytes.to_string(),
+                if self.input_format == TraditionalAnalyticsInputFormat::Csv {
+                    self.dim_source_bytes
+                } else {
+                    0
+                }
+                .to_string(),
             ),
             ("fact_vortex_bytes".to_string(), "0".to_string()),
             ("dim_vortex_bytes".to_string(), "0".to_string()),
@@ -2738,7 +2867,31 @@ impl TraditionalDirectTransientReport {
             ),
             (
                 "compatibility_parse_micros".to_string(),
-                self.source_read_micros.to_string(),
+                self.source_parse_micros.to_string(),
+            ),
+            (
+                "source_parse_micros".to_string(),
+                self.source_parse_micros.to_string(),
+            ),
+            (
+                "source_to_columnar_micros".to_string(),
+                self.source_to_columnar_micros.to_string(),
+            ),
+            (
+                "source_state_materialization_layout".to_string(),
+                self.source_state_materialization_layout.clone(),
+            ),
+            (
+                "source_state_parse_normalization".to_string(),
+                self.source_state_parse_normalization.clone(),
+            ),
+            (
+                "source_state_columnar_preserved".to_string(),
+                self.source_state_columnar_preserved.to_string(),
+            ),
+            (
+                "source_state_record_batch_count".to_string(),
+                self.source_state_record_batch_count.to_string(),
             ),
             (
                 "compatibility_to_vortex_import_micros".to_string(),
@@ -2836,11 +2989,19 @@ impl TraditionalDirectTransientReport {
             ),
             (
                 "native_io_representation_transitions".to_string(),
-                "foreign_encoded->decoded_rows".to_string(),
+                if self.source_state_columnar_preserved {
+                    "foreign_encoded->arrow_record_batches->decoded_rows".to_string()
+                } else {
+                    "foreign_encoded->decoded_rows".to_string()
+                },
             ),
             (
                 "native_io_representation_transition_order".to_string(),
-                "foreign_encoded->decoded_rows".to_string(),
+                if self.source_state_columnar_preserved {
+                    "foreign_encoded->arrow_record_batches->decoded_rows".to_string()
+                } else {
+                    "foreign_encoded->decoded_rows".to_string()
+                },
             ),
             (
                 "native_work_envelope_created".to_string(),
@@ -2875,15 +3036,37 @@ impl TraditionalDirectTransientReport {
                 "native_to_compatibility_output_performed".to_string(),
                 "false".to_string(),
             ),
-            ("csv_source_adapter_used".to_string(), "true".to_string()),
+            (
+                "csv_source_adapter_used".to_string(),
+                (self.input_format == TraditionalAnalyticsInputFormat::Csv).to_string(),
+            ),
             (
                 "csv_to_vortex_import_performed".to_string(),
                 "false".to_string(),
             ),
-            ("jsonl_source_adapter_used".to_string(), "false".to_string()),
+            (
+                "jsonl_source_adapter_used".to_string(),
+                (self.input_format == TraditionalAnalyticsInputFormat::JsonLines).to_string(),
+            ),
             (
                 "jsonl_to_vortex_import_performed".to_string(),
                 "false".to_string(),
+            ),
+            (
+                "parquet_source_adapter_used".to_string(),
+                (self.input_format == TraditionalAnalyticsInputFormat::Parquet).to_string(),
+            ),
+            (
+                "arrow_ipc_source_adapter_used".to_string(),
+                (self.input_format == TraditionalAnalyticsInputFormat::ArrowIpc).to_string(),
+            ),
+            (
+                "avro_source_adapter_used".to_string(),
+                (self.input_format == TraditionalAnalyticsInputFormat::Avro).to_string(),
+            ),
+            (
+                "orc_source_adapter_used".to_string(),
+                (self.input_format == TraditionalAnalyticsInputFormat::Orc).to_string(),
             ),
             ("vortex_file_written".to_string(), "false".to_string()),
             ("vortex_file_read".to_string(), "false".to_string()),
@@ -2920,7 +3103,10 @@ impl TraditionalDirectTransientReport {
                 "true".to_string(),
             ),
             ("row_read".to_string(), "true".to_string()),
-            ("arrow_converted".to_string(), "false".to_string()),
+            (
+                "arrow_converted".to_string(),
+                self.source_state_columnar_preserved.to_string(),
+            ),
             ("object_store_io".to_string(), "false".to_string()),
             ("write_io".to_string(), "false".to_string()),
             ("spill_io_performed".to_string(), "false".to_string()),
@@ -2935,7 +3121,7 @@ impl TraditionalDirectTransientReport {
             ),
             (
                 "runtime_scheduler_ref".to_string(),
-                format!("direct_transient_csv_{scenario_slug}"),
+                direct_transient_row_ref.clone(),
             ),
             ("runtime_task_count".to_string(), "1".to_string()),
             ("runtime_scheduled_task_count".to_string(), "1".to_string()),
@@ -3021,11 +3207,13 @@ impl TraditionalDirectTransientReport {
             ("provider_kind".to_string(), "shardloom_kernel".to_string()),
             (
                 "provider_api_surface".to_string(),
-                "direct_compatibility_transient_csv_smoke".to_string(),
+                self.input_format
+                    .direct_transient_provider_surface()
+                    .to_string(),
             ),
             (
                 "provider_admission_classification".to_string(),
-                "direct_transient_csv_smoke".to_string(),
+                format!("direct_transient_{}_smoke", self.input_format.as_str()),
             ),
             (
                 "encoded_native_execution_status".to_string(),
@@ -3048,7 +3236,11 @@ impl TraditionalDirectTransientReport {
             ("residual_boundary".to_string(), "none".to_string()),
             (
                 "representation_transition_summary".to_string(),
-                "foreign_encoded->decoded_rows".to_string(),
+                if self.source_state_columnar_preserved {
+                    "foreign_encoded->arrow_record_batches->decoded_rows".to_string()
+                } else {
+                    "foreign_encoded->decoded_rows".to_string()
+                },
             ),
             ("fallback_attempted".to_string(), "false".to_string()),
             ("external_engine_invoked".to_string(), "false".to_string()),
@@ -8183,10 +8375,10 @@ fn traditional_vortex_provider_admission_fields(
     ]
 }
 
-/// Runs a local traditional analytics scenario through CSV import into Vortex files.
+/// Runs a local traditional analytics scenario through compatibility import into Vortex files.
 ///
 /// # Errors
-/// Returns an error when the feature gate is disabled, CSV input is invalid, the
+/// Returns an error when the feature gate is disabled, local input is invalid, the
 /// local Vortex write/read path fails, or the benchmark scenario is unsupported.
 pub fn run_traditional_analytics_benchmark(
     request: TraditionalAnalyticsRequest,
@@ -8204,25 +8396,35 @@ pub fn run_traditional_analytics_benchmark(
     }
 }
 
-/// Runs the scoped direct compatibility transient local CSV smoke path.
+/// Runs the scoped direct compatibility transient local-input smoke path.
 ///
 /// # Errors
 /// Returns an error when the feature gate is disabled or the request exceeds
-/// the narrow GAR-FLOW-1B admission contract.
-pub fn run_traditional_direct_transient_csv_smoke(
+/// the narrow GAR-FLOW-1B/1C admission contract.
+pub fn run_traditional_direct_transient_local_input_smoke(
     request: TraditionalAnalyticsRequest,
 ) -> Result<TraditionalDirectTransientReport> {
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     {
-        run_traditional_direct_transient_csv_smoke_enabled(request)
+        run_traditional_direct_transient_local_input_smoke_enabled(request)
     }
     #[cfg(not(feature = "vortex-traditional-analytics-benchmark"))]
     {
         std::mem::drop(request);
         Err(ShardLoomError::InvalidOperation(
-            "direct compatibility transient CSV smoke requires feature `vortex-traditional-analytics-benchmark`; fallback execution was not attempted".to_string(),
+            "direct compatibility transient local-input smoke requires feature `vortex-traditional-analytics-benchmark`; fallback execution was not attempted".to_string(),
         ))
     }
+}
+
+/// Backward-compatible alias for the former CSV-only direct-transient entrypoint.
+///
+/// # Errors
+/// Returns the same errors as [`run_traditional_direct_transient_local_input_smoke`].
+pub fn run_traditional_direct_transient_csv_smoke(
+    request: TraditionalAnalyticsRequest,
+) -> Result<TraditionalDirectTransientReport> {
+    run_traditional_direct_transient_local_input_smoke(request)
 }
 
 /// Runs a local traditional analytics scenario directly from native Vortex files.
@@ -8733,19 +8935,13 @@ struct TraditionalStreamingScanStats {
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[allow(clippy::too_many_lines)]
-fn run_traditional_direct_transient_csv_smoke_enabled(
+fn run_traditional_direct_transient_local_input_smoke_enabled(
     request: TraditionalAnalyticsRequest,
 ) -> Result<TraditionalDirectTransientReport> {
     if request.requested_execution_mode != ShardLoomExecutionMode::DirectCompatibilityTransient {
         return Err(ShardLoomError::InvalidOperation(
-            "direct transient CSV smoke requires --execution-mode direct_compatibility_transient; fallback execution was not attempted".to_string(),
+            "direct transient local-input smoke requires --execution-mode direct_compatibility_transient; fallback execution was not attempted".to_string(),
         ));
-    }
-    if request.input_format != TraditionalAnalyticsInputFormat::Csv {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "direct transient CSV smoke only supports local CSV input, found {}; fallback execution was not attempted",
-            request.input_format.as_str()
-        )));
     }
     if !matches!(
         request.scenario,
@@ -8753,23 +8949,23 @@ fn run_traditional_direct_transient_csv_smoke_enabled(
             | TraditionalAnalyticsScenario::FilterProjectionLimit
     ) {
         return Err(ShardLoomError::InvalidOperation(format!(
-            "direct transient CSV smoke only supports selective filter or filter + projection + limit, found {}; fallback execution was not attempted",
+            "direct transient local-input smoke only supports selective filter or filter + projection + limit, found {}; fallback execution was not attempted",
             request.scenario.as_str()
         )));
     }
     if request.cdc_delta_csv.is_some() {
         return Err(ShardLoomError::InvalidOperation(
-            "direct transient CSV smoke does not support CDC delta input; fallback execution was not attempted".to_string(),
+            "direct transient local-input smoke does not support CDC delta input; fallback execution was not attempted".to_string(),
         ));
     }
     if request.compatibility_output_format.is_some() {
         return Err(ShardLoomError::InvalidOperation(
-            "direct transient CSV smoke does not support compatibility output writers; fallback execution was not attempted".to_string(),
+            "direct transient local-input smoke does not support compatibility output writers; fallback execution was not attempted".to_string(),
         ));
     }
     if request.verify_native_vortex_replay || request.write_result_vortex {
         return Err(ShardLoomError::InvalidOperation(
-            "direct transient CSV smoke does not support Vortex replay or result-sink writes; fallback execution was not attempted".to_string(),
+            "direct transient local-input smoke does not support Vortex replay or result-sink writes; fallback execution was not attempted".to_string(),
         ));
     }
 
@@ -8789,10 +8985,33 @@ fn run_traditional_direct_transient_csv_smoke_enabled(
         .with_direct_transient_supported(true),
     );
 
-    let source_read_start = std::time::Instant::now();
-    let fact_rows = read_traditional_fact_csv(&request.fact_csv)?;
-    let dim_rows = read_traditional_dim_csv(&request.dim_csv)?;
-    let source_read_micros = duration_to_micros(source_read_start.elapsed());
+    let fact_source = read_traditional_fact_rows_with_evidence(
+        &request.fact_csv,
+        request.input_format,
+        resource_policy,
+    )?;
+    let dim_source = read_traditional_dim_rows_with_evidence(
+        &request.dim_csv,
+        request.input_format,
+        resource_policy,
+    )?;
+    let TraditionalSourceRead {
+        rows: fact_rows,
+        evidence: fact_source_evidence,
+    } = fact_source;
+    let TraditionalSourceRead {
+        rows: dim_rows,
+        evidence: dim_source_evidence,
+    } = dim_source;
+    let source_read_evidence = fact_source_evidence.add(dim_source_evidence)?;
+    let source_read_micros = source_read_evidence.read_micros;
+    let source_parse_micros = source_read_evidence.parse_micros;
+    let source_to_columnar_micros = source_read_evidence.columnar_micros;
+    let source_state_materialization_layout =
+        source_read_evidence.materialization_layout().to_string();
+    let source_state_parse_normalization = source_read_evidence.parse_normalization().to_string();
+    let source_state_columnar_preserved = source_read_evidence.columnar_preserved;
+    let source_state_record_batch_count = source_read_evidence.record_batch_count;
     let scenario_compute_start = std::time::Instant::now();
     let (result_json, selected_rows_materialized) = match request.scenario {
         TraditionalAnalyticsScenario::SelectiveFilter => {
@@ -8860,6 +9079,12 @@ fn run_traditional_direct_transient_csv_smoke_enabled(
         dim_source_bytes,
         source_bytes_read,
         source_read_micros,
+        source_parse_micros,
+        source_to_columnar_micros,
+        source_state_materialization_layout,
+        source_state_parse_normalization,
+        source_state_columnar_preserved,
+        source_state_record_batch_count,
         scenario_compute_micros,
         runtime_execution_certificate,
         diagnostics: Vec::new(),
@@ -8873,41 +9098,53 @@ fn direct_transient_execution_certificate(
     rows_materialized: u64,
 ) -> Result<ExecutionCertificate> {
     let scenario_slug = direct_transient_scenario_slug(scenario);
-    let certificate_id = match scenario {
-        TraditionalAnalyticsScenario::SelectiveFilter => {
-            "gar-flow-1b.direct_transient_csv_selective_filter.runtime"
+    let format_slug = input_format.as_str();
+    let certificate_id = if input_format == TraditionalAnalyticsInputFormat::Csv {
+        match scenario {
+            TraditionalAnalyticsScenario::SelectiveFilter => {
+                "gar-flow-1b.direct_transient_csv_selective_filter.runtime".to_string()
+            }
+            TraditionalAnalyticsScenario::FilterProjectionLimit => {
+                "gar-flow-1c.direct_transient_csv_filter_projection_limit.runtime".to_string()
+            }
+            _ => "gar-flow-1c.direct_transient_csv_unsupported.runtime".to_string(),
         }
-        TraditionalAnalyticsScenario::FilterProjectionLimit => {
-            "gar-flow-1c.direct_transient_csv_filter_projection_limit.runtime"
-        }
-        _ => "gar-flow-1c.direct_transient_csv_unsupported.runtime",
+    } else {
+        format!("gar-flow-1c.direct_transient_{format_slug}_{scenario_slug}.runtime")
     };
-    let mut certificate_input =
-        ExecutionCertificateInput::new(certificate_id, "direct_compatibility_transient_csv_smoke")?;
+    let mut certificate_input = ExecutionCertificateInput::new(
+        &certificate_id,
+        "direct_compatibility_transient_local_input_smoke",
+    )?;
     certificate_input.execution_provider_kind = ExecutionProviderKind::ShardLoomKernel;
-    certificate_input.provider_scope = "direct_compatibility_transient_local_csv".to_string();
+    certificate_input.provider_scope =
+        format!("direct_compatibility_transient_local_{format_slug}");
     certificate_input.provider_crate = Some("shardloom-vortex".to_string());
     certificate_input.provider_version = Some(env!("CARGO_PKG_VERSION").to_string());
     certificate_input.provider_api_surface =
-        Some("run_traditional_direct_transient_csv_smoke".to_string());
+        Some("run_traditional_direct_transient_local_input_smoke".to_string());
     certificate_input.shardloom_admission_policy =
-        Some("local_csv_direct_transient_no_external_fallback".to_string());
-    certificate_input.plan_ref = Some(format!("direct_transient_csv_{scenario_slug}"));
+        Some(input_format.direct_transient_admission_policy().to_string());
+    certificate_input.plan_ref = Some(format!("direct_transient_{format_slug}_{scenario_slug}"));
     certificate_input.input_ref = Some(format!(
         "traditional-analytics://source-format/{}/direct-transient",
         input_format.as_str()
     ));
     certificate_input.output_ref = Some(format!(
-        "runtime-result://direct_transient_csv_{scenario_slug}/in-memory"
+        "runtime-result://direct_transient_{format_slug}_{scenario_slug}/in-memory"
     ));
     certificate_input.correctness_fixture_id = Some(match scenario {
-        TraditionalAnalyticsScenario::SelectiveFilter => {
+        TraditionalAnalyticsScenario::SelectiveFilter
+            if input_format == TraditionalAnalyticsInputFormat::Csv =>
+        {
             "gar-flow-1b.direct_transient_csv_selective_filter".to_string()
         }
-        TraditionalAnalyticsScenario::FilterProjectionLimit => {
+        TraditionalAnalyticsScenario::FilterProjectionLimit
+            if input_format == TraditionalAnalyticsInputFormat::Csv =>
+        {
             "gar-flow-1c.direct_transient_csv_filter_projection_limit".to_string()
         }
-        _ => format!("gar-flow-1c.direct_transient_csv_{scenario_slug}"),
+        _ => format!("gar-flow-1c.direct_transient_{format_slug}_{scenario_slug}"),
     });
     let outcome = ExpectedOutcome::Rows {
         row_count: Some(rows_materialized),
@@ -8917,7 +9154,7 @@ fn direct_transient_execution_certificate(
     certificate_input.selected_segment_count = 1;
     certificate_input.skipped_segment_count = 0;
     certificate_input.side_effects_performed = vec![
-        "local_csv_read".to_string(),
+        format!("local_{format_slug}_read"),
         format!("direct_transient_{}", scenario.as_str().replace(' ', "_")),
     ];
     certificate_input.data_read = true;
@@ -16799,6 +17036,8 @@ fn vortex_error(error: impl std::fmt::Display) -> ShardLoomError {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::too_many_lines)]
+
     use super::*;
 
     #[test]
@@ -16872,7 +17111,7 @@ mod tests {
         if cfg!(feature = "vortex-traditional-analytics-benchmark") {
             return;
         }
-        let err = run_traditional_direct_transient_csv_smoke(
+        let err = run_traditional_direct_transient_local_input_smoke(
             TraditionalAnalyticsRequest::new(
                 TraditionalAnalyticsScenario::SelectiveFilter,
                 PathBuf::from("fact.csv"),
@@ -16944,6 +17183,180 @@ mod tests {
         .unwrap();
         std::fs::write(&dim_csv, "dim_key,dim_label,weight\n1,one,1.5\n2,two,2.0\n").unwrap();
         (fact_csv, dim_csv)
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn write_tiny_traditional_jsonl_inputs(root: &std::path::Path) -> (PathBuf, PathBuf) {
+        std::fs::create_dir_all(root).unwrap();
+        let fact_jsonl = root.join("fact.jsonl");
+        let dim_jsonl = root.join("dim.jsonl");
+        std::fs::write(
+            &fact_jsonl,
+            "{\"id\":1,\"group_key\":10,\"dim_key\":1,\"value\":6000,\"metric\":2.5,\"flag\":1,\"category\":\"A\",\"event_date\":\"2024-03-01\",\"nullable_metric_00\":\"1.25\",\"raw_event_time\":\"2024-01-01T00:00:00Z\",\"dirty_numeric\":\"6000\",\"dirty_flag\":\"Y\"}\n{\"id\":2,\"group_key\":11,\"dim_key\":2,\"value\":1000,\"metric\":3.5,\"flag\":0,\"category\":\"B\",\"event_date\":\"2024-07-01\",\"raw_event_time\":\"not-a-timestamp\",\"dirty_numeric\":\"bad-number\",\"dirty_flag\":\"N\"}\n{\"id\":3,\"group_key\":10,\"dim_key\":1,\"value\":8000,\"metric\":4.0,\"flag\":1,\"category\":\"A\",\"event_date\":\"2024-05-01\",\"nullable_metric_00\":\"3.75\",\"raw_event_time\":\"2024-01-03T00:00:00Z\",\"dirty_numeric\":\"8000\",\"dirty_flag\":\"Y\"}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            &dim_jsonl,
+            "{\"dim_key\":1,\"dim_label\":\"one\",\"weight\":1.5}\n{\"dim_key\":2,\"dim_label\":\"two\",\"weight\":2.0}\n",
+        )
+        .unwrap();
+        (fact_jsonl, dim_jsonl)
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn write_tiny_traditional_columnar_inputs(
+        root: &std::path::Path,
+        input_format: TraditionalAnalyticsInputFormat,
+    ) -> (PathBuf, PathBuf) {
+        use std::sync::Arc;
+
+        use arrow_array::{
+            ArrayRef, Float64Array, Int8Array, Int32Array, Int64Array, RecordBatch, StringArray,
+        };
+        use arrow_schema::{DataType, Field, Schema};
+
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(root);
+        let fact_rows = read_traditional_fact_csv(&fact_csv).unwrap();
+        let dim_rows = read_traditional_dim_csv(&dim_csv).unwrap();
+        let fact_path = root.join(format!("fact.{}", input_format.output_extension()));
+        let dim_path = root.join(format!("dim.{}", input_format.output_extension()));
+        let fact_schema = Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("group_key", DataType::Int32, false),
+            Field::new("dim_key", DataType::Int32, false),
+            Field::new("value", DataType::Int32, false),
+            Field::new("metric", DataType::Float64, false),
+            Field::new("flag", DataType::Int8, false),
+            Field::new("category", DataType::Utf8, false),
+            Field::new("event_date", DataType::Utf8, false),
+            Field::new("nullable_metric_00", DataType::Utf8, false),
+            Field::new("nested_payload", DataType::Utf8, false),
+            Field::new("raw_event_time", DataType::Utf8, false),
+            Field::new("dirty_numeric", DataType::Utf8, false),
+            Field::new("dirty_flag", DataType::Utf8, false),
+        ]);
+        let fact_batch = RecordBatch::try_new(
+            Arc::new(fact_schema),
+            vec![
+                Arc::new(Int64Array::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| i64::try_from(row.id).unwrap())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(Int32Array::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| i32::try_from(row.group_key).unwrap())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(Int32Array::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| i32::try_from(row.dim_key).unwrap())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(Int32Array::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| i32::try_from(row.value).unwrap())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(Float64Array::from(
+                    fact_rows.iter().map(|row| row.metric).collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(Int8Array::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| i8::try_from(row.flag).unwrap())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(StringArray::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| row.category.clone())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(StringArray::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| row.event_date.clone().unwrap_or_default())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(StringArray::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| row.nullable_metric_00.clone().unwrap_or_default())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(StringArray::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| row.nested_payload.clone().unwrap_or_default())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(StringArray::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| row.raw_event_time.clone().unwrap_or_default())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(StringArray::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| row.dirty_numeric.clone().unwrap_or_default())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(StringArray::from(
+                    fact_rows
+                        .iter()
+                        .map(|row| row.dirty_flag.clone().unwrap_or_default())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+            ],
+        )
+        .unwrap();
+        let dim_schema = Schema::new(vec![
+            Field::new("dim_key", DataType::Int32, false),
+            Field::new("dim_label", DataType::Utf8, false),
+            Field::new("weight", DataType::Float64, false),
+        ]);
+        let dim_batch = RecordBatch::try_new(
+            Arc::new(dim_schema),
+            vec![
+                Arc::new(Int32Array::from(
+                    dim_rows
+                        .iter()
+                        .map(|row| i32::try_from(row.dim_key).unwrap())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(StringArray::from(
+                    dim_rows
+                        .iter()
+                        .map(|row| row.dim_label.clone())
+                        .collect::<Vec<_>>(),
+                )) as ArrayRef,
+                Arc::new(Float64Array::from(
+                    dim_rows.iter().map(|row| row.weight).collect::<Vec<_>>(),
+                )) as ArrayRef,
+            ],
+        )
+        .unwrap();
+        write_arrow_batch_output(
+            &fact_batch,
+            input_format,
+            &fact_path,
+            "fact direct transient input",
+        )
+        .unwrap();
+        write_arrow_batch_output(
+            &dim_batch,
+            input_format,
+            &dim_path,
+            "dimension direct transient input",
+        )
+        .unwrap();
+        (fact_path, dim_path)
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -19572,7 +19985,7 @@ mod tests {
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
         let workspace = root.join("workspace");
 
-        let report = run_traditional_direct_transient_csv_smoke(
+        let report = run_traditional_direct_transient_local_input_smoke(
             TraditionalAnalyticsRequest::new(
                 TraditionalAnalyticsScenario::SelectiveFilter,
                 fact_csv,
@@ -19684,7 +20097,7 @@ mod tests {
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
         let workspace = root.join("workspace");
 
-        let report = run_traditional_direct_transient_csv_smoke(
+        let report = run_traditional_direct_transient_local_input_smoke(
             TraditionalAnalyticsRequest::new(
                 TraditionalAnalyticsScenario::FilterProjectionLimit,
                 fact_csv,
@@ -19772,11 +20185,397 @@ mod tests {
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[test]
+    #[allow(clippy::too_many_lines)]
+    fn direct_transient_jsonl_smoke_uses_local_adapter_registry_without_vortex_persistence() {
+        let root = traditional_analytics_test_root("direct-transient-jsonl");
+        let (fact_jsonl, dim_jsonl) = write_tiny_traditional_jsonl_inputs(&root);
+        let workspace = root.join("workspace");
+
+        let report = run_traditional_direct_transient_local_input_smoke(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::SelectiveFilter,
+                fact_jsonl,
+                dim_jsonl,
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::JsonLines)
+            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+        )
+        .unwrap();
+
+        assert_eq!(report.result_json, "{\"row_count\":2,\"metric_sum\":6.5}");
+        assert_eq!(report.fact_rows, 3);
+        assert_eq!(report.dim_rows, 2);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_materialized, 2);
+        assert!(!workspace.exists());
+        assert_eq!(
+            report.execution_mode_selection.selected_execution_mode,
+            ShardLoomExecutionMode::DirectCompatibilityTransient
+        );
+        assert!(report.execution_mode_selection.direct_transient_execution);
+        assert!(!report.execution_mode_selection.vortex_native_claim_allowed);
+        assert!(report.runtime_execution_certificate.is_certified());
+        assert!(report.runtime_execution_certificate.fallback_free());
+        assert!(
+            report
+                .runtime_execution_certificate
+                .external_query_engine_free()
+        );
+
+        let fields = field_map(report.fields());
+        assert_field_eq(&fields, "input_format", "jsonl");
+        assert_field_eq(
+            &fields,
+            "source_adapter_id",
+            "shardloom.adapter.jsonl.direct_transient.v1",
+        );
+        assert_field_eq(
+            &fields,
+            "local_input_adapter_registry_version",
+            "shardloom.local_input_adapter_registry.v1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_adapter_registry_entry_id",
+            "shardloom.local_input_adapter.jsonl.v1",
+        );
+        assert_field_eq(
+            &fields,
+            "source_adapter_admitted_extensions",
+            ".jsonl,.ndjson",
+        );
+        assert_field_eq(&fields, "source_adapter_feature_gate", "default");
+        assert_field_eq(
+            &fields,
+            "source_adapter_boundary",
+            "local_text_source_state_adapter",
+        );
+        assert_field_eq(&fields, "csv_source_adapter_used", "false");
+        assert_field_eq(&fields, "jsonl_source_adapter_used", "true");
+        assert_field_eq(&fields, "parquet_source_adapter_used", "false");
+        assert_field_eq(&fields, "compatibility_to_vortex_import_performed", "false");
+        assert_field_eq(&fields, "vortex_file_written", "false");
+        assert_field_eq(&fields, "vortex_file_read", "false");
+        assert_field_eq(&fields, "source_state_columnar_preserved", "false");
+        assert_field_eq(&fields, "source_state_record_batch_count", "0");
+        assert_field_eq(
+            &fields,
+            "source_state_materialization_layout",
+            "scalar_rows_materialized_in_source_adapter",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_parse_normalization",
+            "compatibility_scalar_parse_to_traditional_rows_then_vortex_from_arrow_provider",
+        );
+        assert_field_eq(&fields, "source_to_columnar_micros", "0");
+        assert_field_eq(
+            &fields,
+            "runtime_execution_certificate_id",
+            "gar-flow-1c.direct_transient_jsonl_selective_filter.runtime",
+        );
+        assert_field_eq(
+            &fields,
+            "runtime_execution_certificate_plan_ref",
+            "direct_transient_jsonl_selective_filter",
+        );
+        assert_field_eq(
+            &fields,
+            "benchmark_row_ref",
+            "benchmark://local_vortex_analytics_v1/direct_transient_jsonl_selective_filter",
+        );
+        assert_field_eq(
+            &fields,
+            "coverage_row_ref",
+            "coverage.direct_compatibility_transient.local_jsonl_selective_filter",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn direct_transient_parquet_smoke_preserves_columnar_source_state_without_vortex_persistence() {
+        let root = traditional_analytics_test_root("direct-transient-parquet");
+        let (fact_parquet, dim_parquet) =
+            write_tiny_traditional_columnar_inputs(&root, TraditionalAnalyticsInputFormat::Parquet);
+        let workspace = root.join("workspace");
+
+        let report = run_traditional_direct_transient_local_input_smoke(
+            TraditionalAnalyticsRequest::new(
+                TraditionalAnalyticsScenario::FilterProjectionLimit,
+                fact_parquet,
+                dim_parquet,
+                workspace.clone(),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Parquet)
+            .with_requested_execution_mode(ShardLoomExecutionMode::DirectCompatibilityTransient),
+        )
+        .unwrap();
+
+        assert_eq!(
+            report.result_json,
+            "{\"row_count\":2,\"metric_sum\":14000.0}"
+        );
+        assert_eq!(report.fact_rows, 3);
+        assert_eq!(report.dim_rows, 2);
+        assert_eq!(report.rows_scanned, 3);
+        assert_eq!(report.rows_materialized, 2);
+        assert!(!workspace.exists());
+        assert_eq!(
+            report.execution_mode_selection.selected_execution_mode,
+            ShardLoomExecutionMode::DirectCompatibilityTransient
+        );
+        assert!(report.execution_mode_selection.direct_transient_execution);
+        assert!(!report.execution_mode_selection.vortex_native_claim_allowed);
+        assert!(report.runtime_execution_certificate.is_certified());
+        assert!(report.runtime_execution_certificate.fallback_free());
+        assert!(
+            report
+                .runtime_execution_certificate
+                .external_query_engine_free()
+        );
+
+        let fields = field_map(report.fields());
+        assert_field_eq(&fields, "input_format", "parquet");
+        assert_field_eq(
+            &fields,
+            "source_adapter_id",
+            "shardloom.adapter.parquet.direct_transient.v1",
+        );
+        assert_field_eq(&fields, "csv_source_adapter_used", "false");
+        assert_field_eq(&fields, "jsonl_source_adapter_used", "false");
+        assert_field_eq(&fields, "parquet_source_adapter_used", "true");
+        assert_field_eq(&fields, "arrow_ipc_source_adapter_used", "false");
+        assert_field_eq(&fields, "avro_source_adapter_used", "false");
+        assert_field_eq(&fields, "orc_source_adapter_used", "false");
+        assert_field_eq(&fields, "compatibility_to_vortex_import_performed", "false");
+        assert_field_eq(&fields, "vortex_file_written", "false");
+        assert_field_eq(&fields, "vortex_file_read", "false");
+        assert_field_eq(&fields, "source_state_columnar_preserved", "true");
+        assert!(
+            fields
+                .get("source_state_record_batch_count")
+                .and_then(|value| value.parse::<usize>().ok())
+                .is_some_and(|value| value >= 2),
+            "direct transient Parquet should report fact+dimension record batches"
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_materialization_layout",
+            "columnar_record_batches_preserved_until_traditional_row_boundary",
+        );
+        assert_field_eq(
+            &fields,
+            "source_state_parse_normalization",
+            "arrow_record_batches_to_traditional_rows_then_vortex_from_arrow_provider",
+        );
+        assert!(
+            fields
+                .get("source_to_columnar_micros")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some(),
+            "direct transient Parquet should report source-to-columnar timing"
+        );
+        assert_field_eq(
+            &fields,
+            "representation_transition_summary",
+            "foreign_encoded->arrow_record_batches->decoded_rows",
+        );
+        assert_field_eq(
+            &fields,
+            "native_io_representation_transitions",
+            "foreign_encoded->arrow_record_batches->decoded_rows",
+        );
+        assert_field_eq(&fields, "arrow_converted", "true");
+        assert_field_eq(
+            &fields,
+            "runtime_execution_certificate_id",
+            "gar-flow-1c.direct_transient_parquet_filter_projection_limit.runtime",
+        );
+        assert_field_eq(
+            &fields,
+            "runtime_execution_certificate_plan_ref",
+            "direct_transient_parquet_filter_projection_limit",
+        );
+        assert_field_eq(
+            &fields,
+            "benchmark_row_ref",
+            "benchmark://local_vortex_analytics_v1/direct_transient_parquet_filter_projection_limit",
+        );
+        assert_field_eq(
+            &fields,
+            "coverage_row_ref",
+            "coverage.direct_compatibility_transient.local_parquet_filter_projection_limit",
+        );
+        assert_field_eq(&fields, "fallback_attempted", "false");
+        assert_field_eq(&fields, "external_engine_invoked", "false");
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn direct_transient_structured_formats_share_columnar_source_state_adapter_boundary() {
+        for input_format in [
+            TraditionalAnalyticsInputFormat::Parquet,
+            TraditionalAnalyticsInputFormat::ArrowIpc,
+            TraditionalAnalyticsInputFormat::Avro,
+            TraditionalAnalyticsInputFormat::Orc,
+        ] {
+            let root = traditional_analytics_test_root(&format!(
+                "direct-transient-structured-{}",
+                input_format.as_str()
+            ));
+            let (fact_source, dim_source) =
+                write_tiny_traditional_columnar_inputs(&root, input_format);
+            let workspace = root.join("workspace");
+
+            let report = run_traditional_direct_transient_local_input_smoke(
+                TraditionalAnalyticsRequest::new(
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                    fact_source,
+                    dim_source,
+                    workspace.clone(),
+                )
+                .with_input_format(input_format)
+                .with_requested_execution_mode(
+                    ShardLoomExecutionMode::DirectCompatibilityTransient,
+                ),
+            )
+            .unwrap();
+
+            assert_eq!(report.result_json, "{\"row_count\":2,\"metric_sum\":6.5}");
+            assert_eq!(report.fact_rows, 3);
+            assert_eq!(report.dim_rows, 2);
+            assert_eq!(report.rows_scanned, 3);
+            assert_eq!(report.rows_materialized, 2);
+            assert!(!workspace.exists());
+            assert_eq!(
+                report.execution_mode_selection.selected_execution_mode,
+                ShardLoomExecutionMode::DirectCompatibilityTransient
+            );
+            assert!(report.execution_mode_selection.direct_transient_execution);
+            assert!(!report.execution_mode_selection.vortex_native_claim_allowed);
+            assert!(report.runtime_execution_certificate.is_certified());
+            assert!(report.runtime_execution_certificate.fallback_free());
+            assert!(
+                report
+                    .runtime_execution_certificate
+                    .external_query_engine_free()
+            );
+
+            let fields = field_map(report.fields());
+            let format_slug = input_format.as_str();
+            let scenario_slug = direct_transient_scenario_slug(report.scenario);
+            assert_field_eq(&fields, "input_format", format_slug);
+            assert_field_eq(
+                &fields,
+                "source_adapter_id",
+                input_format.direct_transient_adapter_id(),
+            );
+            assert_field_eq(
+                &fields,
+                "local_input_adapter_registry_version",
+                "shardloom.local_input_adapter_registry.v1",
+            );
+            assert_field_eq(
+                &fields,
+                "source_adapter_registry_entry_id",
+                input_format.local_adapter_registry_entry_id(),
+            );
+            assert_field_eq(
+                &fields,
+                "source_adapter_admitted_extensions",
+                input_format.local_adapter_admitted_extensions(),
+            );
+            assert_field_eq(
+                &fields,
+                "source_adapter_feature_gate",
+                "universal-format-io",
+            );
+            assert_field_eq(
+                &fields,
+                "source_adapter_boundary",
+                "local_columnar_source_state_adapter",
+            );
+            assert_field_eq(&fields, "csv_source_adapter_used", "false");
+            assert_field_eq(&fields, "jsonl_source_adapter_used", "false");
+            assert_field_eq(
+                &fields,
+                &format!("{format_slug}_source_adapter_used"),
+                "true",
+            );
+            assert_field_eq(&fields, "compatibility_to_vortex_import_performed", "false");
+            assert_field_eq(&fields, "vortex_file_written", "false");
+            assert_field_eq(&fields, "vortex_file_read", "false");
+            assert_field_eq(&fields, "source_state_columnar_preserved", "true");
+            assert!(
+                fields
+                    .get("source_state_record_batch_count")
+                    .and_then(|value| value.parse::<usize>().ok())
+                    .is_some_and(|value| value >= 2),
+                "{format_slug} direct transient should report fact+dimension record batches"
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_materialization_layout",
+                "columnar_record_batches_preserved_until_traditional_row_boundary",
+            );
+            assert_field_eq(
+                &fields,
+                "source_state_parse_normalization",
+                "arrow_record_batches_to_traditional_rows_then_vortex_from_arrow_provider",
+            );
+            assert_field_eq(
+                &fields,
+                "representation_transition_summary",
+                "foreign_encoded->arrow_record_batches->decoded_rows",
+            );
+            assert_field_eq(&fields, "arrow_converted", "true");
+            assert_field_eq(
+                &fields,
+                "runtime_execution_certificate_id",
+                &format!("gar-flow-1c.direct_transient_{format_slug}_{scenario_slug}.runtime"),
+            );
+            assert_field_eq(
+                &fields,
+                "runtime_execution_certificate_plan_ref",
+                &format!("direct_transient_{format_slug}_{scenario_slug}"),
+            );
+            assert_field_eq(
+                &fields,
+                "benchmark_row_ref",
+                &format!(
+                    "benchmark://local_vortex_analytics_v1/direct_transient_{format_slug}_{scenario_slug}"
+                ),
+            );
+            assert_field_eq(
+                &fields,
+                "coverage_row_ref",
+                &format!(
+                    "coverage.direct_compatibility_transient.local_{format_slug}_{scenario_slug}"
+                ),
+            );
+            assert_field_eq(&fields, "fallback_attempted", "false");
+            assert_field_eq(&fields, "external_engine_invoked", "false");
+
+            let _ = std::fs::remove_dir_all(root);
+        }
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
     fn direct_transient_csv_smoke_rejects_adjacent_scenarios() {
         let root = traditional_analytics_test_root("direct-transient-unsupported");
         let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
 
-        let error = run_traditional_direct_transient_csv_smoke(
+        let error = run_traditional_direct_transient_local_input_smoke(
             TraditionalAnalyticsRequest::new(
                 TraditionalAnalyticsScenario::HashJoin,
                 fact_csv,

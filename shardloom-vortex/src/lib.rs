@@ -524,7 +524,7 @@ pub use traditional_analytics::{
     TraditionalDirectTransientReport, TraditionalRuntimeEvidenceLevel,
     run_traditional_analytics_benchmark, run_traditional_analytics_prepared_batch_benchmark,
     run_traditional_analytics_vortex_batch_benchmark, run_traditional_analytics_vortex_benchmark,
-    run_traditional_direct_transient_csv_smoke,
+    run_traditional_direct_transient_csv_smoke, run_traditional_direct_transient_local_input_smoke,
 };
 #[cfg(feature = "universal-format-io")]
 pub use universal_format_io::{

@@ -83,6 +83,25 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             schema={"id": "int64"},
             binary=["definitely-missing-shardloom"],
         )
+        inferred_csv_frame = sl.read(
+            "events.csv",
+            schema={"id": "int64"},
+            binary=["definitely-missing-shardloom"],
+        )
+        inferred_json_frame = sl.read(
+            "events.jsonl",
+            schema={"payload": "string"},
+            binary=["definitely-missing-shardloom"],
+        )
+        inferred_arrow_frame = sl.read(
+            "events.feather",
+            schema={"id": "int64"},
+            binary=["definitely-missing-shardloom"],
+        )
+        inferred_vortex_frame = sl.read(
+            "events.vortex",
+            binary=["definitely-missing-shardloom"],
+        )
 
         self.assertIsInstance(frame, LazyFrame)
         self.assertEqual(frame.source_format, "csv")
@@ -95,10 +114,22 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(avro_frame.operation_summary, "read_avro(events.avro)")
         self.assertEqual(orc_frame.source_format, "orc")
         self.assertEqual(orc_frame.operation_summary, "read_orc(events.orc)")
+        self.assertEqual(inferred_csv_frame.source_format, "csv")
+        self.assertEqual(inferred_json_frame.source_format, "json")
+        self.assertEqual(inferred_arrow_frame.source_format, "arrow-ipc")
+        self.assertEqual(inferred_vortex_frame.source_format, "vortex")
         self.assertEqual(
             frame.operation_summary,
             "read_csv(events.csv) -> filter(id > 0) -> select(id,amount) -> limit(10)",
         )
+        with self.assertRaisesRegex(ValueError, "cannot infer a local source adapter"):
+            sl.read("events.data", binary=["definitely-missing-shardloom"])
+        with self.assertRaisesRegex(ValueError, "schema=.*not supported for Vortex"):
+            sl.read(
+                "events.vortex",
+                schema={"id": "int64"},
+                binary=["definitely-missing-shardloom"],
+            )
 
     def test_lazy_builder_validates_empty_operations(self) -> None:
         frame = sl.read_parquet("orders.parquet", binary=["definitely-missing-shardloom"])

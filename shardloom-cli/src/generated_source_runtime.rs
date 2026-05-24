@@ -156,6 +156,7 @@ impl GeneratedOutputFormat {
         }
     }
 
+    #[cfg(not(feature = "universal-format-io"))]
     const fn display_name(self) -> &'static str {
         match self {
             Self::Jsonl => "JSONL",
@@ -2056,23 +2057,19 @@ fn validate_generated_output_format_available(
         GeneratedOutputFormat::Parquet
         | GeneratedOutputFormat::ArrowIpc
         | GeneratedOutputFormat::Avro
-        | GeneratedOutputFormat::Orc => validate_generated_structured_output_available(format),
+        | GeneratedOutputFormat::Orc => {
+            #[cfg(feature = "universal-format-io")]
+            {
+                let _ = format;
+                Ok(())
+            }
+            #[cfg(not(feature = "universal-format-io"))]
+            {
+                Err(structured_output_feature_error(format.display_name()))
+            }
+        }
         GeneratedOutputFormat::Vortex => validate_generated_vortex_output_available(output_path),
     }
-}
-
-#[cfg(feature = "universal-format-io")]
-fn validate_generated_structured_output_available(
-    _format: GeneratedOutputFormat,
-) -> Result<(), ShardLoomError> {
-    Ok(())
-}
-
-#[cfg(not(feature = "universal-format-io"))]
-fn validate_generated_structured_output_available(
-    format: GeneratedOutputFormat,
-) -> Result<(), ShardLoomError> {
-    Err(structured_output_feature_error(format.display_name()))
 }
 
 #[cfg(feature = "vortex-write")]

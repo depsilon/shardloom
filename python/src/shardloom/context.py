@@ -46,6 +46,7 @@ from .query import (
     from_rows,
     literal_table as generated_literal_table,
     range as generated_range,
+    read as read_source,
     read_arrow_ipc,
     read_avro,
     sql_literal_select as generated_sql_literal_select,
@@ -5192,6 +5193,16 @@ class ShardLoomContext:
         """Declare a lazy native Vortex source using this context's client."""
 
         return read_vortex(uri, client=self.client, engine_mode=self.engine)
+
+    def read(
+        self,
+        uri: str | os.PathLike[str],
+        *,
+        schema: Mapping[str, object] | None = None,
+    ) -> LazyFrame:
+        """Declare a lazy local source by inferring the adapter from the path extension."""
+
+        return read_source(uri, schema=schema, client=self.client, engine_mode=self.engine)
 
     def read_csv(
         self,

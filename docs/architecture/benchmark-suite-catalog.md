@@ -570,8 +570,9 @@ formats.
 Capability discovery is mode-aware: `compute-capability-matrix` rows now distinguish
 `compatibility_import_certified`, `prepared_vortex`, `native_vortex`,
 `direct_compatibility_transient`, and `auto`. Direct transient remains non-Vortex-native; only the
-scoped local CSV smoke path is executable until broader ShardLoom-native transient execution
-evidence exists.
+scoped local adapter smoke paths are executable, currently covering CSV, JSONL/NDJSON, and
+feature-gated Parquet/Arrow IPC/Avro/ORC traditional analytics rows plus the broader
+`sql-local-source-smoke` local adapter universe.
 
 ## Code Surfaces
 

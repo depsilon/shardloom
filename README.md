@@ -43,8 +43,8 @@ certified cold ingest/stage route, not a pure query-speed route.
 Current runtime support is intentionally scoped and evidence-gated:
 
 - local first-10-minutes smoke and release dry-run workflows;
-- Python and CLI front doors for selected local CSV, JSONL/NDJSON, flat JSON, generated-source, and
-  feature-gated Parquet/Arrow IPC/Avro/ORC and Vortex smokes;
+- Python and CLI front doors for local CSV, JSONL/NDJSON, flat JSON, generated-source, local
+  Vortex, and feature-gated Parquet/Arrow IPC/Avro/ORC runtime paths;
 - scoped SQL local-source execution for projection, filter, limit, scalar aggregates, multi-key
   group-by, single-key top-N, selected casts/date/timestamp/temporal-difference/string/IN
   predicates, scoped local-source inner/outer/semi/anti equi-joins, cross joins, scoped
@@ -57,7 +57,7 @@ Current runtime support is intentionally scoped and evidence-gated:
 - scoped local-source output/fanout to JSONL/CSV, feature-gated Parquet/Arrow IPC/Avro/ORC, and
   feature-gated local Vortex sinks with local replay/fidelity evidence;
 - local Vortex/prepared-native benchmark evidence for selected traditional analytics scenarios;
-- feature-gated local `vortex_ingest` smoke that prepares admitted flat scalar local sources into a
+- feature-gated local `vortex_ingest` runtime that prepares admitted flat scalar local sources into a
   local `.vortex` artifact and emits `VortexPreparedState` evidence with explicit
   `ingest_minimal` / `ingest_certified` certification-depth semantics;
 - Python and SQL workflows that expose normal read/filter/select/write calls while preserving
@@ -95,7 +95,7 @@ import shardloom as sl
 
 ctx = sl.context()
 result = (
-    ctx.read_csv("target/orders.csv")
+    ctx.read("target/orders.csv")
     .filter(sl.col("amount") >= 10)
     .select("id", "amount")
     .limit(100)
@@ -110,15 +110,13 @@ print(result.fallback_attempted, result.external_engine_invoked)
 `SHARDLOOM_REPO_ROOT` in the environment when the CLI is not on `PATH`; ordinary Python snippets
 should not need `repo_root` or build-profile arguments.
 
-The Python and SQL front doors should stay format-neutral after the read/ingest boundary. Today the
-Python surface still exposes explicit local reader helpers such as `read_csv(...)` and
-`read_json(...)`; the runtime adapter path is centralized underneath them, and the intended public
-direction is a single inferred `read(path)` surface after the remaining engine runtime work is
-complete. A caller writes to a requested sink and lets ShardLoom manage SourceState, Vortex
-preparation, execution, OutputPlan, replay, reuse, certificates, and no-fallback evidence
-internally. Lower-level helpers such as explicit `prepare_vortex(...)`, runtime-envelope
-inspection, and session evidence are engine-development and diagnostic surfaces, not the normal
-path for using ShardLoom.
+The Python and SQL front doors stay format-neutral after the read/ingest boundary. `ctx.read(path)`
+infers the local source adapter from the file extension; explicit helpers such as `read_csv(...)`
+remain aliases for code that wants them. A caller writes to a requested sink and lets ShardLoom
+manage SourceState, Vortex preparation, execution, OutputPlan, replay, reuse, certificates, and
+no-fallback evidence internally. Lower-level helpers such as explicit `prepare_vortex(...)`,
+runtime-envelope inspection, and session evidence are engine-development and diagnostic surfaces,
+not the normal path for using ShardLoom.
 
 Exact smoke commands, feature flags, expected outputs, and claim boundaries live in the linked
 getting-started docs.

@@ -1415,6 +1415,10 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "vortex_ingest_output_workspace_path_safety_status", "value": "enforced"},
                         {"key": "vortex_ingest_output_commit_status", "value": "committed"},
                         {"key": "source_format", "value": "csv"},
+                        {"key": "source_adapter_id", "value": "local_csv_input_adapter"},
+                        {"key": "source_adapter_registry_entry_id", "value": "shardloom.local_input_adapter.csv.v1"},
+                        {"key": "source_adapter_feature_gate", "value": "default"},
+                        {"key": "source_adapter_boundary", "value": "local_text_source_state_adapter"},
                         {"key": "vortex_ingest_status", "value": "prepared_state_created"},
                         {"key": "prepared_state_id", "value": "vortex-prepared-state-fnv64-abc"},
                         {"key": "prepared_state_digest", "value": "fnv64:abc"},
@@ -1460,6 +1464,16 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.workspace_path_safety_status, "enforced")
         self.assertEqual(result.output_commit_status, "committed")
         self.assertEqual(result.source_format, "csv")
+        self.assertEqual(result.source_adapter_id, "local_csv_input_adapter")
+        self.assertEqual(
+            result.source_adapter_registry_entry_id,
+            "shardloom.local_input_adapter.csv.v1",
+        )
+        self.assertEqual(result.source_adapter_feature_gate, "default")
+        self.assertEqual(
+            result.source_adapter_boundary,
+            "local_text_source_state_adapter",
+        )
         self.assertEqual(result.vortex_ingest_status, "prepared_state_created")
         self.assertEqual(result.prepared_state_id, "vortex-prepared-state-fnv64-abc")
         self.assertEqual(result.prepared_state_digest, "fnv64:abc")

@@ -1565,9 +1565,10 @@ plan before coding.
 - [x] `auto` is constrained to transparent mode selection and must report selected mode plus reason.
 - [x] `direct_compatibility_transient` now has deterministic admission diagnostics across
   capability rows, CLI JSON envelopes, Python typed accessors, and benchmark coverage rows, plus
-  scoped local CSV smoke paths for `selective filter` and `filter + projection + limit`; broader
-  formats, operators, result sinks, and SQL/DataFrame direct transient runtime remain blocked or
-  report-only and are not Vortex-native, performance, production, or package-release claims.
+  scoped local CSV, JSONL/NDJSON, and feature-gated Parquet/Arrow IPC/Avro/ORC smoke paths for
+  `selective filter` and `filter + projection + limit`; broader operators, result sinks, and
+  SQL/DataFrame direct transient runtime remain bounded by their specific evidence rows and are not
+  Vortex-native, performance, production, or package-release claims.
 - [ ] Prepared/native Vortex rows now carry a typed operator blocker matrix, explicit
   `source_backed_scan_*` evidence, and scoped batch source-metadata reuse, but still rely on
   temporary materialized or residual ShardLoom-native operator paths for some scenarios until

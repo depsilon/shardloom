@@ -8,6 +8,7 @@ import math
 import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Mapping, Sequence, cast
 from urllib.parse import quote
 
@@ -3164,6 +3165,54 @@ def column(name: object) -> ColumnExpression:
     """Alias for `col(...)`."""
 
     return col(name)
+
+
+def _source_kind_from_path(uri: str | os.PathLike[str]) -> str:
+    suffix = Path(uri).suffix.lower()
+    if suffix == ".csv":
+        return "csv"
+    if suffix in {".json", ".jsonl", ".ndjson"}:
+        return "json"
+    if suffix == ".parquet":
+        return "parquet"
+    if suffix in {".arrow", ".ipc", ".feather"}:
+        return "arrow-ipc"
+    if suffix == ".avro":
+        return "avro"
+    if suffix == ".orc":
+        return "orc"
+    if suffix == ".vortex":
+        return "vortex"
+    admitted = ".csv, .json, .jsonl, .ndjson, .parquet, .arrow, .ipc, .feather, .avro, .orc, .vortex"
+    raise ValueError(
+        f"ShardLoom cannot infer a local source adapter for {uri!s}; "
+        f"admitted local source extensions are {admitted}"
+    )
+
+
+def read(
+    uri: str | os.PathLike[str],
+    *,
+    schema: Mapping[str, object] | None = None,
+    client: ShardLoomClient | None = None,
+    engine_mode: str = "auto",
+    **client_config: object,
+) -> LazyFrame:
+    """Declare a lazy local source by inferring the adapter from the path extension."""
+
+    source_kind = _source_kind_from_path(uri)
+    if source_kind == "vortex":
+        if schema is not None:
+            raise ValueError("read(..., schema=...) is not supported for Vortex sources")
+        return read_vortex(uri, client=client, engine_mode=engine_mode, **client_config)
+    return _read_source(
+        source_kind,
+        uri,
+        schema=schema,
+        client=client,
+        engine_mode=engine_mode,
+        **client_config,
+    )
 
 
 def read_csv(
