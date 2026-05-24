@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-5B/5C scoped local-source join runtime expansion
   - Date: 2026-05-24
-  - Branch/PR: `compute-engine-join-runtime-expansion-20260524` / pending PR.
+  - Branch/PR: `compute-engine-join-runtime-expansion-20260524` / #932.
   - Source:
     - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
     - `GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity`.
