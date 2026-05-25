@@ -275,11 +275,12 @@ Runtime completion rule:
 
 #### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
 Current runtime ordering note (2026-05-25): prioritize engine-internal completion first. The
-`GAR-RUNTIME-IMPL-4I` scan/pushdown matrix and `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
-rollout are complete and recorded in the ledger. Continue with session/reuse (`4L`), local-scale
-runtime (`4P`), expression/operator families, adapter/ingest residuals, control-plane/effectful
-gates, benchmarks, and only then user/surface and release-usability backstops. Completed queue
-blocks have moved to
+`GAR-RUNTIME-IMPL-4I` scan/pushdown matrix, `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
+rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle, and
+`GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle are complete and recorded in the ledger.
+Continue from operator/expression coverage (`4D`/`5G`) into adapter/ingest parity, local scale,
+validator/mirror backstops, object-store and effectful-control gates, benchmark claim gates, final
+release usability, and only then user/surface backstops. Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
 
@@ -289,54 +290,11 @@ that must be worked before any full-runtime readiness claim. Each item below mus
 runtime behavior, deterministic runtime admission/blockers, or runtime-claim validation; planning
 or documentation updates alone are insufficient.
 
-- [ ] GAR-RUNTIME-IMPL-4P scale-grade local split, memory, spill, shuffle, and retry runtime
-  - Source: `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017,
-    `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: the `traditional-analytics-prepare-batch-run` route now emits
-    `prepared_vortex_scale_*` real-byte local scale evidence inside the existing
-    `compatibility_import_certified -> prepared_vortex_batch` flow. Each child scenario carries
-    declared resource-policy fields, prepared Vortex byte/digest volume, reader chunk/SplitManifest
-    digest, bounded local reader-chunk split scheduling, split execution certification, memory
-    admission/peak reservation evidence, local shuffle-family classification, retry/idempotency key,
-    output commit status, correctness digest, no-fallback fields, and
-    `prepared_vortex_scale_no_standalone_lane=true`. This is in-route fixture evidence only:
-    selective-filter rows with admitted reader-generated selection-vector evidence now also carry
-    scoped stateless split-operator runtime certification, retry replay, and result-sink replay
-    proof. Larger-than-memory, stateful/shuffle split-parallel operator execution, actual spill I/O,
-    object-store/table execution, distributed workers, and performance claims remain blocked.
-  - Next slice outcome: promote remaining prepared Vortex reader-chunk work into claim-grade local
-    split-parallel operator runtime where admitted, especially stateful aggregate/join/sort/window
-    paths with actual spill/backpressure where operator declarations permit it, retry/cancellation
-    recovery over real split work, and output commit proof that can move the relevant claim gates.
-  - Runtime enablement: local scale-grade execution under a declared resource envelope, including
-    split, memory, spill, shuffle, retry, and commit gates.
-  - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
-  - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
-    cancellation/recovery, output commit status, scale benchmark rows.
-  - Vortex 0.71/0.72 opportunity mapping:
-    - `register_splits` offset and relative row-range support should inform `SplitManifest`
-      row-range evidence and per-split blockers.
-    - `VortexReadAt::read_at` validation and async I/O hooks are candidate inputs for local split
-      read validation and spill/output lifecycle evidence.
-    - These hooks do not imply distributed, object-store, table, or larger-than-memory runtime
-      support until scale-grade execution and correctness proof land.
-  - Evidence required: keep `prepared_vortex_scale_*` attached to prepared/native child scenario
-    rows; next promotion needs stateful/shuffle split-parallel operator rows, actual
-    spill/backpressure evidence when admitted, and correctness proof over the claimed workload
-    bytes.
-  - Acceptance: larger-than-memory and split-parallel claims require real bytes and correctness
-    proof from scheduled split work; synthetic metadata or detached side-lane commands cannot
-    become runtime scale claims.
-  - Verification: split manifest tests, local stress smoke, spill/backpressure tests, shuffle
-    correctness tests, retry/idempotency tests, scale benchmark contract tests.
-  - Non-goals: no literal any-volume, Spark replacement, distributed runtime, or object-store scale
-    claim without separate proof.
-  - Claim boundary: declared local resource envelope only.
-  - Fallback boundary: external engines are baselines/oracles only.
-  - Dependencies/blockers: stateful/shuffle split-operator runtime, stateful operator memory/spill
-    declarations, spill storage policy, shuffle correctness fixtures, retry/recovery exercise for
-    non-stateless operators, and claim-grade output commit proof beyond local result-sink replay.
-  - Ledger rule: ledger entry must include resource envelope, data volume, and claim status.
+The remaining 5-series closeout items are interleaved with their owning 4-series runtime sections
+below. They are coverage-assurance backstops, not a second parallel runtime queue. Work a 5-series
+item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
+splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
+validators, docs/website parity, and a completed-ledger entry.
 
 - [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families
   - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics,
@@ -397,6 +355,44 @@ or documentation updates alone are insufficient.
   - Dependencies/blockers: expression IR stability, dtype coercion policy, decoded-reference
     fixtures, and SQL/Python lowering.
   - Ledger rule: ledger entry must enumerate expression families, dtypes, and blockers.
+
+- [ ] GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage
+  - Source: `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4J`, RFC 0015, RFC 0016, RFC 0021.
+  - Current state: selected residual-native operators exist; broad type/null/string/date/decimal,
+    join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Initial encoded
+    registry pairs now execute for scoped bitpacked, sequence, constant, and dictionary Vortex
+    reader inputs, but this is still pair-level runtime evidence rather than broad operator/function
+    coverage. Scoped local-source
+    ranking, offset, and distribution window projections now cover `ROW_NUMBER()`, `RANK()`,
+    `DENSE_RANK()`, `LAG()`, `LEAD()`, `NTILE()`, `PERCENT_RANK()`, and `CUME_DIST()` with native
+    partition/order evaluation, peer-group tie semantics, offset lookups, bucket assignment, and
+    cumulative/percent rank evidence, but general window value functions, frames, encoded window
+    kernels, and
+    distributed/object-store window execution remain open. Scoped
+    `COUNT(DISTINCT column)` is runtime-admitted for local scalar and grouped aggregate rows with
+    `distinct_aggregate_*` evidence, SQL `NULL`-ignoring distinct-count semantics, Python
+    `sl.count_distinct(...)` aggregate lowering, deterministic blockers for unsupported
+    `DISTINCT` aggregate shapes such as `SUM(DISTINCT ...)` or `COUNT(DISTINCT *)`, and no external
+    fallback.
+  - Next slice outcome: promote operator families one at a time with decoded-reference correctness,
+    unsupported diagnostics, and encoded-kernel admission where available.
+  - Runtime enablement: ShardLoom-native operator/function execution coverage with deterministic
+    blockers for unsupported families.
+  - User-visible surface: CLI/Python/SQL/DataFrame workflows, benchmark rows, capability matrix.
+  - Implementation scope: expression IR, scalar/aggregate operators, join/window/top-k operators,
+    type coercion, null/string/date policy, encoded kernel registry, blockers.
+  - Evidence required: operator/function family, input/output schema, type/null policy, encoding id,
+    decoded/materialized flags, correctness digest, encoded-native claim flag, no-fallback fields.
+  - Acceptance: each supported operator family has success tests, edge-case tests, unsupported
+    diagnostics, and correctness evidence; unsupported encodings block deterministically.
+  - Verification: unit/property/correctness tests, fixture manifest checks, encoded-kernel tests,
+    benchmark smoke per family.
+  - Non-goals: no arbitrary UDFs, ANSI parity, blanket encoded-native claim, or performance claim.
+  - Claim boundary: operator/function/encoding-pair support only.
+  - Fallback boundary: external engines may be test oracles only, never runtime evaluators.
+  - Dependencies/blockers: semantic fixture corpus, expression registry, benchmark row schema,
+    decoded-reference harness.
+  - Ledger rule: ledger entry must list promoted families, type/null behavior, and blockers.
 
 - [ ] GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format
   - Source: `GAR-IOREUSE-1A`, universal compatibility scoreboard, local input adapter docs,
@@ -581,167 +577,138 @@ or documentation updates alone are insufficient.
     fields, unsupported blockers, and any measured artifact refs; do not mark complete from docs
     alone.
 
-- [ ] GAR-RUNTIME-IMPL-4Q live, hybrid, loopback control-plane, and distributed blockers
-  - Source: RFC 0034, RFC 0035, `GAR-SCALE-1F`.
-  - Current state: batch has local evidence; live/hybrid, REST/event APIs, remote workers, and
-    distributed execution are scoped, blocked, or report-only.
-  - Next slice outcome: implement engine-mode diagnostics, a local in-memory live/hybrid fixture if
-    admitted, opt-in loopback control-plane lifecycle, and fail-closed distributed worker blockers.
-  - Runtime enablement: engine-mode admission and loopback-only runtime controls, plus fail-closed
-    distributed blockers.
-  - User-visible surface: CLI/Python engine-mode status, optional local API, compute-flow, website
-    status/use cases.
-  - Implementation scope: engine-mode admission, local control-plane lifecycle, fixture scheduler,
-    API schema, blocker diagnostics, small-result boundary.
-  - Evidence required: engine mode, control-plane invoked flag, live/hybrid state, checkpoint/state
-    posture, network policy, remote worker invoked status, no-fallback fields.
-  - Acceptance: labels cannot imply unsupported runtime; remote execution never runs accidentally;
-    local API is opt-in, loopback-scoped, and evidence-backed.
-  - Verification: engine-mode contract tests, fixture workflow tests, API/blocker tests, website
-    readiness, release readiness.
-  - Non-goals: no production REST service, daemon, broker/state-store runtime, remote workers,
-    distributed claim, or exactly-once claim.
-  - Claim boundary: fixture/local control-plane proof only.
-  - Fallback boundary: remote APIs cannot trigger external compute.
-  - Dependencies/blockers: lifecycle/security policy, evidence envelope, local API schema,
-    loopback-only network guard, and distributed blocker diagnostics.
-  - Ledger rule: ledger entry must record API surface and blocked live/hybrid/distributed behavior.
-
-- [ ] GAR-RUNTIME-IMPL-4R adapters, databases, UDFs, extensions, and effectful operations
-  - Source: RFC 0011, RFC 0023, adapter/governance docs.
-  - Current state: databases/warehouses, REST/Flight/ADBC, UDFs, plugins, LLM/API/embedding/vector
-    effects, and extension execution are report-only or blocked.
-  - Next slice outcome: implement local SQLite import/export if admitted, typed adapter manifests,
-    extension inspection, one pure deterministic local scalar UDF fixture if approved, and
-    fail-closed diagnostics for networked/effectful paths.
-  - Runtime enablement: scoped local adapter/UDF execution or inspection with effectful/networked
-    paths blocked by runtime policy.
-  - User-visible surface: capability views, Python/CLI adapter and extension commands, use cases,
-    website status.
-  - Implementation scope: connector registry, credential/effect policy, local fixture adapter,
-    extension manifest schema, UDF admission, sandbox/effect blockers.
-  - Evidence required: connector/extension id/version/digest, credential/network/effect status,
-    import/export direction, UDF type/determinism/null contract, runtime flags, no-fallback fields.
-  - Acceptance: external systems are never fallback engines; users can inspect adapters/extensions
-    safely; effectful operations block by default; admitted UDFs are local, deterministic, typed,
-    and evidence-backed.
-  - Verification: SQLite/local fixture smoke if admitted, manifest validation tests, UDF blocker
-    tests, unsupported network diagnostics, capability snapshots, release readiness.
-  - Non-goals: no query pushdown, warehouse execution, arbitrary Python execution, network effects,
-    LLM/API calls, plugin marketplace, or production UDF sandbox claim.
-  - Claim boundary: scoped local import/export, inspection, or deterministic UDF fixture only.
-  - Fallback boundary: adapters/extensions/UDFs must not delegate compute to external engines or
-    services.
-  - Dependencies/blockers: sandbox/security review, manifest schema, credential/effect policy,
-    fixture data, and dependency/license review.
-  - Ledger rule: ledger entry must separate admitted local behaviors from denied effects.
-
-- [ ] GAR-RUNTIME-IMPL-4S clean install production usability and release rehearsal gate
-  - Source: public preview readiness, package-channel matrix, website
-    readiness, Use Case Atlas.
-  - Current state: runtime slices are being promoted incrementally; production usability still
-    requires complete runtime coverage, clean install proof, docs/website parity, examples, current
-    benchmark evidence, and claim gates. A preview posture is not the target state.
-  - Next slice outcome: run a no-publication production-readiness rehearsal from clean checkout or
-    local package artifact through CLI/Python workflows, unsupported diagnostics, benchmarks,
-    website/status, security/legal, and release metadata.
-  - Runtime enablement: end-to-end usability validator proving admitted runtime paths from clean
-    install through evidence inspection.
-  - User-visible surface: README, docs/getting-started, website, package metadata, release report.
-  - Implementation scope: clean venv install/run script, package dry-run, example smoke matrix,
-    benchmark artifact completeness, website build/readiness, security/legal checks.
-  - Evidence required: install/uninstall commands, smoke outputs, supported/blocked workflow
-    matrix, benchmark manifest, website readiness report, package metadata, no-fallback fields.
-  - Acceptance: a non-expert can install locally, run admitted workflows, inspect evidence, and see
-    unsupported paths without reading phase-plan internals.
-  - Verification: clean venv smoke, cargo fmt/clippy/tests, Python compileall/tests, website
-    readiness, static asset validation, benchmark artifact completeness, `git diff --check`.
-  - Non-goals: no public package upload or release tag without explicit human approval; no
-    production/platform/performance/Spark-replacement claim until all matching runtime and evidence
-    gates pass; no hidden fast mode.
-  - Claim boundary: production readiness requires complete runtime coverage and workload-scoped
-    evidence. Do not substitute a technical-preview target for the production engine goal.
-  - Fallback boundary: release gates must fail if any supported workflow uses external fallback.
-  - Dependencies/blockers: completion of admitted runtime slices, clean install script, docs/website
-    parity, benchmark artifact policy, and security/legal checks.
-  - Ledger rule: ledger entry must include the exact usability matrix, release-gate evidence, and
-    remaining unsupported paths.
-
-#### GAR-RUNTIME-IMPL-5 - Runtime Coverage Assurance Implementation Slices
-
-This final queue exists to make the "fully functional / usable compute engine" goal explicit at the
-end of Planned. These are coverage-assurance backstops, not a second parallel runtime queue. Work a
-5-series item only after the matching 4-series runtime item has landed or when the 4-series item
-explicitly splits residual runtime gaps into this queue. Each 5-series item must either prove the
-surface is broadly usable through real runtime evidence or split the remaining runtime gaps into
-smaller implementation slices. Completing a 5-series item requires evidence, validators,
-docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-RUNTIME-IMPL-5F prepared/native Vortex runtime lifecycle
-  - Source: `GAR-RUNTIME-IMPL-4H`, `GAR-RUNTIME-IMPL-4I`, Vortex provider docs, compute-flow
-    reference.
-  - Current state: prepared/native batch paths and scoped source-backed scan evidence exist; the
-    complete prepare/read/write/reopen/scan/pushdown lifecycle is still not broad runtime support.
-  - Next slice outcome: make local Vortex artifacts a first-class runtime path with explicit
-    preparation, write/reopen, scan, pushdown, materialization/decode, and output evidence.
-  - Runtime enablement: first-class local Vortex artifact runtime lifecycle from preparation through
-    scan and output evidence.
-  - User-visible surface: CLI/Python Vortex workflows, benchmark rows, compute-flow docs, status
-    matrix.
-  - Implementation scope: Vortex preparation manager, artifact registry, scan request builder,
-    source-backed scan adapter, pushdown admission, local output integration.
-  - Evidence required: Vortex artifact ref/digest, preparation timing, write/reopen/scan timing,
-    pushed-down filters/projections/limits, encoded predicate fields, materialization/decode fields,
+- [ ] GAR-RUNTIME-IMPL-5D local input adapter runtime parity
+  - Source: `GAR-RUNTIME-IMPL-4F`, `GAR-IOREUSE-1A`, universal compatibility scoreboard.
+  - Current state: local CSV plus scoped flat JSONL/NDJSON, flat top-level `.json`, and
+    feature-gated flat scalar `.parquet`/Arrow IPC/Avro/ORC local SQL
+    smokes exist, the Python query-builder now bridges local CSV, flat JSON/JSONL/NDJSON, and
+    feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
+    projection/optional-filter/limit,
+    preview/select-star, scalar-aggregate/optional-filter/limit with aliases, multi-key group-by
+    aggregate/optional-filter/limit, multi-key scalar top-N workflows, aggregate-output top-N
+    workflows, post-aggregate HAVING over aggregate output rows or admitted unprojected aggregate
+    functions, joined computed projection/top-N
+    workflows, scalar/grouped join aggregates with optional HAVING, and local-source
+    evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON versus admitted
+    Parquet/Arrow IPC/Avro/ORC rows. Traditional analytics direct-transient smokes now admit CSV,
+    JSONL/NDJSON, and feature-gated Parquet/Arrow IPC/Avro/ORC through the shared local adapter
+    boundary with per-format SourceState evidence and dynamic no-fallback certificates, while
+    keeping compute logic format-neutral after read/ingest. The scoped `vortex_ingest`
+    prepare-once route has runtime coverage for CSV, JSON, JSONL, NDJSON, Parquet, Arrow IPC,
+    Avro, and ORC, including boolean columns, adapter-registry evidence, and columnar SourceState
+    preservation for structured formats. Nested JSON/JSONPath, broader
+    Parquet/Arrow IPC/Avro/ORC type/nesting coverage,
+    Excel, database files, and unsupported formats are
+    not uniformly represented by runtime SourceState adapters.
+  - Next slice outcome: close the local input adapter parity section as a cross-format runtime
+    bundle: every admitted local file format should use the same SourceState adapter registry,
+    deterministic unsupported-format blockers, typed evidence fields, CLI/Python smoke coverage,
+    and status/taxonomy rows.
+  - Runtime enablement: local SourceState adapter runtime for admitted file formats and explicit
+    blockers for unsupported formats.
+  - User-visible surface: CLI/Python `read(path)` and explicit read aliases, capability/status
+    views, benchmark rows, use cases.
+  - Implementation scope: adapter registry, format detection, schema/dtype inference, fingerprints,
+    row-count posture, parse/decode planning, diagnostics.
+  - Evidence required: source format/location/fingerprint, SourceState id/digest, schema digest,
+    row-count posture, parse/decode/materialization fields, Native I/O certificate posture,
     no-fallback fields.
-  - Acceptance: prepared/native rows are clearly separated from compatibility import rows; supported
-    pushdown avoids unnecessary output-column reads; unsupported pushdown blocks deterministically.
-  - Verification: prepared/native batch smoke, source-backed scan tests, filter/projection/limit
-    smoke, benchmark harness contract tests.
-  - Non-goals: no object-store Vortex artifact, blanket encoded-native claim, or performance claim.
-  - Claim boundary: declared local Vortex artifact workflows only.
-  - Fallback boundary: Vortex array/scan/source/sink APIs may be native providers; Vortex
-    query-engine integrations may not execute unsupported work.
-  - Dependencies/blockers: Vortex dependency/version gate, provider boundary, SourceState/
-    PreparedState ids, output evidence.
-  - Ledger rule: ledger entry must include artifact lifecycle evidence and blocked Vortex paths.
+  - Acceptance: each admitted local format can run at least one certified local workload or explicit
+    smoke; unsupported formats produce blockers instead of silent fallback.
+  - Verification: adapter snapshot tests, CLI/Python smoke per admitted format, unsupported format
+    snapshots, benchmark row contract tests.
+  - Non-goals: no object-store, database server, table/lakehouse, or universal adapter claim.
+  - Claim boundary: local file adapter support per admitted format only.
+  - Fallback boundary: adapters cannot use external engines to parse, plan, or execute user work.
+  - Dependencies/blockers: dependency/license review, fixture data, SourceState schema, output
+    correctness checks.
+  - Ledger rule: ledger entry must list admitted formats, evidence refs, and unsupported formats.
 
-- [ ] GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage
-  - Source: `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4J`, RFC 0015, RFC 0016, RFC 0021.
-  - Current state: selected residual-native operators exist; broad type/null/string/date/decimal,
-    join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Initial encoded
-    registry pairs now execute for scoped bitpacked, sequence, constant, and dictionary Vortex
-    reader inputs, but this is still pair-level runtime evidence rather than broad operator/function
-    coverage. Scoped local-source
-    ranking, offset, and distribution window projections now cover `ROW_NUMBER()`, `RANK()`,
-    `DENSE_RANK()`, `LAG()`, `LEAD()`, `NTILE()`, `PERCENT_RANK()`, and `CUME_DIST()` with native
-    partition/order evaluation, peer-group tie semantics, offset lookups, bucket assignment, and
-    cumulative/percent rank evidence, but general window value functions, frames, encoded window
-    kernels, and
-    distributed/object-store window execution remain open. Scoped
-    `COUNT(DISTINCT column)` is runtime-admitted for local scalar and grouped aggregate rows with
-    `distinct_aggregate_*` evidence, SQL `NULL`-ignoring distinct-count semantics, Python
-    `sl.count_distinct(...)` aggregate lowering, deterministic blockers for unsupported
-    `DISTINCT` aggregate shapes such as `SUM(DISTINCT ...)` or `COUNT(DISTINCT *)`, and no external
-    fallback.
-  - Next slice outcome: promote operator families one at a time with decoded-reference correctness,
-    unsupported diagnostics, and encoded-kernel admission where available.
-  - Runtime enablement: ShardLoom-native operator/function execution coverage with deterministic
-    blockers for unsupported families.
-  - User-visible surface: CLI/Python/SQL/DataFrame workflows, benchmark rows, capability matrix.
-  - Implementation scope: expression IR, scalar/aggregate operators, join/window/top-k operators,
-    type coercion, null/string/date policy, encoded kernel registry, blockers.
-  - Evidence required: operator/function family, input/output schema, type/null policy, encoding id,
-    decoded/materialized flags, correctness digest, encoded-native claim flag, no-fallback fields.
-  - Acceptance: each supported operator family has success tests, edge-case tests, unsupported
-    diagnostics, and correctness evidence; unsupported encodings block deterministically.
-  - Verification: unit/property/correctness tests, fixture manifest checks, encoded-kernel tests,
-    benchmark smoke per family.
-  - Non-goals: no arbitrary UDFs, ANSI parity, blanket encoded-native claim, or performance claim.
-  - Claim boundary: operator/function/encoding-pair support only.
-  - Fallback boundary: external engines may be test oracles only, never runtime evaluators.
-  - Dependencies/blockers: semantic fixture corpus, expression registry, benchmark row schema,
-    decoded-reference harness.
-  - Ledger rule: ledger entry must list promoted families, type/null behavior, and blockers.
+- [ ] GAR-RUNTIME-IMPL-4P scale-grade local split, memory, spill, shuffle, and retry runtime
+  - Source: `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017,
+    `docs/architecture/vortex-public-api-inventory.md`.
+  - Current state: the `traditional-analytics-prepare-batch-run` route now emits
+    `prepared_vortex_scale_*` real-byte local scale evidence inside the existing
+    `compatibility_import_certified -> prepared_vortex_batch` flow. Each child scenario carries
+    declared resource-policy fields, prepared Vortex byte/digest volume, reader chunk/SplitManifest
+    digest, bounded local reader-chunk split scheduling, split execution certification, memory
+    admission/peak reservation evidence, local shuffle-family classification, retry/idempotency key,
+    output commit status, correctness digest, no-fallback fields, and
+    `prepared_vortex_scale_no_standalone_lane=true`. This is in-route fixture evidence only:
+    selective-filter rows with admitted reader-generated selection-vector evidence now also carry
+    scoped stateless split-operator runtime certification, retry replay, and result-sink replay
+    proof. Larger-than-memory, stateful/shuffle split-parallel operator execution, actual spill I/O,
+    object-store/table execution, distributed workers, and performance claims remain blocked.
+  - Next slice outcome: promote remaining prepared Vortex reader-chunk work into claim-grade local
+    split-parallel operator runtime where admitted, especially stateful aggregate/join/sort/window
+    paths with actual spill/backpressure where operator declarations permit it, retry/cancellation
+    recovery over real split work, and output commit proof that can move the relevant claim gates.
+  - Runtime enablement: local scale-grade execution under a declared resource envelope, including
+    split, memory, spill, shuffle, retry, and commit gates.
+  - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
+  - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
+    cancellation/recovery, output commit status, scale benchmark rows.
+  - Vortex 0.71/0.72 opportunity mapping:
+    - `register_splits` offset and relative row-range support should inform `SplitManifest`
+      row-range evidence and per-split blockers.
+    - `VortexReadAt::read_at` validation and async I/O hooks are candidate inputs for local split
+      read validation and spill/output lifecycle evidence.
+    - These hooks do not imply distributed, object-store, table, or larger-than-memory runtime
+      support until scale-grade execution and correctness proof land.
+  - Evidence required: keep `prepared_vortex_scale_*` attached to prepared/native child scenario
+    rows; next promotion needs stateful/shuffle split-parallel operator rows, actual
+    spill/backpressure evidence when admitted, and correctness proof over the claimed workload
+    bytes.
+  - Acceptance: larger-than-memory and split-parallel claims require real bytes and correctness
+    proof from scheduled split work; synthetic metadata or detached side-lane commands cannot
+    become runtime scale claims.
+  - Verification: split manifest tests, local stress smoke, spill/backpressure tests, shuffle
+    correctness tests, retry/idempotency tests, scale benchmark contract tests.
+  - Non-goals: no literal any-volume, Spark replacement, distributed runtime, or object-store scale
+    claim without separate proof.
+  - Claim boundary: declared local resource envelope only.
+  - Fallback boundary: external engines are baselines/oracles only.
+  - Dependencies/blockers: stateful/shuffle split-operator runtime, stateful operator memory/spill
+    declarations, spill storage policy, shuffle correctness fixtures, retry/recovery exercise for
+    non-stateless operators, and claim-grade output commit proof beyond local result-sink replay.
+  - Ledger rule: ledger entry must include resource envelope, data volume, and claim status.
+
+- [ ] GAR-RUNTIME-IMPL-5M scale-grade local execution runtime
+  - Source: `GAR-RUNTIME-IMPL-4P`, `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017.
+  - Current state: prepared/native Vortex batch execution now carries declared-resource
+    real-byte local scale evidence in the normal Vortex processing path through
+    `prepared_vortex_scale_*` child fields and `prepare_batch_scale_*` rollups. The evidence proves
+    the route, source bytes, bounded local reader-chunk split scheduling, split execution
+    certification, memory admission, local shuffle-family classification, retry/idempotency
+    metadata, output commit status, and no standalone side lane. Selective-filter rows with
+    admitted reader-generated selection-vector evidence now also certify scoped stateless
+    split-operator runtime, retry replay, and result-sink replay proof, but the route is still
+    fixture-scoped for scale-grade execution claims.
+  - Next slice outcome: promote remaining stateful/shuffle prepared Vortex reader-chunk work into
+    claim-grade local split-parallel operator runtime with memory/spill/backpressure, shuffle
+    correctness, retry/cancellation recovery, and idempotent commit proof.
+  - Runtime enablement: local scale-grade runtime under declared resource envelopes with real-byte
+    correctness proof.
+  - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
+  - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
+    cancellation/recovery, output commit status, scale benchmark rows.
+  - Evidence required: retain in-route `prepared_vortex_scale_*` and `prepare_batch_scale_*`
+    evidence, then add stateful/shuffle split-parallel operator runtime rows, admitted
+    spill/backpressure evidence, retry/cancellation exercise, output commit proof, correctness
+    digest, and no-fallback fields.
+  - Acceptance: larger-than-memory and split-parallel claims require real bytes and correctness
+    proof from claim-grade local runtime; synthetic metadata or standalone evidence lanes cannot
+    become runtime scale claims.
+  - Verification: split manifest tests, local stress smoke, spill/backpressure tests, shuffle
+    correctness tests, retry/idempotency tests, scale benchmark contract tests.
+  - Non-goals: no literal any-volume, Spark replacement, distributed runtime, or object-store scale
+    claim without separate proof.
+  - Claim boundary: declared local resource envelope only.
+  - Fallback boundary: external engines are baselines/oracles only.
+  - Dependencies/blockers: stateful/shuffle split-operator runtime, stateful operator spill
+    declarations, spill storage policy, shuffle correctness fixtures, retry/recovery exercise for
+    non-stateless operators, and claim-grade output commit proof beyond local result-sink replay.
+  - Ledger rule: ledger entry must include resource envelope, data volume, and scale claim status.
 
 - [ ] GAR-RUNTIME-IMPL-5H evidence envelope, evidence levels, and claim validators
   - Source: `GAR-RUNTIME-IMPL-4K`, `GAR-PERF-2A`, release readiness metadata, benchmark publishing
@@ -782,43 +749,6 @@ docs/website parity, and a completed-ledger entry.
   - Ledger rule: ledger entry must record schema version, migrated surfaces, source-of-truth mirrors,
     and validation failures now blocked.
 
-- [ ] GAR-RUNTIME-IMPL-5M scale-grade local execution runtime
-  - Source: `GAR-RUNTIME-IMPL-4P`, `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017.
-  - Current state: prepared/native Vortex batch execution now carries declared-resource
-    real-byte local scale evidence in the normal Vortex processing path through
-    `prepared_vortex_scale_*` child fields and `prepare_batch_scale_*` rollups. The evidence proves
-    the route, source bytes, bounded local reader-chunk split scheduling, split execution
-    certification, memory admission, local shuffle-family classification, retry/idempotency
-    metadata, output commit status, and no standalone side lane. Selective-filter rows with
-    admitted reader-generated selection-vector evidence now also certify scoped stateless
-    split-operator runtime, retry replay, and result-sink replay proof, but the route is still
-    fixture-scoped for scale-grade execution claims.
-  - Next slice outcome: promote remaining stateful/shuffle prepared Vortex reader-chunk work into
-    claim-grade local split-parallel operator runtime with memory/spill/backpressure, shuffle
-    correctness, retry/cancellation recovery, and idempotent commit proof.
-  - Runtime enablement: local scale-grade runtime under declared resource envelopes with real-byte
-    correctness proof.
-  - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
-  - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
-    cancellation/recovery, output commit status, scale benchmark rows.
-  - Evidence required: retain in-route `prepared_vortex_scale_*` and `prepare_batch_scale_*`
-    evidence, then add stateful/shuffle split-parallel operator runtime rows, admitted
-    spill/backpressure evidence, retry/cancellation exercise, output commit proof, correctness
-    digest, and no-fallback fields.
-  - Acceptance: larger-than-memory and split-parallel claims require real bytes and correctness
-    proof from claim-grade local runtime; synthetic metadata or standalone evidence lanes cannot
-    become runtime scale claims.
-  - Verification: split manifest tests, local stress smoke, spill/backpressure tests, shuffle
-    correctness tests, retry/idempotency tests, scale benchmark contract tests.
-  - Non-goals: no literal any-volume, Spark replacement, distributed runtime, or object-store scale
-    claim without separate proof.
-  - Claim boundary: declared local resource envelope only.
-  - Fallback boundary: external engines are baselines/oracles only.
-  - Dependencies/blockers: stateful/shuffle split-operator runtime, stateful operator spill
-    declarations, spill storage policy, shuffle correctness fixtures, retry/recovery exercise for
-    non-stateless operators, and claim-grade output commit proof beyond local result-sink replay.
-  - Ledger rule: ledger entry must include resource envelope, data volume, and scale claim status.
-
 - [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission
   - Source: `GAR-RUNTIME-IMPL-4N`, `GAR-COMPAT-1C`, `GAR-SCALE-1E`,
     `docs/architecture/object-store-request-planner.md`.
@@ -849,6 +779,32 @@ docs/website parity, and a completed-ledger entry.
   - Ledger rule: ledger entry must record provider, credential posture, proof refs, and blocked
     providers.
 
+- [ ] GAR-RUNTIME-IMPL-4Q live, hybrid, loopback control-plane, and distributed blockers
+  - Source: RFC 0034, RFC 0035, `GAR-SCALE-1F`.
+  - Current state: batch has local evidence; live/hybrid, REST/event APIs, remote workers, and
+    distributed execution are scoped, blocked, or report-only.
+  - Next slice outcome: implement engine-mode diagnostics, a local in-memory live/hybrid fixture if
+    admitted, opt-in loopback control-plane lifecycle, and fail-closed distributed worker blockers.
+  - Runtime enablement: engine-mode admission and loopback-only runtime controls, plus fail-closed
+    distributed blockers.
+  - User-visible surface: CLI/Python engine-mode status, optional local API, compute-flow, website
+    status/use cases.
+  - Implementation scope: engine-mode admission, local control-plane lifecycle, fixture scheduler,
+    API schema, blocker diagnostics, small-result boundary.
+  - Evidence required: engine mode, control-plane invoked flag, live/hybrid state, checkpoint/state
+    posture, network policy, remote worker invoked status, no-fallback fields.
+  - Acceptance: labels cannot imply unsupported runtime; remote execution never runs accidentally;
+    local API is opt-in, loopback-scoped, and evidence-backed.
+  - Verification: engine-mode contract tests, fixture workflow tests, API/blocker tests, website
+    readiness, release readiness.
+  - Non-goals: no production REST service, daemon, broker/state-store runtime, remote workers,
+    distributed claim, or exactly-once claim.
+  - Claim boundary: fixture/local control-plane proof only.
+  - Fallback boundary: remote APIs cannot trigger external compute.
+  - Dependencies/blockers: lifecycle/security policy, evidence envelope, local API schema,
+    loopback-only network guard, and distributed blocker diagnostics.
+  - Ledger rule: ledger entry must record API surface and blocked live/hybrid/distributed behavior.
+
 - [ ] GAR-RUNTIME-IMPL-5N live, hybrid, control-plane, and distributed-runtime promotion
   - Source: `GAR-RUNTIME-IMPL-4Q`, RFC 0034, RFC 0035, `GAR-SCALE-1F`.
   - Current state: batch has local evidence; live/hybrid, REST/event APIs, remote workers, and
@@ -874,6 +830,35 @@ docs/website parity, and a completed-ledger entry.
   - Dependencies/blockers: lifecycle/security policy, evidence envelope, local API schema,
     loopback-only network guard, distributed blocker diagnostics.
   - Ledger rule: ledger entry must record API surface and blocked live/hybrid/distributed behavior.
+
+- [ ] GAR-RUNTIME-IMPL-4R adapters, databases, UDFs, extensions, and effectful operations
+  - Source: RFC 0011, RFC 0023, adapter/governance docs.
+  - Current state: databases/warehouses, REST/Flight/ADBC, UDFs, plugins, LLM/API/embedding/vector
+    effects, and extension execution are report-only or blocked.
+  - Next slice outcome: implement local SQLite import/export if admitted, typed adapter manifests,
+    extension inspection, one pure deterministic local scalar UDF fixture if approved, and
+    fail-closed diagnostics for networked/effectful paths.
+  - Runtime enablement: scoped local adapter/UDF execution or inspection with effectful/networked
+    paths blocked by runtime policy.
+  - User-visible surface: capability views, Python/CLI adapter and extension commands, use cases,
+    website status.
+  - Implementation scope: connector registry, credential/effect policy, local fixture adapter,
+    extension manifest schema, UDF admission, sandbox/effect blockers.
+  - Evidence required: connector/extension id/version/digest, credential/network/effect status,
+    import/export direction, UDF type/determinism/null contract, runtime flags, no-fallback fields.
+  - Acceptance: external systems are never fallback engines; users can inspect adapters/extensions
+    safely; effectful operations block by default; admitted UDFs are local, deterministic, typed,
+    and evidence-backed.
+  - Verification: SQLite/local fixture smoke if admitted, manifest validation tests, UDF blocker
+    tests, unsupported network diagnostics, capability snapshots, release readiness.
+  - Non-goals: no query pushdown, warehouse execution, arbitrary Python execution, network effects,
+    LLM/API calls, plugin marketplace, or production UDF sandbox claim.
+  - Claim boundary: scoped local import/export, inspection, or deterministic UDF fixture only.
+  - Fallback boundary: adapters/extensions/UDFs must not delegate compute to external engines or
+    services.
+  - Dependencies/blockers: sandbox/security review, manifest schema, credential/effect policy,
+    fixture data, and dependency/license review.
+  - Ledger rule: ledger entry must separate admitted local behaviors from denied effects.
 
 - [ ] GAR-RUNTIME-IMPL-5O adapters, databases, UDFs, extensions, and effectful operations
   - Source: `GAR-RUNTIME-IMPL-4R`, RFC 0011, RFC 0023, adapter/governance docs.
@@ -986,53 +971,6 @@ docs/website parity, and a completed-ledger entry.
   - Ledger rule: ledger entry must include runnable Python snippets, admitted methods, and blocked
     methods.
 
-- [ ] GAR-RUNTIME-IMPL-5D local input adapter runtime parity
-  - Source: `GAR-RUNTIME-IMPL-4F`, `GAR-IOREUSE-1A`, universal compatibility scoreboard.
-  - Current state: local CSV plus scoped flat JSONL/NDJSON, flat top-level `.json`, and
-    feature-gated flat scalar `.parquet`/Arrow IPC/Avro/ORC local SQL
-    smokes exist, the Python query-builder now bridges local CSV, flat JSON/JSONL/NDJSON, and
-    feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
-    projection/optional-filter/limit,
-    preview/select-star, scalar-aggregate/optional-filter/limit with aliases, multi-key group-by
-    aggregate/optional-filter/limit, multi-key scalar top-N workflows, aggregate-output top-N
-    workflows, post-aggregate HAVING over aggregate output rows or admitted unprojected aggregate
-    functions, joined computed projection/top-N
-    workflows, scalar/grouped join aggregates with optional HAVING, and local-source
-    evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON versus admitted
-    Parquet/Arrow IPC/Avro/ORC rows. Traditional analytics direct-transient smokes now admit CSV,
-    JSONL/NDJSON, and feature-gated Parquet/Arrow IPC/Avro/ORC through the shared local adapter
-    boundary with per-format SourceState evidence and dynamic no-fallback certificates, while
-    keeping compute logic format-neutral after read/ingest. The scoped `vortex_ingest`
-    prepare-once route has runtime coverage for CSV, JSON, JSONL, NDJSON, Parquet, Arrow IPC,
-    Avro, and ORC, including boolean columns, adapter-registry evidence, and columnar SourceState
-    preservation for structured formats. Nested JSON/JSONPath, broader
-    Parquet/Arrow IPC/Avro/ORC type/nesting coverage,
-    Excel, database files, and unsupported formats are
-    not uniformly represented by runtime SourceState adapters.
-  - Next slice outcome: close the local input adapter parity section as a cross-format runtime
-    bundle: every admitted local file format should use the same SourceState adapter registry,
-    deterministic unsupported-format blockers, typed evidence fields, CLI/Python smoke coverage,
-    and status/taxonomy rows.
-  - Runtime enablement: local SourceState adapter runtime for admitted file formats and explicit
-    blockers for unsupported formats.
-  - User-visible surface: CLI/Python `read(path)` and explicit read aliases, capability/status
-    views, benchmark rows, use cases.
-  - Implementation scope: adapter registry, format detection, schema/dtype inference, fingerprints,
-    row-count posture, parse/decode planning, diagnostics.
-  - Evidence required: source format/location/fingerprint, SourceState id/digest, schema digest,
-    row-count posture, parse/decode/materialization fields, Native I/O certificate posture,
-    no-fallback fields.
-  - Acceptance: each admitted local format can run at least one certified local workload or explicit
-    smoke; unsupported formats produce blockers instead of silent fallback.
-  - Verification: adapter snapshot tests, CLI/Python smoke per admitted format, unsupported format
-    snapshots, benchmark row contract tests.
-  - Non-goals: no object-store, database server, table/lakehouse, or universal adapter claim.
-  - Claim boundary: local file adapter support per admitted format only.
-  - Fallback boundary: adapters cannot use external engines to parse, plan, or execute user work.
-  - Dependencies/blockers: dependency/license review, fixture data, SourceState schema, output
-    correctness checks.
-  - Ledger rule: ledger entry must list admitted formats, evidence refs, and unsupported formats.
-
 - [ ] GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate
   - Source: `GAR-RUNTIME-IMPL-4M`, `GAR-BENCH-PUB-1`, benchmark publishing runbook.
   - Current state: benchmark publishing has a structured artifact model, but every runtime
@@ -1106,6 +1044,37 @@ docs/website parity, and a completed-ledger entry.
   - Fallback boundary: Foundry/Spark compute cannot be reported as ShardLoom execution.
   - Dependencies/blockers: local package proof, generated-source runtime, output evidence writer.
   - Ledger rule: ledger entry must include proof commands, output/evidence refs, and blocked claims.
+
+- [ ] GAR-RUNTIME-IMPL-4S clean install production usability and release rehearsal gate
+  - Source: public preview readiness, package-channel matrix, website
+    readiness, Use Case Atlas.
+  - Current state: runtime slices are being promoted incrementally; production usability still
+    requires complete runtime coverage, clean install proof, docs/website parity, examples, current
+    benchmark evidence, and claim gates. A preview posture is not the target state.
+  - Next slice outcome: run a no-publication production-readiness rehearsal from clean checkout or
+    local package artifact through CLI/Python workflows, unsupported diagnostics, benchmarks,
+    website/status, security/legal, and release metadata.
+  - Runtime enablement: end-to-end usability validator proving admitted runtime paths from clean
+    install through evidence inspection.
+  - User-visible surface: README, docs/getting-started, website, package metadata, release report.
+  - Implementation scope: clean venv install/run script, package dry-run, example smoke matrix,
+    benchmark artifact completeness, website build/readiness, security/legal checks.
+  - Evidence required: install/uninstall commands, smoke outputs, supported/blocked workflow
+    matrix, benchmark manifest, website readiness report, package metadata, no-fallback fields.
+  - Acceptance: a non-expert can install locally, run admitted workflows, inspect evidence, and see
+    unsupported paths without reading phase-plan internals.
+  - Verification: clean venv smoke, cargo fmt/clippy/tests, Python compileall/tests, website
+    readiness, static asset validation, benchmark artifact completeness, `git diff --check`.
+  - Non-goals: no public package upload or release tag without explicit human approval; no
+    production/platform/performance/Spark-replacement claim until all matching runtime and evidence
+    gates pass; no hidden fast mode.
+  - Claim boundary: production readiness requires complete runtime coverage and workload-scoped
+    evidence. Do not substitute a technical-preview target for the production engine goal.
+  - Fallback boundary: release gates must fail if any supported workflow uses external fallback.
+  - Dependencies/blockers: completion of admitted runtime slices, clean install script, docs/website
+    parity, benchmark artifact policy, and security/legal checks.
+  - Ledger rule: ledger entry must include the exact usability matrix, release-gate evidence, and
+    remaining unsupported paths.
 
 - [ ] GAR-RUNTIME-IMPL-5Q final production usability and website learning gate
   - Source: `GAR-RUNTIME-IMPL-4S`, `GAR-DOCS-1`, `GAR-WEB-ATLAS-1`, public-readiness,

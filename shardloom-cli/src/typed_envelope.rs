@@ -212,6 +212,18 @@ const COMPUTE_FLOW_EVIDENCE_PAYLOAD_KEYS: &[&str] = &[
     "computed_result_sink_native_io_certificate_status",
     "result_sink_claim_gate_status",
     "result_sink_claim_gate_reason",
+    "prepared_native_vortex_lifecycle_schema_version",
+    "prepared_native_vortex_lifecycle_status",
+    "prepared_native_vortex_lifecycle_route",
+    "prepared_native_vortex_lifecycle_artifact_status",
+    "prepared_native_vortex_lifecycle_scan_status",
+    "prepared_native_vortex_lifecycle_scan_pushdown_status",
+    "prepared_native_vortex_lifecycle_materialization_decode_status",
+    "prepared_native_vortex_lifecycle_output_status",
+    "prepared_native_vortex_lifecycle_no_standalone_lane",
+    "prepared_native_vortex_lifecycle_fallback_attempted",
+    "prepared_native_vortex_lifecycle_external_engine_invoked",
+    "prepared_native_vortex_lifecycle_claim_gate_status",
     "commit_state",
     "rollback_cleanup_status",
     "runtime_execution_certificate_status",
@@ -1129,10 +1141,21 @@ fn inline_compute_flow_evidence_payload(
     for key in COMPUTE_FLOW_EVIDENCE_PAYLOAD_KEYS {
         artifact = artifact.with_field(
             *key,
-            field_value(fields, key).unwrap_or("evidence_incomplete"),
+            field_value(fields, key).unwrap_or_else(|| compute_flow_missing_default(key)),
         );
     }
     Some(artifact)
+}
+
+fn compute_flow_missing_default(key: &str) -> &'static str {
+    if key.ends_with("fallback_attempted")
+        || key.ends_with("external_engine_invoked")
+        || key.ends_with("external_query_engine_invoked")
+    {
+        "false"
+    } else {
+        "evidence_incomplete"
+    }
 }
 
 fn command_capability_snapshot_keys(command: &str) -> Option<&'static [&'static str]> {

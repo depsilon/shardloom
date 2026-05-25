@@ -261,6 +261,17 @@ peak RSS as `not_available`, keeps `buffer_pool_enabled=false`, and keeps reuse 
 safe measurement and reuse are implemented. Buffer evidence must not be rendered as speed or
 memory-efficiency proof.
 
+`GAR-RUNTIME-IMPL-5F` closes the prepared/native Vortex lifecycle backstop inside the existing
+prepared batch path. Per-scenario rows now expose `prepared_native_vortex_lifecycle_*` fields for
+artifact refs/digests, scan/pushdown status, materialization/decode status, optional result-sink
+replay, Native I/O certificate status, `prepared_native_vortex_lifecycle_no_standalone_lane=true`,
+`prepared_native_vortex_lifecycle_fallback_attempted=false`, and
+`prepared_native_vortex_lifecycle_external_engine_invoked=false`. The combined prepare/batch route
+also exposes `prepare_batch_lifecycle_*` rollups for preparation, write/reopen, scan, pushdown,
+materialization/decode, output, and claim boundary. These fields prove lifecycle visibility for the
+local Vortex fixture bytes in the normal Vortex route; they do not create object-store/table,
+distributed, SQL/DataFrame, production, performance, or encoded-native claims.
+
 `GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. Benchmark rows expand the
 existing `shardloom_build_profile` fairness field with `build_profile_kind`, rustc/cargo version,
 target triple, target CPU policy, `target_cpu_native_enabled`, LTO status/mode, codegen units, PGO

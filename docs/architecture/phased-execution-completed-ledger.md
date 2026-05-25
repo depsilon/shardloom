@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5F prepared/native Vortex lifecycle closeout
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-vortex-lifecycle-5f` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5F prepared/native Vortex runtime lifecycle`.
+    - Completed prerequisites from `GAR-RUNTIME-IMPL-4I`, `GAR-RUNTIME-IMPL-4K`, and
+      `GAR-RUNTIME-IMPL-4L/5I`.
+    - User direction to keep real fixture-byte lifecycle evidence inside the Vortex processing path
+      rather than adding standalone side lanes.
+  - Scope:
+    - Added `prepared_native_vortex_lifecycle_*` per-scenario evidence to prepared/native Vortex
+      rows, covering artifact refs/digests, scan/pushdown status, materialization/decode status,
+      result-sink output/replay posture, Native I/O certificate status, no-standalone-lane posture,
+      no-fallback fields, and claim boundary.
+    - Added `prepare_batch_lifecycle_*` rollups to the single-process compatibility prepare plus
+      prepared/native batch route for preparation, write/reopen, scan, pushdown,
+      materialization/decode, optional result-sink replay, no-standalone-lane posture, and claim
+      boundary.
+    - Taught the traditional analytics benchmark harness to require the lifecycle schema, scan
+      completion, output replay when requested, no side lane, no fallback, and no external engine
+      invocation for successful prepared/native rows.
+    - Added Python typed accessors and CLI typed-envelope preservation for lifecycle fields so
+      users can inspect the prepared/native lifecycle without scraping raw field maps.
+    - Updated compute-flow, benchmark, Python, use-case, runtime-envelope-validation, phase-plan,
+      and website-synced status surfaces so `5F` is no longer a planned standalone lane.
+  - Verification:
+    - `cargo +1.91.1 fmt --all`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_native_vortex_batch_run_preserves_evidence_envelope --lib`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_prepares_once_inside_process --lib`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_emits_real_byte_local_scale_evidence_in_vortex_route --lib`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_traditional_analytics_prepare_batch_run_dispatches_combined_route python.tests.test_cli_client.ShardLoomClientTests.test_prepare_and_run_traditional_analytics_vortex_batch_reuses_artifacts python.tests.test_cli_client.ShardLoomClientTests.test_execution_result_view_preserves_artifact_rich_slots`
+  - Explicitly not included:
+    - Object-store Vortex artifact runtime, table/lakehouse runtime, distributed runtime, production
+      readiness, broad SQL/DataFrame support, blanket encoded-native execution, performance or
+      superiority claims, Spark-displacement claims, external fallback execution, or standalone
+      lifecycle/scale lanes.
+  - Follow-up:
+    - Continue from remaining internal runtime owners in the live queue: `GAR-RUNTIME-IMPL-4D`
+      before `5G`, `4F/4F1` before `5D`, `4P` before `5M`, then remaining validator, object-store,
+      control-plane, effectful-operation, benchmark, Foundry, and release-usability gates before
+      user-surface backstops.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4L/5I scoped CLI session-cache runtime and optimizer linkage
   - Date: 2026-05-25
   - Branch/PR: `runtime-session-reuse-4l-5i` / #955.

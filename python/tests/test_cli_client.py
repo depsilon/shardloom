@@ -818,6 +818,9 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": "operator_blocker_reason", "value": "temporary operator materializes Vortex-derived arrays"},
                                 {"key": "operator_encoded_native_claim_allowed", "value": "false"},
                                 {"key": "operator_temporary_materialization_used", "value": "true"},
+                                {"key": "prepared_native_vortex_lifecycle_status", "value": "prepared_native_vortex_lifecycle_complete_with_output_replay"},
+                                {"key": "prepared_native_vortex_lifecycle_output_status", "value": "vortex_result_sink_written_and_replay_verified"},
+                                {"key": "prepared_native_vortex_lifecycle_no_standalone_lane", "value": "true"},
                                 {"key": "materialization_boundary_report_emitted", "value": "true"},
                                 {"key": "fallback_attempted", "value": "false"},
                                 {"key": "external_engine_invoked", "value": "false"},
@@ -967,6 +970,15 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertFalse(result.operator_encoded_native_claim_allowed)
         self.assertTrue(result.operator_temporary_materialization_used)
+        self.assertEqual(
+            result.prepared_native_vortex_lifecycle_status,
+            "prepared_native_vortex_lifecycle_complete_with_output_replay",
+        )
+        self.assertEqual(
+            result.prepared_native_vortex_lifecycle_output_status,
+            "vortex_result_sink_written_and_replay_verified",
+        )
+        self.assertTrue(result.prepared_native_vortex_lifecycle_no_standalone_lane)
         self.assertEqual(
             result.facade_compatibility_matrix_report_id,
             "gar0038.facade_compatibility_matrix",
@@ -1385,6 +1397,31 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertTrue(validation.passed)
         self.assertEqual(validation.missing_fields, ())
+
+    def test_runtime_execution_field_validation_accepts_prepared_lifecycle_aliases(
+        self,
+    ) -> None:
+        validation = validate_runtime_execution_fields(
+            {
+                "selected_execution_mode": "prepared_vortex",
+                "prepared_state_id": "prepared-state://lifecycle-row",
+                "prepared_state_digest": "fnv1a64:prepared",
+                "prepared_native_vortex_lifecycle_materialization_decode_status": (
+                    "materialization_decode_boundary_reported"
+                ),
+                "runtime_execution_certificate_id": "execution.prepared-lifecycle-row",
+                "prepared_native_vortex_lifecycle_fallback_attempted": False,
+                "prepared_native_vortex_lifecycle_external_engine_invoked": False,
+                "prepared_native_vortex_lifecycle_claim_gate_status": "not_claim_grade",
+            },
+            command="traditional-analytics-benchmark-row",
+            surface_id="prepared_lifecycle_row",
+            execution_mode="prepared_vortex",
+        )
+
+        self.assertTrue(validation.passed)
+        self.assertEqual(validation.missing_fields, ())
+        self.assertEqual(validation.invalid_fields, ())
 
     def test_runtime_execution_field_validation_accepts_certified_import_aliases(
         self,
@@ -6398,6 +6435,10 @@ class ShardLoomClientTests(unittest.TestCase):
                     "fields": [
                         {"key": "schema_version", "value": "shardloom.traditional_analytics.vortex_batch.v1"},
                         {"key": "prepare_batch_schema_version", "value": "shardloom.traditional_analytics.prepare_and_batch.v1"},
+                        {"key": "prepare_batch_lifecycle_schema_version", "value": "shardloom.traditional_analytics.prepared_native_vortex_lifecycle.v1"},
+                        {"key": "prepare_batch_lifecycle_status", "value": "prepared_vortex_lifecycle_complete_with_output_replay"},
+                        {"key": "prepare_batch_lifecycle_output_status", "value": "vortex_result_sink_written_and_replay_verified"},
+                        {"key": "prepare_batch_lifecycle_no_standalone_lane", "value": "true"},
                         {"key": "prepare_batch_scale_schema_version", "value": "shardloom.traditional_analytics.prepared_vortex_local_scale.v1"},
                         {"key": "prepare_batch_scale_route", "value": "compatibility_import_certified_to_prepared_vortex_batch"},
                         {"key": "prepare_batch_scale_runtime_status", "value": "prepared_vortex_in_between_processing_evidence"},
@@ -6438,6 +6479,9 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "scenario_selective-filter_prepared_vortex_scale_split_operator_runtime_status", "value": "local_split_operator_runtime_certified"},
                         {"key": "scenario_selective-filter_prepared_vortex_scale_split_operator_execution_certificate_status", "value": "certified"},
                         {"key": "scenario_selective-filter_prepared_vortex_scale_idempotency_key", "value": "prepared-vortex:fnv1a64-feedface"},
+                        {"key": "scenario_selective-filter_prepared_native_vortex_lifecycle_status", "value": "prepared_native_vortex_lifecycle_complete_with_output_replay"},
+                        {"key": "scenario_selective-filter_prepared_native_vortex_lifecycle_output_status", "value": "vortex_result_sink_written_and_replay_verified"},
+                        {"key": "scenario_selective-filter_prepared_native_vortex_lifecycle_no_standalone_lane", "value": "true"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ],
@@ -6494,6 +6538,14 @@ class ShardLoomClientTests(unittest.TestCase):
             result.field("scenario_selective-filter_prepared_vortex_scale_idempotency_key"),
             "prepared-vortex:fnv1a64-feedface",
         )
+        self.assertEqual(
+            result.field("prepare_batch_lifecycle_status"),
+            "prepared_vortex_lifecycle_complete_with_output_replay",
+        )
+        self.assertEqual(
+            result.field("scenario_selective-filter_prepared_native_vortex_lifecycle_status"),
+            "prepared_native_vortex_lifecycle_complete_with_output_replay",
+        )
         self.assertFalse(result.fallback.attempted)
 
     def test_prepare_and_run_traditional_analytics_vortex_batch_reuses_artifacts(self) -> None:
@@ -6533,6 +6585,9 @@ class ShardLoomClientTests(unittest.TestCase):
                     "diagnostics": [],
                     "fields": [
                         {"key": "prepare_batch_schema_version", "value": "shardloom.traditional_analytics.prepare_and_batch.v1"},
+                        {"key": "prepare_batch_lifecycle_status", "value": "prepared_vortex_lifecycle_scan_complete_output_not_requested"},
+                        {"key": "prepare_batch_lifecycle_output_status", "value": "vortex_result_sink_not_requested"},
+                        {"key": "prepare_batch_lifecycle_no_standalone_lane", "value": "true"},
                         {"key": "prepare_batch_fact_vortex_path", "value": "fact.vortex"},
                         {"key": "prepare_batch_dim_vortex_path", "value": "dim.vortex"},
                         {"key": "prepare_batch_cdc_delta_vortex_path", "value": "cdc.vortex"},
@@ -6577,6 +6632,13 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(result.source_state_recompute_avoided_count, 1)
         self.assertTrue(result.prepared_artifacts_reuse_eligible)
         self.assertEqual(result.selected_evidence_level, "certified")
+        self.assertEqual(
+            result.lifecycle_status,
+            "prepared_vortex_lifecycle_scan_complete_output_not_requested",
+        )
+        self.assertEqual(result.lifecycle_output_status, "vortex_result_sink_not_requested")
+        self.assertFalse(result.lifecycle_complete_with_output_replay)
+        self.assertTrue(result.lifecycle_no_standalone_lane)
         self.assertFalse(result.fallback_attempted)
         self.assertFalse(result.external_engine_invoked)
 

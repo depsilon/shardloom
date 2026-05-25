@@ -61,6 +61,8 @@ const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
 const TRADITIONAL_PREPARE_AND_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepare_and_batch.v1";
+const PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepared_native_vortex_lifecycle.v1";
 const PREPARED_VORTEX_LOCAL_SCALE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepared_vortex_local_scale.v1";
 const SCALE_CLAIM_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.scale_claim_gate.v1";
@@ -4627,6 +4629,38 @@ impl TraditionalAnalyticsPreparedBatchReport {
         } else {
             "input_read_only_result_sink_not_requested"
         };
+        let prepare_batch_lifecycle_status = self.prepare_batch_lifecycle_status();
+        let prepare_batch_lifecycle_output_status = self.prepare_batch_lifecycle_output_status();
+        let prepare_batch_lifecycle_scan_status = self.prepare_batch_lifecycle_scan_status();
+        let prepare_batch_lifecycle_pushdown_statuses = self
+            .batch_report
+            .reports
+            .iter()
+            .map(prepared_native_lifecycle_scan_pushdown_status)
+            .collect::<Vec<_>>()
+            .join(",");
+        let prepare_batch_lifecycle_materialization_status = if self
+            .batch_report
+            .reports
+            .iter()
+            .all(|report| report.materialization_boundary_report_emitted)
+        {
+            "materialization_decode_boundaries_reported"
+        } else {
+            "materialization_decode_evidence_incomplete"
+        };
+        let prepare_batch_lifecycle_decoded_count = self
+            .batch_report
+            .reports
+            .iter()
+            .filter(|report| report.data_decoded)
+            .count();
+        let prepare_batch_lifecycle_materialized_count = self
+            .batch_report
+            .reports
+            .iter()
+            .filter(|report| report.data_materialized)
+            .count();
         fields.extend([
             (
                 "prepare_batch_schema_version".to_string(),
@@ -4639,6 +4673,146 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_route".to_string(),
                 "compatibility_import_certified_to_prepared_vortex_batch".to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_schema_version".to_string(),
+                PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_report_id".to_string(),
+                format!(
+                    "gar-runtime-impl-5f.prepare_batch.{}",
+                    self.batch_report.scenario_order().join("-")
+                ),
+            ),
+            (
+                "prepare_batch_lifecycle_status".to_string(),
+                prepare_batch_lifecycle_status.to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_route".to_string(),
+                "UniversalIngress->SourceState->vortex_ingest->VortexPreparedState->prepared_vortex_batch->vortex_result_sink_if_requested".to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_stage_order".to_string(),
+                "source_state,vortex_prepare,write_reopen,prepared_state_reuse,scan_pushdown,materialization_decode,result_sink,claim_gate".to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_source_state_id".to_string(),
+                prepare_field("source_state_id"),
+            ),
+            (
+                "prepare_batch_lifecycle_source_state_digest".to_string(),
+                prepare_field("source_state_digest"),
+            ),
+            (
+                "prepare_batch_lifecycle_prepared_state_id".to_string(),
+                prepare_field("prepared_state_id"),
+            ),
+            (
+                "prepare_batch_lifecycle_prepared_state_digest".to_string(),
+                prepare_field("prepared_state_digest"),
+            ),
+            (
+                "prepare_batch_lifecycle_artifact_refs".to_string(),
+                format!(
+                    "fact={},dim={},cdc_delta={}",
+                    self.prepare_report.fact_vortex_path.display(),
+                    self.prepare_report.dim_vortex_path.display(),
+                    self.prepare_report
+                        .cdc_delta_vortex_path
+                        .as_ref()
+                        .map_or_else(|| "none".to_string(), |path| path.display().to_string())
+                ),
+            ),
+            (
+                "prepare_batch_lifecycle_artifact_digests".to_string(),
+                format!(
+                    "fact={},dim={},cdc_delta={}",
+                    self.prepare_report.fact_vortex_digest,
+                    self.prepare_report.dim_vortex_digest,
+                    self.prepare_report
+                        .cdc_delta_vortex_digest
+                        .clone()
+                        .unwrap_or_else(|| "none".to_string())
+                ),
+            ),
+            (
+                "prepare_batch_lifecycle_preparation_status".to_string(),
+                "source_state_created_and_vortex_prepared_state_written".to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_write_reopen_status".to_string(),
+                if self.prepare_report.vortex_file_written
+                    && self.prepare_report.vortex_file_read
+                    && self.prepare_report.upstream_vortex_scan_called
+                {
+                    "prepared_artifacts_written_reopened_scanned"
+                } else {
+                    "prepared_artifact_write_reopen_incomplete"
+                }
+                .to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_scan_status".to_string(),
+                prepare_batch_lifecycle_scan_status.to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_scan_pushdown_statuses".to_string(),
+                prepare_batch_lifecycle_pushdown_statuses,
+            ),
+            (
+                "prepare_batch_lifecycle_materialization_decode_status".to_string(),
+                prepare_batch_lifecycle_materialization_status.to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_decoded_scenario_count".to_string(),
+                prepare_batch_lifecycle_decoded_count.to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_materialized_scenario_count".to_string(),
+                prepare_batch_lifecycle_materialized_count.to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_output_status".to_string(),
+                prepare_batch_lifecycle_output_status.to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_result_sink_requested".to_string(),
+                self.batch_report.result_sink_requested.to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_result_sink_replay_verified".to_string(),
+                self.batch_report.all_result_sink_replays_verified.to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_native_io_certificate_status".to_string(),
+                if self.batch_report.all_native_io_certificates_certified {
+                    "certified"
+                } else {
+                    "evidence_incomplete"
+                }
+                .to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_no_standalone_lane".to_string(),
+                "true".to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_fallback_attempted".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_external_engine_invoked".to_string(),
+                "false".to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_claim_gate_status".to_string(),
+                "not_claim_grade".to_string(),
+            ),
+            (
+                "prepare_batch_lifecycle_claim_boundary".to_string(),
+                "scoped local prepared/native Vortex artifact lifecycle only; no object-store, table/lakehouse, distributed, production, performance, SQL/DataFrame, or Spark-displacement claim".to_string(),
             ),
             (
                 "prepare_batch_scale_schema_version".to_string(),
@@ -4927,6 +5101,42 @@ impl TraditionalAnalyticsPreparedBatchReport {
             ),
         ]);
         fields
+    }
+
+    fn prepare_batch_lifecycle_status(&self) -> &'static str {
+        if self.batch_report.result_sink_requested
+            && self.batch_report.all_result_sink_replays_verified
+        {
+            "prepared_vortex_lifecycle_complete_with_output_replay"
+        } else if self.batch_report.all_native_io_certificates_certified {
+            "prepared_vortex_lifecycle_scan_complete_output_not_requested"
+        } else {
+            "prepared_vortex_lifecycle_evidence_incomplete"
+        }
+    }
+
+    fn prepare_batch_lifecycle_scan_status(&self) -> &'static str {
+        if self.batch_report.reports.iter().all(|report| {
+            report.vortex_file_read
+                && report.upstream_vortex_scan_called
+                && report.streaming_vortex_execution_used
+        }) {
+            "all_requested_scenarios_scanned_from_prepared_vortex"
+        } else {
+            "prepared_vortex_scan_evidence_incomplete"
+        }
+    }
+
+    fn prepare_batch_lifecycle_output_status(&self) -> &'static str {
+        if self.batch_report.result_sink_requested
+            && self.batch_report.all_result_sink_replays_verified
+        {
+            "vortex_result_sink_written_and_replay_verified"
+        } else if self.batch_report.result_sink_requested {
+            "vortex_result_sink_replay_incomplete"
+        } else {
+            "vortex_result_sink_not_requested"
+        }
     }
 
     #[must_use]
@@ -5835,6 +6045,7 @@ impl TraditionalAnalyticsVortexReport {
         fields.extend(self.local_scale_evidence.fields());
         fields.extend(streaming_execution_fields(self));
         fields.extend(source_backed_scan_evidence_fields(self));
+        fields.extend(prepared_native_vortex_lifecycle_fields(self));
         fields.extend(encoded_predicate_provider_fields(self));
         fields.extend(compressed_encoded_kernel_registry_fields(self));
         fields.extend(fused_pipeline_evidence_fields(self));
@@ -6606,6 +6817,230 @@ fn source_backed_scan_evidence_fields(
     ];
     fields.extend(scan_pushdown_contract_fields(report));
     fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn prepared_native_vortex_lifecycle_fields(
+    report: &TraditionalAnalyticsVortexReport,
+) -> Vec<(String, String)> {
+    let mode = report
+        .execution_mode_selection
+        .selected_execution_mode
+        .as_str();
+    let artifact_status = if report.execution_mode_selection.selected_execution_mode
+        == ShardLoomExecutionMode::PreparedVortex
+    {
+        "vortex_prepared_state_reused"
+    } else {
+        "native_vortex_artifact_supplied"
+    };
+    let scan_status = if report.vortex_file_read
+        && report.upstream_vortex_scan_called
+        && report.streaming_vortex_execution_used
+    {
+        "local_vortex_scan_completed"
+    } else {
+        "local_vortex_scan_incomplete"
+    };
+    let output_status = if report.computed_result_sink_requested
+        && report.computed_result_sink_written
+        && report.computed_result_sink_replay_verified
+    {
+        "vortex_result_sink_written_and_replay_verified"
+    } else if report.computed_result_sink_requested {
+        "vortex_result_sink_replay_incomplete"
+    } else {
+        "vortex_result_sink_not_requested"
+    };
+    let lifecycle_status = if scan_status == "local_vortex_scan_completed"
+        && output_status == "vortex_result_sink_written_and_replay_verified"
+    {
+        "prepared_native_vortex_lifecycle_complete_with_output_replay"
+    } else if scan_status == "local_vortex_scan_completed" {
+        "prepared_native_vortex_lifecycle_scan_complete_output_not_requested"
+    } else {
+        "prepared_native_vortex_lifecycle_evidence_incomplete"
+    };
+    vec![
+        (
+            "prepared_native_vortex_lifecycle_schema_version".to_string(),
+            PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_report_id".to_string(),
+            format!(
+                "gar-runtime-impl-5f.lifecycle.{}.{}",
+                mode,
+                traditional_scenario_slug(report.scenario)
+            ),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_status".to_string(),
+            lifecycle_status.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_route".to_string(),
+            "local_vortex_artifact->prepared_or_native_vortex_scan->shardloom_native_operator->vortex_result_sink_if_requested".to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_stage_order".to_string(),
+            "artifact_digest,prepared_state,scan_pushdown,materialization_decode,result_sink,claim_gate".to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_execution_mode".to_string(),
+            mode.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_artifact_status".to_string(),
+            artifact_status.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_artifact_refs".to_string(),
+            report
+                .cdc_delta_vortex_path
+                .as_ref()
+                .map_or_else(
+                    || {
+                        format!(
+                            "fact={},dim={}",
+                            report.fact_vortex_path.display(),
+                            report.dim_vortex_path.display()
+                        )
+                    },
+                    |cdc_delta_path| {
+                        format!(
+                            "fact={},dim={},cdc_delta={}",
+                            report.fact_vortex_path.display(),
+                            report.dim_vortex_path.display(),
+                            cdc_delta_path.display()
+                        )
+                    },
+                ),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_artifact_digests".to_string(),
+            report
+                .cdc_delta_vortex_digest
+                .as_ref()
+                .map_or_else(
+                    || {
+                        format!(
+                            "fact={},dim={}",
+                            report.fact_vortex_digest, report.dim_vortex_digest
+                        )
+                    },
+                    |cdc_delta_digest| {
+                        format!(
+                            "fact={},dim={},cdc_delta={}",
+                            report.fact_vortex_digest,
+                            report.dim_vortex_digest,
+                            cdc_delta_digest
+                        )
+                    },
+                ),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_scan_status".to_string(),
+            scan_status.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_scan_pushdown_status".to_string(),
+            prepared_native_lifecycle_scan_pushdown_status(report),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_filter_pushdown_applied".to_string(),
+            report.streaming_filter_pushdown_applied.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_projection_pushdown_applied".to_string(),
+            report.streaming_projection_pushdown_applied.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_rows_scanned".to_string(),
+            report.rows_scanned.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_arrays_read_count".to_string(),
+            report.streaming_arrays_read_count.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_materialization_decode_status".to_string(),
+            if report.materialization_boundary_report_emitted {
+                "materialization_decode_boundary_reported"
+            } else {
+                "materialization_decode_boundary_missing"
+            }
+            .to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_data_decoded".to_string(),
+            report.data_decoded.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_data_materialized".to_string(),
+            report.data_materialized.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_materialization_boundary_rows".to_string(),
+            report.materialization_boundary_rows.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_output_status".to_string(),
+            output_status.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_result_sink_requested".to_string(),
+            report.computed_result_sink_requested.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_result_sink_written".to_string(),
+            report.computed_result_sink_written.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_result_sink_replay_verified".to_string(),
+            report.computed_result_sink_replay_verified.to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_result_sink_native_io_certificate_status".to_string(),
+            report
+                .computed_result_sink_native_io_certificate_status
+                .clone()
+                .unwrap_or_else(|| "none".to_string()),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_native_io_certificate_status".to_string(),
+            report.native_io_certificate.status().to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_no_standalone_lane".to_string(),
+            "true".to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+        (
+            "prepared_native_vortex_lifecycle_claim_boundary".to_string(),
+            "scoped local prepared/native Vortex artifact lifecycle only; no object-store, table/lakehouse, distributed, production, performance, SQL/DataFrame, or Spark-displacement claim".to_string(),
+        ),
+    ]
+}
+
+fn prepared_native_lifecycle_scan_pushdown_status(
+    report: &TraditionalAnalyticsVortexReport,
+) -> String {
+    scan_pushdown_contract_fields(report)
+        .into_iter()
+        .find_map(|(key, value)| (key == "scan_pushdown_status").then_some(value))
+        .unwrap_or_else(|| "not_reported".to_string())
 }
 
 #[allow(clippy::too_many_lines)]
@@ -21700,6 +22135,51 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_selective-filter_prepared_native_vortex_lifecycle_schema_version",
+            PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_native_vortex_lifecycle_status",
+            "prepared_native_vortex_lifecycle_complete_with_output_replay",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_native_vortex_lifecycle_artifact_status",
+            "vortex_prepared_state_reused",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_native_vortex_lifecycle_scan_status",
+            "local_vortex_scan_completed",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_native_vortex_lifecycle_scan_pushdown_status",
+            "scan_pushdown_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_native_vortex_lifecycle_output_status",
+            "vortex_result_sink_written_and_replay_verified",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_native_vortex_lifecycle_no_standalone_lane",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_native_vortex_lifecycle_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_prepared_native_vortex_lifecycle_external_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_selective-filter_result_sink_claim_gate_status",
             "result_sink_replay_certified",
         );
@@ -21802,6 +22282,56 @@ mod tests {
             &fields,
             "prepare_batch_prepared_artifact_reuse_eligible",
             "true",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_schema_version",
+            PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION,
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_status",
+            "prepared_vortex_lifecycle_scan_complete_output_not_requested",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_route",
+            "UniversalIngress->SourceState->vortex_ingest->VortexPreparedState->prepared_vortex_batch->vortex_result_sink_if_requested",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_preparation_status",
+            "source_state_created_and_vortex_prepared_state_written",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_write_reopen_status",
+            "prepared_artifacts_written_reopened_scanned",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_scan_status",
+            "all_requested_scenarios_scanned_from_prepared_vortex",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_output_status",
+            "vortex_result_sink_not_requested",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_no_standalone_lane",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_external_engine_invoked",
+            "false",
         );
         assert!(
             fields
@@ -21950,6 +22480,31 @@ mod tests {
             &fields,
             "prepare_batch_scale_output_commit_status",
             "per_scenario_result_sink_written_replay_verified_uncommitted",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_status",
+            "prepared_vortex_lifecycle_complete_with_output_replay",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_output_status",
+            "vortex_result_sink_written_and_replay_verified",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_result_sink_requested",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_result_sink_replay_verified",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_lifecycle_native_io_certificate_status",
+            "certified",
         );
         assert_field_eq(
             &fields,
@@ -24512,6 +25067,17 @@ mod tests {
         );
         assert!(prepared_sink_fields.iter().any(|(key, value)| {
             key == "result_sink_claim_gate_status" && value == "result_sink_replay_certified"
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "prepared_native_vortex_lifecycle_status"
+                && value == "prepared_native_vortex_lifecycle_complete_with_output_replay"
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "prepared_native_vortex_lifecycle_output_status"
+                && value == "vortex_result_sink_written_and_replay_verified"
+        }));
+        assert!(prepared_sink_fields.iter().any(|(key, value)| {
+            key == "prepared_native_vortex_lifecycle_no_standalone_lane" && value == "true"
         }));
 
         let _ = std::fs::remove_dir_all(root);

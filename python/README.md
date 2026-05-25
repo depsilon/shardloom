@@ -232,10 +232,18 @@ result = client.traditional_analytics_prepare_batch_run(
 
 print(result.field("prepare_batch_preparation_included_in_batch_timing"))
 print(result.field("source_state_reuse_status"))
+print(result.field("prepare_batch_lifecycle_status"))
+print(result.field("scenario_selective-filter_prepared_native_vortex_lifecycle_status"))
 print(result.fallback.attempted)
 ```
 
 This is a scoped local runtime route for avoiding repeated compatibility preparation inside a batch.
+`PreparedVortexBatchResult.lifecycle_status`,
+`PreparedVortexBatchResult.lifecycle_output_status`, and
+`PreparedVortexBatchResult.lifecycle_no_standalone_lane` expose the combined route lifecycle
+posture. `ExecutionResultEnvelopeView.prepared_native_vortex_lifecycle_status` and related output/
+no-standalone accessors expose the per-scenario lifecycle fields when a typed execution result
+contains them.
 Use `prepare_traditional_analytics_vortex_artifacts(...)` only when the caller needs to manage
 prepared artifacts explicitly across later commands. This is not a native Python binding,
 persistent cache, object-store/table runtime, package-readiness claim, or performance claim.

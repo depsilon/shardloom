@@ -25,6 +25,11 @@ Required scalar fields:
 - `external_engine_invoked`
 - `claim_gate_status`
 
+Prepared/native lifecycle aliases such as `prepared_native_vortex_lifecycle_fallback_attempted`,
+`prepared_native_vortex_lifecycle_external_engine_invoked`, and
+`prepared_native_vortex_lifecycle_claim_gate_status` are accepted for rows whose evidence is scoped
+to the prepared/native lifecycle contract.
+
 The no-fallback booleans must parse as literal `true` or `false`; malformed values block the
 runtime claim instead of being interpreted leniently.
 
@@ -33,7 +38,8 @@ Required runtime evidence groups:
 - `route_state_ref`: one of SourceState, VortexPreparedState, OutputPlan, generated-source plan, or
   plan/artifact digest fields.
 - `materialization_or_decode_evidence`: one of the explicit materialization, decode, runtime
-  consumption, or representation-transition fields.
+  consumption, representation-transition, or prepared/native Vortex lifecycle materialization/decode
+  fields.
 - `execution_certificate`: a concrete execution certificate id/ref field or a typed
   `execution_certificate` entry. `evidence_level_certificate_refs` alone is evidence-level
   metadata and is not accepted as the runtime execution certificate.
