@@ -13,7 +13,7 @@ delegate to another engine.
 ## Command
 
 ```text
-shardloom dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks]
+shardloom dynamic-work-shaping-plan [balanced|memory-pressure|object-store-throttled|small-tasks|repeated-independent-shards]
 shardloom cg8-runtime-promotion-gate
 ```
 
@@ -24,6 +24,9 @@ The profiles are deterministic examples:
 - `object-store-throttled`: target-task-byte increase/coalescing pressure from object-store
   throttling.
 - `small-tasks`: target-task-byte increase from scheduler overhead pressure.
+- `repeated-independent-shards`: target-task-byte increase for a repeated independent shard-task
+  workload where automatic shaping should coalesce small shards before a future runtime applies the
+  policy.
 
 ## Evidence Surfaces
 
@@ -42,6 +45,21 @@ The report tracks these surfaces in deterministic order:
 The current report marks sizing, feedback, target policy, backpressure, bounded
 memory, scheduler queue policy, and no-fallback policy as planned surfaces.
 Runtime application and benchmark evidence remain blocked.
+
+The report now also derives a deterministic plan-only automatic work-shaping decision for the
+canonical `repeated_independent_shard_tasks` workload kind. The decision can be
+`keep_current_shape`, `split_large_shards`, `coalesce_small_shards`,
+`coalesce_for_request_budget`, `mixed_signal_review`, or `blocked_by_invalid_feedback`. These fields
+are advisory only: `automatic_work_shaping_applied=false`,
+`automatic_work_shaping_claim_allowed=false`, `policy_mutated=false`, and `tasks_executed=false`
+until a later runtime promotion gate admits policy mutation and certificate evidence.
+
+`docs/architecture/pulseweave-runtime-control.md` defines the planned runtime follow-through for
+that promotion gate. PulseWeave is scoped first to prepared/local Vortex batch routes and decomposes
+runtime application into FlowInventory bounded work-in-progress control, ScarcityLedger
+resource-scarcity accounting, EndoPulse run-local feedback, and ProofBound evidence gating. That
+reference does not authorize object-store, distributed, live/hybrid, real query-data spill, AI, or
+fallback execution.
 
 ## Runtime Boundary
 

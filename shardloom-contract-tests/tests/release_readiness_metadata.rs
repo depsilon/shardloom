@@ -5833,13 +5833,99 @@ fn gar_runtime_impl_4i_scan_pushdown_completion_remains_projected() {
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4I"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4J"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4K"));
-    assert!(plan.contains("- [ ] GAR-RUNTIME-IMPL-5H"));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5H"));
+    assert!(plan.contains("- [ ] GAR-RUNTIME-IMPL-5K"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-RUNTIME-IMPL-4I Vortex Scan pushdown completion matrix"));
+    assert!(
+        completed
+            .contains("GAR-RUNTIME-IMPL-5H runtime evidence envelope and claim validator closeout")
+    );
     assert!(completed.contains("shardloom.prepared_vortex.scan_pushdown_matrix.v1"));
     assert!(completed.contains("gar-perf-2c.limit_pushdown_not_admitted"));
     assert!(completed.contains("gar-perf-2c.filter_pushdown_not_lowered"));
+}
+
+#[test]
+fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
+    let doc = read_repo_file("docs/architecture/pulseweave-runtime-control.md");
+    for required in [
+        "PulseWeave Runtime Control",
+        "FlowInventory Scheduler",
+        "ScarcityLedger Allocator",
+        "EndoPulse Governor",
+        "ProofBound Auto Gate",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+        "No object-store runtime, distributed runtime, live/hybrid runtime",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing PulseWeave architecture marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(plan.contains("docs/architecture/pulseweave-runtime-control.md"));
+    assert!(
+        plan.contains(
+            "- [ ] GAR-RUNTIME-IMPL-5R PulseWeave automatic prepared/local runtime control"
+        )
+    );
+    let pulseweave = plan
+        .find("- [ ] GAR-RUNTIME-IMPL-5R")
+        .expect("PulseWeave runtime-control item must be planned");
+    let expression_closeout = plan
+        .find("- [ ] GAR-RUNTIME-IMPL-4D")
+        .expect("4D expression/operator closeout must remain planned");
+    assert!(
+        pulseweave < expression_closeout,
+        "PulseWeave runtime-control work must stay before 4D closeout"
+    );
+
+    let terminology = read_repo_file("docs/architecture/canonical-terminology.md");
+    for required in [
+        "PulseWeave Runtime",
+        "FlowInventory Scheduler",
+        "ScarcityLedger Allocator",
+        "EndoPulse Governor",
+        "ProofBound Auto Gate",
+    ] {
+        assert!(
+            terminology.contains(required),
+            "missing PulseWeave terminology marker {required}"
+        );
+    }
+
+    let dynamic_doc = read_repo_file("docs/architecture/dynamic-work-shaping.md");
+    for required in [
+        "repeated-independent-shards",
+        "automatic_work_shaping_applied=false",
+        "docs/architecture/pulseweave-runtime-control.md",
+    ] {
+        assert!(
+            dynamic_doc.contains(required),
+            "missing dynamic work-shaping PulseWeave marker {required}"
+        );
+    }
+
+    let sizing = read_repo_file("shardloom-exec/src/sizing.rs");
+    for required in [
+        "AutomaticWorkShapingDecision",
+        "derive_automatic_work_shape",
+        "automatic_work_shaping_plan_ready",
+        "automatic_work_shaping_claim_allowed",
+    ] {
+        assert!(
+            sizing.contains(required),
+            "missing automatic work-shaping model marker {required}"
+        );
+    }
+
+    let cli = read_repo_file("shardloom-cli/src/engine_runtime_planning.rs");
+    assert!(cli.contains("repeated-independent-shards"));
+    assert!(cli.contains("automatic_work_shaping_decision"));
 }
 
 #[test]
@@ -6115,6 +6201,9 @@ fn runtime_execution_envelope_validator_is_release_visible() {
         "validate_runtime_execution_envelope",
         "validate_runtime_execution_fields",
         "minimal_runtime evidence cannot be promoted to claim_grade",
+        "claim_grade runtime evidence requires",
+        "full_replay evidence requires",
+        "certified prepared Vortex split-operator runtime",
         "compatibility_import_certified envelope must disclose",
         "prepared_vortex envelope is missing",
     ] {
@@ -6133,6 +6222,11 @@ fn runtime_execution_envelope_validator_is_release_visible() {
         "benchmark_field_mapping",
         "minimal_runtime_claim_grade",
         "evidence_level_refs_without_execution_certificate",
+        "claim_grade_without_requirements",
+        "certified_level_missing_status",
+        "full_replay_missing_replay",
+        "split_operator_missing_family",
+        "split_operator_complete",
         "published_benchmark_rows",
         "runs_today_support_matrix",
         "benchmark_row_count",
@@ -6156,6 +6250,10 @@ fn runtime_execution_envelope_validator_is_release_visible() {
         "website published benchmark rows",
         "runs-today support matrix",
         "minimal_runtime",
+        "claim_grade_requirements_met=true",
+        "execution_certificate_status=certified",
+        "full_replay",
+        "prepared_vortex_scale_split_operator_*",
         "compatibility_import_certified",
         "fallback_attempted=false",
         "external_engine_invoked=false",
@@ -6170,6 +6268,22 @@ fn runtime_execution_envelope_validator_is_release_visible() {
     assert!(release_gate.contains("check_runtime_execution_envelopes.py"));
     assert!(release_gate.contains("validate_runtime_execution_envelope_surfaces"));
     assert!(release_gate.contains("runtime-execution-envelope-validation.json"));
+
+    let promoter = read_repo_file("scripts/promote_benchmark_artifact.py");
+    for required in [
+        "prepared_vortex_scale_split_operator_runtime_status",
+        "prepared_vortex_scale_split_operator_execution_certificate_id",
+        "prepared_vortex_scale_split_operator_claim_gate_status",
+        "prepared_vortex_scale_split_operator_retry_replay_status",
+        "prepared_vortex_scale_split_operator_output_commit_proof_status",
+        "prepared_vortex_scale_split_operator_fallback_attempted",
+        "prepared_vortex_scale_split_operator_external_engine_invoked",
+    ] {
+        assert!(
+            promoter.contains(required),
+            "missing runtime envelope promoter marker {required}"
+        );
+    }
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(

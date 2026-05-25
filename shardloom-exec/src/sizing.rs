@@ -851,6 +851,30 @@ impl DynamicWorkShapingStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutomaticWorkShapingDecision {
+    KeepCurrentShape,
+    SplitLargeShards,
+    CoalesceSmallShards,
+    CoalesceForRequestBudget,
+    MixedSignalReview,
+    BlockedByInvalidFeedback,
+}
+
+impl AutomaticWorkShapingDecision {
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::KeepCurrentShape => "keep_current_shape",
+            Self::SplitLargeShards => "split_large_shards",
+            Self::CoalesceSmallShards => "coalesce_small_shards",
+            Self::CoalesceForRequestBudget => "coalesce_for_request_budget",
+            Self::MixedSignalReview => "mixed_signal_review",
+            Self::BlockedByInvalidFeedback => "blocked_by_invalid_feedback",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct DynamicWorkShapingReport {
@@ -872,6 +896,15 @@ pub struct DynamicWorkShapingReport {
     pub recommended_target_task_bytes: ByteSize,
     pub adaptive_splitting_allowed: bool,
     pub adaptive_coalescing_allowed: bool,
+    pub work_shaping_workload_kind: &'static str,
+    pub input_independent_shard_task_count: usize,
+    pub current_work_shaped_task_count: usize,
+    pub recommended_work_shaped_task_count: usize,
+    pub automatic_work_shaping_decision: AutomaticWorkShapingDecision,
+    pub automatic_work_shaping_reason: String,
+    pub automatic_work_shaping_plan_ready: bool,
+    pub automatic_work_shaping_applied: bool,
+    pub automatic_work_shaping_claim_allowed: bool,
     pub backpressure_status: crate::streaming::BackpressurePlanStatus,
     pub backpressure_mode: crate::streaming::BackpressurePlanMode,
     pub bounded_backpressure: bool,
@@ -959,6 +992,122 @@ impl DynamicWorkShapingReport {
     }
 }
 
+fn recommended_shard_task_count(
+    input_shard_count: usize,
+    estimated_shard_bytes: ByteSize,
+    target_task_bytes: ByteSize,
+) -> usize {
+    let target = u128::from(target_task_bytes.as_bytes());
+    if target == 0 {
+        return input_shard_count.max(1);
+    }
+    let total_bytes =
+        (input_shard_count as u128).saturating_mul(u128::from(estimated_shard_bytes.as_bytes()));
+    let count = total_bytes.saturating_add(target.saturating_sub(1)) / target;
+    if count == 0 {
+        1
+    } else if count > usize::MAX as u128 {
+        usize::MAX
+    } else {
+        count as usize
+    }
+}
+
+fn automatic_work_shaping_decision(
+    feedback: &DynamicSizingFeedbackReport,
+    backpressure: &BackpressurePlanReport,
+) -> AutomaticWorkShapingDecision {
+    if feedback.has_errors() || backpressure.has_errors() {
+        return AutomaticWorkShapingDecision::BlockedByInvalidFeedback;
+    }
+    if feedback.reduce_signal_count > 0 && feedback.increase_signal_count > 0 {
+        return AutomaticWorkShapingDecision::MixedSignalReview;
+    }
+    if feedback.reduce_signal_count > 0 {
+        return AutomaticWorkShapingDecision::SplitLargeShards;
+    }
+    if feedback.increase_signal_count > 0 {
+        if feedback
+            .input
+            .signals
+            .iter()
+            .any(|signal| signal.kind == SizingFeedbackSignalKind::ObjectStoreThrottled)
+        {
+            return AutomaticWorkShapingDecision::CoalesceForRequestBudget;
+        }
+        return AutomaticWorkShapingDecision::CoalesceSmallShards;
+    }
+    AutomaticWorkShapingDecision::KeepCurrentShape
+}
+
+fn automatic_work_shaping_reason(decision: AutomaticWorkShapingDecision) -> &'static str {
+    match decision {
+        AutomaticWorkShapingDecision::KeepCurrentShape => {
+            "feedback is stable; keep current independent shard task shape"
+        }
+        AutomaticWorkShapingDecision::SplitLargeShards => {
+            "reduce target task bytes to split large independent shard tasks under memory pressure"
+        }
+        AutomaticWorkShapingDecision::CoalesceSmallShards => {
+            "increase target task bytes to coalesce small independent shard tasks"
+        }
+        AutomaticWorkShapingDecision::CoalesceForRequestBudget => {
+            "increase target task bytes to coalesce independent shard tasks under object-store request pressure"
+        }
+        AutomaticWorkShapingDecision::MixedSignalReview => {
+            "conflicting feedback requires conservative review before reshaping shard tasks"
+        }
+        AutomaticWorkShapingDecision::BlockedByInvalidFeedback => {
+            "invalid feedback or backpressure evidence blocks automatic shard work shaping"
+        }
+    }
+}
+
+struct DerivedAutomaticWorkShape {
+    input_independent_shard_task_count: usize,
+    current_work_shaped_task_count: usize,
+    recommended_work_shaped_task_count: usize,
+    decision: AutomaticWorkShapingDecision,
+    reason: String,
+    plan_ready: bool,
+}
+
+fn derive_automatic_work_shape(
+    feedback: &DynamicSizingFeedbackReport,
+    backpressure: &BackpressurePlanReport,
+    fallback_execution_allowed: bool,
+) -> DerivedAutomaticWorkShape {
+    let input_independent_shard_task_count = backpressure
+        .max_in_flight_chunks
+        .unwrap_or(backpressure.input.max_parallelism)
+        .saturating_mul(4)
+        .max(1);
+    let estimated_shard_bytes = backpressure
+        .estimated_chunk_bytes
+        .unwrap_or(feedback.current_target_task_bytes);
+    let current_work_shaped_task_count = recommended_shard_task_count(
+        input_independent_shard_task_count,
+        estimated_shard_bytes,
+        feedback.current_target_task_bytes,
+    );
+    let recommended_work_shaped_task_count = recommended_shard_task_count(
+        input_independent_shard_task_count,
+        estimated_shard_bytes,
+        feedback.recommended_target_task_bytes,
+    );
+    let decision = automatic_work_shaping_decision(feedback, backpressure);
+    DerivedAutomaticWorkShape {
+        input_independent_shard_task_count,
+        current_work_shaped_task_count,
+        recommended_work_shaped_task_count,
+        decision,
+        reason: automatic_work_shaping_reason(decision).to_string(),
+        plan_ready: !feedback.has_errors()
+            && !backpressure.has_errors()
+            && !fallback_execution_allowed,
+    }
+}
+
 #[must_use]
 pub fn plan_dynamic_work_shaping(
     profile: impl Into<String>,
@@ -1000,6 +1149,8 @@ pub fn plan_dynamic_work_shaping(
     } else {
         DynamicWorkShapingStatus::NeedsRuntimeIntegration
     };
+    let automatic_work_shape =
+        derive_automatic_work_shape(feedback, backpressure, fallback_execution_allowed);
 
     DynamicWorkShapingReport {
         schema_version: "shardloom.dynamic_work_shaping.v1",
@@ -1021,6 +1172,15 @@ pub fn plan_dynamic_work_shaping(
         recommended_target_task_bytes: feedback.recommended_target_task_bytes,
         adaptive_splitting_allowed: feedback.recommended_policy.allow_splitting,
         adaptive_coalescing_allowed: feedback.recommended_policy.allow_coalescing,
+        work_shaping_workload_kind: "repeated_independent_shard_tasks",
+        input_independent_shard_task_count: automatic_work_shape.input_independent_shard_task_count,
+        current_work_shaped_task_count: automatic_work_shape.current_work_shaped_task_count,
+        recommended_work_shaped_task_count: automatic_work_shape.recommended_work_shaped_task_count,
+        automatic_work_shaping_decision: automatic_work_shape.decision,
+        automatic_work_shaping_reason: automatic_work_shape.reason,
+        automatic_work_shaping_plan_ready: automatic_work_shape.plan_ready,
+        automatic_work_shaping_applied: false,
+        automatic_work_shaping_claim_allowed: false,
         backpressure_status: backpressure.status,
         backpressure_mode: backpressure.mode,
         bounded_backpressure: backpressure.bounded,
@@ -1672,6 +1832,18 @@ mod tests {
         assert_eq!(report.max_buffered_bytes, Some(ByteSize::from_gib(8)));
         assert_eq!(report.estimated_chunk_bytes, Some(ByteSize::from_mib(256)));
         assert_eq!(
+            report.work_shaping_workload_kind,
+            "repeated_independent_shard_tasks"
+        );
+        assert_eq!(report.input_independent_shard_task_count, 16);
+        assert_eq!(
+            report.automatic_work_shaping_decision,
+            AutomaticWorkShapingDecision::SplitLargeShards
+        );
+        assert!(report.automatic_work_shaping_plan_ready);
+        assert!(!report.automatic_work_shaping_applied);
+        assert!(!report.automatic_work_shaping_claim_allowed);
+        assert_eq!(
             report.blocked_surface_order,
             vec!["runtime_application_loop", "benchmark_evidence"]
         );
@@ -1714,6 +1886,14 @@ mod tests {
         assert!(!report.spill_io_performed);
         assert!(!report.fallback_execution_allowed);
         assert!(!report.fallback_attempted);
+        assert_eq!(
+            report.automatic_work_shaping_decision,
+            AutomaticWorkShapingDecision::CoalesceForRequestBudget
+        );
+        assert_eq!(
+            report.automatic_work_shaping_decision.as_str(),
+            "coalesce_for_request_budget"
+        );
         assert!(
             report
                 .to_human_text()

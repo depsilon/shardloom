@@ -157,6 +157,45 @@ EXECUTION_CERTIFICATE_STATUS_FIELDS = (
     "prepared_vortex_scale_split_execution_certificate_status",
     "prepared_vortex_scale_split_operator_execution_certificate_status",
 )
+RUNTIME_RESULT_REPLAY_VERIFIED_FIELDS = (
+    "evidence_level_result_sink_replay_verified",
+    "computed_result_sink_replay_verified",
+    "result_sink_replay_verified",
+    "prepared_vortex_scale_split_operator_output_commit_proof_status",
+)
+RUNTIME_RESULT_REPLAY_REF_FIELDS = (
+    "evidence_level_result_sink_replay_refs",
+    "computed_result_vortex_digest",
+    "computed_result_vortex_path",
+    "output_plan_digest",
+    "sink_artifact_digest",
+)
+PREPARED_VORTEX_SPLIT_OPERATOR_REQUIRED_FIELDS = (
+    "prepared_vortex_scale_split_operator_family",
+    "prepared_vortex_scale_split_operator_stateful",
+    "prepared_vortex_scale_split_operator_shuffle_required",
+    "prepared_vortex_scale_split_operator_local_combine_used",
+    "prepared_vortex_scale_split_operator_global_merge_used",
+    "prepared_vortex_scale_split_operator_retry_replay_status",
+    "prepared_vortex_scale_split_operator_source_replay_status",
+    "prepared_vortex_scale_split_operator_memory_envelope_status",
+    "prepared_vortex_scale_split_operator_backpressure_status",
+    "prepared_vortex_scale_split_operator_spill_policy_status",
+    "prepared_vortex_scale_split_operator_output_commit_proof_status",
+    "prepared_vortex_scale_split_operator_execution_certificate_status",
+    "prepared_vortex_scale_split_operator_execution_certificate_id",
+    "prepared_vortex_scale_split_operator_claim_gate_status",
+    "prepared_vortex_scale_split_operator_fallback_attempted",
+    "prepared_vortex_scale_split_operator_external_engine_invoked",
+)
+PREPARED_VORTEX_SPLIT_OPERATOR_BOOLEAN_FIELDS = (
+    "prepared_vortex_scale_split_operator_stateful",
+    "prepared_vortex_scale_split_operator_shuffle_required",
+    "prepared_vortex_scale_split_operator_local_combine_used",
+    "prepared_vortex_scale_split_operator_global_merge_used",
+    "prepared_vortex_scale_split_operator_fallback_attempted",
+    "prepared_vortex_scale_split_operator_external_engine_invoked",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -717,6 +756,64 @@ def validate_runtime_execution_envelope(
                 message="minimal_runtime evidence cannot be promoted to claim_grade",
             )
         )
+    if claim_gate_status == "claim_grade":
+        if _safe_field_bool(envelope, "claim_grade_requirements_met") is not True:
+            issues.append(
+                RuntimeEnvelopeValidationIssue(
+                    code="invalid_runtime_field",
+                    field="claim_grade_requirements_met",
+                    message=(
+                        "claim_grade runtime evidence requires "
+                        "claim_grade_requirements_met=true"
+                    ),
+                )
+            )
+        if not _execution_certificate_status_certified(envelope):
+            issues.append(
+                RuntimeEnvelopeValidationIssue(
+                    code="invalid_runtime_field",
+                    field="execution_certificate_status",
+                    message=(
+                        "claim_grade runtime evidence requires a certified "
+                        "execution certificate status"
+                    ),
+                )
+            )
+
+    if evidence_level in {"certified", "full_replay"} and not (
+        _execution_certificate_status_certified(envelope)
+    ):
+        issues.append(
+            RuntimeEnvelopeValidationIssue(
+                code="invalid_runtime_field",
+                field="execution_certificate_status",
+                message=(
+                    "certified and full_replay evidence levels require "
+                    "execution_certificate_status=certified"
+                ),
+            )
+        )
+    if evidence_level == "full_replay":
+        if not _result_replay_verified(envelope):
+            issues.append(
+                RuntimeEnvelopeValidationIssue(
+                    code="invalid_runtime_field",
+                    field="result_sink_replay_verified",
+                    message="full_replay evidence requires result-sink replay proof",
+                )
+            )
+        _require_any_field(
+            envelope,
+            issues,
+            field_group="result_sink_replay_ref",
+            fields=RUNTIME_RESULT_REPLAY_REF_FIELDS,
+        )
+
+    if (
+        envelope.field("prepared_vortex_scale_split_operator_runtime_status")
+        == "local_split_operator_runtime_certified"
+    ):
+        _validate_prepared_vortex_split_operator_runtime(envelope, issues)
 
     if runtime_expected and envelope.status == "success":
         _require_any_field(
@@ -877,6 +974,128 @@ def _execution_certificate_present(envelope: OutputEnvelope) -> bool:
         or ".execution." in str(certificate.get("id", ""))
         for certificate in envelope.certificates
     )
+
+
+def _execution_certificate_status_certified(envelope: OutputEnvelope) -> bool:
+    for field in EXECUTION_CERTIFICATE_STATUS_FIELDS:
+        value = envelope.field(field)
+        if value is not None and value.strip().lower() == "certified":
+            return True
+    return any(
+        str(certificate.get("status", "")).strip().lower() == "certified"
+        for certificate in envelope.certificates
+    )
+
+
+def _result_replay_verified(envelope: OutputEnvelope) -> bool:
+    for field in RUNTIME_RESULT_REPLAY_VERIFIED_FIELDS:
+        value = envelope.field(field)
+        if value is None:
+            continue
+        normalized = value.strip().lower()
+        if normalized == "true" or "replay_verified" in normalized:
+            return True
+    return False
+
+
+def _add_invalid_issue(
+    issues: list[RuntimeEnvelopeValidationIssue],
+    field: str,
+    message: str,
+) -> None:
+    issues.append(
+        RuntimeEnvelopeValidationIssue(
+            code="invalid_runtime_field",
+            field=field,
+            message=message,
+        )
+    )
+
+
+def _validate_prepared_vortex_split_operator_runtime(
+    envelope: OutputEnvelope,
+    issues: list[RuntimeEnvelopeValidationIssue],
+) -> None:
+    for field in PREPARED_VORTEX_SPLIT_OPERATOR_REQUIRED_FIELDS:
+        if not _field_present(envelope, field):
+            issues.append(
+                RuntimeEnvelopeValidationIssue(
+                    code="missing_required_field",
+                    field=field,
+                    message=(
+                        "certified prepared Vortex split-operator runtime is "
+                        f"missing {field}"
+                    ),
+                )
+            )
+    for field in PREPARED_VORTEX_SPLIT_OPERATOR_BOOLEAN_FIELDS:
+        if _field_present(envelope, field) and _safe_field_bool(envelope, field) is None:
+            _add_invalid_issue(
+                issues,
+                field,
+                f"prepared Vortex split-operator field {field} must be true or false",
+            )
+
+    required_values = {
+        "prepared_vortex_scale_split_operator_execution_certificate_status": "certified",
+        "prepared_vortex_scale_split_operator_claim_gate_status": (
+            "local_split_operator_runtime_certified"
+        ),
+        "prepared_vortex_scale_split_operator_source_replay_status": (
+            "prepared_vortex_source_replay_verified"
+        ),
+        "prepared_vortex_scale_split_operator_memory_envelope_status": (
+            "declared_local_memory_envelope_admitted"
+        ),
+        "prepared_vortex_scale_split_operator_backpressure_status": (
+            "bounded_by_reader_chunk_scheduler_and_declared_parallelism"
+        ),
+        "prepared_vortex_scale_split_operator_output_commit_proof_status": (
+            "result_sink_replay_verified_for_split_operator"
+        ),
+    }
+    for field, expected in required_values.items():
+        value = envelope.field(field)
+        if value is not None and value != expected:
+            _add_invalid_issue(
+                issues,
+                field,
+                f"certified prepared Vortex split-operator runtime requires {field}={expected}",
+            )
+
+    retry_replay_status = envelope.field(
+        "prepared_vortex_scale_split_operator_retry_replay_status"
+    )
+    if retry_replay_status is not None and not retry_replay_status.startswith(
+        "verified_idempotent"
+    ):
+        _add_invalid_issue(
+            issues,
+            "prepared_vortex_scale_split_operator_retry_replay_status",
+            "certified prepared Vortex split-operator runtime requires idempotent replay proof",
+        )
+    if (
+        _safe_field_bool(
+            envelope, "prepared_vortex_scale_split_operator_fallback_attempted"
+        )
+        is True
+    ):
+        _add_invalid_issue(
+            issues,
+            "prepared_vortex_scale_split_operator_fallback_attempted",
+            "certified prepared Vortex split-operator runtime cannot attempt fallback",
+        )
+    if (
+        _safe_field_bool(
+            envelope, "prepared_vortex_scale_split_operator_external_engine_invoked"
+        )
+        is True
+    ):
+        _add_invalid_issue(
+            issues,
+            "prepared_vortex_scale_split_operator_external_engine_invoked",
+            "certified prepared Vortex split-operator runtime cannot invoke an external engine",
+        )
 
 
 def _runtime_field(envelope: OutputEnvelope, key: str) -> str | None:

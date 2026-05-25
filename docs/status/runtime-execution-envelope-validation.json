@@ -1,7 +1,7 @@
 {
   "schema_version": "shardloom.runtime_execution_envelope_validation_status.v1",
   "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1",
-  "owning_phase_item": "GAR-RUNTIME-IMPL-4K",
+  "owning_phase_item": "GAR-RUNTIME-IMPL-4K/GAR-RUNTIME-IMPL-5H",
   "support_status": "validator_admitted",
   "validated_surfaces": [
     "runtime_envelope_fixtures",
@@ -53,11 +53,44 @@
   "non_certificate_metadata_fields": [
     "evidence_level_certificate_refs"
   ],
+  "claim_grade_required_fields": [
+    "claim_grade_requirements_met=true",
+    "execution_certificate_status=certified"
+  ],
+  "certified_evidence_level_required_fields": [
+    "execution_certificate_status=certified"
+  ],
+  "full_replay_required_fields": [
+    "result_sink_replay_verified",
+    "result_sink_replay_ref"
+  ],
+  "prepared_vortex_split_operator_required_fields": [
+    "prepared_vortex_scale_split_operator_family",
+    "prepared_vortex_scale_split_operator_stateful",
+    "prepared_vortex_scale_split_operator_shuffle_required",
+    "prepared_vortex_scale_split_operator_local_combine_used",
+    "prepared_vortex_scale_split_operator_global_merge_used",
+    "prepared_vortex_scale_split_operator_retry_replay_status",
+    "prepared_vortex_scale_split_operator_source_replay_status",
+    "prepared_vortex_scale_split_operator_memory_envelope_status",
+    "prepared_vortex_scale_split_operator_backpressure_status",
+    "prepared_vortex_scale_split_operator_spill_policy_status",
+    "prepared_vortex_scale_split_operator_output_commit_proof_status",
+    "prepared_vortex_scale_split_operator_execution_certificate_status",
+    "prepared_vortex_scale_split_operator_execution_certificate_id",
+    "prepared_vortex_scale_split_operator_claim_gate_status",
+    "prepared_vortex_scale_split_operator_fallback_attempted",
+    "prepared_vortex_scale_split_operator_external_engine_invoked"
+  ],
   "mode_specific_rules": [
     "prepared_vortex requires prepared_state_id and prepared_state_digest",
     "compatibility_import_certified requires timing_scope=cold_certified_end_to_end",
     "compatibility_import_certified requires preparation_included=true",
     "minimal_runtime evidence cannot be promoted to claim_grade",
+    "claim_grade requires claim_grade_requirements_met=true and certified execution certificate status",
+    "certified/full_replay evidence levels require certified execution certificate status",
+    "full_replay requires result-sink replay proof and replay ref",
+    "certified prepared Vortex split-operator rows require family, replay, memory, backpressure, spill-policy, certificate, and no-fallback fields",
     "report_only and diagnostic_only rows cannot set runtime_execution=true"
   ],
   "benchmark_row_validator": "published_benchmark_rows",
