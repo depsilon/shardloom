@@ -117,6 +117,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "local-table-metadata-read-smoke",
     "local-delete-tombstone-read-smoke",
     "local-append-only-cdc-overlay-smoke",
+    "local-table-append-commit-rehearsal-smoke",
     "object-store-request-plan",
     "cg10-object-store-runtime-gate",
     "object-store-range-plan",
@@ -823,6 +824,11 @@ fn command_usage_fragment(command: &str) -> String {
         "object-store-write-smoke" => {
             format!(
                 "{command} <local-source-path> <local-object-path> [--profile local-emulator] [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit]"
+            )
+        }
+        "local-table-append-commit-rehearsal-smoke" => {
+            format!(
+                "{command} <local-committed-manifest-path> [--profile local-manifest] [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit]"
             )
         }
         "engine-selection-plan" => {

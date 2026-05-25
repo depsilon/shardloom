@@ -98,7 +98,8 @@
     ],
     "related_use_cases": [
       "sql-local-source-csv-smoke",
-      "python-local-csv-query-builder-smoke"
+      "python-local-csv-query-builder-smoke",
+      "python-wrapper-client-smoke"
     ],
     "references": [
       "python/README.md",
@@ -183,7 +184,8 @@
     ],
     "related_use_cases": [
       "compatibility-import-certified-local",
-      "python-local-csv-query-builder-smoke"
+      "python-local-csv-query-builder-smoke",
+      "messy-data-local-fixtures"
     ],
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",
@@ -354,6 +356,7 @@
       "local-file-etl-cleanup-smoke",
       "object-store-local-emulator-read-smoke",
       "object-store-local-emulator-write-smoke",
+      "local-table-append-commit-rehearsal-smoke",
       "output-result-sink-and-fanout-boundary"
     ],
     "references": [
@@ -418,7 +421,8 @@
     ],
     "related_use_cases": [
       "benchmark-interpretation-evidence-not-leaderboard",
-      "query-scenario-cookbook-smoke"
+      "query-scenario-cookbook-smoke",
+      "messy-data-local-fixtures"
     ],
     "references": [
       "docs/benchmarks/local-taxonomy-benchmark.md",
@@ -589,6 +593,7 @@
       "object-store-boundary-report",
       "object-store-local-emulator-read-smoke",
       "object-store-local-emulator-write-smoke",
+      "local-table-append-commit-rehearsal-smoke",
       "table-lakehouse-boundary-report"
     ],
     "references": [
@@ -610,10 +615,13 @@
     ],
     "related_use_cases": [
       "table-lakehouse-boundary-report",
+      "local-table-append-commit-rehearsal-smoke",
       "object-store-boundary-report"
     ],
     "references": [
       "docs/use-cases/use-case-index.yml",
+      "docs/architecture/table-intelligence-layer.md",
+      "docs/architecture/object-store-request-planner.md",
       "docs/architecture/universal-compatibility-coverage-scoreboard.md"
     ]
   },

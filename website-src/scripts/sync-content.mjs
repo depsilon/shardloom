@@ -88,6 +88,41 @@ function frontmatter(fields) {
   ].join("\n");
 }
 
+const REFERENCE_PROOFS = {
+  "README.md": "Public technical-preview posture, Vortex-first positioning, and no-fallback boundaries.",
+  "python/README.md": "Python wrapper scope, local smoke usage, and Python API claim boundaries.",
+  "docs/architecture/compute-engine-flow-reference.md":
+    "Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.",
+  "docs/architecture/object-store-request-planner.md":
+    "Object-store route admission, local-emulator evidence, and remote-provider blockers.",
+  "docs/architecture/table-intelligence-layer.md":
+    "Table maintenance execution posture and lakehouse/table claim boundaries.",
+  "docs/architecture/phased-execution-completed-ledger.md":
+    "Completed runtime provenance and historical phase evidence for this use case.",
+  "docs/architecture/universal-compatibility-coverage-scoreboard.md":
+    "Compatibility scoreboard status and source/sink support boundaries.",
+  "docs/architecture/universal-input-contract.md":
+    "Universal input contract posture and unsupported input-family diagnostics.",
+  "docs/architecture/universal-ingress-route-taxonomy.md":
+    "UniversalIngress, Vortex ingest, prepared-state, and route-timing contract boundaries.",
+  "docs/benchmarks/local-taxonomy-benchmark.md":
+    "Local benchmark taxonomy, evidence rows, and workload-scoped interpretation boundaries.",
+  "docs/benchmarks/baseline-comparison-boundary.md":
+    "Benchmark comparison boundaries and external-baseline-only policy.",
+};
+
+function referenceProof(reference) {
+  return REFERENCE_PROOFS[reference] ?? "This source anchors the page claim boundary, evidence fields, and support posture.";
+}
+
+function referenceList(references) {
+  const rows = references ?? [];
+  if (!rows.length) return `<ul data-citation-block="reference-files"><li>Reference not yet attached.</li></ul>`;
+  return `<ul data-citation-block="reference-files">
+${rows.map((ref) => `<li><code>${ref}</code> - What this proves: ${referenceProof(ref)}</li>`).join("\n")}
+</ul>`;
+}
+
 function termPage(term) {
   return `${frontmatter({
     title: term.title,
@@ -130,7 +165,7 @@ ${(term.related_use_cases ?? []).map((id) => `- [${id}](/use-cases/${id})`).join
 
 ## Reference Files
 
-${(term.references ?? []).map((ref) => `- \`${ref}\``).join("\n") || "- Reference not yet attached."}
+${referenceList(term.references)}
 `;
 }
 

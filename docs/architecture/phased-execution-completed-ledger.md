@@ -16,6 +16,44 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4O/5L local table append commit rehearsal
+  - Date: 2026-05-24
+  - Branch/PR: `runtime-table-append-commit-4o` / #948.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4O object-store write and table/lakehouse commit ladder`.
+    - `GAR-RUNTIME-IMPL-5L object-store write and table/lakehouse operation ladder`.
+    - `docs/architecture/table-intelligence-layer.md`.
+    - `docs/architecture/object-store-request-planner.md`.
+    - User direction to land larger directly related 4/5-series sections end to end and keep the
+      phase plan trimmed to what remains.
+  - Scope:
+    - Added `local-table-append-commit-rehearsal-smoke` as a fixture-scoped local-manifest table
+      append rehearsal command.
+    - Declared base, append, and committed snapshot/manifest ids over a ShardLoom-owned in-memory
+      fixture, then wrote a staged committed manifest to a caller-provided local path.
+    - Added a sidecar table commit record with idempotency, manifest, committed-manifest,
+      commit-record, and correctness digests.
+    - Added optional post-commit rollback cleanup that removes both the committed local manifest and
+      sidecar table commit record while reporting cleanup evidence.
+    - Added the Python `ShardLoomClient.local_table_append_commit_rehearsal_smoke(...)` wrapper for
+      the admitted `local-manifest` profile.
+    - Blocked remote manifest targets and unsupported profiles deterministically before credential
+      resolution, network/provider probes, catalog I/O, object-store I/O, staging, or writes.
+    - Promoted the table-intelligence matrix rows for table metadata writes and table maintenance
+      commits from unsupported to report-only evidence refs while keeping production table commits
+      blocked.
+    - Updated use-case, status, Field Guide, website data, and phase-plan surfaces for the local
+      table append rehearsal proof.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli --test local_table_append_commit_rehearsal_smoke --no-fail-fast`
+    - Full workspace Rust, Python wrapper, use-case atlas, website readiness, and generated
+      backlink gates are recorded on PR #948.
+  - Claim boundary:
+    - Scoped local-manifest fixture table append commit rehearsal only. This does not add
+      Iceberg/Delta/Hudi production runtime, merge/update/delete, catalog service,
+      object-store-backed table commits, cloud providers, distributed runtime, performance claims,
+      package/release claims, Spark-replacement claims, or fallback execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4O/5L local-emulator object-store write smoke
   - Date: 2026-05-24
   - Branch/PR: `runtime-object-store-write-4o` / #947.

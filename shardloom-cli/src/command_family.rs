@@ -337,6 +337,7 @@ fn is_workflow_planning_command(command: &str) -> bool {
             | "local-table-metadata-read-smoke"
             | "local-delete-tombstone-read-smoke"
             | "local-append-only-cdc-overlay-smoke"
+            | "local-table-append-commit-rehearsal-smoke"
             | "incremental-plan"
             | "stateful-reuse-plan"
             | "cg17-stateful-reuse-gate"
@@ -557,6 +558,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("local-append-only-cdc-overlay-smoke"),
+            CommandFamily::WorkflowPlanning
+        );
+        assert_eq!(
+            classify_command("local-table-append-commit-rehearsal-smoke"),
             CommandFamily::WorkflowPlanning
         );
         assert_eq!(

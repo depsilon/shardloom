@@ -808,38 +808,44 @@ or documentation updates alone are insufficient.
     OutputPlan ids, explicit session lifecycle, and cache cleanup policy.
   - Ledger rule: ledger entry must list cache artifacts, invalidation rules, and disabled paths.
 
-- [ ] GAR-RUNTIME-IMPL-4O object-store write and table/lakehouse commit ladder
+- [x] GAR-RUNTIME-IMPL-4O object-store write and table/lakehouse commit ladder
   - Source: table/lakehouse commit semantics gate, object-store scale ladder.
   - Current state: local-emulator staged object writes are admitted through
     `object-store-write-smoke`, which writes from a local source file into a local-emulator target,
     uses a staging path, emits a sidecar commit manifest, reports idempotency and digest evidence,
-    and can roll the committed object/manifest back for cleanup proof. Real S3/GCS/ADLS writes,
-    credentialed providers, table metadata writes, table append/merge/delete, table commits,
-    rollbacks, catalog integration, and production lakehouse support remain blocked or report-only.
-  - Next slice outcome: promote a fixture-backed table metadata/snapshot operation and one append or
-    table-commit rehearsal where admitted, without upgrading the local-emulator object write smoke
-    into production object-store or lakehouse support.
+    and can roll the committed object/manifest back for cleanup proof. The local-manifest table
+    append commit rehearsal is admitted through `local-table-append-commit-rehearsal-smoke`, which
+    declares base/append/committed snapshots, writes a staged committed manifest plus sidecar table
+    commit record, reports idempotency/digest evidence, and can roll both artifacts back for cleanup
+    proof. Real S3/GCS/ADLS writes, credentialed providers, Iceberg/Delta/Hudi production table
+    commits, merge/update/delete, catalog integration, object-store table commits, and production
+    lakehouse support remain blocked or report-only.
+  - Next slice outcome: complete for the local-emulator object write plus local-manifest table
+    append commit rehearsal ladder; broader provider/catalog/table-format promotion belongs to later
+    scale/runtime/provider gates, not this fixture section.
   - Runtime enablement: staged local-emulator object write/commit smoke with rollback evidence;
-    table/lakehouse operation runtime remains a separate fixture gate.
+    local-manifest table append commit rehearsal with rollback evidence.
   - User-visible surface: table/object-store capability views, CLI/Python diagnostics, status/use
     cases, scale benchmark rows.
   - Implementation scope: completed for local-emulator object write staging, sidecar commit
-    manifest, idempotency, and rollback cleanup; remaining scope is table metadata adapter,
-    snapshot reader, table manifest writer or commit rehearsal, and table rollback evidence.
+    manifest, idempotency, rollback cleanup, local table metadata/snapshot fixture, local manifest
+    writer, sidecar table commit record, commit rehearsal, Python wrapper, status/use-case/website
+    surfaces, and table-intelligence matrix evidence refs.
   - Evidence required: provider/profile, table format, snapshot id, manifest/data-file counts,
     commit protocol/status, rollback/cleanup status, idempotency key, no-fallback fields.
   - Acceptance: read/write/commit and metadata/read/append/commit are separate gates; fixture proof
     does not imply production lakehouse support.
-  - Verification: emulator write smoke and unsupported remote diagnostics now exist; remaining
-    verification is table fixture tests, commit rehearsal smoke, rollback diagnostics, release
-    readiness.
+  - Verification: emulator write smoke, table fixture tests, commit rehearsal smoke, rollback
+    diagnostics, Python wrapper test, use-case/status checks, and required workspace Rust gates.
   - Non-goals: no blanket S3/GCS/ADLS support, production Iceberg/Delta/Hudi claim, catalog
     service, or production table claim.
   - Claim boundary: provider/table-format operation in declared fixture/profile only.
   - Fallback boundary: no external catalog, lakehouse engine, or query engine executes work.
-  - Dependencies/blockers: object-store read proof, commit/recovery policy, table fixtures,
-    dependency/license review, and idempotency evidence.
-  - Ledger rule: ledger entry must list provider, table format, operation, and blocked behaviors.
+  - Dependencies/blockers moved forward: cloud-provider writes, real catalog/table-format
+    dependencies, object-store-backed table commits, production rollback/recovery, and scale-grade
+    distributed/provider evidence remain under later provider/runtime/claim gates.
+  - Ledger rule: completed ledger entry lists provider, table format, operation, and blocked
+    behaviors.
 
 - [ ] GAR-RUNTIME-IMPL-4P scale-grade local split, memory, spill, shuffle, and retry runtime
   - Source: `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017,
@@ -1377,37 +1383,43 @@ docs/website parity, and a completed-ledger entry.
   - Ledger rule: ledger entry must record provider, credential posture, proof refs, and blocked
     providers.
 
-- [ ] GAR-RUNTIME-IMPL-5L object-store write and table/lakehouse operation ladder
+- [x] GAR-RUNTIME-IMPL-5L object-store write and table/lakehouse operation ladder
   - Source: `GAR-RUNTIME-IMPL-4O`, `GAR-COMPAT-1D`, `GAR-SCALE-1E`.
   - Current state: local-emulator staged object writes now run through
     `object-store-write-smoke` with staged-object, sidecar commit-manifest, idempotency,
-    digest, rollback cleanup, Native I/O, and no-fallback evidence. Real cloud-provider writes,
-    table metadata/snapshot writes, append, merge/delete, table commit/rollback, and catalog
-    integration remain blocked or report-only.
-  - Next slice outcome: keep the object write smoke as the fixture proof, then add one
-    fixture-backed table metadata/snapshot operation and one append or table-commit rehearsal where
-    admitted.
+    digest, rollback cleanup, Native I/O, and no-fallback evidence. Local-manifest table append
+    commit rehearsal now runs through `local-table-append-commit-rehearsal-smoke` with
+    base/append/committed snapshot ids, manifest/data-file counts, staged committed-manifest write,
+    sidecar table commit record, idempotency, rollback cleanup, Native I/O, and no-fallback
+    evidence. Real cloud-provider writes, production table-format dependencies, merge/delete,
+    catalog commit, object-store table commit, and production rollback remain blocked or
+    report-only.
+  - Next slice outcome: complete for the declared local fixture ladder; later work should start from
+    provider/catalog/table-format production gates or `5M` scale runtime rather than reopening this
+    local fixture section.
   - Runtime enablement: staged local-emulator object write and commit smoke for the declared fixture
-    profile only; table/lakehouse operation runtime remains unpromoted.
+    profile only; local-manifest append commit rehearsal for the declared table fixture profile only.
   - User-visible surface: table/object-store capability views, CLI/Python diagnostics, status/use
     cases, scale benchmark rows.
   - Implementation scope: completed for local-emulator object write staging, sidecar commit
-    protocol, idempotency, digest evidence, and rollback cleanup; remaining scope is table metadata
-    adapter, snapshot reader, manifest writer or commit rehearsal.
+    protocol, idempotency, digest evidence, rollback cleanup, local table metadata/snapshot fixture,
+    manifest writer, commit rehearsal, rollback cleanup, Python wrapper, table-intelligence matrix,
+    and website/use-case/status surfaces.
   - Evidence required: provider/profile, table format, snapshot id, manifest/data-file counts,
     commit protocol/status, rollback/cleanup status, idempotency key, no-fallback fields.
   - Acceptance: object-store read/write/commit and table metadata/read/append/commit are separate
     gates; fixture proof does not imply production lakehouse support.
-  - Verification: emulator write smoke and unsupported remote diagnostics now exist; remaining
-    verification is table fixture tests, commit rehearsal smoke, rollback diagnostics, release
-    readiness.
+  - Verification: emulator write smoke, table fixture tests, commit rehearsal smoke, rollback
+    diagnostics, Python wrapper test, use-case/status checks, and required workspace Rust gates.
   - Non-goals: no blanket S3/GCS/ADLS support, production Iceberg/Delta/Hudi claim, catalog service,
     or production table claim.
   - Claim boundary: provider/table-format operation in declared fixture/profile only.
   - Fallback boundary: no external catalog, lakehouse engine, or query engine executes work.
-  - Dependencies/blockers: object-store read proof, commit/recovery policy, table fixtures,
-    dependency/license review, idempotency evidence.
-  - Ledger rule: ledger entry must list provider, table format, operation, and blocked behaviors.
+  - Dependencies/blockers moved forward: real S3/GCS/ADLS providers, table-format dependencies,
+    catalog commits, object-store table commits, production rollback/recovery, and scale-grade
+    provider evidence remain in later provider/runtime/claim gates.
+  - Ledger rule: completed ledger entry lists provider, table format, operation, and blocked
+    behaviors.
 
 - [ ] GAR-RUNTIME-IMPL-5M scale-grade local execution runtime
   - Source: `GAR-RUNTIME-IMPL-4P`, `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017.

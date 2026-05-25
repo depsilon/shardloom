@@ -69,17 +69,9 @@ A blocked or report-only object-store plan with no provider probe and no externa
 
 ## Related Field Guide Terms
 
-- `website/field-guide/no-fallback.html` - No Fallback (`Start Here` / `core-contract`)
-- `website/field-guide/direct-compatibility-transient.html` - Direct Compatibility Transient (`Execution Modes` / `scoped-local-smoke`)
-- `website/field-guide/live-engine.html` - Live Engine (`Engine Modes` / `report-only`)
-- `website/field-guide/no-fallback-evidence.html` - No-Fallback Evidence (`Evidence And Claims` / `core-contract`)
-- `website/field-guide/report-only.html` - Report-Only (`Evidence And Claims` / `status-vocabulary`)
-- `website/field-guide/blocked-status.html` - Blocked Status (`Evidence And Claims` / `status-vocabulary`)
-- `website/field-guide/unsupported-diagnostics.html` - Unsupported Diagnostics (`Evidence And Claims` / `current-diagnostic-pattern`)
-- `website/field-guide/benchmark-profile.html` - Benchmark Profile (`Benchmark Telemetry` / `current-publishing-contract`)
-- `website/field-guide/avro-orc-boundary.html` - Avro/ORC Boundary (`I/O And Output` / `compatibility-boundary`)
-- `website/field-guide/object-store-boundary.html` - Object-Store Boundary (`I/O And Output` / `blocked-report-only`)
-- `website/field-guide/table-lakehouse-boundary.html` - Table/Lakehouse Boundary (`I/O And Output` / `blocked-report-only`)
-- `website/field-guide/universal-adapter-catalog.html` - Universal Adapter Catalog (`Platform Boundaries` / `report-only`)
-- `website/field-guide/scale-profile.html` - Scale Profile (`Performance Architecture` / `report-only-scale-contract`)
-- `website/field-guide/security-governance-report.html` - Security/Governance Report (`Release And Trust` / `current-reporting`)
+- `website/field-guide/no-fallback.html` - No fallback (`Start Here` / `runtime_supported`)
+- `website/field-guide/universal-ingress.html` - UniversalIngress (`UniversalIngress` / `report_only`)
+- `website/field-guide/scale-classes.html` - Scale classes (`Scale + Resource Envelope` / `planned`)
+- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `blocked`)
+- `website/field-guide/table-lakehouse-boundary.html` - Table/lakehouse boundary (`Platform Boundaries` / `blocked`)
+- `website/field-guide/deterministic-blockers.html` - Deterministic blockers (`Unsupported Diagnostics` / `runtime_supported`)

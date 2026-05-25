@@ -22,27 +22,32 @@
     "delete_tombstone_status",
     "commit_protocol_status",
     "rollback_status",
+    "local_table_append_commit_rehearsal_smoke_present",
     "fallback_attempted=false",
     "external_engine_invoked=false",
     "claim_gate_status=not_claim_grade"
   ],
-  "claim_boundary": "No production lakehouse/table-format runtime, commit, merge/update/delete, catalog, object-store, or Foundry claim.",
+  "claim_boundary": "Local table metadata/read and append commit rehearsal smokes are fixture-scoped only; no production lakehouse/table-format runtime, merge/update/delete, catalog, object-store, or Foundry claim.",
   "runnable_example": "target\\debug\\shardloom table-compat-plan aggregate --format json",
   "blocked_explanation": "Table-format runtime needs metadata, snapshot, delete/tombstone, write, commit, rollback, object-store, and certificate evidence before support can be claimed.",
   "expected_output_evidence": "A report-only table compatibility plan or deterministic unsupported output.",
   "common_mistakes": [
     "mistaking_metadata_smoke_for_table_runtime",
-    "assuming_commit_semantics",
+    "treating_local_commit_rehearsal_as_production_table_commit",
+    "assuming_catalog_commit_semantics",
     "treating_local_files_as_lakehouse_support"
   ],
   "references": [
     "docs/architecture/compute-engine-flow-reference.md",
+    "docs/architecture/table-intelligence-layer.md",
     "docs/architecture/universal-compatibility-coverage-scoreboard.md",
     "docs/architecture/universal-input-contract.md",
     "README.md"
   ],
   "related_use_cases": [
+    "local-table-append-commit-rehearsal-smoke",
     "object-store-boundary-report",
+    "object-store-local-emulator-write-smoke",
     "output-result-sink-and-fanout-boundary"
   ]
 }

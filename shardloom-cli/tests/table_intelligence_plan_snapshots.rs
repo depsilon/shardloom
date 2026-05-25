@@ -81,7 +81,7 @@ fn table_intelligence_json_preserves_no_io_no_dependency_no_fallback_defaults() 
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("side_effect_free", "true")));
-    assert!(output.contains(&field("diagnostic_count", "23")));
+    assert!(output.contains(&field("diagnostic_count", "21")));
     assert!(output.contains(&field("plan_only", "true")));
 }
 
@@ -216,6 +216,7 @@ fn table_intelligence_json_embeds_gar0020a_catalog_metadata_gate() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn table_intelligence_json_embeds_gar0020b_table_execution_matrix() {
     let output = run_table_intelligence_plan_json();
 
@@ -245,11 +246,11 @@ fn table_intelligence_json_embeds_gar0020b_table_execution_matrix() {
     )));
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_report_only_operation_count",
-        "4"
+        "6"
     )));
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_unsupported_operation_count",
-        "8"
+        "6"
     )));
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_operation_order",
@@ -265,11 +266,11 @@ fn table_intelligence_json_embeds_gar0020b_table_execution_matrix() {
     )));
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_unsupported_diagnostic_count",
-        "8"
+        "6"
     )));
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_diagnostic_count",
-        "8"
+        "6"
     )));
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_fallback_attempted",
@@ -311,6 +312,14 @@ fn table_intelligence_json_embeds_gar0020b_table_execution_matrix() {
         "table_maintenance_execution_matrix_row_table_maintenance_commit_claim_gate_status",
         "not_claim_grade"
     )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_row_table_maintenance_commit_status",
+        "report_only_available"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_row_table_maintenance_commit_existing_report_ref",
+        "gar-runtime-impl-4o.local_table_append_commit_rehearsal_smoke"
+    )));
 }
 
 #[test]
@@ -319,7 +328,7 @@ fn table_intelligence_json_embeds_gar0020d_local_delete_tombstone_smoke_ref() {
 
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_existing_report_refs",
-        "cg9.table_intelligence.foundation,shardloom.delete_tombstone_compatibility.v1,shardloom.cdc_incremental_planning.v1,shardloom.layout_health.v1,shardloom.compaction_planning.v1,gar0020c.local_manifest_table_metadata_read_smoke,gar0020d.local_delete_tombstone_read_smoke,gar0020e.local_append_only_cdc_overlay_smoke,gar0004a.cdc_manifest_transaction_gate,shardloom.object_store_commit_protocol.v1"
+        "cg9.table_intelligence.foundation,shardloom.delete_tombstone_compatibility.v1,shardloom.cdc_incremental_planning.v1,shardloom.layout_health.v1,shardloom.compaction_planning.v1,gar0020c.local_manifest_table_metadata_read_smoke,gar0020d.local_delete_tombstone_read_smoke,gar0020e.local_append_only_cdc_overlay_smoke,gar-runtime-impl-4o.local_table_append_commit_rehearsal_smoke,gar0004a.cdc_manifest_transaction_gate,shardloom.object_store_commit_protocol.v1"
     )));
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_local_delete_tombstone_smoke_present",
@@ -327,6 +336,10 @@ fn table_intelligence_json_embeds_gar0020d_local_delete_tombstone_smoke_ref() {
     )));
     assert!(output.contains(&field(
         "table_maintenance_execution_matrix_local_append_only_cdc_overlay_smoke_present",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "table_maintenance_execution_matrix_local_table_append_commit_rehearsal_smoke_present",
         "true"
     )));
 }

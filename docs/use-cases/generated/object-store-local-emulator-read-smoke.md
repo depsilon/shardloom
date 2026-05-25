@@ -71,7 +71,5 @@ A fixture-smoke report with SourceState digest fields, selected byte-range evide
 
 ## Related Field Guide Terms
 
-- `website/field-guide/object-store-boundary.html` - Object-Store Boundary (`I/O And Output` / `blocked-report-only`)
-- `website/field-guide/source-state.html` - SourceState (`Vortex Runtime` / `planned`)
-- `website/field-guide/native-io-certificate.html` - Native I/O Certificate (`Evidence And Claims` / `current-evidence`)
-- `website/field-guide/no-fallback.html` - No Fallback (`Start Here` / `core-contract`)
+- `website/field-guide/native-io-certificate.html` - Native I/O certificate (`Evidence + Certificates` / `smoke_supported`)
+- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `blocked`)
