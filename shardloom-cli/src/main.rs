@@ -1261,6 +1261,7 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("vortex-api-inventory") => vortex_planning::handle_vortex_api_inventory(format),
         Some("optimizer-plan") => optimizer_planning::handle_optimizer_plan(format),
+        Some("session-cache-smoke") => optimizer_planning::handle_session_cache_smoke(format),
         Some("optimizer-adaptive-memory-plan") => {
             optimizer_planning::handle_optimizer_adaptive_memory_plan(format)
         }
@@ -7181,6 +7182,7 @@ mod tests {
                 "rest-api-data-plane",
                 "optimizer-plan",
                 "vortex-readiness",
+                "session-cache-smoke",
             ] {
                 let code = run(vec![command.to_string()]);
                 assert_ne!(

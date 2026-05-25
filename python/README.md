@@ -176,14 +176,14 @@ The session is explicit, in-process, caller-owned, and closeable. It can reuse a
 source, prepared artifact, and output artifact fingerprints still match. `ctx.prepare_vortex(...)`,
 `ShardLoomClient.vortex_ingest_smoke(...)`, and raw runtime-envelope inspection remain lower-level
 diagnostic surfaces. Session reuse is not a daemon, remote server, hidden global cache,
-object-store/table cache, broad DataFrame/SQL runtime, or performance claim. Schema/dictionary
-caches, buffer pools, CLI batch sessions, object-store/table reuse, persistent cross-process cache,
-and non-local workflow reuse remain planned under GAR-RUNTIME-IMPL-4L/5I.
+object-store/table cache, broad DataFrame/SQL runtime, or performance claim.
 
-Allocation profiling and scoped buffer-pool optimization are planned as `GAR-PERF-2G`, not current
-Python runtime support. Any future Python-visible buffer reuse must stay opt-in or explicitly
-scoped to a run/session and preserve correctness, evidence, no-fallback, and no-external-engine
-fields.
+For the CLI-visible session lifecycle proof, `ShardLoomClient.session_cache_smoke()` runs
+`session-cache-smoke --format json` and returns a typed `SessionCacheSmokeReport`. That smoke
+exercises scoped SourceState, `VortexPreparedState`, OutputPlan, schema-cache, dictionary-cache,
+fingerprint invalidation, scratch-buffer reuse accounting, optimizer-trace linkage, explicit close,
+and cleanup evidence. It is local and claim-gated; persistent cross-process cache,
+object-store/table reuse, and non-local workflow reuse remain outside this scoped session surface.
 
 The explicit prepare-once Vortex lifecycle is available for advanced validation through a
 feature-gated CLI/Python surface. Build the CLI with `--features vortex-write`, then call

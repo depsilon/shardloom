@@ -614,6 +614,12 @@ and blocker, peak RSS status, correctness/evidence-regression posture,
 `buffer_pool_enabled=false`, and `buffer_reuse_count=0` until safe measurement and reuse exist.
 This is resource-profile visibility only, not a speed or memory-efficiency claim.
 
+`session-cache-smoke` separately proves the `GAR-RUNTIME-IMPL-4L/5I` scoped session lifecycle for a
+single local CLI smoke, including scratch-buffer allocation/reuse accounting and cleanup. That proof
+does not change prepared/native benchmark row allocation values; benchmark rows still report
+resource-profile blockers until row-level measurement and correctness/evidence parity are promoted
+through the benchmark harness.
+
 `GAR-PERF-2H` adds optimized build profiles and the PGO benchmark lane. The harness records
 `build_profile`, build-profile kind, rustc/cargo versions, target triple, target CPU policy,
 `target_cpu_native_enabled`, LTO status/mode, codegen units, PGO status,

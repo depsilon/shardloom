@@ -640,11 +640,13 @@ candidates.
 - **full replay evidence level**: replay-heavy evidence level that includes result-sink
   write/reopen/replay proof and replay certificate refs in addition to certified evidence.
 - **ShardLoomSession**: caller-owned in-process session runtime concept. The current supported
-  slice is scoped to prepared/native traditional analytics batch execution over local artifacts and
-  carries prepared artifacts, source metadata, source-state, schema/dictionary status,
-  buffer-pool status, kernel-registry refs, and evidence-recorder state across multiple
-  prepared/native executions. It is not a daemon, service, remote server, hidden global cache,
-  public Python API claim, or external-engine fallback.
+  slices are scoped to prepared/native traditional analytics batch execution over local artifacts,
+  Python local `vortex_ingest` / read / SQL collect-write-fanout reuse, and the CLI
+  `session-cache-smoke` lifecycle proof. They carry prepared artifacts, SourceState, OutputPlan,
+  schema/dictionary cache, scratch-buffer reuse, optimizer-trace linkage, kernel-registry refs, and
+  evidence-recorder state across scoped local executions. It is not a daemon, service, remote
+  server, hidden global cache, persistent cross-process cache, object-store/table cache,
+  performance claim, or external-engine fallback.
 - **session-backed benchmark row**: benchmark row emitted from a scoped `ShardLoomSession` or batch
   session path, with `session_id`, cache hit/miss fields, source-state reuse count, prepared
   artifact reuse count, close/drop status, and no-fallback/no-external-engine evidence.

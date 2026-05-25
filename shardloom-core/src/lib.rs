@@ -339,8 +339,10 @@ pub use security::{
 };
 
 pub use session::{
-    ShardLoomSessionModelReport, ShardLoomSessionRegistryEntry, ShardLoomSessionRegistryKind,
-    ShardLoomSessionRegistryStatus, plan_shardloom_session_model,
+    ShardLoomSessionCacheArtifactKind, ShardLoomSessionCacheEvent,
+    ShardLoomSessionCacheEventStatus, ShardLoomSessionModelReport, ShardLoomSessionRegistryEntry,
+    ShardLoomSessionRegistryKind, ShardLoomSessionRegistryStatus, ShardLoomSessionRuntimeReport,
+    plan_shardloom_session_model, run_shardloom_session_cache_smoke,
 };
 
 pub use stateful_reuse::{

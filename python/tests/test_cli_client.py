@@ -60,6 +60,7 @@ from shardloom import (
     RunsTodaySupportMatrix,
     RunsTodaySupportRow,
     SemanticConformanceSuite,
+    SessionCacheSmokeReport,
     validate_runtime_execution_fields,
     VortexIngestSmokeReport,
     WorkloadCertificationDossier,
@@ -590,6 +591,65 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(report.no_runtime)
         self.assertTrue(report.no_rewrite_applied)
         self.assertTrue(report.no_fallback_no_external_engine)
+
+    def test_session_cache_smoke_typed_view_preserves_scoped_runtime_boundaries(
+        self,
+    ) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == ["session-cache-smoke", "--format", "json"], sys.argv
+                fields = [
+                    {"key": "session_id", "value": "session-cache-smoke-gar-4l-5i"},
+                    {"key": "session_runtime_status", "value": "scoped_session_cache_runtime_certified"},
+                    {"key": "cache_artifact_order", "value": "source_state,vortex_prepared_state,output_plan,schema_cache,dictionary_cache"},
+                    {"key": "invalidation_reason_order", "value": "source_fingerprint_changed,schema_digest_changed,output_artifact_fingerprint_changed"},
+                    {"key": "cache_hit_count", "value": "5"},
+                    {"key": "cache_miss_count", "value": "8"},
+                    {"key": "invalidation_count", "value": "3"},
+                    {"key": "buffer_reuse_count", "value": "1"},
+                    {"key": "source_state_id", "value": "source-state://session-cache-smoke/local-orders"},
+                    {"key": "prepared_state_id", "value": "vortex-prepared-state://session-cache-smoke/local-orders"},
+                    {"key": "output_plan_id", "value": "output-plan://session-cache-smoke/local-orders-jsonl"},
+                    {"key": "lifecycle_closed_and_cleaned", "value": "true"},
+                    {"key": "fallback_attempted", "value": "false"},
+                    {"key": "fallback_execution_allowed", "value": "false"},
+                    {"key": "external_engine_invoked", "value": "false"},
+                    {"key": "no_fallback_no_external_engine", "value": "true"},
+                    {"key": "optimizer_trace_id", "value": "optimizer_trace.gar_perf_2b.report_only_registry"},
+                    {"key": "optimizer_rule_common_subplan_source_state_reuse_status", "value": "admitted"},
+                ]
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "session-cache-smoke",
+                    "status": "success",
+                    "summary": "session cache",
+                    "human_text": "session cache",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+
+        report = ShardLoomClient(binary=binary).session_cache_smoke()
+
+        self.assertIsInstance(report, SessionCacheSmokeReport)
+        self.assertEqual(report.session_runtime_status, "scoped_session_cache_runtime_certified")
+        self.assertEqual(report.cache_hit_count, 5)
+        self.assertEqual(report.cache_miss_count, 8)
+        self.assertEqual(report.invalidation_count, 3)
+        self.assertEqual(report.buffer_reuse_count, 1)
+        self.assertIn("source_state", report.cache_artifact_order)
+        self.assertIn("output_artifact_fingerprint_changed", report.invalidation_reason_order)
+        self.assertTrue(report.lifecycle_closed_and_cleaned)
+        self.assertTrue(report.no_fallback_no_external_engine)
+        self.assertEqual(
+            report.optimizer_rule_status("common-subplan-source-state-reuse"),
+            "admitted",
+        )
 
     def test_capability_view_no_runtime_and_no_fallback_require_explicit_fields(self) -> None:
         def capability_envelope(fields: list[dict[str, str]]) -> OutputEnvelope:

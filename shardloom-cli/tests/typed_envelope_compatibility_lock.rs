@@ -439,6 +439,38 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             ],
         },
         EnvelopeCase {
+            name: "session cache runtime smoke",
+            args: &["session-cache-smoke", "--format", "json"],
+            command: "session-cache-smoke",
+            status: "success",
+            family: "engine_runtime_planning",
+            success: true,
+            allow_stderr: false,
+            fields: &[
+                ("mode", "session_cache_smoke"),
+                (
+                    "session_runtime_status",
+                    "scoped_session_cache_runtime_certified",
+                ),
+                ("cache_hit_count", "5"),
+                ("cache_miss_count", "8"),
+                ("invalidation_count", "3"),
+                ("buffer_reuse_count", "1"),
+                ("explicit_close_performed", "true"),
+                ("cleanup_performed", "true"),
+                ("runtime_execution", "true"),
+                ("fallback_attempted", "false"),
+                ("external_engine_invoked", "false"),
+                ("no_fallback_no_external_engine", "true"),
+            ],
+            fragments: &[
+                "\"optimizer_trace_id\"",
+                "\"source_state_id\"",
+                "\"vortex_prepared_state_id\"",
+                "\"output_plan_id\"",
+            ],
+        },
+        EnvelopeCase {
             name: "engine runtime success",
             args: &[
                 "streaming-plan",

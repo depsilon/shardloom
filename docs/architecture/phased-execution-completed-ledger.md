@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4L/5I scoped CLI session-cache runtime and optimizer linkage
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-session-reuse-4l-5i` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse
+      runtime`.
+    - `GAR-RUNTIME-IMPL-5I optimizer, session runtime, reuse, and buffer-pool promotion`.
+    - User direction to finish related runtime sections together, avoid standalone side lanes, keep
+      CSV at fixture/adapter boundaries only, and move completed phase-plan items into the ledger.
+  - Scope:
+    - Added `run_shardloom_session_cache_smoke()` in `shardloom-core` as a deterministic in-process
+      lifecycle smoke for scoped `SourceState`, `VortexPreparedState`, `OutputPlan`, schema-cache,
+      dictionary-cache, fingerprint invalidation, scratch-buffer reuse accounting, explicit close,
+      and cache cleanup.
+    - Added the CLI `session-cache-smoke` command with typed envelope fields for cache hit/miss
+      counts, invalidation reasons, source/prepared/output/schema/dictionary ids and digests,
+      buffer-pool reuse/cleanup evidence, optimizer trace linkage, runtime/no-I/O boundaries, and
+      no-fallback/no-external-engine evidence.
+    - Added Python `ShardLoomClient.session_cache_smoke()` and `SessionCacheSmokeReport` typed
+      accessors so the smoke is available through the same client path as other CLI-backed
+      evidence surfaces.
+    - Registered the command in the command registry, command-family taxonomy, typed-envelope
+      compatibility lock, docs/status registry mirror, in-process session architecture, canonical
+      terminology, compute-flow reference, Python README, benchmark docs, and use-case mirrors.
+    - Removed the live `4L` and `5I` planned items after completing their scoped local
+      session/cache/optimizer/buffer lifecycle acceptance. Persistent cross-process cache,
+      object-store/table reuse, distributed/non-local workflow reuse, and production/performance
+      claims remain with their owning runtime queues.
+  - Verification:
+    - `cargo +1.91.1 fmt --all`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 test -p shardloom-core session_cache_smoke --lib`
+    - `cargo +1.91.1 test -p shardloom-cli --test session_cache_smoke`
+    - `cargo +1.91.1 test -p shardloom-cli --test typed_envelope_compatibility_lock representative_cli_json_paths_keep_typed_envelope_contract`
+    - `cargo +1.91.1 test -p shardloom-cli --bin shardloom cli_contract_core_commands_dispatch_without_unknown_command_usage`
+    - `cargo +1.91.1 test -p shardloom-cli command_registry`
+    - `cargo +1.91.1 test -p shardloom-cli command_family::tests::classifies_representative_priority_39_families`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_session_cache_smoke_typed_view_preserves_scoped_runtime_boundaries`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_session_cache_smoke_typed_view_preserves_scoped_runtime_boundaries python.tests.test_cli_client.ShardLoomClientTests.test_optimizer_plan_typed_view_preserves_report_only_boundaries`
+    - `python -m compileall -q python\src\shardloom\client.py python\src\shardloom\__init__.py python\tests\test_cli_client.py`
+    - Bundled Python: `-m unittest discover -s python\tests`
+    - Bundled Python: `-m compileall -q python scripts`
+    - Bundled Python: `scripts\check_runtime_execution_envelopes.py`
+    - Bundled Python: `scripts\check_use_case_index.py`
+    - Bundled Python: `scripts\check_use_case_coverage.py`
+    - Bundled Python: `scripts\check_use_case_backlinks.py`
+    - Bundled Python: `scripts\check_release_readiness.py --allow-blocked`
+    - Bundled Python: `scripts\check_golden_workflows.py`
+    - Bundled Python: `scripts\check_website_readiness.py`
+    - Bundled Node: `website-src\scripts\sync-content.mjs`
+    - Bundled Node: `website-src\node_modules\astro\bin\astro.mjs build`
+    - Bundled Node: `website-src\scripts\postbuild-static.mjs`
+    - `git diff --check`
+  - Claim boundary:
+    - Scoped local CLI/Python session-cache lifecycle proof only. This is not a daemon, remote
+      service, hidden global cache, persistent cross-process cache, object-store/table cache,
+      distributed runtime, production SQL/DataFrame runtime, performance/superiority claim, Spark
+      replacement claim, or fallback execution.
+  - Remaining gates:
+    - Continue object-store/table runtime, non-local/distributed workflow reuse, persistent cache
+      promotion, and user-surface completion only through their owning planned runtime items and
+      evidence gates.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4P/5M prepared Vortex stateless split-operator runtime proof
   - Date: 2026-05-25
   - Branch/PR: `runtime-local-scale-4p-5m` / #954.
@@ -440,10 +505,13 @@ phase plan first.
     - Reused the existing fingerprint-gated local cache semantics: source/output/prepared artifact
       fingerprints must still match, changed artifacts invalidate reuse, and unsupported or
       non-local workflows continue to return existing deterministic diagnostics.
-    - Marked `GAR-USER-SURFACE-1A` complete for admitted local Python entrypoints and narrowed the
-      remaining `4L`/`5I` work to CLI batch/session lifecycle, schema/dictionary caches,
-      buffer-pool evidence, persistent or cross-workflow cache promotion, object-store/table reuse,
-      and non-local workflows.
+    - Marked `GAR-USER-SURFACE-1A` complete for admitted local Python entrypoints and, at the time,
+      narrowed the remaining `4L`/`5I` work to CLI batch/session lifecycle, schema/dictionary
+      caches, buffer-pool evidence, persistent or cross-workflow cache promotion,
+      object-store/table reuse, and non-local workflows. The 2026-05-25 scoped CLI session-cache
+      ledger entry later closes the local CLI/session/cache/optimizer/buffer lifecycle portion;
+      persistent, object-store/table, distributed, and non-local reuse remain separate runtime
+      queues.
   - Verification:
     - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_session_read_csv_workflow_collect_reuses_source_state_when_fingerprints_match`
     - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_session_sql_workflow_write_reuses_output_when_fingerprints_match`
