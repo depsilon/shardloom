@@ -16,6 +16,67 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4P/5M prepared Vortex stateless split-operator runtime proof
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-local-scale-4p-5m` / #954.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4P scale-grade local split, memory, spill, shuffle, and retry runtime`.
+    - `GAR-RUNTIME-IMPL-5M runtime scale readiness and claim-gate evidence`.
+    - User direction to complete meaty related runtime sections end to end, keep the proof inside
+      the prepared/native Vortex processing route over real fixture bytes, and avoid standalone
+      side lanes.
+  - Scope:
+    - Added scoped `prepared_vortex_scale_split_operator_*` evidence inside
+      `traditional-analytics-prepare-batch-run` for selective-filter prepared Vortex rows that
+      already admit reader-generated selection-vector evidence.
+    - Certified the local stateless split-operator proof only when real prepared Vortex splits,
+      split-scheduler certification, selected-metric selection-vector consumption, idempotent
+      replay, result-sink replay proof when requested, and no-fallback/no-external-engine evidence
+      all agree.
+    - Rolled the split-operator certificate id/status through the benchmark runner, benchmark
+      promotion, Python field mappings, CLI client tests, runtime-envelope validation status, and
+      website compute-flow mirrors.
+    - Kept the proof in the existing prepared Vortex route with
+      `prepared_vortex_scale_no_standalone_lane=true`; no `.vortex` side lane or
+      `local-scale-runtime` evidence surface was introduced.
+    - Verified the proof through both CSV and JSONL compatibility-ingress fixtures so CSV remains
+      an input adapter/source fixture only; the admitted runtime evidence consumes prepared Vortex
+      bytes.
+    - Trimmed the live `4P`/`5M` plan text to show the completed stateless selective-filter proof
+      and the remaining stateful/shuffle, spill/backpressure, object-store/table, distributed,
+      non-stateless recovery, output-commit, and performance gates.
+  - Verification:
+    - `cargo +1.91.1 check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+    - `cargo +1.91.1 clippy -p shardloom-vortex --features vortex-traditional-analytics-benchmark --all-targets -- -D warnings`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_certifies_stateless_split_operator_for_sequence_selective_filter`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-prepare-batch --formats jsonl --scenario "selective filter" --dataset-profile tiny_smoke --rows 512 --iterations 1 --shardloom-build-profile debug --shardloom-result-sink --skip-shardloom-native --no-markdown --output target\shardloom-prepare-batch-split-operator-jsonl-smoke.json --regenerate`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_traditional_analytics_prepare_batch_run_dispatches_combined_route`
+    - `python -m compileall -q benchmarks\traditional_analytics\run.py python\src\shardloom\models.py python\tests\test_cli_client.py scripts\promote_benchmark_artifact.py`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest discover -s python\tests`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+  - Claim boundary:
+    - Scoped local stateless selective-filter split-operator runtime proof only. This does not add
+      claim-grade scale execution, stateful/shuffle split-parallel runtime, larger-than-memory
+      runtime, actual spill/backpressure, object-store/table execution, distributed workers,
+      broad encoded-native coverage, performance/superiority claims, production readiness,
+      Spark replacement, or fallback execution.
+  - Remaining gates:
+    - Continue `4P`/`5M` with stateful aggregate/join/sort/window split-operator runtime,
+      resource-pressure and spill/backpressure behavior, retry/cancellation/recovery over real
+      split work, stronger output commit proof, object-store/table runtime, distributed-worker
+      evidence, and benchmark/claim-gate promotion only when evidence supports it.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators
   - Date: 2026-05-25
   - Branch/PR: `runtime-envelope-validators-4k` / #953.

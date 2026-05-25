@@ -38,6 +38,7 @@ RUNTIME_EXECUTION_CERTIFICATE_REF_FIELDS = (
     "runtime_execution_certificate_refs",
     "runtime_execution_certificate_id",
     "prepared_vortex_scale_split_execution_certificate_id",
+    "prepared_vortex_scale_split_operator_execution_certificate_id",
 )
 RUNTIME_FALLBACK_ALIAS_FIELDS = (
     "fallback_attempted",
@@ -139,6 +140,7 @@ EXECUTION_CERTIFICATE_STATUS_FIELDS = (
     "execution_certificate_emitted",
     "local_primitive_execution_certificate_emitted",
     "prepared_vortex_scale_split_execution_certificate_status",
+    "prepared_vortex_scale_split_operator_execution_certificate_status",
 )
 
 
