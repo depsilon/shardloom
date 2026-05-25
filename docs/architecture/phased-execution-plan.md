@@ -275,9 +275,9 @@ Runtime completion rule:
 
 #### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
 Current runtime ordering note (2026-05-25): prioritize engine-internal completion first, starting
-with `GAR-RUNTIME-IMPL-4I`, then encoded kernels, evidence envelopes, session/reuse, local-scale
-runtime, adapter/ingest residuals, control-plane/effectful gates, benchmarks, and only then
-user/surface and release-usability backstops. Completed queue blocks have moved to
+with `GAR-RUNTIME-IMPL-4K`, then evidence envelopes, session/reuse, local-scale runtime,
+adapter/ingest residuals, control-plane/effectful gates, benchmarks, and only then user/surface
+and release-usability backstops. Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
 
@@ -286,99 +286,6 @@ hiding inside broad architecture items. Treat these as the explicit runtime impl
 that must be worked before any full-runtime readiness claim. Each item below must land runnable
 runtime behavior, deterministic runtime admission/blockers, or runtime-claim validation; planning
 or documentation updates alone are insufficient.
-
-- [ ] GAR-RUNTIME-IMPL-4I Vortex scan pushdown and encoded-predicate runtime completion
-  - Source: `GAR-PERF-2C`, Vortex Scan API docs, encoded predicate provider evidence,
-    `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: source-backed scan and encoded predicate evidence are scoped; CLI local Vortex
-    primitive `vortex-project`, `vortex-filter`, and `vortex-filter-project` rows now emit a
-    shared `scan_pushdown_*` contract with filter/projection/materialization/no-fallback fields and
-    deterministic blockers. `vortex-filter-project --limit` now executes an admitted local Vortex
-    filter/project scan with filter and projection pushed into upstream Vortex Scan, followed by an
-    explicit ShardLoom-native source-order residual limit. The residual limit reports
-    `scan_limit_pushed_down=false`, `scan_limit_pushdown_status=blocked_no_scan_limit_admission`,
-    `scan_residual_limit_applied=true`, residual executor `shardloom_native`,
-    `fallback_attempted=false`, and `external_engine_invoked=false`. Prepared/native benchmark rows
-    now carry the same residual-limit contract for order-sensitive source-order, top-k, per-group
-    top-N, and window limit-like scenarios, including requested row scope, input rows, output rows,
-    and ShardLoom-native residual executor evidence. Runtime provider evidence now records the
-    active optional Vortex `0.72` dependency. Broad Vortex Scan limit/slice pushdown,
-    encoded-native operator admission, and claim-grade scenario coverage are still incomplete.
-  - Next slice outcome: lower filter, projection, and limit into Vortex Scan where admitted, and
-    emit deterministic blockers or ShardLoom-native residual evidence when a predicate, projection,
-    or limit cannot be pushed down.
-  - Runtime enablement: prepared/native Vortex Scan pushdown for admitted filters, projections, and
-    limits, with explicit ShardLoom-native residual execution row counts or fail-closed blockers
-    for unsupported shapes.
-  - User-visible surface: prepared/native benchmark rows, explain output, capability matrix.
-  - Implementation scope: scan request builder, filter expression lowering, projection mask, limit/
-    slice pushdown, evidence fields.
-  - Vortex 0.71/0.72 opportunity mapping:
-    - Statistic expressions, stats rewrite sessions, `NullCount`, and `UncompressedSize` are
-      candidates for metadata-first planning and scan evidence, not standalone runtime claims.
-    - `register_splits` offset/relative row-range fixes should feed split-aware scan evidence and
-      blockers.
-    - `IsSorted` dtype fixes may inform sorted/min-max pruning and top-k blockers before any
-      sorted-kernel runtime claim.
-  - Evidence required: filter/projection/limit pushdown status, residual limit executor and
-    row-count fields where limit is not admitted into Vortex Scan, filter/output columns read,
-    encoded predicate provider fields, data decoded/materialized, Vortex provider version,
-    no-fallback fields.
-  - Acceptance: supported scenarios avoid reading unused output columns; unsupported pushdown does
-    not silently fall back to full materialization; limit-like operators either push down through an
-    admitted Vortex provider surface, execute as an explicitly reported ShardLoom-native residual,
-    or block deterministically.
-  - Verification: selective-filter smoke, filter/projection/limit smoke, source-backed scan tests,
-    benchmark contract tests.
-  - Non-goals: no encoded-native claim from pushdown evidence alone.
-  - Claim boundary: pushdown support per admitted predicate/projection/limit shape.
-  - Fallback boundary: residual work must be ShardLoom-native or blocked.
-  - Dependencies/blockers: Vortex Scan API provider boundary, expression lowering, projection mask
-    support, and source-backed scan evidence.
-  - Ledger rule: ledger entry must list pushed-down and blocked expression shapes.
-
-- [ ] GAR-RUNTIME-IMPL-4J encoded kernel registry execution pairs
-  - Source: `GAR-PERF-2D`, RFC 0021, encoded execution docs,
-    `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: initial pair execution now runs inside the existing prepared/native Vortex
-    reader path for bitpacked boolean/integer filters, sequence equality/range predicates, constant
-    array count/filter inputs, and dictionary equality/group-by over real `vortex.dict` reader
-    chunks. Executed pairs emit input rows, decoded-reference comparison status, correctness
-    digests, no-fallback/no-external-engine fields, and keep
-    `encoded_native_claim_allowed=false`.
-  - Next slice outcome: finish the remaining registry families in engine order: sorted/min-max
-    range-pruning over upstream sorted/statistics facts, sparse/mask/rank traversal candidates,
-    FSST/dictionary string equality, TurboQuant/vector capability blockers, nullability variants,
-    and generalized operator/function admission hooks. Each family must either execute with
-    decoded-reference correctness or block deterministically.
-  - Runtime enablement: executable encoded-kernel pairs backed by decoded-reference correctness, or
-    deterministic blockers.
-  - User-visible surface: benchmark evidence, explain output, capability matrix.
-  - Implementation scope: kernel registry, admission policy, encoded evaluator, decoded reference
-    comparison, blockers.
-  - Vortex 0.71/0.72 opportunity mapping:
-    - FastLanes signed bases, SparseArray iterative execution, mask/rank intersection
-      improvements, smallvec performance fixes, and TurboQuant are candidate inputs for
-      encoding/operator-pair admission. The `0.72` dependency update keeps TurboQuant blocked as
-      capability metadata (`vortex_turboquant_vector_encoding`) until feature proof, vector dtype
-      semantics, lossy-quantization policy, decode correctness, and no-fallback evidence land.
-    - Sparse traversal remains blocked until source-backed segment extraction and certificate
-      evidence exist.
-    - CUDA/FSST and GPU fixes remain blocked future accelerator context, not CPU-local runtime
-      support or a performance claim.
-  - Evidence required: encoding id, operator family, kernel admitted/executed, canonicalization
-    required, decoded/materialized flags, input rows, decoded-reference comparison status,
-    correctness digest, encoded-native claim flag.
-  - Acceptance: supported pairs pass decoded-reference correctness; unsupported encodings block
-    deterministically.
-  - Verification: unit tests per pair, selective-filter/group-by benchmark smoke, capability
-    snapshots.
-  - Non-goals: no blanket encoded-native, vectorized parity, or performance claim.
-  - Claim boundary: encoding/operator-pair support only.
-  - Fallback boundary: decoded reference is a test oracle, not runtime fallback.
-  - Dependencies/blockers: encoding fixtures, kernel registry admission, decoded-reference
-    correctness harness, and benchmark row schema.
-  - Ledger rule: ledger entry must enumerate pairs, claim flags, and blockers.
 
 - [ ] GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators
   - Source: release readiness metadata, benchmark artifact policy, runtime evidence-level docs.

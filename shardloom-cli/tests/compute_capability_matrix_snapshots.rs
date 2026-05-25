@@ -255,6 +255,81 @@ fn assert_predicate_dtype_coverage_row_fields(output: &str) {
     )));
 }
 
+fn assert_prepared_vortex_scan_pushdown_summary_fields(output: &str) {
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_schema_version",
+        "shardloom.prepared_vortex.scan_pushdown_matrix.v1"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_status",
+        "complete_for_current_prepared_native_runtime"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_order",
+        "selective_filter,filter_projection_limit,group_by_aggregation,hash_join,join_aggregate,sort_and_top_k,top_n_per_group,row_number_window,partition_pruning,clean_cast_filter_write,malformed_timestamp_dirty_csv,null_heavy_aggregate,csv_file_ingest,wide_projection,distinct_count,multi_key_group_by,high_cardinality_string_group_distinct,nested_json_field_scan,small_change_over_large_base,many_small_files_scan,scale_stress_skewed_join_aggregation,scale_stress_multi_stage_etl"
+    )));
+    assert!(output.contains(&field("prepared_vortex_scan_pushdown_row_count", "22")));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_supported_count",
+        "12"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_partially_supported_count",
+        "7"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_unsupported_count",
+        "3"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_claim_gate_status",
+        "not_claim_grade"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_all_rows_no_fallback",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_all_rows_external_engine_invoked_false",
+        "true"
+    )));
+}
+
+fn assert_prepared_vortex_scan_pushdown_row_fields(output: &str) {
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_selective_filter_pushdown_status",
+        "scan_pushdown_supported"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_selective_filter_filter_only_columns_read",
+        "flag"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_filter_projection_limit_limit_status",
+        "blocked_no_scan_limit_admission"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_filter_projection_limit_residual_limit_executor",
+        "shardloom_native"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_sort_and_top_k_blocker_reason",
+        "top-k requires ordered heap semantics and is not a source-order Vortex Scan limit"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_partition_pruning_filter_status",
+        "blocked_filter_not_lowered"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_many_small_files_scan_pushdown_status",
+        "scan_pushdown_unsupported"
+    )));
+    assert!(output.contains(&field(
+        "prepared_vortex_scan_pushdown_row_many_small_files_scan_external_engine_invoked",
+        "false"
+    )));
+}
+
 fn assert_materialization_policy_fields(output: &str) {
     assert!(output.contains(&field(
         "materialization_policy_schema_version",
@@ -437,6 +512,7 @@ fn compute_capability_matrix_exposes_rows_families_and_claim_gates() {
     assert_native_vortex_admission_summary_fields(&output);
     assert_native_unsupported_coverage_summary_fields(&output);
     assert_predicate_dtype_coverage_summary_fields(&output);
+    assert_prepared_vortex_scan_pushdown_summary_fields(&output);
     assert_materialization_policy_fields(&output);
     assert_no_runtime_no_fallback_no_effects(&output);
 }
@@ -482,6 +558,7 @@ fn compute_capability_matrix_rows_distinguish_provider_and_support_status() {
     )));
     assert_native_unsupported_row_fields(&output);
     assert_predicate_dtype_coverage_row_fields(&output);
+    assert_prepared_vortex_scan_pushdown_row_fields(&output);
     assert!(output.contains(&field(
         "operator_family_joins_next_evidence",
         "join_null_semantics,build_probe_memory,benchmarks"

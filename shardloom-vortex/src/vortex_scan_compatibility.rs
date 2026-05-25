@@ -414,7 +414,7 @@ impl VortexSourceSplitRuntimeAdmissionProof {
                 VortexSourceSplitAdmissionStatus::GeneralizedRuntimeBlocked,
             provider_kind: "vortex_scan",
             provider_crate: "vortex",
-            provider_version: "0.71",
+            provider_version: "0.72",
             feature_gate: "vortex-local-primitives",
             provider_api_surface: "VortexFile::scan,ScanBuilder::with_filter,ScanBuilder::with_projection,ScanBuilder::into_array_iter",
             shardloom_admission_policy: "shardloom.vortex.local_scan_primitive.v1",

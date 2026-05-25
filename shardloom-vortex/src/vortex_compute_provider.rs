@@ -8,7 +8,7 @@ use shardloom_core::ExecutionProviderKind;
 
 use crate::VortexResidualBoundaryReport;
 
-const VORTEX_VERSION: &str = "0.71";
+const VORTEX_VERSION: &str = "0.72";
 const LOCAL_SCAN_FEATURE_GATE: &str = "vortex-local-primitives";
 const LOCAL_SCAN_API_SURFACE: &str = "VortexFile::scan.into_array_iter";
 const LOCAL_SCAN_ADMISSION_POLICY: &str = "shardloom.vortex.local_scan_primitive.v1";
@@ -325,7 +325,7 @@ mod tests {
         let report = VortexComputeProviderReport::local_scan_provider();
 
         assert_eq!(report.provider_kind, ExecutionProviderKind::VortexScan);
-        assert_eq!(report.vortex_version, "0.71");
+        assert_eq!(report.vortex_version, "0.72");
         assert_eq!(report.feature_gate, "vortex-local-primitives");
         assert_eq!(
             report.shardloom_admission_policy,
