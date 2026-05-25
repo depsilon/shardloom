@@ -3,6 +3,16 @@
   "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1",
   "owning_phase_item": "GAR-RUNTIME-IMPL-4K",
   "support_status": "validator_admitted",
+  "validated_surfaces": [
+    "runtime_envelope_fixtures",
+    "flat_runtime_field_maps",
+    "traditional_analytics_benchmark_rows",
+    "website_published_benchmark_rows",
+    "runs_today_support_matrix",
+    "release_readiness_gate",
+    "benchmark_artifact_completeness_gate",
+    "website_readiness_gate"
+  ],
   "required_scalar_fields": [
     "fallback_attempted",
     "external_engine_invoked",
@@ -17,11 +27,27 @@
     "materialization_or_decode_evidence",
     "execution_certificate"
   ],
+  "execution_certificate_ref_fields": [
+    "execution_certificate_ref",
+    "execution_certificate_refs",
+    "execution_certificate_id",
+    "runtime_execution_certificate_ref",
+    "runtime_execution_certificate_refs",
+    "runtime_execution_certificate_id",
+    "prepared_vortex_scale_split_execution_certificate_id"
+  ],
+  "non_certificate_metadata_fields": [
+    "evidence_level_certificate_refs"
+  ],
   "mode_specific_rules": [
     "prepared_vortex requires prepared_state_id and prepared_state_digest",
     "compatibility_import_certified requires timing_scope=cold_certified_end_to_end",
-    "compatibility_import_certified requires preparation_included=true"
+    "compatibility_import_certified requires preparation_included=true",
+    "minimal_runtime evidence cannot be promoted to claim_grade",
+    "report_only and diagnostic_only rows cannot set runtime_execution=true"
   ],
+  "benchmark_row_validator": "published_benchmark_rows",
+  "status_render_validator": "runs_today_support_matrix",
   "fallback_attempted": false,
   "external_engine_invoked": false,
   "claim_gate_status": "not_claim_grade"

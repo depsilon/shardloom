@@ -5832,7 +5832,8 @@ fn gar_runtime_impl_4i_scan_pushdown_completion_remains_projected() {
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4I"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4J"));
-    assert!(plan.contains("- [ ] GAR-RUNTIME-IMPL-4K"));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4K"));
+    assert!(plan.contains("- [ ] GAR-RUNTIME-IMPL-5H"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-RUNTIME-IMPL-4I Vortex Scan pushdown completion matrix"));
@@ -6112,6 +6113,8 @@ fn runtime_execution_envelope_validator_is_release_visible() {
         "shardloom.runtime_execution_envelope_validation.v1",
         "RuntimeEnvelopeValidationReport",
         "validate_runtime_execution_envelope",
+        "validate_runtime_execution_fields",
+        "minimal_runtime evidence cannot be promoted to claim_grade",
         "compatibility_import_certified envelope must disclose",
         "prepared_vortex envelope is missing",
     ] {
@@ -6127,6 +6130,13 @@ fn runtime_execution_envelope_validator_is_release_visible() {
         "complete_sql_local_source",
         "prepared_vortex_missing_state",
         "compatibility_import_certified_timing_drift",
+        "benchmark_field_mapping",
+        "minimal_runtime_claim_grade",
+        "evidence_level_refs_without_execution_certificate",
+        "published_benchmark_rows",
+        "runs_today_support_matrix",
+        "benchmark_row_count",
+        "status_runtime_row_count",
         "fallback_attempted",
         "external_engine_invoked",
     ] {
@@ -6142,6 +6152,10 @@ fn runtime_execution_envelope_validator_is_release_visible() {
         "route_state_ref",
         "materialization_or_decode_evidence",
         "execution_certificate",
+        "validate_runtime_execution_fields",
+        "website published benchmark rows",
+        "runs-today support matrix",
+        "minimal_runtime",
         "compatibility_import_certified",
         "fallback_attempted=false",
         "external_engine_invoked=false",
@@ -6154,7 +6168,15 @@ fn runtime_execution_envelope_validator_is_release_visible() {
 
     let release_gate = read_repo_file("scripts/check_release_readiness.py");
     assert!(release_gate.contains("check_runtime_execution_envelopes.py"));
+    assert!(release_gate.contains("validate_runtime_execution_envelope_surfaces"));
     assert!(release_gate.contains("runtime-execution-envelope-validation.json"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(
+        completed
+            .contains("GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators")
+    );
+    assert!(completed.contains("shardloom.runtime_execution_envelope_validation.v1"));
 }
 
 #[test]

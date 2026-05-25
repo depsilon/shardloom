@@ -17,6 +17,9 @@ from typing import Any
 from check_benchmark_artifact_completeness import (
     validate_manifest as validate_benchmark_artifact_completeness,
 )
+from check_runtime_execution_envelopes import (
+    validate_repo as validate_runtime_execution_envelope_surfaces,
+)
 from check_package_channel_readiness import (
     validate_local_gate_evidence as validate_package_local_gate_evidence,
 )
@@ -653,8 +656,22 @@ def main() -> int:
         != "shardloom.runtime_execution_envelope_validation.v1"
     ):
         typed_blockers.append("runtime execution envelope validator schema mismatch")
+    else:
+        for surface in [
+            "runtime_envelope_fixtures",
+            "website_published_benchmark_rows",
+            "runs_today_support_matrix",
+        ]:
+            if surface not in (runtime_envelope_status.get("validated_surfaces") or []):
+                typed_blockers.append(
+                    f"runtime execution envelope status missing surface: {surface}"
+                )
     if not runtime_envelope_validator.exists():
         typed_blockers.append("missing runtime execution envelope validator script")
+    runtime_envelope_report = validate_runtime_execution_envelope_surfaces(repo_root)
+    if runtime_envelope_report.get("status") != "passed":
+        for blocker in runtime_envelope_report.get("blockers", []):
+            typed_blockers.append(f"runtime execution envelope: {blocker}")
     checks.append(check("typed_envelope_compatibility", "shardloom-cli/tests/typed_envelope_contract_snapshots.rs", typed_blockers))
 
     benchmark_constitution_script = repo_root / "scripts/check_benchmark_constitution.py"

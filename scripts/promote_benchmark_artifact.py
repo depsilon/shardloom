@@ -19,6 +19,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "python" / "src"))
 
 from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
     LANES,
@@ -27,6 +28,7 @@ from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
     expected_lanes_for_profile,
     lane_required_for_profile,
 )
+from shardloom import validate_runtime_execution_fields  # noqa: E402
 
 
 SUMMARY_SCHEMA_VERSION = "shardloom.website.benchmark_evidence.v1"
@@ -53,6 +55,58 @@ EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "route",
     "timing_scope",
     "claim_boundary",
+    "runtime_execution_validation",
+    "runtime_execution",
+    "materialization",
+    "decode",
+    "artifact",
+)
+PUBLISHED_METRIC_KEYS = (
+    "source_state_id",
+    "source_state_digest",
+    "source_location",
+    "source_state_materialization_layout",
+    "source_state_runtime_consumption_layout",
+    "prepared_state_id",
+    "prepared_state_digest",
+    "prepared_artifact_ref",
+    "prepared_artifact_digest",
+    "vortex_artifact_ref",
+    "vortex_artifact_digest",
+    "output_plan_id",
+    "output_plan_digest",
+    "sink_artifact_ref",
+    "sink_artifact_digest",
+    "data_decoded",
+    "data_materialized",
+    "materialization_required",
+    "decode_required",
+    "operator_temporary_materialization_used",
+    "materialization_boundary_report_emitted",
+    "representation_transition_summary",
+    "execution_certificate_id",
+    "execution_certificate_status",
+    "runtime_execution_certificate_status",
+    "runtime_execution_certificate_id",
+    "runtime_execution_certificate_provider_kind",
+    "runtime_execution_certificate_plan_ref",
+    "runtime_fallback_attempted",
+    "runtime_external_query_engine_invoked",
+    "execution_certificate_ref",
+    "execution_certificate_refs",
+    "evidence_level_certificate_refs",
+    "requested_evidence_level",
+    "selected_evidence_level",
+    "evidence_level",
+    "prepared_vortex_scale_split_execution_certificate_status",
+    "prepared_vortex_scale_split_execution_certificate_id",
+    "compatibility_import_included",
+    "preparation_included_in_timing",
+    "runtime_execution_validation_schema_version",
+    "runtime_execution_validation_status",
+    "runtime_execution_validation_blocker_count",
+    "runtime_execution_validation_missing_fields",
+    "runtime_execution_validation_invalid_fields",
 )
 
 
@@ -453,10 +507,100 @@ def vortex_lane_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def runtime_validation_field_map(row: dict[str, Any]) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+    evidence = row.get("shardloom_evidence")
+    if isinstance(evidence, dict):
+        fields.update(evidence)
+    metrics = row.get("metrics")
+    if isinstance(metrics, dict):
+        fields.update(metrics)
+    for key, value in row.items():
+        if key in {
+            "benchmark_constitution",
+            "iteration_wall_time_millis",
+            "metrics",
+            "output_preview",
+            "runtime_execution_validation",
+            "shardloom_evidence",
+        }:
+            continue
+        fields[key] = value
+    if row.get("selected_execution_mode") == "compatibility_import_certified":
+        fields["preparation_included"] = row.get("compatibility_import_included") is True
+    return fields
+
+
+def runtime_validation_surface_id(row: dict[str, Any]) -> str:
+    scenario = str(row.get("scenario_id") or row.get("scenario_name") or "unknown")
+    scenario = scenario.lower().replace(" ", "_").replace(":", "_")
+    return (
+        "promoted_benchmark."
+        f"{row.get('engine', 'unknown')}."
+        f"{row.get('storage_format', 'unknown')}."
+        f"{scenario}"
+    )
+
+
+def should_validate_runtime_row(row: dict[str, Any]) -> bool:
+    return str(row.get("engine", "")).startswith("shardloom")
+
+
+def runtime_validation_for_row(row: dict[str, Any]) -> dict[str, Any] | None:
+    if not should_validate_runtime_row(row):
+        return None
+    existing = row.get("runtime_execution_validation")
+    if isinstance(existing, dict) and existing.get("status") == "passed":
+        return existing
+    status = str(row.get("status", "unknown"))
+    runtime_expected = status == "success"
+    validation = validate_runtime_execution_fields(
+        runtime_validation_field_map(row),
+        command="promoted-benchmark-row",
+        status=status,
+        surface_id=runtime_validation_surface_id(row),
+        runtime_expected=runtime_expected,
+        execution_mode=str(row.get("selected_execution_mode") or "") or None,
+    )
+    if validation.status != "passed":
+        raise RuntimeError(
+            f"{row.get('engine', 'unknown')} "
+            f"{row.get('scenario_name', 'unknown')} failed runtime validation: "
+            + "; ".join(validation.blockers)
+        )
+    return validation.as_dict()
+
+
+def runtime_validation_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    reports = [
+        report
+        for row in rows
+        for report in [runtime_validation_for_row(row)]
+        if isinstance(report, dict)
+    ]
+    counts = Counter(str(report.get("status", "missing")) for report in reports)
+    return {
+        "heading": "Runtime Envelope Validation",
+        "headers": ["Status", "Rows"],
+        "rows": [[status, count] for status, count in sorted(counts.items())],
+        "schema_version": "shardloom.website.runtime_envelope_validation.v1",
+        "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1",
+        "status": "passed" if counts.get("blocked", 0) == 0 else "blocked",
+        "validated_row_count": len(reports),
+        "validated_surfaces": [
+            report.get("surface_id")
+            for report in reports
+            if isinstance(report.get("surface_id"), str)
+        ],
+    }
+
+
 def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rendered = []
     for row in rows:
         metrics = row.get("metrics") if isinstance(row.get("metrics"), dict) else {}
+        runtime_fields = runtime_validation_field_map(row)
+        runtime_validation = runtime_validation_for_row(row)
         rendered_row = {
             "engine": row.get("engine"),
             "status": row.get("status"),
@@ -484,7 +628,26 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "result_sink_write_millis": metrics.get("result_sink_write_millis"),
             "evidence_render_millis": metrics.get("evidence_render_millis"),
         }
+        if runtime_validation is not None:
+            rendered_row["runtime_execution_validation"] = runtime_validation
+            rendered_row["runtime_execution_validation_status"] = (
+                runtime_validation.get("status")
+            )
+            rendered_row["runtime_execution_validation_schema_version"] = (
+                runtime_validation.get("schema_version")
+            )
+            rendered_row["runtime_claim_allowed"] = runtime_validation.get(
+                "runtime_claim_allowed"
+            )
+        for key in PUBLISHED_METRIC_KEYS:
+            if key in runtime_fields:
+                rendered_row[key] = runtime_fields[key]
         for key, value in row.items():
+            if key in rendered_row:
+                continue
+            if any(fragment in key for fragment in EXTRA_PUBLISHED_KEY_FRAGMENTS):
+                rendered_row[key] = value
+        for key, value in metrics.items():
             if key in rendered_row:
                 continue
             if any(fragment in key for fragment in EXTRA_PUBLISHED_KEY_FRAGMENTS):
@@ -516,6 +679,7 @@ def comparative_summary(
         "engine_timing_overview": engine_timing_table(rows),
         "vortex_oriented_lanes": vortex_lane_table(rows),
         "claim_gate_distribution": claim_gate_table(rows),
+        "runtime_envelope_validation": runtime_validation_table(rows),
         "profile_lane_availability": profile_lane_availability_table(
             artifact, rows, profile
         ),
@@ -560,6 +724,7 @@ def manifest_for_artifact(
         "markdown": None,
         "html": None,
     }
+    runtime_validation = runtime_validation_table(rows)
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "generated_at_utc": artifact.get("generated_at_utc")
@@ -602,6 +767,7 @@ def manifest_for_artifact(
         ],
         "benchmark_constitution_claim_gate_status": "not_claim_grade",
         "benchmark_constitution_performance_claim_allowed": False,
+        "runtime_envelope_validation": runtime_validation,
         "artifact_paths": artifact_paths,
     }
 

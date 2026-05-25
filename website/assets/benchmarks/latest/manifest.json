@@ -37,7 +37,7 @@
   ],
   "benchmark_constitution_schema_version": "shardloom.benchmark_constitution_validation.v1",
   "benchmark_constitution_validator": "scripts/check_benchmark_constitution.py",
-  "benchmark_git_sha": "b346d737a001f3774ccf09d4d6302e4f974b0bd1",
+  "benchmark_git_sha": "db9c47984c2ad22ee3634ee52362baa186b38130",
   "benchmark_profile": "full_local",
   "claim_boundary": "local_comparative_not_claim_grade",
   "environment": {
@@ -67,7 +67,7 @@
     "dask",
     "native-vortex"
   ],
-  "generated_at_utc": "2026-05-23T21:56:40.073820+00:00",
+  "generated_at_utc": "2026-05-25T14:05:07.368183+00:00",
   "lane_availability_reasons": {
     "dask": "available in promoted benchmark artifact",
     "datafusion": "available, version 53.0.0",
@@ -76,10 +76,10 @@
     "pandas": "available, version 3.0.2",
     "polars-eager": "available, version 1.40.1",
     "polars-lazy": "available, version 1.40.1 (lazy scan API)",
-    "shardloom": "available, version workspace-local-release-b346d737-dirty",
-    "shardloom-prepare-batch": "available, version workspace-local-release-b346d737-dirty",
-    "shardloom-prepared-vortex": "available, version workspace-local-release-b346d737-dirty",
-    "shardloom-vortex": "available, version workspace-local-release-b346d737-dirty"
+    "shardloom": "available, version workspace-local-debug-db9c4798-dirty",
+    "shardloom-prepare-batch": "available, version workspace-local-debug-db9c4798-dirty",
+    "shardloom-prepared-vortex": "available, version workspace-local-debug-db9c4798-dirty",
+    "shardloom-vortex": "available, version workspace-local-debug-db9c4798-dirty"
   },
   "lane_versions": {
     "dask": "from promoted benchmark artifact",
@@ -89,14 +89,73 @@
     "pandas": "3.0.2",
     "polars-eager": "1.40.1",
     "polars-lazy": "1.40.1 (lazy scan API)",
-    "shardloom": "workspace-local-release-b346d737-dirty",
-    "shardloom-prepare-batch": "workspace-local-release-b346d737-dirty",
-    "shardloom-prepared-vortex": "workspace-local-release-b346d737-dirty",
-    "shardloom-vortex": "workspace-local-release-b346d737-dirty"
+    "shardloom": "workspace-local-debug-db9c4798-dirty",
+    "shardloom-prepare-batch": "workspace-local-debug-db9c4798-dirty",
+    "shardloom-prepared-vortex": "workspace-local-debug-db9c4798-dirty",
+    "shardloom-vortex": "workspace-local-debug-db9c4798-dirty"
   },
   "missing_lanes": [],
   "missing_required_lanes": [],
   "performance_claim_allowed": false,
+  "runtime_envelope_validation": {
+    "headers": [
+      "Status",
+      "Rows"
+    ],
+    "heading": "Runtime Envelope Validation",
+    "rows": [
+      [
+        "passed",
+        40
+      ]
+    ],
+    "schema_version": "shardloom.website.runtime_envelope_validation.v1",
+    "status": "passed",
+    "validated_row_count": 40,
+    "validated_surfaces": [
+      "traditional_analytics.shardloom.csv.selective-filter",
+      "traditional_analytics.shardloom.csv.filter-projection-limit",
+      "traditional_analytics.shardloom.csv.group-by-aggregation",
+      "traditional_analytics.shardloom.csv.hash-join",
+      "traditional_analytics.shardloom.csv.top-n-per-group",
+      "traditional_analytics.shardloom.parquet.selective-filter",
+      "traditional_analytics.shardloom.parquet.filter-projection-limit",
+      "traditional_analytics.shardloom.parquet.group-by-aggregation",
+      "traditional_analytics.shardloom.parquet.hash-join",
+      "traditional_analytics.shardloom.parquet.top-n-per-group",
+      "traditional_analytics.shardloom-vortex.csv.selective-filter",
+      "traditional_analytics.shardloom-vortex.csv.filter-projection-limit",
+      "traditional_analytics.shardloom-vortex.csv.group-by-aggregation",
+      "traditional_analytics.shardloom-vortex.csv.hash-join",
+      "traditional_analytics.shardloom-vortex.csv.top-n-per-group",
+      "traditional_analytics.shardloom-vortex.parquet.selective-filter",
+      "traditional_analytics.shardloom-vortex.parquet.filter-projection-limit",
+      "traditional_analytics.shardloom-vortex.parquet.group-by-aggregation",
+      "traditional_analytics.shardloom-vortex.parquet.hash-join",
+      "traditional_analytics.shardloom-vortex.parquet.top-n-per-group",
+      "traditional_analytics.shardloom-prepared-vortex.csv.selective-filter",
+      "traditional_analytics.shardloom-prepared-vortex.csv.filter-projection-limit",
+      "traditional_analytics.shardloom-prepared-vortex.csv.group-by-aggregation",
+      "traditional_analytics.shardloom-prepared-vortex.csv.hash-join",
+      "traditional_analytics.shardloom-prepared-vortex.csv.top-n-per-group",
+      "traditional_analytics.shardloom-prepared-vortex.parquet.selective-filter",
+      "traditional_analytics.shardloom-prepared-vortex.parquet.filter-projection-limit",
+      "traditional_analytics.shardloom-prepared-vortex.parquet.group-by-aggregation",
+      "traditional_analytics.shardloom-prepared-vortex.parquet.hash-join",
+      "traditional_analytics.shardloom-prepared-vortex.parquet.top-n-per-group",
+      "traditional_analytics.shardloom-prepare-batch.csv.selective-filter",
+      "traditional_analytics.shardloom-prepare-batch.csv.filter-projection-limit",
+      "traditional_analytics.shardloom-prepare-batch.csv.group-by-aggregation",
+      "traditional_analytics.shardloom-prepare-batch.csv.hash-join",
+      "traditional_analytics.shardloom-prepare-batch.csv.top-n-per-group",
+      "traditional_analytics.shardloom-prepare-batch.parquet.selective-filter",
+      "traditional_analytics.shardloom-prepare-batch.parquet.filter-projection-limit",
+      "traditional_analytics.shardloom-prepare-batch.parquet.group-by-aggregation",
+      "traditional_analytics.shardloom-prepare-batch.parquet.hash-join",
+      "traditional_analytics.shardloom-prepare-batch.parquet.top-n-per-group"
+    ],
+    "validator_schema_version": "shardloom.runtime_execution_envelope_validation.v1"
+  },
   "schema_version": "shardloom.website_benchmark_manifest.v1",
-  "shardloom_git_sha": "b346d737a001f3774ccf09d4d6302e4f974b0bd1"
+  "shardloom_git_sha": "db9c47984c2ad22ee3634ee52362baa186b38130"
 }

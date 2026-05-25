@@ -14,6 +14,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "python" / "src"))
 
 from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
     MANIFEST_SCHEMA_VERSION,
@@ -21,6 +22,7 @@ from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
     expected_lanes_for_profile,
     lane_required_for_profile,
 )
+from shardloom import validate_runtime_execution_fields  # noqa: E402
 
 
 REQUIRED_MANIFEST_FIELDS = {
@@ -151,6 +153,33 @@ def recursive_text_contains(value: Any, needle: str) -> bool:
     return False
 
 
+def runtime_validation_field_map(row: dict[str, Any]) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+    evidence = row.get("shardloom_evidence")
+    if isinstance(evidence, dict):
+        fields.update(evidence)
+    metrics = row.get("metrics")
+    if isinstance(metrics, dict):
+        fields.update(metrics)
+    for key, value in row.items():
+        if key in {
+            "benchmark_constitution",
+            "iteration_wall_time_millis",
+            "metrics",
+            "output_preview",
+            "runtime_execution_validation",
+            "shardloom_evidence",
+        }:
+            continue
+        fields[key] = value
+    if row.get("selected_execution_mode") == "compatibility_import_certified":
+        fields["preparation_included"] = (
+            row.get("compatibility_import_included") is True
+            or fields.get("preparation_included_in_timing") is True
+        )
+    return fields
+
+
 def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
     for index, row in enumerate(result_rows(payload)):
         engine = str(row.get("engine", ""))
@@ -166,6 +195,19 @@ def validate_rows(payload: dict[str, Any], blockers: list[str]) -> None:
             elif row.get("external_engine_invoked") is not False:
                 blockers.append(
                     f"ShardLoom row {index} must set external_engine_invoked=false"
+                )
+            validation = validate_runtime_execution_fields(
+                runtime_validation_field_map(row),
+                command="benchmark-artifact-completeness-row",
+                status=str(row.get("status", "unknown")),
+                surface_id=f"benchmark_artifact_row_{index}",
+                runtime_expected=str(row.get("status", "unknown")) == "success",
+                execution_mode=str(row.get("selected_execution_mode") or "") or None,
+            )
+            if validation.status != "passed":
+                blockers.append(
+                    f"ShardLoom row {index} runtime envelope blocked: "
+                    + "; ".join(validation.blockers)
                 )
         elif engine:
             if (

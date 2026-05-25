@@ -101,6 +101,7 @@ from .models import (
     RuntimeEnvelopeValidationIssue,
     RuntimeEnvelopeValidationReport,
     validate_runtime_execution_envelope,
+    validate_runtime_execution_fields,
 )
 from .quickstart import QuickstartProofReport, quickstart_proof
 from .query import (
@@ -186,6 +187,7 @@ __all__ = [
     "RuntimeEnvelopeValidationIssue",
     "RuntimeEnvelopeValidationReport",
     "validate_runtime_execution_envelope",
+    "validate_runtime_execution_fields",
     "QuickstartProofReport",
     "ClaimGateCloseoutReport",
     "CommandMetadataReport",

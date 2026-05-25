@@ -16,6 +16,70 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-envelope-validators-4k` / TBD.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators`.
+    - `GAR-RUNTIME-IMPL-5H evidence envelope, evidence levels, and claim validators`.
+    - User direction to complete directly related runtime sections end to end, keep real benchmark
+      bytes flowing through the existing Vortex processing path, and avoid standalone side lanes.
+  - Scope:
+    - Completed the versioned `shardloom.runtime_execution_envelope_validation.v1` validator rollout
+      across Python `OutputEnvelope` field mappings, traditional analytics benchmark rows, prepared
+      Vortex runtime certificate fields, benchmark promotion, website benchmark manifests,
+      runs-today status projection, and release/website/completeness gates.
+    - Added benchmark-row field mapping validation for ShardLoom runtime rows only, leaving pandas,
+      Polars, DuckDB, DataFusion, and Dask as external baselines/oracles rather than ShardLoom
+      execution.
+    - Published concrete runtime certificate fields for prepared Vortex local split reports,
+      including certificate id/status, provider kind, plan ref, and explicit no-fallback/no-external
+      execution booleans.
+    - Promoted nested runtime evidence from `shardloom_evidence`, `metrics`, and row-level fields
+      into published benchmark rows so website artifacts and release gates validate the same
+      evidence emitted by the runtime harness.
+    - Extended the validator to block report-only or diagnostic rows that masquerade as runtime
+      support, `minimal_runtime` rows promoted to `claim_grade`, and evidence-level certificate refs
+      without concrete execution certificate ids or typed certificates.
+    - Moved `GAR-RUNTIME-IMPL-4K` out of the live Planned queue and trimmed `GAR-RUNTIME-IMPL-5H`
+      to the remaining coverage-assurance backstop for future runtime surfaces and mirror drift.
+  - Migrated surfaces:
+    - `OutputEnvelope.from_field_mapping(...)`, `validate_runtime_execution_fields(...)`, and
+      compatibility aliases for runtime route state, materialization/decode, certificate, fallback,
+      and external-engine evidence.
+    - `benchmarks/traditional_analytics/run.py` runtime validation summaries and per-row validation
+      fields.
+    - `shardloom-vortex` prepared/local split runtime certificate evidence.
+    - `scripts/promote_benchmark_artifact.py`,
+      `scripts/check_benchmark_artifact_completeness.py`,
+      `scripts/check_runtime_execution_envelopes.py`, `scripts/check_website_readiness.py`, and
+      `scripts/check_release_readiness.py`.
+    - `website/assets/benchmarks/latest/*`, `website-public/assets/benchmarks/latest/*`, and
+      `website-src/src/data/benchmark-*` benchmark evidence mirrors.
+  - Verification:
+    - `python -m compileall -q python\src\shardloom python\tests benchmarks\traditional_analytics\run.py scripts\check_runtime_execution_envelopes.py scripts\promote_benchmark_artifact.py scripts\check_benchmark_artifact_completeness.py scripts\check_website_readiness.py scripts\check_release_readiness.py`
+    - `python -m unittest discover -s python\tests`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test traditional_benchmark_harness traditional_benchmark_harness_records_fairness_and_universal_io_boundaries`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test release_readiness_metadata runtime_execution_envelope_validator_is_release_visible`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_emits_real_byte_local_scale_evidence_in_vortex_route --lib`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask --formats csv,parquet --scenario "selective filter" --scenario "filter + projection + limit" --scenario "group by aggregation" --scenario "hash join" --scenario "top-N per group" --rows 1000 --iterations 1 --shardloom-build-profile debug --no-markdown --output target\shardloom-benchmark-evidence\full_local_current_core.json --regenerate`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `git diff --check`
+  - Claim boundary:
+    - Runtime-evidence and claim-validator completion only. This does not add new runtime operator
+      families, broad session/cache reuse, claim-grade scale execution, object-store/table runtime,
+      production readiness, package publication, benchmark superiority, Spark replacement, or
+      fallback execution.
+  - Remaining gates:
+    - Keep `GAR-RUNTIME-IMPL-5H` as the validator/mirror-drift backstop for future runtime paths;
+      proceed with internal engine work before user/surface and release-usability closeout items.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4I Vortex Scan pushdown completion matrix
   - Date: 2026-05-25
   - Branch/PR: `runtime-vortex-scan-pushdown-4i` / #952.
