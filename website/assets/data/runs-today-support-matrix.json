@@ -26,6 +26,7 @@
     "cli_vortex_ingest_smoke",
     "cli_generated_source_smokes",
     "cli_prepared_vortex_batch_benchmark",
+    "cli_direct_transient_local_adapter_benchmark",
     "python_status_capabilities",
     "python_local_query_builder",
     "python_generated_source_helpers",
@@ -49,17 +50,17 @@
     "claim_package_publication",
     "claim_object_store_lakehouse_foundry_production"
   ],
-  "row_count": 27,
+  "row_count": 28,
   "support_state_counts": {
     "executable": 13,
-    "feature_gated": 4,
+    "feature_gated": 5,
     "diagnostic_only": 3,
     "report_only": 1,
     "blocked": 5,
     "future": 1
   },
   "family_counts": {
-    "cli_command": 5,
+    "cli_command": 6,
     "python_api": 4,
     "input_format": 4,
     "output_format": 3,
@@ -90,14 +91,18 @@
     "traditional_benchmark_harness",
     "benchmark_runtime_tests",
     "prepared_vortex_batch_python_tests",
+    "traditional_direct_transient_tests",
     "python.tests.test_cli_client",
     "python.tests.test_quickstart_proof",
     "python.tests.test_query_builder",
-    "universal_compatibility_scoreboard",
+    "vortex_ingest_smoke_text_adapter_tests",
+    "universal_ingress_route_taxonomy",
     "vortex_count_tests",
     "vortex_filter_project_tests",
     "prepared_vortex_batch_tests",
     "feature_gated_sql_local_source_tests",
+    "vortex_ingest_smoke_structured_adapter_tests",
+    "traditional_direct_transient_structured_tests",
     "object_store_request_plan",
     "object_store_boundary_use_cases",
     "fanout_replay_tests",
@@ -251,6 +256,27 @@
       "external_engine_invoked": false
     },
     {
+      "id": "cli_direct_transient_local_adapter_benchmark",
+      "family": "cli_command",
+      "surface": [
+        "traditional-analytics-run --execution-mode direct_compatibility_transient"
+      ],
+      "support_state": "feature_gated",
+      "feature_gate": "vortex-traditional-analytics-benchmark",
+      "evidence_refs": [
+        "traditional_direct_transient_tests",
+        "traditional_benchmark_harness"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "scoped local adapter direct-transient benchmark smokes only; not Vortex-native, broad SQL/DataFrame, object-store/table, or performance evidence",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
       "id": "python_status_capabilities",
       "family": "python_api",
       "surface": [
@@ -361,12 +387,14 @@
       "feature_gate": "default",
       "evidence_refs": [
         "sql_local_source_runtime_smoke",
+        "vortex_ingest_smoke_text_adapter_tests",
+        "traditional_direct_transient_tests",
         "python_query_builder_tests",
-        "universal_compatibility_scoreboard"
+        "universal_ingress_route_taxonomy"
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "flat local source fixture coverage only; not production connector coverage",
+      "claim_boundary": "flat local text SourceState, direct-transient, and vortex_ingest fixture coverage only; not object-store/table connector coverage",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,
@@ -408,11 +436,13 @@
       "feature_gate": "universal-format-io",
       "evidence_refs": [
         "feature_gated_sql_local_source_tests",
-        "universal_compatibility_scoreboard"
+        "vortex_ingest_smoke_structured_adapter_tests",
+        "traditional_direct_transient_structured_tests",
+        "universal_ingress_route_taxonomy"
       ],
       "blocker_id": "feature.universal_format_io_required_for_default_build",
       "claim_gate_status": "not_claim_grade",
-      "claim_boundary": "local flat-scalar feature-gated adapters only; broad/nested/production format support remains blocked",
+      "claim_boundary": "local flat-scalar feature-gated SourceState, direct-transient, and vortex_ingest adapters only; object-store/table connector coverage remains separate",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,

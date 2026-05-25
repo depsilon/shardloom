@@ -16,6 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4F/4F1/5D UniversalIngress and local adapter parity closeout
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-internal-order-4f-5d` / #957.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format`.
+    - `GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and vortex_ingest
+      attribution`.
+    - `GAR-RUNTIME-IMPL-5D local input adapter runtime parity`.
+    - User direction to keep CSV confined to fixture/read boundaries, avoid standalone side lanes,
+      and funnel local adapters through the shared engine route before moving to user/surface work.
+  - Scope:
+    - Moved the live 4/5 runtime queue into logical engine-first order and removed the completed
+      adapter/ingest parity items from the live queue.
+    - Promoted the `shardloom-direct-transient` comparative harness lane from CSV-only admission to
+      the same local adapter universe used by runtime code: CSV, JSONL, and feature-gated Parquet,
+      Arrow IPC, Avro, and ORC for the admitted selective-filter and filter/projection/limit smokes.
+    - Tightened direct-transient benchmark validation so rows must report the selected source
+      format, exactly one per-format adapter flag, dynamic `source_adapter_id`, dynamic benchmark
+      and coverage refs, no Vortex write/reopen, no external engine, and no fallback.
+    - Updated benchmark report interpretation, preparation matrix row scopes, fairness/limitations,
+      compute-capability status, runs-today support rows, and protocol docs so direct transient is
+      represented as scoped local adapter runtime evidence rather than an unsupported or CSV-only
+      side lane.
+    - Regenerated the runs-today matrix for docs and website data so status surfaces expose the
+      direct-transient local-adapter benchmark row and the text/structured input-format evidence
+      refs.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `cargo +1.91.1 test -p shardloom-cli --test capability_discovery_snapshots runs_today_exposes_generated_current_support_matrix`
+    - `cargo +1.91.1 test -p shardloom-cli --test compute_capability_matrix_snapshots`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test traditional_benchmark_harness traditional_benchmark_harness_lists_all_required_engines`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark direct_transient_structured_formats_share_columnar_source_state_adapter_boundary --lib -- --nocapture`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_compute_capability_matrix_view`
+    - `python -m unittest discover -s python\tests`
+    - `python -m compileall -q benchmarks\traditional_analytics\run.py python\tests\test_cli_client.py`
+    - `python benchmarks\traditional_analytics\run.py --engines shardloom-direct-transient --formats csv,jsonl --scenario "selective filter" --scenario "filter + projection + limit" --rows 100 --iterations 1 --shardloom-build-profile debug --no-markdown --output target\direct-transient-4f5d-smoke.json --regenerate`
+    - `python scripts\export_runs_today_support_matrix.py --check`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - `python scripts\check_universal_ingress_routes.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_workflow_recipes.py`
+    - `python scripts\check_use_case_glossary.py`
+    - `python scripts\check_evidence_schema_registry.py`
+    - `python scripts\check_ci_gate_matrix.py`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `node website-src\scripts\sync-content.mjs`
+    - `node website-src\node_modules\astro\bin\astro.mjs build` from `website-src`
+    - `node website-src\scripts\postbuild-static.mjs` from `website-src`
+    - `python scripts\check_website_readiness.py`
+    - `git diff --check`
+    - Structured benchmark-harness generation was attempted for Parquet, but this local Python
+      environment lacks `pyarrow`; the feature-gated structured runtime path is covered by the
+      Rust test above.
+  - Explicitly not included:
+    - Nested JSON/JSONPath, broad Parquet/Arrow IPC/Avro/ORC type/nesting parity, Excel/database
+      runtime, object-store/table runtime, broad SQL/DataFrame runtime, result-sink replay for
+      direct transient, performance or superiority claims, package/publication claims, Spark
+      displacement claims, or external fallback execution.
+  - Follow-up:
+    - Continue with the remaining engine-internal queue in logical order: `GAR-RUNTIME-IMPL-4P`
+      before `5M`, then `5H`, `5K`, `4Q/5N`, `4R/5O`, and the final `4D/5G` expression/operator
+      closeout before SQL/Python surface and release-usability gates.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5F prepared/native Vortex lifecycle closeout
   - Date: 2026-05-25
   - Branch/PR: `runtime-vortex-lifecycle-5f` / #956.
@@ -53,10 +121,10 @@ phase plan first.
       superiority claims, Spark-displacement claims, external fallback execution, or standalone
       lifecycle/scale lanes.
   - Follow-up:
-    - Continue from remaining internal runtime owners in the live queue: `GAR-RUNTIME-IMPL-4D`
-      before `5G`, `4F/4F1` before `5D`, `4P` before `5M`, then remaining validator, object-store,
-      control-plane, effectful-operation, benchmark, Foundry, and release-usability gates before
-      user-surface backstops.
+    - Superseded by the current live queue ordering: adapter/ingest parity (`4F/4F1/5D`) before
+      local scale (`4P/5M`), then remaining validator, object-store, control-plane,
+      effectful-operation, expression/operator, benchmark, Foundry, and release-usability gates
+      before user-surface backstops.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4L/5I scoped CLI session-cache runtime and optimizer linkage
   - Date: 2026-05-25

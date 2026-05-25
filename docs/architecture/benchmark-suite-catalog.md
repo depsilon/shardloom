@@ -172,8 +172,10 @@ performance lane once operator coverage matures. Current native rows can still u
 ShardLoom operator paths unless their representation-transition, materialization/decode,
 provider-admission, and certificate evidence prove encoded/native execution.
 
-direct_compatibility_transient rows are small one-shot compatibility rows where explicit evidence
-exists and are not Vortex-native claims.
+direct_compatibility_transient rows are small one-shot local adapter compatibility rows where
+explicit evidence exists and are not Vortex-native claims. Current comparative harness coverage is
+limited to scoped CSV/JSONL and feature-gated Parquet/Arrow IPC/Avro/ORC selective-filter and
+filter/projection/limit smoke rows.
 
 External-engine rows remain benchmark baseline comparisons only. They cannot satisfy ShardLoom
 execution certificates, Native I/O certificates, Vortex-native claim gates, or no-fallback proof,

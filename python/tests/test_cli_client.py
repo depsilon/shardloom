@@ -5356,21 +5356,21 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "compute_row_local_vortex_count_external_engine_invoked", "value": "false"},
                         {"key": "compute_row_direct_compatibility_transient_surface", "value": "direct_compatibility_transient_query"},
                         {"key": "compute_row_direct_compatibility_transient_family", "value": "compatibility_transient"},
-                        {"key": "compute_row_direct_compatibility_transient_support_status", "value": "unsupported"},
+                        {"key": "compute_row_direct_compatibility_transient_support_status", "value": "fixture_certified"},
                         {"key": "compute_row_direct_compatibility_transient_engine_mode", "value": "batch"},
                         {"key": "compute_row_direct_compatibility_transient_execution_mode", "value": "direct_compatibility_transient"},
                         {"key": "compute_row_direct_compatibility_transient_provider_kind", "value": "shardloom_kernel"},
                         {"key": "compute_row_direct_compatibility_transient_semantic_profile", "value": "ShardLoomNative"},
-                        {"key": "compute_row_direct_compatibility_transient_materialization_decode_requirement", "value": "direct_transient_executor_missing"},
-                        {"key": "compute_row_direct_compatibility_transient_memory_spill_requirement", "value": "unsupported_until_transient_executor_exists"},
-                        {"key": "compute_row_direct_compatibility_transient_correctness_refs", "value": "none"},
-                        {"key": "compute_row_direct_compatibility_transient_benchmark_refs", "value": "none"},
-                        {"key": "compute_row_direct_compatibility_transient_execution_certificate_refs", "value": "none"},
-                        {"key": "compute_row_direct_compatibility_transient_native_io_refs", "value": "not_vortex_native"},
-                        {"key": "compute_row_direct_compatibility_transient_unsupported_diagnostic_code", "value": "SL_UNSUPPORTED_DIRECT_COMPATIBILITY_TRANSIENT"},
-                        {"key": "compute_row_direct_compatibility_transient_blocker_id", "value": "p75.direct_transient.executor_missing"},
-                        {"key": "compute_row_direct_compatibility_transient_required_future_evidence", "value": "shardloom_native_transient_executor,direct_mode_certificate"},
-                        {"key": "compute_row_direct_compatibility_transient_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "compute_row_direct_compatibility_transient_materialization_decode_requirement", "value": "direct_local_source_state_materialization_boundary_reported"},
+                        {"key": "compute_row_direct_compatibility_transient_memory_spill_requirement", "value": "bounded_local_direct_transient_no_spill_claim"},
+                        {"key": "compute_row_direct_compatibility_transient_correctness_refs", "value": "traditional_direct_transient_tests,benchmark_harness_direct_transient"},
+                        {"key": "compute_row_direct_compatibility_transient_benchmark_refs", "value": "direct_transient_csv_jsonl_structured_smoke_rows"},
+                        {"key": "compute_row_direct_compatibility_transient_execution_certificate_refs", "value": "traditional_analytics.direct_transient.runtime"},
+                        {"key": "compute_row_direct_compatibility_transient_native_io_refs", "value": "not_vortex_native; local SourceState Native I/O evidence only"},
+                        {"key": "compute_row_direct_compatibility_transient_unsupported_diagnostic_code", "value": "none"},
+                        {"key": "compute_row_direct_compatibility_transient_blocker_id", "value": "p75.direct_transient.not_vortex_native_claim"},
+                        {"key": "compute_row_direct_compatibility_transient_required_future_evidence", "value": "broader_operator_coverage,result_sink_replay,claim_grade_benchmark_rows"},
+                        {"key": "compute_row_direct_compatibility_transient_claim_gate_status", "value": "fixture_smoke_only"},
                         {"key": "compute_row_direct_compatibility_transient_vortex_native_claim_allowed", "value": "false"},
                         {"key": "compute_row_direct_compatibility_transient_fallback_attempted", "value": "false"},
                         {"key": "compute_row_direct_compatibility_transient_external_engine_invoked", "value": "false"},
@@ -5482,8 +5482,12 @@ class ShardLoomClientTests(unittest.TestCase):
             "direct_compatibility_transient",
         )
         self.assertEqual(
+            rows["direct_compatibility_transient"].support_status,
+            "fixture_certified",
+        )
+        self.assertEqual(
             rows["direct_compatibility_transient"].unsupported_diagnostic_code,
-            "SL_UNSUPPORTED_DIRECT_COMPATIBILITY_TRANSIENT",
+            "none",
         )
         self.assertFalse(rows["direct_compatibility_transient"].vortex_native_claim_allowed)
         self.assertEqual(rows["sql_frontend"].unsupported_diagnostic_code, "SL_UNSUPPORTED_SQL")

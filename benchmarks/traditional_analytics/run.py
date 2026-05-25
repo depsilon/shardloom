@@ -2723,10 +2723,6 @@ def shardloom_direct_transient_runner() -> EngineRunner:
     env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
 
     def run_scenario(scenario: str, paths: DatasetPaths, data_format: str) -> Any:
-        if data_format != "csv":
-            raise BenchmarkUnsupported(
-                "direct transient smoke currently supports CSV input only"
-            )
         if scenario not in {"selective filter", "filter + projection + limit"}:
             raise BenchmarkUnsupported(
                 "direct transient smoke currently supports only selective filter or filter + projection + limit"
@@ -2735,10 +2731,10 @@ def shardloom_direct_transient_runner() -> EngineRunner:
             str(binary),
             "traditional-analytics-run",
             scenario,
-            str(paths.fact_csv),
-            str(paths.dim_csv),
+            str(fact_path(paths, data_format)),
+            str(dim_path(paths, data_format)),
             "--input-format",
-            "csv",
+            data_format,
             "--execution-mode",
             "direct_compatibility_transient",
             "--format",
@@ -2774,7 +2770,7 @@ def shardloom_direct_transient_runner() -> EngineRunner:
             "mode_supported",
             "direct_transient_execution",
             "compatibility_source_adapter_used",
-            "csv_source_adapter_used",
+            direct_transient_source_adapter_flag(data_format),
             "materialization_boundary_report_emitted",
             "native_io_materializing_transitions_have_boundaries",
             "runtime_task_graph_created",
@@ -2812,6 +2808,35 @@ def shardloom_direct_transient_runner() -> EngineRunner:
                 "ShardLoom direct transient false evidence was unexpected: "
                 + ", ".join(unexpected_true)
             )
+        adapter_flags = {
+            "csv_source_adapter_used",
+            "jsonl_source_adapter_used",
+            "parquet_source_adapter_used",
+            "arrow_ipc_source_adapter_used",
+            "avro_source_adapter_used",
+            "orc_source_adapter_used",
+        }
+        unexpected_adapter_flags = sorted(
+            flag
+            for flag in adapter_flags
+            if flag != direct_transient_source_adapter_flag(data_format)
+            and fields.get(flag) == "true"
+        )
+        if unexpected_adapter_flags:
+            raise RuntimeError(
+                "ShardLoom direct transient selected multiple source adapters: "
+                + ", ".join(unexpected_adapter_flags)
+            )
+        if fields.get("source_format") != shardloom_source_format(data_format):
+            raise RuntimeError(
+                "ShardLoom direct transient source format was unexpected: "
+                + str(fields.get("source_format", "missing"))
+            )
+        if fields.get("source_adapter_id") != direct_transient_adapter_id(data_format):
+            raise RuntimeError(
+                "ShardLoom direct transient source adapter was unexpected: "
+                + str(fields.get("source_adapter_id", "missing"))
+            )
         if fields.get("support_status") != "supported":
             raise RuntimeError(
                 "ShardLoom direct transient support status was unexpected: "
@@ -2827,17 +2852,16 @@ def shardloom_direct_transient_runner() -> EngineRunner:
                 "ShardLoom direct transient Native I/O status was unexpected: "
                 + str(fields.get("native_io_certificate_status", "missing"))
             )
-        expected_refs = {
-            "selective filter": (
-                "benchmark://local_vortex_analytics_v1/direct_transient_csv_selective_filter",
-                "coverage.direct_compatibility_transient.local_csv_selective_filter",
-            ),
-            "filter + projection + limit": (
-                "benchmark://local_vortex_analytics_v1/direct_transient_csv_filter_projection_limit",
-                "coverage.direct_compatibility_transient.local_csv_filter_projection_limit",
-            ),
-        }
-        expected_benchmark_ref, expected_coverage_ref = expected_refs[scenario]
+        format_slug = shardloom_source_format(data_format)
+        scenario_ref = direct_transient_scenario_slug(scenario)
+        expected_benchmark_ref = (
+            "benchmark://local_vortex_analytics_v1/"
+            f"direct_transient_{format_slug}_{scenario_ref}"
+        )
+        expected_coverage_ref = (
+            "coverage.direct_compatibility_transient."
+            f"local_{format_slug}_{scenario_ref}"
+        )
         if fields.get("benchmark_row_ref") != expected_benchmark_ref:
             raise RuntimeError(
                 "ShardLoom direct transient benchmark row ref was unexpected: "
@@ -2867,7 +2891,7 @@ def shardloom_direct_transient_runner() -> EngineRunner:
                 "filter + projection + limit", paths, data_format
             ),
         },
-        formats=("csv",),
+        formats=FORMAT_ORDER,
         build_time_millis=SHARDLOOM_BUILD_TIMINGS.get(str(binary)),
     )
 
@@ -4541,6 +4565,24 @@ def shardloom_source_format(data_format: str) -> str:
     return "arrow_ipc" if data_format == "arrow-ipc" else data_format
 
 
+def direct_transient_scenario_slug(scenario: str) -> str:
+    if scenario == "selective filter":
+        return "selective_filter"
+    if scenario == "filter + projection + limit":
+        return "filter_projection_limit"
+    raise BenchmarkUnsupported(
+        "direct transient smoke currently supports only selective filter or filter + projection + limit"
+    )
+
+
+def direct_transient_source_adapter_flag(data_format: str) -> str:
+    return f"{shardloom_source_format(data_format)}_source_adapter_used"
+
+
+def direct_transient_adapter_id(data_format: str) -> str:
+    return f"shardloom.adapter.{shardloom_source_format(data_format)}.direct_transient.v1"
+
+
 def pyarrow_rows(batches: list[Any]) -> list[dict[str, Any]]:
     import pyarrow as pa  # type: ignore
 
@@ -6198,7 +6240,7 @@ def source_state_reuse_reason(engine: str, evidence: dict[str, Any], status: str
             )
         )
     if engine == "shardloom-direct-transient":
-        return "direct transient smoke reads one local compatibility source without reusable SourceState"
+        return "direct transient smoke reads one admitted local compatibility source without reusable SourceState"
     return "one-shot compatibility import records SourceState identity but does not reuse it"
 
 
@@ -8167,7 +8209,10 @@ def rows_materialized(value: Any) -> int:
 
 def materialization_policy(engine: str, data_format: str) -> str:
     if engine == "shardloom-direct-transient":
-        return "direct_transient_local_csv_no_vortex_persistence"
+        return (
+            "direct_transient_local_"
+            f"{shardloom_source_format(data_format)}_no_vortex_persistence"
+        )
     if engine == "shardloom-prepare-batch":
         return "single_process_compatibility_prepare_then_prepared_vortex_before_scenario_timing"
     if engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
@@ -8254,7 +8299,7 @@ def claim_grade_readiness(result: dict[str, Any]) -> dict[str, Any]:
             "claim_gate_status": "fixture_smoke_only",
             "claim_grade_requirements_met": False,
             "claim_grade_missing_evidence": [
-                "direct transient local CSV smoke is scoped and not Vortex-native"
+                "direct transient local adapter smoke is scoped and not Vortex-native"
             ],
         }
     if engine in (
@@ -9782,7 +9827,7 @@ def format_preparation_matrix(results: list[dict[str, Any]]) -> list[dict[str, A
         data_format = result["storage_format"]
         selected_mode = result.get("selected_execution_mode") or result.get("execution_mode")
         if result["engine"] == "shardloom-direct-transient":
-            row_scope = "direct_transient_local_csv_smoke"
+            row_scope = f"direct_transient_local_{shardloom_source_format(data_format)}_smoke"
         elif result["engine"] == "shardloom":
             row_scope = "compatibility_preparation_and_query"
         else:
@@ -11027,11 +11072,13 @@ def execution_mode_metadata(
         )
         reason = str(
             evidence.get("mode_selection_reason")
-            or "direct transient local CSV smoke without Vortex persistence"
+            or "direct transient local adapter smoke without Vortex persistence"
         )
         family = "compatibility"
         source_kind = "non_vortex_source"
-        source_adapter_id = f"{data_format}_input_adapter"
+        source_adapter_id = str(
+            evidence.get("source_adapter_id") or direct_transient_adapter_id(data_format)
+        )
         source_adapter_status = "smoke_supported"
         source_adapter_blocker_id = "none_scoped_smoke_only"
         ingress_route = "direct_transient"
@@ -13477,9 +13524,9 @@ def universal_io_lanes() -> list[dict[str, Any]]:
             "expected_report": "NativeIoCertificate plus encoded-count execution certificate",
         },
         {
-            "name": "Local CSV -> direct transient ShardLoom compute",
+            "name": "Local adapters -> direct transient ShardLoom compute",
             "status": "fixture_smoke_supported",
-            "reason": "The shardloom-direct-transient lane covers scoped local CSV selective-filter and filter + projection + limit smoke paths without Vortex write/reopen. It emits an execution certificate, materialization/decode evidence, and no-fallback fields, but it is not Vortex-native.",
+            "reason": "The shardloom-direct-transient lane covers scoped local CSV/JSONL and feature-gated Parquet/Arrow IPC/Avro/ORC selective-filter and filter + projection + limit smoke paths without Vortex write/reopen. It emits an execution certificate, materialization/decode evidence, per-format SourceState evidence, and no-fallback fields, but it is not Vortex-native.",
             "expected_report": "execution certificate, direct-transient coverage row, materialization/decode fields, and fallback_attempted=false",
         },
     ]
@@ -13548,7 +13595,7 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
         "status": "local_smoke_not_claim_grade",
         "rows": paths.rows,
         "dim_rows": paths.dim_rows,
-        "storage_format": "CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC where supported; ShardLoom compatibility rows import into local Vortex files; shardloom-vortex rows report prepared/native Vortex execution under the requested source-format rows; shardloom-prepare-batch rows run compatibility prepare plus prepared/native batch in one process with query timing split from preparation; shardloom-direct-transient is a scoped local CSV smoke lane without Vortex persistence",
+        "storage_format": "CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC where supported; ShardLoom compatibility rows import into local Vortex files; shardloom-vortex rows report prepared/native Vortex execution under the requested source-format rows; shardloom-prepare-batch rows run compatibility prepare plus prepared/native batch in one process with query timing split from preparation; shardloom-direct-transient is a scoped local adapter smoke lane without Vortex persistence",
         "benchmark_suite": BENCHMARK_SUITE,
         "scenario_catalog_schema": SCENARIO_CATALOG["schema_version"],
         "dataset_profile": args.dataset_profile,
@@ -14979,7 +15026,7 @@ def render_read_this_first(artifact: dict[str, Any]) -> str:
         "External baseline rows measure each engine's local compatibility-file paths where supported. Unsupported format rows are captured explicitly instead of blocking the report.",
         "ShardLoom rows use compatibility source adapters into local Vortex files, reopen those files through Vortex, scan Vortex arrays, and then run the temporary benchmark operators over Vortex-derived arrays.",
         "ShardLoom native/prepared Vortex rows are reported under the requested source-format rows, such as CSV or Parquet, with preparation metadata rather than standalone `.vortex` report rows.",
-        "ShardLoom direct-transient rows, when requested with `shardloom-direct-transient`, are scoped local CSV smoke rows without Vortex persistence and are never Vortex-native or performance-claim rows.",
+        "ShardLoom direct-transient rows, when requested with `shardloom-direct-transient`, are scoped local adapter smoke rows without Vortex persistence and are never Vortex-native or performance-claim rows.",
         "ShardLoom prepared Vortex rows start timing from prepared Vortex artifacts; they still use temporary benchmark operators and are not mature SQL/DataFrame/API evidence.",
         "Prepared/native rows carry operator_execution_class and operator_blocker_id so residual-native and materialized-temporary operators are not counted as encoded-native.",
         "Prepared/native selective-filter rows carry encoded_predicate_provider_* v4 blocker fields; Vortex scan filter pushdown and real flag,value reader chunks are not counted as an admitted encoded predicate provider until encoding-specific kernel-input lowering and certificates exist.",
@@ -17603,7 +17650,7 @@ def main() -> int:
             "Parquet, Arrow IPC, Avro, and ORC workloads use generated local files with engine-default read settings; they do not represent tuned lakehouse/table-format layouts.",
             "ShardLoom traditional rows include local compatibility-to-Vortex import and Vortex scan, but current temporary operators materialize Vortex-derived arrays instead of executing the full mature encoded SQL/operator surface.",
             "ShardLoom native/prepared Vortex rows are reported under requested source-format rows and exclude compatibility-to-Vortex setup from scenario timing; preparation timing and artifact refs are recorded separately.",
-            "ShardLoom direct-transient rows currently cover only scoped local CSV selective-filter and filter + projection + limit smoke paths and do not permit Vortex-native, SQL/DataFrame, or performance-superiority claims.",
+            "ShardLoom direct-transient rows currently cover scoped local CSV/JSONL plus feature-gated Parquet/Arrow IPC/Avro/ORC selective-filter and filter + projection + limit smoke paths and do not permit Vortex-native, SQL/DataFrame, or performance-superiority claims.",
             "ShardLoom native microbenchmark rows separately expose local Vortex scan filter/projection pushdown evidence; those rows are not a mature SQL/DataFrame/API benchmark surface.",
             "Dask performance is sensitive to partitioning and scheduler settings; this report records the selected blocksize and scheduler.",
             "Engine startup/warmup time is recorded separately from per-scenario timing. Spark profiles warm an isolated Spark session before their scenario rows and are closed before the next engine runs.",

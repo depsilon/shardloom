@@ -207,9 +207,11 @@ engine fallback is added.
 
 P7.5.4 completion update: `compute-capability-matrix` is mode-aware. Rows now expose
 `execution_mode`, `claim_gate_status`, and `vortex_native_claim_allowed`, and the matrix includes
-an explicit unsupported `direct_compatibility_transient` row with stable diagnostic
-`SL_UNSUPPORTED_DIRECT_COMPATIBILITY_TRANSIENT`, blocker `p75.direct_transient.executor_missing`,
-required future ShardLoom-native evidence, and no fallback/no external-engine evidence.
+an explicit `direct_compatibility_transient` row for scoped local adapter smoke paths. That row is
+fixture-certified, not Vortex-native or claim-grade; it carries residual-native/materialization
+boundary evidence, blocker `p75.direct_transient.not_vortex_native_claim`, required future evidence
+for broader operators/result replay/claim-grade benchmark rows, and no fallback/no external-engine
+evidence.
 
 P7.5.5 completion update: traditional analytics compatibility/native/prepared rows now expose
 provider-admission evidence. The local Vortex scan/source boundary is reported as the admitted

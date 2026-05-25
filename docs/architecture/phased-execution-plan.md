@@ -276,11 +276,13 @@ Runtime completion rule:
 #### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
 Current runtime ordering note (2026-05-25): prioritize engine-internal completion first. The
 `GAR-RUNTIME-IMPL-4I` scan/pushdown matrix, `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
-rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle, and
-`GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle are complete and recorded in the ledger.
-Continue from operator/expression coverage (`4D`/`5G`) into adapter/ingest parity, local scale,
-validator/mirror backstops, object-store and effectful-control gates, benchmark claim gates, final
-release usability, and only then user/surface backstops. Completed queue blocks have moved to
+rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
+`GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle, and the `GAR-RUNTIME-IMPL-4F/4F1/5D`
+local adapter/ingest parity closeout are complete and recorded in the ledger. Continue through
+local scale (`4P`/`5M`), claim validators and object-store/control-plane/effectful-operation gates
+(`5H`, `5K`, `4Q`/`5N`, `4R`/`5O`), then expression/operator closeout (`4D`/`5G`) as the last
+4-series runtime-family closeout before SQL/Python surface backstops, benchmark and Foundry gates,
+and release usability. Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
 
@@ -295,334 +297,6 @@ below. They are coverage-assurance backstops, not a second parallel runtime queu
 item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families
-  - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics,
-    `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: scoped SQL/Python local-source expression coverage has moved well past the first
-    predicate/projection leaves; detailed completed 4D slices live in
-    `docs/architecture/phased-execution-completed-ledger.md`. Scoped local-source computed
-    projections now also admit `SELECT *` plus computed/literal projection outputs, so Python
-    `read_csv(...)`, flat `read_json(...)`, and feature-gated flat scalar structured readers can
-    lower `with_column(...).filter(...).sort(...).limit(...)` without requiring an explicit
-    `select(...)`; computed-projection top-N now sorts projected rows by computed aliases and can
-    still sort by source columns when the source column is not projected. Scoped scalar/grouped
-    aggregate `HAVING` now evaluates admitted predicates over emitted aggregate output rows for
-    local-source SQL/Python and join-aggregate paths. Scoped local-source aggregate HAVING also
-    admits unprojected `COUNT(*)`, `COUNT(column)`, `COUNT(DISTINCT column)`, `SUM`, `AVG`, `MIN`,
-    and `MAX` aggregate functions as hidden HAVING-only evaluation columns, strips those columns
-    from user output, and keeps unsupported aggregate shapes or non-output source-column references
-    deterministically blocked. Scoped UTF-8 string predicates/projections now also admit composed
-    expression trees across `LOWER` / `UPPER` / `TRIM`, `CONCAT`, `SUBSTR` / `SUBSTRING`,
-    `LEFT` / `RIGHT`, `REPLACE`, and `LENGTH` for local-source SQL/Python paths while preserving
-    deterministic blockers for source-free or unsupported string expression shapes.
-    The remaining work is the parity gap
-    around broader non-UTF-8 non-numeric expression families, broader coercion/function coverage,
-    broader HAVING expression trees, interval/date-time and timezone-database semantics,
-    correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness beyond
-    the currently admitted leaves, and final SQL/Python ergonomics. Unsupported residual work must
-    continue to fail with deterministic no-fallback diagnostics.
-  - Closeout posture: this parent item remains open for the residual parity gaps above.
-    A future closeout PR must either implement those gaps or split each non-goal into separate
-    follow-on runtime items before marking `GAR-RUNTIME-IMPL-4D` complete.
-  - Next slice outcome: add one implementation PR per remaining expression family: remaining
-    non-numeric expression/function families, richer IN semantics only where evidence-backed,
-    timestamp/timezone helpers, interval/date-time completeness where admitted, and broader typed
-    coercions/functions.
-  - Runtime enablement: executable ShardLoom-native expression families or deterministic runtime
-    blockers for unsupported operators.
-  - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.
-  - Implementation scope: expression IR, type coercion policy, null semantics, parser lowering,
-    native evaluators, diagnostics.
-  - Vortex 0.71/0.72 opportunity mapping:
-    - Pluggable struct cast informs ShardLoom-native cast/coercion admission only after local
-      correctness tests and output evidence exist.
-    - Variant array and `VariantGet` inform nested/semi-structured expression blockers and later
-      scoped runtime support.
-    - `DType::Union` must remain explicit unsupported/runtime-blocked until union semantics,
-      nullability, schema reporting, and output evidence are implemented.
-    - Statistic expression support can inform metadata-first expression planning, but cannot become
-      a correctness or performance claim by itself.
-  - Evidence required: expression family, input/output dtype, null policy, cast status, decoded/
-    materialized flags, correctness digest, no-fallback fields.
-  - Acceptance: every admitted expression has fixture coverage and unsupported expressions report a
-    deterministic diagnostic.
-  - Verification: expression unit tests, SQL/Python smoke tests, unsupported snapshots, release
-    readiness metadata.
-  - Non-goals: no arbitrary UDFs, regex parity, timezone completeness, or ANSI SQL claim.
-  - Claim boundary: expression-family support per admitted dtype/operator.
-  - Fallback boundary: expression evaluation must remain ShardLoom-native.
-  - Dependencies/blockers: expression IR stability, dtype coercion policy, decoded-reference
-    fixtures, and SQL/Python lowering.
-  - Ledger rule: ledger entry must enumerate expression families, dtypes, and blockers.
-
-- [ ] GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage
-  - Source: `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4J`, RFC 0015, RFC 0016, RFC 0021.
-  - Current state: selected residual-native operators exist; broad type/null/string/date/decimal,
-    join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Initial encoded
-    registry pairs now execute for scoped bitpacked, sequence, constant, and dictionary Vortex
-    reader inputs, but this is still pair-level runtime evidence rather than broad operator/function
-    coverage. Scoped local-source
-    ranking, offset, and distribution window projections now cover `ROW_NUMBER()`, `RANK()`,
-    `DENSE_RANK()`, `LAG()`, `LEAD()`, `NTILE()`, `PERCENT_RANK()`, and `CUME_DIST()` with native
-    partition/order evaluation, peer-group tie semantics, offset lookups, bucket assignment, and
-    cumulative/percent rank evidence, but general window value functions, frames, encoded window
-    kernels, and
-    distributed/object-store window execution remain open. Scoped
-    `COUNT(DISTINCT column)` is runtime-admitted for local scalar and grouped aggregate rows with
-    `distinct_aggregate_*` evidence, SQL `NULL`-ignoring distinct-count semantics, Python
-    `sl.count_distinct(...)` aggregate lowering, deterministic blockers for unsupported
-    `DISTINCT` aggregate shapes such as `SUM(DISTINCT ...)` or `COUNT(DISTINCT *)`, and no external
-    fallback.
-  - Next slice outcome: promote operator families one at a time with decoded-reference correctness,
-    unsupported diagnostics, and encoded-kernel admission where available.
-  - Runtime enablement: ShardLoom-native operator/function execution coverage with deterministic
-    blockers for unsupported families.
-  - User-visible surface: CLI/Python/SQL/DataFrame workflows, benchmark rows, capability matrix.
-  - Implementation scope: expression IR, scalar/aggregate operators, join/window/top-k operators,
-    type coercion, null/string/date policy, encoded kernel registry, blockers.
-  - Evidence required: operator/function family, input/output schema, type/null policy, encoding id,
-    decoded/materialized flags, correctness digest, encoded-native claim flag, no-fallback fields.
-  - Acceptance: each supported operator family has success tests, edge-case tests, unsupported
-    diagnostics, and correctness evidence; unsupported encodings block deterministically.
-  - Verification: unit/property/correctness tests, fixture manifest checks, encoded-kernel tests,
-    benchmark smoke per family.
-  - Non-goals: no arbitrary UDFs, ANSI parity, blanket encoded-native claim, or performance claim.
-  - Claim boundary: operator/function/encoding-pair support only.
-  - Fallback boundary: external engines may be test oracles only, never runtime evaluators.
-  - Dependencies/blockers: semantic fixture corpus, expression registry, benchmark row schema,
-    decoded-reference harness.
-  - Ledger rule: ledger entry must list promoted families, type/null behavior, and blockers.
-
-- [ ] GAR-RUNTIME-IMPL-4F UniversalIngress local/non-Vortex adapter runtime coverage by format
-  - Source: `GAR-IOREUSE-1A`, universal compatibility scoreboard, local input adapter docs,
-    `docs/architecture/vortex-public-api-inventory.md`,
-    `docs/architecture/universal-ingress-route-taxonomy.md`.
-  - Current state: CSV is the strongest local smoke path; scoped flat JSONL/NDJSON and flat
-    top-level `.json` object/array local input are now runtime-admitted through
-    `sql-local-source-smoke` with SourceState-style evidence, route fields, content fingerprints,
-    schema digests, source-format-aware adapter IDs, and deterministic blockers for nested JSON
-    values. Feature-gated local flat scalar `.parquet`, `.arrow`, `.ipc`, `.feather`, `.avro`,
-    and `.orc` input is also runtime-admitted when `shardloom-cli` is built with
-    `--features universal-format-io`; default builds return deterministic Parquet, Arrow IPC,
-    Avro, or ORC adapter blockers. The Python
-    query-builder can lower local flat `.json`, `.jsonl`, `.ndjson`, and feature-gated
-    `.parquet`/Arrow IPC/Avro/ORC
-    projection/optional-filter/limit,
-    preview/select-star, scalar aggregate/optional-filter/limit with aliases, multi-key group-by
-    aggregate/optional-filter/limit plus post-aggregate HAVING over aggregate output rows or
-    admitted unprojected aggregate functions,
-    multi-key scalar top-N workflows, scoped local-source
-    join bridges covering inner, left/right/full outer, left semi/anti, and cross joins,
-    computed projections and multi-key scalar
-    top-N over joined rows, and scalar/grouped join aggregates with optional post-aggregate HAVING
-    into that runtime path.
-    Local-source evidence labels for CSV versus JSON versus JSONL/NDJSON versus admitted
-    Parquet/Arrow IPC/Avro/ORC
-    source certificate refs, execution certificate refs, materialization boundaries, pushdown status,
-    adapter status, route status, and claim reasons are source-format-aware. Direct transient SQL
-    reads now derive a local SourceState read plan from parsed projections, predicates, aggregates,
-    group-by, top-N, computed projections, and IN-subquery source columns; reports emit
-    `shardloom.local_source_state.v1`, local adapter-registry version, requested/materialized
-    columns, reader projection columns, pruning status, projection-pushdown status,
-    parse-normalization family, and scalar-row materialization layout. Feature-gated
-    Parquet/Arrow IPC/Avro/ORC adapters now apply reader-level projection before scalar-row
-    conversion for required-column read plans; Avro `COUNT(*)` uses a one-column row-count anchor
-    because the Arrow Avro reader does not emit zero-column record batches. The feature-gated
-    `vortex_ingest` prepare-once path now preserves flat scalar Parquet/Arrow IPC/Avro/ORC inputs
-    as Arrow `RecordBatch` columnar SourceState when both `vortex-write` and
-    `universal-format-io` are enabled, emits columnar-preservation, record-batch,
-    source-to-columnar, and Vortex array-build evidence, and still falls back to scalar paths only
-    where scalar rows are the admitted representation. Feature-gated direct-transient
-    `sql-local-source-smoke` structured readers now carry the same columnar SourceState boundary
-    through reader projection and disclose the explicit scalar-row expression-runtime consumption
-    boundary with format-neutral SQL/Python runtime scope, `format_specific_compute_path=false`,
-    `source_state_columnar_preserved`, record-batch count, source-to-columnar timing, runtime
-    consumption layout, and scalar materialization-required evidence. The local runtime now routes
-    SQL direct reads, joins, IN-subquery sources, and feature-gated `vortex_ingest` structured
-    ingress through one path-extension `LocalInputAdapterSelection` registry instead of parallel
-    per-call format checks; reports emit `source_format_inferred`,
-    `source_format_inference_kind=path_extension`, `source_format_inference_extension`,
-    `source_format_inference_registry_route`, `source_adapter_registry_entry_id`,
-    `source_adapter_admitted_extensions`, `source_adapter_feature_gate`,
-    `source_adapter_boundary`, and `source_adapter_selection_reason` evidence. `.ndjson`
-    inference is tested as JSONL adapter selection, and unregistered extensions block before file
-    reads with admitted-extension diagnostics and no-fallback evidence. The traditional analytics
-    `direct_compatibility_transient` path now uses the same local read/adapter evidence boundary
-    for CSV, JSONL/NDJSON, and feature-gated Parquet/Arrow IPC/Avro/ORC inputs instead of a
-    CSV-only island; reports expose per-format direct-transient adapter IDs, SourceState
-    parse/columnar timing, record-batch preservation evidence for columnar inputs, dynamic
-    certificate/benchmark/coverage refs, and unchanged no-persistence/no-fallback execution
-    evidence. The scoped `vortex_ingest` prepare-once route now has runtime tests for CSV, JSON,
-    JSONL, NDJSON, Parquet, Arrow IPC, Avro, and ORC adapter selection; text formats enter through
-    scalar SourceState, feature-gated structured formats preserve Arrow `RecordBatch` SourceState
-    through Vortex array build, and both scalar and columnar `vortex_ingest` admit non-null boolean
-    columns in addition to int64/uint64/float64/UTF-8/date32/timestamp values.
-    Nested/general JSON, broader Parquet/Arrow IPC/Avro/ORC type/nesting and output coverage does
-    not all have ordinary user-facing SourceState runtime parity.
-  - Next slice outcome: close the source/adapter/ingest section as one coherent bundle rather than
-    as one-format increments: UniversalIngress/InputAdapter registry coverage, SourceState evidence,
-    `vortex_ingest_status`, certified route status, deterministic blockers for unsupported
-    formats/features, typed report accessors, capability/status rows, taxonomy rows, and
-    cross-format runtime tests should move together. Keep engine/runtime completion ahead of final
-    user-surface cleanup: the format-neutral Python `read(path)` surface is a thin layer over this
-    registry, while remaining format-specific work stays confined to read/ingest and write/sink
-    boundaries. The next optimization step after section closeout is extending columnar
-    SourceState reuse from the prepare-once route into repeated prepared workflows and benchmark
-    rows without adding a hidden Arrow-default execution model. Recent join/operator slices should
-    keep using the same local-source admission universe instead of creating CSV-only islands unless
-    a format has a deterministic blocker.
-  - Runtime enablement: admitted local input adapters that create reusable SourceState evidence for
-    actual user reads and can feed `vortex_ingest` into `VortexPreparedState` when preparation is
-    admitted.
-  - User-visible surface: CLI/Python `read(path)` and explicit read aliases, use cases,
-    capability/status matrix, benchmark source-format rows.
-  - Implementation scope: format detection, local reader, schema/dtype inference, fingerprinting,
-    SourceState digest, decode/materialization evidence.
-  - Vortex 0.71/0.72 opportunity mapping:
-    - Pluggable Arrow input kernel registry is a candidate adapter boundary, not a default
-      decode-to-Arrow execution path.
-    - `DType::Union`, Variant, and extension dtype metadata fixes should feed schema/dtype
-      diagnostics and SourceState schema reporting before any runtime admission.
-    - Arrow-to-Vortex C FFI conversion remains blocked for current Rust local runtime and belongs
-      to future ABI/interoperability review only.
-  - Evidence required: source format/location/fingerprint, source adapter status/blocker, schema
-    digest, SourceState id/digest, `vortex_ingest_status`, `compatibility_import_certified_status`,
-    row count/file count/bytes, decode/materialization status, no-fallback fields.
-  - Acceptance: each listed format is either runnable with evidence or blocked with actionable
-    diagnostics; adapter support never implies Vortex-native execution and `prepared_vortex` never
-    accepts the non-Vortex source directly.
-  - Verification: per-format smoke tests, schema snapshot tests, unsupported diagnostics,
-    benchmark harness contract tests.
-  - Non-goals: no object-store, database, table/lakehouse, or universal adapter claim.
-  - Claim boundary: local file support per admitted format and feature subset.
-  - Fallback boundary: no external engine may parse, plan, or execute input workloads.
-  - Dependencies/blockers: reader dependency/license approval, source fixtures, schema inference
-    coverage, and SourceState schema fields.
-  - Ledger rule: ledger entry must include the per-format support table.
-
-- [ ] GAR-RUNTIME-IMPL-4F1 compatibility import certified optimization and `vortex_ingest`
-      attribution
-  - Source: review of `compatibility_import_certified` bottlenecks, `traditional-analytics-run`,
-    `shardloom-cli/src/vortex_ingest.rs`, benchmark timing evidence,
-    `GAR-RUNTIME-IMPL-4F`, `GAR-RUNTIME-IMPL-4K`, and `GAR-RUNTIME-IMPL-4M`.
-  - Current state: `compatibility_import_certified` is the certified cold ingest/stage route,
-    feature-gated `vortex_ingest` creates scoped local `VortexPreparedState` artifacts, and local
-    prepared/native benchmark rows can reuse those artifacts without treating preparation time as
-    warm-query timing. The active CLI/Python surface includes
-    `traditional-analytics-prepare-batch-run`,
-    `ShardLoomClient.traditional_analytics_prepare_batch_run(...)`,
-    `ShardLoomClient.prepare_and_run_traditional_analytics_vortex_batch(...)`, and the
-    `shardloom-prepare-batch` comparative-harness lane, which prepare local compatibility inputs
-    once and run a prepared Vortex scenario batch in the same process with explicit preparation,
-    query, reuse, no-fallback, and claim-boundary evidence.
-  - Remaining gap: the local source/adapter/ingest routes now share adapter-registry evidence for
-    text and feature-gated structured local formats across direct transient, SQL local-source, and
-    `vortex_ingest`; remaining optimization belongs to carrying reusable columnar SourceState deeper
-    into operator execution, generated/admitted local-source workflows, prepared-state/session reuse,
-    and benchmark rows. The prepare-once route is local/scoped evidence only; it is not a persistent
-    cache, object-store/table workflow, SQL/DataFrame production runtime, performance claim, or
-    package-readiness claim.
-  - Next slice outcome: finish the source/adapter/ingest closeout bundle by carrying the shared
-    adapter-registry and SourceState evidence through direct-transient, generated/admitted local
-    source, and `vortex_ingest` paths in one PR, then leave deeper session/benchmark reuse as the
-    next section only after the ingest/adapter section has runtime tests and status evidence.
-  - Runtime enablement: certified ingest/stage execution remains supported, and repeated local
-    benchmark/workflow commands can certify or prepare once and then run `prepared_vortex` from
-    `VortexPreparedState`.
-  - User-visible surface: benchmark rows, CLI JSON evidence, Python typed reports, website
-    benchmark interpretation, compute-flow docs.
-  - Implementation scope: `traditional-analytics-run`, `vortex_ingest` evidence, benchmark harness
-    row schema, website benchmark rendering, Python report surfaces, contract tests.
-  - Evidence required: exclusive `source_stat_millis`, `source_read_millis`,
-    `source_parse_millis`, `source_to_columnar_millis`, `vortex_array_build_millis`,
-    `vortex_write_millis`, `vortex_digest_millis`, `vortex_reopen_verify_millis`,
-    `vortex_scan_millis`, `operator_compute_millis`, `result_sink_write_millis`,
-    `evidence_render_millis`, `total_runtime_millis`, `timing_scope`,
-    `preparation_included`, `query_timing_starts_after_preparation`, `certification_level`,
-    `source_state_id`, `source_state_digest`, `source_state_materialization_layout`,
-    `source_state_parse_normalization`, `source_state_columnar_preserved`,
-    `source_state_record_batch_count`, `prepared_state_id`, `prepared_state_digest`,
-    `vortex_array_build_provider_kind`, `vortex_array_build_provider_surface`,
-    `vortex_array_build_strategy`, `vortex_array_build_input_layout`,
-    `vortex_array_build_record_batch_count`,
-    `vortex_array_build_manual_scalar_copy_avoided`,
-    `prepared_state_created`, `prepared_state_reused`, `prepared_state_reuse_hit`,
-    `invalidation_reason`, `source_fingerprint_kind`, `source_content_digest`, `schema_digest`,
-    `plan_digest`, `fallback_attempted=false`, `external_engine_invoked=false`, and
-    `claim_gate_status`.
-  - Acceptance: `compatibility_import_certified` rows disclose `timing_scope=
-    cold_certified_end_to_end`, `preparation_included=true`, and certification depth; legacy
-    cumulative fields are either replaced with exclusive fields or explicitly marked as cumulative;
-    `prepared_vortex` rows reference `VortexPreparedState` and do not perform `vortex_ingest` inside
-    warm-query timing; `ingest_minimal` cannot become claim-grade; `ingest_full_replay` requires
-    replay/output evidence; unsupported format/features emit deterministic blockers. Remaining
-    optimization work must not remove compatibility certification, weaken no-fallback fields, or
-    present attribution-only changes as performance improvements.
-  - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
-    `cargo test -p shardloom-contract-tests --test release_readiness_metadata`, focused
-    `vortex_ingest` tests, Python report tests, website readiness, benchmark artifact completeness,
-    `git diff --check`.
-  - Non-goals: do not remove `compatibility_import_certified`; do not make it the default speed
-    route; do not claim performance improvement without fresh evidence; do not add object-store,
-    table/lakehouse, Foundry production, broad SQL/DataFrame, or package-publication support.
-  - Claim boundary: route/timing/evidence optimization only; performance and superiority claims
-    remain blocked until fresh workload-scoped claim-grade evidence exists.
-  - Fallback boundary: no source parse, Vortex ingest, certification, replay, or prepared query may
-    use pandas, Polars, DuckDB, DataFusion, Spark, Dask, Ray, databases, warehouses, or managed
-    platforms as fallback execution.
-  - Dependencies/blockers: stable `vortex_ingest` lifecycle, SourceState/VortexPreparedState
-    digests, OutputPlan separation, certification-depth policy, and benchmark renderer support.
-  - Ledger rule: ledger entry must include the timing field contract, certification levels, reuse
-    fields, unsupported blockers, and any measured artifact refs; do not mark complete from docs
-    alone.
-
-- [ ] GAR-RUNTIME-IMPL-5D local input adapter runtime parity
-  - Source: `GAR-RUNTIME-IMPL-4F`, `GAR-IOREUSE-1A`, universal compatibility scoreboard.
-  - Current state: local CSV plus scoped flat JSONL/NDJSON, flat top-level `.json`, and
-    feature-gated flat scalar `.parquet`/Arrow IPC/Avro/ORC local SQL
-    smokes exist, the Python query-builder now bridges local CSV, flat JSON/JSONL/NDJSON, and
-    feature-gated flat scalar Parquet/Arrow IPC/Avro/ORC
-    projection/optional-filter/limit,
-    preview/select-star, scalar-aggregate/optional-filter/limit with aliases, multi-key group-by
-    aggregate/optional-filter/limit, multi-key scalar top-N workflows, aggregate-output top-N
-    workflows, post-aggregate HAVING over aggregate output rows or admitted unprojected aggregate
-    functions, joined computed projection/top-N
-    workflows, scalar/grouped join aggregates with optional HAVING, and local-source
-    evidence labels are source-format-aware for CSV versus JSON versus JSONL/NDJSON versus admitted
-    Parquet/Arrow IPC/Avro/ORC rows. Traditional analytics direct-transient smokes now admit CSV,
-    JSONL/NDJSON, and feature-gated Parquet/Arrow IPC/Avro/ORC through the shared local adapter
-    boundary with per-format SourceState evidence and dynamic no-fallback certificates, while
-    keeping compute logic format-neutral after read/ingest. The scoped `vortex_ingest`
-    prepare-once route has runtime coverage for CSV, JSON, JSONL, NDJSON, Parquet, Arrow IPC,
-    Avro, and ORC, including boolean columns, adapter-registry evidence, and columnar SourceState
-    preservation for structured formats. Nested JSON/JSONPath, broader
-    Parquet/Arrow IPC/Avro/ORC type/nesting coverage,
-    Excel, database files, and unsupported formats are
-    not uniformly represented by runtime SourceState adapters.
-  - Next slice outcome: close the local input adapter parity section as a cross-format runtime
-    bundle: every admitted local file format should use the same SourceState adapter registry,
-    deterministic unsupported-format blockers, typed evidence fields, CLI/Python smoke coverage,
-    and status/taxonomy rows.
-  - Runtime enablement: local SourceState adapter runtime for admitted file formats and explicit
-    blockers for unsupported formats.
-  - User-visible surface: CLI/Python `read(path)` and explicit read aliases, capability/status
-    views, benchmark rows, use cases.
-  - Implementation scope: adapter registry, format detection, schema/dtype inference, fingerprints,
-    row-count posture, parse/decode planning, diagnostics.
-  - Evidence required: source format/location/fingerprint, SourceState id/digest, schema digest,
-    row-count posture, parse/decode/materialization fields, Native I/O certificate posture,
-    no-fallback fields.
-  - Acceptance: each admitted local format can run at least one certified local workload or explicit
-    smoke; unsupported formats produce blockers instead of silent fallback.
-  - Verification: adapter snapshot tests, CLI/Python smoke per admitted format, unsupported format
-    snapshots, benchmark row contract tests.
-  - Non-goals: no object-store, database server, table/lakehouse, or universal adapter claim.
-  - Claim boundary: local file adapter support per admitted format only.
-  - Fallback boundary: adapters cannot use external engines to parse, plan, or execute user work.
-  - Dependencies/blockers: dependency/license review, fixture data, SourceState schema, output
-    correctness checks.
-  - Ledger rule: ledger entry must list admitted formats, evidence refs, and unsupported formats.
 
 - [ ] GAR-RUNTIME-IMPL-4P scale-grade local split, memory, spill, shuffle, and retry runtime
   - Source: `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017,
@@ -888,6 +562,104 @@ validators, docs/website parity, and a completed-ledger entry.
   - Dependencies/blockers: sandbox/security review, manifest schema, credential/effect policy,
     fixture data, dependency/license review.
   - Ledger rule: ledger entry must separate admitted local behaviors from denied effects.
+
+- [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families
+  - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics,
+    `docs/architecture/vortex-public-api-inventory.md`.
+  - Current state: scoped SQL/Python local-source expression coverage has moved well past the first
+    predicate/projection leaves; detailed completed 4D slices live in
+    `docs/architecture/phased-execution-completed-ledger.md`. Scoped local-source computed
+    projections now also admit `SELECT *` plus computed/literal projection outputs, so Python
+    `read_csv(...)`, flat `read_json(...)`, and feature-gated flat scalar structured readers can
+    lower `with_column(...).filter(...).sort(...).limit(...)` without requiring an explicit
+    `select(...)`; computed-projection top-N now sorts projected rows by computed aliases and can
+    still sort by source columns when the source column is not projected. Scoped scalar/grouped
+    aggregate `HAVING` now evaluates admitted predicates over emitted aggregate output rows for
+    local-source SQL/Python and join-aggregate paths. Scoped local-source aggregate HAVING also
+    admits unprojected `COUNT(*)`, `COUNT(column)`, `COUNT(DISTINCT column)`, `SUM`, `AVG`, `MIN`,
+    and `MAX` aggregate functions as hidden HAVING-only evaluation columns, strips those columns
+    from user output, and keeps unsupported aggregate shapes or non-output source-column references
+    deterministically blocked. Scoped UTF-8 string predicates/projections now also admit composed
+    expression trees across `LOWER` / `UPPER` / `TRIM`, `CONCAT`, `SUBSTR` / `SUBSTRING`,
+    `LEFT` / `RIGHT`, `REPLACE`, and `LENGTH` for local-source SQL/Python paths while preserving
+    deterministic blockers for source-free or unsupported string expression shapes.
+    The remaining work is the parity gap
+    around broader non-UTF-8 non-numeric expression families, broader coercion/function coverage,
+    broader HAVING expression trees, interval/date-time and timezone-database semantics,
+    correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness beyond
+    the currently admitted leaves, and final SQL/Python ergonomics. Unsupported residual work must
+    continue to fail with deterministic no-fallback diagnostics.
+  - Closeout posture: this parent item remains open for the residual parity gaps above.
+    A future closeout PR must either implement those gaps or split each non-goal into separate
+    follow-on runtime items before marking `GAR-RUNTIME-IMPL-4D` complete.
+  - Next slice outcome: add one implementation PR per remaining expression family: remaining
+    non-numeric expression/function families, richer IN semantics only where evidence-backed,
+    timestamp/timezone helpers, interval/date-time completeness where admitted, and broader typed
+    coercions/functions.
+  - Runtime enablement: executable ShardLoom-native expression families or deterministic runtime
+    blockers for unsupported operators.
+  - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.
+  - Implementation scope: expression IR, type coercion policy, null semantics, parser lowering,
+    native evaluators, diagnostics.
+  - Vortex 0.71/0.72 opportunity mapping:
+    - Pluggable struct cast informs ShardLoom-native cast/coercion admission only after local
+      correctness tests and output evidence exist.
+    - Variant array and `VariantGet` inform nested/semi-structured expression blockers and later
+      scoped runtime support.
+    - `DType::Union` must remain explicit unsupported/runtime-blocked until union semantics,
+      nullability, schema reporting, and output evidence are implemented.
+    - Statistic expression support can inform metadata-first expression planning, but cannot become
+      a correctness or performance claim by itself.
+  - Evidence required: expression family, input/output dtype, null policy, cast status, decoded/
+    materialized flags, correctness digest, no-fallback fields.
+  - Acceptance: every admitted expression has fixture coverage and unsupported expressions report a
+    deterministic diagnostic.
+  - Verification: expression unit tests, SQL/Python smoke tests, unsupported snapshots, release
+    readiness metadata.
+  - Non-goals: no arbitrary UDFs, regex parity, timezone completeness, or ANSI SQL claim.
+  - Claim boundary: expression-family support per admitted dtype/operator.
+  - Fallback boundary: expression evaluation must remain ShardLoom-native.
+  - Dependencies/blockers: expression IR stability, dtype coercion policy, decoded-reference
+    fixtures, and SQL/Python lowering.
+  - Ledger rule: ledger entry must enumerate expression families, dtypes, and blockers.
+
+- [ ] GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage
+  - Source: `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4J`, RFC 0015, RFC 0016, RFC 0021.
+  - Current state: selected residual-native operators exist; broad type/null/string/date/decimal,
+    join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Initial encoded
+    registry pairs now execute for scoped bitpacked, sequence, constant, and dictionary Vortex
+    reader inputs, but this is still pair-level runtime evidence rather than broad operator/function
+    coverage. Scoped local-source
+    ranking, offset, and distribution window projections now cover `ROW_NUMBER()`, `RANK()`,
+    `DENSE_RANK()`, `LAG()`, `LEAD()`, `NTILE()`, `PERCENT_RANK()`, and `CUME_DIST()` with native
+    partition/order evaluation, peer-group tie semantics, offset lookups, bucket assignment, and
+    cumulative/percent rank evidence, but general window value functions, frames, encoded window
+    kernels, and
+    distributed/object-store window execution remain open. Scoped
+    `COUNT(DISTINCT column)` is runtime-admitted for local scalar and grouped aggregate rows with
+    `distinct_aggregate_*` evidence, SQL `NULL`-ignoring distinct-count semantics, Python
+    `sl.count_distinct(...)` aggregate lowering, deterministic blockers for unsupported
+    `DISTINCT` aggregate shapes such as `SUM(DISTINCT ...)` or `COUNT(DISTINCT *)`, and no external
+    fallback.
+  - Next slice outcome: promote operator families one at a time with decoded-reference correctness,
+    unsupported diagnostics, and encoded-kernel admission where available.
+  - Runtime enablement: ShardLoom-native operator/function execution coverage with deterministic
+    blockers for unsupported families.
+  - User-visible surface: CLI/Python/SQL/DataFrame workflows, benchmark rows, capability matrix.
+  - Implementation scope: expression IR, scalar/aggregate operators, join/window/top-k operators,
+    type coercion, null/string/date policy, encoded kernel registry, blockers.
+  - Evidence required: operator/function family, input/output schema, type/null policy, encoding id,
+    decoded/materialized flags, correctness digest, encoded-native claim flag, no-fallback fields.
+  - Acceptance: each supported operator family has success tests, edge-case tests, unsupported
+    diagnostics, and correctness evidence; unsupported encodings block deterministically.
+  - Verification: unit/property/correctness tests, fixture manifest checks, encoded-kernel tests,
+    benchmark smoke per family.
+  - Non-goals: no arbitrary UDFs, ANSI parity, blanket encoded-native claim, or performance claim.
+  - Claim boundary: operator/function/encoding-pair support only.
+  - Fallback boundary: external engines may be test oracles only, never runtime evaluators.
+  - Dependencies/blockers: semantic fixture corpus, expression registry, benchmark row schema,
+    decoded-reference harness.
+  - Ledger rule: ledger entry must list promoted families, type/null behavior, and blockers.
 
 - [ ] GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder
   - Source: `GAR-RUNTIME-IMPL-4B`, `GAR-RUNTIME-IMPL-4C`, `GAR-RUNTIME-IMPL-4D`, RFC 0032.

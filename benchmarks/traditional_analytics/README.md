@@ -6,7 +6,7 @@ external comparison engines:
 - ShardLoom
 - ShardLoom native Vortex
 - ShardLoom prepared Vortex
-- ShardLoom direct transient CSV smoke
+- ShardLoom direct transient local-adapter smoke
 - pandas
 - Polars eager
 - Polars lazy
@@ -67,10 +67,11 @@ or Parquet. The optional `shardloom-prepare-batch` lane runs the scoped
 compatibility prepare plus prepared/native batch route in one ShardLoom process and
 keeps preparation timing split from child query timing. These lanes do not add
 standalone `.vortex` report rows.
-The optional `shardloom-direct-transient` lane runs only the scoped local CSV
-`selective filter` and `filter + projection + limit` smoke paths without persistent Vortex
-write/reopen. It exists to prove direct transient admission and evidence shape; it is not a
-Vortex-native, SQL/DataFrame, or performance-claim lane.
+The optional `shardloom-direct-transient` lane runs scoped local CSV/JSONL and feature-gated
+Parquet/Arrow IPC/Avro/ORC `selective filter` and `filter + projection + limit` smoke paths
+without persistent Vortex write/reopen. It exists to prove direct transient admission, shared
+adapter evidence, and evidence shape; it is not a Vortex-native, SQL/DataFrame, or
+performance-claim lane.
 Native Vortex rows start from prepared/existing Vortex artifacts, but they may still use temporary
 ShardLoom operator paths unless the row's evidence proves encoded/native execution. External-engine
 rows are baseline comparisons only and never execute unsupported ShardLoom work as fallback.
@@ -352,20 +353,20 @@ upgrade correctness, output, performance, or production claims.
 The scoped direct-transient lane can be run explicitly:
 
 ```powershell
-benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom-direct-transient,pandas --formats csv --scenario "selective filter" --rows 10000 --iterations 1
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom-direct-transient,pandas --formats csv,jsonl --scenario "selective filter" --rows 10000 --iterations 1
 ```
 
-For the second admitted direct-transient CSV smoke path, use:
+For the second admitted direct-transient local-adapter smoke path, use:
 
 ```powershell
-benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom-direct-transient,pandas --formats csv --scenario "filter + projection + limit" --rows 10000 --iterations 1
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --engines shardloom-direct-transient,pandas --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "filter + projection + limit" --rows 10000 --iterations 1
 ```
 
 That lane reports `execution_mode=direct_compatibility_transient`,
 `direct_transient_execution=true`, `vortex_file_written=false`, `vortex_file_read=false`,
 `upstream_vortex_scan_called=false`, `runtime_execution_certificate_status=certified`, and
-`vortex_native_claim_allowed=false`. Adjacent formats, broader operators, result sinks, replay
-paths, and SQL/DataFrame access remain unsupported unless later phase-plan slices add evidence.
+`vortex_native_claim_allowed=false`. Broader operators, result sinks, replay paths, and
+SQL/DataFrame access remain unsupported unless later phase-plan slices add evidence.
 
 Prepared/native rows also expose provider-admission evidence. The current local Vortex file
 scan/source boundary is admitted as the Vortex-native provider surface; residual scenario operators
@@ -764,7 +765,7 @@ Execution modes are explicit:
 - `compatibility_import_certified`: compatibility source adapter -> Vortex import -> write/reopen -> compute -> optional result sink/evidence.
 - `prepared_vortex`: one-time compatibility import per dataset/profile/format, then scenario timing from prepared Vortex artifacts.
 - `native_vortex`: existing `.vortex` input -> Vortex-native scan/operator path.
-- `direct_compatibility_transient`: scoped local CSV one-shot compatibility compute where evidence exists, otherwise deterministic unsupported; not a Vortex-native claim.
+- `direct_compatibility_transient`: scoped local adapter one-shot compatibility compute where evidence exists, otherwise deterministic unsupported; not a Vortex-native claim.
 - `auto`: transparent selection only; the selected mode and reason must be reported.
 
 The JSON artifact and Markdown report include

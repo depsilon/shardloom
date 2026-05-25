@@ -276,8 +276,13 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("def shardloom_direct_transient_runner("));
     assert!(script.contains("\"shardloom-direct-transient\""));
     assert!(script.contains("\"filter + projection + limit\": lambda paths, data_format"));
-    assert!(script.contains("\"direct_transient_local_csv_smoke\""));
-    assert!(script.contains("direct_transient_csv_filter_projection_limit"));
+    assert!(script.contains("def direct_transient_scenario_slug("));
+    assert!(script.contains("def direct_transient_adapter_id("));
+    assert!(script.contains("formats=FORMAT_ORDER"));
+    assert!(script.contains("f\"direct_transient_{format_slug}_{scenario_ref}\""));
+    assert!(
+        script.contains("f\"direct_transient_local_{shardloom_source_format(data_format)}_smoke\"")
+    );
     assert!(script.contains("\"direct_transient_no_vortex_scan\""));
     assert!(script.contains("\"direct_compatibility_transient\""));
     assert!(script.contains("\"direct_compatibility_transient_not_implemented\""));
