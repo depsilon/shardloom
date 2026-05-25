@@ -103,10 +103,14 @@ evidence only. It is not split-parallel runtime, distributed execution, larger-t
 object-store execution, table execution, or performance evidence.
 
 Prepared/native Vortex batch rows additionally expose
-`prepared_vortex_scale_split_manifest_*` child fields and `prepare_batch_scale_*` rollups. Those
-fields are emitted inside `traditional-analytics-prepare-batch-run` from real prepared Vortex file
-bytes and reader chunks, and must report `prepared_vortex_scale_no_standalone_lane=true`. They do
-not replace the claim-gated SplitManifest contract fields below or imply split-parallel runtime.
+`prepared_vortex_scale_split_manifest_*`, `prepared_vortex_scale_split_runtime_*`, and
+`prepare_batch_scale_*` rollups. Those fields are emitted inside
+`traditional-analytics-prepare-batch-run` from real prepared Vortex file bytes and reader chunks,
+must report `prepared_vortex_scale_no_standalone_lane=true`, and now certify a bounded local
+reader-chunk scheduler with `prepared_vortex_scale_split_runtime_status` and
+`prepared_vortex_scale_split_execution_certificate_status`. They do not replace the claim-gated
+SplitManifest contract fields below or imply claim-grade split-parallel operator runtime,
+larger-than-memory runtime, object-store execution, distributed execution, or performance evidence.
 
 ShardLoom SplitManifest rows carry:
 
@@ -138,7 +142,8 @@ split_claim_gate_status=not_split_scale_grade
 split_claim_boundary
 ```
 
-For `GAR-SCALE-1B`, runtime split execution remains blocked. Rows must keep:
+For `GAR-SCALE-1B`, claim-grade split-parallel runtime remains blocked. Generic SplitManifest rows
+must keep:
 
 ```text
 split_claim_gate_status=not_split_scale_grade
@@ -514,7 +519,7 @@ A row is not scale-grade when any required proof is missing:
 
 - no declared memory budget,
 - no larger-than-memory input proof,
-- no split manifest proof,
+- no split-parallel runtime proof,
 - no spill/backpressure proof,
 - no shuffle/repartition proof where required,
 - no object-store/table runtime proof,
@@ -530,7 +535,7 @@ evidence.
 This slice does not add:
 
 - larger-than-memory runtime,
-- split-parallel runtime,
+- claim-grade split-parallel runtime,
 - spill runtime,
 - object-store or table runtime,
 - distributed runtime,

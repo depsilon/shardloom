@@ -3204,6 +3204,22 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 + scenario
             )
         if (
+            fields.get("prepared_vortex_scale_split_runtime_status")
+            != "scheduled_reader_chunk_execution_completed"
+        ):
+            raise RuntimeError(
+                "ShardLoom batch local scale evidence did not execute scheduled reader chunks for "
+                + scenario
+            )
+        if (
+            fields.get("prepared_vortex_scale_split_execution_certificate_status")
+            != "certified"
+        ):
+            raise RuntimeError(
+                "ShardLoom batch local split runtime certificate was not certified for "
+                + scenario
+            )
+        if (
             fields.get("native_io_certificate_path_id")
             != "native_vortex_source_to_native_runtime_result"
         ):
@@ -3327,6 +3343,27 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "prepare_batch_scale_retry_count": batch_fields.get(
                     "prepare_batch_scale_retry_count", "unknown"
                 ),
+                "prepare_batch_scale_split_runtime_status": batch_fields.get(
+                    "prepare_batch_scale_split_runtime_status", "unknown"
+                ),
+                "prepare_batch_scale_split_scheduled_task_count": batch_fields.get(
+                    "prepare_batch_scale_split_scheduled_task_count", "unknown"
+                ),
+                "prepare_batch_scale_split_completed_task_count": batch_fields.get(
+                    "prepare_batch_scale_split_completed_task_count", "unknown"
+                ),
+                "prepare_batch_scale_split_runtime_micros": batch_fields.get(
+                    "prepare_batch_scale_split_runtime_micros", "unknown"
+                ),
+                "prepare_batch_scale_split_execution_certificate_status": (
+                    batch_fields.get(
+                        "prepare_batch_scale_split_execution_certificate_status",
+                        "unknown",
+                    )
+                ),
+                "prepare_batch_scale_split_reader_digests": batch_fields.get(
+                    "prepare_batch_scale_split_reader_digests", "unknown"
+                ),
                 "prepare_batch_scale_output_commit_status": batch_fields.get(
                     "prepare_batch_scale_output_commit_status", "unknown"
                 ),
@@ -3350,6 +3387,25 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 "prepared_vortex_scale_split_manifest_digest": fields.get(
                     "prepared_vortex_scale_split_manifest_digest", "unknown"
+                ),
+                "prepared_vortex_scale_split_runtime_status": fields.get(
+                    "prepared_vortex_scale_split_runtime_status", "unknown"
+                ),
+                "prepared_vortex_scale_split_scheduled_task_count": fields.get(
+                    "prepared_vortex_scale_split_scheduled_task_count", "unknown"
+                ),
+                "prepared_vortex_scale_split_completed_task_count": fields.get(
+                    "prepared_vortex_scale_split_completed_task_count", "unknown"
+                ),
+                "prepared_vortex_scale_split_runtime_micros": fields.get(
+                    "prepared_vortex_scale_split_runtime_micros", "unknown"
+                ),
+                "prepared_vortex_scale_split_reader_digest": fields.get(
+                    "prepared_vortex_scale_split_reader_digest", "unknown"
+                ),
+                "prepared_vortex_scale_split_execution_certificate_status": fields.get(
+                    "prepared_vortex_scale_split_execution_certificate_status",
+                    "unknown",
                 ),
                 "prepared_vortex_scale_memory_budget_bytes": fields.get(
                     "prepared_vortex_scale_memory_budget_bytes", "unknown"
@@ -3747,6 +3803,20 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         if fields.get("prepare_batch_scale_real_bytes") != "true":
             raise RuntimeError(
                 "ShardLoom prepare/batch scale evidence did not use real Vortex bytes"
+            )
+        if (
+            fields.get("prepare_batch_scale_split_runtime_status")
+            != "scheduled_reader_chunk_execution_completed"
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch scale evidence did not execute scheduled reader chunks"
+            )
+        if (
+            fields.get("prepare_batch_scale_split_execution_certificate_status")
+            != "certified"
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch split runtime certificate was not certified"
             )
         if any(
             "local-scale-runtime" in key or "local-scale-runtime" in value

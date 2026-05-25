@@ -532,11 +532,11 @@ support, package-readiness claim, or Spark-displacement claim.
 The same route now carries local scale evidence in the Vortex processing step rather than through a
 separate runtime lane. Batch rows expose `prepare_batch_scale_*` rollups and child rows expose
 `scenario_<slug>_prepared_vortex_scale_*` fields covering real prepared Vortex bytes, SplitManifest
-digest, resource policy, memory admission, local shuffle-family classification, retry/idempotency
-key, output commit status, correctness digest, and
-`prepared_vortex_scale_no_standalone_lane=true`. The claim gate remains
-`not_scale_grade` until scheduled split execution, actual spill/backpressure where admitted, and
-larger-than-memory/distributed/object-store proofs land.
+digest, resource policy, bounded local reader-chunk split scheduling, split execution
+certification, memory admission, local shuffle-family classification, retry/idempotency key, output
+commit status, correctness digest, and `prepared_vortex_scale_no_standalone_lane=true`. The claim
+gate remains `not_scale_grade`: this is in-route fixture proof, not split-parallel operator runtime,
+actual spill/backpressure where admitted, or larger-than-memory/distributed/object-store proof.
 
 The comparative harness exposes the same route as `--engines shardloom-prepare-batch`:
 
