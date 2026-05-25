@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators
   - Date: 2026-05-25
-  - Branch/PR: `runtime-envelope-validators-4k` / TBD.
+  - Branch/PR: `runtime-envelope-validators-4k` / #953.
   - Source:
     - `GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators`.
     - `GAR-RUNTIME-IMPL-5H evidence envelope, evidence levels, and claim validators`.
