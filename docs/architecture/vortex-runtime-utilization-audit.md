@@ -142,11 +142,13 @@ explicit claim gate. Pushdown evidence remains Scan/source-boundary evidence onl
 encoded-native operator claim, generalized Source/Split runtime claim, object-store/lakehouse claim,
 SQL/DataFrame claim, or public performance claim.
 
-`GAR-PERF-2D` adds the scoped compressed/encoded kernel registry pass. It wraps selective-filter
+`GAR-PERF-2D` adds the scoped compressed/encoded kernel registry pass. It wraps prepared/native
 Vortex encoding/layout facts in ShardLoom kernel admission rows for bitpacked, sequence,
 dictionary, constant, sorted/statistics, and FSST/dictionary string cases where available. Current
-rows separate `kernel_admitted` from `kernel_executed`, record
-canonicalization/decode/materialization boundaries, preserve validity semantics, and keep
+rows execute bitpacked, sequence, and constant filter inputs plus dictionary group-by inputs when
+those encodings are present in real prepared Vortex reader chunks. They separate `kernel_admitted`
+from `kernel_executed`, record canonicalization/decode/materialization boundaries,
+decoded-reference digest evidence, preserve validity semantics, and keep
 `encoded_native_claim_allowed=false` until end-to-end evidence passes.
 
 `GAR-PERF-2E` adds scoped fused operator pipeline evidence. Current rows combine admitted

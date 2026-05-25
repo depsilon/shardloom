@@ -466,12 +466,13 @@ Spark-replacement claims.
 
 ## Compressed/Encoded Kernel Registry Evidence
 
-`GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence to selective-filter
-prepared/native rows. The registry makes encoding/operator support visible without turning the row
-into an encoded-native operator claim. Current non-empty selective-filter fixtures admit and execute
-the observed `flag:fastlanes.bitpacked` and `value:vortex.sequence` reader-generated filter inputs;
-dictionary, constant, sorted/min-max, and FSST/string rows remain deterministic blockers or
-not-available rows.
+`GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence to prepared/native rows. The
+registry makes encoding/operator support visible without turning the row into an encoded-native
+operator claim. Current fixtures execute the observed `flag:fastlanes.bitpacked`,
+`value:vortex.sequence`, and `flag:vortex.constant` reader-generated filter inputs when Vortex emits
+those encodings, and execute dictionary group-by evidence from a real prepared Vortex `vortex.dict`
+reader chunk. Sorted/min-max, FSST/string, sparse, TurboQuant/vector, and broader operator-family
+rows remain deterministic blockers or future candidates.
 
 Benchmark rows expose:
 
@@ -489,6 +490,10 @@ compressed_kernel_registry_canonicalization_required
 compressed_kernel_registry_decoded
 compressed_kernel_registry_materialized
 compressed_kernel_registry_selection_vector_emitted
+compressed_kernel_registry_input_rows
+compressed_kernel_registry_decoded_reference_compared
+compressed_kernel_registry_correctness_digest_status
+compressed_kernel_registry_correctness_digests
 compressed_kernel_registry_validity_semantics
 compressed_kernel_registry_unsupported_kernel_reasons
 compressed_kernel_registry_encoded_native_claim_allowed

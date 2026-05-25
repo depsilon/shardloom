@@ -16,6 +16,50 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4J/5G initial encoded kernel registry pair execution
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-encoded-kernel-pairs-4j-5g` / #pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4J encoded kernel registry execution pairs`.
+    - `GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage`.
+    - `docs/architecture/compressed-encoded-kernel-registry.md`.
+    - User direction to keep real fixture bytes inside the Vortex processing path and avoid
+      standalone side lanes.
+  - Scope:
+    - Added in-route compressed-kernel pair execution evidence to prepared/native Vortex reports:
+      pair id, status, input rows, selected rows where applicable, decoded-reference comparison
+      status, and correctness digest.
+    - Executed bitpacked boolean/integer filters, sequence equality/range predicates, and constant
+      array count/filter inputs over reader-generated encoded batches from real Vortex scan chunks.
+    - Added dictionary equality/group-by execution evidence from a prepared Vortex `vortex.dict`
+      reader chunk by comparing encoded dictionary code/value group counts with decoded reference
+      group counts.
+    - Kept dictionary child-slot lowering inside the reader-generated Vortex path by using
+      upstream Vortex primitive execution for encoded dictionary values/codes when the child slots
+      are themselves Vortex-encoded.
+    - Promoted input-row, decoded-reference, correctness-digest, and `vortex.dict` evidence into
+      the benchmark runner schema, contract tests, registry docs, compute-flow references, and live
+      phase plan.
+    - Left sorted/min-max pruning, FSST/dictionary string equality, sparse traversal,
+      TurboQuant/vector kernels, nullability variants, and generalized operator/function coverage
+      as deterministic blockers or future candidates.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark dictionary_group_by_pair_executes_from_prepared_vortex_reader_chunk`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark selective_filter_selection_vector_metric_aggregation_handles_empty_selection`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - `git diff --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+  - Claim boundary:
+    - Scoped prepared/native Vortex encoded-kernel pair execution evidence only. This does not add
+      broad encoded-native operator coverage, sorted/statistics pruning, FSST/string kernels,
+      sparse traversal, TurboQuant/vector runtime, generalized SQL/DataFrame operator parity,
+      object-store/lakehouse runtime, performance/superiority, Spark-displacement, package/release,
+      or production claims.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4I/5F prepared Vortex residual-limit scan contract
   - Date: 2026-05-25
   - Branch/PR: `runtime-vortex-scan-pushdown-4i` / #950.

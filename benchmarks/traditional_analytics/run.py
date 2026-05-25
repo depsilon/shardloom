@@ -303,6 +303,10 @@ COMPRESSED_KERNEL_REGISTRY_FIELDS = (
     "compressed_kernel_registry_decoded",
     "compressed_kernel_registry_materialized",
     "compressed_kernel_registry_selection_vector_emitted",
+    "compressed_kernel_registry_input_rows",
+    "compressed_kernel_registry_decoded_reference_compared",
+    "compressed_kernel_registry_correctness_digest_status",
+    "compressed_kernel_registry_correctness_digests",
     "compressed_kernel_registry_validity_semantics",
     "compressed_kernel_registry_unsupported_kernel_reasons",
     "compressed_kernel_registry_encoded_native_claim_allowed",
@@ -11250,6 +11254,10 @@ def failed_result(
         "compressed_kernel_registry_decoded": "none",
         "compressed_kernel_registry_materialized": "none",
         "compressed_kernel_registry_selection_vector_emitted": "none",
+        "compressed_kernel_registry_input_rows": "none",
+        "compressed_kernel_registry_decoded_reference_compared": "none",
+        "compressed_kernel_registry_correctness_digest_status": "not_executed",
+        "compressed_kernel_registry_correctness_digests": "not_available",
         "compressed_kernel_registry_validity_semantics": "none",
         "compressed_kernel_registry_unsupported_kernel_reasons": "not_executed",
         "compressed_kernel_registry_encoded_native_claim_allowed": False,
@@ -11878,6 +11886,18 @@ def successful_result_from_iterations(
         ),
         "compressed_kernel_registry_selection_vector_emitted": evidence.get(
             "compressed_kernel_registry_selection_vector_emitted", "none"
+        ),
+        "compressed_kernel_registry_input_rows": evidence.get(
+            "compressed_kernel_registry_input_rows", "none"
+        ),
+        "compressed_kernel_registry_decoded_reference_compared": evidence.get(
+            "compressed_kernel_registry_decoded_reference_compared", "none"
+        ),
+        "compressed_kernel_registry_correctness_digest_status": evidence.get(
+            "compressed_kernel_registry_correctness_digest_status", "not_reported"
+        ),
+        "compressed_kernel_registry_correctness_digests": evidence.get(
+            "compressed_kernel_registry_correctness_digests", "not_reported"
         ),
         "compressed_kernel_registry_validity_semantics": evidence.get(
             "compressed_kernel_registry_validity_semantics", "none"

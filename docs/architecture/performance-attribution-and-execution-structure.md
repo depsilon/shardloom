@@ -365,6 +365,10 @@ compressed_kernel_registry_canonicalization_required
 compressed_kernel_registry_decoded
 compressed_kernel_registry_materialized
 compressed_kernel_registry_selection_vector_emitted
+compressed_kernel_registry_input_rows
+compressed_kernel_registry_decoded_reference_compared
+compressed_kernel_registry_correctness_digest_status
+compressed_kernel_registry_correctness_digests
 compressed_kernel_registry_validity_semantics
 compressed_kernel_registry_encoded_native_claim_allowed=false
 compressed_kernel_registry_fallback_attempted=false
@@ -372,9 +376,12 @@ compressed_kernel_registry_external_engine_invoked=false
 compressed_kernel_registry_claim_gate_status=not_claim_grade
 ```
 
-The current implemented surface admits only the observed non-empty selective-filter bitpacked and
-sequence filter inputs as reader-generated selection-vector inputs. Other initial registry pairs
-remain deterministic blockers or not available, and no row authorizes an encoded-native claim.
+The current implemented surface executes observed selective-filter bitpacked, sequence, and
+constant filter inputs as reader-generated selection-vector inputs when Vortex emits those
+encodings. It also executes dictionary group-by evidence from a real prepared Vortex
+`vortex.dict` reader chunk. Sorted/min-max, FSST/string, sparse, TurboQuant/vector, and broader
+operator pairs remain deterministic blockers or future candidates, and no row authorizes an
+encoded-native claim.
 
 Kernel admission and execution must stay separate from encoded-native claim permission. Unsupported
 encodings should produce deterministic blockers. `encoded_native_claim_allowed=false` remains the

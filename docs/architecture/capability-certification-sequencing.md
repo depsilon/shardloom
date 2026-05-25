@@ -410,9 +410,9 @@ R5.4.5 outcome:
   encoded-native operator claim without later certificates.
 - `GAR-PERF-2D` carries the scoped compressed/encoded kernel registry evidence. Capability and
   benchmark rows should classify encoding/operator pairs independently, keep `kernel_admitted`,
-  `kernel_executed`, `canonicalization_required`, `decoded`, `materialized`, and
-  `encoded_native_claim_allowed` visible, and block unsupported encodings deterministically without
-  fallback.
+  `kernel_executed`, `canonicalization_required`, `decoded`, `materialized`, input-row counts,
+  decoded-reference digest status, and `encoded_native_claim_allowed` visible, and block unsupported
+  encodings deterministically without fallback.
 - `GAR-PERF-2B` carries the report-only evidence-aware logical optimizer. Capability and benchmark
   rows classify optimizer rules as admitted, applied, blocked, unsupported, not applicable, or
   report-only with report-only before/after plan-digest placeholders, rewrite safety,

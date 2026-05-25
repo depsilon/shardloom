@@ -418,8 +418,9 @@ candidates.
   projection. It must be explicit when claiming projection pushdown or work avoidance.
 - **compressed/encoded kernel registry**: planned matrix of encoding/operator pairs that records
   logical dtype, physical encoding, kernel admission, kernel execution, canonicalization, decode,
-  materialization, selection-vector behavior, validity semantics, no-fallback status, and claim
-  gates. Registry admission is not encoded-native support by itself.
+  materialization, selection-vector behavior, input-row counts, decoded-reference correctness
+  digests, validity semantics, no-fallback status, and claim gates. Registry admission is not
+  encoded-native support by itself.
 - **encoding/operator pair**: a scoped combination of physical encoding and operation family such
   as bitpacked filter, sequence equality/range predicate, dictionary equality/group-by, constant
   count/filter, sorted min/max pruning, or FSST/dictionary string equality.
