@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-5F prepared/native Vortex lifecycle closeout
   - Date: 2026-05-25
-  - Branch/PR: `runtime-vortex-lifecycle-5f` / pending.
+  - Branch/PR: `runtime-vortex-lifecycle-5f` / #956.
   - Source:
     - `GAR-RUNTIME-IMPL-5F prepared/native Vortex runtime lifecycle`.
     - Completed prerequisites from `GAR-RUNTIME-IMPL-4I`, `GAR-RUNTIME-IMPL-4K`, and
