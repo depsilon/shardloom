@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4L/5I scoped CLI session-cache runtime and optimizer linkage
   - Date: 2026-05-25
-  - Branch/PR: `runtime-session-reuse-4l-5i` / pending.
+  - Branch/PR: `runtime-session-reuse-4l-5i` / #955.
   - Source:
     - `GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse
       runtime`.
