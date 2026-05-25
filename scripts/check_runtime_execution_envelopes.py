@@ -212,6 +212,123 @@ def fixture_rows() -> list[dict[str, Any]]:
         surface_id="evidence_level_refs_without_execution_certificate",
     )
 
+    claim_grade_missing_requirements = validate_runtime_execution_fields(
+        {
+            "source_state_id": "source-state://claim-grade",
+            "data_decoded": False,
+            "runtime_execution_certificate_id": "execution.claim-grade",
+            "runtime_execution_certificate_status": "certified",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": False,
+        },
+        command="traditional-analytics-benchmark-row",
+        surface_id="claim_grade_without_requirements",
+    )
+
+    certified_level_missing_status = validate_runtime_execution_fields(
+        {
+            "source_state_id": "source-state://certified-level",
+            "data_decoded": False,
+            "runtime_execution_certificate_id": "execution.certified-level",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "claim_gate_status": "not_claim_grade",
+            "evidence_level": "certified",
+        },
+        command="traditional-analytics-benchmark-row",
+        surface_id="certified_level_missing_status",
+    )
+
+    full_replay_missing_replay = validate_runtime_execution_fields(
+        {
+            "source_state_id": "source-state://full-replay",
+            "data_decoded": False,
+            "runtime_execution_certificate_id": "execution.full-replay",
+            "runtime_execution_certificate_status": "certified",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "claim_gate_status": "not_claim_grade",
+            "evidence_level": "full_replay",
+        },
+        command="traditional-analytics-benchmark-row",
+        surface_id="full_replay_missing_replay",
+    )
+
+    split_operator_missing_family = validate_runtime_execution_fields(
+        {
+            "prepared_state_id": "prepared-state://split-operator",
+            "prepared_state_digest": "fnv1a64:prepared",
+            "data_decoded": False,
+            "runtime_execution_certificate_id": "execution.split-operator",
+            "runtime_execution_certificate_status": "certified",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "claim_gate_status": "not_claim_grade",
+            "prepared_vortex_scale_split_operator_runtime_status": (
+                "local_split_operator_runtime_certified"
+            ),
+        },
+        command="traditional-analytics-benchmark-row",
+        surface_id="split_operator_missing_family",
+        execution_mode="prepared_vortex",
+    )
+
+    split_operator_complete = validate_runtime_execution_fields(
+        {
+            "prepared_state_id": "prepared-state://split-operator",
+            "prepared_state_digest": "fnv1a64:prepared",
+            "data_decoded": False,
+            "runtime_execution_certificate_id": "execution.split-operator",
+            "runtime_execution_certificate_status": "certified",
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "claim_gate_status": "not_claim_grade",
+            "prepared_vortex_scale_split_operator_runtime_status": (
+                "local_split_operator_runtime_certified"
+            ),
+            "prepared_vortex_scale_split_operator_family": "stateful_hash_aggregate",
+            "prepared_vortex_scale_split_operator_stateful": True,
+            "prepared_vortex_scale_split_operator_shuffle_required": True,
+            "prepared_vortex_scale_split_operator_local_combine_used": True,
+            "prepared_vortex_scale_split_operator_global_merge_used": True,
+            "prepared_vortex_scale_split_operator_retry_replay_status": (
+                "verified_idempotent_stateful_shuffle_split_operator_replay"
+            ),
+            "prepared_vortex_scale_split_operator_source_replay_status": (
+                "prepared_vortex_source_replay_verified"
+            ),
+            "prepared_vortex_scale_split_operator_memory_envelope_status": (
+                "declared_local_memory_envelope_admitted"
+            ),
+            "prepared_vortex_scale_split_operator_backpressure_status": (
+                "bounded_by_reader_chunk_scheduler_and_declared_parallelism"
+            ),
+            "prepared_vortex_scale_split_operator_spill_policy_status": (
+                "larger_than_memory_spill_io_blocked_fail_before_oom_only"
+            ),
+            "prepared_vortex_scale_split_operator_output_commit_proof_status": (
+                "result_sink_replay_verified_for_split_operator"
+            ),
+            "prepared_vortex_scale_split_operator_execution_certificate_status": (
+                "certified"
+            ),
+            "prepared_vortex_scale_split_operator_execution_certificate_id": (
+                "p746.prepared_vortex_local_split_operator.group-by-aggregation."
+                "stateful_hash_aggregate"
+            ),
+            "prepared_vortex_scale_split_operator_claim_gate_status": (
+                "local_split_operator_runtime_certified"
+            ),
+            "prepared_vortex_scale_split_operator_fallback_attempted": False,
+            "prepared_vortex_scale_split_operator_external_engine_invoked": False,
+        },
+        command="traditional-analytics-benchmark-row",
+        surface_id="split_operator_complete",
+        execution_mode="prepared_vortex",
+    )
+
     return [
         complete.as_dict(),
         missing_certificate.as_dict(),
@@ -222,6 +339,11 @@ def fixture_rows() -> list[dict[str, Any]]:
         report_only_runtime.as_dict(),
         minimal_runtime_claim_grade.as_dict(),
         evidence_level_refs_only.as_dict(),
+        claim_grade_missing_requirements.as_dict(),
+        certified_level_missing_status.as_dict(),
+        full_replay_missing_replay.as_dict(),
+        split_operator_missing_family.as_dict(),
+        split_operator_complete.as_dict(),
     ]
 
 
@@ -402,6 +524,11 @@ def validate_repo(
         "report_only_runtime_masquerade": "blocked",
         "minimal_runtime_claim_grade": "blocked",
         "evidence_level_refs_without_execution_certificate": "blocked",
+        "claim_grade_without_requirements": "blocked",
+        "certified_level_missing_status": "blocked",
+        "full_replay_missing_replay": "blocked",
+        "split_operator_missing_family": "blocked",
+        "split_operator_complete": "passed",
     }
     fixture_blockers = [
         f"{row['surface_id']} status={row['status']} expected={expected[row['surface_id']]}"

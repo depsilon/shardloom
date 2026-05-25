@@ -1186,7 +1186,7 @@ pub use recovery::{
 
 // Adaptive sizing and bounded work-shaping planning surfaces.
 pub use sizing::{
-    AdaptiveSizer, AdaptiveSizingPolicy, ByteSize, CoalescingPolicy,
+    AdaptiveSizer, AdaptiveSizingPolicy, AutomaticWorkShapingDecision, ByteSize, CoalescingPolicy,
     DynamicRuntimePromotionGateEntry, DynamicRuntimePromotionGateReport,
     DynamicRuntimePromotionStatus, DynamicRuntimePromotionSurface, DynamicSizingFeedbackInput,
     DynamicSizingFeedbackMode, DynamicSizingFeedbackReport, DynamicSizingFeedbackStatus,

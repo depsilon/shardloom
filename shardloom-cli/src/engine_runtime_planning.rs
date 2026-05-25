@@ -944,6 +944,13 @@ fn dynamic_work_shaping_profile(
             "task-too-small",
             ByteSize::from_mib(32),
         )),
+        Some("repeated-independent-shards" | "independent-shards" | "independent_shards") => Ok((
+            "repeated-independent-shards".to_string(),
+            8,
+            8,
+            "task-too-small",
+            ByteSize::from_mib(128),
+        )),
         Some(other) => Err(ShardLoomError::InvalidOperation(format!(
             "unknown dynamic work shaping profile: {other}"
         ))),
@@ -1058,6 +1065,51 @@ fn dynamic_work_shaping_fields(report: &DynamicWorkShapingReport) -> Vec<(String
         &mut fields,
         "adaptive_coalescing_allowed",
         report.adaptive_coalescing_allowed,
+    );
+    push_field(
+        &mut fields,
+        "work_shaping_workload_kind",
+        report.work_shaping_workload_kind,
+    );
+    push_count_field(
+        &mut fields,
+        "input_independent_shard_task_count",
+        report.input_independent_shard_task_count,
+    );
+    push_count_field(
+        &mut fields,
+        "current_work_shaped_task_count",
+        report.current_work_shaped_task_count,
+    );
+    push_count_field(
+        &mut fields,
+        "recommended_work_shaped_task_count",
+        report.recommended_work_shaped_task_count,
+    );
+    push_field(
+        &mut fields,
+        "automatic_work_shaping_decision",
+        report.automatic_work_shaping_decision.as_str(),
+    );
+    push_field(
+        &mut fields,
+        "automatic_work_shaping_reason",
+        &report.automatic_work_shaping_reason,
+    );
+    push_bool_field(
+        &mut fields,
+        "automatic_work_shaping_plan_ready",
+        report.automatic_work_shaping_plan_ready,
+    );
+    push_bool_field(
+        &mut fields,
+        "automatic_work_shaping_applied",
+        report.automatic_work_shaping_applied,
+    );
+    push_bool_field(
+        &mut fields,
+        "automatic_work_shaping_claim_allowed",
+        report.automatic_work_shaping_claim_allowed,
     );
     push_field(
         &mut fields,

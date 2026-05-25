@@ -316,7 +316,23 @@ candidates.
 - **dynamic work shaping report**: aggregate CG-8 evidence surface combining adaptive sizing policy,
   runtime feedback signals, target-task policy, backpressure policy, bounded-memory policy,
   scheduler queue policy, runtime application blockers, benchmark evidence blockers, and no-fallback
-  policy before feedback loops mutate execution policy.
+  policy before feedback loops mutate execution policy. Automatic work-shaping fields are
+  deterministic plan-only recommendations for repeated independent shard tasks; they do not apply
+  policy mutations or authorize runtime/performance claims.
+- **PulseWeave Runtime**: proposed certificate-gated automatic prepared/local runtime-control layer
+  combining bounded work-in-progress, deterministic resource-scarcity accounting, local slow
+  feedback, and evidence-gated application under `auto` without new required user inputs, AI,
+  persistent tuning state, or fallback execution.
+- **FlowInventory Scheduler**: PulseWeave subcomponent that applies Kanban-style bounded
+  work-in-progress control to admitted prepared/local task batches.
+- **ScarcityLedger Allocator**: PulseWeave subcomponent that records deterministic resource-price
+  scores for memory, queue slots, decode/materialization risk, sink pressure, and unsupported spill
+  risk before selecting a local task-shaping action.
+- **EndoPulse Governor**: PulseWeave subcomponent that applies a slow, run-local feedback
+  adjustment from observed pressure signals to the next prepared/local task window.
+- **ProofBound Auto Gate**: PulseWeave subcomponent that blocks automatic policy application unless
+  route, evidence, certificate, no-fallback, materialization/decode, and spill-safety preconditions
+  are satisfied.
 - **object-store request coalescing report**: structured comparison evidence showing how declared
   byte-range request shapes can be reduced before any object-store IO, retry execution, benchmark
   claim, or fallback execution is allowed.

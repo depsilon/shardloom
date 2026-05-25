@@ -124,6 +124,7 @@ Reference index:
   `docs/architecture/allocation-buffer-pool-optimization.md`,
   `docs/architecture/optimized-build-profiles-pgo-benchmark-lane.md`,
   `docs/architecture/dynamic-work-shaping.md`,
+  `docs/architecture/pulseweave-runtime-control.md`,
   `docs/architecture/spill-reservation-lifecycle-integration.md`, and
   `docs/architecture/effect-budget-plan.md`.
 - Claim, release, and adoption references:
@@ -279,8 +280,12 @@ Current runtime ordering note (2026-05-25): prioritize engine-internal completio
 rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
 `GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle, the `GAR-RUNTIME-IMPL-4F/4F1/5D`
 local adapter/ingest parity closeout, and `GAR-RUNTIME-IMPL-4P/5M` declared local scale runtime
-closeout are complete and recorded in the ledger. Continue through claim validators and
-object-store/control-plane/effectful-operation gates (`5H`, `5K`, `4Q`/`5N`, `4R`/`5O`), then
+closeout, and `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout are complete and
+recorded in the ledger. `GAR-RUNTIME-IMPL-5R` is inserted as an engine-internal automatic
+prepared/local runtime-control slice before object-store/control-plane/effectful-operation gates
+because it builds on the completed local-scale runtime, dynamic-work-shaping, and evidence-validator
+surfaces without broadening external-effect scope. Continue after that through
+object-store/control-plane/effectful-operation gates (`5K`, `4Q`/`5N`, `4R`/`5O`), then
 expression/operator closeout (`4D`/`5G`) as the last 4-series runtime-family closeout before
 SQL/Python surface backstops, benchmark and Foundry gates, and release usability. Completed queue
 blocks have moved to
@@ -299,44 +304,69 @@ item only after the matching 4-series runtime item has landed or when the 4-seri
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
 
-- [ ] GAR-RUNTIME-IMPL-5H evidence envelope, evidence levels, and claim validators
-  - Source: `GAR-RUNTIME-IMPL-4K`, `GAR-PERF-2A`, release readiness metadata, benchmark publishing
-    policy.
-  - Current state: `GAR-RUNTIME-IMPL-4K` migrated the versioned
-    `shardloom.runtime_execution_envelope_validation.v1` validator through Python
-    `OutputEnvelope` field mappings, traditional analytics benchmark rows, prepared Vortex runtime
-    certificate fields, benchmark promotion, website benchmark manifests, runs-today status
-    projection, and release/website/completeness gates. Missing concrete certificate refs,
-    route-state refs, materialization/decode evidence, no-fallback fields, report-only runtime
-    masquerades, `minimal_runtime` claim-grade promotion, and evidence-level certificate refs
-    without concrete execution certificates now block. Remaining `5H` work is the continuing
-    coverage-assurance backstop for future runtime surfaces and mirror drift, not the initial schema
-    rollout.
-  - Next slice outcome: as new runtime paths land, wire them into the shared validator and canonical
-    benchmark/status/website mirrors in the same PR, or split uncovered evidence-level and
-    claim-grade policy gaps into concrete runtime-validator slices.
-  - Runtime enablement: shared runtime evidence validator that blocks unsupported/report-only rows
-    from being treated as supported runtime.
-  - User-visible surface: CLI JSON, Python typed reports, benchmark artifacts, website evidence,
-    release readiness.
-  - Implementation scope: shared schema, report adapters, typed aliases/migrations, readiness
-    checks, source-of-truth mirror checks, website renderer, benchmark completeness gate.
-  - Evidence required: execution/engine/evidence mode, source/generated/output refs, certificate
-    refs, materialization/decode refs, no-fallback fields, claim gate, evidence level.
-  - Acceptance: missing fallback/certificate/claim fields fail validation; `minimal_runtime` cannot
-    become claim-grade by accident; report-only rows cannot masquerade as runtime support; public
-    docs/website surfaces render canonical support/evidence data instead of maintaining duplicated
-    claim-boundary prose or stale benchmark status copies.
-  - Verification: schema contract tests, release readiness metadata, benchmark completeness,
-    website readiness and mirror-drift checks, Python typed-report tests.
-  - Non-goals: no runtime capability upgrade from schema work alone.
-  - Claim boundary: evidence standardization and claim gating only.
-  - Fallback boundary: every envelope exposes `fallback_attempted=false` and
-    `external_engine_invoked=false` or fails.
-  - Dependencies/blockers: stable field names, compatibility aliases, Python report migration,
-    benchmark/website validators.
-  - Ledger rule: ledger entry must record schema version, migrated surfaces, source-of-truth mirrors,
-    and validation failures now blocked.
+- [ ] GAR-RUNTIME-IMPL-5R PulseWeave automatic prepared/local runtime control
+  - Source: `docs/architecture/pulseweave-runtime-control.md`,
+    `docs/architecture/dynamic-work-shaping.md`,
+    `docs/architecture/in-process-session-runtime.md`,
+    `docs/architecture/allocation-buffer-pool-optimization.md`,
+    `docs/architecture/performance-attribution-and-execution-structure.md`, and the completed
+    `GAR-RUNTIME-IMPL-4P/5M` and `GAR-RUNTIME-IMPL-5H` runtime evidence closeouts.
+  - Current state: prepared/local Vortex routes emit automatic resource-policy fields,
+    scheduler refs, bounded queue/backpressure evidence, memory reservation/grant/release counts,
+    split manifests, split-operator runtime evidence, execution certificates, no-fallback fields,
+    and runtime envelope validator coverage. Dynamic work shaping and repeated-independent-shard
+    profiles remain advisory or narrowly scoped; the prepared/local scheduler still mostly uses
+    deterministic `max_parallelism` chunks instead of an applied bounded-inventory, scarcity-price,
+    and slow-feedback control loop.
+  - Next slice outcome: implement the PulseWeave policy and evidence contract as deterministic
+    ShardLoom-native code, then wire it into prepared/local Vortex batch execution so `auto` can
+    apply FlowInventory, ScarcityLedger, EndoPulse, and ProofBound decisions when evidence gates
+    admit the route. The first implementation must preserve existing behavior when ProofBound
+    blocks application and must still emit stable blocked/report-only PulseWeave fields.
+  - Runtime enablement: certificate-gated automatic prepared/local task-shaping runtime for
+    admitted Vortex batch routes, with bounded work-in-progress, deterministic scarcity accounting,
+    local slow-feedback adjustment, and fail-closed evidence gating.
+  - User-visible surface: unchanged `ctx.read(...).filter(...).select(...).collect/write(...)`
+    ergonomics, `traditional-analytics-prepare-batch-run`,
+    `traditional-analytics-vortex-batch-run`, prepared/local benchmark rows, Python typed
+    envelopes, benchmark artifacts, runtime envelope validators, and future evidence summaries.
+  - Implementation scope: add a provider-neutral `shardloom-exec` PulseWeave module; export
+    `PulseWeaveInput`, `FlowInventoryReport`, `ScarcityLedgerDecision`, `EndoPulseDecision`,
+    `ProofBoundAutoGate`, and `PulseWeaveReport`; map prepared/local task evidence from
+    `shardloom-vortex/src/traditional_analytics.rs`; replace direct fixed chunking with an
+    admitted PulseWeave batch plan where safe; emit `pulseweave_*`, `flow_inventory_*`,
+    `scarcity_ledger_*`, `endopulse_*`, and `proofbound_*` fields; preserve Python envelope
+    passthrough; add validators before any public benchmark or claim rendering.
+  - Evidence required: policy application status, selected action, decision digest, WIP limit,
+    peak in-flight count, held task counts, memory/queue/decode/sink/spill scarcity prices,
+    target-task byte adjustment, persistent-state-used=false, certificate status,
+    correctness/output digest, materialization/decode boundary, Native I/O refs when required,
+    `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Acceptance: no new required user inputs; no AI/model calls or persistent tuning database;
+    existing optional `memory_gb` and `max_parallelism` remain hard caps; PulseWeave applies only on
+    admitted prepared/local routes; blocked routes retain existing ShardLoom-native behavior with
+    `pulseweave_runtime_decision_applied=false`; applied rows carry execution certificate and
+    no-fallback evidence; benchmark artifacts cannot promote PulseWeave rows without correctness,
+    certificate, and no-fallback fields.
+  - Verification: `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-exec pulseweave --lib`;
+    `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch --lib`;
+    `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test dynamic_work_shaping`;
+    `$env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`;
+    `python -m pytest python/tests/test_cli_client.py -k "traditional_analytics_prepare_batch_run or runtime_execution_field_validation"`;
+    `python -m compileall -q python/src python/tests scripts examples`; `git diff --check`.
+  - Non-goals: no object-store runtime, distributed runtime, live/hybrid runtime, real query-data
+    spill, production claim, broad SQL/DataFrame claim, performance/superiority claim, hidden fast
+    mode, daemon/service, external engine fallback, or user-facing `pulseweave=True` option.
+  - Claim boundary: before benchmark refresh, PulseWeave can claim only deterministic policy and
+    prepared/local evidence/application status; after benchmark refresh, statements remain
+    workload-scoped to admitted prepared/local rows.
+  - Fallback boundary: any missing fallback/no-external-engine field fails validation; external
+    engines remain baselines/oracles only and cannot satisfy PulseWeave evidence.
+  - Dependencies/blockers: stable PulseWeave field vocabulary, runtime-envelope validator aliases,
+    prepared/local task estimates, memory/backpressure evidence, split-operator certificates,
+    benchmark artifact validator coverage, and Python envelope passthrough.
+  - Ledger rule: ledger entry must record implemented names, field schema, admitted routes, blocked
+    routes, verification commands, benchmark artifact refs if any, and remaining unsupported scopes.
 
 - [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission
   - Source: `GAR-RUNTIME-IMPL-4N`, `GAR-COMPAT-1C`, `GAR-SCALE-1E`,

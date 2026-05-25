@@ -3,7 +3,7 @@
 schema_version: `shardloom.runtime_execution_envelope_validation_status.v1`
 validator_schema_version: `shardloom.runtime_execution_envelope_validation.v1`
 
-Owning phase item: `GAR-RUNTIME-IMPL-4K`
+Owning phase item: `GAR-RUNTIME-IMPL-4K/GAR-RUNTIME-IMPL-5H`
 
 The runtime-envelope validator is a production-readiness guard for executable surfaces. It does not
 grant a runtime capability by itself; it rejects runtime evidence that is missing the fields needed
@@ -50,6 +50,13 @@ Mode-specific rules:
 - `compatibility_import_certified` requires `timing_scope=cold_certified_end_to_end`.
 - `compatibility_import_certified` requires `preparation_included=true`.
 - `minimal_runtime` evidence cannot be promoted to `claim_grade`.
+- `claim_grade` rows require `claim_grade_requirements_met=true` and a certified execution
+  certificate status.
+- `certified` and `full_replay` evidence levels require `execution_certificate_status=certified`.
+- `full_replay` requires result-sink replay proof and a concrete replay ref.
+- Certified `prepared_vortex_scale_split_operator_*` rows require operator family, stateful/shuffle
+  flags, retry/source replay, memory-envelope, backpressure, spill-policy, output commit proof,
+  concrete split-operator certificate, and split-operator no-fallback fields.
 - `report_only` and `diagnostic_only` rows cannot set `runtime_execution=true`.
 
 Validation command:

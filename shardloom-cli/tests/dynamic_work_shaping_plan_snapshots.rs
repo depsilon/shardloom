@@ -57,6 +57,15 @@ fn dynamic_work_shaping_json_exposes_aggregate_surfaces() {
         "blocked_surface_order",
         "runtime_application_loop,benchmark_evidence"
     )));
+    assert!(output.contains(&field(
+        "work_shaping_workload_kind",
+        "repeated_independent_shard_tasks"
+    )));
+    assert!(output.contains(&field(
+        "automatic_work_shaping_decision",
+        "keep_current_shape"
+    )));
+    assert!(output.contains(&field("automatic_work_shaping_plan_ready", "true")));
 }
 
 #[test]
@@ -100,4 +109,28 @@ fn dynamic_work_shaping_json_keeps_runtime_application_disabled() {
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
     assert!(output.contains(&field("fallback_attempted", "false")));
     assert!(output.contains(&field("side_effect_free", "true")));
+}
+
+#[test]
+fn dynamic_work_shaping_json_reports_repeated_independent_shard_coalescing() {
+    let output = run_dynamic_work_shaping_json(Some("repeated-independent-shards"));
+
+    assert!(output.contains(&field("profile", "repeated-independent-shards")));
+    assert!(output.contains(&field(
+        "work_shaping_workload_kind",
+        "repeated_independent_shard_tasks"
+    )));
+    assert!(output.contains(&field("input_independent_shard_task_count", "32")));
+    assert!(output.contains(&field("current_work_shaped_task_count", "2")));
+    assert!(output.contains(&field("recommended_work_shaped_task_count", "1")));
+    assert!(output.contains(&field(
+        "automatic_work_shaping_decision",
+        "coalesce_small_shards"
+    )));
+    assert!(output.contains(&field("automatic_work_shaping_plan_ready", "true")));
+    assert!(output.contains(&field("automatic_work_shaping_applied", "false")));
+    assert!(output.contains(&field("automatic_work_shaping_claim_allowed", "false")));
+    assert!(output.contains(&field("tasks_executed", "false")));
+    assert!(output.contains(&field("policy_mutated", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
 }

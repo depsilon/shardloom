@@ -16,6 +16,72 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5H runtime evidence envelope and claim validator closeout
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-evidence-validators-5h` / #959.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5H evidence envelope, evidence levels, and claim validators`.
+    - `GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators`.
+    - `GAR-PERF-2A` evidence-level tiering.
+    - User direction to finish internal engine work before user/surface work and avoid standalone
+      side lanes.
+  - Scope:
+    - Hardened `shardloom.runtime_execution_envelope_validation.v1` so `claim_grade` rows now
+      require `claim_grade_requirements_met=true` plus certified execution-certificate status.
+    - Required `certified` and `full_replay` evidence levels to carry
+      `execution_certificate_status=certified`; `full_replay` additionally requires result-sink
+      replay proof and a concrete replay ref.
+    - Added prepared Vortex split-operator validator coverage: any row claiming
+      `prepared_vortex_scale_split_operator_runtime_status=local_split_operator_runtime_certified`
+      must carry operator family, stateful/shuffle/local-combine/global-merge booleans,
+      retry/source replay, memory-envelope, backpressure, spill-policy, output commit proof,
+      split-operator certificate status/id, and split-operator no-fallback fields.
+    - Extended validator fixtures, Python typed-report tests, release-visible contract tests,
+      benchmark-promoter field allowlists, use-case evidence mirrors, and runtime-envelope status
+      docs/JSON with the new failure modes.
+    - Removed `GAR-RUNTIME-IMPL-5H` from the live Planned queue; future runtime paths must wire
+      their evidence fields into this shared validator in the same PR instead of reopening a
+      separate validator lane.
+    - Added `docs/architecture/pulseweave-runtime-control.md` as the architecture reference for the
+      next automatic prepared/local runtime-control slice and queued
+      `GAR-RUNTIME-IMPL-5R` before `GAR-RUNTIME-IMPL-4D`.
+  - Validation failures now blocked:
+    - `claim_grade` without `claim_grade_requirements_met=true`.
+    - `claim_grade`, `certified`, or `full_replay` rows without certified execution-certificate
+      status.
+    - `full_replay` rows without result-sink replay proof and replay refs.
+    - Certified prepared Vortex split-operator rows missing family/source replay/resource envelope/
+      certificate/no-fallback evidence.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `python -m compileall -q python\src\shardloom\models.py python\tests\test_cli_client.py scripts\check_runtime_execution_envelopes.py scripts\promote_benchmark_artifact.py`
+    - `python -m compileall -q python\src python\tests scripts`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_runtime_execution_field_validation_blocks_claim_grade_without_requirements python.tests.test_cli_client.ShardLoomClientTests.test_runtime_execution_field_validation_accepts_claim_grade_with_requirements python.tests.test_cli_client.ShardLoomClientTests.test_runtime_execution_field_validation_blocks_certified_level_without_cert_status python.tests.test_cli_client.ShardLoomClientTests.test_runtime_execution_field_validation_blocks_full_replay_without_replay_proof python.tests.test_cli_client.ShardLoomClientTests.test_runtime_execution_field_validation_accepts_full_replay_with_replay_proof python.tests.test_cli_client.ShardLoomClientTests.test_runtime_execution_field_validation_blocks_incomplete_split_operator_proof python.tests.test_cli_client.ShardLoomClientTests.test_runtime_execution_field_validation_accepts_complete_split_operator_proof`
+    - `python -m unittest discover -s python\tests`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test release_readiness_metadata runtime_execution_envelope_validator_is_release_visible`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test release_readiness_metadata gar_runtime_impl_4i_scan_pushdown_completion_remains_projected`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - `python scripts\check_evidence_schema_registry.py`
+    - `python scripts\check_runtime_promotion_evidence.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python scripts\check_website_readiness.py`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test release_readiness_metadata pulseweave_runtime_control_plan_is_traceable_before_4d`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test dynamic_work_shaping`
+    - `cargo +1.91.1 test -p shardloom-cli dynamic_work_shaping --test dynamic_work_shaping_plan_snapshots`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `git diff --check`
+  - Explicitly not included:
+    - Runtime capability upgrade, new source/sink support, performance claims, package/publication
+      claims, SQL/DataFrame expansion, object-store/table runtime, or external fallback execution.
+  - Follow-up:
+    - Continue live work in logical order with `GAR-RUNTIME-IMPL-5R` PulseWeave automatic
+      prepared/local runtime control, then `GAR-RUNTIME-IMPL-5K` object-store read runtime
+      admission before `4Q/5N`, `4R/5O`, and final `4D/5G`.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4P/5M prepared Vortex declared local scale runtime closeout
   - Date: 2026-05-25
   - Branch/PR: `runtime-local-scale-4p-5m` / #958.

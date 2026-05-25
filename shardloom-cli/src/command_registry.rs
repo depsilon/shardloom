@@ -843,7 +843,9 @@ fn command_usage_fragment(command: &str) -> String {
             )
         }
         "dynamic-work-shaping-plan" => {
-            format!("{command} [balanced|memory-pressure|object-store-throttled|small-tasks]")
+            format!(
+                "{command} [balanced|memory-pressure|object-store-throttled|small-tasks|repeated-independent-shards]"
+            )
         }
         "benchmark-constitution" | "benchmark-claim-evidence-plan" => {
             format!("{command} [foundation|traditional-analytics]")

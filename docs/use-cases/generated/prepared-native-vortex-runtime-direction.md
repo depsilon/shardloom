@@ -63,12 +63,16 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 - `prepared_vortex_scale_split_operator_local_combine_used`
 - `prepared_vortex_scale_split_operator_global_merge_used`
 - `prepared_vortex_scale_split_operator_execution_certificate_status`
+- `prepared_vortex_scale_split_operator_execution_certificate_id`
+- `prepared_vortex_scale_split_operator_claim_gate_status`
 - `prepared_vortex_scale_split_operator_retry_replay_status`
 - `prepared_vortex_scale_split_operator_source_replay_status`
 - `prepared_vortex_scale_split_operator_memory_envelope_status`
 - `prepared_vortex_scale_split_operator_backpressure_status`
 - `prepared_vortex_scale_split_operator_spill_policy_status`
 - `prepared_vortex_scale_split_operator_output_commit_proof_status`
+- `prepared_vortex_scale_split_operator_fallback_attempted=false`
+- `prepared_vortex_scale_split_operator_external_engine_invoked=false`
 - `prepared_vortex_scale_idempotency_key`
 - `data_decoded`
 - `data_materialized`
