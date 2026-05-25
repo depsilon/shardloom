@@ -107,6 +107,15 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"scan_filter_pushed_down\""));
     assert!(script.contains("\"scan_projection_pushed_down\""));
     assert!(script.contains("\"scan_limit_pushed_down\""));
+    assert!(script.contains("\"scan_limit_requested_rows\""));
+    assert!(script.contains("\"scan_limit_request_scope\""));
+    assert!(script.contains("\"scan_residual_limit_required\""));
+    assert!(script.contains("\"scan_residual_limit_applied\""));
+    assert!(script.contains("\"scan_residual_limit_status\""));
+    assert!(script.contains("\"scan_residual_limit_executor\""));
+    assert!(script.contains("\"scan_residual_limit_input_rows\""));
+    assert!(script.contains("\"scan_residual_limit_rows_output\""));
+    assert!(script.contains("\"scan_residual_limit_reason\""));
     assert!(script.contains("\"scan_filter_columns_read\""));
     assert!(script.contains("\"scan_output_columns_read\""));
     assert!(script.contains("\"scan_filter_only_columns_read\""));
@@ -439,6 +448,15 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"scan_filter_pushed_down\"",
         "\"scan_projection_pushed_down\"",
         "\"scan_limit_pushed_down\"",
+        "\"scan_limit_requested_rows\"",
+        "\"scan_limit_request_scope\"",
+        "\"scan_residual_limit_required\"",
+        "\"scan_residual_limit_applied\"",
+        "\"scan_residual_limit_status\"",
+        "\"scan_residual_limit_executor\"",
+        "\"scan_residual_limit_input_rows\"",
+        "\"scan_residual_limit_rows_output\"",
+        "\"scan_residual_limit_reason\"",
         "\"scan_filter_columns_read\"",
         "\"scan_output_columns_read\"",
         "\"scan_filter_only_columns_read\"",

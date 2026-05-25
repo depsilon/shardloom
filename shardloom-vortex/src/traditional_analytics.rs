@@ -6535,6 +6535,15 @@ fn scan_pushdown_contract_fields(
     } else {
         "not_needed"
     };
+    let residual_limit_required = limit_required && !limit_pushed_down;
+    let residual_limit_applied = scan_admitted && residual_limit_required;
+    let residual_limit_input_rows =
+        residual_limit_applied.then_some(report.streaming_result_row_count);
+    let residual_limit_rows_output = if residual_limit_applied {
+        scan_residual_limit_rows_output(report)
+    } else {
+        None
+    };
 
     let mut blocker_ids = Vec::new();
     let mut blocker_reasons = Vec::new();
@@ -6618,6 +6627,15 @@ fn scan_pushdown_contract_fields(
             limit_pushed_down.to_string(),
         ),
         (
+            "scan_limit_requested_rows".to_string(),
+            scan_limit_requested_rows(report.scenario)
+                .map_or_else(|| "none".to_string(), |value| value.to_string()),
+        ),
+        (
+            "scan_limit_request_scope".to_string(),
+            scan_limit_request_scope(report.scenario).to_string(),
+        ),
+        (
             "scan_filter_pushdown_status".to_string(),
             filter_status.to_string(),
         ),
@@ -6628,6 +6646,47 @@ fn scan_pushdown_contract_fields(
         (
             "scan_limit_pushdown_status".to_string(),
             limit_status.to_string(),
+        ),
+        (
+            "scan_residual_limit_required".to_string(),
+            residual_limit_required.to_string(),
+        ),
+        (
+            "scan_residual_limit_applied".to_string(),
+            residual_limit_applied.to_string(),
+        ),
+        (
+            "scan_residual_limit_status".to_string(),
+            scan_residual_limit_status(
+                residual_limit_required,
+                residual_limit_applied,
+                report.scenario,
+            )
+            .to_string(),
+        ),
+        (
+            "scan_residual_limit_executor".to_string(),
+            scan_residual_limit_executor(residual_limit_required, residual_limit_applied)
+                .to_string(),
+        ),
+        (
+            "scan_residual_limit_input_rows".to_string(),
+            residual_limit_input_rows
+                .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+        ),
+        (
+            "scan_residual_limit_rows_output".to_string(),
+            residual_limit_rows_output
+                .map_or_else(|| "unknown".to_string(), |value| value.to_string()),
+        ),
+        (
+            "scan_residual_limit_reason".to_string(),
+            scan_residual_limit_reason(
+                residual_limit_required,
+                residual_limit_applied,
+                report.scenario,
+            )
+            .to_string(),
         ),
         (
             "scan_filter_columns_read".to_string(),
@@ -6721,6 +6780,98 @@ fn scan_pushdown_limit_required(scenario: TraditionalAnalyticsScenario) -> bool 
             | TraditionalAnalyticsScenario::TopNPerGroup
             | TraditionalAnalyticsScenario::RowNumberWindow
     )
+}
+
+const fn scan_limit_requested_rows(scenario: TraditionalAnalyticsScenario) -> Option<u64> {
+    match scenario {
+        TraditionalAnalyticsScenario::FilterProjectionLimit => Some(100),
+        TraditionalAnalyticsScenario::SortAndTopK => Some(10),
+        TraditionalAnalyticsScenario::TopNPerGroup => Some(3),
+        TraditionalAnalyticsScenario::RowNumberWindow => Some(1),
+        _ => None,
+    }
+}
+
+const fn scan_limit_request_scope(scenario: TraditionalAnalyticsScenario) -> &'static str {
+    match scenario {
+        TraditionalAnalyticsScenario::FilterProjectionLimit => "global_source_order_after_filter",
+        TraditionalAnalyticsScenario::SortAndTopK => "global_ordered_top_k",
+        TraditionalAnalyticsScenario::TopNPerGroup => "per_group_ranked_top_n",
+        TraditionalAnalyticsScenario::RowNumberWindow => "per_group_row_number_window",
+        _ => "none",
+    }
+}
+
+fn scan_residual_limit_rows_output(report: &TraditionalAnalyticsVortexReport) -> Option<u64> {
+    match report.scenario {
+        TraditionalAnalyticsScenario::FilterProjectionLimit
+        | TraditionalAnalyticsScenario::SortAndTopK => scan_limit_requested_rows(report.scenario)
+            .map(|requested| report.streaming_result_row_count.min(requested)),
+        TraditionalAnalyticsScenario::TopNPerGroup
+        | TraditionalAnalyticsScenario::RowNumberWindow => Some(report.rows_materialized),
+        _ => None,
+    }
+}
+
+const fn scan_residual_limit_status(
+    residual_limit_required: bool,
+    residual_limit_applied: bool,
+    scenario: TraditionalAnalyticsScenario,
+) -> &'static str {
+    match (residual_limit_required, residual_limit_applied, scenario) {
+        (false, _, _) => "not_needed",
+        (true, true, TraditionalAnalyticsScenario::FilterProjectionLimit) => {
+            "applied_by_shardloom_native_source_order_residual"
+        }
+        (true, true, TraditionalAnalyticsScenario::SortAndTopK) => {
+            "applied_by_shardloom_native_top_k_residual"
+        }
+        (true, true, TraditionalAnalyticsScenario::TopNPerGroup) => {
+            "applied_by_shardloom_native_per_group_top_n_residual"
+        }
+        (true, true, TraditionalAnalyticsScenario::RowNumberWindow) => {
+            "applied_by_shardloom_native_window_residual"
+        }
+        (true, true, _) => "applied_by_shardloom_native_residual",
+        (true, false, _) => "blocked_or_not_executed",
+    }
+}
+
+const fn scan_residual_limit_executor(
+    residual_limit_required: bool,
+    residual_limit_applied: bool,
+) -> &'static str {
+    match (residual_limit_required, residual_limit_applied) {
+        (false, _) => "none",
+        (true, true) => "shardloom_native",
+        (true, false) => "unsupported_blocked_or_not_executed",
+    }
+}
+
+const fn scan_residual_limit_reason(
+    residual_limit_required: bool,
+    residual_limit_applied: bool,
+    scenario: TraditionalAnalyticsScenario,
+) -> &'static str {
+    match (residual_limit_required, residual_limit_applied, scenario) {
+        (false, _, _) => "none",
+        (true, false, _) => {
+            "limit-like residual was not executed because the scenario did not run through the local Vortex scan/source boundary"
+        }
+        (true, true, TraditionalAnalyticsScenario::FilterProjectionLimit) => {
+            "Vortex Scan admitted filter and projection; ShardLoom applies the order-sensitive source-order limit as a native residual over scanned rows"
+        }
+        (true, true, TraditionalAnalyticsScenario::SortAndTopK) => {
+            "Vortex Scan admits projection only; ShardLoom applies ordered top-k heap semantics as a native residual"
+        }
+        (true, true, TraditionalAnalyticsScenario::TopNPerGroup) => {
+            "Vortex Scan admits projection only; ShardLoom applies per-group ranked top-N state as a native residual"
+        }
+        (true, true, TraditionalAnalyticsScenario::RowNumberWindow) => {
+            "Vortex Scan admits projection only; ShardLoom applies row-number window state as a native residual"
+        }
+        (true, true, _) => "ShardLoom applies the limit-like operator as a native residual",
+    }
 }
 
 fn scan_pushdown_limit_blocker_reason(scenario: TraditionalAnalyticsScenario) -> &'static str {
@@ -21032,6 +21183,51 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_filter---projection---limit_scan_limit_requested_rows",
+            "100",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_limit_request_scope",
+            "global_source_order_after_filter",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_residual_limit_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_residual_limit_applied",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_residual_limit_status",
+            "applied_by_shardloom_native_source_order_residual",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_residual_limit_executor",
+            "shardloom_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_residual_limit_input_rows",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_residual_limit_rows_output",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_residual_limit_reason",
+            "Vortex Scan admitted filter and projection; ShardLoom applies the order-sensitive source-order limit as a native residual over scanned rows",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_filter---projection---limit_scan_filter_only_columns_read",
             "flag",
         );
@@ -24651,6 +24847,62 @@ mod tests {
                 .get("scan_limit_pushdown_status")
                 .map(String::as_str),
             Some("blocked_no_scan_limit_admission")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_limit_requested_rows")
+                .map(String::as_str),
+            Some("100")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_limit_request_scope")
+                .map(String::as_str),
+            Some("global_source_order_after_filter")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_residual_limit_required")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_residual_limit_applied")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_residual_limit_status")
+                .map(String::as_str),
+            Some("applied_by_shardloom_native_source_order_residual")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_residual_limit_executor")
+                .map(String::as_str),
+            Some("shardloom_native")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_residual_limit_input_rows")
+                .map(String::as_str),
+            Some("2")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_residual_limit_rows_output")
+                .map(String::as_str),
+            Some("2")
+        );
+        assert_eq!(
+            native_fields
+                .get("scan_residual_limit_reason")
+                .map(String::as_str),
+            Some(
+                "Vortex Scan admitted filter and projection; ShardLoom applies the order-sensitive source-order limit as a native residual over scanned rows"
+            )
         );
         assert_eq!(
             native_fields

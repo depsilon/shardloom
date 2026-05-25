@@ -320,9 +320,18 @@ SCAN_PUSHDOWN_FIELDS = (
     "scan_filter_pushed_down",
     "scan_projection_pushed_down",
     "scan_limit_pushed_down",
+    "scan_limit_requested_rows",
+    "scan_limit_request_scope",
     "scan_filter_pushdown_status",
     "scan_projection_pushdown_status",
     "scan_limit_pushdown_status",
+    "scan_residual_limit_required",
+    "scan_residual_limit_applied",
+    "scan_residual_limit_status",
+    "scan_residual_limit_executor",
+    "scan_residual_limit_input_rows",
+    "scan_residual_limit_rows_output",
+    "scan_residual_limit_reason",
     "scan_filter_columns_read",
     "scan_output_columns_read",
     "scan_filter_only_columns_read",
@@ -11256,9 +11265,18 @@ def failed_result(
         "scan_filter_pushed_down": False,
         "scan_projection_pushed_down": False,
         "scan_limit_pushed_down": False,
+        "scan_limit_requested_rows": "none",
+        "scan_limit_request_scope": "none",
         "scan_filter_pushdown_status": "not_executed",
         "scan_projection_pushdown_status": "not_executed",
         "scan_limit_pushdown_status": "not_executed",
+        "scan_residual_limit_required": False,
+        "scan_residual_limit_applied": False,
+        "scan_residual_limit_status": "not_executed",
+        "scan_residual_limit_executor": "none",
+        "scan_residual_limit_input_rows": "unknown",
+        "scan_residual_limit_rows_output": "unknown",
+        "scan_residual_limit_reason": "none",
         "scan_filter_columns_read": "none",
         "scan_output_columns_read": "none",
         "scan_filter_only_columns_read": "none",
@@ -11911,6 +11929,10 @@ def successful_result_from_iterations(
         "scan_limit_pushed_down": (
             parse_optional_bool(evidence.get("scan_limit_pushed_down")) is True
         ),
+        "scan_limit_requested_rows": evidence.get(
+            "scan_limit_requested_rows", "none"
+        ),
+        "scan_limit_request_scope": evidence.get("scan_limit_request_scope", "none"),
         "scan_filter_pushdown_status": evidence.get(
             "scan_filter_pushdown_status", "not_reported"
         ),
@@ -11919,6 +11941,27 @@ def successful_result_from_iterations(
         ),
         "scan_limit_pushdown_status": evidence.get(
             "scan_limit_pushdown_status", "not_reported"
+        ),
+        "scan_residual_limit_required": (
+            parse_optional_bool(evidence.get("scan_residual_limit_required")) is True
+        ),
+        "scan_residual_limit_applied": (
+            parse_optional_bool(evidence.get("scan_residual_limit_applied")) is True
+        ),
+        "scan_residual_limit_status": evidence.get(
+            "scan_residual_limit_status", "not_reported"
+        ),
+        "scan_residual_limit_executor": evidence.get(
+            "scan_residual_limit_executor", "none"
+        ),
+        "scan_residual_limit_input_rows": evidence.get(
+            "scan_residual_limit_input_rows", "unknown"
+        ),
+        "scan_residual_limit_rows_output": evidence.get(
+            "scan_residual_limit_rows_output", "unknown"
+        ),
+        "scan_residual_limit_reason": evidence.get(
+            "scan_residual_limit_reason", "none"
         ),
         "scan_filter_columns_read": evidence.get("scan_filter_columns_read", "none"),
         "scan_output_columns_read": evidence.get("scan_output_columns_read", "none"),
