@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `prepared_vortex/native_vortex`
 - **Engine mode:** `batch`
-- **Claim boundary:** Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
+- **Claim boundary:** Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing and emits in-route prepared_vortex_scale evidence. No standalone scale lane, broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Prepared/native Vortex runtime direction has a scoped local path. Treat it as te
 
 ## Claim Boundary
 
-Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing. No broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
+Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing and emits in-route prepared_vortex_scale evidence. No standalone scale lane, broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
 
 ## How To Try It
 
@@ -40,6 +40,10 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 - `prepare_batch_route`
 - `prepare_batch_preparation_millis`
 - `prepare_batch_source_to_columnar_millis`
+- `prepare_batch_scale_no_standalone_lane`
+- `prepare_batch_scale_real_bytes`
+- `prepared_vortex_scale_split_manifest_digest`
+- `prepared_vortex_scale_idempotency_key`
 - `data_decoded`
 - `data_materialized`
 - `claim_gate_status`
@@ -48,7 +52,7 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 
 ## Expected Output Or Evidence
 
-Warm prepared Vortex rows separate from single-process prepare/batch rows, with source-backed scan, prepare_batch, and no-fallback fields where available.
+Warm prepared Vortex rows separate from single-process prepare/batch rows, with source-backed scan, prepare_batch, prepared_vortex_scale, and no-fallback fields where available.
 
 ## Common Mistakes
 

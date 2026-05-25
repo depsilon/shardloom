@@ -6143,6 +6143,13 @@ class ShardLoomClientTests(unittest.TestCase):
                     "fields": [
                         {"key": "schema_version", "value": "shardloom.traditional_analytics.vortex_batch.v1"},
                         {"key": "prepare_batch_schema_version", "value": "shardloom.traditional_analytics.prepare_and_batch.v1"},
+                        {"key": "prepare_batch_scale_schema_version", "value": "shardloom.traditional_analytics.prepared_vortex_local_scale.v1"},
+                        {"key": "prepare_batch_scale_route", "value": "compatibility_import_certified_to_prepared_vortex_batch"},
+                        {"key": "prepare_batch_scale_runtime_status", "value": "prepared_vortex_in_between_processing_evidence"},
+                        {"key": "prepare_batch_scale_no_standalone_lane", "value": "true"},
+                        {"key": "prepare_batch_scale_real_bytes", "value": "true"},
+                        {"key": "prepare_batch_scale_memory_budget_bytes", "value": "2147483648"},
+                        {"key": "prepare_batch_scale_claim_gate_status", "value": "not_scale_grade"},
                         {"key": "prepare_batch_preparation_included_in_batch_timing", "value": "false"},
                         {"key": "prepare_batch_fact_vortex_path", "value": "fact.vortex"},
                         {"key": "prepare_batch_dim_vortex_path", "value": "dim.vortex"},
@@ -6165,6 +6172,9 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "source_state_reuse_status", "value": "per_batch_selective_filter_state_reused"},
                         {"key": "source_state_reused", "value": "true"},
                         {"key": "selected_evidence_level", "value": "full_replay"},
+                        {"key": "scenario_selective-filter_prepared_vortex_scale_no_standalone_lane", "value": "true"},
+                        {"key": "scenario_selective-filter_prepared_vortex_scale_real_bytes", "value": "true"},
+                        {"key": "scenario_selective-filter_prepared_vortex_scale_idempotency_key", "value": "prepared-vortex:fnv1a64-feedface"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
                     ],
@@ -6195,6 +6205,13 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(
             result.field("source_state_reuse_status"),
             "per_batch_selective_filter_state_reused",
+        )
+        self.assertEqual(result.field("prepare_batch_scale_no_standalone_lane"), "true")
+        self.assertEqual(result.field("prepare_batch_scale_real_bytes"), "true")
+        self.assertEqual(result.field("prepare_batch_scale_claim_gate_status"), "not_scale_grade")
+        self.assertEqual(
+            result.field("scenario_selective-filter_prepared_vortex_scale_idempotency_key"),
+            "prepared-vortex:fnv1a64-feedface",
         )
         self.assertFalse(result.fallback.attempted)
 

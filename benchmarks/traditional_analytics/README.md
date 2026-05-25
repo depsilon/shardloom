@@ -529,6 +529,15 @@ outside child query timing, and the route is still scoped local evidence only: i
 fast mode, persistent cache, performance claim, SQL/DataFrame support, object-store/lakehouse
 support, package-readiness claim, or Spark-displacement claim.
 
+The same route now carries local scale evidence in the Vortex processing step rather than through a
+separate runtime lane. Batch rows expose `prepare_batch_scale_*` rollups and child rows expose
+`scenario_<slug>_prepared_vortex_scale_*` fields covering real prepared Vortex bytes, SplitManifest
+digest, resource policy, memory admission, local shuffle-family classification, retry/idempotency
+key, output commit status, correctness digest, and
+`prepared_vortex_scale_no_standalone_lane=true`. The claim gate remains
+`not_scale_grade` until scheduled split execution, actual spill/backpressure where admitted, and
+larger-than-memory/distributed/object-store proofs land.
+
 The comparative harness exposes the same route as `--engines shardloom-prepare-batch`:
 
 ```powershell
@@ -538,8 +547,10 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepare-batch
 This lane is useful for UniversalIngress/adapter bottleneck attribution because benchmark rows carry
 `prepare_batch_preparation_millis`, `prepare_batch_source_to_columnar_millis`,
 `prepare_batch_vortex_array_build_millis`, Vortex artifact refs/digests, source-state reuse, and
-no-fallback fields in the same artifact as the child scenario timings. It does not replace the
-warm `shardloom-prepared-vortex` lane, which remains the route for already-prepared artifact reuse.
+no-fallback fields in the same artifact as the child scenario timings. Rows also keep
+`prepare_batch_scale_*` and per-scenario `prepared_vortex_scale_*` fields attached to the same
+prepared Vortex route. It does not replace the warm `shardloom-prepared-vortex` lane, which remains
+the route for already-prepared artifact reuse.
 
 GAR-PERF-1B adds the complete source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md`. Batch evidence now also emits

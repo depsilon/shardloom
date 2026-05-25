@@ -102,6 +102,12 @@ Current local rows may expose a single-local-source split summary, but this is s
 evidence only. It is not split-parallel runtime, distributed execution, larger-than-memory runtime,
 object-store execution, table execution, or performance evidence.
 
+Prepared/native Vortex batch rows additionally expose
+`prepared_vortex_scale_split_manifest_*` child fields and `prepare_batch_scale_*` rollups. Those
+fields are emitted inside `traditional-analytics-prepare-batch-run` from real prepared Vortex file
+bytes and reader chunks, and must report `prepared_vortex_scale_no_standalone_lane=true`. They do
+not replace the claim-gated SplitManifest contract fields below or imply split-parallel runtime.
+
 ShardLoom SplitManifest rows carry:
 
 ```text
@@ -156,6 +162,14 @@ and a fail-closed memory, spill, and backpressure evidence contract to benchmark
 Current local rows expose the vocabulary and deterministic blockers required for future
 larger-than-memory execution, but they do not declare a scale memory budget, admit runtime spill,
 prove backpressure, or permit hidden full materialization.
+
+The prepared/native Vortex batch route has a narrower in-route evidence surface:
+`prepared_vortex_scale_memory_budget_bytes`,
+`prepared_vortex_scale_operator_memory_budget_bytes`,
+`prepared_vortex_scale_peak_memory_bytes`, reservation counts, and
+`prepared_vortex_scale_fail_before_oom_enforced`. These are declared-resource local admission
+evidence over real prepared Vortex bytes. The canonical memory/spill claim gate remains blocked
+until actual spill/backpressure behavior is implemented and verified for the claimed workload.
 
 ShardLoom memory/spill rows carry:
 
