@@ -557,6 +557,15 @@ separate runtime lane. Batch rows expose `prepare_batch_scale_*` rollups and chi
 digest, resource policy, bounded local reader-chunk split scheduling, split execution
 certification, memory admission, local shuffle-family classification, retry/idempotency key, output
 commit status, correctness digest, and `prepared_vortex_scale_no_standalone_lane=true`.
+`GAR-RUNTIME-IMPL-5R` adds PulseWeave to that same in-route step: child rows now emit
+`pulseweave_*`, `flow_inventory_*`, `scarcity_ledger_*`, `endopulse_*`, and `proofbound_*`
+evidence, while batch rows summarize `prepare_batch_scale_pulseweave_*`,
+`prepare_batch_scale_flow_inventory_min_wip_limit`,
+`prepare_batch_scale_scarcity_ledger_selected_actions`,
+`prepare_batch_scale_endopulse_adjustment_applied_count`, and
+`prepare_batch_scale_proofbound_claim_allowed_count`. These fields prove certificate-gated local
+task shaping inside the prepared/native route; they are not a standalone scheduler lane or a
+performance claim.
 Selective-filter rows that admit reader-generated selection vectors now emit
 `prepared_vortex_scale_split_operator_*` evidence for scoped stateless split-operator runtime,
 retry replay, result-sink replay proof, and a split-operator execution certificate. Stateful
@@ -577,9 +586,9 @@ This lane is useful for UniversalIngress/adapter bottleneck attribution because 
 `prepare_batch_preparation_millis`, `prepare_batch_source_to_columnar_millis`,
 `prepare_batch_vortex_array_build_millis`, Vortex artifact refs/digests, source-state reuse, and
 no-fallback fields in the same artifact as the child scenario timings. Rows also keep
-`prepare_batch_scale_*` and per-scenario `prepared_vortex_scale_*` fields attached to the same
-prepared Vortex route. It does not replace the warm `shardloom-prepared-vortex` lane, which remains
-the route for already-prepared artifact reuse.
+`prepare_batch_scale_*`, per-scenario `prepared_vortex_scale_*`, and PulseWeave runtime-control
+fields attached to the same prepared Vortex route. It does not replace the warm
+`shardloom-prepared-vortex` lane, which remains the route for already-prepared artifact reuse.
 
 GAR-PERF-1B adds the complete source-state coverage matrix at
 `docs/architecture/source-state-reuse-coverage-matrix.md`. Batch evidence now also emits

@@ -9,6 +9,10 @@ The runtime-envelope validator is a production-readiness guard for executable su
 grant a runtime capability by itself; it rejects runtime evidence that is missing the fields needed
 to distinguish execution from report-only status.
 
+`GAR-RUNTIME-IMPL-5R` extends this shared validator to PulseWeave prepared/local rows. If a row
+emits `pulseweave_status`, the validator requires the complete PulseWeave, FlowInventory,
+ScarcityLedger, EndoPulse, and ProofBound field families before the row can pass.
+
 Validated surfaces:
 
 - Runtime `OutputEnvelope` fixtures and flat field maps through
@@ -57,6 +61,11 @@ Mode-specific rules:
 - Certified `prepared_vortex_scale_split_operator_*` rows require operator family, stateful/shuffle
   flags, retry/source replay, memory-envelope, backpressure, spill-policy, output commit proof,
   concrete split-operator certificate, and split-operator no-fallback fields.
+- Applied PulseWeave rows require `pulseweave_runtime_decision_applied=true`,
+  `pulseweave_status=applied`, `pulseweave_blocker=none`, FlowInventory WIP evidence,
+  ScarcityLedger action/price evidence, `endopulse_persistent_state_used=false`, ProofBound
+  admission/certification, `native_io_certificate_status=certified`, certified execution
+  certificate status, correctness/output digest evidence, and PulseWeave no-fallback fields.
 - `report_only` and `diagnostic_only` rows cannot set `runtime_execution=true`.
 
 Validation command:

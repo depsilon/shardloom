@@ -329,6 +329,13 @@ prepared/native split runtime, retry replay, bounded-memory/backpressure posture
 replay proof under the declared fixture envelope; broader larger-than-memory, data-spill,
 object-store/table, distributed, and performance gates remain blocked.
 
+`GAR-RUNTIME-IMPL-5R` adds PulseWeave to the same prepared/native batch path. Per-scenario rows
+emit `pulseweave_*`, `flow_inventory_*`, `scarcity_ledger_*`, `endopulse_*`, and `proofbound_*`
+fields, and prepare/batch envelopes emit `prepare_batch_scale_pulseweave_*` rollups. This is
+certificate-gated local task shaping over the existing prepared Vortex route, not a standalone
+scheduler lane, performance claim, object-store/distributed runtime, or real query-data spill
+permission.
+
 `traditional-analytics-vortex-batch-run` is the scoped prepared/native batch command for
 caller-supplied Vortex artifacts. `traditional-analytics-prepare-batch-run` is the adjacent scoped
 local route for compatibility inputs: it runs certified preparation once, emits

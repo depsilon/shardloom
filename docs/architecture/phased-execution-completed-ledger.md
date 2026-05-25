@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5R PulseWeave automatic prepared/local runtime control
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-pulseweave-5r` / #960.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5R PulseWeave automatic prepared/local runtime control`.
+    - `docs/architecture/pulseweave-runtime-control.md`.
+    - Completed `GAR-RUNTIME-IMPL-4P/5M` prepared Vortex declared local scale runtime closeout.
+    - Completed `GAR-RUNTIME-IMPL-5H` runtime evidence envelope and claim validator closeout.
+  - Scope:
+    - Added provider-neutral `shardloom-exec/src/pulseweave.rs` with deterministic
+      `PulseWeaveInput`, `PulseWeaveTaskShape`, `FlowInventoryReport`,
+      `ScarcityLedgerDecision`, `EndoPulseDecision`, `ProofBoundAutoGate`, and
+      `PulseWeaveReport` planning APIs.
+    - Wired PulseWeave into the existing prepared/native Vortex batch route in
+      `shardloom-vortex/src/traditional_analytics.rs`; the route now uses certified
+      FlowInventory/EndoPulse batch windows when ProofBound admits the real prepared Vortex task
+      evidence.
+    - Emitted per-scenario `pulseweave_*`, `flow_inventory_*`, `scarcity_ledger_*`,
+      `endopulse_*`, and `proofbound_*` fields alongside existing `prepared_vortex_scale_*`
+      evidence, plus `prepare_batch_scale_pulseweave_*` and related rollups on the batch envelope.
+    - Extended the runtime-envelope validator so PulseWeave rows fail closed unless complete
+      FlowInventory, ScarcityLedger, EndoPulse, ProofBound, certified execution certificate,
+      certified Native I/O certificate, correctness/output digest, and no-fallback evidence is
+      present.
+    - Updated benchmark harness checks, benchmark artifact promotion passthrough, use-case
+      evidence mirrors, runtime-envelope status docs, compute-flow/scale references, terminology,
+      and release-visible metadata tests.
+    - Removed `GAR-RUNTIME-IMPL-5R` from the live Planned queue; the next engine-internal runtime
+      queue starts at `GAR-RUNTIME-IMPL-5K` before `4Q/5N`, `4R/5O`, and final `4D/5G`.
+  - Field schema:
+    - PulseWeave aggregate: `pulseweave_schema_version`, `pulseweave_status`,
+      `pulseweave_application_scope`, `pulseweave_runtime_decision_applied`,
+      `pulseweave_policy_mutated`, `pulseweave_decision_digest`, `pulseweave_blocker`,
+      `pulseweave_claim_gate_status`, `pulseweave_fallback_attempted`, and
+      `pulseweave_external_engine_invoked`.
+    - Component families: `flow_inventory_*`, `scarcity_ledger_*`, `endopulse_*`, and
+      `proofbound_*`.
+    - Batch rollups: `prepare_batch_scale_pulseweave_status`,
+      `prepare_batch_scale_pulseweave_applied_count`,
+      `prepare_batch_scale_pulseweave_policy_mutated_count`,
+      `prepare_batch_scale_pulseweave_decision_digests`,
+      `prepare_batch_scale_flow_inventory_min_wip_limit`,
+      `prepare_batch_scale_scarcity_ledger_selected_actions`,
+      `prepare_batch_scale_endopulse_adjustment_applied_count`, and
+      `prepare_batch_scale_proofbound_claim_allowed_count`.
+  - Claim boundary:
+    - This proves deterministic certificate-gated prepared/local task shaping over admitted local
+      Vortex batch rows only.
+    - It does not claim performance improvement, production readiness, object-store runtime,
+      distributed runtime, live/hybrid runtime, effectful adapters, real query-data spill,
+      broad SQL/DataFrame support, package publication, Foundry support, or Spark replacement.
+    - External engines remain baselines/oracles only and cannot satisfy PulseWeave evidence.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-exec pulseweave --lib`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch --lib`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_runtime_execution_field_validation_blocks_incomplete_pulseweave_proof python.tests.test_cli_client.ShardLoomClientTests.test_runtime_execution_field_validation_blocks_pulseweave_without_certified_proof python.tests.test_cli_client.ShardLoomClientTests.test_runtime_execution_field_validation_accepts_complete_pulseweave_proof`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - Final workspace checks are recorded in the PR once CI and local gates are green.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5H runtime evidence envelope and claim validator closeout
   - Date: 2026-05-25
   - Branch/PR: `runtime-evidence-validators-5h` / #959.

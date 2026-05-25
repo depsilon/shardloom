@@ -5852,6 +5852,7 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     let doc = read_repo_file("docs/architecture/pulseweave-runtime-control.md");
     for required in [
         "PulseWeave Runtime Control",
+        "GAR-RUNTIME-IMPL-5R",
         "FlowInventory Scheduler",
         "ScarcityLedger Allocator",
         "EndoPulse Governor",
@@ -5868,20 +5869,17 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
 
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(plan.contains("docs/architecture/pulseweave-runtime-control.md"));
-    assert!(
-        plan.contains(
-            "- [ ] GAR-RUNTIME-IMPL-5R PulseWeave automatic prepared/local runtime control"
-        )
-    );
-    let pulseweave = plan
-        .find("- [ ] GAR-RUNTIME-IMPL-5R")
-        .expect("PulseWeave runtime-control item must be planned");
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5R"));
+    assert!(plan.contains("- [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission"));
     let expression_closeout = plan
         .find("- [ ] GAR-RUNTIME-IMPL-4D")
         .expect("4D expression/operator closeout must remain planned");
+    let object_store_admission = plan
+        .find("- [ ] GAR-RUNTIME-IMPL-5K")
+        .expect("object-store admission must remain planned after PulseWeave");
     assert!(
-        pulseweave < expression_closeout,
-        "PulseWeave runtime-control work must stay before 4D closeout"
+        object_store_admission < expression_closeout,
+        "remaining engine-internal runtime gates must stay before 4D closeout"
     );
 
     let terminology = read_repo_file("docs/architecture/canonical-terminology.md");
@@ -5903,6 +5901,7 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
         "repeated-independent-shards",
         "automatic_work_shaping_applied=false",
         "docs/architecture/pulseweave-runtime-control.md",
+        "GAR-RUNTIME-IMPL-5R",
     ] {
         assert!(
             dynamic_doc.contains(required),
@@ -5926,6 +5925,42 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     let cli = read_repo_file("shardloom-cli/src/engine_runtime_planning.rs");
     assert!(cli.contains("repeated-independent-shards"));
     assert!(cli.contains("automatic_work_shaping_decision"));
+
+    let pulseweave_code = read_repo_file("shardloom-exec/src/pulseweave.rs");
+    for required in [
+        "PulseWeaveInput",
+        "FlowInventoryReport",
+        "ScarcityLedgerDecision",
+        "EndoPulseDecision",
+        "ProofBoundAutoGate",
+        "plan_pulseweave",
+        "native_io_certificate",
+    ] {
+        assert!(
+            pulseweave_code.contains(required),
+            "missing PulseWeave runtime code marker {required}"
+        );
+    }
+
+    let vortex = read_repo_file("shardloom-vortex/src/traditional_analytics.rs");
+    for required in [
+        "pulseweave_report",
+        "prepare_batch_scale_pulseweave_status",
+        "prepare_batch_scale_flow_inventory_min_wip_limit",
+        "prepare_batch_scale_proofbound_claim_allowed_count",
+    ] {
+        assert!(
+            vortex.contains(required),
+            "missing prepared Vortex PulseWeave marker {required}"
+        );
+    }
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(
+        completed
+            .contains("GAR-RUNTIME-IMPL-5R PulseWeave automatic prepared/local runtime control"),
+        "PulseWeave completion must be recorded in the completed ledger"
+    );
 }
 
 #[test]
@@ -6204,6 +6239,8 @@ fn runtime_execution_envelope_validator_is_release_visible() {
         "claim_grade runtime evidence requires",
         "full_replay evidence requires",
         "certified prepared Vortex split-operator runtime",
+        "PulseWeave runtime evidence is missing",
+        "PulseWeave applied runtime requires",
         "compatibility_import_certified envelope must disclose",
         "prepared_vortex envelope is missing",
     ] {
@@ -6227,6 +6264,8 @@ fn runtime_execution_envelope_validator_is_release_visible() {
         "full_replay_missing_replay",
         "split_operator_missing_family",
         "split_operator_complete",
+        "pulseweave_missing_wip",
+        "pulseweave_complete",
         "published_benchmark_rows",
         "runs_today_support_matrix",
         "benchmark_row_count",
@@ -6254,6 +6293,11 @@ fn runtime_execution_envelope_validator_is_release_visible() {
         "execution_certificate_status=certified",
         "full_replay",
         "prepared_vortex_scale_split_operator_*",
+        "PulseWeave",
+        "FlowInventory",
+        "ScarcityLedger",
+        "EndoPulse",
+        "ProofBound",
         "compatibility_import_certified",
         "fallback_attempted=false",
         "external_engine_invoked=false",
@@ -6278,6 +6322,11 @@ fn runtime_execution_envelope_validator_is_release_visible() {
         "prepared_vortex_scale_split_operator_output_commit_proof_status",
         "prepared_vortex_scale_split_operator_fallback_attempted",
         "prepared_vortex_scale_split_operator_external_engine_invoked",
+        "pulseweave_status",
+        "flow_inventory_wip_limit",
+        "scarcity_ledger_selected_action",
+        "endopulse_next_wip_limit",
+        "proofbound_claim_allowed",
     ] {
         assert!(
             promoter.contains(required),
