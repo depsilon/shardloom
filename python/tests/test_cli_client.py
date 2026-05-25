@@ -48,6 +48,7 @@ from shardloom import (
     OutputEnvelope,
     PreparedVortexArtifacts,
     PreparedVortexBatchResult,
+    PreparedVortexScanPushdownRow,
     PredicateDtypeCoverageRow,
     RestApiContractPlan,
     RestApiDataPlane,
@@ -667,7 +668,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "plan_kind", "value": "vortex_primitive"},
                         {"key": "execution_status", "value": "executed"},
                         {"key": "provider_api_surface", "value": "vortex_local_primitive"},
-                        {"key": "provider_version", "value": "0.71"},
+                        {"key": "provider_version", "value": "0.72"},
                         {"key": "evidence_completeness_status", "value": "evidence_incomplete"},
                         {"key": "result_refs", "value": "result.rows"},
                         {"key": "artifact_refs", "value": "vortex_local_engine_report"},
@@ -692,7 +693,7 @@ class ShardLoomClientTests(unittest.TestCase):
                                 {"key": "evidence_slot_result_refs_refs", "value": "result.rows"},
                                 {"key": "evidence_slot_result_refs_detail", "value": "result refs are present"},
                                 {"key": "evidence_slot_provider_version_status", "value": "present"},
-                                {"key": "evidence_slot_provider_version_refs", "value": "0.71"},
+                                {"key": "evidence_slot_provider_version_refs", "value": "0.72"},
                                 {"key": "evidence_slot_provider_version_detail", "value": "provider version is present"},
                                 {"key": "evidence_slot_native_io_certificate_refs_status", "value": "evidence_incomplete"},
                                 {"key": "evidence_slot_native_io_certificate_refs_refs", "value": "none"},
@@ -818,13 +819,13 @@ class ShardLoomClientTests(unittest.TestCase):
                 "certificates": [{"id": "cert.execution", "kind": "execution_certificate", "status": "available", "uri": None}],
                 "policy": {"fields": [{"key": "fallback_attempted", "value": "false"}]},
                 "lifecycle": {"fields": [{"key": "execution_status", "value": "executed"}]},
-                "capability_snapshot": {"fields": [{"key": "provider_version", "value": "0.71"}]},
+                "capability_snapshot": {"fields": [{"key": "provider_version", "value": "0.72"}]},
                 "fields": [
                     {"key": "plan_id", "value": "plan.count"},
                     {"key": "plan_kind", "value": "vortex_primitive"},
                     {"key": "execution_status", "value": "executed"},
                     {"key": "provider_api_surface", "value": "vortex_local_primitive"},
-                    {"key": "provider_version", "value": "0.71"},
+                    {"key": "provider_version", "value": "0.72"},
                     {"key": "evidence_completeness_status", "value": "evidence_incomplete"},
                     {"key": "result_refs", "value": "result.rows"},
                     {"key": "artifact_refs", "value": "vortex_local_engine_report"},
@@ -848,7 +849,7 @@ class ShardLoomClientTests(unittest.TestCase):
         result = ExecutionResultEnvelopeView(envelope)
 
         self.assertEqual(result.plan_id, "plan.count")
-        self.assertEqual(result.provider_version, "0.71")
+        self.assertEqual(result.provider_version, "0.72")
         self.assertEqual(result.result_refs, ("result.rows",))
         self.assertIn("vortex_local_engine_report", result.inline_artifact_ids)
         self.assertEqual(result.execution_certificate_refs, ("cert.execution",))
@@ -4912,7 +4913,7 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_kind", "value": "vortex_scan"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_api_surface", "value": "VortexFile::scan,ScanBuilder::into_array_iter"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_crate", "value": "vortex"},
-                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_version", "value": "0.71"},
+                        {"key": "native_vortex_admission_lane_local_vortex_count_scalar_provider_version", "value": "0.72"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_feature_gate", "value": "vortex-encoded-read-spike"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_shardloom_admission_policy", "value": "local_fixture_scan_count_only"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_compute_row_ref", "value": "compute_row.local_vortex_count"},
@@ -4931,6 +4932,62 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_external_engine_invoked", "value": "false"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_object_store_io", "value": "false"},
                         {"key": "native_vortex_admission_lane_local_vortex_count_scalar_write_io", "value": "false"},
+                        {"key": "prepared_vortex_scan_pushdown_schema_version", "value": "shardloom.prepared_vortex.scan_pushdown_matrix.v1"},
+                        {"key": "prepared_vortex_scan_pushdown_status", "value": "complete_for_current_prepared_native_runtime"},
+                        {"key": "prepared_vortex_scan_pushdown_row_order", "value": "selective_filter,filter_projection_limit"},
+                        {"key": "prepared_vortex_scan_pushdown_row_count", "value": "2"},
+                        {"key": "prepared_vortex_scan_pushdown_supported_count", "value": "1"},
+                        {"key": "prepared_vortex_scan_pushdown_partially_supported_count", "value": "1"},
+                        {"key": "prepared_vortex_scan_pushdown_unsupported_count", "value": "0"},
+                        {"key": "prepared_vortex_scan_pushdown_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "prepared_vortex_scan_pushdown_all_rows_no_fallback", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_all_rows_external_engine_invoked_false", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_scenario", "value": "selective filter"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_pushdown_status", "value": "scan_pushdown_supported"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_filter_required", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_projection_required", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_limit_required", "value": "false"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_filter_pushed_down", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_projection_pushed_down", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_limit_pushed_down", "value": "false"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_filter_status", "value": "pushed_down"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_projection_status", "value": "pushed_down"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_limit_status", "value": "not_needed"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_residual_limit_status", "value": "not_needed"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_residual_limit_executor", "value": "none"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_filter_columns_read", "value": "flag,value"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_output_columns_read", "value": "id,value,metric"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_filter_only_columns_read", "value": "flag"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_blocker_id", "value": "none"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_blocker_reason", "value": "none"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_benchmark_refs", "value": "traditional_analytics.prepared_native.selective_filter"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_claim_boundary", "value": "prepared/native Vortex Scan pushdown evidence only"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_fallback_attempted", "value": "false"},
+                        {"key": "prepared_vortex_scan_pushdown_row_selective_filter_external_engine_invoked", "value": "false"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_scenario", "value": "filter + projection + limit"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_pushdown_status", "value": "scan_pushdown_partially_supported"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_filter_required", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_projection_required", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_limit_required", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_filter_pushed_down", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_projection_pushed_down", "value": "true"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_limit_pushed_down", "value": "false"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_filter_status", "value": "pushed_down"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_projection_status", "value": "pushed_down"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_limit_status", "value": "blocked_no_scan_limit_admission"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_residual_limit_status", "value": "applied_by_shardloom_native_source_order_residual"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_residual_limit_executor", "value": "shardloom_native"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_filter_columns_read", "value": "flag,value"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_output_columns_read", "value": "id,value,metric"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_filter_only_columns_read", "value": "flag"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_blocker_id", "value": "gar-perf-2c.limit_pushdown_not_admitted"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_blocker_reason", "value": "filter/projection/limit currently keeps the limit in ShardLoom residual logic because the scan limit is order-sensitive"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_benchmark_refs", "value": "traditional_analytics.prepared_native.filter_projection_limit"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_claim_boundary", "value": "prepared/native Vortex Scan pushdown evidence only"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_fallback_attempted", "value": "false"},
+                        {"key": "prepared_vortex_scan_pushdown_row_filter_projection_limit_external_engine_invoked", "value": "false"},
                         {"key": "native_unsupported_coverage_status", "value": "complete_for_current_matrix"},
                         {"key": "native_unsupported_coverage_current_matrix_complete", "value": "true"},
                         {"key": "native_unsupported_coverage_row_order", "value": "native_source_object_store_range,native_operator_joins,native_workload_sql_dataframe"},
@@ -5164,6 +5221,7 @@ class ShardLoomClientTests(unittest.TestCase):
         count_lane = admission_lanes["local_vortex_count_scalar"]
         self.assertEqual(count_lane.admission_status, "admitted_fixture_certified")
         self.assertEqual(count_lane.provider_kind, "vortex_scan")
+        self.assertEqual(count_lane.provider_version, "0.72")
         self.assertIn("ScanBuilder::into_array_iter", count_lane.provider_api_surface)
         self.assertEqual(
             count_lane.claim_boundary,
@@ -5174,6 +5232,34 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(count_lane.external_engine_invoked)
         self.assertFalse(count_lane.object_store_io)
         self.assertFalse(count_lane.write_io)
+        self.assertEqual(
+            result.prepared_vortex_scan_pushdown_status,
+            "complete_for_current_prepared_native_runtime",
+        )
+        self.assertTrue(result.prepared_vortex_scan_pushdown_all_rows_no_fallback)
+        self.assertTrue(
+            result.prepared_vortex_scan_pushdown_all_rows_external_engine_free
+        )
+        pushdown_rows = {
+            row.row_id: row for row in result.prepared_vortex_scan_pushdown_rows
+        }
+        selective_pushdown = pushdown_rows["selective_filter"]
+        self.assertIsInstance(selective_pushdown, PreparedVortexScanPushdownRow)
+        self.assertEqual(selective_pushdown.pushdown_status, "scan_pushdown_supported")
+        self.assertTrue(selective_pushdown.filter_pushed_down)
+        self.assertTrue(selective_pushdown.projection_pushed_down)
+        self.assertFalse(selective_pushdown.limit_required)
+        self.assertEqual(selective_pushdown.filter_columns_read, ("flag", "value"))
+        self.assertEqual(selective_pushdown.filter_only_columns_read, ("flag",))
+        limit_pushdown = pushdown_rows["filter_projection_limit"]
+        self.assertEqual(
+            limit_pushdown.limit_status,
+            "blocked_no_scan_limit_admission",
+        )
+        self.assertEqual(limit_pushdown.residual_limit_executor, "shardloom_native")
+        self.assertFalse(limit_pushdown.limit_pushed_down)
+        self.assertFalse(limit_pushdown.fallback_attempted)
+        self.assertFalse(limit_pushdown.external_engine_invoked)
         rows = {row.row_id: row for row in result.rows}
         self.assertEqual(rows["local_vortex_count"].support_status, "fixture_certified")
         self.assertEqual(rows["local_vortex_count"].execution_mode, "native_vortex")

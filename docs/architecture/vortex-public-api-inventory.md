@@ -44,7 +44,7 @@ phase note. They are not active queue state and do not override `phased-executio
   Vortex query-engine integrations and external baselines.
 - Source/Split admission framing: `vortex-api-inventory` now exposes
   `shardloom.vortex_source_split_runtime_admission.v1` for the scoped
-  `local_vortex_file_scan_into_array_iter` fixture path. The proof records `vortex` version `0.71`,
+  `local_vortex_file_scan_into_array_iter` fixture path. The proof records `vortex` version `0.72`,
   `vortex-local-primitives`, `VortexFile::scan` / `ScanBuilder` API surfaces, source/split refs,
   field-mask and predicate-ordering blockers, execution/Native I/O refs, and
   `fallback_attempted=false`. This classifies the fixture path only; generalized Source/Split,
@@ -331,7 +331,7 @@ Required blockers before any 0.71 item becomes executable:
   `vortex_ingest` array-build provider admission from already-preserved flat Arrow
   `RecordBatch` SourceState, and behind `vortex-traditional-analytics-benchmark` for scoped local
   benchmark compatibility-import artifact creation.
-- Stability: acceptable only for this narrow provider path under Vortex `0.71`; revalidate before
+- Stability: acceptable only for this narrow provider path under Vortex `0.72`; revalidate before
   broadening to nested, nullable, object-store, table/catalog, or execution surfaces.
 - Adapter support: scoped local prepare-once artifact creation for flat Parquet/Arrow IPC/Avro/ORC
   SourceState batches. Default builds and unsupported structured shapes remain blocked or scalar

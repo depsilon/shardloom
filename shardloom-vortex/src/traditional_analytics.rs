@@ -21134,12 +21134,52 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_group-by-aggregation_scan_pushdown_status",
+            "scan_pushdown_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_hash-join_scan_pushdown_status",
+            "scan_pushdown_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_hash-join_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_join---aggregate_scan_pushdown_status",
             "scan_pushdown_supported",
         );
         assert_field_eq(
             &fields,
+            "scenario_join---aggregate_scan_filter_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_join---aggregate_scan_projection_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_join---aggregate_scan_limit_required",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_join---aggregate_scan_filter_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_join---aggregate_scan_projection_pushed_down",
             "true",
         );
         assert_field_eq(
@@ -21151,6 +21191,11 @@ mod tests {
             &fields,
             "scenario_join---aggregate_scan_filter_only_columns_read",
             "fact.value",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_join---aggregate_scan_pushdown_blocker_id",
+            "none",
         );
         assert_field_eq(
             &fields,
@@ -21882,6 +21927,21 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_selective-filter_scan_filter_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_scan_projection_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_scan_limit_required",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_selective-filter_scan_filter_pushed_down",
             "true",
         );
@@ -21907,6 +21967,16 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_selective-filter_scan_pushdown_blocker_id",
+            "none",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_selective-filter_scan_pushdown_blocker_reason",
+            "none",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_filter---projection---limit_source_backed_scan_projected_columns",
             "id,value,metric",
         );
@@ -21914,6 +21984,31 @@ mod tests {
             &fields,
             "scenario_filter---projection---limit_scan_pushdown_status",
             "scan_pushdown_partially_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_filter_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_projection_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_limit_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_filter_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_projection_pushed_down",
+            "true",
         );
         assert_field_eq(
             &fields,
@@ -21969,6 +22064,16 @@ mod tests {
             &fields,
             "scenario_filter---projection---limit_scan_filter_only_columns_read",
             "flag",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_pushdown_blocker_id",
+            "gar-perf-2c.limit_pushdown_not_admitted",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_filter---projection---limit_scan_pushdown_blocker_reason",
+            "filter/projection/limit currently keeps the limit in ShardLoom residual logic because the scan limit is order-sensitive",
         );
         assert_field_eq(
             &fields,
@@ -22278,8 +22383,48 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_group-by-aggregation_scan_pushdown_status",
+            "scan_pushdown_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_scan_filter_required",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_scan_projection_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_scan_pushdown_blocker_id",
+            "none",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_multi-key-group-by_source_backed_scan_projected_columns",
             "group_key,category,metric",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_multi-key-group-by_scan_pushdown_status",
+            "scan_pushdown_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_multi-key-group-by_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_multi-key-group-by_scan_pushdown_blocker_id",
+            "none",
         );
         assert_field_eq(
             &fields,
@@ -22417,8 +22562,83 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_sort-and-top-k_scan_pushdown_status",
+            "scan_pushdown_partially_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_scan_limit_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_scan_limit_pushdown_status",
+            "blocked_no_scan_limit_admission",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_scan_residual_limit_status",
+            "applied_by_shardloom_native_top_k_residual",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_scan_residual_limit_executor",
+            "shardloom_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_sort-and-top-k_scan_pushdown_blocker_reason",
+            "top-k requires ordered heap semantics and is not a source-order Vortex Scan limit",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_top-N-per-group_scan_pushdown_status",
+            "scan_pushdown_partially_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_top-N-per-group_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_top-N-per-group_scan_residual_limit_status",
+            "applied_by_shardloom_native_per_group_top_n_residual",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_top-N-per-group_scan_residual_limit_executor",
+            "shardloom_native",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_top-N-per-group_operator_execution_class",
             "residual_native",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_row-number-window_scan_pushdown_status",
+            "scan_pushdown_partially_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_row-number-window_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_row-number-window_scan_residual_limit_status",
+            "applied_by_shardloom_native_window_residual",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_row-number-window_scan_pushdown_blocker_id",
+            "gar-perf-2c.limit_pushdown_not_admitted",
         );
         assert_field_eq(
             &fields,
@@ -22543,8 +22763,53 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_clean-cast-filter-write_scan_pushdown_status",
+            "scan_pushdown_partially_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_clean-cast-filter-write_scan_filter_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_clean-cast-filter-write_scan_filter_pushdown_status",
+            "blocked_filter_not_lowered",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_clean-cast-filter-write_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_clean-cast-filter-write_scan_pushdown_blocker_id",
+            "gar-perf-2c.filter_pushdown_not_lowered",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_malformed-timestamp---dirty-CSV_source_backed_scan_projected_columns",
             "raw_event_time,dirty_numeric,dirty_flag",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_malformed-timestamp---dirty-CSV_scan_pushdown_status",
+            "scan_pushdown_partially_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_malformed-timestamp---dirty-CSV_scan_filter_pushdown_status",
+            "blocked_filter_not_lowered",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_malformed-timestamp---dirty-CSV_scan_filter_columns_read",
+            "raw_event_time",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_malformed-timestamp---dirty-CSV_scan_pushdown_blocker_reason",
+            "filter intent exists but was not admitted into the Vortex Scan request",
         );
         assert_field_eq(
             &fields,
@@ -22672,8 +22937,53 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_partition-pruning_scan_pushdown_status",
+            "scan_pushdown_partially_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_partition-pruning_scan_filter_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_partition-pruning_scan_filter_pushdown_status",
+            "blocked_filter_not_lowered",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_partition-pruning_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_partition-pruning_scan_pushdown_blocker_id",
+            "gar-perf-2c.filter_pushdown_not_lowered",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_null-heavy-aggregate_source_backed_scan_projected_columns",
             "event_date,metric,nullable_metric_00",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_null-heavy-aggregate_scan_pushdown_status",
+            "scan_pushdown_supported",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_null-heavy-aggregate_scan_filter_required",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_null-heavy-aggregate_scan_projection_pushed_down",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_null-heavy-aggregate_scan_pushdown_blocker_id",
+            "none",
         );
         assert_field_eq(
             &fields,

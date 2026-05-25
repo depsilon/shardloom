@@ -16,6 +16,64 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4I Vortex Scan pushdown completion matrix
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-vortex-scan-pushdown-4i` / #952.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4I Vortex scan pushdown and encoded-predicate runtime completion`.
+    - `GAR-PERF-2C` Vortex Scan API pushdown completion.
+    - User direction to complete the whole runtime section and keep prepared/native work flowing
+      through the real Vortex processing route instead of standalone side lanes.
+  - Scope:
+    - Completed the prepared/native `scan_pushdown_*` contract by carrying required filter,
+      projection, and limit booleans, blocker reasons, claim boundaries, no-fallback fields, and
+      deterministic residual-limit evidence through runtime rows and the benchmark harness.
+    - Added a `scan_pushdown_matrix` benchmark artifact/report section so every emitted
+      prepared/native scan row exposes filter/projection/limit posture, filter-only versus output
+      columns, decode/materialization fields, blocker IDs/reasons, claim gate, and external-engine
+      status without relying on prose.
+    - Projected the same completion posture into `compute-capability-matrix` as
+      `shardloom.prepared_vortex.scan_pushdown_matrix.v1`, with supported, partially supported,
+      and unsupported rows for the current local prepared/native runtime families.
+    - Exposed the capability rows through the Python typed client so user and agent surfaces can
+      inspect pushed-down and blocked shapes directly.
+    - Updated active Vortex provider-version evidence to the current optional `vortex = "0.72"`
+      runtime dependency.
+  - Pushed-down shapes:
+    - Filter+projection: selective filter, filter/projection/limit, and join aggregate rows; the
+      filter/projection/limit row keeps only the order-sensitive limit as a ShardLoom-native
+      residual.
+    - Projection-only: CSV ingest metric scan, wide projection, distinct count, grouped aggregate,
+      multi-key group-by, hash join, high-cardinality string group/distinct, sort/top-k, top-N per
+      group, row-number/window, small-change CDC overlay, nested JSON field scan, and null-heavy
+      aggregate rows.
+  - Blocked or residual shapes:
+    - Limit-like rows keep `scan_limit_pushed_down=false` with blocker
+      `gar-perf-2c.limit_pushdown_not_admitted` and ShardLoom-native residual executors for
+      source-order limit, ordered top-k, per-group top-N, and row-number/window semantics.
+    - Dirty-input, malformed timestamp, and partition/date predicates keep
+      `gar-perf-2c.filter_pushdown_not_lowered` until those predicates are safely lowered into the
+      Vortex Scan request.
+    - Many-small-files and scale-stress rows remain deterministic unsupported Vortex Scan
+      pushdown rows rather than hidden full-materialization or fallback paths.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_native_vortex_batch_run_reuses --lib`
+    - `cargo +1.91.1 test -p shardloom-cli --test compute_capability_matrix_snapshots`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test release_readiness_metadata gar_runtime_impl_4i_scan_pushdown_completion_remains_projected`
+    - `python -m compileall -q benchmarks\traditional_analytics\run.py python\src\shardloom\client.py python\src\shardloom\__init__.py python\tests\test_cli_client.py`
+    - `python -m unittest discover -s python\tests`
+    - `python scripts\check_website_readiness.py`
+    - `git diff --check`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+  - Claim boundary:
+    - Complete local prepared/native Vortex Scan/source-boundary pushdown classification only.
+      This does not add broad encoded-native operator coverage, broad Source/Split runtime,
+      object-store/lakehouse scans, SQL/DataFrame runtime, production readiness, public
+      performance/superiority, Spark displacement, or fallback execution.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4J/5G initial encoded kernel registry pair execution
   - Date: 2026-05-25
   - Branch/PR: `runtime-encoded-kernel-pairs-4j-5g` / #951.
@@ -6251,8 +6309,8 @@ phase plan first.
       source-order execution after the scan path, without Arrow conversion, decoded row
       materialization, or external-engine fallback.
     - `--limit 0` / `--source-order-limit 0` is rejected deterministically.
-    - Runtime provider evidence reports the active optional Vortex `0.71` dependency instead of the
-      stale `0.70` value.
+    - Runtime provider evidence reported the then-active optional Vortex `0.71` dependency instead
+      of the stale `0.70` value; later runtime-compatibility work moved active evidence to `0.72`.
   - Vortex-first provider check:
     - Subject: local Vortex `filter + project + source-order limit` primitive.
     - Upstream Vortex concept checked: Vortex Scan filter/projection surfaces are admitted in the

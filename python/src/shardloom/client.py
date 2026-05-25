@@ -4079,6 +4079,36 @@ class NativeVortexAdmissionLane:
 
 
 @dataclass(frozen=True, slots=True)
+class PreparedVortexScanPushdownRow:
+    """One prepared/native Vortex Scan pushdown capability row."""
+
+    row_id: str
+    scenario: str
+    pushdown_status: str
+    filter_required: bool
+    projection_required: bool
+    limit_required: bool
+    filter_pushed_down: bool
+    projection_pushed_down: bool
+    limit_pushed_down: bool
+    filter_status: str
+    projection_status: str
+    limit_status: str
+    residual_limit_status: str
+    residual_limit_executor: str
+    filter_columns_read: tuple[str, ...]
+    output_columns_read: tuple[str, ...]
+    filter_only_columns_read: tuple[str, ...]
+    blocker_id: str
+    blocker_reason: str
+    benchmark_refs: tuple[str, ...]
+    claim_gate_status: str
+    claim_boundary: str
+    fallback_attempted: bool
+    external_engine_invoked: bool
+
+
+@dataclass(frozen=True, slots=True)
 class NativeUnsupportedCoverageRow:
     """One deterministic unsupported native coverage row in the compute matrix."""
 
@@ -4874,6 +4904,126 @@ class ComputeCapabilityMatrix:
                 )
             )
         return tuple(rows)
+
+    @property
+    def prepared_vortex_scan_pushdown_status(self) -> str:
+        """Return the prepared/native Vortex Scan pushdown matrix status."""
+
+        return _required_field(self.envelope, "prepared_vortex_scan_pushdown_status")
+
+    @property
+    def prepared_vortex_scan_pushdown_rows(self) -> tuple[PreparedVortexScanPushdownRow, ...]:
+        """Return prepared/native Vortex Scan pushdown capability rows."""
+
+        rows: list[PreparedVortexScanPushdownRow] = []
+        for row_id in _csv_values(self.envelope.field("prepared_vortex_scan_pushdown_row_order")):
+            prefix = f"prepared_vortex_scan_pushdown_row_{row_id}_"
+            rows.append(
+                PreparedVortexScanPushdownRow(
+                    row_id=row_id,
+                    scenario=_required_field(self.envelope, f"{prefix}scenario"),
+                    pushdown_status=_required_field(
+                        self.envelope,
+                        f"{prefix}pushdown_status",
+                    ),
+                    filter_required=self.envelope.field_bool(
+                        f"{prefix}filter_required",
+                        False,
+                    )
+                    is True,
+                    projection_required=self.envelope.field_bool(
+                        f"{prefix}projection_required",
+                        False,
+                    )
+                    is True,
+                    limit_required=self.envelope.field_bool(
+                        f"{prefix}limit_required",
+                        False,
+                    )
+                    is True,
+                    filter_pushed_down=self.envelope.field_bool(
+                        f"{prefix}filter_pushed_down",
+                        False,
+                    )
+                    is True,
+                    projection_pushed_down=self.envelope.field_bool(
+                        f"{prefix}projection_pushed_down",
+                        False,
+                    )
+                    is True,
+                    limit_pushed_down=self.envelope.field_bool(
+                        f"{prefix}limit_pushed_down",
+                        False,
+                    )
+                    is True,
+                    filter_status=_required_field(self.envelope, f"{prefix}filter_status"),
+                    projection_status=_required_field(
+                        self.envelope,
+                        f"{prefix}projection_status",
+                    ),
+                    limit_status=_required_field(self.envelope, f"{prefix}limit_status"),
+                    residual_limit_status=_required_field(
+                        self.envelope,
+                        f"{prefix}residual_limit_status",
+                    ),
+                    residual_limit_executor=_required_field(
+                        self.envelope,
+                        f"{prefix}residual_limit_executor",
+                    ),
+                    filter_columns_read=_csv_values(
+                        self.envelope.field(f"{prefix}filter_columns_read")
+                    ),
+                    output_columns_read=_csv_values(
+                        self.envelope.field(f"{prefix}output_columns_read")
+                    ),
+                    filter_only_columns_read=_csv_values(
+                        self.envelope.field(f"{prefix}filter_only_columns_read")
+                    ),
+                    blocker_id=_required_field(self.envelope, f"{prefix}blocker_id"),
+                    blocker_reason=_required_field(self.envelope, f"{prefix}blocker_reason"),
+                    benchmark_refs=_csv_values(self.envelope.field(f"{prefix}benchmark_refs")),
+                    claim_gate_status=_required_field(
+                        self.envelope,
+                        f"{prefix}claim_gate_status",
+                    ),
+                    claim_boundary=_required_field(self.envelope, f"{prefix}claim_boundary"),
+                    fallback_attempted=self.envelope.field_bool(
+                        f"{prefix}fallback_attempted",
+                        True,
+                    )
+                    is True,
+                    external_engine_invoked=self.envelope.field_bool(
+                        f"{prefix}external_engine_invoked",
+                        True,
+                    )
+                    is True,
+                )
+            )
+        return tuple(rows)
+
+    @property
+    def prepared_vortex_scan_pushdown_all_rows_no_fallback(self) -> bool:
+        """Whether every scan pushdown row preserves no-fallback evidence."""
+
+        return (
+            self.envelope.field_bool(
+                "prepared_vortex_scan_pushdown_all_rows_no_fallback",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def prepared_vortex_scan_pushdown_all_rows_external_engine_free(self) -> bool:
+        """Whether every scan pushdown row avoids external-engine execution."""
+
+        return (
+            self.envelope.field_bool(
+                "prepared_vortex_scan_pushdown_all_rows_external_engine_invoked_false",
+                False,
+            )
+            is True
+        )
 
     @property
     def native_unsupported_coverage_status(self) -> str:

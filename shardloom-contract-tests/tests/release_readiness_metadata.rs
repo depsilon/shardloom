@@ -5732,6 +5732,116 @@ fn gar_0015_a_string_property_fuzz_gap_remains_report_only() {
 }
 
 #[test]
+fn gar_runtime_impl_4i_scan_pushdown_completion_remains_projected() {
+    let vortex_runtime = read_repo_file("shardloom-vortex/src/traditional_analytics.rs");
+    for required in [
+        "scan_pushdown_contract_fields",
+        "scan_filter_required",
+        "scan_projection_required",
+        "scan_limit_required",
+        "scan_residual_limit_executor",
+        "scan_pushdown_blocker_reason",
+        "scan_pushdown_claim_boundary",
+        "blocked_no_scan_limit_admission",
+    ] {
+        assert!(
+            vortex_runtime.contains(required),
+            "missing Vortex runtime scan-pushdown marker {required}"
+        );
+    }
+
+    let benchmark = read_repo_file("benchmarks/traditional_analytics/run.py");
+    for required in [
+        "def scan_pushdown_matrix(",
+        "def render_scan_pushdown_matrix(",
+        "\"scan_pushdown_matrix\"",
+        "scan_pushdown_blocker_reason",
+        "scan_pushdown_claim_boundary",
+    ] {
+        assert!(
+            benchmark.contains(required),
+            "missing benchmark scan-pushdown marker {required}"
+        );
+    }
+
+    let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
+    for required in [
+        "PreparedVortexScanPushdownRow",
+        "PREPARED_VORTEX_SCAN_PUSHDOWN_ROWS",
+        "shardloom.prepared_vortex.scan_pushdown_matrix.v1",
+        "prepared_vortex_scan_pushdown_all_rows_no_fallback",
+        "prepared_vortex_scan_pushdown_all_rows_external_engine_invoked_false",
+        "scan_pushdown_supported",
+        "scan_pushdown_partially_supported",
+        "scan_pushdown_unsupported",
+        "gar-perf-2c.limit_pushdown_not_admitted",
+        "gar-perf-2c.filter_pushdown_not_lowered",
+    ] {
+        assert!(
+            capabilities.contains(required),
+            "missing capability scan-pushdown marker {required}"
+        );
+    }
+
+    let capability_snapshots =
+        read_repo_file("shardloom-cli/tests/compute_capability_matrix_snapshots.rs");
+    for required in [
+        "assert_prepared_vortex_scan_pushdown_summary_fields",
+        "assert_prepared_vortex_scan_pushdown_row_fields",
+        "prepared_vortex_scan_pushdown_row_count",
+        "prepared_vortex_scan_pushdown_supported_count",
+        "prepared_vortex_scan_pushdown_partially_supported_count",
+        "prepared_vortex_scan_pushdown_unsupported_count",
+        "prepared_vortex_scan_pushdown_row_filter_projection_limit_residual_limit_executor",
+        "prepared_vortex_scan_pushdown_row_many_small_files_scan_pushdown_status",
+    ] {
+        assert!(
+            capability_snapshots.contains(required),
+            "missing CLI capability snapshot scan-pushdown marker {required}"
+        );
+    }
+
+    let python_client = read_repo_file("python/src/shardloom/client.py");
+    for required in [
+        "PreparedVortexScanPushdownRow",
+        "prepared_vortex_scan_pushdown_status",
+        "prepared_vortex_scan_pushdown_rows",
+        "prepared_vortex_scan_pushdown_all_rows_no_fallback",
+        "prepared_vortex_scan_pushdown_all_rows_external_engine_free",
+    ] {
+        assert!(
+            python_client.contains(required),
+            "missing Python scan-pushdown marker {required}"
+        );
+    }
+
+    let doc = read_repo_file("docs/architecture/vortex-scan-pushdown-completion.md");
+    for required in [
+        "`GAR-RUNTIME-IMPL-4I`",
+        "completed `GAR-PERF-2C`",
+        "scan_pushdown_matrix",
+        "Limit/slice pushdown is blocked",
+        "no-fallback status",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing scan-pushdown completion doc marker {required}"
+        );
+    }
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4I"));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4J"));
+    assert!(plan.contains("- [ ] GAR-RUNTIME-IMPL-4K"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-RUNTIME-IMPL-4I Vortex Scan pushdown completion matrix"));
+    assert!(completed.contains("shardloom.prepared_vortex.scan_pushdown_matrix.v1"));
+    assert!(completed.contains("gar-perf-2c.limit_pushdown_not_admitted"));
+    assert!(completed.contains("gar-perf-2c.filter_pushdown_not_lowered"));
+}
+
+#[test]
 fn gar_0032_d_unstructured_adapter_matrix_remains_report_only() {
     let capabilities = read_repo_file("shardloom-cli/src/status_capabilities.rs");
     for required in [

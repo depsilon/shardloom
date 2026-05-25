@@ -2200,7 +2200,7 @@ const NATIVE_VORTEX_ADMISSION_LANES: &[NativeVortexAdmissionLane] = &[NativeVort
     provider_kind: "vortex_scan",
     provider_api_surface: "VortexFile::scan,ScanBuilder::into_array_iter",
     provider_crate: "vortex",
-    provider_version: "0.71",
+    provider_version: "0.72",
     feature_gate: "vortex-encoded-read-spike",
     shardloom_admission_policy: "local_fixture_scan_count_only",
     compute_row_ref: "compute_row.local_vortex_count",
@@ -2215,6 +2215,493 @@ const NATIVE_VORTEX_ADMISSION_LANES: &[NativeVortexAdmissionLane] = &[NativeVort
     claim_boundary: "local_count_all_fixture_smoke_only_not_universal_native_vortex",
     residual_executor: "none",
 }];
+
+const PREPARED_VORTEX_SCAN_PUSHDOWN_ROWS: &[PreparedVortexScanPushdownRow] = &[
+    PreparedVortexScanPushdownRow {
+        id: "selective_filter",
+        scenario: "selective filter",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: true,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: true,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "pushed_down",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "flag,value",
+        output_columns_read: "id,value,metric",
+        filter_only_columns_read: "flag",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.selective_filter",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "filter_projection_limit",
+        scenario: "filter + projection + limit",
+        pushdown_status: "scan_pushdown_partially_supported",
+        filter_required: true,
+        projection_required: true,
+        limit_required: true,
+        filter_pushed_down: true,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "pushed_down",
+        projection_status: "pushed_down",
+        limit_status: "blocked_no_scan_limit_admission",
+        residual_limit_status: "applied_by_shardloom_native_source_order_residual",
+        residual_limit_executor: "shardloom_native",
+        filter_columns_read: "flag,value",
+        output_columns_read: "id,value,metric",
+        filter_only_columns_read: "flag",
+        blocker_id: "gar-perf-2c.limit_pushdown_not_admitted",
+        blocker_reason: "filter/projection/limit currently keeps the limit in ShardLoom residual logic because the scan limit is order-sensitive",
+        benchmark_refs: "traditional_analytics.prepared_native.filter_projection_limit",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "group_by_aggregation",
+        scenario: "group by aggregation",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "group_key,category,metric",
+        filter_only_columns_read: "none",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.group_by_aggregation",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "hash_join",
+        scenario: "hash join",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "dim.dim_key,dim.dim_label,fact.dim_key,fact.metric",
+        filter_only_columns_read: "none",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.hash_join",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "join_aggregate",
+        scenario: "join + aggregate",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: true,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: true,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "pushed_down",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "fact.value",
+        output_columns_read: "dim.dim_key,dim.dim_label,fact.dim_key,fact.category,fact.metric",
+        filter_only_columns_read: "fact.value",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.join_aggregate",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "sort_and_top_k",
+        scenario: "sort and top-k",
+        pushdown_status: "scan_pushdown_partially_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: true,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "blocked_no_scan_limit_admission",
+        residual_limit_status: "applied_by_shardloom_native_top_k_residual",
+        residual_limit_executor: "shardloom_native",
+        filter_columns_read: "none",
+        output_columns_read: "group_key,id,metric",
+        filter_only_columns_read: "none",
+        blocker_id: "gar-perf-2c.limit_pushdown_not_admitted",
+        blocker_reason: "top-k requires ordered heap semantics and is not a source-order Vortex Scan limit",
+        benchmark_refs: "traditional_analytics.prepared_native.sort_and_top_k",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "top_n_per_group",
+        scenario: "top-N per group",
+        pushdown_status: "scan_pushdown_partially_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: true,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "blocked_no_scan_limit_admission",
+        residual_limit_status: "applied_by_shardloom_native_per_group_top_n_residual",
+        residual_limit_executor: "shardloom_native",
+        filter_columns_read: "none",
+        output_columns_read: "group_key,id,metric",
+        filter_only_columns_read: "none",
+        blocker_id: "gar-perf-2c.limit_pushdown_not_admitted",
+        blocker_reason: "per-group/window limits require grouped or ordered residual state and are not Vortex Scan limit pushdown",
+        benchmark_refs: "traditional_analytics.prepared_native.top_n_per_group",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "row_number_window",
+        scenario: "row number window",
+        pushdown_status: "scan_pushdown_partially_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: true,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "blocked_no_scan_limit_admission",
+        residual_limit_status: "applied_by_shardloom_native_window_residual",
+        residual_limit_executor: "shardloom_native",
+        filter_columns_read: "none",
+        output_columns_read: "group_key,id,metric",
+        filter_only_columns_read: "none",
+        blocker_id: "gar-perf-2c.limit_pushdown_not_admitted",
+        blocker_reason: "per-group/window limits require grouped or ordered residual state and are not Vortex Scan limit pushdown",
+        benchmark_refs: "traditional_analytics.prepared_native.row_number_window",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "partition_pruning",
+        scenario: "partition pruning",
+        pushdown_status: "scan_pushdown_partially_supported",
+        filter_required: true,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "blocked_filter_not_lowered",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "event_date",
+        output_columns_read: "event_date,metric,nullable_metric_00",
+        filter_only_columns_read: "none",
+        blocker_id: "gar-perf-2c.filter_pushdown_not_lowered",
+        blocker_reason: "filter intent exists but was not admitted into the Vortex Scan request",
+        benchmark_refs: "traditional_analytics.prepared_native.partition_pruning",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "clean_cast_filter_write",
+        scenario: "clean/cast/filter/write",
+        pushdown_status: "scan_pushdown_partially_supported",
+        filter_required: true,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "blocked_filter_not_lowered",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "dirty_flag,dirty_numeric,raw_event_time",
+        output_columns_read: "raw_event_time,dirty_numeric,dirty_flag",
+        filter_only_columns_read: "none",
+        blocker_id: "gar-perf-2c.filter_pushdown_not_lowered",
+        blocker_reason: "filter intent exists but was not admitted into the Vortex Scan request",
+        benchmark_refs: "traditional_analytics.prepared_native.clean_cast_filter_write",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "malformed_timestamp_dirty_csv",
+        scenario: "malformed timestamp / dirty CSV",
+        pushdown_status: "scan_pushdown_partially_supported",
+        filter_required: true,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "blocked_filter_not_lowered",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "raw_event_time",
+        output_columns_read: "raw_event_time,dirty_numeric,dirty_flag",
+        filter_only_columns_read: "none",
+        blocker_id: "gar-perf-2c.filter_pushdown_not_lowered",
+        blocker_reason: "filter intent exists but was not admitted into the Vortex Scan request",
+        benchmark_refs: "traditional_analytics.prepared_native.malformed_timestamp_dirty_csv",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "null_heavy_aggregate",
+        scenario: "null-heavy aggregate",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "event_date,metric,nullable_metric_00",
+        filter_only_columns_read: "none",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.null_heavy_aggregate",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "csv_file_ingest",
+        scenario: "csv/file ingest",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "metric",
+        filter_only_columns_read: "none",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.csv_file_ingest",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "wide_projection",
+        scenario: "wide projection",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "group_key",
+        filter_only_columns_read: "none",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.wide_projection",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "distinct_count",
+        scenario: "distinct count",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "category,metric",
+        filter_only_columns_read: "none",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.distinct_count",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "multi_key_group_by",
+        scenario: "multi-key group by",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "group_key,category,metric",
+        filter_only_columns_read: "none",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.multi_key_group_by",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "high_cardinality_string_group_distinct",
+        scenario: "high-cardinality string group/distinct",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "category,metric",
+        filter_only_columns_read: "none",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.high_cardinality_string_group_distinct",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "nested_json_field_scan",
+        scenario: "nested JSON field scan",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "nested_payload",
+        filter_only_columns_read: "none",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.nested_json_field_scan",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "small_change_over_large_base",
+        scenario: "small change over large base",
+        pushdown_status: "scan_pushdown_supported",
+        filter_required: false,
+        projection_required: true,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: true,
+        limit_pushed_down: false,
+        filter_status: "not_needed",
+        projection_status: "pushed_down",
+        limit_status: "not_needed",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "base.id,base.metric,cdc_delta.id,cdc_delta.op,cdc_delta.value,cdc_delta.metric,cdc_delta.effective_ts",
+        filter_only_columns_read: "none",
+        blocker_id: "none",
+        blocker_reason: "none",
+        benchmark_refs: "traditional_analytics.prepared_native.small_change_over_large_base",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "many_small_files_scan",
+        scenario: "many-small-files scan",
+        pushdown_status: "scan_pushdown_unsupported",
+        filter_required: false,
+        projection_required: false,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: false,
+        limit_pushed_down: false,
+        filter_status: "unsupported_no_vortex_scan",
+        projection_status: "unsupported_no_vortex_scan",
+        limit_status: "unsupported_no_vortex_scan",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "none",
+        filter_only_columns_read: "none",
+        blocker_id: "gar-perf-2c.vortex_scan_not_admitted",
+        blocker_reason: "scenario family has no admitted local Vortex Scan pushdown path",
+        benchmark_refs: "traditional_analytics.prepared_native.many_small_files_scan",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "scale_stress_skewed_join_aggregation",
+        scenario: "scale stress skewed join aggregation",
+        pushdown_status: "scan_pushdown_unsupported",
+        filter_required: false,
+        projection_required: false,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: false,
+        limit_pushed_down: false,
+        filter_status: "unsupported_no_vortex_scan",
+        projection_status: "unsupported_no_vortex_scan",
+        limit_status: "unsupported_no_vortex_scan",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "none",
+        filter_only_columns_read: "none",
+        blocker_id: "gar-perf-2c.vortex_scan_not_admitted",
+        blocker_reason: "scenario family has no admitted local Vortex Scan pushdown path",
+        benchmark_refs: "traditional_analytics.prepared_native.scale_stress_skewed_join_aggregation",
+    },
+    PreparedVortexScanPushdownRow {
+        id: "scale_stress_multi_stage_etl",
+        scenario: "scale stress multi-stage ETL",
+        pushdown_status: "scan_pushdown_unsupported",
+        filter_required: false,
+        projection_required: false,
+        limit_required: false,
+        filter_pushed_down: false,
+        projection_pushed_down: false,
+        limit_pushed_down: false,
+        filter_status: "unsupported_no_vortex_scan",
+        projection_status: "unsupported_no_vortex_scan",
+        limit_status: "unsupported_no_vortex_scan",
+        residual_limit_status: "not_needed",
+        residual_limit_executor: "none",
+        filter_columns_read: "none",
+        output_columns_read: "none",
+        filter_only_columns_read: "none",
+        blocker_id: "gar-perf-2c.vortex_scan_not_admitted",
+        blocker_reason: "scenario family has no admitted local Vortex Scan pushdown path",
+        benchmark_refs: "traditional_analytics.prepared_native.scale_stress_multi_stage_etl",
+    },
+];
 
 const NATIVE_UNSUPPORTED_COVERAGE_ROWS: &[NativeUnsupportedCoverageRow] = &[
     NativeUnsupportedCoverageRow {
@@ -3221,6 +3708,30 @@ struct NativeVortexAdmissionLane {
     residual_executor: &'static str,
 }
 
+#[allow(clippy::struct_excessive_bools)]
+struct PreparedVortexScanPushdownRow {
+    id: &'static str,
+    scenario: &'static str,
+    pushdown_status: &'static str,
+    filter_required: bool,
+    projection_required: bool,
+    limit_required: bool,
+    filter_pushed_down: bool,
+    projection_pushed_down: bool,
+    limit_pushed_down: bool,
+    filter_status: &'static str,
+    projection_status: &'static str,
+    limit_status: &'static str,
+    residual_limit_status: &'static str,
+    residual_limit_executor: &'static str,
+    filter_columns_read: &'static str,
+    output_columns_read: &'static str,
+    filter_only_columns_read: &'static str,
+    blocker_id: &'static str,
+    blocker_reason: &'static str,
+    benchmark_refs: &'static str,
+}
+
 struct NativeUnsupportedCoverageRow {
     id: &'static str,
     category: &'static str,
@@ -3256,10 +3767,11 @@ struct PredicateDtypeCoverageRow {
 fn compute_capability_matrix_human_text() -> String {
     let materialization_report = plan_materialization_policy_report();
     format!(
-        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nnative Vortex admission lanes: {}\nnative unsupported coverage rows: {}\npredicate/DType coverage rows: {}\nmaterialization policy rows: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
+        "compute capability coverage matrix\nrows: {}\nfamilies: {}\nnative Vortex admission lanes: {}\nprepared/native Vortex Scan pushdown rows: {}\nnative unsupported coverage rows: {}\npredicate/DType coverage rows: {}\nmaterialization policy rows: {}\nclaim grade: blocked for broad claims\nfallback execution: disabled\nruntime execution: false\nside effects: none",
         COMPUTE_ROWS.len(),
         OPERATOR_FAMILY_ROWS.len(),
         NATIVE_VORTEX_ADMISSION_LANES.len(),
+        PREPARED_VORTEX_SCAN_PUSHDOWN_ROWS.len(),
         NATIVE_UNSUPPORTED_COVERAGE_ROWS.len(),
         PREDICATE_DTYPE_COVERAGE_ROWS.len(),
         materialization_report.rows.len()
@@ -3384,6 +3896,7 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
         "P7.4.2 semantic conformance and unsupported API parity",
     );
     append_native_vortex_admission_fields(&mut fields);
+    append_prepared_vortex_scan_pushdown_fields(&mut fields);
     append_native_unsupported_coverage_fields(&mut fields);
     append_predicate_dtype_coverage_fields(&mut fields);
     append_materialization_policy_fields(&mut fields, &plan_materialization_policy_report());
@@ -4379,6 +4892,164 @@ fn append_native_unsupported_coverage_row_fields(
     push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
 }
 
+fn append_prepared_vortex_scan_pushdown_fields(fields: &mut Vec<(String, String)>) {
+    push_field(
+        fields,
+        "prepared_vortex_scan_pushdown_schema_version",
+        "shardloom.prepared_vortex.scan_pushdown_matrix.v1",
+    );
+    push_field(
+        fields,
+        "prepared_vortex_scan_pushdown_status",
+        "complete_for_current_prepared_native_runtime",
+    );
+    push_field(
+        fields,
+        "prepared_vortex_scan_pushdown_row_order",
+        &prepared_vortex_scan_pushdown_row_order(),
+    );
+    push_count_field(
+        fields,
+        "prepared_vortex_scan_pushdown_row_count",
+        PREPARED_VORTEX_SCAN_PUSHDOWN_ROWS.len(),
+    );
+    push_count_field(
+        fields,
+        "prepared_vortex_scan_pushdown_supported_count",
+        prepared_vortex_scan_pushdown_status_count("scan_pushdown_supported"),
+    );
+    push_count_field(
+        fields,
+        "prepared_vortex_scan_pushdown_partially_supported_count",
+        prepared_vortex_scan_pushdown_status_count("scan_pushdown_partially_supported"),
+    );
+    push_count_field(
+        fields,
+        "prepared_vortex_scan_pushdown_unsupported_count",
+        prepared_vortex_scan_pushdown_status_count("scan_pushdown_unsupported"),
+    );
+    push_field(
+        fields,
+        "prepared_vortex_scan_pushdown_claim_gate_status",
+        "not_claim_grade",
+    );
+    push_bool_field(
+        fields,
+        "prepared_vortex_scan_pushdown_all_rows_no_fallback",
+        true,
+    );
+    push_bool_field(
+        fields,
+        "prepared_vortex_scan_pushdown_all_rows_external_engine_invoked_false",
+        true,
+    );
+    for row in PREPARED_VORTEX_SCAN_PUSHDOWN_ROWS {
+        append_prepared_vortex_scan_pushdown_row_fields(fields, row);
+    }
+}
+
+fn append_prepared_vortex_scan_pushdown_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &PreparedVortexScanPushdownRow,
+) {
+    let prefix = format!("prepared_vortex_scan_pushdown_row_{}", row.id);
+    push_field(fields, &format!("{prefix}_scenario"), row.scenario);
+    push_field(
+        fields,
+        &format!("{prefix}_pushdown_status"),
+        row.pushdown_status,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_filter_required"),
+        row.filter_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_projection_required"),
+        row.projection_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_limit_required"),
+        row.limit_required,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_filter_pushed_down"),
+        row.filter_pushed_down,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_projection_pushed_down"),
+        row.projection_pushed_down,
+    );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_limit_pushed_down"),
+        row.limit_pushed_down,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_filter_status"),
+        row.filter_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_projection_status"),
+        row.projection_status,
+    );
+    push_field(fields, &format!("{prefix}_limit_status"), row.limit_status);
+    push_field(
+        fields,
+        &format!("{prefix}_residual_limit_status"),
+        row.residual_limit_status,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_residual_limit_executor"),
+        row.residual_limit_executor,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_filter_columns_read"),
+        row.filter_columns_read,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_output_columns_read"),
+        row.output_columns_read,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_filter_only_columns_read"),
+        row.filter_only_columns_read,
+    );
+    push_field(fields, &format!("{prefix}_blocker_id"), row.blocker_id);
+    push_field(
+        fields,
+        &format!("{prefix}_blocker_reason"),
+        row.blocker_reason,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_benchmark_refs"),
+        row.benchmark_refs,
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_gate_status"),
+        "not_claim_grade",
+    );
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        "prepared/native Vortex Scan pushdown evidence only; no encoded-native, SQL/DataFrame, object-store/lakehouse, production, performance, or Spark-displacement claim",
+    );
+    push_bool_field(fields, &format!("{prefix}_fallback_attempted"), false);
+    push_bool_field(fields, &format!("{prefix}_external_engine_invoked"), false);
+}
+
 fn append_native_vortex_admission_lane_fields(
     fields: &mut Vec<(String, String)>,
     lane: &NativeVortexAdmissionLane,
@@ -4549,6 +5220,13 @@ fn predicate_dtype_support_status_count(status: &str) -> usize {
         .count()
 }
 
+fn prepared_vortex_scan_pushdown_status_count(status: &str) -> usize {
+    PREPARED_VORTEX_SCAN_PUSHDOWN_ROWS
+        .iter()
+        .filter(|row| row.pushdown_status == status)
+        .count()
+}
+
 fn unadmitted_compute_row_count() -> usize {
     COMPUTE_ROWS
         .iter()
@@ -4591,6 +5269,14 @@ fn native_vortex_admission_lane_order() -> String {
     NATIVE_VORTEX_ADMISSION_LANES
         .iter()
         .map(|lane| lane.id)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn prepared_vortex_scan_pushdown_row_order() -> String {
+    PREPARED_VORTEX_SCAN_PUSHDOWN_ROWS
+        .iter()
+        .map(|row| row.id)
         .collect::<Vec<_>>()
         .join(",")
 }

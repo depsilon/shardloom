@@ -321,6 +321,9 @@ COMPRESSED_KERNEL_REGISTRY_FIELDS = (
 SCAN_PUSHDOWN_FIELDS = (
     "scan_pushdown_schema_version",
     "scan_pushdown_status",
+    "scan_filter_required",
+    "scan_projection_required",
+    "scan_limit_required",
     "scan_filter_pushed_down",
     "scan_projection_pushed_down",
     "scan_limit_pushed_down",
@@ -342,7 +345,9 @@ SCAN_PUSHDOWN_FIELDS = (
     "scan_data_materialized",
     "scan_data_decoded",
     "scan_pushdown_blocker_id",
+    "scan_pushdown_blocker_reason",
     "scan_pushdown_claim_gate_status",
+    "scan_pushdown_claim_boundary",
     "scan_pushdown_fallback_attempted",
     "scan_pushdown_external_engine_invoked",
 )
@@ -10071,6 +10076,71 @@ def split_manifest_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]
     return rows
 
 
+def scan_pushdown_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        execution_mode = result.get("selected_execution_mode") or result.get("execution_mode")
+        if execution_mode not in ("prepared_vortex", "native_vortex"):
+            continue
+        if "scan_pushdown_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": execution_mode,
+                "scan_pushdown_schema_version": metrics.get(
+                    "scan_pushdown_schema_version"
+                ),
+                "scan_pushdown_status": metrics.get("scan_pushdown_status"),
+                "filter_required": metrics.get("scan_filter_required"),
+                "projection_required": metrics.get("scan_projection_required"),
+                "limit_required": metrics.get("scan_limit_required"),
+                "filter_pushed_down": metrics.get("scan_filter_pushed_down"),
+                "projection_pushed_down": metrics.get("scan_projection_pushed_down"),
+                "limit_pushed_down": metrics.get("scan_limit_pushed_down"),
+                "limit_requested_rows": metrics.get("scan_limit_requested_rows"),
+                "limit_request_scope": metrics.get("scan_limit_request_scope"),
+                "filter_pushdown_status": metrics.get("scan_filter_pushdown_status"),
+                "projection_pushdown_status": metrics.get(
+                    "scan_projection_pushdown_status"
+                ),
+                "limit_pushdown_status": metrics.get("scan_limit_pushdown_status"),
+                "residual_limit_required": metrics.get(
+                    "scan_residual_limit_required"
+                ),
+                "residual_limit_applied": metrics.get("scan_residual_limit_applied"),
+                "residual_limit_status": metrics.get("scan_residual_limit_status"),
+                "residual_limit_executor": metrics.get("scan_residual_limit_executor"),
+                "residual_limit_input_rows": metrics.get(
+                    "scan_residual_limit_input_rows"
+                ),
+                "residual_limit_rows_output": metrics.get(
+                    "scan_residual_limit_rows_output"
+                ),
+                "residual_limit_reason": metrics.get("scan_residual_limit_reason"),
+                "filter_columns_read": metrics.get("scan_filter_columns_read"),
+                "output_columns_read": metrics.get("scan_output_columns_read"),
+                "filter_only_columns_read": metrics.get(
+                    "scan_filter_only_columns_read"
+                ),
+                "data_materialized": metrics.get("scan_data_materialized"),
+                "data_decoded": metrics.get("scan_data_decoded"),
+                "blocker_id": metrics.get("scan_pushdown_blocker_id"),
+                "blocker_reason": metrics.get("scan_pushdown_blocker_reason"),
+                "claim_gate_status": metrics.get("scan_pushdown_claim_gate_status"),
+                "claim_boundary": metrics.get("scan_pushdown_claim_boundary"),
+                "fallback_attempted": metrics.get("scan_pushdown_fallback_attempted"),
+                "external_engine_invoked": metrics.get(
+                    "scan_pushdown_external_engine_invoked"
+                ),
+            }
+        )
+    return rows
+
+
 def memory_spill_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for result in results:
@@ -11270,6 +11340,9 @@ def failed_result(
         "compressed_kernel_registry_external_engine_invoked": False,
         "scan_pushdown_schema_version": "not_executed",
         "scan_pushdown_status": "not_executed",
+        "scan_filter_required": False,
+        "scan_projection_required": False,
+        "scan_limit_required": False,
         "scan_filter_pushed_down": False,
         "scan_projection_pushed_down": False,
         "scan_limit_pushed_down": False,
@@ -11291,7 +11364,9 @@ def failed_result(
         "scan_data_materialized": None,
         "scan_data_decoded": None,
         "scan_pushdown_blocker_id": "not_executed",
+        "scan_pushdown_blocker_reason": "not_executed",
         "scan_pushdown_claim_gate_status": "not_executed",
+        "scan_pushdown_claim_boundary": "not_executed",
         "scan_pushdown_fallback_attempted": False,
         "scan_pushdown_external_engine_invoked": False,
         "materialization_required": None,
@@ -11940,6 +12015,15 @@ def successful_result_from_iterations(
             "scan_pushdown_schema_version", "not_reported"
         ),
         "scan_pushdown_status": evidence.get("scan_pushdown_status", "not_reported"),
+        "scan_filter_required": (
+            parse_optional_bool(evidence.get("scan_filter_required")) is True
+        ),
+        "scan_projection_required": (
+            parse_optional_bool(evidence.get("scan_projection_required")) is True
+        ),
+        "scan_limit_required": (
+            parse_optional_bool(evidence.get("scan_limit_required")) is True
+        ),
         "scan_filter_pushed_down": (
             parse_optional_bool(evidence.get("scan_filter_pushed_down")) is True
         ),
@@ -11995,8 +12079,14 @@ def successful_result_from_iterations(
         "scan_pushdown_blocker_id": evidence.get(
             "scan_pushdown_blocker_id", "not_reported"
         ),
+        "scan_pushdown_blocker_reason": evidence.get(
+            "scan_pushdown_blocker_reason", "not_reported"
+        ),
         "scan_pushdown_claim_gate_status": evidence.get(
             "scan_pushdown_claim_gate_status", "not_reported"
+        ),
+        "scan_pushdown_claim_boundary": evidence.get(
+            "scan_pushdown_claim_boundary", "not_reported"
         ),
         "scan_pushdown_fallback_attempted": (
             parse_optional_bool(evidence.get("scan_pushdown_fallback_attempted")) is True
@@ -15067,6 +15157,109 @@ def render_split_manifest_matrix(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_scan_pushdown_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["scan_pushdown_matrix"]:
+        rows.append(
+            [
+                row["scenario_name"],
+                row["engine"],
+                row["status"],
+                str(row["execution_mode"]),
+                str(row["scan_pushdown_status"]),
+                str(row["filter_required"]),
+                str(row["filter_pushed_down"]),
+                str(row["filter_pushdown_status"]),
+                str(row["projection_required"]),
+                str(row["projection_pushed_down"]),
+                str(row["projection_pushdown_status"]),
+                str(row["limit_required"]),
+                str(row["limit_pushed_down"]),
+                str(row["limit_pushdown_status"]),
+                str(row["residual_limit_status"]).replace("|", "\\|"),
+                str(row["residual_limit_executor"]),
+                str(row["limit_requested_rows"]),
+                str(row["limit_request_scope"]).replace("|", "\\|"),
+                str(row["filter_columns_read"]).replace("|", "\\|"),
+                str(row["output_columns_read"]).replace("|", "\\|"),
+                str(row["filter_only_columns_read"]).replace("|", "\\|"),
+                str(row["data_materialized"]),
+                str(row["data_decoded"]),
+                str(row["blocker_id"]).replace("|", "\\|"),
+                str(row["blocker_reason"]).replace("|", "\\|"),
+                str(row["claim_gate_status"]),
+                str(row["fallback_attempted"]),
+                str(row["external_engine_invoked"]),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "not_reported",
+                "false",
+                "false",
+                "not_reported",
+                "false",
+                "false",
+                "not_reported",
+                "false",
+                "false",
+                "not_reported",
+                "not_reported",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "missing_scan_pushdown_rows",
+                "no scan pushdown matrix rows were emitted",
+                "not_claim_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Pushdown status",
+            "Filter required",
+            "Filter pushed",
+            "Filter status",
+            "Projection required",
+            "Projection pushed",
+            "Projection status",
+            "Limit required",
+            "Limit pushed",
+            "Limit status",
+            "Residual limit status",
+            "Residual executor",
+            "Limit rows",
+            "Limit scope",
+            "Filter columns",
+            "Output columns",
+            "Filter-only columns",
+            "Materialized",
+            "Decoded",
+            "Blocker",
+            "Blocker reason",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
 def render_memory_spill_matrix(artifact: dict[str, Any]) -> str:
     rows = []
     for row in artifact["memory_spill_matrix"]:
@@ -16617,6 +16810,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_source_state_matrix(artifact),
         "",
+        "## ShardLoom Vortex Scan Pushdown Matrix",
+        "",
+        "Vortex Scan pushdown rows expose filter, projection, and limit posture per prepared/native runtime row. Unsupported dimensions must report deterministic blockers or ShardLoom-native residual execution instead of hidden full materialization or fallback.",
+        "",
+        render_scan_pushdown_matrix(artifact),
+        "",
         "## ShardLoom SplitManifest Evidence Matrix",
         "",
         "SplitManifest rows expose report-only local split planning and deterministic blockers. They do not prove split-parallel execution, distributed runtime, object-store/table runtime, larger-than-memory support, or performance claims.",
@@ -17009,6 +17208,7 @@ def main() -> int:
         "coverage_table": coverage_table(results),
         "format_preparation_matrix": format_preparation_matrix(results),
         "source_state_matrix": source_state_matrix(results),
+        "scan_pushdown_matrix": scan_pushdown_matrix(results),
         "prepared_state_matrix": prepared_state_matrix(results),
         "split_manifest_matrix": split_manifest_matrix(results),
         "memory_spill_matrix": memory_spill_matrix(results),
