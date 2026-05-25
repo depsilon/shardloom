@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4I/5F prepared Vortex residual-limit scan contract
   - Date: 2026-05-25
-  - Branch/PR: `runtime-vortex-scan-pushdown-4i` / pending.
+  - Branch/PR: `runtime-vortex-scan-pushdown-4i` / #950.
   - Source:
     - `GAR-RUNTIME-IMPL-4I Vortex scan pushdown and encoded-predicate runtime completion`.
     - `GAR-RUNTIME-IMPL-5F prepared/native Vortex runtime lifecycle`.
