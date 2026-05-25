@@ -354,6 +354,7 @@ fn is_engine_runtime_planning_command(command: &str) -> bool {
             | "live-change-contract-plan"
             | "live-fixture-run"
             | "hybrid-overlay-run"
+            | "session-cache-smoke"
             | "streaming-plan"
             | "streaming-batch-plan"
             | "backpressure-plan"
@@ -578,6 +579,10 @@ mod tests {
         );
         assert_eq!(
             classify_command("live-fixture-run"),
+            CommandFamily::EngineRuntimePlanning
+        );
+        assert_eq!(
+            classify_command("session-cache-smoke"),
             CommandFamily::EngineRuntimePlanning
         );
         assert_eq!(

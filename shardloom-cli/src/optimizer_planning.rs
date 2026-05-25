@@ -1,15 +1,17 @@
 //! Optimizer, kernel registry, and CPU specialization CLI planning handlers.
 //!
-//! These handlers remain report-only planning surfaces. They do not execute
-//! optimizer work, physical kernels, CPU-specialized kernels, external engines,
-//! writes, materialization, or fallback execution.
+//! Optimizer and kernel handlers remain report-only planning surfaces. The
+//! session-cache smoke executes only scoped in-process cache lifecycle and
+//! buffer reuse accounting; it does not execute optimizer rewrites, physical
+//! kernels, external engines, writes, materialization, or fallback execution.
 
 use std::process::ExitCode;
 
 use shardloom_core::{
     CommandStatus, CpuOperatorSpecializationReport, KernelRegistrySnapshot, OutputFormat,
     PhysicalKernelRegistryPlan, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, plan_cpu_operator_specialization,
+    PhysicalOperatorExecutionProfileMatrix, ShardLoomSessionRuntimeReport,
+    plan_cpu_operator_specialization, run_shardloom_session_cache_smoke,
 };
 use shardloom_plan::{
     AdaptiveOptimizerMemoryReport, EvidenceAwareOptimizerRuleTrace,
@@ -568,6 +570,323 @@ pub(crate) fn handle_optimizer_plan(format: OutputFormat) -> ExitCode {
         evidence_aware_optimizer_trace_fields(&report),
     );
     ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_session_cache_smoke(format: OutputFormat) -> ExitCode {
+    let report = run_shardloom_session_cache_smoke();
+    let optimizer_trace = plan_evidence_aware_optimizer_trace();
+    emit(
+        "session-cache-smoke",
+        format,
+        CommandStatus::Success,
+        "scoped session cache smoke".to_string(),
+        report.to_human_text(),
+        Vec::new(),
+        session_cache_smoke_fields(&report, &optimizer_trace),
+    );
+    ExitCode::SUCCESS
+}
+
+fn session_cache_smoke_fields(
+    report: &ShardLoomSessionRuntimeReport,
+    optimizer_trace: &EvidenceAwareOptimizerTraceReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![];
+    append_session_cache_identity_fields(&mut fields, report);
+    append_session_cache_reuse_fields(&mut fields, report);
+    append_session_cache_lifecycle_fields(&mut fields, report);
+    append_session_cache_optimizer_fields(&mut fields, optimizer_trace);
+    append_session_cache_event_fields(&mut fields, report);
+    fields
+}
+
+fn append_session_cache_identity_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ShardLoomSessionRuntimeReport,
+) {
+    push_field(fields, "mode", "session_cache_smoke");
+    push_field(fields, "gar_ids", "GAR-RUNTIME-IMPL-4L,GAR-RUNTIME-IMPL-5I");
+    push_field(fields, "schema_version", report.schema_version);
+    push_field(fields, "report_id", &report.report_id);
+    push_field(fields, "session_id", &report.session_id);
+    push_field(fields, "session_state_scope", report.session_state_scope);
+    push_field(
+        fields,
+        "session_runtime_status",
+        report.session_runtime_status,
+    );
+    push_field(
+        fields,
+        "cache_artifact_order",
+        &report.cache_artifact_order(),
+    );
+    push_field(fields, "source_state_id", &report.source_state_id);
+    push_field(fields, "source_state_digest", &report.source_state_digest);
+    push_field(
+        fields,
+        "vortex_prepared_state_id",
+        &report.vortex_prepared_state_id,
+    );
+    push_field(
+        fields,
+        "prepared_state_id",
+        &report.vortex_prepared_state_id,
+    );
+    push_field(
+        fields,
+        "vortex_prepared_state_digest",
+        &report.vortex_prepared_state_digest,
+    );
+    push_field(fields, "output_plan_id", &report.output_plan_id);
+    push_field(fields, "output_plan_digest", &report.output_plan_digest);
+    push_field(fields, "schema_cache_id", &report.schema_cache_id);
+    push_field(fields, "dictionary_cache_id", &report.dictionary_cache_id);
+}
+
+fn append_session_cache_reuse_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ShardLoomSessionRuntimeReport,
+) {
+    push_bool_field(fields, "cache_hit", report.cache_hit_count > 0);
+    push_bool_field(fields, "cache_miss", report.cache_miss_count > 0);
+    push_count_field(fields, "cache_hit_count", report.cache_hit_count);
+    push_count_field(fields, "cache_miss_count", report.cache_miss_count);
+    push_count_field(fields, "invalidation_count", report.invalidation_count);
+    push_count_field(
+        fields,
+        "source_state_reuse_count",
+        report.source_state_reuse_count,
+    );
+    push_count_field(
+        fields,
+        "prepared_state_reuse_count",
+        report.prepared_state_reuse_count,
+    );
+    push_count_field(
+        fields,
+        "output_plan_reuse_count",
+        report.output_plan_reuse_count,
+    );
+    push_count_field(
+        fields,
+        "schema_cache_reuse_count",
+        report.schema_cache_reuse_count,
+    );
+    push_count_field(
+        fields,
+        "dictionary_cache_reuse_count",
+        report.dictionary_cache_reuse_count,
+    );
+    push_bool_field(
+        fields,
+        "source_state_reuse_hit",
+        report.source_state_reuse_count > 0,
+    );
+    push_bool_field(
+        fields,
+        "prepared_state_reuse_hit",
+        report.prepared_state_reuse_count > 0,
+    );
+    push_bool_field(
+        fields,
+        "output_plan_reuse_hit",
+        report.output_plan_reuse_count > 0,
+    );
+    push_field(fields, "reuse_digest", &report.reuse_digest);
+    push_field(fields, "last_reuse_reason", &report.last_reuse_reason);
+    push_field(
+        fields,
+        "last_invalidation_reason",
+        &report.last_invalidation_reason,
+    );
+    push_field(
+        fields,
+        "invalidation_reason_order",
+        &report.invalidation_reason_order(),
+    );
+    push_field(fields, "buffer_pool_status", report.buffer_pool_status);
+    push_field(fields, "buffer_pool_scope", report.buffer_pool_scope);
+    push_count_field(
+        fields,
+        "buffer_allocation_count",
+        report.buffer_allocation_count,
+    );
+    push_count_field(fields, "buffer_reuse_count", report.buffer_reuse_count);
+}
+
+fn append_session_cache_lifecycle_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ShardLoomSessionRuntimeReport,
+) {
+    push_bool_field(
+        fields,
+        "explicit_close_required",
+        report.explicit_close_required,
+    );
+    push_bool_field(
+        fields,
+        "explicit_close_performed",
+        report.explicit_close_performed,
+    );
+    push_bool_field(fields, "cleanup_performed", report.cleanup_performed);
+    push_count_field(
+        fields,
+        "cleanup_cache_entries_removed",
+        report.cleanup_cache_entries_removed,
+    );
+    push_bool_field(fields, "session_closed", report.explicit_close_performed);
+    push_bool_field(
+        fields,
+        "lifecycle_closed_and_cleaned",
+        report.lifecycle_closed_and_cleaned(),
+    );
+    push_bool_field(fields, "runtime_execution", report.runtime_execution);
+    push_bool_field(fields, "data_read", report.data_read);
+    push_bool_field(fields, "data_decoded", report.data_decoded);
+    push_bool_field(fields, "data_materialized", report.data_materialized);
+    push_bool_field(fields, "object_store_io", report.object_store_io);
+    push_bool_field(fields, "write_io", report.write_io);
+    push_bool_field(
+        fields,
+        "external_engine_invoked",
+        report.external_engine_invoked,
+    );
+    push_bool_field(fields, "fallback_attempted", report.fallback_attempted);
+    push_bool_field(
+        fields,
+        "fallback_execution_allowed",
+        report.fallback_execution_allowed,
+    );
+    push_bool_field(
+        fields,
+        "production_claim_allowed",
+        report.production_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "performance_claim_allowed",
+        report.performance_claim_allowed,
+    );
+    push_bool_field(
+        fields,
+        "no_fallback_no_external_engine",
+        report.no_fallback_no_external_engine(),
+    );
+    push_field(fields, "claim_gate_status", report.claim_gate_status);
+}
+
+fn append_session_cache_optimizer_fields(
+    fields: &mut Vec<(String, String)>,
+    optimizer_trace: &EvidenceAwareOptimizerTraceReport,
+) {
+    push_field(
+        fields,
+        "optimizer_trace_integration_status",
+        "linked_report_only_trace",
+    );
+    push_field(
+        fields,
+        "optimizer_trace_id",
+        &optimizer_trace.optimizer_trace_id,
+    );
+    push_field(
+        fields,
+        "optimizer_registry_version",
+        &optimizer_trace.optimizer_registry_version,
+    );
+    push_field(
+        fields,
+        "optimizer_rule_order",
+        &optimizer_trace.rule_row_order().join(","),
+    );
+    push_count_field(
+        fields,
+        "optimizer_rule_admitted_count",
+        optimizer_trace.admitted_rule_count(),
+    );
+    push_count_field(
+        fields,
+        "optimizer_rule_applied_count",
+        optimizer_trace.applied_rule_count(),
+    );
+    push_count_field(
+        fields,
+        "optimizer_rule_blocked_count",
+        optimizer_trace.blocked_rule_count(),
+    );
+    if let Some(row) = optimizer_trace
+        .rule_rows
+        .iter()
+        .find(|row| row.rule_id == "common_subplan_source_state_reuse")
+    {
+        push_field(
+            fields,
+            "optimizer_rule_common_subplan_source_state_reuse_status",
+            row.rule_status.as_str(),
+        );
+        push_bool_field(
+            fields,
+            "optimizer_rule_common_subplan_source_state_reuse_applied",
+            row.rule_status.applied(),
+        );
+        push_bool_field(
+            fields,
+            "optimizer_rule_common_subplan_source_state_reuse_source_state_reuse_admitted",
+            row.source_state_reuse_admitted,
+        );
+        push_field(
+            fields,
+            "optimizer_rule_common_subplan_source_state_reuse_before_plan_digest",
+            &row.before_plan_digest,
+        );
+        push_field(
+            fields,
+            "optimizer_rule_common_subplan_source_state_reuse_after_plan_digest",
+            &row.after_plan_digest,
+        );
+    }
+}
+
+fn append_session_cache_event_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ShardLoomSessionRuntimeReport,
+) {
+    push_count_field(
+        fields,
+        "session_cache_event_count",
+        report.cache_event_rows.len(),
+    );
+    for (index, event) in report.cache_event_rows.iter().enumerate() {
+        let prefix = format!("session_cache_event_{index:02}");
+        push_field(
+            fields,
+            &format!("{prefix}_artifact_kind"),
+            event.kind.as_str(),
+        );
+        push_field(fields, &format!("{prefix}_status"), event.status.as_str());
+        push_field(fields, &format!("{prefix}_artifact_id"), &event.artifact_id);
+        push_field(fields, &format!("{prefix}_cache_key"), &event.cache_key);
+        push_field(
+            fields,
+            &format!("{prefix}_fingerprint_digest"),
+            &event.fingerprint_digest,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_reuse_digest"),
+            &event.reuse_digest,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_reuse_reason"),
+            &event.reuse_reason,
+        );
+        push_field(
+            fields,
+            &format!("{prefix}_invalidation_reason"),
+            &event.invalidation_reason,
+        );
+    }
 }
 
 fn evidence_aware_optimizer_trace_fields(

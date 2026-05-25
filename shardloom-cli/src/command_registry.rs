@@ -160,6 +160,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "live-change-contract-plan",
     "live-fixture-run",
     "hybrid-overlay-run",
+    "session-cache-smoke",
     "streaming-plan",
     "streaming-batch-plan",
     "backpressure-plan",
@@ -1026,6 +1027,9 @@ fn command_feature_gate_status(command: &str) -> &'static str {
 }
 
 fn command_input_contract(command: &str) -> &'static str {
+    if command == "session-cache-smoke" {
+        return "scoped_cli_session_cache_lifecycle_smoke";
+    }
     match classify_command(command).as_str() {
         "status_capabilities" => "registry_or_capability_scope_args",
         "prepared_source_backed_execution" => "local_source_or_vortex_artifact_args",
@@ -1050,6 +1054,9 @@ fn command_input_contract(command: &str) -> &'static str {
 }
 
 fn command_output_contract(command: &str) -> &'static str {
+    if command == "session-cache-smoke" {
+        return "typed_envelope_plus_session_cache_reuse_invalidation_and_cleanup_evidence";
+    }
     if command.ends_with("-smoke")
         || command.ends_with("-run")
         || command.contains("write")
@@ -1078,6 +1085,9 @@ fn command_output_contract(command: &str) -> &'static str {
 fn command_owning_phase_item(command: &str) -> &'static str {
     if command == "evidence-schema" {
         return "REVIEW-P1-2";
+    }
+    if command == "session-cache-smoke" {
+        return "GAR-RUNTIME-IMPL-4L/GAR-RUNTIME-IMPL-5I";
     }
     match classify_command(command).as_str() {
         "status_capabilities" => "REVIEW-P1-1",

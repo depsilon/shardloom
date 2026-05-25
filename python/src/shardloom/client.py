@@ -4008,6 +4008,108 @@ class EvidenceAwareOptimizerTraceReport:
 
 
 @dataclass(frozen=True, slots=True)
+class SessionCacheSmokeReport:
+    """Typed view over the scoped GAR-4L/5I CLI session-cache smoke."""
+
+    envelope: OutputEnvelope
+
+    @property
+    def session_id(self) -> str:
+        """Return the scoped session identifier."""
+
+        return _required_field(self.envelope, "session_id")
+
+    @property
+    def session_runtime_status(self) -> str:
+        """Return the session-cache runtime status."""
+
+        return _required_field(self.envelope, "session_runtime_status")
+
+    @property
+    def cache_artifact_order(self) -> tuple[str, ...]:
+        """Return cache artifact families represented by this smoke."""
+
+        return _csv_values(self.envelope.field("cache_artifact_order"))
+
+    @property
+    def invalidation_reason_order(self) -> tuple[str, ...]:
+        """Return invalidation reasons exercised by this smoke."""
+
+        return _csv_values(self.envelope.field("invalidation_reason_order"))
+
+    @property
+    def cache_hit_count(self) -> int:
+        """Return the cache-hit count."""
+
+        return self.envelope.field_int("cache_hit_count", 0) or 0
+
+    @property
+    def cache_miss_count(self) -> int:
+        """Return the cache-miss count."""
+
+        return self.envelope.field_int("cache_miss_count", 0) or 0
+
+    @property
+    def invalidation_count(self) -> int:
+        """Return the invalidation count."""
+
+        return self.envelope.field_int("invalidation_count", 0) or 0
+
+    @property
+    def buffer_reuse_count(self) -> int:
+        """Return the scoped scratch-buffer reuse count."""
+
+        return self.envelope.field_int("buffer_reuse_count", 0) or 0
+
+    @property
+    def source_state_id(self) -> str:
+        """Return the SourceState id represented by the smoke."""
+
+        return _required_field(self.envelope, "source_state_id")
+
+    @property
+    def prepared_state_id(self) -> str:
+        """Return the prepared-state id represented by the smoke."""
+
+        return _required_field(self.envelope, "prepared_state_id")
+
+    @property
+    def output_plan_id(self) -> str:
+        """Return the OutputPlan id represented by the smoke."""
+
+        return _required_field(self.envelope, "output_plan_id")
+
+    @property
+    def lifecycle_closed_and_cleaned(self) -> bool:
+        """Whether explicit close and cleanup completed."""
+
+        return self.envelope.field_bool("lifecycle_closed_and_cleaned", False) is True
+
+    @property
+    def no_fallback_no_external_engine(self) -> bool:
+        """Whether the smoke preserved no fallback and no external engine execution."""
+
+        return (
+            self.envelope.field_bool("fallback_attempted", True) is False
+            and self.envelope.field_bool("fallback_execution_allowed", True) is False
+            and self.envelope.field_bool("external_engine_invoked", True) is False
+            and self.envelope.field_bool("no_fallback_no_external_engine", False) is True
+        )
+
+    @property
+    def optimizer_trace_id(self) -> str:
+        """Return the linked optimizer trace id."""
+
+        return _required_field(self.envelope, "optimizer_trace_id")
+
+    def optimizer_rule_status(self, rule_id: str) -> str:
+        """Return one linked optimizer rule status."""
+
+        normalized = rule_id.strip().lower().replace("-", "_")
+        return _required_field(self.envelope, f"optimizer_rule_{normalized}_status")
+
+
+@dataclass(frozen=True, slots=True)
 class ComputeCapabilityRow:
     """One row in the report-only compute capability matrix."""
 
@@ -7402,6 +7504,13 @@ class ShardLoomClient:
 
         return EvidenceAwareOptimizerTraceReport(
             self.run(["optimizer-plan"], check=check)
+        )
+
+    def session_cache_smoke(self, *, check: bool = True) -> SessionCacheSmokeReport:
+        """Run the scoped CLI session-cache lifecycle smoke."""
+
+        return SessionCacheSmokeReport(
+            self.run(["session-cache-smoke"], check=check)
         )
 
     def estimate(self, operation: str, *, check: bool = True) -> OutputEnvelope:

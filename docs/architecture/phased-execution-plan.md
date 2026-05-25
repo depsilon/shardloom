@@ -289,42 +289,6 @@ that must be worked before any full-runtime readiness claim. Each item below mus
 runtime behavior, deterministic runtime admission/blockers, or runtime-claim validation; planning
 or documentation updates alone are insufficient.
 
-- [ ] GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse runtime
-  - Source: `GAR-IOREUSE-1`, `GAR-PERF-2F`, in-process session runtime docs.
-  - Current state: scoped batch/session evidence exists, and Python now exposes a caller-owned
-    `ShardLoomSession` for local `vortex_ingest` prepared-state reuse plus session-bound `read_*`
-    and `sql(...)` workflows. Admitted local session terminal calls (`collect`, `write`, `fanout`)
-    reuse query/result/OutputPlan reports when source, output, and prepared-artifact fingerprints
-    still match, and invalidate on changed source/output artifacts. Session SQL results surface
-    SourceState id/digest, read-plan, projection-pushdown, materialized/reader projection columns,
-    `source_schema_digest`, `plan_digest`, `output_plan_digest`, `execution_certificate_ref`,
-    reuse/invalidation reason, and runtime-envelope validation status from the local source runtime.
-    Remaining 4L work is now the non-ergonomic session layer: CLI batch/session reuse,
-    cross-workflow or persistent OutputPlan reuse, schema/dictionary cache reuse, buffer pools,
-    object-store/table reuse, and non-local workflows.
-  - Next slice outcome: add a CLI-visible scoped session/batch lifecycle or cache contract that
-    reuses admitted local SourceState/VortexPreparedState/OutputPlan state beyond one Python object
-    while preserving explicit close/cleanup and fingerprint invalidation.
-  - Runtime enablement: scoped in-process session runtime with safe source/prepared/output reuse and
-    explicit invalidation.
-  - User-visible surface: CLI batch/session command, Python context/session, benchmark timing rows.
-  - Implementation scope: session lifecycle, cache keys/fingerprints, invalidation policy, cache
-    hit/miss evidence, explicit close/cleanup.
-  - Evidence required: session id, cache hit/miss, reuse digest/reason, source/prepared/output
-    state ids, invalidation reason, no-fallback fields.
-  - Acceptance: repeated admitted workflows reuse state safely; stale source/schema/plan changes
-    invalidate cache; session state is explicitly scoped and closed; Python prepared-state,
-    session-bound read/SQL, and local query/output reuse remain fingerprint-gated and do not imply
-    broad runtime/session support.
-  - Verification: session smoke, invalidation tests, source/prepared/output reuse tests, benchmark
-    harness contract tests.
-  - Non-goals: no daemon/service, distributed cache, hidden fast mode, or performance claim.
-  - Claim boundary: scoped in-process reuse only.
-  - Fallback boundary: cache/session cannot change execution provider to an external engine.
-  - Dependencies/blockers: fingerprint/invalidation contract, SourceState/VortexPreparedState/
-    OutputPlan ids, explicit session lifecycle, and cache cleanup policy.
-  - Ledger rule: ledger entry must list cache artifacts, invalidation rules, and disabled paths.
-
 - [ ] GAR-RUNTIME-IMPL-4P scale-grade local split, memory, spill, shuffle, and retry runtime
   - Source: `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017,
     `docs/architecture/vortex-public-api-inventory.md`.
@@ -818,39 +782,6 @@ docs/website parity, and a completed-ledger entry.
   - Ledger rule: ledger entry must record schema version, migrated surfaces, source-of-truth mirrors,
     and validation failures now blocked.
 
-- [ ] GAR-RUNTIME-IMPL-5I optimizer, session runtime, reuse, and buffer-pool promotion
-  - Source: `GAR-RUNTIME-IMPL-4L`, `GAR-PERF-2B`, `GAR-PERF-2F`, `GAR-PERF-2G`,
-    `GAR-IOREUSE-1`.
-  - Current state: optimizer traces, source-state reuse, and batch/session evidence exist in scoped
-    forms. Prepared/native benchmark batches emit evidence-only SourceState digests and per-family
-    reuse digests, while Python local sessions expose SourceState identity/read-plan evidence for
-    admitted session-bound `read_*` and `sql(...)` collect/write/fanout reuse. Ordinary Python
-    workflows now have an explicit caller-owned reuse lifecycle; optimizer trace integration, CLI
-    batch/session lifecycle, schema/dictionary caches, buffer-pool reuse evidence, persistent or
-    cross-workflow cache promotion, and non-local/object-store/table workflows remain planned.
-  - Next slice outcome: integrate optimizer trace evidence and a scoped CLI/session cache contract
-    with SourceState/VortexPreparedState/OutputPlan invalidation plus buffer reuse evidence.
-  - Runtime enablement: scoped optimizer/session/cache runtime that safely reuses work across
-    admitted local workflows.
-  - User-visible surface: CLI batch/session command, Python context/session, explain output,
-    benchmark timing rows.
-  - Implementation scope: session lifecycle, optimizer rule registry, cache keys/fingerprints,
-    invalidation policy, buffer-pool hooks, explicit close/cleanup.
-  - Evidence required: session id, optimizer rules admitted/applied/blocked, before/after plan
-    digests, cache hit/miss, reuse digest/reason, invalidation reason, buffer reuse count,
-    no-fallback fields.
-  - Acceptance: repeated admitted workflows reuse state safely; stale source/schema/plan changes
-    invalidate cache; optimizer decisions are explainable and semantics-preserving.
-  - Verification: optimizer snapshot tests, session smoke, invalidation tests, source/prepared/output
-    reuse tests, benchmark contract tests.
-  - Non-goals: no daemon/service, distributed cache, hidden fast mode, or performance claim.
-  - Claim boundary: scoped in-process reuse and explainable optimization only.
-  - Fallback boundary: optimizer/session/cache cannot change provider to an external engine.
-  - Dependencies/blockers: fingerprint contract, plan digest stability, cache cleanup policy,
-    envelope validators.
-  - Ledger rule: ledger entry must list admitted optimizer rules, reuse artifacts, and invalidation
-    rules.
-
 - [ ] GAR-RUNTIME-IMPL-5M scale-grade local execution runtime
   - Source: `GAR-RUNTIME-IMPL-4P`, `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017.
   - Current state: prepared/native Vortex batch execution now carries declared-resource
@@ -1216,9 +1147,10 @@ This bundle is the explicit completion backstop for the desired end-user shape: 
 as simple to enter from Python as PySpark is to Spark, while remaining honest that ShardLoom is not a
 Spark API clone, Spark replacement, distributed runtime claim, production SQL/DataFrame claim, or
 external-engine fallback. Existing runtime items (`GAR-RUNTIME-IMPL-5B`, `GAR-RUNTIME-IMPL-5C`,
-`GAR-RUNTIME-IMPL-5I`, and `GAR-RUNTIME-IMPL-5Q`) own much of the implementation; this section keeps
-the user-surface parity target visible until the full import/context/session/SQL/DataFrame path is
-runnable, documented, tested, and claim-safe.
+and `GAR-RUNTIME-IMPL-5Q`) own much of the remaining implementation; completed
+`GAR-RUNTIME-IMPL-5I` session/cache evidence supplies the scoped lifecycle footing. This section
+keeps the user-surface parity target visible until the full import/context/session/SQL/DataFrame
+path is runnable, documented, tested, and claim-safe.
 
 - [ ] GAR-USER-SURFACE-1C DataFrame/query-builder parity for ordinary local workflows
   - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python
