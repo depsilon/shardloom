@@ -331,6 +331,15 @@ scan_pushdown_status
 scan_filter_pushed_down
 scan_projection_pushed_down
 scan_limit_pushed_down
+scan_limit_requested_rows
+scan_limit_request_scope
+scan_residual_limit_required
+scan_residual_limit_applied
+scan_residual_limit_status
+scan_residual_limit_executor
+scan_residual_limit_input_rows
+scan_residual_limit_rows_output
+scan_residual_limit_reason
 scan_filter_columns_read
 scan_output_columns_read
 scan_filter_only_columns_read
@@ -343,11 +352,13 @@ scan_pushdown_external_engine_invoked=false
 scan_pushdown_claim_gate_status=not_claim_grade
 ```
 
-The row contract must distinguish filter-only columns from output columns. Pushdown evidence is
-source/provider-boundary evidence only; it is not an encoded-native operator claim, generalized
+The row contract must distinguish filter-only columns from output columns. Limit-like operators that
+cannot be admitted into Vortex Scan must report the ShardLoom-native residual executor, requested
+row scope, input rows, and output rows instead of hiding the work behind a blocker. Pushdown evidence
+is source/provider-boundary evidence only; it is not an encoded-native operator claim, generalized
 Source/Split runtime claim, object-store/lakehouse claim, SQL/DataFrame claim, or performance claim.
-Current limit/slice pushdown fields are explicit blockers for order-sensitive or grouped residual
-limit-like scenarios rather than hidden fallbacks.
+Current limit/slice pushdown fields remain explicit blockers for order-sensitive or grouped
+residual limit-like scenarios, with residual executor evidence when ShardLoom performs the work.
 
 ## Evidence-Aware Logical Optimizer Queue
 

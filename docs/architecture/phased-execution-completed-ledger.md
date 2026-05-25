@@ -16,6 +16,48 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4I/5F prepared Vortex residual-limit scan contract
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-vortex-scan-pushdown-4i` / pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4I Vortex scan pushdown and encoded-predicate runtime completion`.
+    - `GAR-RUNTIME-IMPL-5F prepared/native Vortex runtime lifecycle`.
+    - `docs/benchmarks/local-taxonomy-benchmark.md`.
+    - User direction to keep real fixture bytes and related work inside the Vortex processing path
+      instead of creating standalone side lanes.
+  - Scope:
+    - Reordered the live phase plan so remaining internal-engine work starts at `4I`, removed
+      completed runtime/user-surface queue blocks that already live in this ledger, and kept
+      user/surface backstops after internal runtime sections.
+    - Extended prepared/native traditional analytics `scan_pushdown_*` evidence so limit-like
+      scenarios that cannot push a limit into upstream Vortex Scan report a ShardLoom-native
+      residual executor in the same scan contract.
+    - Added `scan_limit_requested_rows`, `scan_limit_request_scope`,
+      `scan_residual_limit_required`, `scan_residual_limit_applied`,
+      `scan_residual_limit_status`, `scan_residual_limit_executor`,
+      `scan_residual_limit_input_rows`, `scan_residual_limit_rows_output`, and
+      `scan_residual_limit_reason` for order-sensitive source-order, top-k, per-group top-N, and
+      row-number/window residual shapes.
+    - Promoted those fields into the traditional benchmark runner's required
+      `SCAN_PUSHDOWN_FIELDS` contract and not-executed defaults so rows cannot omit residual-limit
+      evidence.
+    - Updated benchmark taxonomy docs and phase-plan text to distinguish true Vortex Scan limit
+      pushdown from explicit ShardLoom-native residual execution.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark enabled_filter_projection_limit_uses_prepared_native_vortex_scan`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_native_vortex_batch_run_reuses_selective_filter_source_state`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - `python -m compileall -q benchmarks\traditional_analytics\run.py`
+    - `git diff --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+  - Claim boundary:
+    - Prepared/native local Vortex Scan residual-limit evidence only. This does not add upstream
+      Vortex Scan limit/slice admission, encoded-native operator execution, object-store/lakehouse
+      scan support, SQL/DataFrame production coverage, distributed runtime, benchmark superiority,
+      Spark-displacement, package/release, or performance claims.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4P/5M prepared Vortex local scale and split runtime evidence
   - Date: 2026-05-25
   - Branch/PR: `runtime-local-scale-4p-5m` / #949.
