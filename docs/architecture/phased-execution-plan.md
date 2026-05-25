@@ -277,12 +277,13 @@ Runtime completion rule:
 Current runtime ordering note (2026-05-25): prioritize engine-internal completion first. The
 `GAR-RUNTIME-IMPL-4I` scan/pushdown matrix, `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
 rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
-`GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle, and the `GAR-RUNTIME-IMPL-4F/4F1/5D`
-local adapter/ingest parity closeout are complete and recorded in the ledger. Continue through
-local scale (`4P`/`5M`), claim validators and object-store/control-plane/effectful-operation gates
-(`5H`, `5K`, `4Q`/`5N`, `4R`/`5O`), then expression/operator closeout (`4D`/`5G`) as the last
-4-series runtime-family closeout before SQL/Python surface backstops, benchmark and Foundry gates,
-and release usability. Completed queue blocks have moved to
+`GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle, the `GAR-RUNTIME-IMPL-4F/4F1/5D`
+local adapter/ingest parity closeout, and `GAR-RUNTIME-IMPL-4P/5M` declared local scale runtime
+closeout are complete and recorded in the ledger. Continue through claim validators and
+object-store/control-plane/effectful-operation gates (`5H`, `5K`, `4Q`/`5N`, `4R`/`5O`), then
+expression/operator closeout (`4D`/`5G`) as the last 4-series runtime-family closeout before
+SQL/Python surface backstops, benchmark and Foundry gates, and release usability. Completed queue
+blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
 
@@ -297,92 +298,6 @@ below. They are coverage-assurance backstops, not a second parallel runtime queu
 item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-RUNTIME-IMPL-4P scale-grade local split, memory, spill, shuffle, and retry runtime
-  - Source: `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017,
-    `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: the `traditional-analytics-prepare-batch-run` route now emits
-    `prepared_vortex_scale_*` real-byte local scale evidence inside the existing
-    `compatibility_import_certified -> prepared_vortex_batch` flow. Each child scenario carries
-    declared resource-policy fields, prepared Vortex byte/digest volume, reader chunk/SplitManifest
-    digest, bounded local reader-chunk split scheduling, split execution certification, memory
-    admission/peak reservation evidence, local shuffle-family classification, retry/idempotency key,
-    output commit status, correctness digest, no-fallback fields, and
-    `prepared_vortex_scale_no_standalone_lane=true`. This is in-route fixture evidence only:
-    selective-filter rows with admitted reader-generated selection-vector evidence now also carry
-    scoped stateless split-operator runtime certification, retry replay, and result-sink replay
-    proof. Larger-than-memory, stateful/shuffle split-parallel operator execution, actual spill I/O,
-    object-store/table execution, distributed workers, and performance claims remain blocked.
-  - Next slice outcome: promote remaining prepared Vortex reader-chunk work into claim-grade local
-    split-parallel operator runtime where admitted, especially stateful aggregate/join/sort/window
-    paths with actual spill/backpressure where operator declarations permit it, retry/cancellation
-    recovery over real split work, and output commit proof that can move the relevant claim gates.
-  - Runtime enablement: local scale-grade execution under a declared resource envelope, including
-    split, memory, spill, shuffle, retry, and commit gates.
-  - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
-  - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
-    cancellation/recovery, output commit status, scale benchmark rows.
-  - Vortex 0.71/0.72 opportunity mapping:
-    - `register_splits` offset and relative row-range support should inform `SplitManifest`
-      row-range evidence and per-split blockers.
-    - `VortexReadAt::read_at` validation and async I/O hooks are candidate inputs for local split
-      read validation and spill/output lifecycle evidence.
-    - These hooks do not imply distributed, object-store, table, or larger-than-memory runtime
-      support until scale-grade execution and correctness proof land.
-  - Evidence required: keep `prepared_vortex_scale_*` attached to prepared/native child scenario
-    rows; next promotion needs stateful/shuffle split-parallel operator rows, actual
-    spill/backpressure evidence when admitted, and correctness proof over the claimed workload
-    bytes.
-  - Acceptance: larger-than-memory and split-parallel claims require real bytes and correctness
-    proof from scheduled split work; synthetic metadata or detached side-lane commands cannot
-    become runtime scale claims.
-  - Verification: split manifest tests, local stress smoke, spill/backpressure tests, shuffle
-    correctness tests, retry/idempotency tests, scale benchmark contract tests.
-  - Non-goals: no literal any-volume, Spark replacement, distributed runtime, or object-store scale
-    claim without separate proof.
-  - Claim boundary: declared local resource envelope only.
-  - Fallback boundary: external engines are baselines/oracles only.
-  - Dependencies/blockers: stateful/shuffle split-operator runtime, stateful operator memory/spill
-    declarations, spill storage policy, shuffle correctness fixtures, retry/recovery exercise for
-    non-stateless operators, and claim-grade output commit proof beyond local result-sink replay.
-  - Ledger rule: ledger entry must include resource envelope, data volume, and claim status.
-
-- [ ] GAR-RUNTIME-IMPL-5M scale-grade local execution runtime
-  - Source: `GAR-RUNTIME-IMPL-4P`, `GAR-SCALE-1`, RFC 0014, RFC 0016, RFC 0017.
-  - Current state: prepared/native Vortex batch execution now carries declared-resource
-    real-byte local scale evidence in the normal Vortex processing path through
-    `prepared_vortex_scale_*` child fields and `prepare_batch_scale_*` rollups. The evidence proves
-    the route, source bytes, bounded local reader-chunk split scheduling, split execution
-    certification, memory admission, local shuffle-family classification, retry/idempotency
-    metadata, output commit status, and no standalone side lane. Selective-filter rows with
-    admitted reader-generated selection-vector evidence now also certify scoped stateless
-    split-operator runtime, retry replay, and result-sink replay proof, but the route is still
-    fixture-scoped for scale-grade execution claims.
-  - Next slice outcome: promote remaining stateful/shuffle prepared Vortex reader-chunk work into
-    claim-grade local split-parallel operator runtime with memory/spill/backpressure, shuffle
-    correctness, retry/cancellation recovery, and idempotent commit proof.
-  - Runtime enablement: local scale-grade runtime under declared resource envelopes with real-byte
-    correctness proof.
-  - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
-  - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
-    cancellation/recovery, output commit status, scale benchmark rows.
-  - Evidence required: retain in-route `prepared_vortex_scale_*` and `prepare_batch_scale_*`
-    evidence, then add stateful/shuffle split-parallel operator runtime rows, admitted
-    spill/backpressure evidence, retry/cancellation exercise, output commit proof, correctness
-    digest, and no-fallback fields.
-  - Acceptance: larger-than-memory and split-parallel claims require real bytes and correctness
-    proof from claim-grade local runtime; synthetic metadata or standalone evidence lanes cannot
-    become runtime scale claims.
-  - Verification: split manifest tests, local stress smoke, spill/backpressure tests, shuffle
-    correctness tests, retry/idempotency tests, scale benchmark contract tests.
-  - Non-goals: no literal any-volume, Spark replacement, distributed runtime, or object-store scale
-    claim without separate proof.
-  - Claim boundary: declared local resource envelope only.
-  - Fallback boundary: external engines are baselines/oracles only.
-  - Dependencies/blockers: stateful/shuffle split-operator runtime, stateful operator spill
-    declarations, spill storage policy, shuffle correctness fixtures, retry/recovery exercise for
-    non-stateless operators, and claim-grade output commit proof beyond local result-sink replay.
-  - Ledger rule: ledger entry must include resource envelope, data volume, and scale claim status.
 
 - [ ] GAR-RUNTIME-IMPL-5H evidence envelope, evidence levels, and claim validators
   - Source: `GAR-RUNTIME-IMPL-4K`, `GAR-PERF-2A`, release readiness metadata, benchmark publishing

@@ -104,7 +104,9 @@ include `scale_contract_schema_version=shardloom.traditional_analytics.scale_cla
 `foundry_spark_invoked`, `scale_fallback_attempted=false`,
 `scale_external_engine_invoked=false`, `scale_claim_gate_status=not_scale_grade`, and
 `scale_claim_boundary`. Current ShardLoom rows remain `local_smoke` or `local_claim_grade` only;
-they do not prove larger-than-memory, split-parallel, object-store, table, distributed, Foundry,
+prepared/native Vortex rows may additionally certify in-route local split-operator replay for
+admitted stateless and stateful/shuffle families through `prepared_vortex_scale_split_operator_*`
+fields. They still do not prove larger-than-memory, object-store, table, distributed, Foundry,
 managed-platform, any-volume, Spark-replacement, or performance claims.
 
 `GAR-SCALE-1B` adds a report-only SplitManifest/per-split evidence contract to benchmark rows.
@@ -146,9 +148,11 @@ Rows now include
 `shuffle_spill_bytes`, `shuffle_retry_count`, `shuffle_correctness_digest`,
 `shuffle_fallback_attempted=false`, `shuffle_external_engine_invoked=false`,
 `shuffle_claim_gate_status=not_shuffle_scale_grade`, and `shuffle_claim_boundary`. Current rows
-classify local/report-only join, group-by, window, top-N, repartition, and CDC posture only; they do
-not prove distributed shuffle, Spark-scale joins, retryable shuffle, skew handling, partitioned
-writes, Spark-replacement, or performance claims.
+classify local join, group-by, window, top-N, repartition, and CDC posture. Prepared/native Vortex
+rows can certify local stateful/shuffle split-operator replay with family, local-combine,
+global-merge, retry replay, output commit proof, and execution-certificate fields; they still do
+not prove distributed shuffle, Spark-scale joins, larger-than-memory spill, skew handling,
+partitioned writes, Spark-replacement, or performance claims.
 
 `GAR-SCALE-1E` adds a report-only object-store/table-scale ladder to benchmark rows. Rows now
 include

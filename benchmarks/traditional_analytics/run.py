@@ -3586,6 +3586,23 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "prepared_vortex_scale_split_operator_runtime_status": fields.get(
                     "prepared_vortex_scale_split_operator_runtime_status", "unknown"
                 ),
+                "prepared_vortex_scale_split_operator_family": fields.get(
+                    "prepared_vortex_scale_split_operator_family", "unknown"
+                ),
+                "prepared_vortex_scale_split_operator_stateful": fields.get(
+                    "prepared_vortex_scale_split_operator_stateful", "unknown"
+                ),
+                "prepared_vortex_scale_split_operator_shuffle_required": fields.get(
+                    "prepared_vortex_scale_split_operator_shuffle_required", "unknown"
+                ),
+                "prepared_vortex_scale_split_operator_local_combine_used": fields.get(
+                    "prepared_vortex_scale_split_operator_local_combine_used",
+                    "unknown",
+                ),
+                "prepared_vortex_scale_split_operator_global_merge_used": fields.get(
+                    "prepared_vortex_scale_split_operator_global_merge_used",
+                    "unknown",
+                ),
                 "prepared_vortex_scale_split_operator_claim_gate_status": fields.get(
                     "prepared_vortex_scale_split_operator_claim_gate_status",
                     "unknown",
@@ -3596,6 +3613,22 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 "prepared_vortex_scale_split_operator_retry_replay_status": fields.get(
                     "prepared_vortex_scale_split_operator_retry_replay_status",
+                    "unknown",
+                ),
+                "prepared_vortex_scale_split_operator_source_replay_status": fields.get(
+                    "prepared_vortex_scale_split_operator_source_replay_status",
+                    "unknown",
+                ),
+                "prepared_vortex_scale_split_operator_memory_envelope_status": fields.get(
+                    "prepared_vortex_scale_split_operator_memory_envelope_status",
+                    "unknown",
+                ),
+                "prepared_vortex_scale_split_operator_backpressure_status": fields.get(
+                    "prepared_vortex_scale_split_operator_backpressure_status",
+                    "unknown",
+                ),
+                "prepared_vortex_scale_split_operator_spill_policy_status": fields.get(
+                    "prepared_vortex_scale_split_operator_spill_policy_status",
                     "unknown",
                 ),
                 "prepared_vortex_scale_split_operator_output_commit_proof_status": fields.get(

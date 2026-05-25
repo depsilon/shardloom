@@ -14,7 +14,8 @@
   "outputs": [
     "prepared_native_timing_rows",
     "source_backed_scan_evidence",
-    "prepared_native_lifecycle_evidence"
+    "prepared_native_lifecycle_evidence",
+    "prepared_vortex_scale_split_operator_evidence"
   ],
   "evidence_fields": [
     "execution_mode",
@@ -43,8 +44,17 @@
     "prepared_vortex_scale_split_runtime_status",
     "prepared_vortex_scale_split_execution_certificate_status",
     "prepared_vortex_scale_split_operator_runtime_status",
+    "prepared_vortex_scale_split_operator_family",
+    "prepared_vortex_scale_split_operator_stateful",
+    "prepared_vortex_scale_split_operator_shuffle_required",
+    "prepared_vortex_scale_split_operator_local_combine_used",
+    "prepared_vortex_scale_split_operator_global_merge_used",
     "prepared_vortex_scale_split_operator_execution_certificate_status",
     "prepared_vortex_scale_split_operator_retry_replay_status",
+    "prepared_vortex_scale_split_operator_source_replay_status",
+    "prepared_vortex_scale_split_operator_memory_envelope_status",
+    "prepared_vortex_scale_split_operator_backpressure_status",
+    "prepared_vortex_scale_split_operator_spill_policy_status",
     "prepared_vortex_scale_split_operator_output_commit_proof_status",
     "prepared_vortex_scale_split_reader_digest",
     "prepared_vortex_scale_idempotency_key",
@@ -54,9 +64,9 @@
     "fallback_attempted=false",
     "external_engine_invoked=false"
   ],
-  "claim_boundary": "Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing and emits in-route prepared_native_vortex_lifecycle and prepared_vortex_scale evidence over real Vortex fixture bytes. Selective-filter rows with admitted reader-generated selection vectors now carry scoped stateless split-operator replay/certificate proof. No standalone lifecycle or scale lane, stateful/shuffle split-parallel operator runtime, larger-than-memory runtime, broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.",
+  "claim_boundary": "Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing and emits in-route prepared_native_vortex_lifecycle and prepared_vortex_scale evidence over real Vortex fixture bytes. Selective-filter rows carry scoped stateless split-operator proof, and admitted aggregate/distinct/sort/window/join/CDC rows carry local stateful or shuffle split-operator replay/certificate proof with source-replay, bounded-memory, backpressure, and spill-policy posture. No standalone lifecycle or scale lane, larger-than-memory runtime, actual data-spill I/O, broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.",
   "runnable_example": "python benchmarks\\traditional_analytics\\run.py --engines shardloom-prepared-vortex,shardloom-prepare-batch --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario \"filter + projection + limit\" --dataset-profile tiny_smoke --rows 1000 --iterations 1 --output target\\shardloom-prepared-vortex-smoke.json --regenerate",
-  "expected_output_evidence": "Warm prepared Vortex rows separate from single-process prepare/batch rows, with source-backed scan, prepare_batch_lifecycle, prepared_native_vortex_lifecycle, prepared_vortex_scale, scoped split-operator proof where admitted, and no-fallback fields where available.",
+  "expected_output_evidence": "Warm prepared Vortex rows separate from single-process prepare/batch rows, with source-backed scan, prepare_batch_lifecycle, prepared_native_vortex_lifecycle, prepared_vortex_scale, scoped stateless/stateful/shuffle split-operator proof where admitted, and no-fallback fields where available.",
   "common_mistakes": [
     "calling_prepared_vortex_production_ready",
     "treating_encoded_predicate_fields_as_encoded_native_claims",

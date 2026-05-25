@@ -322,6 +322,13 @@ support.
 | Hybrid engine mode | `engine-selection-plan`, `engine-capability-matrix`, Python helpers, and in-memory `hybrid-overlay-run` reports exist. | Durable micro-segment flush, object-store/table commit, catalog snapshot discovery, and hot/cold benchmark evidence. | Fixture evidence only; no production hybrid, object-store, or table-commit claim. |
 | Streaming/zero-copy/backpressure | `streaming-plan`, `streaming-batch-plan`, `backpressure-plan`, `engine-capability-matrix`, and `capabilities engines` now expose a GAR-0013 streaming capability matrix covering local fixture evidence, object-store streaming reads, zero-decode, zero-copy/materialization boundaries, bounded backpressure, and live/hybrid broker runtime. | Object-store streaming reads, durable broker adapters, runtime backpressure enforcement, broad operator/source/sink evidence, and workload certification. | Matrix rows are fixture-smoke or report-only unless explicitly blocked/materializing; broad streaming/runtime/object-store/broker claims remain not claim-grade. |
 
+The prepared Vortex split-operator evidence now distinguishes stateless filter, stateful
+aggregate/distinct/sort/window, shuffle-required join, and CDC-overlay source-replay rows through
+the `prepared_vortex_scale_split_operator_*` fields. These rows certify only the local
+prepared/native split runtime, retry replay, bounded-memory/backpressure posture, and result-sink
+replay proof under the declared fixture envelope; broader larger-than-memory, data-spill,
+object-store/table, distributed, and performance gates remain blocked.
+
 `traditional-analytics-vortex-batch-run` is the scoped prepared/native batch command for
 caller-supplied Vortex artifacts. `traditional-analytics-prepare-batch-run` is the adjacent scoped
 local route for compatibility inputs: it runs certified preparation once, emits
