@@ -34,7 +34,8 @@
     "runtime_execution_certificate_ref",
     "runtime_execution_certificate_refs",
     "runtime_execution_certificate_id",
-    "prepared_vortex_scale_split_execution_certificate_id"
+    "prepared_vortex_scale_split_execution_certificate_id",
+    "prepared_vortex_scale_split_operator_execution_certificate_id"
   ],
   "non_certificate_metadata_fields": [
     "evidence_level_certificate_refs"

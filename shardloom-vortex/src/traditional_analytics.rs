@@ -4572,6 +4572,37 @@ impl TraditionalAnalyticsPreparedBatchReport {
             })
             .collect::<Vec<_>>()
             .join(",");
+        let prepare_batch_scale_split_operator_certified_count = self
+            .batch_report
+            .reports
+            .iter()
+            .filter(|report| {
+                report
+                    .local_scale_evidence
+                    .split_operator_runtime_evidence
+                    .execution_certificate_status
+                    == "certified"
+            })
+            .count();
+        let prepare_batch_scale_split_operator_runtime_status =
+            match prepare_batch_scale_split_operator_certified_count {
+                0 => "local_split_operator_runtime_not_admitted",
+                count if count == self.batch_report.reports.len() => {
+                    "local_split_operator_runtime_certified"
+                }
+                _ => "local_split_operator_runtime_partially_certified",
+            };
+        let prepare_batch_scale_split_operator_retry_replay_count = self
+            .batch_report
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .local_scale_evidence
+                    .split_operator_runtime_evidence
+                    .retry_replay_count
+            })
+            .sum::<usize>();
         let prepare_batch_scale_memory_budget_bytes = self
             .batch_report
             .reports
@@ -4680,6 +4711,18 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_scale_split_reader_digests".to_string(),
                 prepare_batch_scale_split_reader_digests,
+            ),
+            (
+                "prepare_batch_scale_split_operator_runtime_status".to_string(),
+                prepare_batch_scale_split_operator_runtime_status.to_string(),
+            ),
+            (
+                "prepare_batch_scale_split_operator_certified_count".to_string(),
+                prepare_batch_scale_split_operator_certified_count.to_string(),
+            ),
+            (
+                "prepare_batch_scale_split_operator_retry_replay_count".to_string(),
+                prepare_batch_scale_split_operator_retry_replay_count.to_string(),
             ),
             (
                 "prepare_batch_scale_output_commit_status".to_string(),
@@ -9862,6 +9905,312 @@ impl TraditionalPreparedVortexLocalSplitRuntimeEvidence {
     }
 }
 
+/// Evidence for admitted local split-level operator work in the prepared Vortex route.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
+    pub runtime_status: String,
+    pub provider_scope: String,
+    pub claim_gate_status: String,
+    pub claim_gate_reason: String,
+    pub plan_ref: String,
+    pub source_split_count: usize,
+    pub scheduled_task_count: usize,
+    pub completed_task_count: usize,
+    pub failed_task_count: usize,
+    pub rows_scanned: u64,
+    pub rows_materialized: u64,
+    pub selected_row_count: u64,
+    pub selection_vector_consumed: bool,
+    pub retry_replay_status: String,
+    pub retry_replay_count: usize,
+    pub cancellation_checkpoint_count: usize,
+    pub idempotent_replay_verified: bool,
+    pub output_commit_proof_status: String,
+    pub correctness_digest: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub execution_certificate_id: String,
+    pub execution_certificate_status: String,
+}
+
+impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    fn build(
+        scenario: TraditionalAnalyticsScenario,
+        fact_vortex: &std::path::Path,
+        dim_vortex: &std::path::Path,
+        split_runtime_evidence: &TraditionalPreparedVortexLocalSplitRuntimeEvidence,
+        scenario_execution: &TraditionalScenarioExecution,
+        computed_result_sink: Option<&TraditionalComputedResultSinkVerification>,
+    ) -> Result<Self> {
+        let encoded_provider = &scenario_execution.evidence.encoded_predicate_provider;
+        let source_split_count = encoded_provider
+            .reader_split_count
+            .max(encoded_provider.selected_metric_scan_split_count);
+        let selected_row_count = encoded_provider.selected_metric_row_count.unwrap_or(0);
+        let split_runtime_certified = split_runtime_evidence.execution_certificate_status
+            == "certified"
+            && split_runtime_evidence.failed_task_count == 0
+            && !split_runtime_evidence.fallback_attempted
+            && !split_runtime_evidence.external_engine_invoked;
+        let stateless_split_operator_admitted =
+            matches!(scenario, TraditionalAnalyticsScenario::SelectiveFilter)
+                && scenario_execution.evidence.streaming_vortex_execution_used
+                && scenario_execution
+                    .evidence
+                    .full_table_materialization_avoided
+                && split_runtime_certified
+                && encoded_provider.selection_vector_intersection_certified
+                && encoded_provider.selected_metric_selection_vector_consumed
+                && encoded_provider.selected_metric_scan_split_count > 0
+                && encoded_provider.reader_split_count > 0
+                && encoded_provider.selected_metric_scan_split_count
+                    == encoded_provider.reader_split_count
+                && !encoded_provider.selected_metric_data_materialized
+                && !encoded_provider.fallback_attempted
+                && !encoded_provider.external_engine_invoked;
+
+        let (retry_replay_status, retry_replay_count, idempotent_replay_verified) =
+            if stateless_split_operator_admitted {
+                let replay = run_streaming_selective_filter_scenario(fact_vortex, dim_vortex)?;
+                let replay_verified = replay.result_json == scenario_execution.result_json
+                    && replay.rows_scanned == scenario_execution.rows_scanned
+                    && replay.rows_materialized == scenario_execution.rows_materialized;
+                (
+                    if replay_verified {
+                        "verified_idempotent_split_operator_replay"
+                    } else {
+                        "blocked_replay_result_mismatch"
+                    }
+                    .to_string(),
+                    1,
+                    replay_verified,
+                )
+            } else {
+                (
+                    if matches!(scenario, TraditionalAnalyticsScenario::SelectiveFilter) {
+                        "blocked_until_selection_vector_split_metric_replay"
+                    } else {
+                        "not_admitted_for_stateful_or_shuffle_operator"
+                    }
+                    .to_string(),
+                    0,
+                    false,
+                )
+            };
+
+        let runtime_admitted = stateless_split_operator_admitted
+            && idempotent_replay_verified
+            && source_split_count > 0;
+        let scheduled_task_count = if runtime_admitted {
+            source_split_count
+        } else {
+            0
+        };
+        let completed_task_count = if runtime_admitted {
+            source_split_count
+        } else {
+            0
+        };
+        let failed_task_count = scheduled_task_count.saturating_sub(completed_task_count);
+        let plan_ref = format!(
+            "scheduler://prepared_vortex_local_split_operator_v1/{}/splits/{}/tasks/{}",
+            traditional_scenario_slug(scenario),
+            source_split_count,
+            scheduled_task_count
+        );
+        let selected_row_count_string = selected_row_count.to_string();
+        let rows_scanned_string = scenario_execution.rows_scanned.to_string();
+        let rows_materialized_string = scenario_execution.rows_materialized.to_string();
+        let result_digest = route_evidence_digest(&[
+            "prepared_vortex_local_split_operator_correctness",
+            scenario.as_str(),
+            &scenario_execution.result_json,
+            &rows_scanned_string,
+            &rows_materialized_string,
+            &selected_row_count_string,
+            computed_result_sink.map_or("none", |sink| sink.digest.as_str()),
+        ]);
+        let output_ref = computed_result_sink.map_or_else(
+            || format!("runtime-result://prepared_vortex_local_split_operator/{result_digest}"),
+            |sink| {
+                format!(
+                    "vortex://prepared_vortex_local_split_operator/{}",
+                    sink.digest
+                )
+            },
+        );
+        let output_commit_proof_status = if computed_result_sink.is_some() && runtime_admitted {
+            "result_sink_replay_verified_for_split_operator"
+        } else if computed_result_sink.is_some() {
+            "result_sink_replay_present_split_operator_not_admitted"
+        } else {
+            "input_read_only_result_sink_not_requested"
+        }
+        .to_string();
+        let certificate = traditional_prepared_vortex_split_operator_execution_certificate(
+            scenario,
+            &plan_ref,
+            &output_ref,
+            source_split_count,
+            scenario_execution.rows_materialized,
+            selected_row_count,
+            &result_digest,
+            runtime_admitted,
+            encoded_provider.selected_metric_data_decoded,
+            computed_result_sink.is_some(),
+        )?;
+        Ok(Self {
+            runtime_status: if certificate.is_certified() {
+                "local_split_operator_runtime_certified".to_string()
+            } else {
+                "local_split_operator_runtime_not_admitted".to_string()
+            },
+            provider_scope: if runtime_admitted {
+                "prepared_vortex_stateless_selective_filter_split_operator".to_string()
+            } else if matches!(scenario, TraditionalAnalyticsScenario::SelectiveFilter) {
+                "prepared_vortex_selective_filter_split_operator_blocked".to_string()
+            } else {
+                "stateful_or_shuffle_split_operator_not_admitted".to_string()
+            },
+            claim_gate_status: if certificate.is_certified() {
+                "local_split_operator_runtime_certified".to_string()
+            } else {
+                "not_split_operator_claim_grade".to_string()
+            },
+            claim_gate_reason: if certificate.is_certified() {
+                "selective filter consumed certified reader-generated selection vectors over real prepared Vortex splits, replayed the split metric aggregation, and preserved no-fallback evidence"
+                    .to_string()
+            } else {
+                "stateful shuffle, larger-than-memory, spill, object-store/table, distributed, or source-state replay proof is still required before this scenario can claim split-operator runtime"
+                    .to_string()
+            },
+            plan_ref,
+            source_split_count,
+            scheduled_task_count,
+            completed_task_count,
+            failed_task_count,
+            rows_scanned: scenario_execution.rows_scanned,
+            rows_materialized: scenario_execution.rows_materialized,
+            selected_row_count,
+            selection_vector_consumed: encoded_provider.selected_metric_selection_vector_consumed,
+            retry_replay_status,
+            retry_replay_count,
+            cancellation_checkpoint_count: scheduled_task_count,
+            idempotent_replay_verified,
+            output_commit_proof_status,
+            correctness_digest: result_digest,
+            fallback_attempted: encoded_provider.fallback_attempted
+                || split_runtime_evidence.fallback_attempted,
+            external_engine_invoked: encoded_provider.external_engine_invoked
+                || split_runtime_evidence.external_engine_invoked,
+            execution_certificate_id: certificate.certificate_id,
+            execution_certificate_status: certificate.status.as_str().to_string(),
+        })
+    }
+
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "prepared_vortex_scale_split_operator_runtime_status".to_string(),
+                self.runtime_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_provider_scope".to_string(),
+                self.provider_scope.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_claim_gate_status".to_string(),
+                self.claim_gate_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_claim_gate_reason".to_string(),
+                self.claim_gate_reason.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_plan_ref".to_string(),
+                self.plan_ref.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_source_split_count".to_string(),
+                self.source_split_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_scheduled_task_count".to_string(),
+                self.scheduled_task_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_completed_task_count".to_string(),
+                self.completed_task_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_failed_task_count".to_string(),
+                self.failed_task_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_rows_scanned".to_string(),
+                self.rows_scanned.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_rows_materialized".to_string(),
+                self.rows_materialized.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_selected_row_count".to_string(),
+                self.selected_row_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_selection_vector_consumed".to_string(),
+                self.selection_vector_consumed.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_retry_replay_status".to_string(),
+                self.retry_replay_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_retry_replay_count".to_string(),
+                self.retry_replay_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_cancellation_checkpoint_count".to_string(),
+                self.cancellation_checkpoint_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_idempotent_replay_verified".to_string(),
+                self.idempotent_replay_verified.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_output_commit_proof_status".to_string(),
+                self.output_commit_proof_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_correctness_digest".to_string(),
+                self.correctness_digest.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_execution_certificate_id".to_string(),
+                self.execution_certificate_id.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_execution_certificate_status".to_string(),
+                self.execution_certificate_status.clone(),
+            ),
+        ]
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct TraditionalPreparedVortexLocalScaleEvidence {
@@ -9885,6 +10234,7 @@ pub struct TraditionalPreparedVortexLocalScaleEvidence {
     pub split_count: usize,
     pub reader_chunk_count: usize,
     pub split_runtime_evidence: TraditionalPreparedVortexLocalSplitRuntimeEvidence,
+    pub split_operator_runtime_evidence: TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence,
     pub byte_range_splitting_declared: bool,
     pub row_range_splitting_declared: bool,
     pub projection_mask: String,
@@ -10062,9 +10412,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
             &scenario_execution.result_json,
             &scenario_execution.rows_scanned.to_string(),
             &scenario_execution.rows_materialized.to_string(),
-            computed_result_sink
-                .map(|sink| sink.digest.as_str())
-                .unwrap_or("none"),
+            computed_result_sink.map_or("none", |sink| sink.digest.as_str()),
         ]);
         let idempotency_digest = route_evidence_digest(&[
             "prepared_vortex_local_scale_idempotency",
@@ -10084,6 +10432,23 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
         let fail_before_oom_enforced = !memory_budget_exceeded
             && memory_reservations_granted == memory_reservations_requested
             && memory_reservations_released == memory_reservations_granted;
+        let split_operator_runtime_evidence =
+            TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence::build(
+                scenario,
+                fact_vortex,
+                dim_vortex,
+                &split_runtime_evidence,
+                scenario_execution,
+                computed_result_sink,
+            )?;
+        let scale_claim_gate_reason = if split_operator_runtime_evidence
+            .execution_certificate_status
+            == "certified"
+        {
+            "prepared Vortex local real-byte evidence now includes certified stateless split-operator work for this scenario, but larger-than-memory, stateful shuffle, object-store, distributed, and actual spill-IO claims remain gated"
+        } else {
+            "prepared Vortex local real-byte evidence exists, but larger-than-memory, stateful split-operator, object-store, distributed, and actual spill-IO claims remain gated"
+        };
         Ok(Self {
             schema_version: PREPARED_VORTEX_LOCAL_SCALE_SCHEMA_VERSION.to_string(),
             route: "compatibility_import_certified_to_prepared_vortex_batch".to_string(),
@@ -10093,7 +10458,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
             fallback_attempted: false,
             external_engine_invoked: false,
             scale_claim_gate_status: "not_scale_grade".to_string(),
-            scale_claim_gate_reason: "prepared Vortex local real-byte evidence exists, but larger-than-memory, object-store, distributed, and actual spill-IO claims remain gated".to_string(),
+            scale_claim_gate_reason: scale_claim_gate_reason.to_string(),
             data_volume_bytes: source_snapshot.source_bytes_read,
             file_count,
             rows_scanned: scenario_execution.rows_scanned,
@@ -10111,6 +10476,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
             split_count,
             reader_chunk_count,
             split_runtime_evidence,
+            split_operator_runtime_evidence,
             byte_range_splitting_declared: true,
             row_range_splitting_declared: true,
             projection_mask,
@@ -10613,6 +10979,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
                 self.output_commit_status.clone(),
             ),
         ];
+        fields.extend(self.split_operator_runtime_evidence.fields());
         fields.extend(self.split_runtime_evidence.fields());
         fields
     }
@@ -10763,6 +11130,76 @@ fn traditional_prepared_vortex_split_execution_certificate(
     certificate_input.arrow_converted = false;
     certificate_input.object_store_io = false;
     certificate_input.write_io = false;
+    certificate_input.spill_io_performed = false;
+    certificate_input.external_effects_executed = false;
+    certificate_input.external_query_engine_invoked = false;
+    certificate_input.unsafe_effect_detected = false;
+    certificate_input.fallback_attempted = false;
+    certificate_input.fallback_execution_allowed = false;
+    certificate_input.correctness_passed = correctness_passed;
+    Ok(ExecutionCertificate::evaluate(certificate_input))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_arguments)]
+fn traditional_prepared_vortex_split_operator_execution_certificate(
+    scenario: TraditionalAnalyticsScenario,
+    plan_ref: &str,
+    output_ref: &str,
+    source_split_count: usize,
+    rows_materialized: u64,
+    selected_row_count: u64,
+    correctness_digest: &str,
+    correctness_passed: bool,
+    data_decoded: bool,
+    result_sink_written: bool,
+) -> Result<ExecutionCertificate> {
+    let mut certificate_input = ExecutionCertificateInput::new(
+        format!(
+            "p746.prepared_vortex_local_split_operator.{}.stateless_filter",
+            traditional_scenario_slug(scenario)
+        ),
+        "prepared_vortex_local_split_operator_runtime",
+    )?;
+    certificate_input.execution_provider_kind = ExecutionProviderKind::ShardLoomKernel;
+    certificate_input.provider_scope =
+        "native_local_prepared_vortex_split_operator_runtime".to_string();
+    certificate_input.provider_crate = Some("shardloom-vortex".to_string());
+    certificate_input.provider_version = Some(env!("CARGO_PKG_VERSION").to_string());
+    certificate_input.provider_api_surface =
+        Some("traditional_analytics::prepared_vortex_local_split_operator_runtime".to_string());
+    certificate_input.shardloom_admission_policy =
+        Some("prepared_vortex_local_split_operator_v1_no_external_fallback".to_string());
+    certificate_input.plan_ref = Some(plan_ref.to_string());
+    certificate_input.input_ref =
+        Some("prepared-vortex://local-fixture-split-operator".to_string());
+    certificate_input.output_ref = Some(output_ref.to_string());
+    certificate_input.correctness_fixture_id = Some(format!(
+        "local_vortex_analytics_v1.prepared_vortex_split_operator.{correctness_digest}"
+    ));
+    let outcome = ExpectedOutcome::Rows {
+        row_count: Some(rows_materialized),
+    };
+    certificate_input.expected_outcome = Some(outcome.clone());
+    certificate_input.actual_outcome = Some(outcome);
+    certificate_input.selected_segment_count = source_split_count;
+    certificate_input.skipped_segment_count = 0;
+    certificate_input.side_effects_performed = vec![
+        "native_vortex_reader_generated_selection_vector_filter".to_string(),
+        format!("local_split_metric_aggregation_selected_rows_{selected_row_count}"),
+    ];
+    if result_sink_written {
+        certificate_input
+            .side_effects_performed
+            .push("native_vortex_result_sink_replay_verification".to_string());
+    }
+    certificate_input.data_read = true;
+    certificate_input.data_decoded = data_decoded;
+    certificate_input.data_materialized = false;
+    certificate_input.row_read = false;
+    certificate_input.arrow_converted = false;
+    certificate_input.object_store_io = false;
+    certificate_input.write_io = result_sink_written;
     certificate_input.spill_io_performed = false;
     certificate_input.external_effects_executed = false;
     certificate_input.external_query_engine_invoked = false;
@@ -19826,77 +20263,88 @@ mod tests {
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-    fn write_sequence_encoded_selective_filter_csv_inputs(
+    fn write_sequence_encoded_selective_filter_inputs(
         root: &std::path::Path,
         rows: usize,
+        input_format: TraditionalAnalyticsInputFormat,
+        empty_selection: bool,
     ) -> (PathBuf, PathBuf) {
         use std::fmt::Write as _;
 
         std::fs::create_dir_all(root).unwrap();
-        let fact_csv = root.join("fact.csv");
-        let dim_csv = root.join("dim.csv");
-        let mut fact = String::from(
-            "id,group_key,dim_key,value,metric,flag,category,event_date,nullable_metric_00,raw_event_time,dirty_numeric,dirty_flag\n",
-        );
-        for index in 0..rows {
-            let id = index + 1;
-            let group_key = index % 4;
-            let dim_key = index % 16;
-            let value = index * 17;
-            let metric_whole = index;
-            let flag = usize::from(index % 7 == 0);
-            let category = char::from(b'A' + u8::try_from(index % 4).unwrap());
-            let event_date = format!("2024-{:02}-{:02}", 1 + (index % 12), 1 + (index % 28));
-            writeln!(
-                &mut fact,
-                "{id},{group_key},{dim_key},{value},{metric_whole}.5,{flag},{category},{event_date},,{event_date}T00:00:00Z,{value},{}",
-                if flag == 1 { "Y" } else { "N" }
-            )
-            .unwrap();
+        let fact_path = root.join(format!("fact.{}", input_format.output_extension()));
+        let dim_path = root.join(format!("dim.{}", input_format.output_extension()));
+        let mut fact = String::new();
+        let mut dim = String::new();
+        match input_format {
+            TraditionalAnalyticsInputFormat::Csv => {
+                fact.push_str(
+                    "id,group_key,dim_key,value,metric,flag,category,event_date,nullable_metric_00,raw_event_time,dirty_numeric,dirty_flag\n",
+                );
+                for index in 0..rows {
+                    let id = index + 1;
+                    let group_key = index % 4;
+                    let dim_key = index % 16;
+                    let value = if empty_selection { index } else { index * 17 };
+                    let metric_whole = index;
+                    let flag = if empty_selection {
+                        1
+                    } else {
+                        usize::from(index % 7 == 0)
+                    };
+                    let category = char::from(b'A' + u8::try_from(index % 4).unwrap());
+                    let event_date =
+                        format!("2024-{:02}-{:02}", 1 + (index % 12), 1 + (index % 28));
+                    writeln!(
+                        &mut fact,
+                        "{id},{group_key},{dim_key},{value},{metric_whole}.5,{flag},{category},{event_date},,{event_date}T00:00:00Z,{value},{}",
+                        if flag == 1 { "Y" } else { "N" }
+                    )
+                    .unwrap();
+                }
+                dim.push_str("dim_key,dim_label,weight\n");
+                for dim_key in 0..16 {
+                    writeln!(&mut dim, "{dim_key},dim-{dim_key},1.0").unwrap();
+                }
+            }
+            TraditionalAnalyticsInputFormat::JsonLines => {
+                for index in 0..rows {
+                    let id = index + 1;
+                    let group_key = index % 4;
+                    let dim_key = index % 16;
+                    let value = if empty_selection { index } else { index * 17 };
+                    let metric_whole = index;
+                    let flag = if empty_selection {
+                        1
+                    } else {
+                        usize::from(index % 7 == 0)
+                    };
+                    let category = char::from(b'A' + u8::try_from(index % 4).unwrap());
+                    let event_date =
+                        format!("2024-{:02}-{:02}", 1 + (index % 12), 1 + (index % 28));
+                    writeln!(
+                        &mut fact,
+                        "{{\"id\":{id},\"group_key\":{group_key},\"dim_key\":{dim_key},\"value\":{value},\"metric\":{metric_whole}.5,\"flag\":{flag},\"category\":\"{category}\",\"event_date\":\"{event_date}\",\"nullable_metric_00\":null,\"raw_event_time\":\"{event_date}T00:00:00Z\",\"dirty_numeric\":\"{value}\",\"dirty_flag\":\"{}\"}}",
+                        if flag == 1 { "Y" } else { "N" }
+                    )
+                    .unwrap();
+                }
+                for dim_key in 0..16 {
+                    writeln!(
+                        &mut dim,
+                        "{{\"dim_key\":{dim_key},\"dim_label\":\"dim-{dim_key}\",\"weight\":1.0}}"
+                    )
+                    .unwrap();
+                }
+            }
+            unsupported => panic!(
+                "sequence selective-filter test fixture is not implemented for {}",
+                unsupported.as_str()
+            ),
         }
-        let mut dim = String::from("dim_key,dim_label,weight\n");
-        for dim_key in 0..16 {
-            writeln!(&mut dim, "{dim_key},dim-{dim_key},1.0").unwrap();
-        }
-        std::fs::write(&fact_csv, fact).unwrap();
-        std::fs::write(&dim_csv, dim).unwrap();
-        (fact_csv, dim_csv)
-    }
-
-    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
-    fn write_empty_sequence_encoded_selective_filter_csv_inputs(
-        root: &std::path::Path,
-        rows: usize,
-    ) -> (PathBuf, PathBuf) {
-        use std::fmt::Write as _;
-
-        std::fs::create_dir_all(root).unwrap();
-        let fact_csv = root.join("fact.csv");
-        let dim_csv = root.join("dim.csv");
-        let mut fact = String::from(
-            "id,group_key,dim_key,value,metric,flag,category,event_date,nullable_metric_00,raw_event_time,dirty_numeric,dirty_flag\n",
-        );
-        for index in 0..rows {
-            let id = index + 1;
-            let group_key = index % 4;
-            let dim_key = index % 16;
-            let value = index;
-            let metric_whole = index;
-            let category = char::from(b'A' + u8::try_from(index % 4).unwrap());
-            let event_date = format!("2024-{:02}-{:02}", 1 + (index % 12), 1 + (index % 28));
-            writeln!(
-                &mut fact,
-                "{id},{group_key},{dim_key},{value},{metric_whole}.5,1,{category},{event_date},,{event_date}T00:00:00Z,{value},Y"
-            )
-            .unwrap();
-        }
-        let mut dim = String::from("dim_key,dim_label,weight\n");
-        for dim_key in 0..16 {
-            writeln!(&mut dim, "{dim_key},dim-{dim_key},1.0").unwrap();
-        }
-        std::fs::write(&fact_csv, fact).unwrap();
-        std::fs::write(&dim_csv, dim).unwrap();
-        (fact_csv, dim_csv)
+        std::fs::write(&fact_path, fact).unwrap();
+        std::fs::write(&dim_path, dim).unwrap();
+        (fact_path, dim_path)
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -21643,6 +22091,132 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn prepared_batch_run_certifies_stateless_split_operator_for_sequence_selective_filter() {
+        for input_format in [
+            TraditionalAnalyticsInputFormat::Csv,
+            TraditionalAnalyticsInputFormat::JsonLines,
+        ] {
+            let root = traditional_analytics_test_root(&format!(
+                "prepared-batch-split-operator-{}",
+                input_format.as_str()
+            ));
+            let (fact_input, dim_input) =
+                write_sequence_encoded_selective_filter_inputs(&root, 512, input_format, false);
+
+            let report = run_traditional_analytics_prepared_batch_benchmark(
+                TraditionalAnalyticsPreparedBatchRequest::new(
+                    vec![TraditionalAnalyticsScenario::SelectiveFilter],
+                    fact_input,
+                    dim_input,
+                    root.join("prepare-workspace"),
+                )
+                .with_input_format(input_format)
+                .with_resource_policy(TraditionalAnalyticsResourcePolicy::new(2, 4))
+                .with_result_workspace_dir(Some(root.join("result-sinks")))
+                .with_result_vortex_write(true)
+                .with_evidence_level(TraditionalRuntimeEvidenceLevel::FullReplay),
+            )
+            .unwrap();
+            let fields = field_map(report.fields());
+            let selective_report = report
+                .batch_report
+                .reports
+                .iter()
+                .find(|child| child.scenario == TraditionalAnalyticsScenario::SelectiveFilter)
+                .expect("selective filter report");
+            let split_operator = &selective_report
+                .local_scale_evidence
+                .split_operator_runtime_evidence;
+
+            assert_eq!(
+                split_operator.runtime_status,
+                "local_split_operator_runtime_certified"
+            );
+            assert_eq!(split_operator.execution_certificate_status, "certified");
+            assert_eq!(
+                split_operator.claim_gate_status,
+                "local_split_operator_runtime_certified"
+            );
+            assert!(split_operator.selection_vector_consumed);
+            assert_eq!(split_operator.selected_row_count, 31);
+            assert!(split_operator.idempotent_replay_verified);
+            assert_eq!(
+                split_operator.retry_replay_status,
+                "verified_idempotent_split_operator_replay"
+            );
+            assert_eq!(split_operator.retry_replay_count, 1);
+            assert_eq!(
+                split_operator.output_commit_proof_status,
+                "result_sink_replay_verified_for_split_operator"
+            );
+            assert!(!split_operator.fallback_attempted);
+            assert!(!split_operator.external_engine_invoked);
+            assert!(split_operator.correctness_digest.starts_with("fnv1a64:"));
+
+            assert_field_eq(
+                &fields,
+                "prepare_batch_scale_split_operator_runtime_status",
+                "local_split_operator_runtime_certified",
+            );
+            assert_field_eq(
+                &fields,
+                "prepare_batch_scale_split_operator_certified_count",
+                "1",
+            );
+            assert_field_eq(
+                &fields,
+                "prepare_batch_scale_split_operator_retry_replay_count",
+                "1",
+            );
+            assert_field_eq(
+                &fields,
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_runtime_status",
+                "local_split_operator_runtime_certified",
+            );
+            assert_field_eq(
+                &fields,
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_execution_certificate_status",
+                "certified",
+            );
+            assert_field_eq(
+                &fields,
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_selected_row_count",
+                "31",
+            );
+            assert_field_eq(
+                &fields,
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_retry_replay_status",
+                "verified_idempotent_split_operator_replay",
+            );
+            assert_field_eq(
+                &fields,
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_output_commit_proof_status",
+                "result_sink_replay_verified_for_split_operator",
+            );
+            assert_field_eq(
+                &fields,
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_fallback_attempted",
+                "false",
+            );
+            assert_field_eq(
+                &fields,
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_external_engine_invoked",
+                "false",
+            );
+            assert!(
+                fields
+                    .iter()
+                    .all(|(key, value)| !key.contains("local-scale-runtime")
+                        && !value.contains("local-scale-runtime"))
+            );
+
+            let _ = std::fs::remove_dir_all(root);
+        }
     }
 
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -23948,7 +24522,12 @@ mod tests {
     #[allow(clippy::too_many_lines)]
     fn selective_filter_lowers_observed_bitpacked_and_sequence_filter_columns() {
         let root = traditional_analytics_test_root("csv-selective-encoded");
-        let (fact_csv, dim_csv) = write_sequence_encoded_selective_filter_csv_inputs(&root, 512);
+        let (fact_csv, dim_csv) = write_sequence_encoded_selective_filter_inputs(
+            &root,
+            512,
+            TraditionalAnalyticsInputFormat::Csv,
+            false,
+        );
         let report = run_traditional_analytics_benchmark(TraditionalAnalyticsRequest::new(
             TraditionalAnalyticsScenario::SelectiveFilter,
             fact_csv,
@@ -24278,8 +24857,12 @@ mod tests {
     #[test]
     fn selective_filter_selection_vector_metric_aggregation_handles_empty_selection() {
         let root = traditional_analytics_test_root("csv-selective-empty-selection-vector");
-        let (fact_csv, dim_csv) =
-            write_empty_sequence_encoded_selective_filter_csv_inputs(&root, 512);
+        let (fact_csv, dim_csv) = write_sequence_encoded_selective_filter_inputs(
+            &root,
+            512,
+            TraditionalAnalyticsInputFormat::Csv,
+            true,
+        );
         let report = run_traditional_analytics_benchmark(TraditionalAnalyticsRequest::new(
             TraditionalAnalyticsScenario::SelectiveFilter,
             fact_csv,

@@ -112,6 +112,14 @@ reader-chunk scheduler with `prepared_vortex_scale_split_runtime_status` and
 SplitManifest contract fields below or imply claim-grade split-parallel operator runtime,
 larger-than-memory runtime, object-store execution, distributed execution, or performance evidence.
 
+Selective-filter prepared/native Vortex rows with admitted reader-generated selection-vector
+evidence also emit `prepared_vortex_scale_split_operator_*` fields. Those fields certify a scoped
+stateless local split-operator runtime only when real prepared Vortex splits produce selection
+vectors, the split metric aggregation is replayed idempotently, a result-sink replay is verified
+when requested, and no fallback or external engine is invoked. This is still local workload proof:
+stateful shuffle operators, larger-than-memory execution, actual spill/backpressure, object-store
+or table runtime, distributed workers, and performance claims remain gated.
+
 ShardLoom SplitManifest rows carry:
 
 ```text

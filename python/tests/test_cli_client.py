@@ -6346,6 +6346,8 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "prepare_batch_scale_memory_budget_bytes", "value": "2147483648"},
                         {"key": "prepare_batch_scale_split_runtime_status", "value": "scheduled_reader_chunk_execution_completed"},
                         {"key": "prepare_batch_scale_split_execution_certificate_status", "value": "certified"},
+                        {"key": "prepare_batch_scale_split_operator_runtime_status", "value": "local_split_operator_runtime_partially_certified"},
+                        {"key": "prepare_batch_scale_split_operator_certified_count", "value": "1"},
                         {"key": "prepare_batch_scale_claim_gate_status", "value": "not_scale_grade"},
                         {"key": "prepare_batch_preparation_included_in_batch_timing", "value": "false"},
                         {"key": "prepare_batch_fact_vortex_path", "value": "fact.vortex"},
@@ -6373,6 +6375,8 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "scenario_selective-filter_prepared_vortex_scale_real_bytes", "value": "true"},
                         {"key": "scenario_selective-filter_prepared_vortex_scale_split_runtime_status", "value": "scheduled_reader_chunk_execution_completed"},
                         {"key": "scenario_selective-filter_prepared_vortex_scale_split_execution_certificate_status", "value": "certified"},
+                        {"key": "scenario_selective-filter_prepared_vortex_scale_split_operator_runtime_status", "value": "local_split_operator_runtime_certified"},
+                        {"key": "scenario_selective-filter_prepared_vortex_scale_split_operator_execution_certificate_status", "value": "certified"},
                         {"key": "scenario_selective-filter_prepared_vortex_scale_idempotency_key", "value": "prepared-vortex:fnv1a64-feedface"},
                         {"key": "fallback_attempted", "value": "false"},
                         {"key": "external_engine_invoked", "value": "false"}
@@ -6415,7 +6419,17 @@ class ShardLoomClientTests(unittest.TestCase):
             result.field("prepare_batch_scale_split_execution_certificate_status"),
             "certified",
         )
+        self.assertEqual(
+            result.field("prepare_batch_scale_split_operator_runtime_status"),
+            "local_split_operator_runtime_partially_certified",
+        )
         self.assertEqual(result.field("prepare_batch_scale_claim_gate_status"), "not_scale_grade")
+        self.assertEqual(
+            result.field(
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_execution_certificate_status"
+            ),
+            "certified",
+        )
         self.assertEqual(
             result.field("scenario_selective-filter_prepared_vortex_scale_idempotency_key"),
             "prepared-vortex:fnv1a64-feedface",

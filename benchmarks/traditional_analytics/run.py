@@ -774,6 +774,8 @@ RUNTIME_EXECUTION_VALIDATION_EVIDENCE_FIELDS = (
     "runtime_external_query_engine_invoked",
     "prepared_vortex_scale_split_execution_certificate_id",
     "prepared_vortex_scale_split_execution_certificate_status",
+    "prepared_vortex_scale_split_operator_execution_certificate_id",
+    "prepared_vortex_scale_split_operator_execution_certificate_status",
 )
 OPTIMIZER_TRACE_SCHEMA_VERSION = "shardloom.evidence_aware_optimizer_trace.v1"
 OPTIMIZER_TRACE_FIELDS = (
@@ -3402,6 +3404,15 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "prepare_batch_scale_split_reader_digests": batch_fields.get(
                     "prepare_batch_scale_split_reader_digests", "unknown"
                 ),
+                "prepare_batch_scale_split_operator_runtime_status": batch_fields.get(
+                    "prepare_batch_scale_split_operator_runtime_status", "unknown"
+                ),
+                "prepare_batch_scale_split_operator_certified_count": batch_fields.get(
+                    "prepare_batch_scale_split_operator_certified_count", "unknown"
+                ),
+                "prepare_batch_scale_split_operator_retry_replay_count": batch_fields.get(
+                    "prepare_batch_scale_split_operator_retry_replay_count", "unknown"
+                ),
                 "prepare_batch_scale_output_commit_status": batch_fields.get(
                     "prepare_batch_scale_output_commit_status", "unknown"
                 ),
@@ -3443,6 +3454,25 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 "prepared_vortex_scale_split_execution_certificate_status": fields.get(
                     "prepared_vortex_scale_split_execution_certificate_status",
+                    "unknown",
+                ),
+                "prepared_vortex_scale_split_operator_runtime_status": fields.get(
+                    "prepared_vortex_scale_split_operator_runtime_status", "unknown"
+                ),
+                "prepared_vortex_scale_split_operator_claim_gate_status": fields.get(
+                    "prepared_vortex_scale_split_operator_claim_gate_status",
+                    "unknown",
+                ),
+                "prepared_vortex_scale_split_operator_execution_certificate_status": fields.get(
+                    "prepared_vortex_scale_split_operator_execution_certificate_status",
+                    "unknown",
+                ),
+                "prepared_vortex_scale_split_operator_retry_replay_status": fields.get(
+                    "prepared_vortex_scale_split_operator_retry_replay_status",
+                    "unknown",
+                ),
+                "prepared_vortex_scale_split_operator_output_commit_proof_status": fields.get(
+                    "prepared_vortex_scale_split_operator_output_commit_proof_status",
                     "unknown",
                 ),
                 "prepared_vortex_scale_memory_budget_bytes": fields.get(

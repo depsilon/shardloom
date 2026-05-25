@@ -100,6 +100,8 @@ PUBLISHED_METRIC_KEYS = (
     "evidence_level",
     "prepared_vortex_scale_split_execution_certificate_status",
     "prepared_vortex_scale_split_execution_certificate_id",
+    "prepared_vortex_scale_split_operator_execution_certificate_status",
+    "prepared_vortex_scale_split_operator_execution_certificate_id",
     "compatibility_import_included",
     "preparation_included_in_timing",
     "runtime_execution_validation_schema_version",

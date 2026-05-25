@@ -336,12 +336,14 @@ or documentation updates alone are insufficient.
     admission/peak reservation evidence, local shuffle-family classification, retry/idempotency key,
     output commit status, correctness digest, no-fallback fields, and
     `prepared_vortex_scale_no_standalone_lane=true`. This is in-route fixture evidence only:
-    larger-than-memory, claim-grade split-parallel operator execution, actual spill I/O,
+    selective-filter rows with admitted reader-generated selection-vector evidence now also carry
+    scoped stateless split-operator runtime certification, retry replay, and result-sink replay
+    proof. Larger-than-memory, stateful/shuffle split-parallel operator execution, actual spill I/O,
     object-store/table execution, distributed workers, and performance claims remain blocked.
-  - Next slice outcome: promote the prepared Vortex reader-chunk scheduler into claim-grade local
-    split-parallel operator runtime where admitted, with actual spill/backpressure where operator
-    declarations permit it, retry/cancellation recovery over real split work, and output commit
-    proof that can move the relevant claim gates.
+  - Next slice outcome: promote remaining prepared Vortex reader-chunk work into claim-grade local
+    split-parallel operator runtime where admitted, especially stateful aggregate/join/sort/window
+    paths with actual spill/backpressure where operator declarations permit it, retry/cancellation
+    recovery over real split work, and output commit proof that can move the relevant claim gates.
   - Runtime enablement: local scale-grade execution under a declared resource envelope, including
     split, memory, spill, shuffle, retry, and commit gates.
   - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
@@ -355,8 +357,9 @@ or documentation updates alone are insufficient.
     - These hooks do not imply distributed, object-store, table, or larger-than-memory runtime
       support until scale-grade execution and correctness proof land.
   - Evidence required: keep `prepared_vortex_scale_*` attached to prepared/native child scenario
-    rows; next promotion needs claim-grade split-parallel operator rows, actual spill/backpressure
-    evidence when admitted, and correctness proof over the claimed workload bytes.
+    rows; next promotion needs stateful/shuffle split-parallel operator rows, actual
+    spill/backpressure evidence when admitted, and correctness proof over the claimed workload
+    bytes.
   - Acceptance: larger-than-memory and split-parallel claims require real bytes and correctness
     proof from scheduled split work; synthetic metadata or detached side-lane commands cannot
     become runtime scale claims.
@@ -366,9 +369,9 @@ or documentation updates alone are insufficient.
     claim without separate proof.
   - Claim boundary: declared local resource envelope only.
   - Fallback boundary: external engines are baselines/oracles only.
-  - Dependencies/blockers: claim-grade split-parallel operator runtime, stateful operator
-    memory/spill declarations, spill storage policy, shuffle correctness fixtures, retry/recovery
-    exercise, and claim-grade output commit proof.
+  - Dependencies/blockers: stateful/shuffle split-operator runtime, stateful operator memory/spill
+    declarations, spill storage policy, shuffle correctness fixtures, retry/recovery exercise for
+    non-stateless operators, and claim-grade output commit proof beyond local result-sink replay.
   - Ledger rule: ledger entry must include resource envelope, data volume, and claim status.
 
 - [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families
@@ -855,18 +858,20 @@ docs/website parity, and a completed-ledger entry.
     `prepared_vortex_scale_*` child fields and `prepare_batch_scale_*` rollups. The evidence proves
     the route, source bytes, bounded local reader-chunk split scheduling, split execution
     certification, memory admission, local shuffle-family classification, retry/idempotency
-    metadata, output commit status, and no standalone side lane, but it is still fixture-scoped for
-    scale-grade execution claims.
-  - Next slice outcome: promote this prepared Vortex reader-chunk scheduler into claim-grade local
-    split-parallel operator runtime with memory/spill/backpressure, shuffle correctness,
-    retry/cancellation recovery, and idempotent commit proof.
+    metadata, output commit status, and no standalone side lane. Selective-filter rows with
+    admitted reader-generated selection-vector evidence now also certify scoped stateless
+    split-operator runtime, retry replay, and result-sink replay proof, but the route is still
+    fixture-scoped for scale-grade execution claims.
+  - Next slice outcome: promote remaining stateful/shuffle prepared Vortex reader-chunk work into
+    claim-grade local split-parallel operator runtime with memory/spill/backpressure, shuffle
+    correctness, retry/cancellation recovery, and idempotent commit proof.
   - Runtime enablement: local scale-grade runtime under declared resource envelopes with real-byte
     correctness proof.
   - User-visible surface: scale benchmark profiles, CLI/Python execution envelopes, status page.
   - Implementation scope: split scheduler, memory budget, spill manager, shuffle plan, retry/
     cancellation/recovery, output commit status, scale benchmark rows.
   - Evidence required: retain in-route `prepared_vortex_scale_*` and `prepare_batch_scale_*`
-    evidence, then add claim-grade split-parallel operator runtime rows, admitted
+    evidence, then add stateful/shuffle split-parallel operator runtime rows, admitted
     spill/backpressure evidence, retry/cancellation exercise, output commit proof, correctness
     digest, and no-fallback fields.
   - Acceptance: larger-than-memory and split-parallel claims require real bytes and correctness
@@ -878,9 +883,9 @@ docs/website parity, and a completed-ledger entry.
     claim without separate proof.
   - Claim boundary: declared local resource envelope only.
   - Fallback boundary: external engines are baselines/oracles only.
-  - Dependencies/blockers: claim-grade split-parallel operator runtime, stateful operator spill
-    declarations, spill storage policy, shuffle correctness fixtures, retry/recovery exercise, and
-    claim-grade output commit proof.
+  - Dependencies/blockers: stateful/shuffle split-operator runtime, stateful operator spill
+    declarations, spill storage policy, shuffle correctness fixtures, retry/recovery exercise for
+    non-stateless operators, and claim-grade output commit proof beyond local result-sink replay.
   - Ledger rule: ledger entry must include resource envelope, data volume, and scale claim status.
 
 - [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission

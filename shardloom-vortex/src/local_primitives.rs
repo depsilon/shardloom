@@ -1811,12 +1811,12 @@ fn run_end_kernel_input_from_vortex_array(
 fn primitive_stat_values_from_vortex_array(
     array: &vortex::array::ArrayRef,
 ) -> Option<Vec<StatValue>> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::PrimitiveArray;
+
     if let Some(primitive) = direct_non_nullable_host_primitive(array) {
         return primitive_stat_values_from_primitive_array(&primitive);
     }
-
-    use vortex::array::VortexSessionExecute as _;
-    use vortex::array::arrays::PrimitiveArray;
 
     let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
     let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
@@ -1911,12 +1911,12 @@ fn primitive_stat_values_from_primitive_array(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn primitive_u32_codes_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<u32>> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::PrimitiveArray;
+
     if let Some(primitive) = direct_non_nullable_host_primitive(array) {
         return primitive_u32_codes_from_primitive_array(&primitive);
     }
-
-    use vortex::array::VortexSessionExecute as _;
-    use vortex::array::arrays::PrimitiveArray;
 
     let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
     let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
@@ -1963,12 +1963,12 @@ fn primitive_u32_codes_from_primitive_array(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn primitive_u64_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<u64>> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::PrimitiveArray;
+
     if let Some(primitive) = direct_non_nullable_host_primitive(array) {
         return primitive_u64_values_from_primitive_array(&primitive);
     }
-
-    use vortex::array::VortexSessionExecute as _;
-    use vortex::array::arrays::PrimitiveArray;
 
     let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
     let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;

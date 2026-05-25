@@ -527,6 +527,10 @@ prepare step and prepared/native batch step in one CLI process:
 shardloom traditional-analytics-prepare-batch-run "selective filter,filter + projection + limit" fact.csv dim.csv --workspace target\prepare-batch --input-format csv --evidence-level certified --format json
 ```
 
+The `csv` argument above is only one compatibility-ingress fixture format. After preparation, the
+scale and split-operator evidence is attached to the prepared/native Vortex processing route over
+reopened Vortex bytes, not to a CSV-specific runtime path.
+
 The command emits the normal prepared/native batch fields plus `prepare_batch_*` fields for the
 preparation command, preparation scenario, timing split, Vortex artifact paths/digests, prepared
 artifact reuse, provider attribution, and no-fallback/claim-boundary evidence. Preparation remains
@@ -540,13 +544,16 @@ separate runtime lane. Batch rows expose `prepare_batch_scale_*` rollups and chi
 digest, resource policy, bounded local reader-chunk split scheduling, split execution
 certification, memory admission, local shuffle-family classification, retry/idempotency key, output
 commit status, correctness digest, and `prepared_vortex_scale_no_standalone_lane=true`. The claim
-gate remains `not_scale_grade`: this is in-route fixture proof, not split-parallel operator runtime,
-actual spill/backpressure where admitted, or larger-than-memory/distributed/object-store proof.
+gate remains `not_scale_grade`: this is in-route fixture proof, not actual spill/backpressure where
+admitted, or larger-than-memory/distributed/object-store proof. Selective-filter rows that admit
+reader-generated selection vectors now also emit `prepared_vortex_scale_split_operator_*` evidence
+for scoped stateless split-operator runtime, retry replay, result-sink replay proof, and a split
+operator execution certificate; stateful/shuffle split-operator runtime remains gated.
 
 The comparative harness exposes the same route as `--engines shardloom-prepare-batch`:
 
 ```powershell
-python benchmarks\traditional_analytics\run.py --engines shardloom-prepare-batch --formats csv --scenario "selective filter" --scenario "filter + projection + limit" --rows 1000 --iterations 1 --shardloom-build-profile debug --skip-shardloom-native --no-markdown --output target\shardloom-prepare-batch-smoke.json --regenerate
+python benchmarks\traditional_analytics\run.py --engines shardloom-prepare-batch --formats csv,jsonl --scenario "selective filter" --scenario "filter + projection + limit" --rows 1000 --iterations 1 --shardloom-build-profile debug --skip-shardloom-native --no-markdown --output target\shardloom-prepare-batch-smoke.json --regenerate
 ```
 
 This lane is useful for UniversalIngress/adapter bottleneck attribution because benchmark rows carry
