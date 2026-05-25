@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4J/5G initial encoded kernel registry pair execution
   - Date: 2026-05-25
-  - Branch/PR: `runtime-encoded-kernel-pairs-4j-5g` / #pending.
+  - Branch/PR: `runtime-encoded-kernel-pairs-4j-5g` / #951.
   - Source:
     - `GAR-RUNTIME-IMPL-4J encoded kernel registry execution pairs`.
     - `GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage`.
