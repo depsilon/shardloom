@@ -22,10 +22,23 @@
     "fallback_attempted",
     "external_engine_invoked"
   ],
+  "no_fallback_alias_fields": [
+    "prepared_native_vortex_lifecycle_fallback_attempted",
+    "prepare_batch_lifecycle_fallback_attempted",
+    "prepared_native_vortex_lifecycle_external_engine_invoked",
+    "prepare_batch_lifecycle_external_engine_invoked",
+    "prepared_native_vortex_lifecycle_claim_gate_status",
+    "prepare_batch_lifecycle_claim_gate_status"
+  ],
   "required_runtime_evidence_groups": [
     "route_state_ref",
     "materialization_or_decode_evidence",
     "execution_certificate"
+  ],
+  "materialization_or_decode_alias_fields": [
+    "prepared_native_vortex_lifecycle_materialization_decode_status",
+    "prepared_native_vortex_lifecycle_data_decoded",
+    "prepared_native_vortex_lifecycle_data_materialized"
   ],
   "execution_certificate_ref_fields": [
     "execution_certificate_ref",

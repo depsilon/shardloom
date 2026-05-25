@@ -455,6 +455,36 @@ class PreparedVortexBatchResult:
         return _required_field(self.batch, "selected_evidence_level")
 
     @property
+    def lifecycle_status(self) -> str:
+        """Return the prepared/native Vortex lifecycle status for the combined route."""
+
+        return _required_field(self.batch, "prepare_batch_lifecycle_status")
+
+    @property
+    def lifecycle_output_status(self) -> str:
+        """Return the result-output posture for the combined lifecycle."""
+
+        return _required_field(self.batch, "prepare_batch_lifecycle_output_status")
+
+    @property
+    def lifecycle_complete_with_output_replay(self) -> bool:
+        """Whether the route prepared, scanned, wrote, and replay-verified output."""
+
+        return (
+            self.lifecycle_status
+            == "prepared_vortex_lifecycle_complete_with_output_replay"
+        )
+
+    @property
+    def lifecycle_no_standalone_lane(self) -> bool:
+        """Whether lifecycle evidence stayed inside the prepare/batch route."""
+
+        return (
+            self.batch.field_bool("prepare_batch_lifecycle_no_standalone_lane", False)
+            is True
+        )
+
+    @property
     def fallback_attempted(self) -> bool:
         """Whether either step reported attempted fallback execution."""
 
@@ -5858,6 +5888,24 @@ class ExecutionResultEnvelopeView:
         """Return the result-sink Native I/O certificate status when present."""
 
         return self._compute_flow_field("computed_result_sink_native_io_certificate_status")
+
+    @property
+    def prepared_native_vortex_lifecycle_status(self) -> str | None:
+        """Return the prepared/native Vortex artifact lifecycle status."""
+
+        return self._compute_flow_field("prepared_native_vortex_lifecycle_status")
+
+    @property
+    def prepared_native_vortex_lifecycle_output_status(self) -> str | None:
+        """Return the lifecycle output/replay status."""
+
+        return self._compute_flow_field("prepared_native_vortex_lifecycle_output_status")
+
+    @property
+    def prepared_native_vortex_lifecycle_no_standalone_lane(self) -> bool:
+        """Whether lifecycle evidence stayed in the prepared/native route."""
+
+        return self._compute_flow_bool("prepared_native_vortex_lifecycle_no_standalone_lane")
 
     @property
     def operator_execution_class(self) -> str | None:

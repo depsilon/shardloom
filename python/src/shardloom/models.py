@@ -29,6 +29,9 @@ RUNTIME_MATERIALIZATION_OR_DECODE_FIELDS = (
     "data_decoded",
     "data_materialized",
     "materialization_boundary_report_emitted",
+    "prepared_native_vortex_lifecycle_materialization_decode_status",
+    "prepared_native_vortex_lifecycle_data_decoded",
+    "prepared_native_vortex_lifecycle_data_materialized",
 )
 RUNTIME_EXECUTION_CERTIFICATE_REF_FIELDS = (
     "execution_certificate_ref",
@@ -44,11 +47,15 @@ RUNTIME_FALLBACK_ALIAS_FIELDS = (
     "fallback_attempted",
     "runtime_fallback_attempted",
     "evidence_level_fallback_attempted",
+    "prepared_native_vortex_lifecycle_fallback_attempted",
+    "prepare_batch_lifecycle_fallback_attempted",
 )
 RUNTIME_EXTERNAL_ENGINE_ALIAS_FIELDS = (
     "external_engine_invoked",
     "runtime_external_query_engine_invoked",
     "evidence_level_external_engine_invoked",
+    "prepared_native_vortex_lifecycle_external_engine_invoked",
+    "prepare_batch_lifecycle_external_engine_invoked",
 )
 REQUIRED_OUTPUT_ENVELOPE_FIELDS = frozenset(
     {
@@ -78,15 +85,21 @@ RUNTIME_ENVELOPE_FIELD_ALIASES: Mapping[str, tuple[str, ...]] = {
     "fallback_attempted": (
         "runtime_fallback_attempted",
         "runtime_fallback_execution_attempted",
+        "prepared_native_vortex_lifecycle_fallback_attempted",
+        "prepare_batch_lifecycle_fallback_attempted",
     ),
     "external_engine_invoked": (
         "runtime_external_engine_invoked",
         "runtime_external_query_engine_invoked",
         "external_query_engine_invoked",
+        "prepared_native_vortex_lifecycle_external_engine_invoked",
+        "prepare_batch_lifecycle_external_engine_invoked",
     ),
     "claim_gate_status": (
         "runtime_claim_gate_status",
         "evidence_level_claim_gate_status",
+        "prepared_native_vortex_lifecycle_claim_gate_status",
+        "prepare_batch_lifecycle_claim_gate_status",
     ),
     "source_state_id": ("source_artifact_ref", "source_ref", "source_location"),
     "source_state_digest": ("source_artifact_digest", "source_digest"),
@@ -120,11 +133,13 @@ RUNTIME_ENVELOPE_FIELD_ALIASES: Mapping[str, tuple[str, ...]] = {
         "decode_required",
         "scan_data_decoded",
         "fused_pipeline_data_decoded",
+        "prepared_native_vortex_lifecycle_data_decoded",
     ),
     "data_materialized": (
         "materialization_required",
         "scan_data_materialized",
         "fused_pipeline_data_materialized",
+        "prepared_native_vortex_lifecycle_data_materialized",
     ),
     "preparation_included": (
         "compatibility_import_included",

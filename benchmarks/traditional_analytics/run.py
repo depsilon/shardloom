@@ -359,6 +359,41 @@ SCAN_PUSHDOWN_FIELDS = (
     "scan_pushdown_fallback_attempted",
     "scan_pushdown_external_engine_invoked",
 )
+PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.prepared_native_vortex_lifecycle.v1"
+)
+PREPARED_NATIVE_VORTEX_LIFECYCLE_FIELDS = (
+    "prepared_native_vortex_lifecycle_schema_version",
+    "prepared_native_vortex_lifecycle_report_id",
+    "prepared_native_vortex_lifecycle_status",
+    "prepared_native_vortex_lifecycle_route",
+    "prepared_native_vortex_lifecycle_stage_order",
+    "prepared_native_vortex_lifecycle_execution_mode",
+    "prepared_native_vortex_lifecycle_artifact_status",
+    "prepared_native_vortex_lifecycle_artifact_refs",
+    "prepared_native_vortex_lifecycle_artifact_digests",
+    "prepared_native_vortex_lifecycle_scan_status",
+    "prepared_native_vortex_lifecycle_scan_pushdown_status",
+    "prepared_native_vortex_lifecycle_filter_pushdown_applied",
+    "prepared_native_vortex_lifecycle_projection_pushdown_applied",
+    "prepared_native_vortex_lifecycle_rows_scanned",
+    "prepared_native_vortex_lifecycle_arrays_read_count",
+    "prepared_native_vortex_lifecycle_materialization_decode_status",
+    "prepared_native_vortex_lifecycle_data_decoded",
+    "prepared_native_vortex_lifecycle_data_materialized",
+    "prepared_native_vortex_lifecycle_materialization_boundary_rows",
+    "prepared_native_vortex_lifecycle_output_status",
+    "prepared_native_vortex_lifecycle_result_sink_requested",
+    "prepared_native_vortex_lifecycle_result_sink_written",
+    "prepared_native_vortex_lifecycle_result_sink_replay_verified",
+    "prepared_native_vortex_lifecycle_result_sink_native_io_certificate_status",
+    "prepared_native_vortex_lifecycle_native_io_certificate_status",
+    "prepared_native_vortex_lifecycle_no_standalone_lane",
+    "prepared_native_vortex_lifecycle_fallback_attempted",
+    "prepared_native_vortex_lifecycle_external_engine_invoked",
+    "prepared_native_vortex_lifecycle_claim_gate_status",
+    "prepared_native_vortex_lifecycle_claim_boundary",
+)
 PERSISTENT_RUNNER_STATUS = "process_per_scenario_attributed_not_reduced"
 BATCH_RUNNER_STATUS = "single_process_batch_runner_supported"
 BATCH_PROCESS_STARTUP_ATTRIBUTION = "single_process_batch_cli_wall_shared_across_scenarios"
@@ -3061,6 +3096,46 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "ShardLoom NativeIoCertificate path was unexpected: "
                 + str(fields.get("native_io_certificate_path_id", "missing"))
             )
+        if (
+            fields.get("prepared_native_vortex_lifecycle_schema_version")
+            != PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION
+        ):
+            raise RuntimeError(
+                "ShardLoom batch prepared/native lifecycle schema was unexpected for "
+                + scenario
+                + ": "
+                + str(
+                    fields.get(
+                        "prepared_native_vortex_lifecycle_schema_version", "missing"
+                    )
+                )
+            )
+        if (
+            fields.get("prepared_native_vortex_lifecycle_scan_status")
+            != "local_vortex_scan_completed"
+        ):
+            raise RuntimeError(
+                "ShardLoom batch did not complete the local Vortex scan lifecycle for "
+                + scenario
+            )
+        if fields.get("prepared_native_vortex_lifecycle_no_standalone_lane") != "true":
+            raise RuntimeError(
+                "ShardLoom batch prepared/native lifecycle used a standalone side lane for "
+                + scenario
+            )
+        if fields.get("prepared_native_vortex_lifecycle_fallback_attempted") != "false":
+            raise RuntimeError(
+                "ShardLoom batch prepared/native lifecycle reported fallback attempts for "
+                + scenario
+            )
+        if (
+            fields.get("prepared_native_vortex_lifecycle_external_engine_invoked")
+            != "false"
+        ):
+            raise RuntimeError(
+                "ShardLoom batch prepared/native lifecycle reported external engine invocation for "
+                + scenario
+            )
         if SHARDLOOM_RESULT_SINK:
             for field in (
                 "computed_result_sink_requested",
@@ -3082,6 +3157,34 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                         fields.get(
                             "computed_result_sink_native_io_certificate_status",
                             "missing",
+                        )
+                    )
+                )
+            if (
+                fields.get("prepared_native_vortex_lifecycle_status")
+                != "prepared_native_vortex_lifecycle_complete_with_output_replay"
+            ):
+                raise RuntimeError(
+                    "ShardLoom batch prepared/native lifecycle did not include output replay for "
+                    + scenario
+                    + ": "
+                    + str(
+                        fields.get(
+                            "prepared_native_vortex_lifecycle_status", "missing"
+                        )
+                    )
+                )
+            if (
+                fields.get("prepared_native_vortex_lifecycle_output_status")
+                != "vortex_result_sink_written_and_replay_verified"
+            ):
+                raise RuntimeError(
+                    "ShardLoom batch prepared/native lifecycle output status was unexpected for "
+                    + scenario
+                    + ": "
+                    + str(
+                        fields.get(
+                            "prepared_native_vortex_lifecycle_output_status", "missing"
                         )
                     )
                 )
@@ -3853,6 +3956,45 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             raise RuntimeError(
                 "ShardLoom prepare/batch route was unexpected: "
                 + str(fields.get("prepare_batch_route", "missing"))
+            )
+        if (
+            fields.get("prepare_batch_lifecycle_schema_version")
+            != PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch lifecycle schema was unexpected: "
+                + str(fields.get("prepare_batch_lifecycle_schema_version", "missing"))
+            )
+        if (
+            fields.get("prepare_batch_lifecycle_write_reopen_status")
+            != "prepared_artifacts_written_reopened_scanned"
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch did not certify write/reopen/scan lifecycle"
+            )
+        if (
+            fields.get("prepare_batch_lifecycle_scan_status")
+            != "all_requested_scenarios_scanned_from_prepared_vortex"
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch did not scan all requested scenarios from prepared Vortex"
+            )
+        if fields.get("prepare_batch_lifecycle_no_standalone_lane") != "true":
+            raise RuntimeError(
+                "ShardLoom prepare/batch lifecycle used a standalone side lane"
+            )
+        if fields.get("prepare_batch_lifecycle_fallback_attempted") != "false":
+            raise RuntimeError("ShardLoom prepare/batch lifecycle reported fallback attempts")
+        if fields.get("prepare_batch_lifecycle_external_engine_invoked") != "false":
+            raise RuntimeError(
+                "ShardLoom prepare/batch lifecycle reported external engine invocation"
+            )
+        if SHARDLOOM_RESULT_SINK and (
+            fields.get("prepare_batch_lifecycle_status")
+            != "prepared_vortex_lifecycle_complete_with_output_replay"
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch lifecycle did not include result-sink replay"
             )
         if fields.get("prepare_batch_preparation_included_in_batch_timing") != "false":
             raise RuntimeError("ShardLoom prepare/batch included preparation in query timing")
@@ -8538,6 +8680,47 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         and metrics.get("scan_pushdown_external_engine_invoked") is True
     ):
         raise RuntimeError("scan pushdown evidence cannot report external engine execution")
+    if (
+        is_shardloom_engine(str(result.get("engine") or ""))
+        and selected_mode in ("prepared_vortex", "native_vortex")
+        and result.get("status") == "success"
+    ):
+        missing_lifecycle_fields = [
+            field
+            for field in PREPARED_NATIVE_VORTEX_LIFECYCLE_FIELDS
+            if field not in metrics
+        ]
+        if missing_lifecycle_fields:
+            raise RuntimeError(
+                "ShardLoom prepared/native row omitted lifecycle fields: "
+                + ", ".join(missing_lifecycle_fields)
+            )
+        if (
+            metrics.get("prepared_native_vortex_lifecycle_schema_version")
+            != PREPARED_NATIVE_VORTEX_LIFECYCLE_SCHEMA_VERSION
+        ):
+            raise RuntimeError("prepared/native lifecycle schema was unexpected")
+        if metrics.get("prepared_native_vortex_lifecycle_no_standalone_lane") is not True:
+            raise RuntimeError("prepared/native lifecycle evidence cannot use a side lane")
+        if metrics.get("prepared_native_vortex_lifecycle_fallback_attempted") is not False:
+            raise RuntimeError("prepared/native lifecycle cannot report fallback attempts")
+        if (
+            metrics.get("prepared_native_vortex_lifecycle_external_engine_invoked")
+            is not False
+        ):
+            raise RuntimeError(
+                "prepared/native lifecycle cannot report external engine execution"
+            )
+        if (
+            metrics.get("prepared_native_vortex_lifecycle_scan_status")
+            != "local_vortex_scan_completed"
+        ):
+            raise RuntimeError("prepared/native rows must complete local Vortex scan lifecycle")
+        if (
+            metrics.get("prepared_native_vortex_lifecycle_claim_gate_status")
+            != "not_claim_grade"
+        ):
+            raise RuntimeError("prepared/native lifecycle cannot upgrade claim status")
     if is_shardloom_engine(str(result.get("engine") or "")):
         missing_source_state_fields = [
             field for field in SOURCE_STATE_CONTRACT_FIELDS if field not in metrics
@@ -13454,6 +13637,9 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "fused_pipeline_fields": list(FUSED_PIPELINE_FIELDS),
         "compressed_kernel_registry_fields": list(COMPRESSED_KERNEL_REGISTRY_FIELDS),
         "scan_pushdown_fields": list(SCAN_PUSHDOWN_FIELDS),
+        "prepared_native_vortex_lifecycle_fields": list(
+            PREPARED_NATIVE_VORTEX_LIFECYCLE_FIELDS
+        ),
         "optimizer_trace_fields": list(OPTIMIZER_TRACE_FIELDS),
         "build_profile_fields": list(BUILD_PROFILE_FIELDS),
         "bayesian_advisor_fields": list(BAYESIAN_ADVISOR_FIELDS),
