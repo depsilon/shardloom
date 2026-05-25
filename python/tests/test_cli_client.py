@@ -4368,6 +4368,68 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(envelope.field_bool("fallback_attempted"))
         self.assertFalse(envelope.field_bool("external_engine_invoked"))
 
+    def test_local_table_append_commit_rehearsal_wrapper_calls_local_manifest_profile(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "local-table-append-commit-rehearsal-smoke",
+                    "target/table/metadata/v2.json",
+                    "--profile",
+                    "local-manifest",
+                    "--idempotency-key",
+                    "orders-table-commit-001",
+                    "--allow-overwrite",
+                    "--rollback-after-commit",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "local-table-append-commit-rehearsal-smoke",
+                    "status": "success",
+                    "summary": "local table append commit rehearsal smoke",
+                    "human_text": "local table append commit rehearsal smoke",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "table_append_commit_status", "value": "rolled_back"},
+                        {"key": "provider_profile", "value": "local-manifest"},
+                        {"key": "commit_protocol_status", "value": "rolled_back"},
+                        {"key": "rollback_status", "value": "performed_local_manifest_cleanup"},
+                        {"key": "idempotency_key", "value": "orders-table-commit-001"},
+                        {"key": "idempotency_status", "value": "caller_supplied"},
+                        {"key": "native_io_certificate_status", "value": "fixture_smoke_only"},
+                        {"key": "claim_gate_status", "value": "scoped_local_table_append_commit_rehearsal_only"},
+                        {"key": "table_metadata_write_performed", "value": "true"},
+                        {"key": "manifest_write_performed", "value": "true"},
+                        {"key": "object_store_io", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        envelope = ShardLoomClient(
+            binary=binary
+        ).local_table_append_commit_rehearsal_smoke(
+            "target/table/metadata/v2.json",
+            idempotency_key="orders-table-commit-001",
+            allow_overwrite=True,
+            rollback_after_commit=True,
+        )
+
+        self.assertEqual(envelope.status, "success")
+        self.assertEqual(envelope.field("table_append_commit_status"), "rolled_back")
+        self.assertTrue(envelope.field_bool("table_metadata_write_performed"))
+        self.assertTrue(envelope.field_bool("manifest_write_performed"))
+        self.assertFalse(envelope.field_bool("object_store_io"))
+        self.assertFalse(envelope.field_bool("fallback_attempted"))
+        self.assertFalse(envelope.field_bool("external_engine_invoked"))
+
     def test_invalid_json_raises_protocol_error(self) -> None:
         binary = self.fake_cli("print('not-json')")
 

@@ -65,9 +65,6 @@ A capability posture report showing report_only or unsupported rows rather than 
 
 ## Related Field Guide Terms
 
-- `website/field-guide/direct-compatibility-transient.html` - Direct Compatibility Transient (`Execution Modes` / `scoped-local-smoke`)
-- `website/field-guide/report-only.html` - Report-Only (`Evidence And Claims` / `status-vocabulary`)
-- `website/field-guide/unsupported-diagnostics.html` - Unsupported Diagnostics (`Evidence And Claims` / `current-diagnostic-pattern`)
-- `website/field-guide/arrow-ipc-boundary.html` - Arrow IPC Boundary (`I/O And Output` / `compatibility-boundary`)
-- `website/field-guide/rest-control-plane.html` - REST Control Plane (`Platform Boundaries` / `report-only`)
-- `website/field-guide/mcp-agent-api.html` - MCP Agent API (`Platform Boundaries` / `planned-report-only`)
+- `website/field-guide/no-fallback.html` - No fallback (`Start Here` / `runtime_supported`)
+- `website/field-guide/deterministic-blockers.html` - Deterministic blockers (`Unsupported Diagnostics` / `runtime_supported`)
+- `website/field-guide/report-only.html` - report_only (`Unsupported Diagnostics` / `report_only`)

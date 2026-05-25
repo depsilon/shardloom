@@ -65,4 +65,5 @@ A local proof report showing Foundry and external compute were not invoked.
 
 ## Related Field Guide Terms
 
-- `website/field-guide/foundry-dev-stack-smoke.html` - Foundry Dev-Stack Smoke (`Platform Boundaries` / `local-style-proof`)
+- `website/field-guide/generated-source-route.html` - Generated source route (`Execution Routes` / `smoke_supported`)
+- `website/field-guide/foundry-boundary.html` - Foundry boundary (`Platform Boundaries` / `smoke_supported`)

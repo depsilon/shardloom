@@ -8,15 +8,15 @@
 - **Status:** `blocked`
 - **Execution mode:** `report_only_blocked`
 - **Engine mode:** `none`
-- **Claim boundary:** No production lakehouse/table-format runtime, commit, merge/update/delete, catalog, object-store, or Foundry claim.
+- **Claim boundary:** Local table metadata/read and append commit rehearsal smokes are fixture-scoped only; no production lakehouse/table-format runtime, merge/update/delete, catalog, object-store, or Foundry claim.
 
 ## Can ShardLoom Do This?
 
-Table and lakehouse boundary is blocked or unsupported until the listed evidence exists.
+Table and lakehouse boundary remains blocked for production table formats. ShardLoom can now show a local-manifest append commit rehearsal, but Iceberg, Delta, Hudi, catalogs, and object-store-backed table commits still require separate evidence.
 
 ## Claim Boundary
 
-No production lakehouse/table-format runtime, commit, merge/update/delete, catalog, object-store, or Foundry claim.
+Local table metadata/read and append commit rehearsal smokes are fixture-scoped only; no production lakehouse/table-format runtime, merge/update/delete, catalog, object-store, or Foundry claim.
 
 ## How To Try It
 
@@ -39,35 +39,38 @@ Table-format runtime needs metadata, snapshot, delete/tombstone, write, commit, 
 - `delete_tombstone_status`
 - `commit_protocol_status`
 - `rollback_status`
+- `local_table_append_commit_rehearsal_smoke_present`
 - `fallback_attempted=false`
 - `external_engine_invoked=false`
 - `claim_gate_status=not_claim_grade`
 
 ## Expected Output Or Evidence
 
-A report-only table compatibility plan or deterministic unsupported output.
+A report-only table compatibility plan or deterministic unsupported output, with local table append rehearsal evidence called out separately from production table-format support.
 
 ## Common Mistakes
 
 - `mistaking_metadata_smoke_for_table_runtime`
-- `assuming_commit_semantics`
+- `treating_local_commit_rehearsal_as_production_table_commit`
+- `assuming_catalog_commit_semantics`
 - `treating_local_files_as_lakehouse_support`
 
 ## Reference Files
 
 - `docs/architecture/compute-engine-flow-reference.md` - What this proves: Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.
+- `docs/architecture/table-intelligence-layer.md` - What this proves: Table maintenance execution matrix posture and local append commit rehearsal evidence boundaries.
 - `docs/architecture/universal-compatibility-coverage-scoreboard.md` - What this proves: Compatibility scoreboard status and source/sink support boundaries.
 - `docs/architecture/universal-input-contract.md` - What this proves: Universal input contract posture and unsupported input-family diagnostics.
 - `README.md` - What this proves: Public technical-preview posture, Vortex-first/no-fallback positioning, and primary repo entrypoints.
 
 ## Related Use Cases
 
+- `local-table-append-commit-rehearsal-smoke`
 - `object-store-boundary-report`
+- `object-store-local-emulator-write-smoke`
 - `output-result-sink-and-fanout-boundary`
 
 ## Related Field Guide Terms
 
-- `website/field-guide/blocked-status.html` - Blocked Status (`Evidence And Claims` / `status-vocabulary`)
-- `website/field-guide/table-lakehouse-boundary.html` - Table/Lakehouse Boundary (`I/O And Output` / `blocked-report-only`)
-- `website/field-guide/universal-adapter-catalog.html` - Universal Adapter Catalog (`Platform Boundaries` / `report-only`)
-- `website/field-guide/scale-profile.html` - Scale Profile (`Performance Architecture` / `report-only-scale-contract`)
+- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `blocked`)
+- `website/field-guide/table-lakehouse-boundary.html` - Table/lakehouse boundary (`Platform Boundaries` / `blocked`)

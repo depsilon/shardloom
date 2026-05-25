@@ -78,9 +78,8 @@ A local JSONL/CSV output plus fields including generated_source_kind, generated_
 
 ## Related Field Guide Terms
 
-- `website/field-guide/fixture-smoke.html` - Fixture Smoke (`Engine Modes` / `scoped-evidence`)
-- `website/field-guide/python-wrapper-client.html` - Python Wrapper Client (`User Workflows` / `current-local-client`)
-- `website/field-guide/source-free-generated-output.html` - Source-Free Generated Output (`User Workflows` / `scoped-local-smoke`)
-- `website/field-guide/output-fanout.html` - Output Fanout (`User Workflows` / `report-only-to-planned`)
-- `website/field-guide/output-plan-reuse.html` - OutputPlan Reuse (`I/O And Output` / `planned-contract`)
-- `website/field-guide/foundry-dev-stack-smoke.html` - Foundry Dev-Stack Smoke (`Platform Boundaries` / `local-style-proof`)
+- `website/field-guide/generated-source-route.html` - Generated source route (`Execution Routes` / `smoke_supported`)
+- `website/field-guide/output-plan.html` - OutputPlan (`I/O + Outputs` / `smoke_supported`)
+- `website/field-guide/sink-artifact.html` - SinkArtifact (`I/O + Outputs` / `smoke_supported`)
+- `website/field-guide/output-fanout.html` - Output fanout (`I/O + Outputs` / `planned`)
+- `website/field-guide/foundry-boundary.html` - Foundry boundary (`Platform Boundaries` / `smoke_supported`)

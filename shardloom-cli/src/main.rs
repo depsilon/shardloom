@@ -35,6 +35,7 @@ mod rest_api_planning;
 mod semantic_conformance;
 mod sql_local_source_runtime;
 mod status_capabilities;
+mod table_lakehouse_runtime;
 mod typed_envelope;
 mod vortex_output_commit;
 mod vortex_planning;
@@ -991,6 +992,9 @@ fn run(args: Vec<String>) -> ExitCode {
         }
         Some("local-append-only-cdc-overlay-smoke") => {
             workflow_planning::handle_local_append_only_cdc_overlay_smoke(args, format)
+        }
+        Some("local-table-append-commit-rehearsal-smoke") => {
+            table_lakehouse_runtime::handle_local_table_append_commit_rehearsal_smoke(args, format)
         }
         Some("object-store-request-plan") => {
             object_store_planning::handle_object_store_request_plan(args, format)
@@ -1999,6 +2003,34 @@ mod tests {
             "s3://bucket/object.vortex".to_string(),
         ]);
         std::fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+        assert_ne!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn local_table_append_commit_rehearsal_smoke_returns_success() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "shardloom-cli-table-append-commit-smoke-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&temp_dir).expect("temp dir");
+        let target = temp_dir.join("committed-table-manifest.json");
+        let code = run(vec![
+            "local-table-append-commit-rehearsal-smoke".to_string(),
+            target.to_string_lossy().into_owned(),
+            "--idempotency-key".to_string(),
+            "main-unit-table-commit".to_string(),
+            "--rollback-after-commit".to_string(),
+        ]);
+        std::fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
+    fn local_table_append_commit_rehearsal_remote_provider_returns_non_zero() {
+        let code = run(vec![
+            "local-table-append-commit-rehearsal-smoke".to_string(),
+            "s3://bucket/table/metadata/v2.json".to_string(),
+        ]);
         assert_ne!(code, ExitCode::SUCCESS);
     }
 
@@ -3149,6 +3181,10 @@ mod tests {
     #[test]
     fn usage_includes_local_append_only_cdc_overlay_smoke() {
         assert!(cli_usage_line().contains("local-append-only-cdc-overlay-smoke"));
+    }
+    #[test]
+    fn usage_includes_local_table_append_commit_rehearsal_smoke() {
+        assert!(cli_usage_line().contains("local-table-append-commit-rehearsal-smoke"));
     }
     #[test]
     fn usage_includes_object_store_request_plan() {

@@ -2,7 +2,7 @@
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import StatusChip from "../../components/StatusChip.astro";
 import ReferenceList from "../../components/ReferenceList.astro";
-import { formatList, useCases } from "../../lib/data";
+import { fieldGuideTermsForUseCase, formatList, useCases } from "../../lib/data";
 
 export function getStaticPaths() {
   return useCases.map((item) => ({ params: { id: item.id }, props: { item } }));
@@ -11,6 +11,7 @@ export function getStaticPaths() {
 const { item } = Astro.props;
 const pageTitle = item.title.length > 52 ? `${item.id} use case` : item.title;
 const pageDescription = item.claim_boundary.length > 190 ? `${item.claim_boundary.slice(0, 187)}...` : item.claim_boundary;
+const relatedFieldGuideTerms = fieldGuideTermsForUseCase(item.id);
 ---
 
 <SiteLayout title={pageTitle} description={pageDescription} path={`/use-cases/${item.id}`} active="use-cases">
@@ -34,6 +35,9 @@ const pageDescription = item.claim_boundary.length > 190 ? `${item.claim_boundar
   </section>
   <section class="section-grid">
     <div><h2>Reference files</h2><ReferenceList references={item.references} /></div>
+    <div><h2>Related Field Guide Terms</h2><div class="related-links">{relatedFieldGuideTerms.map((term) => <a href={`/field-guide/${term.slug}`}>{term.title}</a>)}</div></div>
+  </section>
+  <section class="section-grid">
     <div><h2>Related use cases</h2><div class="related-links">{item.related_use_cases.map((id) => <a href={`/use-cases/${id}`}>{id}</a>)}</div></div>
   </section>
 </SiteLayout>

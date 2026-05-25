@@ -147,4 +147,4 @@ A JSON envelope and typed Python report with inline JSONL result, result_rows/fi
 
 ## Related Field Guide Terms
 
-- `website/field-guide/direct-compatibility-transient.html` - Direct Compatibility Transient (`Execution Modes` / `scoped-local-smoke`)
+- `website/field-guide/direct-compatibility-transient.html` - direct_compatibility_transient (`Execution Routes` / `smoke_supported`)

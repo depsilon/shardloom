@@ -1,5 +1,5 @@
 ---
-import { repoLink } from "../lib/data";
+import { referenceProof, repoLink } from "../lib/data";
 
 interface Props {
   references?: string[];
@@ -8,8 +8,11 @@ interface Props {
 const { references = [] } = Astro.props;
 ---
 
-<ul class="reference-list">
+<ul class="reference-list" data-citation-block="reference-files">
   {references.map((reference) => (
-    <li><a href={repoLink(reference)}>{reference}</a></li>
+    <li>
+      <a href={repoLink(reference)}><code>{reference}</code></a>
+      <span class="reference-proof"><strong>What this proves:</strong> {referenceProof(reference)}</span>
+    </li>
   ))}
 </ul>

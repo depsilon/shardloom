@@ -72,5 +72,7 @@ A local .vortex artifact plus VortexPreparedState id/digest, writer/reopen row-c
 
 ## Related Field Guide Terms
 
-- `website/field-guide/prepared-vortex.html` - Prepared Vortex (`Execution Modes` / `runtime-development-lane`)
-- `website/field-guide/prepared-vortex-artifact.html` - VortexPreparedState (`Vortex Runtime` / `runtime-development-artifact`)
+- `website/field-guide/universal-ingress.html` - UniversalIngress (`UniversalIngress` / `report_only`)
+- `website/field-guide/vortex-ingest.html` - vortex_ingest (`Vortex Ingest` / `smoke_supported`)
+- `website/field-guide/vortex-prepared-state.html` - VortexPreparedState (`Vortex Ingest` / `smoke_supported`)
+- `website/field-guide/prepared-vortex.html` - prepared_vortex (`Prepared/Native Vortex` / `smoke_supported`)

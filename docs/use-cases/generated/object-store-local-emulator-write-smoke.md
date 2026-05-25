@@ -71,10 +71,11 @@ A fixture-smoke report with staged write, sidecar commit-manifest, idempotency, 
 
 - `object-store-local-emulator-read-smoke`
 - `object-store-boundary-report`
+- `local-table-append-commit-rehearsal-smoke`
 - `table-lakehouse-boundary-report`
 - `output-result-sink-and-fanout-boundary`
 
 ## Related Field Guide Terms
 
-- `website/field-guide/object-store-boundary.html` - Object-Store Boundary (`Platform Boundaries` / `blocked`)
-- `website/field-guide/native-io-certificate.html` - Native I/O Certificate (`Evidence And Claims` / `current-evidence`)
+- `website/field-guide/native-io-certificate.html` - Native I/O certificate (`Evidence + Certificates` / `smoke_supported`)
+- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `blocked`)

@@ -147,5 +147,5 @@ A typed Python report over the SQL local-source JSON envelope with result_rows/f
 
 ## Related Field Guide Terms
 
-- `website/field-guide/direct-compatibility-transient.html` - Direct Compatibility Transient (`Execution Modes` / `scoped-local-smoke`)
-- `website/field-guide/python-wrapper-client.html` - Python Wrapper Client (`User Workflows` / `current-local-client`)
+- `website/field-guide/direct-compatibility-transient.html` - direct_compatibility_transient (`Execution Routes` / `smoke_supported`)
+- `website/field-guide/source-adapter-status.html` - Source adapter status (`UniversalIngress` / `smoke_supported`)

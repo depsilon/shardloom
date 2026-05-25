@@ -3740,6 +3740,11 @@ fn append_table_maintenance_execution_matrix_evidence_fields(
         &format!("{prefix}_local_append_only_cdc_overlay_smoke_present"),
         report.local_append_only_cdc_overlay_smoke_present,
     );
+    push_bool_field(
+        fields,
+        &format!("{prefix}_local_table_append_commit_rehearsal_smoke_present"),
+        report.local_table_append_commit_rehearsal_smoke_present,
+    );
 }
 
 fn append_table_maintenance_execution_matrix_requirement_fields(
@@ -6358,9 +6363,16 @@ mod tests {
         assert_eq!(
             output_field(
                 &fields,
+                "table_maintenance_execution_matrix_local_table_append_commit_rehearsal_smoke_present"
+            ),
+            "true"
+        );
+        assert_eq!(
+            output_field(
+                &fields,
                 "table_maintenance_execution_matrix_row_table_metadata_write_status"
             ),
-            "unsupported_until_certified"
+            "report_only_available"
         );
         assert_eq!(
             output_field(

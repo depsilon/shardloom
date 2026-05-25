@@ -225,7 +225,69 @@ runtime path with `object_store_write_status=blocked_remote_provider`,
 The local-emulator write smoke does not authorize credential lookup, provider listing, public-object
 reads or writes, authenticated object-store writes, table metadata writes, table/lakehouse commits,
 catalog interaction, distributed execution, performance claims, production use, or external-engine
-fallback.
+fallback. The separate local table append commit rehearsal below writes only a ShardLoom-owned
+local-manifest fixture artifact and does not upgrade this object-store smoke into table-format or
+cloud-provider support.
+
+## GAR-RUNTIME-IMPL-4O Local Table Append Commit Rehearsal
+
+`GAR-RUNTIME-IMPL-4O` now admits one fixture-scoped table operation profile:
+
+```powershell
+shardloom local-table-append-commit-rehearsal-smoke <local-committed-manifest-path> --profile local-manifest [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit] --format json
+```
+
+This is not an Iceberg, Delta, Hudi, catalog, object-store, or production lakehouse commit protocol.
+The profile declares a ShardLoom-owned local-manifest fixture with a base snapshot and append delta,
+writes a staged committed manifest JSON plus sidecar table commit record to local paths, records
+idempotency and digest evidence, and can immediately roll those artifacts back for cleanup proof. It
+does not resolve credentials, list objects, probe a provider, contact a catalog, or invoke any
+external query engine.
+
+Successful local-manifest rows emit:
+
+```text
+provider_profile=local-manifest
+table_format=shardloom_local_manifest
+table_append_commit_status=committed | rolled_back
+write_staging_status=performed_local_manifest
+commit_protocol=local_manifest_sidecar_commit_record
+commit_protocol_status=committed | rolled_back
+commit_status=committed_local_manifest | committed_then_rolled_back
+table_commit_rehearsal_status=rehearsed_local_manifest_commit | rehearsed_then_rolled_back
+rollback_status=not_requested | performed_local_manifest_cleanup
+cleanup_deleted_count
+idempotency_key
+idempotency_status=caller_supplied | derived_from_manifest_digest
+base_snapshot_id
+append_snapshot_id
+committed_snapshot_id
+manifest_file_count
+manifest_segment_count
+base_row_count
+append_row_count
+effective_row_count
+manifest_payload_digest
+committed_manifest_digest
+commit_record_digest
+correctness_digest
+claim_gate_status=scoped_local_table_append_commit_rehearsal_only
+catalog_io_performed=false
+object_store_io=false
+table_catalog_commit_performed=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+Remote provider URIs such as `s3://`, `gs://`, `abfs://`, and `abfss://` remain blocked with
+`table_append_commit_status=blocked_remote_provider`, `credential_resolution_performed=false`,
+`network_probe_performed=false`, `provider_probe_performed=false`, `object_store_io=false`,
+`write_io=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
+
+The local table append commit rehearsal does not authorize credential lookup, provider listing,
+public/authenticated cloud writes, table-format dependencies, catalog interaction, object-store
+table commits, production rollback/recovery, merge/update/delete, distributed execution, performance
+claims, production use, or external-engine fallback.
 
 ## GAR-COMPAT-1C Universal Compatibility Admission Ladder
 

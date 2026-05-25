@@ -8326,6 +8326,32 @@ class ShardLoomClient:
             command.append("--rollback-after-commit")
         return self.run(command, check=check)
 
+    def local_table_append_commit_rehearsal_smoke(
+        self,
+        target_manifest_path: str | os.PathLike[str],
+        *,
+        profile: str = "local-manifest",
+        idempotency_key: str | None = None,
+        allow_overwrite: bool = False,
+        rollback_after_commit: bool = False,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the local-manifest table append commit rehearsal smoke."""
+
+        command = [
+            "local-table-append-commit-rehearsal-smoke",
+            str(target_manifest_path),
+            "--profile",
+            profile,
+        ]
+        if idempotency_key is not None:
+            command.extend(["--idempotency-key", idempotency_key])
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        if rollback_after_commit:
+            command.append("--rollback-after-commit")
+        return self.run(command, check=check)
+
     def correctness_plan(self, *, check: bool = True) -> OutputEnvelope:
         """Return the correctness evidence planning surface."""
 

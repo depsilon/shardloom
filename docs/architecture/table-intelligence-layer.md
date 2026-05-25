@@ -36,6 +36,12 @@ through:
 shardloom local-append-only-cdc-overlay-smoke --format json
 ```
 
+The scoped local table append commit rehearsal is exposed through:
+
+```powershell
+shardloom local-table-append-commit-rehearsal-smoke <local-committed-manifest-path> --profile local-manifest [--idempotency-key key] [--allow-overwrite] [--rollback-after-commit] --format json
+```
+
 ## Scope
 
 - [x] Aggregate existing schema evolution compatibility evidence.
@@ -54,6 +60,8 @@ shardloom local-append-only-cdc-overlay-smoke --format json
       `LocalDeleteTombstoneReadSmokeReport`.
 - [x] Support one in-memory local append-only CDC overlay smoke through
       `LocalAppendOnlyCdcOverlaySmokeReport`.
+- [x] Support one local-manifest append commit rehearsal with staged committed-manifest write,
+      sidecar commit record, idempotency, and optional rollback cleanup evidence.
 - [x] Expose delete/tombstone, CDC, compaction, and maintenance-write execution posture through
       `TableMaintenanceExecutionMatrixReport`.
 Out of scope until promoted GAR slices complete:
@@ -61,11 +69,13 @@ Out of scope until promoted GAR slices complete:
 - Broader catalog/table metadata reads are carried by later GAR slices after the completed
   `GAR-0020-A` admission gate and `GAR-0020-C` local metadata smoke.
 - Broad delete/tombstone runtime beyond the completed `GAR-0020-D` local fixture smoke, CDC
-  execution beyond the completed `GAR-0020-E` append-only overlay smoke, compaction writes,
-  table-maintenance writes, broad table data I/O, object-store I/O, lakehouse/catalog commits, and
-  table-format runtime surfaces remain unsupported. `GAR-0028-A` now supplies the deterministic
-  commit-semantics gate for those lakehouse/catalog paths; later runtime promotion still requires
-  workload fixtures, commit execution evidence, execution certificates, Native I/O certificates,
+  execution beyond the completed `GAR-0020-E` append-only overlay smoke, broad compaction writes,
+  broad table data I/O, object-store I/O, lakehouse/catalog commits, and table-format runtime
+  surfaces remain unsupported. The local table append commit rehearsal writes only a
+  ShardLoom-owned local-manifest fixture artifact plus sidecar commit record; it is not an
+  Iceberg/Delta/Hudi, catalog, or object-store commit. `GAR-0028-A` now supplies the deterministic
+  commit-semantics gate for lakehouse/catalog paths; later runtime promotion still requires workload
+  fixtures, commit execution evidence, execution certificates, Native I/O certificates,
   materialization/decode evidence, and no-fallback evidence.
 
 ## Default Policy
@@ -156,20 +166,22 @@ The matrix classifies:
 1. `file_level_delete_compatibility`, `cdc_append_only_planning`,
    `cdc_metadata_only_planning`, and `compaction_planning` as report-only evidence backed by the
    existing delete/tombstone, CDC incremental, layout health, and compaction planning reports.
-2. `segment_tombstone_execution`, `row_level_delete_execution`, `position_delete_execution`,
+2. `table_metadata_write` and `table_maintenance_commit` as report-only fixture evidence backed by
+   the local table append commit rehearsal smoke. They remain non-promotional: broad runtime
+   execution, catalog commits, object-store commits, and table-format commit claims stay blocked.
+3. `segment_tombstone_execution`, `row_level_delete_execution`, `position_delete_execution`,
    `equality_delete_execution`, `cdc_update_delete_tombstone_execution`,
-   `compaction_execution_write`, `table_metadata_write`, and `table_maintenance_commit` as
-   unsupported until their required fixtures, commit semantics, correctness evidence, execution
-   certificates, Native I/O certificates, materialization/decode evidence, and no-fallback evidence
-   exist.
+   and `compaction_execution_write` as unsupported until their required fixtures, commit semantics,
+   correctness evidence, execution certificates, Native I/O certificates, materialization/decode
+   evidence, and no-fallback evidence exist.
 
 The matrix reports:
 
 - `support_status=report_only_with_unsupported_runtime_paths`
 - `claim_gate_status=not_claim_grade`
 - `operation_count=12`
-- `report_only_operation_count=4`
-- `unsupported_operation_count=8`
+- `report_only_operation_count=6`
+- `unsupported_operation_count=6`
 - `runtime_promotions_blocked=true`
 - `deterministic_unsupported_diagnostics_ready=true`
 - `fallback_attempted=false`
@@ -177,9 +189,9 @@ The matrix reports:
 - `external_engine_invoked=false`
 - `table_format_execution_claim_allowed=false`
 
-It does not authorize delete/tombstone runtime, CDC execution, compaction writes, table metadata
-writes, table-maintenance commits, object-store I/O, lakehouse/catalog runtime, external engines,
-fallback execution, or production table-format claims.
+It does not authorize broad delete/tombstone runtime, CDC execution, compaction writes, production
+table metadata writes, table-format/catalog commits, object-store I/O, lakehouse/catalog runtime,
+external engines, fallback execution, or production table-format claims.
 
 ## Catalog Metadata Integration Gate
 
@@ -319,6 +331,51 @@ production incremental/lakehouse/performance claims. The `TableMaintenanceExecut
 therefore continues to block broad runtime promotion while exposing
 `local_append_only_cdc_overlay_smoke_present=true` and the
 `gar0020e.local_append_only_cdc_overlay_smoke` evidence ref.
+
+## Local Table Append Commit Rehearsal Smoke
+
+`GAR-RUNTIME-IMPL-4O` adds `shardloom.local_table_append_commit_rehearsal_smoke.v1` as the first
+fixture-scoped table metadata write and append commit rehearsal. It uses a local-manifest profile,
+declares a base snapshot and append snapshot, writes a staged committed manifest JSON to a local
+target path, writes a sidecar table commit record, records idempotency evidence, and can immediately
+roll back the manifest and sidecar for cleanup proof.
+
+The smoke reports:
+
+- `support_status=fixture_smoke_only`
+- `claim_gate_status=scoped_local_table_append_commit_rehearsal_only`
+- `provider_profile=local-manifest`
+- `table_format=shardloom_local_manifest`
+- `base_snapshot_id=gar-runtime-4o-base-snapshot-0001`
+- `append_snapshot_id=gar-runtime-4o-append-snapshot-0002`
+- `committed_snapshot_id=gar-runtime-4o-committed-snapshot-0002`
+- `base_row_count=3`
+- `append_row_count=2`
+- `effective_row_count=5`
+- `manifest_file_count=2`
+- `manifest_segment_count=2`
+- `commit_protocol=local_manifest_sidecar_commit_record`
+- `table_commit_rehearsal_status=rehearsed_local_manifest_commit` or
+  `rehearsed_then_rolled_back`
+- `rollback_status=not_requested` or `performed_local_manifest_cleanup`
+- `idempotency_status=caller_supplied` or `derived_from_manifest_digest`
+- `manifest_payload_digest=fnv64:*`
+- `committed_manifest_digest=fnv64:*`
+- `commit_record_digest=fnv64:*`
+- `correctness_digest=fnv64:*`
+- `catalog_io_performed=false`
+- `object_store_io=false`
+- `table_catalog_commit_performed=false`
+- `fallback_attempted=false`
+- `external_engine_invoked=false`
+
+Remote targets such as `s3://`, `gs://`, `abfs://`, and `abfss://` remain blocked before any write,
+credential lookup, network probe, provider probe, or fallback execution. The smoke remains
+deliberately narrow. It does not implement Iceberg, Delta, Hudi, catalog resolution, object-store
+table commits, merge/update/delete, transaction execution, production rollback/recovery, distributed
+runtime, performance claims, or lakehouse production support. The `TableMaintenanceExecutionMatrix`
+therefore marks `table_metadata_write` and `table_maintenance_commit` as report-only fixture
+evidence while broad runtime promotion remains blocked.
 
 ## CDC, Manifest, And Transaction Gate
 

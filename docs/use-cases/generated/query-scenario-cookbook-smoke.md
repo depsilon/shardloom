@@ -64,7 +64,6 @@ A benchmark artifact for one named scenario with no-fallback evidence and correc
 
 ## Related Field Guide Terms
 
-- `website/field-guide/residual-native.html` - Residual-Native (`Vortex Runtime` / `current-runtime-pattern`)
-- `website/field-guide/nested-json-field-scan.html` - Nested JSON Field Scan (`User Workflows` / `fixture-smoke`)
-- `website/field-guide/cdc-overlay.html` - CDC Overlay (`User Workflows` / `fixture-smoke`)
-- `website/field-guide/fused-operator-pipeline.html` - Fused Operator Pipeline (`Performance Architecture` / `scoped-evidence`)
+- `website/field-guide/source-state.html` - SourceState (`UniversalIngress` / `smoke_supported`)
+- `website/field-guide/source-backed-scan.html` - Source-backed scan (`Prepared/Native Vortex` / `smoke_supported`)
+- `website/field-guide/benchmark-evidence.html` - Benchmark evidence (`Benchmarks` / `smoke_supported`)

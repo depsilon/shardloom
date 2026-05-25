@@ -2077,6 +2077,30 @@ URIs, credentials, network probes, provider listing, public/authenticated cloud
 reads or writes, table/lakehouse commits, catalog interaction, distributed
 runtime, and production object-store claims remain blocked.
 
+For the first fixture-scoped table append commit rehearsal, use the local
+manifest smoke. It writes a staged committed manifest plus sidecar table commit
+record, reports base/append/committed snapshot ids and digest evidence, and can
+immediately roll both artifacts back for cleanup proof.
+
+```python
+table = client.local_table_append_commit_rehearsal_smoke(
+    "target/table-commit/metadata-v2.json",
+    idempotency_key="orders-table-commit-001",
+    rollback_after_commit=True,
+)
+print(table.field("table_append_commit_status"))
+print(table.field("committed_snapshot_id"))
+print(table.field("commit_protocol_status"))
+print(table.field_bool("table_catalog_commit_performed"))
+print(table.field_bool("object_store_io"))
+print(table.field_bool("fallback_attempted"))
+```
+
+The table rehearsal is a `local-manifest` fixture only. It is not an
+Iceberg/Delta/Hudi production commit, catalog transaction, object-store-backed
+table commit, merge/update/delete runtime, distributed runtime, or performance
+claim.
+
 The same scoreboard exposes table-format boundaries:
 
 ```python
@@ -2092,10 +2116,10 @@ for row in tables.rows:
 The `table_format_boundary_matrix` keeps Iceberg, Delta, and Hudi metadata
 reads, table scans, snapshot/time-travel, partition evolution, delete/tombstone,
 append, merge/update/delete, commit, rollback, catalog interaction, and
-object-store coupling as separate gates. Local manifest metadata and
-delete/tombstone smokes are related evidence only; they are not table-format
-runtime, lakehouse runtime, catalog runtime, object-store runtime, or commit
-support.
+object-store coupling as separate gates. Local manifest metadata, delete/
+tombstone, and append commit rehearsal smokes are related evidence only; they
+are not production table-format runtime, lakehouse runtime, catalog runtime,
+object-store runtime, or commit support.
 Important row IDs include `table_metadata_read`, `table_scan`,
 `snapshot_time_travel`, `partition_evolution`, `delete_tombstone`, `append`,
 `merge_update_delete`, `commit`, `rollback`, `catalog_interaction`, and

@@ -62,5 +62,4 @@ Python can import the package and invoke explicit status/capability commands thr
 
 ## Related Field Guide Terms
 
-- `website/field-guide/first-ten-minutes.html` - First 10 Minutes (`User Workflows` / `ready-local-docs`)
-- `website/field-guide/python-wrapper-client.html` - Python Wrapper Client (`User Workflows` / `current-local-client`)
+- `website/field-guide/direct-compatibility-transient.html` - direct_compatibility_transient (`Execution Routes` / `smoke_supported`)

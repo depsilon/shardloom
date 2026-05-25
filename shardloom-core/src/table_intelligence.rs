@@ -626,6 +626,7 @@ pub struct TableMaintenanceExecutionMatrixReport {
     pub local_metadata_smoke_present: bool,
     pub local_delete_tombstone_smoke_present: bool,
     pub local_append_only_cdc_overlay_smoke_present: bool,
+    pub local_table_append_commit_rehearsal_smoke_present: bool,
     pub fixture_metadata_required: bool,
     pub row_identity_required: bool,
     pub delete_tombstone_policy_required: bool,
@@ -674,6 +675,7 @@ impl TableMaintenanceExecutionMatrixReport {
             local_metadata_smoke_present: true,
             local_delete_tombstone_smoke_present: true,
             local_append_only_cdc_overlay_smoke_present: true,
+            local_table_append_commit_rehearsal_smoke_present: true,
             fixture_metadata_required: true,
             row_identity_required: true,
             delete_tombstone_policy_required: true,
@@ -939,19 +941,21 @@ fn table_maintenance_execution_matrix_rows() -> Vec<TableMaintenanceExecutionMat
             "staged_output_and_atomic_commit_protocol",
             "correctness_evidence,execution_certificate,native_io_certificate,commit_recovery",
         ),
-        TableMaintenanceExecutionMatrixRow::unsupported(
+        TableMaintenanceExecutionMatrixRow::report_only(
             TableMaintenanceExecutionFamily::MaintenanceWrite,
             TableMaintenanceExecutionOperation::TableMetadataWrite,
+            "gar-runtime-impl-4o.local_table_append_commit_rehearsal_smoke",
             "table_metadata_schema_fixture,catalog_ref",
-            "table_metadata_write_policy",
-            "dependency_license_approval,credential_policy,execution_certificate,native_io_certificate",
+            "local_manifest_staged_append_commit_rehearsal",
+            "local_manifest_fixture_write,execution_certificate,native_io_certificate,no_fallback_policy",
         ),
-        TableMaintenanceExecutionMatrixRow::unsupported(
+        TableMaintenanceExecutionMatrixRow::report_only(
             TableMaintenanceExecutionFamily::MaintenanceWrite,
             TableMaintenanceExecutionOperation::TableMaintenanceCommit,
+            "gar-runtime-impl-4o.local_table_append_commit_rehearsal_smoke",
             "manifest_delta_fixture,commit_marker_fixture",
-            "atomic_or_documented_non_atomic_commit_protocol",
-            "commit_protocol,conflict_detection,recovery_certificate,no_fallback_policy",
+            "local_manifest_sidecar_commit_record",
+            "idempotency_key,rollback_cleanup,execution_certificate,native_io_certificate,no_fallback_policy",
         ),
     ]
 }
@@ -966,6 +970,7 @@ fn table_maintenance_execution_existing_report_refs() -> Vec<&'static str> {
         "gar0020c.local_manifest_table_metadata_read_smoke",
         "gar0020d.local_delete_tombstone_read_smoke",
         "gar0020e.local_append_only_cdc_overlay_smoke",
+        "gar-runtime-impl-4o.local_table_append_commit_rehearsal_smoke",
         "gar0004a.cdc_manifest_transaction_gate",
         "shardloom.object_store_commit_protocol.v1",
     ]
@@ -4107,8 +4112,8 @@ mod tests {
         );
         assert_eq!(report.claim_gate_status, "not_claim_grade");
         assert_eq!(report.operation_count(), 12);
-        assert_eq!(report.report_only_operation_count(), 4);
-        assert_eq!(report.unsupported_operation_count(), 8);
+        assert_eq!(report.report_only_operation_count(), 6);
+        assert_eq!(report.unsupported_operation_count(), 6);
         assert_eq!(
             report.operation_order(),
             vec![
@@ -4132,6 +4137,7 @@ mod tests {
         assert!(report.local_metadata_smoke_present);
         assert!(report.local_delete_tombstone_smoke_present);
         assert!(report.local_append_only_cdc_overlay_smoke_present);
+        assert!(report.local_table_append_commit_rehearsal_smoke_present);
         assert!(report.fixture_metadata_required);
         assert!(report.row_identity_required);
         assert!(report.delete_tombstone_policy_required);
@@ -4205,8 +4211,6 @@ mod tests {
                 "SL_NOT_IMPLEMENTED",
                 "SL_NOT_IMPLEMENTED",
                 "SL_NOT_IMPLEMENTED",
-                "SL_NOT_IMPLEMENTED",
-                "SL_COMMIT_NOT_ATOMIC",
             ]
         );
     }
