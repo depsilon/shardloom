@@ -556,12 +556,16 @@ separate runtime lane. Batch rows expose `prepare_batch_scale_*` rollups and chi
 `scenario_<slug>_prepared_vortex_scale_*` fields covering real prepared Vortex bytes, SplitManifest
 digest, resource policy, bounded local reader-chunk split scheduling, split execution
 certification, memory admission, local shuffle-family classification, retry/idempotency key, output
-commit status, correctness digest, and `prepared_vortex_scale_no_standalone_lane=true`. The claim
-gate remains `not_scale_grade`: this is in-route fixture proof, not actual spill/backpressure where
-admitted, or larger-than-memory/distributed/object-store proof. Selective-filter rows that admit
-reader-generated selection vectors now also emit `prepared_vortex_scale_split_operator_*` evidence
-for scoped stateless split-operator runtime, retry replay, result-sink replay proof, and a split
-operator execution certificate; stateful/shuffle split-operator runtime remains gated.
+commit status, correctness digest, and `prepared_vortex_scale_no_standalone_lane=true`.
+Selective-filter rows that admit reader-generated selection vectors now emit
+`prepared_vortex_scale_split_operator_*` evidence for scoped stateless split-operator runtime,
+retry replay, result-sink replay proof, and a split-operator execution certificate. Stateful
+aggregate/join/sort/window rows now emit the same split-operator evidence with operator-family,
+stateful/shuffle, local-combine/global-merge, source replay, memory-envelope, backpressure,
+spill-policy, retry replay, output commit proof, and execution-certificate fields. The claim gate
+remains `not_scale_grade`: this is declared-resource local runtime proof over real prepared Vortex
+bytes, not larger-than-memory, actual Vortex data spill I/O, distributed, object-store, table, or
+performance proof.
 
 The comparative harness exposes the same route as `--engines shardloom-prepare-batch`:
 

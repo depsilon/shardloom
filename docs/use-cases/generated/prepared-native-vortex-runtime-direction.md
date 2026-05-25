@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `prepared_vortex/native_vortex`
 - **Engine mode:** `batch`
-- **Claim boundary:** Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing and emits in-route prepared_native_vortex_lifecycle and prepared_vortex_scale evidence over real Vortex fixture bytes. Selective-filter rows with admitted reader-generated selection vectors now carry scoped stateless split-operator replay/certificate proof. No standalone lifecycle or scale lane, stateful/shuffle split-parallel operator runtime, larger-than-memory runtime, broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
+- **Claim boundary:** Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing and emits in-route prepared_native_vortex_lifecycle and prepared_vortex_scale evidence over real Vortex fixture bytes. Selective-filter rows carry scoped stateless split-operator proof, and admitted aggregate/distinct/sort/window/join/CDC rows carry local stateful or shuffle split-operator replay/certificate proof with source-replay, bounded-memory, backpressure, and spill-policy posture. No standalone lifecycle or scale lane, larger-than-memory runtime, actual data-spill I/O, broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Prepared/native Vortex runtime direction has a scoped local path. Treat it as te
 
 ## Claim Boundary
 
-Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing and emits in-route prepared_native_vortex_lifecycle and prepared_vortex_scale evidence over real Vortex fixture bytes. Selective-filter rows with admitted reader-generated selection vectors now carry scoped stateless split-operator replay/certificate proof. No standalone lifecycle or scale lane, stateful/shuffle split-parallel operator runtime, larger-than-memory runtime, broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
+Prepared/native smoke and structural evidence only; prepared_vortex starts from VortexPreparedState, while shardloom-prepare-batch prepares local compatibility inputs in the same CLI process before child query timing and emits in-route prepared_native_vortex_lifecycle and prepared_vortex_scale evidence over real Vortex fixture bytes. Selective-filter rows carry scoped stateless split-operator proof, and admitted aggregate/distinct/sort/window/join/CDC rows carry local stateful or shuffle split-operator replay/certificate proof with source-replay, bounded-memory, backpressure, and spill-policy posture. No standalone lifecycle or scale lane, larger-than-memory runtime, actual data-spill I/O, broad encoded-native, performance, superiority, SQL/DataFrame, object-store, lakehouse, Foundry, or Spark-replacement claim.
 
 ## How To Try It
 
@@ -26,7 +26,7 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 
 ## Internal Flow
 
-`vortex_prepared_state, local_prepared_vortex_artifact, benchmark_fixture -> prepared_vortex/native_vortex -> batch -> prepared_native_timing_rows, source_backed_scan_evidence, prepared_native_lifecycle_evidence -> evidence -> claim gate`
+`vortex_prepared_state, local_prepared_vortex_artifact, benchmark_fixture -> prepared_vortex/native_vortex -> batch -> prepared_native_timing_rows, source_backed_scan_evidence, prepared_native_lifecycle_evidence, prepared_vortex_scale_split_operator_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
@@ -57,8 +57,17 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 - `prepared_vortex_scale_split_execution_certificate_status`
 - `prepared_vortex_scale_split_reader_digest`
 - `prepared_vortex_scale_split_operator_runtime_status`
+- `prepared_vortex_scale_split_operator_family`
+- `prepared_vortex_scale_split_operator_stateful`
+- `prepared_vortex_scale_split_operator_shuffle_required`
+- `prepared_vortex_scale_split_operator_local_combine_used`
+- `prepared_vortex_scale_split_operator_global_merge_used`
 - `prepared_vortex_scale_split_operator_execution_certificate_status`
 - `prepared_vortex_scale_split_operator_retry_replay_status`
+- `prepared_vortex_scale_split_operator_source_replay_status`
+- `prepared_vortex_scale_split_operator_memory_envelope_status`
+- `prepared_vortex_scale_split_operator_backpressure_status`
+- `prepared_vortex_scale_split_operator_spill_policy_status`
 - `prepared_vortex_scale_split_operator_output_commit_proof_status`
 - `prepared_vortex_scale_idempotency_key`
 - `data_decoded`
@@ -69,7 +78,7 @@ python benchmarks\traditional_analytics\run.py --engines shardloom-prepared-vort
 
 ## Expected Output Or Evidence
 
-Warm prepared Vortex rows separate from single-process prepare/batch rows, with source-backed scan, prepare_batch_lifecycle, prepared_native_vortex_lifecycle, prepared_vortex_scale, scoped split-operator proof where admitted, and no-fallback fields where available.
+Warm prepared Vortex rows separate from single-process prepare/batch rows, with source-backed scan, prepare_batch_lifecycle, prepared_native_vortex_lifecycle, prepared_vortex_scale, scoped stateless/stateful/shuffle split-operator proof where admitted, and no-fallback fields where available.
 
 ## Common Mistakes
 

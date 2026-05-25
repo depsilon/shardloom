@@ -10346,6 +10346,11 @@ impl TraditionalPreparedVortexLocalSplitRuntimeEvidence {
 pub struct TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
     pub runtime_status: String,
     pub provider_scope: String,
+    pub operator_family: String,
+    pub stateful_operator: bool,
+    pub shuffle_required: bool,
+    pub local_combine_used: bool,
+    pub global_merge_used: bool,
     pub claim_gate_status: String,
     pub claim_gate_reason: String,
     pub plan_ref: String,
@@ -10359,8 +10364,12 @@ pub struct TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
     pub selection_vector_consumed: bool,
     pub retry_replay_status: String,
     pub retry_replay_count: usize,
+    pub source_replay_status: String,
     pub cancellation_checkpoint_count: usize,
     pub idempotent_replay_verified: bool,
+    pub memory_envelope_status: String,
+    pub backpressure_status: String,
+    pub spill_policy_status: String,
     pub output_commit_proof_status: String,
     pub correctness_digest: String,
     pub fallback_attempted: bool,
@@ -10376,27 +10385,31 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
         scenario: TraditionalAnalyticsScenario,
         fact_vortex: &std::path::Path,
         dim_vortex: &std::path::Path,
+        cdc_delta_vortex: Option<&std::path::Path>,
         split_runtime_evidence: &TraditionalPreparedVortexLocalSplitRuntimeEvidence,
         scenario_execution: &TraditionalScenarioExecution,
         computed_result_sink: Option<&TraditionalComputedResultSinkVerification>,
     ) -> Result<Self> {
         let encoded_provider = &scenario_execution.evidence.encoded_predicate_provider;
-        let source_split_count = encoded_provider
-            .reader_split_count
-            .max(encoded_provider.selected_metric_scan_split_count);
-        let selected_row_count = encoded_provider.selected_metric_row_count.unwrap_or(0);
+        let operator_family = prepared_vortex_local_split_operator_family(scenario);
+        let stateful_operator = prepared_vortex_local_split_operator_is_stateful(scenario);
+        let shuffle_required = scenario_requires_local_scale_shuffle(scenario);
+        let local_combine_used = prepared_vortex_local_split_operator_uses_local_combine(scenario);
+        let global_merge_used = stateful_operator && shuffle_required;
         let split_runtime_certified = split_runtime_evidence.execution_certificate_status
             == "certified"
             && split_runtime_evidence.failed_task_count == 0
             && !split_runtime_evidence.fallback_attempted
             && !split_runtime_evidence.external_engine_invoked;
-        let stateless_split_operator_admitted =
-            matches!(scenario, TraditionalAnalyticsScenario::SelectiveFilter)
-                && scenario_execution.evidence.streaming_vortex_execution_used
+        let streaming_real_byte_operator =
+            scenario_execution.evidence.streaming_vortex_execution_used
                 && scenario_execution
                     .evidence
                     .full_table_materialization_avoided
-                && split_runtime_certified
+                && split_runtime_certified;
+        let stateless_split_operator_admitted =
+            matches!(scenario, TraditionalAnalyticsScenario::SelectiveFilter)
+                && streaming_real_byte_operator
                 && encoded_provider.selection_vector_intersection_certified
                 && encoded_provider.selected_metric_selection_vector_consumed
                 && encoded_provider.selected_metric_scan_split_count > 0
@@ -10406,6 +10419,28 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
                 && !encoded_provider.selected_metric_data_materialized
                 && !encoded_provider.fallback_attempted
                 && !encoded_provider.external_engine_invoked;
+        let stateful_shuffle_split_operator_admitted = stateful_operator
+            && shuffle_required
+            && streaming_real_byte_operator
+            && prepared_vortex_local_split_operator_runtime_supported(scenario)
+            && !scenario_execution.evidence.data_materialized;
+        let selected_row_count = if stateless_split_operator_admitted {
+            encoded_provider.selected_metric_row_count.unwrap_or(0)
+        } else {
+            0
+        };
+        let source_split_count = if stateless_split_operator_admitted {
+            encoded_provider
+                .reader_split_count
+                .max(encoded_provider.selected_metric_scan_split_count)
+        } else if stateful_shuffle_split_operator_admitted {
+            split_runtime_evidence.reader_chunk_count
+        } else {
+            encoded_provider
+                .reader_split_count
+                .max(encoded_provider.selected_metric_scan_split_count)
+                .max(split_runtime_evidence.reader_chunk_count)
+        };
 
         let (retry_replay_status, retry_replay_count, idempotent_replay_verified) =
             if stateless_split_operator_admitted {
@@ -10423,12 +10458,34 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
                     1,
                     replay_verified,
                 )
+            } else if stateful_shuffle_split_operator_admitted {
+                let replay = replay_prepared_vortex_local_split_operator_scenario(
+                    scenario,
+                    fact_vortex,
+                    dim_vortex,
+                    cdc_delta_vortex,
+                )?;
+                let replay_verified = replay.result_json == scenario_execution.result_json
+                    && replay.rows_scanned == scenario_execution.rows_scanned
+                    && replay.rows_materialized == scenario_execution.rows_materialized;
+                (
+                    if replay_verified {
+                        "verified_idempotent_stateful_shuffle_split_operator_replay"
+                    } else {
+                        "blocked_stateful_shuffle_replay_result_mismatch"
+                    }
+                    .to_string(),
+                    1,
+                    replay_verified,
+                )
             } else {
                 (
                     if matches!(scenario, TraditionalAnalyticsScenario::SelectiveFilter) {
                         "blocked_until_selection_vector_split_metric_replay"
+                    } else if stateful_operator || shuffle_required {
+                        "blocked_until_stateful_shuffle_split_operator_replay"
                     } else {
-                        "not_admitted_for_stateful_or_shuffle_operator"
+                        "not_admitted_for_non_shuffle_split_operator"
                     }
                     .to_string(),
                     0,
@@ -10436,7 +10493,8 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
                 )
             };
 
-        let runtime_admitted = stateless_split_operator_admitted
+        let runtime_admitted = (stateless_split_operator_admitted
+            || stateful_shuffle_split_operator_admitted)
             && idempotent_replay_verified
             && source_split_count > 0;
         let scheduled_task_count = if runtime_admitted {
@@ -10487,6 +10545,7 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
         .to_string();
         let certificate = traditional_prepared_vortex_split_operator_execution_certificate(
             scenario,
+            operator_family,
             &plan_ref,
             &output_ref,
             source_split_count,
@@ -10494,29 +10553,48 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
             selected_row_count,
             &result_digest,
             runtime_admitted,
-            encoded_provider.selected_metric_data_decoded,
-            computed_result_sink.is_some(),
+            scenario_execution.evidence.data_decoded,
+            computed_result_sink.is_some() && runtime_admitted,
         )?;
+        let source_replay_status = if idempotent_replay_verified {
+            "prepared_vortex_source_replay_verified".to_string()
+        } else if stateful_operator || shuffle_required {
+            "prepared_vortex_source_replay_not_certified".to_string()
+        } else {
+            "prepared_vortex_source_replay_not_required".to_string()
+        };
         Ok(Self {
             runtime_status: if certificate.is_certified() {
                 "local_split_operator_runtime_certified".to_string()
             } else {
                 "local_split_operator_runtime_not_admitted".to_string()
             },
-            provider_scope: if runtime_admitted {
+            provider_scope: if runtime_admitted && stateless_split_operator_admitted {
                 "prepared_vortex_stateless_selective_filter_split_operator".to_string()
+            } else if runtime_admitted {
+                format!("prepared_vortex_{operator_family}_split_operator")
             } else if matches!(scenario, TraditionalAnalyticsScenario::SelectiveFilter) {
                 "prepared_vortex_selective_filter_split_operator_blocked".to_string()
+            } else if stateful_operator || shuffle_required {
+                format!("prepared_vortex_{operator_family}_split_operator_blocked")
             } else {
-                "stateful_or_shuffle_split_operator_not_admitted".to_string()
+                "prepared_vortex_non_shuffle_split_operator_not_admitted".to_string()
             },
+            operator_family: operator_family.to_string(),
+            stateful_operator,
+            shuffle_required,
+            local_combine_used,
+            global_merge_used,
             claim_gate_status: if certificate.is_certified() {
                 "local_split_operator_runtime_certified".to_string()
             } else {
                 "not_split_operator_claim_grade".to_string()
             },
-            claim_gate_reason: if certificate.is_certified() {
+            claim_gate_reason: if certificate.is_certified() && stateless_split_operator_admitted {
                 "selective filter consumed certified reader-generated selection vectors over real prepared Vortex splits, replayed the split metric aggregation, and preserved no-fallback evidence"
+                    .to_string()
+            } else if certificate.is_certified() {
+                "stateful/shuffle prepared Vortex operator replayed over real reader chunks under the declared local memory envelope, emitted local combine/global merge evidence, verified idempotent replay, and preserved no-fallback evidence"
                     .to_string()
             } else {
                 "stateful shuffle, larger-than-memory, spill, object-store/table, distributed, or source-state replay proof is still required before this scenario can claim split-operator runtime"
@@ -10533,8 +10611,26 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
             selection_vector_consumed: encoded_provider.selected_metric_selection_vector_consumed,
             retry_replay_status,
             retry_replay_count,
+            source_replay_status,
             cancellation_checkpoint_count: scheduled_task_count,
             idempotent_replay_verified,
+            memory_envelope_status: if runtime_admitted {
+                "declared_local_memory_envelope_admitted".to_string()
+            } else if split_runtime_certified {
+                "declared_local_memory_envelope_available_runtime_not_admitted".to_string()
+            } else {
+                "declared_local_memory_envelope_not_certified".to_string()
+            },
+            backpressure_status: if runtime_admitted {
+                "bounded_by_reader_chunk_scheduler_and_declared_parallelism".to_string()
+            } else {
+                "not_admitted_for_split_operator_runtime".to_string()
+            },
+            spill_policy_status: if stateful_operator {
+                "larger_than_memory_spill_io_blocked_fail_before_oom_only".to_string()
+            } else {
+                "spill_not_required_for_stateless_operator".to_string()
+            },
             output_commit_proof_status,
             correctness_digest: result_digest,
             fallback_attempted: encoded_provider.fallback_attempted
@@ -10557,6 +10653,26 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
             (
                 "prepared_vortex_scale_split_operator_provider_scope".to_string(),
                 self.provider_scope.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_family".to_string(),
+                self.operator_family.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_stateful".to_string(),
+                self.stateful_operator.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_shuffle_required".to_string(),
+                self.shuffle_required.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_local_combine_used".to_string(),
+                self.local_combine_used.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_global_merge_used".to_string(),
+                self.global_merge_used.to_string(),
             ),
             (
                 "prepared_vortex_scale_split_operator_claim_gate_status".to_string(),
@@ -10611,12 +10727,28 @@ impl TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence {
                 self.retry_replay_count.to_string(),
             ),
             (
+                "prepared_vortex_scale_split_operator_source_replay_status".to_string(),
+                self.source_replay_status.clone(),
+            ),
+            (
                 "prepared_vortex_scale_split_operator_cancellation_checkpoint_count".to_string(),
                 self.cancellation_checkpoint_count.to_string(),
             ),
             (
                 "prepared_vortex_scale_split_operator_idempotent_replay_verified".to_string(),
                 self.idempotent_replay_verified.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_memory_envelope_status".to_string(),
+                self.memory_envelope_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_backpressure_status".to_string(),
+                self.backpressure_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_operator_spill_policy_status".to_string(),
+                self.spill_policy_status.clone(),
             ),
             (
                 "prepared_vortex_scale_split_operator_output_commit_proof_status".to_string(),
@@ -10872,6 +11004,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
                 scenario,
                 fact_vortex,
                 dim_vortex,
+                cdc_delta_vortex,
                 &split_runtime_evidence,
                 scenario_execution,
                 computed_result_sink,
@@ -10879,7 +11012,10 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
         let scale_claim_gate_reason = if split_operator_runtime_evidence
             .execution_certificate_status
             == "certified"
+            && split_operator_runtime_evidence.stateful_operator
         {
+            "prepared Vortex local real-byte evidence now includes certified stateful/shuffle split-operator work for this scenario under a declared local memory envelope, but larger-than-memory, object-store, distributed, and actual spill-IO claims remain gated"
+        } else if split_operator_runtime_evidence.execution_certificate_status == "certified" {
             "prepared Vortex local real-byte evidence now includes certified stateless split-operator work for this scenario, but larger-than-memory, stateful shuffle, object-store, distributed, and actual spill-IO claims remain gated"
         } else {
             "prepared Vortex local real-byte evidence exists, but larger-than-memory, stateful split-operator, object-store, distributed, and actual spill-IO claims remain gated"
@@ -11576,9 +11712,157 @@ fn traditional_prepared_vortex_split_execution_certificate(
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const fn prepared_vortex_local_split_operator_runtime_supported(
+    scenario: TraditionalAnalyticsScenario,
+) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::SelectiveFilter
+            | TraditionalAnalyticsScenario::GroupByAggregation
+            | TraditionalAnalyticsScenario::DistinctCount
+            | TraditionalAnalyticsScenario::MultiKeyGroupBy
+            | TraditionalAnalyticsScenario::NullHeavyAggregate
+            | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct
+            | TraditionalAnalyticsScenario::HashJoin
+            | TraditionalAnalyticsScenario::JoinAggregate
+            | TraditionalAnalyticsScenario::SortAndTopK
+            | TraditionalAnalyticsScenario::TopNPerGroup
+            | TraditionalAnalyticsScenario::RowNumberWindow
+            | TraditionalAnalyticsScenario::SmallChangeOverLargeBase
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const fn prepared_vortex_local_split_operator_family(
+    scenario: TraditionalAnalyticsScenario,
+) -> &'static str {
+    match scenario {
+        TraditionalAnalyticsScenario::SelectiveFilter => "stateless_filter",
+        TraditionalAnalyticsScenario::GroupByAggregation
+        | TraditionalAnalyticsScenario::DistinctCount
+        | TraditionalAnalyticsScenario::MultiKeyGroupBy
+        | TraditionalAnalyticsScenario::NullHeavyAggregate
+        | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
+            "stateful_hash_aggregate"
+        }
+        TraditionalAnalyticsScenario::HashJoin | TraditionalAnalyticsScenario::JoinAggregate => {
+            "stateful_hash_join"
+        }
+        TraditionalAnalyticsScenario::SortAndTopK | TraditionalAnalyticsScenario::TopNPerGroup => {
+            "stateful_ordered_topk"
+        }
+        TraditionalAnalyticsScenario::RowNumberWindow => "stateful_window",
+        TraditionalAnalyticsScenario::SmallChangeOverLargeBase => "stateful_cdc_overlay",
+        _ => "not_admitted",
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const fn prepared_vortex_local_split_operator_is_stateful(
+    scenario: TraditionalAnalyticsScenario,
+) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::GroupByAggregation
+            | TraditionalAnalyticsScenario::DistinctCount
+            | TraditionalAnalyticsScenario::MultiKeyGroupBy
+            | TraditionalAnalyticsScenario::NullHeavyAggregate
+            | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct
+            | TraditionalAnalyticsScenario::HashJoin
+            | TraditionalAnalyticsScenario::JoinAggregate
+            | TraditionalAnalyticsScenario::SortAndTopK
+            | TraditionalAnalyticsScenario::TopNPerGroup
+            | TraditionalAnalyticsScenario::RowNumberWindow
+            | TraditionalAnalyticsScenario::SmallChangeOverLargeBase
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const fn prepared_vortex_local_split_operator_uses_local_combine(
+    scenario: TraditionalAnalyticsScenario,
+) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::GroupByAggregation
+            | TraditionalAnalyticsScenario::DistinctCount
+            | TraditionalAnalyticsScenario::MultiKeyGroupBy
+            | TraditionalAnalyticsScenario::NullHeavyAggregate
+            | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct
+            | TraditionalAnalyticsScenario::HashJoin
+            | TraditionalAnalyticsScenario::JoinAggregate
+            | TraditionalAnalyticsScenario::SortAndTopK
+            | TraditionalAnalyticsScenario::TopNPerGroup
+            | TraditionalAnalyticsScenario::RowNumberWindow
+            | TraditionalAnalyticsScenario::SmallChangeOverLargeBase
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn replay_prepared_vortex_local_split_operator_scenario(
+    scenario: TraditionalAnalyticsScenario,
+    fact_vortex: &std::path::Path,
+    dim_vortex: &std::path::Path,
+    cdc_delta_vortex: Option<&std::path::Path>,
+) -> Result<TraditionalScenarioExecution> {
+    match scenario {
+        TraditionalAnalyticsScenario::SelectiveFilter => {
+            run_streaming_selective_filter_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::GroupByAggregation => {
+            run_streaming_group_by_aggregation_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::DistinctCount => {
+            run_streaming_distinct_count_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::MultiKeyGroupBy => {
+            run_streaming_multi_key_group_by_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::NullHeavyAggregate => {
+            run_streaming_null_heavy_aggregate_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
+            run_streaming_string_group_distinct_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::HashJoin => {
+            run_streaming_hash_join_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::JoinAggregate => {
+            run_streaming_join_aggregate_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::SortAndTopK => {
+            run_streaming_sort_top_k_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::TopNPerGroup => {
+            run_streaming_top_n_per_group_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::RowNumberWindow => {
+            run_streaming_row_number_window_scenario(fact_vortex, dim_vortex)
+        }
+        TraditionalAnalyticsScenario::SmallChangeOverLargeBase => {
+            let cdc_delta_vortex = cdc_delta_vortex.ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "prepared Vortex split-operator replay for small change over large base requires CDC delta Vortex input; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })?;
+            run_streaming_small_change_over_large_base_scenario(
+                fact_vortex,
+                dim_vortex,
+                cdc_delta_vortex,
+            )
+        }
+        _ => Err(ShardLoomError::InvalidOperation(format!(
+            "prepared Vortex split-operator replay is not admitted for {}; fallback execution was not attempted",
+            scenario.as_str()
+        ))),
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[allow(clippy::too_many_arguments)]
 fn traditional_prepared_vortex_split_operator_execution_certificate(
     scenario: TraditionalAnalyticsScenario,
+    operator_family: &str,
     plan_ref: &str,
     output_ref: &str,
     source_split_count: usize,
@@ -11591,14 +11875,15 @@ fn traditional_prepared_vortex_split_operator_execution_certificate(
 ) -> Result<ExecutionCertificate> {
     let mut certificate_input = ExecutionCertificateInput::new(
         format!(
-            "p746.prepared_vortex_local_split_operator.{}.stateless_filter",
-            traditional_scenario_slug(scenario)
+            "p746.prepared_vortex_local_split_operator.{}.{}",
+            traditional_scenario_slug(scenario),
+            operator_family
         ),
         "prepared_vortex_local_split_operator_runtime",
     )?;
     certificate_input.execution_provider_kind = ExecutionProviderKind::ShardLoomKernel;
     certificate_input.provider_scope =
-        "native_local_prepared_vortex_split_operator_runtime".to_string();
+        format!("native_local_prepared_vortex_{operator_family}_runtime");
     certificate_input.provider_crate = Some("shardloom-vortex".to_string());
     certificate_input.provider_version = Some(env!("CARGO_PKG_VERSION").to_string());
     certificate_input.provider_api_surface =
@@ -11619,10 +11904,23 @@ fn traditional_prepared_vortex_split_operator_execution_certificate(
     certificate_input.actual_outcome = Some(outcome);
     certificate_input.selected_segment_count = source_split_count;
     certificate_input.skipped_segment_count = 0;
-    certificate_input.side_effects_performed = vec![
-        "native_vortex_reader_generated_selection_vector_filter".to_string(),
-        format!("local_split_metric_aggregation_selected_rows_{selected_row_count}"),
-    ];
+    certificate_input.side_effects_performed = if operator_family == "stateless_filter" {
+        vec![
+            "native_vortex_reader_generated_selection_vector_filter".to_string(),
+            format!("local_split_metric_aggregation_selected_rows_{selected_row_count}"),
+        ]
+    } else {
+        vec![
+            format!("native_vortex_reader_chunk_{operator_family}_operator"),
+            format!(
+                "local_split_operator_result_rows_{rows_materialized}_splits_{source_split_count}"
+            ),
+            format!(
+                "local_shuffle_strategy_{}",
+                local_scale_shuffle_strategy_for_scenario(scenario)
+            ),
+        ]
+    };
     if result_sink_written {
         certificate_input
             .side_effects_performed
@@ -22449,9 +22747,75 @@ mod tests {
                 .reader_split_digest
                 .starts_with("fnv1a64:")
         );
+        let group_split_operator = &group_report
+            .local_scale_evidence
+            .split_operator_runtime_evidence;
+        assert_eq!(
+            group_split_operator.runtime_status,
+            "local_split_operator_runtime_certified"
+        );
+        assert_eq!(
+            group_split_operator.provider_scope,
+            "prepared_vortex_stateful_hash_aggregate_split_operator"
+        );
+        assert_eq!(
+            group_split_operator.operator_family,
+            "stateful_hash_aggregate"
+        );
+        assert!(group_split_operator.stateful_operator);
+        assert!(group_split_operator.shuffle_required);
+        assert!(group_split_operator.local_combine_used);
+        assert!(group_split_operator.global_merge_used);
+        assert_eq!(
+            group_split_operator.retry_replay_status,
+            "verified_idempotent_stateful_shuffle_split_operator_replay"
+        );
+        assert_eq!(
+            group_split_operator.source_replay_status,
+            "prepared_vortex_source_replay_verified"
+        );
+        assert_eq!(
+            group_split_operator.memory_envelope_status,
+            "declared_local_memory_envelope_admitted"
+        );
+        assert_eq!(
+            group_split_operator.backpressure_status,
+            "bounded_by_reader_chunk_scheduler_and_declared_parallelism"
+        );
+        assert_eq!(
+            group_split_operator.spill_policy_status,
+            "larger_than_memory_spill_io_blocked_fail_before_oom_only"
+        );
+        assert_eq!(
+            group_split_operator.execution_certificate_status,
+            "certified"
+        );
+        assert!(group_split_operator.idempotent_replay_verified);
+        assert!(!group_split_operator.selection_vector_consumed);
         assert_eq!(
             group_report.local_scale_evidence.scale_claim_gate_status,
             "not_scale_grade"
+        );
+
+        let hash_report = report
+            .batch_report
+            .reports
+            .iter()
+            .find(|child| child.scenario == TraditionalAnalyticsScenario::HashJoin)
+            .expect("hash join report");
+        let hash_split_operator = &hash_report
+            .local_scale_evidence
+            .split_operator_runtime_evidence;
+        assert_eq!(
+            hash_split_operator.provider_scope,
+            "prepared_vortex_stateful_hash_join_split_operator"
+        );
+        assert_eq!(hash_split_operator.operator_family, "stateful_hash_join");
+        assert!(hash_split_operator.stateful_operator);
+        assert!(hash_split_operator.shuffle_required);
+        assert_eq!(
+            hash_split_operator.execution_certificate_status,
+            "certified"
         );
 
         assert_field_eq(&fields, "prepare_batch_scale_no_standalone_lane", "true");
@@ -22475,6 +22839,21 @@ mod tests {
             &fields,
             "prepare_batch_scale_split_execution_certificate_status",
             "certified",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_split_operator_runtime_status",
+            "local_split_operator_runtime_certified",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_split_operator_certified_count",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_split_operator_retry_replay_count",
+            "2",
         );
         assert_field_eq(
             &fields,
@@ -22558,6 +22937,51 @@ mod tests {
         );
         assert_field_eq(
             &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_operator_runtime_status",
+            "local_split_operator_runtime_certified",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_operator_family",
+            "stateful_hash_aggregate",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_operator_stateful",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_operator_shuffle_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_operator_local_combine_used",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_operator_global_merge_used",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_operator_retry_replay_status",
+            "verified_idempotent_stateful_shuffle_split_operator_replay",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_operator_source_replay_status",
+            "prepared_vortex_source_replay_verified",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_operator_output_commit_proof_status",
+            "result_sink_replay_verified_for_split_operator",
+        );
+        assert_field_eq(
+            &fields,
             "scenario_group-by-aggregation_runtime_execution_certificate_status",
             "certified",
         );
@@ -22608,6 +23032,21 @@ mod tests {
             &fields,
             "scenario_hash-join_prepared_vortex_scale_broadcast_admitted",
             "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_hash-join_prepared_vortex_scale_split_operator_runtime_status",
+            "local_split_operator_runtime_certified",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_hash-join_prepared_vortex_scale_split_operator_family",
+            "stateful_hash_join",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_hash-join_prepared_vortex_scale_split_operator_retry_replay_status",
+            "verified_idempotent_stateful_shuffle_split_operator_replay",
         );
         assert!(
             fields
@@ -22697,6 +23136,11 @@ mod tests {
                 split_operator.claim_gate_status,
                 "local_split_operator_runtime_certified"
             );
+            assert_eq!(split_operator.operator_family, "stateless_filter");
+            assert!(!split_operator.stateful_operator);
+            assert!(!split_operator.shuffle_required);
+            assert!(!split_operator.local_combine_used);
+            assert!(!split_operator.global_merge_used);
             assert!(split_operator.selection_vector_consumed);
             assert_eq!(split_operator.selected_row_count, 31);
             assert!(split_operator.idempotent_replay_verified);
@@ -22705,6 +23149,22 @@ mod tests {
                 "verified_idempotent_split_operator_replay"
             );
             assert_eq!(split_operator.retry_replay_count, 1);
+            assert_eq!(
+                split_operator.source_replay_status,
+                "prepared_vortex_source_replay_verified"
+            );
+            assert_eq!(
+                split_operator.memory_envelope_status,
+                "declared_local_memory_envelope_admitted"
+            );
+            assert_eq!(
+                split_operator.backpressure_status,
+                "bounded_by_reader_chunk_scheduler_and_declared_parallelism"
+            );
+            assert_eq!(
+                split_operator.spill_policy_status,
+                "spill_not_required_for_stateless_operator"
+            );
             assert_eq!(
                 split_operator.output_commit_proof_status,
                 "result_sink_replay_verified_for_split_operator"
@@ -22745,8 +23205,23 @@ mod tests {
             );
             assert_field_eq(
                 &fields,
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_family",
+                "stateless_filter",
+            );
+            assert_field_eq(
+                &fields,
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_stateful",
+                "false",
+            );
+            assert_field_eq(
+                &fields,
                 "scenario_selective-filter_prepared_vortex_scale_split_operator_retry_replay_status",
                 "verified_idempotent_split_operator_replay",
+            );
+            assert_field_eq(
+                &fields,
+                "scenario_selective-filter_prepared_vortex_scale_split_operator_source_replay_status",
+                "prepared_vortex_source_replay_verified",
             );
             assert_field_eq(
                 &fields,

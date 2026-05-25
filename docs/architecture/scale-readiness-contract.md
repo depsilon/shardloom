@@ -112,13 +112,17 @@ reader-chunk scheduler with `prepared_vortex_scale_split_runtime_status` and
 SplitManifest contract fields below or imply claim-grade split-parallel operator runtime,
 larger-than-memory runtime, object-store execution, distributed execution, or performance evidence.
 
-Selective-filter prepared/native Vortex rows with admitted reader-generated selection-vector
-evidence also emit `prepared_vortex_scale_split_operator_*` fields. Those fields certify a scoped
-stateless local split-operator runtime only when real prepared Vortex splits produce selection
-vectors, the split metric aggregation is replayed idempotently, a result-sink replay is verified
-when requested, and no fallback or external engine is invoked. This is still local workload proof:
-stateful shuffle operators, larger-than-memory execution, actual spill/backpressure, object-store
-or table runtime, distributed workers, and performance claims remain gated.
+Prepared/native Vortex rows with admitted split-operator evidence also emit
+`prepared_vortex_scale_split_operator_*` fields. Selective-filter rows certify a scoped stateless
+local split-operator runtime only when real prepared Vortex splits produce selection vectors, the
+split metric aggregation is replayed idempotently, a result-sink replay is verified when requested,
+and no fallback or external engine is invoked. Stateful aggregate/join/sort/window rows certify the
+same in-route local split-operator surface when the prepared Vortex scenario replay matches the
+original result over real reader chunks and emits operator-family, stateful/shuffle,
+local-combine/global-merge, memory-envelope, backpressure, spill-policy, retry replay, output
+commit proof, and execution-certificate fields. This is still declared-resource local workload
+proof: larger-than-memory execution, actual Vortex data spill I/O, object-store or table runtime,
+distributed workers, performance claims, and Spark-displacement claims remain gated.
 
 ShardLoom SplitManifest rows carry:
 
@@ -172,7 +176,7 @@ or managed platforms.
 `memory_spill_contract_schema_version=shardloom.traditional_analytics.memory_spill_backpressure.v1`
 and a fail-closed memory, spill, and backpressure evidence contract to benchmark rows.
 
-Current local rows expose the vocabulary and deterministic blockers required for future
+Current generic local rows expose the vocabulary and deterministic blockers required for future
 larger-than-memory execution, but they do not declare a scale memory budget, admit runtime spill,
 prove backpressure, or permit hidden full materialization.
 
@@ -180,9 +184,13 @@ The prepared/native Vortex batch route has a narrower in-route evidence surface:
 `prepared_vortex_scale_memory_budget_bytes`,
 `prepared_vortex_scale_operator_memory_budget_bytes`,
 `prepared_vortex_scale_peak_memory_bytes`, reservation counts, and
-`prepared_vortex_scale_fail_before_oom_enforced`. These are declared-resource local admission
-evidence over real prepared Vortex bytes. The canonical memory/spill claim gate remains blocked
-until actual spill/backpressure behavior is implemented and verified for the claimed workload.
+`prepared_vortex_scale_fail_before_oom_enforced`. The split-operator surface also records
+`prepared_vortex_scale_split_operator_memory_envelope_status`,
+`prepared_vortex_scale_split_operator_backpressure_status`, and
+`prepared_vortex_scale_split_operator_spill_policy_status`. These are declared-resource local
+admission evidence over real prepared Vortex bytes. The canonical memory/spill claim gate remains
+blocked until actual Vortex data spill I/O and larger-than-memory behavior are implemented and
+verified for the claimed workload.
 
 ShardLoom memory/spill rows carry:
 
@@ -295,10 +303,17 @@ shuffle_fallback_attempted=false
 shuffle_external_engine_invoked=false
 ```
 
-Any future shuffle/repartition claim requires partitioning strategy evidence, target partition
-bytes, local-combine/global-merge evidence when used, broadcast admission proof, skew strategy
-evidence, spill/retry evidence, correctness digests over the claimed workload, and remote-worker
-evidence before any distributed shuffle claim.
+Prepared/native Vortex split-operator rows may now certify local stateful/shuffle operator replay
+under the declared resource envelope through
+`prepared_vortex_scale_split_operator_shuffle_required`,
+`prepared_vortex_scale_split_operator_local_combine_used`,
+`prepared_vortex_scale_split_operator_global_merge_used`, retry replay, output commit proof, and a
+split-operator execution certificate. The canonical shuffle claim gate remains
+`not_shuffle_scale_grade` for benchmark rows. Any future shuffle/repartition claim beyond this
+local fixture scope requires partitioning strategy evidence, target partition bytes,
+local-combine/global-merge evidence when used, broadcast admission proof, skew strategy evidence,
+spill/retry evidence, correctness digests over the claimed workload, and remote-worker evidence
+before any distributed shuffle claim.
 
 ## Object-Store And Table-Scale Ladder Contract
 

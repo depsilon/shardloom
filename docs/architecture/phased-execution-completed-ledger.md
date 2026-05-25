@@ -16,6 +16,74 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4P/5M prepared Vortex declared local scale runtime closeout
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-local-scale-4p-5m` / #958.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4P scale-grade local split, memory, spill, shuffle, and retry runtime`.
+    - `GAR-RUNTIME-IMPL-5M scale-grade local execution runtime`.
+    - User direction to keep scale evidence inside the real prepared Vortex processing route,
+      avoid standalone side lanes, complete related 4/5 items together, and keep internal engine
+      work ahead of user/surface work.
+  - Scope:
+    - Promoted `prepared_vortex_scale_split_operator_*` from selective-filter-only certification to
+      admitted stateful/shuffle local split-operator families for grouped aggregate, distinct,
+      multi-key/null-heavy/high-cardinality aggregate, hash join, join aggregate, ordered top-k,
+      top-N per group, row-number/window, and CDC overlay scenarios.
+    - Added per-scenario split-operator family, stateful/shuffle, local-combine/global-merge,
+      source replay, memory-envelope, backpressure, spill-policy, retry replay, output commit
+      proof, correctness digest, execution-certificate, and no-fallback fields inside the existing
+      `compatibility_import_certified -> prepared_vortex_batch` route.
+    - Kept the claim boundary honest: declared local resource envelope only. Larger-than-memory
+      execution, object-store/table runtime, distributed workers, actual Vortex data spill I/O,
+      performance, and Spark-displacement claims remain blocked unless separately proven.
+    - Wired the new split-operator evidence into benchmark promotion keys and the use-case source
+      index so website/status docs can mirror the runtime proof.
+    - Removed `GAR-RUNTIME-IMPL-4P` and `GAR-RUNTIME-IMPL-5M` from the live Planned queue; the next
+      logical engine-internal queue starts at `GAR-RUNTIME-IMPL-5H`.
+  - Resource envelope/data volume/claim status:
+    - Envelope: per-request `TraditionalAnalyticsResourcePolicy` memory budget and max parallelism,
+      with split scheduler queue limits, reservation grant/release counts, peak bytes, and
+      fail-before-OOM posture.
+    - Data volume: real prepared Vortex artifact bytes/digests and reader chunks emitted through
+      `prepared_vortex_scale_data_volume_bytes`, `prepared_vortex_scale_split_manifest_digest`, and
+      `prepared_vortex_scale_split_reader_digest`.
+    - Claim status: `prepared_vortex_scale_claim_gate_status=not_scale_grade` and
+      `scale_claim_gate_status=not_scale_grade`; local split-operator certificates may be
+      certified, but broader scale/performance/distributed claims remain gated.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 check -p shardloom-vortex --features vortex-traditional-analytics-benchmark --lib`
+    - `$env:CARGO_TARGET_DIR='target-codex-4p-test'; cargo +1.91.1 test -p shardloom-vortex prepared_batch_run --features vortex-traditional-analytics-benchmark --lib`
+    - `python -m compileall -q benchmarks\traditional_analytics\run.py scripts\promote_benchmark_artifact.py python\tests\test_cli_client.py`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_traditional_analytics_prepare_batch_run_dispatches_combined_route`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_use_case_glossary.py`
+    - `python scripts\check_workflow_recipes.py`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - `python scripts\check_evidence_schema_registry.py`
+    - `python scripts\check_ci_gate_matrix.py`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_runtime_promotion_evidence.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `node website-src\scripts\sync-content.mjs`
+    - `node website-src\node_modules\astro\bin\astro.mjs build` from `website-src`
+    - `node website-src\scripts\postbuild-static.mjs` from `website-src`
+    - `python scripts\check_website_readiness.py`
+    - `git diff --check`
+  - Explicitly not included:
+    - Literal any-volume execution, object-store/table runtime, distributed execution, production
+      service/control plane, actual larger-than-memory Vortex data spill I/O, benchmark/performance
+      claims, SQL/DataFrame/user-surface expansion, Spark replacement claims, or external fallback
+      execution.
+  - Follow-up:
+    - Continue live work in logical order with `GAR-RUNTIME-IMPL-5H`, then `5K`, `4Q/5N`,
+      `4R/5O`, and final `4D/5G` runtime-family closeout before surface/release items.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4F/4F1/5D UniversalIngress and local adapter parity closeout
   - Date: 2026-05-25
   - Branch/PR: `runtime-internal-order-4f-5d` / #957.
