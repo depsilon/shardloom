@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from check_runtime_execution_envelopes import validate_repo as validate_runtime_envelopes
 from check_runtime_promotion_evidence import validate_runtime_promotion_evidence
 
 
@@ -443,8 +444,18 @@ def main() -> int:
         for field in ("expected_lanes", "available_lanes", "missing_lanes"):
             if not isinstance(manifest.get(field), list):
                 blockers.append(f"benchmark manifest missing list field: {field}")
+        runtime_validation = manifest.get("runtime_envelope_validation")
+        if not isinstance(runtime_validation, dict):
+            blockers.append("benchmark manifest missing runtime_envelope_validation")
+        elif runtime_validation.get("status") != "passed":
+            blockers.append("benchmark manifest runtime envelope validation must pass")
     else:
         blockers.append("missing benchmark manifest")
+
+    runtime_envelope_report = validate_runtime_envelopes(repo_root)
+    if runtime_envelope_report.get("status") != "passed":
+        for blocker in runtime_envelope_report.get("blockers", []):
+            blockers.append(f"runtime execution envelope: {blocker}")
 
     runs_today_path = website / "assets/data/runs-today-support-matrix.json"
     if runs_today_path.exists():

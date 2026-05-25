@@ -60,6 +60,7 @@ from shardloom import (
     RunsTodaySupportMatrix,
     RunsTodaySupportRow,
     SemanticConformanceSuite,
+    validate_runtime_execution_fields,
     VortexIngestSmokeReport,
     WorkloadCertificationDossier,
     WorkflowReadinessSmokeReport,
@@ -1301,6 +1302,114 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertFalse(validation.passed)
         self.assertIn("fallback_attempted", validation.invalid_fields)
+
+    def test_runtime_execution_field_validation_accepts_benchmark_aliases(
+        self,
+    ) -> None:
+        validation = validate_runtime_execution_fields(
+            {
+                "selected_execution_mode": "prepared_vortex",
+                "prepared_artifact_ref": "target/fact.vortex|target/dim.vortex",
+                "prepared_artifact_digest": "fnv64:prepared",
+                "data_decoded": "false",
+                "runtime_execution_certificate_id": "execution.prepared-alias-row",
+                "runtime_execution_certificate_status": "certified",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "claim_gate_status": "fixture_smoke_only",
+            },
+            command="traditional-analytics-benchmark-row",
+            surface_id="prepared_alias_row",
+            execution_mode="prepared_vortex",
+        )
+
+        self.assertTrue(validation.passed)
+        self.assertEqual(validation.missing_fields, ())
+
+    def test_runtime_execution_field_validation_accepts_certified_import_aliases(
+        self,
+    ) -> None:
+        validation = validate_runtime_execution_fields(
+            {
+                "selected_execution_mode": "compatibility_import_certified",
+                "source_state_id": "source-state-fixture",
+                "source_state_digest": "fnv64:source",
+                "source_state_materialization_layout": "columnar_source_state",
+                "runtime_execution_certificate_id": "execution.compat-alias-row",
+                "runtime_execution_certificate_status": "certified",
+                "timing_scope": "cold_certified_end_to_end",
+                "compatibility_import_included": True,
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "claim_gate_status": "not_claim_grade",
+            },
+            command="traditional-analytics-benchmark-row",
+            surface_id="compat_alias_row",
+            execution_mode="compatibility_import_certified",
+        )
+
+        self.assertTrue(validation.passed)
+        self.assertEqual(validation.invalid_fields, ())
+
+    def test_runtime_execution_field_validation_blocks_report_only_runtime_row(
+        self,
+    ) -> None:
+        validation = validate_runtime_execution_fields(
+            {
+                "runtime_execution": True,
+                "support_state": "report_only",
+                "source_state_id": "source-state://report-only",
+                "data_decoded": False,
+                "runtime_execution_certificate_id": "execution.report-only",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "claim_gate_status": "not_claim_grade",
+            },
+            command="runs-today-status-row",
+            surface_id="report_only_runtime",
+        )
+
+        self.assertFalse(validation.passed)
+        self.assertIn("runtime_execution", validation.invalid_fields)
+
+    def test_runtime_execution_field_validation_blocks_minimal_runtime_claim_grade(
+        self,
+    ) -> None:
+        validation = validate_runtime_execution_fields(
+            {
+                "source_state_id": "source-state://minimal-runtime",
+                "data_decoded": False,
+                "runtime_execution_certificate_id": "execution.minimal-runtime",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "claim_gate_status": "claim_grade",
+                "selected_evidence_level": "minimal_runtime",
+            },
+            command="traditional-analytics-benchmark-row",
+            surface_id="minimal_runtime_claim_grade",
+        )
+
+        self.assertFalse(validation.passed)
+        self.assertIn("evidence_level", validation.invalid_fields)
+
+    def test_runtime_execution_field_validation_requires_execution_cert_ref(
+        self,
+    ) -> None:
+        validation = validate_runtime_execution_fields(
+            {
+                "source_state_id": "source-state://refs-only",
+                "data_decoded": False,
+                "evidence_level_certificate_refs": "execution_certificate_status",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "claim_gate_status": "fixture_smoke_only",
+            },
+            command="traditional-analytics-benchmark-row",
+            surface_id="evidence_level_refs_only",
+        )
+
+        self.assertFalse(validation.passed)
+        self.assertIn("execution_certificate", validation.missing_fields)
 
     def test_sql_local_source_report_result_rows_validate_jsonl_objects(self) -> None:
         def report_for(result_jsonl: str) -> SqlLocalSourceSmokeReport:

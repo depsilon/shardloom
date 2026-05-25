@@ -6018,6 +6018,59 @@ impl TraditionalAnalyticsVortexReport {
                 self.materialization_boundary_rows.to_string(),
             ),
             (
+                "execution_certificate_id".to_string(),
+                self.local_scale_evidence
+                    .split_runtime_evidence
+                    .execution_certificate_id
+                    .clone(),
+            ),
+            (
+                "execution_certificate_status".to_string(),
+                self.local_scale_evidence
+                    .split_runtime_evidence
+                    .execution_certificate_status
+                    .clone(),
+            ),
+            (
+                "runtime_execution_certificate_id".to_string(),
+                self.local_scale_evidence
+                    .split_runtime_evidence
+                    .execution_certificate_id
+                    .clone(),
+            ),
+            (
+                "runtime_execution_certificate_status".to_string(),
+                self.local_scale_evidence
+                    .split_runtime_evidence
+                    .execution_certificate_status
+                    .clone(),
+            ),
+            (
+                "runtime_execution_certificate_provider_kind".to_string(),
+                "shardloom_prepared_vortex_local_split_scheduler".to_string(),
+            ),
+            (
+                "runtime_execution_certificate_plan_ref".to_string(),
+                self.local_scale_evidence
+                    .split_runtime_evidence
+                    .scheduler_ref
+                    .clone(),
+            ),
+            (
+                "runtime_fallback_attempted".to_string(),
+                self.local_scale_evidence
+                    .split_runtime_evidence
+                    .fallback_attempted
+                    .to_string(),
+            ),
+            (
+                "runtime_external_query_engine_invoked".to_string(),
+                self.local_scale_evidence
+                    .split_runtime_evidence
+                    .external_engine_invoked
+                    .to_string(),
+            ),
+            (
                 "scenario_compute_micros".to_string(),
                 self.scenario_compute_micros.to_string(),
             ),
@@ -21499,6 +21552,39 @@ mod tests {
             &fields,
             "scenario_group-by-aggregation_prepared_vortex_scale_split_execution_certificate_status",
             "certified",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_runtime_execution_certificate_status",
+            "certified",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_runtime_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_runtime_external_query_engine_invoked",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_runtime_execution_certificate_provider_kind",
+            "shardloom_prepared_vortex_local_split_scheduler",
+        );
+        assert!(
+            fields
+                .get("scenario_group-by-aggregation_runtime_execution_certificate_id")
+                .is_some_and(|value| value
+                    .starts_with("p746.prepared_vortex_local_split_runtime.group-by-aggregation"))
+        );
+        assert!(
+            fields
+                .get("scenario_group-by-aggregation_runtime_execution_certificate_plan_ref")
+                .is_some_and(|value| value.starts_with(
+                    "scheduler://prepared_vortex_local_split_runtime_v1/group-by-aggregation"
+                ))
         );
         assert_field_eq(
             &fields,

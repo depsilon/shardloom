@@ -274,10 +274,12 @@ Runtime completion rule:
   in this live queue.
 
 #### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
-Current runtime ordering note (2026-05-25): prioritize engine-internal completion first, starting
-with `GAR-RUNTIME-IMPL-4K`, then evidence envelopes, session/reuse, local-scale runtime,
-adapter/ingest residuals, control-plane/effectful gates, benchmarks, and only then user/surface
-and release-usability backstops. Completed queue blocks have moved to
+Current runtime ordering note (2026-05-25): prioritize engine-internal completion first. The
+`GAR-RUNTIME-IMPL-4I` scan/pushdown matrix and `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
+rollout are complete and recorded in the ledger. Continue with session/reuse (`4L`), local-scale
+runtime (`4P`), expression/operator families, adapter/ingest residuals, control-plane/effectful
+gates, benchmarks, and only then user/surface and release-usability backstops. Completed queue
+blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
 
@@ -286,46 +288,6 @@ hiding inside broad architecture items. Treat these as the explicit runtime impl
 that must be worked before any full-runtime readiness claim. Each item below must land runnable
 runtime behavior, deterministic runtime admission/blockers, or runtime-claim validation; planning
 or documentation updates alone are insufficient.
-
-- [ ] GAR-RUNTIME-IMPL-4K unified execution envelope and certificate validators
-  - Source: release readiness metadata, benchmark artifact policy, runtime evidence-level docs.
-  - Current state: runtime reports have useful fields, but command, Python, benchmark, and website
-    envelopes can diverge. Python now exposes
-    `shardloom.runtime_execution_envelope_validation.v1` through
-    `OutputEnvelope.runtime_execution_validation(...)` /
-    `validate_runtime_execution_envelope(...)`, and
-    `scripts/check_runtime_execution_envelopes.py` verifies complete and deliberately broken
-    fixture envelopes. The validator rejects runtime envelopes missing explicit parseable
-    no-fallback fields, claim-gate status, route-state refs, materialization/decode evidence,
-    execution certificates, prepared-state refs for `prepared_vortex`, or cold timing attribution for
-    `compatibility_import_certified`. The hard release gate now checks that the validator script
-    and status artifacts remain present. The parent stays open until the same validator is applied
-    to every runtime command family, benchmark artifact row, and website/status render path.
-  - Next slice outcome: migrate each runtime command family and benchmark row through the versioned
-    validator, then fail release readiness when any supported runtime path lacks certificate,
-    materialization/decode, claim-gate, or no-fallback evidence.
-  - Runtime enablement: runtime-claim validator that rejects paths missing certificate,
-    materialization/decode, claim-gate, or no-fallback fields.
-  - User-visible surface: CLI JSON, Python typed reports, benchmark artifacts, website evidence,
-    release readiness.
-  - Implementation scope: shared schema, adapters, aliases/migrations, readiness checks, website
-    renderer updates.
-  - Evidence required: execution/engine/evidence mode, source/generated/output refs,
-    route fields, SourceState/VortexPreparedState/OutputPlan refs, materialization/decode refs,
-    certificate refs, no-fallback fields, claim gate.
-  - Acceptance: missing fallback/certificate/claim fields fail validation; `prepared_vortex` rows
-    without `VortexPreparedState` fail validation; compatibility certified rows without
-    `cold_certified_end_to_end` timing fail validation; report-only rows cannot masquerade as
-    runtime support.
-  - Verification: schema contract tests, release readiness metadata, benchmark completeness,
-    website readiness, Python typed-report tests.
-  - Non-goals: no runtime capability or claim upgrade from schema work alone.
-  - Claim boundary: evidence standardization only.
-  - Fallback boundary: every envelope must expose `fallback_attempted` and
-    `external_engine_invoked`; route fields must not hide an external engine or fallback boundary.
-  - Dependencies/blockers: stable field naming, compatibility aliases, Python report migration, and
-    benchmark/website validators.
-  - Ledger rule: ledger entry must record schema version and migrated surfaces.
 
 - [ ] GAR-RUNTIME-IMPL-4L ShardLoomSession, SourceState, PreparedState, and OutputPlan reuse runtime
   - Source: `GAR-IOREUSE-1`, `GAR-PERF-2F`, in-process session runtime docs.
@@ -817,11 +779,19 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5H evidence envelope, evidence levels, and claim validators
   - Source: `GAR-RUNTIME-IMPL-4K`, `GAR-PERF-2A`, release readiness metadata, benchmark publishing
     policy.
-  - Current state: reports expose many useful fields, but CLI, Python, benchmark, website, docs, and
-    release gates can still diverge as runtime surfaces expand or when mirrored website artifacts
-    restate support/claim language independently.
-  - Next slice outcome: add a versioned execution-envelope schema, evidence levels, and validators
-    that every runtime path must satisfy.
+  - Current state: `GAR-RUNTIME-IMPL-4K` migrated the versioned
+    `shardloom.runtime_execution_envelope_validation.v1` validator through Python
+    `OutputEnvelope` field mappings, traditional analytics benchmark rows, prepared Vortex runtime
+    certificate fields, benchmark promotion, website benchmark manifests, runs-today status
+    projection, and release/website/completeness gates. Missing concrete certificate refs,
+    route-state refs, materialization/decode evidence, no-fallback fields, report-only runtime
+    masquerades, `minimal_runtime` claim-grade promotion, and evidence-level certificate refs
+    without concrete execution certificates now block. Remaining `5H` work is the continuing
+    coverage-assurance backstop for future runtime surfaces and mirror drift, not the initial schema
+    rollout.
+  - Next slice outcome: as new runtime paths land, wire them into the shared validator and canonical
+    benchmark/status/website mirrors in the same PR, or split uncovered evidence-level and
+    claim-grade policy gaps into concrete runtime-validator slices.
   - Runtime enablement: shared runtime evidence validator that blocks unsupported/report-only rows
     from being treated as supported runtime.
   - User-visible surface: CLI JSON, Python typed reports, benchmark artifacts, website evidence,

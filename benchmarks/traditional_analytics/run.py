@@ -21,10 +21,18 @@ import statistics
 import sys
 import threading
 import time
+from collections import Counter
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+
+
+PYTHON_SRC = Path(__file__).resolve().parents[2] / "python" / "src"
+if str(PYTHON_SRC) not in sys.path:
+    sys.path.insert(0, str(PYTHON_SRC))
+
+from shardloom import validate_runtime_execution_fields  # noqa: E402
 
 
 ENGINE_ORDER = (
@@ -754,6 +762,18 @@ RUNTIME_EVIDENCE_LEVEL_FIELDS = (
     "evidence_level_fallback_attempted",
     "evidence_level_external_engine_invoked",
     "evidence_level_claim_boundary",
+)
+RUNTIME_EXECUTION_VALIDATION_EVIDENCE_FIELDS = (
+    "execution_certificate_id",
+    "execution_certificate_status",
+    "runtime_execution_certificate_id",
+    "runtime_execution_certificate_status",
+    "runtime_execution_certificate_provider_kind",
+    "runtime_execution_certificate_plan_ref",
+    "runtime_fallback_attempted",
+    "runtime_external_query_engine_invoked",
+    "prepared_vortex_scale_split_execution_certificate_id",
+    "prepared_vortex_scale_split_execution_certificate_status",
 )
 OPTIMIZER_TRACE_SCHEMA_VERSION = "shardloom.evidence_aware_optimizer_trace.v1"
 OPTIMIZER_TRACE_FIELDS = (
@@ -8133,6 +8153,133 @@ def benchmark_constitution(
     }
 
 
+def benchmark_runtime_validation_fields(result: dict[str, Any]) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+    evidence = result.get("shardloom_evidence")
+    if isinstance(evidence, dict):
+        fields.update(evidence)
+    metrics = result.get("metrics")
+    if isinstance(metrics, dict):
+        fields.update(metrics)
+    for key, value in result.items():
+        if key in {
+            "benchmark_constitution",
+            "iteration_wall_time_millis",
+            "metrics",
+            "output_preview",
+            "runtime_execution_validation",
+            "shardloom_evidence",
+        }:
+            continue
+        fields[key] = value
+    if result.get("selected_execution_mode") == "compatibility_import_certified":
+        fields["preparation_included"] = (
+            result.get("compatibility_import_included") is True
+        )
+    return fields
+
+
+def runtime_validation_surface_id(result: dict[str, Any]) -> str:
+    scenario = str(result.get("scenario_id") or result.get("scenario_base") or "unknown")
+    scenario = scenario_slug(scenario)
+    return (
+        "traditional_analytics."
+        f"{result.get('engine', 'unknown')}."
+        f"{result.get('storage_format', 'unknown')}."
+        f"{scenario}"
+    )
+
+
+def should_validate_runtime_execution_row(result: dict[str, Any]) -> bool:
+    return is_shardloom_engine(str(result.get("engine", "")))
+
+
+def attach_runtime_execution_validation(result: dict[str, Any]) -> None:
+    if not should_validate_runtime_execution_row(result):
+        return
+    status = str(result.get("status", "unknown"))
+    runtime_expected = status == "success"
+    validation = validate_runtime_execution_fields(
+        benchmark_runtime_validation_fields(result),
+        command="traditional-analytics-benchmark-row",
+        status=status,
+        surface_id=runtime_validation_surface_id(result),
+        runtime_expected=runtime_expected,
+        execution_mode=str(result.get("selected_execution_mode") or "") or None,
+    )
+    result["runtime_execution_validation"] = validation.as_dict()
+    result["runtime_execution_validation_schema_version"] = validation.schema_version
+    result["runtime_execution_validation_status"] = validation.status
+    result["runtime_claim_allowed"] = validation.runtime_claim_allowed
+    metrics = result.get("metrics")
+    if isinstance(metrics, dict):
+        metrics["runtime_execution_validation_schema_version"] = (
+            validation.schema_version
+        )
+        metrics["runtime_execution_validation_status"] = validation.status
+        metrics["runtime_execution_validation_blocker_count"] = len(validation.blockers)
+        metrics["runtime_execution_validation_missing_fields"] = ",".join(
+            validation.missing_fields
+        )
+        metrics["runtime_execution_validation_invalid_fields"] = ",".join(
+            validation.invalid_fields
+        )
+    if validation.status != "passed":
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} "
+            f"{result.get('scenario_name', 'unknown')} "
+            "failed runtime execution envelope validation: "
+            + "; ".join(validation.blockers)
+        )
+
+
+def runtime_execution_validation_summary(
+    results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    expected_rows = [
+        result for result in results if should_validate_runtime_execution_row(result)
+    ]
+    reports = [
+        result.get("runtime_execution_validation")
+        for result in expected_rows
+        if isinstance(result.get("runtime_execution_validation"), dict)
+    ]
+    counts = Counter(str(report.get("status", "missing")) for report in reports)
+    blockers = [
+        {
+            "surface_id": report.get("surface_id"),
+            "engine": result.get("engine"),
+            "scenario_name": result.get("scenario_name"),
+            "blockers": report.get("blockers", []),
+        }
+        for result in results
+        for report in [result.get("runtime_execution_validation")]
+        if isinstance(report, dict) and report.get("status") != "passed"
+    ]
+    return {
+        "schema_version": "shardloom.traditional_analytics.runtime_validation.v1",
+        "validator_schema_version": (
+            "shardloom.runtime_execution_envelope_validation.v1"
+        ),
+        "status": "passed"
+        if not blockers and len(reports) == len(expected_rows)
+        else "blocked",
+        "row_count": len(results),
+        "expected_runtime_row_count": len(expected_rows),
+        "validated_row_count": len(reports),
+        "status_counts": dict(sorted(counts.items())),
+        "blockers": blockers,
+        "validated_surfaces": [
+            report.get("surface_id")
+            for report in reports
+            if isinstance(report.get("surface_id"), str)
+        ],
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "claim_gate_status": "not_claim_grade",
+    }
+
+
 def validate_result_attribution_contract(result: dict[str, Any]) -> None:
     metrics = result.get("metrics")
     if not isinstance(metrics, dict):
@@ -9127,6 +9274,7 @@ def annotate_result(
     result["benchmark_constitution"] = benchmark_constitution(
         result, cache_mode, dataset_profile
     )
+    attach_runtime_execution_validation(result)
     validate_result_attribution_contract(result)
     return result
 
@@ -12287,6 +12435,12 @@ def successful_result_from_iterations(
                 metrics.setdefault(field, parse_optional_bool(value))
             else:
                 metrics.setdefault(field, value)
+    for field in RUNTIME_EXECUTION_VALIDATION_EVIDENCE_FIELDS:
+        value = evidence.get(field)
+        if field in ("runtime_fallback_attempted", "runtime_external_query_engine_invoked"):
+            metrics.setdefault(field, parse_optional_bool(value))
+        else:
+            metrics.setdefault(field, value)
     return {
         "scenario_name": scenario_display_name(data_format, scenario),
         "scenario_base": scenario,
@@ -17220,6 +17374,7 @@ def main() -> int:
         "fanout_benchmark_matrix": fanout_benchmark_matrix(results),
         "cache_invalidation_matrix": cache_invalidation_matrix(results),
         "reuse_level_matrix": reuse_level_matrix(results),
+        "runtime_execution_validation": runtime_execution_validation_summary(results),
         "results": results,
         "shardloom_native_microbenchmarks": []
         if args.skip_shardloom_native
