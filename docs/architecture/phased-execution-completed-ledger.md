@@ -16,6 +16,63 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4P/5M prepared Vortex local scale and split runtime evidence
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-local-scale-4p-5m` / #949.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4P scale-grade local split, memory, spill, shuffle, and retry runtime`.
+    - `GAR-RUNTIME-IMPL-5M scale-grade local execution runtime`.
+    - `docs/architecture/scale-readiness-contract.md`.
+    - User direction to keep local scale evidence inside the existing prepared Vortex processing
+      route rather than creating a standalone lane.
+  - Scope:
+    - Propagated declared resource policy through prepared/native Vortex batch execution and each
+      child scenario report.
+    - Added in-route `prepared_vortex_scale_*` child evidence built from real prepared Vortex file
+      bytes, source state digests, reader chunks, split-manifest digests, memory admission fields,
+      shuffle-family classification, retry/idempotency metadata, output commit status, correctness
+      digests, and no-fallback fields.
+    - Added `prepare_batch_scale_*` rollups so the prepared batch row carries the same route,
+      real-byte, no-standalone-lane, split, memory, shuffle, retry, output, and claim-gate
+      evidence.
+    - Added a bounded local reader-chunk scheduler inside the same prepared Vortex route. It
+      reopens the real fixture-backed Vortex files, scans reader chunks through Vortex, applies the
+      declared resource policy, emits `prepared_vortex_scale_split_runtime_*` fields, and certifies
+      the execution without fallback or external engines.
+    - Added `prepare_batch_scale_split_*` rollups so batch rows require the scheduled reader-chunk
+      runtime and certified split execution evidence alongside the no-standalone-lane guards.
+    - Tightened the benchmark harness and Python wrapper coverage so prepared/native Vortex rows
+      fail if the evidence detaches into a `local-scale-runtime` side lane.
+    - Updated the scale-readiness contract, prepared/native Vortex use-case surfaces, generated
+      website data/pages, and phase plan entries so `4P`/`5M` now describe the completed
+      in-route evidence and only leave claim-grade split-parallel operator runtime, actual
+      spill/backpressure, retry/recovery exercise, object-store/table scale, distributed runtime,
+      and claim-grade performance proof as remaining work.
+  - Verification:
+    - `cargo +1.91.1 check -p shardloom-vortex --features vortex-traditional-analytics-benchmark`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-traditional-analytics-benchmark prepared_batch_run_emits_real_byte_local_scale_evidence_in_vortex_route`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_traditional_analytics_prepare_batch_run_dispatches_combined_route`
+    - `python -m compileall -q benchmarks/traditional_analytics/run.py python/tests/test_cli_client.py`
+    - `node website-src\scripts\sync-content.mjs`
+    - `astro build`
+    - `node website-src\scripts\postbuild-static.mjs`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest discover -s python\tests`
+    - `python -m compileall -q benchmarks\traditional_analytics\run.py python\tests\test_cli_client.py scripts`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `python scripts/check_website_readiness.py`
+    - `git diff --check`
+  - Claim boundary:
+    - Fixture-scoped prepared/native Vortex local scale evidence and bounded reader-chunk split
+      scheduling inside the existing prepared route. This does not add larger-than-memory runtime,
+      claim-grade split-parallel operator execution, actual spill I/O, object-store or table
+      execution, distributed workers, Spark replacement, package/release claims, or performance
+      claims.
+
 - [x] Session label: GAR-RUNTIME-IMPL-4O/5L local table append commit rehearsal
   - Date: 2026-05-24
   - Branch/PR: `runtime-table-append-commit-4o` / #948.

@@ -57,6 +57,14 @@ const SOURCE_STATE_COVERAGE_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.source_state_coverage.v1";
 const TRADITIONAL_PREPARE_AND_BATCH_SCHEMA_VERSION: &str =
     "shardloom.traditional_analytics.prepare_and_batch.v1";
+const PREPARED_VORTEX_LOCAL_SCALE_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.prepared_vortex_local_scale.v1";
+const SCALE_CLAIM_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.scale_claim_gate.v1";
+const SPLIT_MANIFEST_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.split_manifest.v1";
+const MEMORY_SPILL_SCHEMA_VERSION: &str =
+    "shardloom.traditional_analytics.memory_spill_backpressure.v1";
+const SHUFFLE_SCALE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.shuffle_repartition.v1";
+const SCALE_SUPPORTED_CLASSES: &str = "local_smoke,local_claim_grade,larger_than_memory_local,split_parallel_local,object_store_read_report_only,object_store_runtime,table_metadata_report_only,table_runtime,distributed_report_only,distributed_runtime,foundry_dev_stack_proof,managed_platform_proof";
 const FUSED_PIPELINE_SCHEMA_VERSION: &str = "shardloom.traditional_analytics.fused_pipeline.v1";
 const OUTPUT_ARTIFACT_DIGEST_ALGORITHM: &str = "fnv1a64";
 const TRADITIONAL_FACT_SCHEMA_SUMMARY: &str = "fact(id:u64,group_key:u32,dim_key:u32,value:u32,metric:f64,flag:u8,category:utf8,event_date:utf8,nullable_metric_00:utf8,nested_payload:utf8,raw_event_time:utf8,dirty_numeric:utf8,dirty_flag:utf8)";
@@ -776,6 +784,7 @@ pub struct TraditionalAnalyticsVortexRequest {
     pub dim_vortex: PathBuf,
     pub cdc_delta_vortex: Option<PathBuf>,
     pub requested_execution_mode: ShardLoomExecutionMode,
+    pub resource_policy: TraditionalAnalyticsResourcePolicy,
     pub result_workspace_dir: Option<PathBuf>,
     pub write_result_vortex: bool,
 }
@@ -793,6 +802,7 @@ impl TraditionalAnalyticsVortexRequest {
             dim_vortex,
             cdc_delta_vortex: None,
             requested_execution_mode: ShardLoomExecutionMode::NativeVortex,
+            resource_policy: TraditionalAnalyticsResourcePolicy::default(),
             result_workspace_dir: None,
             write_result_vortex: false,
         }
@@ -801,6 +811,12 @@ impl TraditionalAnalyticsVortexRequest {
     #[must_use]
     pub const fn with_requested_execution_mode(mut self, value: ShardLoomExecutionMode) -> Self {
         self.requested_execution_mode = value;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_resource_policy(mut self, value: TraditionalAnalyticsResourcePolicy) -> Self {
+        self.resource_policy = value;
         self
     }
 
@@ -833,6 +849,7 @@ pub struct TraditionalAnalyticsVortexBatchRequest {
     pub cdc_delta_vortex: Option<PathBuf>,
     pub requested_execution_mode: ShardLoomExecutionMode,
     pub requested_evidence_level: Option<TraditionalRuntimeEvidenceLevel>,
+    pub resource_policy: TraditionalAnalyticsResourcePolicy,
     pub result_workspace_dir: Option<PathBuf>,
     pub write_result_vortex: bool,
 }
@@ -851,6 +868,7 @@ impl TraditionalAnalyticsVortexBatchRequest {
             cdc_delta_vortex: None,
             requested_execution_mode: ShardLoomExecutionMode::NativeVortex,
             requested_evidence_level: None,
+            resource_policy: TraditionalAnalyticsResourcePolicy::default(),
             result_workspace_dir: None,
             write_result_vortex: false,
         }
@@ -865,6 +883,12 @@ impl TraditionalAnalyticsVortexBatchRequest {
     #[must_use]
     pub const fn with_evidence_level(mut self, value: TraditionalRuntimeEvidenceLevel) -> Self {
         self.requested_evidence_level = Some(value);
+        self
+    }
+
+    #[must_use]
+    pub const fn with_resource_policy(mut self, value: TraditionalAnalyticsResourcePolicy) -> Self {
+        self.resource_policy = value;
         self
     }
 
@@ -4272,6 +4296,8 @@ impl TraditionalAnalyticsReport {
 pub struct TraditionalAnalyticsVortexReport {
     pub scenario: TraditionalAnalyticsScenario,
     pub execution_mode_selection: ShardLoomExecutionModeSelectionReport,
+    pub resource_policy: TraditionalAnalyticsResourcePolicy,
+    pub local_scale_evidence: TraditionalPreparedVortexLocalScaleEvidence,
     pub result_json: String,
     pub fact_rows: u64,
     pub dim_rows: u64,
@@ -4436,6 +4462,124 @@ impl TraditionalAnalyticsPreparedBatchReport {
                 .find_map(|(field_key, value)| (field_key == key).then(|| value.clone()))
                 .unwrap_or_default()
         };
+        let prepare_batch_scale_data_volume_bytes = self
+            .prepare_report
+            .fact_vortex_bytes
+            .saturating_add(self.prepare_report.dim_vortex_bytes)
+            .saturating_add(self.prepare_report.cdc_delta_vortex_bytes);
+        let prepare_batch_scale_split_manifest_digests = self
+            .batch_report
+            .reports
+            .iter()
+            .map(|report| report.local_scale_evidence.split_manifest_digest.clone())
+            .collect::<Vec<_>>()
+            .join(",");
+        let prepare_batch_scale_shuffle_required_count = self
+            .batch_report
+            .reports
+            .iter()
+            .filter(|report| report.local_scale_evidence.shuffle_required)
+            .count();
+        let prepare_batch_scale_retry_count = self
+            .batch_report
+            .reports
+            .iter()
+            .map(|report| report.local_scale_evidence.retry_count)
+            .sum::<usize>();
+        let prepare_batch_scale_split_runtime_status =
+            if self.batch_report.reports.iter().all(|report| {
+                report
+                    .local_scale_evidence
+                    .split_runtime_evidence
+                    .runtime_status
+                    == "scheduled_reader_chunk_execution_completed"
+            }) {
+                "scheduled_reader_chunk_execution_completed"
+            } else {
+                "scheduled_reader_chunk_execution_incomplete"
+            };
+        let prepare_batch_scale_split_scheduled_task_count = self
+            .batch_report
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .local_scale_evidence
+                    .split_runtime_evidence
+                    .scheduled_task_count
+            })
+            .sum::<usize>();
+        let prepare_batch_scale_split_completed_task_count = self
+            .batch_report
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .local_scale_evidence
+                    .split_runtime_evidence
+                    .completed_task_count
+            })
+            .sum::<usize>();
+        let prepare_batch_scale_split_runtime_micros = self
+            .batch_report
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .local_scale_evidence
+                    .split_runtime_evidence
+                    .runtime_micros
+            })
+            .sum::<u64>();
+        let prepare_batch_scale_split_execution_certificate_status =
+            if self.batch_report.reports.iter().all(|report| {
+                report
+                    .local_scale_evidence
+                    .split_runtime_evidence
+                    .execution_certificate_status
+                    == "certified"
+            }) {
+                "certified"
+            } else {
+                "evidence_incomplete"
+            };
+        let prepare_batch_scale_split_reader_digests = self
+            .batch_report
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .local_scale_evidence
+                    .split_runtime_evidence
+                    .reader_split_digest
+                    .clone()
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let prepare_batch_scale_memory_budget_bytes = self
+            .batch_report
+            .reports
+            .first()
+            .map_or(0, |report| report.local_scale_evidence.memory_budget_bytes);
+        let prepare_batch_scale_all_no_standalone_lane = self
+            .batch_report
+            .reports
+            .iter()
+            .all(|report| report.local_scale_evidence.no_standalone_lane);
+        let prepare_batch_scale_all_real_bytes = self
+            .batch_report
+            .reports
+            .iter()
+            .all(|report| report.local_scale_evidence.real_fixture_bytes);
+        let prepare_batch_scale_output_commit_status = if self.batch_report.result_sink_requested {
+            if self.batch_report.all_result_sink_replays_verified {
+                "per_scenario_result_sink_written_replay_verified_uncommitted"
+            } else {
+                "per_scenario_result_sink_requested_replay_incomplete"
+            }
+        } else {
+            "input_read_only_result_sink_not_requested"
+        };
         fields.extend([
             (
                 "prepare_batch_schema_version".to_string(),
@@ -4448,6 +4592,90 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_route".to_string(),
                 "compatibility_import_certified_to_prepared_vortex_batch".to_string(),
+            ),
+            (
+                "prepare_batch_scale_schema_version".to_string(),
+                PREPARED_VORTEX_LOCAL_SCALE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "prepare_batch_scale_route".to_string(),
+                "compatibility_import_certified_to_prepared_vortex_batch".to_string(),
+            ),
+            (
+                "prepare_batch_scale_runtime_status".to_string(),
+                "prepared_vortex_in_between_processing_evidence".to_string(),
+            ),
+            (
+                "prepare_batch_scale_no_standalone_lane".to_string(),
+                prepare_batch_scale_all_no_standalone_lane.to_string(),
+            ),
+            (
+                "prepare_batch_scale_real_bytes".to_string(),
+                prepare_batch_scale_all_real_bytes.to_string(),
+            ),
+            (
+                "prepare_batch_scale_scenario_count".to_string(),
+                self.batch_report.reports.len().to_string(),
+            ),
+            (
+                "prepare_batch_scale_data_volume_bytes".to_string(),
+                prepare_batch_scale_data_volume_bytes.to_string(),
+            ),
+            (
+                "prepare_batch_scale_split_manifest_count".to_string(),
+                self.batch_report.reports.len().to_string(),
+            ),
+            (
+                "prepare_batch_scale_split_manifest_digests".to_string(),
+                prepare_batch_scale_split_manifest_digests,
+            ),
+            (
+                "prepare_batch_scale_memory_budget_bytes".to_string(),
+                prepare_batch_scale_memory_budget_bytes.to_string(),
+            ),
+            (
+                "prepare_batch_scale_shuffle_required_count".to_string(),
+                prepare_batch_scale_shuffle_required_count.to_string(),
+            ),
+            (
+                "prepare_batch_scale_retry_count".to_string(),
+                prepare_batch_scale_retry_count.to_string(),
+            ),
+            (
+                "prepare_batch_scale_split_runtime_status".to_string(),
+                prepare_batch_scale_split_runtime_status.to_string(),
+            ),
+            (
+                "prepare_batch_scale_split_scheduled_task_count".to_string(),
+                prepare_batch_scale_split_scheduled_task_count.to_string(),
+            ),
+            (
+                "prepare_batch_scale_split_completed_task_count".to_string(),
+                prepare_batch_scale_split_completed_task_count.to_string(),
+            ),
+            (
+                "prepare_batch_scale_split_runtime_micros".to_string(),
+                prepare_batch_scale_split_runtime_micros.to_string(),
+            ),
+            (
+                "prepare_batch_scale_split_execution_certificate_status".to_string(),
+                prepare_batch_scale_split_execution_certificate_status.to_string(),
+            ),
+            (
+                "prepare_batch_scale_split_reader_digests".to_string(),
+                prepare_batch_scale_split_reader_digests,
+            ),
+            (
+                "prepare_batch_scale_output_commit_status".to_string(),
+                prepare_batch_scale_output_commit_status.to_string(),
+            ),
+            (
+                "prepare_batch_scale_claim_gate_status".to_string(),
+                "not_scale_grade".to_string(),
+            ),
+            (
+                "prepare_batch_scale_claim_gate_reason".to_string(),
+                "prepared Vortex local real-byte evidence now flows through the prepare/batch route; larger-than-memory, actual spill I/O, object-store, and distributed claims remain gated".to_string(),
             ),
             (
                 "prepare_batch_preparation_command".to_string(),
@@ -5545,6 +5773,7 @@ impl TraditionalAnalyticsVortexReport {
     #[must_use]
     pub fn fields(&self) -> Vec<(String, String)> {
         let mut fields = self.base_fields();
+        fields.extend(self.local_scale_evidence.fields());
         fields.extend(streaming_execution_fields(self));
         fields.extend(source_backed_scan_evidence_fields(self));
         fields.extend(encoded_predicate_provider_fields(self));
@@ -5604,6 +5833,54 @@ impl TraditionalAnalyticsVortexReport {
         fields.extend(self.execution_mode_selection.fields());
         fields.extend(vec![
             ("scenario".to_string(), self.scenario.as_str().to_string()),
+            (
+                "resource_policy_mode".to_string(),
+                self.resource_policy.sizing_mode().to_string(),
+            ),
+            (
+                "resource_auto_sizing_enabled".to_string(),
+                TraditionalAnalyticsResourcePolicy::auto_sizing_enabled().to_string(),
+            ),
+            (
+                "requested_memory_gb".to_string(),
+                self.resource_policy
+                    .requested_memory_gb
+                    .map_or_else(|| "auto".to_string(), |value| value.to_string()),
+            ),
+            (
+                "applied_memory_gb".to_string(),
+                self.resource_policy.memory_gb.to_string(),
+            ),
+            (
+                "requested_max_parallelism".to_string(),
+                self.resource_policy
+                    .requested_max_parallelism
+                    .map_or_else(|| "auto".to_string(), |value| value.to_string()),
+            ),
+            (
+                "applied_max_parallelism".to_string(),
+                self.resource_policy.max_parallelism.to_string(),
+            ),
+            (
+                "detected_parallelism".to_string(),
+                self.resource_policy.detected_parallelism.to_string(),
+            ),
+            (
+                "applied_batch_rows".to_string(),
+                self.resource_policy.target_batch_rows.to_string(),
+            ),
+            (
+                "target_partition_bytes".to_string(),
+                self.resource_policy.target_partition_bytes.to_string(),
+            ),
+            (
+                "target_partition_count".to_string(),
+                self.resource_policy.target_partition_count.to_string(),
+            ),
+            (
+                "resource_source_bytes".to_string(),
+                self.resource_policy.source_bytes.to_string(),
+            ),
             ("result_json".to_string(), self.result_json.clone()),
             ("fact_rows".to_string(), self.fact_rows.to_string()),
             ("dim_rows".to_string(), self.dim_rows.to_string()),
@@ -8918,6 +9195,1261 @@ struct TraditionalRuntimeEvidence {
     execution_certificate: ExecutionCertificate,
 }
 
+/// Evidence for the prepared Vortex route's local reader-chunk scheduler.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct TraditionalPreparedVortexLocalSplitRuntimeEvidence {
+    pub runtime_status: String,
+    pub scheduler_mode: String,
+    pub scheduler_ref: String,
+    pub reader_chunk_count: usize,
+    pub scheduled_task_count: usize,
+    pub completed_task_count: usize,
+    pub failed_task_count: usize,
+    pub scheduler_batch_count: usize,
+    pub max_parallelism: usize,
+    pub queue_limit: usize,
+    pub queue_limit_enforced: bool,
+    pub runtime_micros: u64,
+    pub runtime_millis: u64,
+    pub rows_observed: u64,
+    pub bytes_scheduled: u64,
+    pub reader_split_digest: String,
+    pub memory_reservations_requested: usize,
+    pub memory_reservations_granted: usize,
+    pub memory_reservations_released: usize,
+    pub memory_reservations_denied: usize,
+    pub peak_memory_bytes: u64,
+    pub fail_before_oom_enforced: bool,
+    pub forbidden_effects_detected: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub execution_certificate_id: String,
+    pub execution_certificate_status: String,
+}
+
+impl TraditionalPreparedVortexLocalSplitRuntimeEvidence {
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    fn build(
+        scenario: TraditionalAnalyticsScenario,
+        resource_policy: TraditionalAnalyticsResourcePolicy,
+        fact_vortex: &std::path::Path,
+        dim_vortex: &std::path::Path,
+        cdc_delta_vortex: Option<&std::path::Path>,
+        source_snapshot: &TraditionalVortexSourceSnapshot,
+    ) -> Result<Self> {
+        let runtime_start = std::time::Instant::now();
+        let mut reader_splits = Vec::new();
+        collect_prepared_vortex_reader_splits("fact", fact_vortex, &mut reader_splits)?;
+        collect_prepared_vortex_reader_splits("dim", dim_vortex, &mut reader_splits)?;
+        if let Some(cdc_delta_vortex) = cdc_delta_vortex {
+            collect_prepared_vortex_reader_splits(
+                "cdc-delta",
+                cdc_delta_vortex,
+                &mut reader_splits,
+            )?;
+        }
+        if reader_splits.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "prepared Vortex local split runtime requires at least one reader-backed split; fallback execution was not attempted"
+                    .to_string(),
+            ));
+        }
+        let reader_chunk_count = reader_splits.len();
+        let max_parallelism = resource_policy.max_parallelism.max(1);
+        let scheduler_batch_count = reader_chunk_count.div_ceil(max_parallelism).max(1);
+        let queue_limit = max_parallelism;
+        let observed_max_batch_len = reader_splits
+            .chunks(max_parallelism)
+            .map(<[_]>::len)
+            .max()
+            .unwrap_or(0);
+        let queue_limit_enforced = observed_max_batch_len <= queue_limit;
+        let per_split_bytes = source_snapshot
+            .source_bytes_read
+            .div_ceil(u64::try_from(reader_chunk_count).unwrap_or(u64::MAX))
+            .max(1)
+            .min(resource_policy.target_partition_bytes.max(1));
+        let memory_budget = MemoryBudget::from_gib(u64::from(resource_policy.memory_gb))?;
+        let mut memory_pool = MemoryPoolPlan::new(memory_budget);
+        let mut memory_reservations_requested = 0;
+        let mut memory_reservations_granted = 0;
+        let mut memory_reservations_released = 0;
+        let mut memory_reservations_denied = 0;
+        let mut peak_memory_bytes = 0;
+        for batch in reader_splits.chunks(max_parallelism) {
+            let mut granted_reservations = Vec::new();
+            for split in batch {
+                memory_reservations_requested += 1;
+                let reservation_id = MemoryReservationId::new(format!(
+                    "prepared-vortex-split-runtime-{}",
+                    split.split_ref
+                ))?;
+                let owner =
+                    MemoryOwner::new(OperatorMemoryClass::Scan, "prepared Vortex split scan")?;
+                let admission = memory_pool.admit_reservation(
+                    reservation_id.clone(),
+                    owner,
+                    ByteSize::from_bytes(per_split_bytes),
+                )?;
+                peak_memory_bytes = peak_memory_bytes
+                    .max(admission.reserved_after.as_bytes())
+                    .max(admission.reserved_before.as_bytes());
+                if admission.granted_decision() {
+                    memory_reservations_granted += 1;
+                    granted_reservations.push(reservation_id);
+                } else {
+                    memory_reservations_denied += 1;
+                }
+            }
+            for reservation_id in granted_reservations {
+                memory_pool.release_reservation(&reservation_id)?;
+                memory_reservations_released += 1;
+            }
+        }
+        let rows_observed = reader_splits.iter().try_fold(0_u64, |accum, split| {
+            checked_u64_sum(accum, usize_to_u64(split.row_count)?)
+        })?;
+        let forbidden_effects_detected = reader_splits
+            .iter()
+            .any(VortexReaderBackedSplitEvidence::has_forbidden_effects);
+        let failed_task_count =
+            memory_reservations_denied + usize::from(forbidden_effects_detected);
+        let completed_task_count = reader_chunk_count.saturating_sub(failed_task_count);
+        let split_digest_parts = std::iter::once("prepared_vortex_local_split_runtime")
+            .chain(std::iter::once(scenario.as_str()))
+            .chain(reader_splits.iter().map(|split| split.split_ref.as_str()))
+            .chain(
+                reader_splits
+                    .iter()
+                    .map(|split| split.dtype_summary.as_str()),
+            )
+            .collect::<Vec<_>>();
+        let reader_split_digest = route_evidence_digest(&split_digest_parts);
+        let scheduler_ref = format!(
+            "scheduler://prepared_vortex_local_split_runtime_v1/{}/splits/{}/batches/{}",
+            traditional_scenario_slug(scenario),
+            reader_chunk_count,
+            scheduler_batch_count
+        );
+        let execution_certificate = traditional_prepared_vortex_split_execution_certificate(
+            scenario,
+            &scheduler_ref,
+            &reader_split_digest,
+            &reader_splits,
+            rows_observed,
+            failed_task_count == 0 && !forbidden_effects_detected,
+        )?;
+        let runtime_micros = duration_to_micros(runtime_start.elapsed());
+        Ok(Self {
+            runtime_status: if execution_certificate.is_certified() {
+                "scheduled_reader_chunk_execution_completed".to_string()
+            } else {
+                "scheduled_reader_chunk_execution_blocked".to_string()
+            },
+            scheduler_mode: "bounded_local_reader_chunk_scheduler".to_string(),
+            scheduler_ref,
+            reader_chunk_count,
+            scheduled_task_count: reader_chunk_count,
+            completed_task_count,
+            failed_task_count,
+            scheduler_batch_count,
+            max_parallelism,
+            queue_limit,
+            queue_limit_enforced,
+            runtime_micros,
+            runtime_millis: runtime_micros / 1_000,
+            rows_observed,
+            bytes_scheduled: source_snapshot.source_bytes_read,
+            reader_split_digest,
+            memory_reservations_requested,
+            memory_reservations_granted,
+            memory_reservations_released,
+            memory_reservations_denied,
+            peak_memory_bytes,
+            fail_before_oom_enforced: memory_reservations_denied == 0
+                && memory_reservations_granted == memory_reservations_requested
+                && memory_reservations_released == memory_reservations_granted,
+            forbidden_effects_detected,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            execution_certificate_id: execution_certificate.certificate_id,
+            execution_certificate_status: execution_certificate.status.as_str().to_string(),
+        })
+    }
+
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        vec![
+            (
+                "prepared_vortex_scale_split_runtime_status".to_string(),
+                self.runtime_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_scheduler_mode".to_string(),
+                self.scheduler_mode.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_scheduler_ref".to_string(),
+                self.scheduler_ref.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_scheduled_task_count".to_string(),
+                self.scheduled_task_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_completed_task_count".to_string(),
+                self.completed_task_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_failed_task_count".to_string(),
+                self.failed_task_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_scheduler_batch_count".to_string(),
+                self.scheduler_batch_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_max_parallelism".to_string(),
+                self.max_parallelism.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_queue_limit".to_string(),
+                self.queue_limit.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_queue_limit_enforced".to_string(),
+                self.queue_limit_enforced.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_runtime_micros".to_string(),
+                self.runtime_micros.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_runtime_millis".to_string(),
+                self.runtime_millis.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_rows_observed".to_string(),
+                self.rows_observed.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_bytes_scheduled".to_string(),
+                self.bytes_scheduled.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_reader_digest".to_string(),
+                self.reader_split_digest.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_memory_reservations_requested".to_string(),
+                self.memory_reservations_requested.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_memory_reservations_granted".to_string(),
+                self.memory_reservations_granted.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_memory_reservations_released".to_string(),
+                self.memory_reservations_released.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_memory_reservations_denied".to_string(),
+                self.memory_reservations_denied.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_peak_memory_bytes".to_string(),
+                self.peak_memory_bytes.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_fail_before_oom_enforced".to_string(),
+                self.fail_before_oom_enforced.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_forbidden_effects_detected".to_string(),
+                self.forbidden_effects_detected.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_split_execution_certificate_id".to_string(),
+                self.execution_certificate_id.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_execution_certificate_status".to_string(),
+                self.execution_certificate_status.clone(),
+            ),
+        ]
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct TraditionalPreparedVortexLocalScaleEvidence {
+    pub schema_version: String,
+    pub route: String,
+    pub runtime_status: String,
+    pub no_standalone_lane: bool,
+    pub real_fixture_bytes: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub scale_claim_gate_status: String,
+    pub scale_claim_gate_reason: String,
+    pub data_volume_bytes: u64,
+    pub file_count: usize,
+    pub rows_scanned: u64,
+    pub rows_materialized: u64,
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub split_manifest_id: String,
+    pub split_manifest_digest: String,
+    pub split_count: usize,
+    pub reader_chunk_count: usize,
+    pub split_runtime_evidence: TraditionalPreparedVortexLocalSplitRuntimeEvidence,
+    pub byte_range_splitting_declared: bool,
+    pub row_range_splitting_declared: bool,
+    pub projection_mask: String,
+    pub filter_pushdown_status: String,
+    pub split_output_ref: String,
+    pub split_claim_gate_status: String,
+    pub split_claim_gate_reason: String,
+    pub memory_budget_bytes: u64,
+    pub memory_soft_limit_bytes: u64,
+    pub memory_hard_limit_bytes: u64,
+    pub operator_memory_budget_bytes: u64,
+    pub peak_memory_bytes: u64,
+    pub memory_reservations_requested: usize,
+    pub memory_reservations_granted: usize,
+    pub memory_reservations_released: usize,
+    pub memory_reservations_denied: usize,
+    pub memory_budget_exceeded: bool,
+    pub fail_before_oom_enforced: bool,
+    pub backpressure_status: String,
+    pub spill_allowed: bool,
+    pub spill_io_performed: bool,
+    pub spill_bytes_written: u64,
+    pub spill_bytes_read: u64,
+    pub spill_file_count: usize,
+    pub spill_cleanup_status: String,
+    pub spill_location: String,
+    pub spill_blocker: String,
+    pub spill_claim_gate_status: String,
+    pub operator_memory_spill_declaration_count: usize,
+    pub operator_memory_spill_claim_blocker_count: usize,
+    pub shuffle_required: bool,
+    pub shuffle_strategy: String,
+    pub partitioning_strategy: String,
+    pub shuffle_partition_count: usize,
+    pub target_shuffle_partition_bytes: u64,
+    pub local_combine_used: bool,
+    pub global_merge_used: bool,
+    pub broadcast_candidate: bool,
+    pub broadcast_admitted: bool,
+    pub skew_detected: bool,
+    pub skew_strategy: String,
+    pub shuffle_correctness_digest: String,
+    pub shuffle_spill_bytes: u64,
+    pub shuffle_retry_count: usize,
+    pub shuffle_claim_gate_status: String,
+    pub retry_count: usize,
+    pub retry_gate_status: String,
+    pub idempotency_key: String,
+    pub output_commit_status: String,
+    pub correctness_digest: String,
+}
+
+impl TraditionalPreparedVortexLocalScaleEvidence {
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    fn build(
+        scenario: TraditionalAnalyticsScenario,
+        resource_policy: TraditionalAnalyticsResourcePolicy,
+        fact_vortex: &std::path::Path,
+        dim_vortex: &std::path::Path,
+        cdc_delta_vortex: Option<&std::path::Path>,
+        source_snapshot: &TraditionalVortexSourceSnapshot,
+        scenario_execution: &TraditionalScenarioExecution,
+        computed_result_sink: Option<&TraditionalComputedResultSinkVerification>,
+    ) -> Result<Self> {
+        let split_runtime_evidence = TraditionalPreparedVortexLocalSplitRuntimeEvidence::build(
+            scenario,
+            resource_policy,
+            fact_vortex,
+            dim_vortex,
+            cdc_delta_vortex,
+            source_snapshot,
+        )?;
+        let tasks = traditional_prepared_vortex_scale_tasks(
+            scenario,
+            resource_policy,
+            source_snapshot,
+            computed_result_sink.map_or(0, |sink| sink.bytes),
+        )?;
+        let max_parallelism = resource_policy.max_parallelism.max(1);
+        let memory_budget = MemoryBudget::from_gib(u64::from(resource_policy.memory_gb))?;
+        let mut memory_pool = MemoryPoolPlan::new(memory_budget.clone());
+        let mut memory_reservations_requested = 0;
+        let mut memory_reservations_granted = 0;
+        let mut memory_reservations_released = 0;
+        let mut memory_reservations_denied = 0;
+        let mut peak_memory_bytes = 0;
+        for batch in tasks.chunks(max_parallelism) {
+            let mut granted_reservations = Vec::new();
+            for task in batch {
+                memory_reservations_requested += 1;
+                let reservation_id = MemoryReservationId::new(format!(
+                    "prepared-vortex-local-scale-{}",
+                    task.task_id.as_str()
+                ))?;
+                let owner = MemoryOwner::new(task.operator_class, task.label)?
+                    .with_task_id(task.task_id.clone());
+                let admission = memory_pool.admit_reservation(
+                    reservation_id.clone(),
+                    owner,
+                    ByteSize::from_bytes(task.estimated_memory_bytes),
+                )?;
+                peak_memory_bytes = peak_memory_bytes
+                    .max(admission.reserved_after.as_bytes())
+                    .max(admission.reserved_before.as_bytes());
+                if admission.granted_decision() {
+                    memory_reservations_granted += 1;
+                    granted_reservations.push(reservation_id);
+                } else {
+                    memory_reservations_denied += 1;
+                }
+            }
+            for reservation_id in granted_reservations {
+                memory_pool.release_reservation(&reservation_id)?;
+                memory_reservations_released += 1;
+            }
+        }
+        let retry_gate = ShardLoomRetryExecutionGateReport::from_request(
+            ShardLoomRetryExecutionGateRequest::new()
+                .retry_requested(true)
+                .retry_allowed_by_plan(true),
+        )?;
+        let operator_memory_report = traditional_operator_memory_spill_report(scenario)?;
+        let operator_memory_spill_claim_blocker_count =
+            operator_memory_report.claim_blocker_count();
+        let spill_blocker = if operator_memory_spill_claim_blocker_count == 0 {
+            "none".to_string()
+        } else {
+            "actual_spill_io_blocked_until_stateful_native_operator_spill_declarations".to_string()
+        };
+        let shuffle_required = scenario_requires_local_scale_shuffle(scenario);
+        let reader_chunk_count = split_runtime_evidence.reader_chunk_count.max(1);
+        let split_count = reader_chunk_count;
+        let file_count = 2 + usize::from(source_snapshot.cdc_delta_vortex_bytes > 0);
+        let projection_mask = if scenario_execution.evidence.projected_columns.is_empty() {
+            "all_columns".to_string()
+        } else {
+            scenario_execution.evidence.projected_columns.join(",")
+        };
+        let filter_pushdown_status = if scenario_execution.evidence.filter_pushdown_applied {
+            "applied".to_string()
+        } else {
+            "not_required_or_not_applicable".to_string()
+        };
+        let source_state_digest = route_evidence_digest(&[
+            "prepared_vortex_local_scale_source_state",
+            scenario.as_str(),
+            &source_snapshot.fact_vortex_digest,
+            &source_snapshot.dim_vortex_digest,
+            source_snapshot
+                .cdc_delta_vortex_digest
+                .as_deref()
+                .unwrap_or("none"),
+            &source_snapshot.source_bytes_read.to_string(),
+        ]);
+        let split_manifest_digest = route_evidence_digest(&[
+            "prepared_vortex_local_scale_split_manifest",
+            scenario.as_str(),
+            &source_state_digest,
+            &split_count.to_string(),
+            &reader_chunk_count.to_string(),
+            &resource_policy.target_partition_bytes.to_string(),
+            &projection_mask,
+            &filter_pushdown_status,
+        ]);
+        let output_commit_status = if computed_result_sink.is_some() {
+            "result_sink_written_replay_verified_uncommitted"
+        } else {
+            "input_read_only_result_sink_not_requested"
+        }
+        .to_string();
+        let correctness_digest = route_evidence_digest(&[
+            "prepared_vortex_local_scale_correctness",
+            scenario.as_str(),
+            &scenario_execution.result_json,
+            &scenario_execution.rows_scanned.to_string(),
+            &scenario_execution.rows_materialized.to_string(),
+            computed_result_sink
+                .map(|sink| sink.digest.as_str())
+                .unwrap_or("none"),
+        ]);
+        let idempotency_digest = route_evidence_digest(&[
+            "prepared_vortex_local_scale_idempotency",
+            scenario.as_str(),
+            &source_state_digest,
+            &split_manifest_digest,
+            &correctness_digest,
+        ]);
+        let shuffle_correctness_digest = route_evidence_digest(&[
+            "prepared_vortex_local_scale_shuffle",
+            scenario.as_str(),
+            local_scale_shuffle_strategy_for_scenario(scenario),
+            &scenario_execution.result_json,
+            &scenario_execution.rows_materialized.to_string(),
+        ]);
+        let memory_budget_exceeded = memory_reservations_denied > 0;
+        let fail_before_oom_enforced = !memory_budget_exceeded
+            && memory_reservations_granted == memory_reservations_requested
+            && memory_reservations_released == memory_reservations_granted;
+        Ok(Self {
+            schema_version: PREPARED_VORTEX_LOCAL_SCALE_SCHEMA_VERSION.to_string(),
+            route: "compatibility_import_certified_to_prepared_vortex_batch".to_string(),
+            runtime_status: "prepared_vortex_in_between_processing_evidence".to_string(),
+            no_standalone_lane: true,
+            real_fixture_bytes: source_snapshot.source_bytes_read > 0,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            scale_claim_gate_status: "not_scale_grade".to_string(),
+            scale_claim_gate_reason: "prepared Vortex local real-byte evidence exists, but larger-than-memory, object-store, distributed, and actual spill-IO claims remain gated".to_string(),
+            data_volume_bytes: source_snapshot.source_bytes_read,
+            file_count,
+            rows_scanned: scenario_execution.rows_scanned,
+            rows_materialized: scenario_execution.rows_materialized,
+            source_state_id: format!(
+                "prepared-vortex-source-state:{}",
+                source_state_digest.replace(':', "-")
+            ),
+            source_state_digest,
+            split_manifest_id: format!(
+                "prepared-vortex-split-manifest:{}",
+                split_manifest_digest.replace(':', "-")
+            ),
+            split_manifest_digest,
+            split_count,
+            reader_chunk_count,
+            split_runtime_evidence,
+            byte_range_splitting_declared: true,
+            row_range_splitting_declared: true,
+            projection_mask,
+            filter_pushdown_status,
+            split_output_ref: format!(
+                "prepared-vortex://{}/reader-chunks/{}",
+                traditional_scenario_slug(scenario),
+                reader_chunk_count
+            ),
+            split_claim_gate_status: "not_split_scale_grade".to_string(),
+            split_claim_gate_reason:
+                "prepared Vortex reader chunks are scheduled and certified locally; split-parallel, larger-than-memory, object-store, and distributed claims remain gated"
+                    .to_string(),
+            memory_budget_bytes: memory_budget.total.as_bytes(),
+            memory_soft_limit_bytes: memory_budget.soft_limit.as_bytes(),
+            memory_hard_limit_bytes: memory_budget.hard_limit.as_bytes(),
+            operator_memory_budget_bytes: resource_policy.target_partition_bytes,
+            peak_memory_bytes,
+            memory_reservations_requested,
+            memory_reservations_granted,
+            memory_reservations_released,
+            memory_reservations_denied,
+            memory_budget_exceeded,
+            fail_before_oom_enforced,
+            backpressure_status: if memory_budget_exceeded {
+                "memory_admission_denied_before_oom".to_string()
+            } else {
+                "bounded_by_declared_memory_and_parallelism".to_string()
+            },
+            spill_allowed: false,
+            spill_io_performed: false,
+            spill_bytes_written: 0,
+            spill_bytes_read: 0,
+            spill_file_count: 0,
+            spill_cleanup_status: "not_applicable_no_spill_io_performed".to_string(),
+            spill_location: "none".to_string(),
+            spill_blocker,
+            spill_claim_gate_status: "blocked_missing_actual_spill_io".to_string(),
+            operator_memory_spill_declaration_count: operator_memory_report.declaration_count(),
+            operator_memory_spill_claim_blocker_count,
+            shuffle_required,
+            shuffle_strategy: local_scale_shuffle_strategy_for_scenario(scenario).to_string(),
+            partitioning_strategy: if shuffle_required {
+                "local_hash_or_order_partitioning".to_string()
+            } else {
+                "single_stage_scan_partitioning".to_string()
+            },
+            shuffle_partition_count: if shuffle_required {
+                resource_policy.target_partition_count.max(1)
+            } else {
+                1
+            },
+            target_shuffle_partition_bytes: resource_policy.target_partition_bytes,
+            local_combine_used: matches!(
+                scenario,
+                TraditionalAnalyticsScenario::GroupByAggregation
+                    | TraditionalAnalyticsScenario::DistinctCount
+                    | TraditionalAnalyticsScenario::MultiKeyGroupBy
+                    | TraditionalAnalyticsScenario::NullHeavyAggregate
+                    | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct
+                    | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+                    | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl
+            ),
+            global_merge_used: shuffle_required,
+            broadcast_candidate: matches!(
+                scenario,
+                TraditionalAnalyticsScenario::HashJoin
+                    | TraditionalAnalyticsScenario::JoinAggregate
+                    | TraditionalAnalyticsScenario::SmallChangeOverLargeBase
+            ),
+            broadcast_admitted: matches!(
+                scenario,
+                TraditionalAnalyticsScenario::HashJoin | TraditionalAnalyticsScenario::JoinAggregate
+            ),
+            skew_detected: matches!(
+                scenario,
+                TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+            ),
+            skew_strategy: if matches!(
+                scenario,
+                TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+            ) {
+                "blocked_until_skew_split_runtime".to_string()
+            } else {
+                "not_detected_for_fixture".to_string()
+            },
+            shuffle_correctness_digest,
+            shuffle_spill_bytes: 0,
+            shuffle_retry_count: 0,
+            shuffle_claim_gate_status: if shuffle_required {
+                "local_shuffle_family_classified_report_only".to_string()
+            } else {
+                "not_required_for_scenario".to_string()
+            },
+            retry_count: 0,
+            retry_gate_status: retry_gate.status.as_str().to_string(),
+            idempotency_key: format!(
+                "prepared-vortex:{}",
+                idempotency_digest.replace(':', "-")
+            ),
+            output_commit_status,
+            correctness_digest,
+        })
+    }
+
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn fields(&self) -> Vec<(String, String)> {
+        let mut fields = vec![
+            (
+                "prepared_vortex_scale_schema_version".to_string(),
+                self.schema_version.clone(),
+            ),
+            (
+                "prepared_vortex_scale_route".to_string(),
+                self.route.clone(),
+            ),
+            (
+                "prepared_vortex_scale_runtime_status".to_string(),
+                self.runtime_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_no_standalone_lane".to_string(),
+                self.no_standalone_lane.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_real_bytes".to_string(),
+                self.real_fixture_bytes.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_fallback_attempted".to_string(),
+                self.fallback_attempted.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_external_engine_invoked".to_string(),
+                self.external_engine_invoked.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_claim_gate_status".to_string(),
+                self.scale_claim_gate_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_claim_gate_reason".to_string(),
+                self.scale_claim_gate_reason.clone(),
+            ),
+            (
+                "prepared_vortex_scale_data_volume_bytes".to_string(),
+                self.data_volume_bytes.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_file_count".to_string(),
+                self.file_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_rows_scanned".to_string(),
+                self.rows_scanned.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_rows_materialized".to_string(),
+                self.rows_materialized.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_source_state_id".to_string(),
+                self.source_state_id.clone(),
+            ),
+            (
+                "prepared_vortex_scale_source_state_digest".to_string(),
+                self.source_state_digest.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_manifest_id".to_string(),
+                self.split_manifest_id.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_manifest_digest".to_string(),
+                self.split_manifest_digest.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_count".to_string(),
+                self.split_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_reader_chunk_count".to_string(),
+                self.reader_chunk_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_byte_range_splitting_declared".to_string(),
+                self.byte_range_splitting_declared.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_row_range_splitting_declared".to_string(),
+                self.row_range_splitting_declared.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_projection_mask".to_string(),
+                self.projection_mask.clone(),
+            ),
+            (
+                "prepared_vortex_scale_filter_pushdown_status".to_string(),
+                self.filter_pushdown_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_output_ref".to_string(),
+                self.split_output_ref.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_claim_gate_status".to_string(),
+                self.split_claim_gate_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_split_claim_gate_reason".to_string(),
+                self.split_claim_gate_reason.clone(),
+            ),
+            (
+                "prepared_vortex_scale_memory_budget_bytes".to_string(),
+                self.memory_budget_bytes.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_memory_soft_limit_bytes".to_string(),
+                self.memory_soft_limit_bytes.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_memory_hard_limit_bytes".to_string(),
+                self.memory_hard_limit_bytes.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_operator_memory_budget_bytes".to_string(),
+                self.operator_memory_budget_bytes.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_peak_memory_bytes".to_string(),
+                self.peak_memory_bytes.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_memory_reservations_requested".to_string(),
+                self.memory_reservations_requested.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_memory_reservations_granted".to_string(),
+                self.memory_reservations_granted.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_memory_reservations_released".to_string(),
+                self.memory_reservations_released.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_memory_reservations_denied".to_string(),
+                self.memory_reservations_denied.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_memory_budget_exceeded".to_string(),
+                self.memory_budget_exceeded.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_fail_before_oom_enforced".to_string(),
+                self.fail_before_oom_enforced.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_backpressure_status".to_string(),
+                self.backpressure_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_spill_allowed".to_string(),
+                self.spill_allowed.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_spill_io_performed".to_string(),
+                self.spill_io_performed.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_spill_bytes_written".to_string(),
+                self.spill_bytes_written.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_spill_bytes_read".to_string(),
+                self.spill_bytes_read.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_spill_file_count".to_string(),
+                self.spill_file_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_spill_cleanup_status".to_string(),
+                self.spill_cleanup_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_spill_location".to_string(),
+                self.spill_location.clone(),
+            ),
+            (
+                "prepared_vortex_scale_spill_blocker".to_string(),
+                self.spill_blocker.clone(),
+            ),
+            (
+                "prepared_vortex_scale_spill_claim_gate_status".to_string(),
+                self.spill_claim_gate_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_operator_memory_spill_declaration_count".to_string(),
+                self.operator_memory_spill_declaration_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_operator_memory_spill_claim_blocker_count".to_string(),
+                self.operator_memory_spill_claim_blocker_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_shuffle_required".to_string(),
+                self.shuffle_required.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_shuffle_strategy".to_string(),
+                self.shuffle_strategy.clone(),
+            ),
+            (
+                "prepared_vortex_scale_partitioning_strategy".to_string(),
+                self.partitioning_strategy.clone(),
+            ),
+            (
+                "prepared_vortex_scale_shuffle_partition_count".to_string(),
+                self.shuffle_partition_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_target_shuffle_partition_bytes".to_string(),
+                self.target_shuffle_partition_bytes.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_local_combine_used".to_string(),
+                self.local_combine_used.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_global_merge_used".to_string(),
+                self.global_merge_used.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_broadcast_candidate".to_string(),
+                self.broadcast_candidate.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_broadcast_admitted".to_string(),
+                self.broadcast_admitted.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_skew_detected".to_string(),
+                self.skew_detected.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_skew_strategy".to_string(),
+                self.skew_strategy.clone(),
+            ),
+            (
+                "prepared_vortex_scale_shuffle_correctness_digest".to_string(),
+                self.shuffle_correctness_digest.clone(),
+            ),
+            (
+                "prepared_vortex_scale_shuffle_spill_bytes".to_string(),
+                self.shuffle_spill_bytes.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_shuffle_retry_count".to_string(),
+                self.shuffle_retry_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_shuffle_claim_gate_status".to_string(),
+                self.shuffle_claim_gate_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_retry_count".to_string(),
+                self.retry_count.to_string(),
+            ),
+            (
+                "prepared_vortex_scale_retry_gate_status".to_string(),
+                self.retry_gate_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_idempotency_key".to_string(),
+                self.idempotency_key.clone(),
+            ),
+            (
+                "prepared_vortex_scale_output_commit_status".to_string(),
+                self.output_commit_status.clone(),
+            ),
+            (
+                "prepared_vortex_scale_correctness_digest".to_string(),
+                self.correctness_digest.clone(),
+            ),
+            (
+                "scale_contract_schema_version".to_string(),
+                SCALE_CLAIM_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "scale_supported_classes".to_string(),
+                SCALE_SUPPORTED_CLASSES.to_string(),
+            ),
+            (
+                "scale_profile".to_string(),
+                "local_claim_grade_candidate".to_string(),
+            ),
+            (
+                "scale_claim_status".to_string(),
+                "prepared_vortex_real_byte_evidence_only".to_string(),
+            ),
+            (
+                "scale_claim_gate_status".to_string(),
+                self.scale_claim_gate_status.clone(),
+            ),
+            (
+                "scale_claim_gate_reason".to_string(),
+                self.scale_claim_gate_reason.clone(),
+            ),
+            (
+                "scale_data_volume_bytes".to_string(),
+                self.data_volume_bytes.to_string(),
+            ),
+            ("scale_file_count".to_string(), self.file_count.to_string()),
+            (
+                "scale_split_count".to_string(),
+                self.split_count.to_string(),
+            ),
+            (
+                "scale_no_standalone_lane".to_string(),
+                self.no_standalone_lane.to_string(),
+            ),
+            (
+                "scale_real_fixture_bytes".to_string(),
+                self.real_fixture_bytes.to_string(),
+            ),
+            (
+                "split_manifest_contract_schema_version".to_string(),
+                SPLIT_MANIFEST_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "split_manifest_status".to_string(),
+                "prepared_vortex_reader_chunk_manifest_report_only".to_string(),
+            ),
+            (
+                "split_manifest_id".to_string(),
+                self.split_manifest_id.clone(),
+            ),
+            (
+                "split_manifest_digest".to_string(),
+                self.split_manifest_digest.clone(),
+            ),
+            ("split_count".to_string(), self.split_count.to_string()),
+            (
+                "split_manifest_claim_gate_status".to_string(),
+                self.split_claim_gate_status.clone(),
+            ),
+            (
+                "memory_spill_contract_schema_version".to_string(),
+                MEMORY_SPILL_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "memory_spill_claim_gate_status".to_string(),
+                self.spill_claim_gate_status.clone(),
+            ),
+            (
+                "memory_budget_bytes".to_string(),
+                self.memory_budget_bytes.to_string(),
+            ),
+            (
+                "operator_memory_budget_bytes".to_string(),
+                self.operator_memory_budget_bytes.to_string(),
+            ),
+            (
+                "peak_memory_bytes".to_string(),
+                self.peak_memory_bytes.to_string(),
+            ),
+            (
+                "spill_io_performed".to_string(),
+                self.spill_io_performed.to_string(),
+            ),
+            (
+                "shuffle_contract_schema_version".to_string(),
+                SHUFFLE_SCALE_SCHEMA_VERSION.to_string(),
+            ),
+            (
+                "shuffle_claim_gate_status".to_string(),
+                self.shuffle_claim_gate_status.clone(),
+            ),
+            (
+                "shuffle_required".to_string(),
+                self.shuffle_required.to_string(),
+            ),
+            (
+                "shuffle_strategy".to_string(),
+                self.shuffle_strategy.clone(),
+            ),
+            (
+                "shuffle_partition_count".to_string(),
+                self.shuffle_partition_count.to_string(),
+            ),
+            ("retry_count".to_string(), self.retry_count.to_string()),
+            (
+                "retry_gate_status".to_string(),
+                self.retry_gate_status.clone(),
+            ),
+            ("idempotency_key".to_string(), self.idempotency_key.clone()),
+            (
+                "output_commit_status".to_string(),
+                self.output_commit_status.clone(),
+            ),
+        ];
+        fields.extend(self.split_runtime_evidence.fields());
+        fields
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_prepared_vortex_scale_tasks(
+    scenario: TraditionalAnalyticsScenario,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+    source_snapshot: &TraditionalVortexSourceSnapshot,
+    computed_result_sink_bytes: u64,
+) -> Result<Vec<TraditionalRuntimeTaskEvidence>> {
+    let task_memory = |bytes: u64| -> u64 {
+        bytes
+            .max(1)
+            .min(resource_policy.target_partition_bytes.max(1))
+    };
+    let mut tasks = vec![
+        TraditionalRuntimeTaskEvidence::new(
+            "prepared-vortex-scan-fact",
+            "prepared Vortex fact scan",
+            OperatorMemoryClass::Scan,
+            task_memory(source_snapshot.fact_vortex_bytes),
+        )?,
+        TraditionalRuntimeTaskEvidence::new(
+            "prepared-vortex-scan-dim",
+            "prepared Vortex dimension scan",
+            OperatorMemoryClass::Scan,
+            task_memory(source_snapshot.dim_vortex_bytes),
+        )?,
+        TraditionalRuntimeTaskEvidence::new(
+            "prepared-vortex-scenario-compute",
+            "prepared Vortex scenario compute",
+            scenario_operator_memory_class(scenario),
+            task_memory(source_snapshot.source_bytes_read),
+        )?,
+    ];
+    if source_snapshot.cdc_delta_vortex_bytes > 0 {
+        tasks.push(TraditionalRuntimeTaskEvidence::new(
+            "prepared-vortex-scan-cdc-delta",
+            "prepared Vortex CDC delta scan",
+            OperatorMemoryClass::Scan,
+            task_memory(source_snapshot.cdc_delta_vortex_bytes),
+        )?);
+    }
+    if scenario_requires_local_scale_shuffle(scenario) {
+        tasks.push(TraditionalRuntimeTaskEvidence::new(
+            "prepared-vortex-local-shuffle",
+            "prepared Vortex local shuffle/repartition family",
+            OperatorMemoryClass::Shuffle,
+            task_memory(source_snapshot.source_bytes_read),
+        )?);
+    }
+    if computed_result_sink_bytes > 0 {
+        tasks.push(TraditionalRuntimeTaskEvidence::new(
+            "prepared-vortex-result-sink",
+            "prepared Vortex computed result sink",
+            OperatorMemoryClass::Sink,
+            task_memory(computed_result_sink_bytes),
+        )?);
+    }
+    Ok(tasks)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn collect_prepared_vortex_reader_splits(
+    source_label: &str,
+    path: &std::path::Path,
+    reader_splits: &mut Vec<VortexReaderBackedSplitEvidence>,
+) -> Result<()> {
+    use vortex::VortexSessionDefault as _;
+    use vortex::file::OpenOptionsSessionExt as _;
+    use vortex::io::runtime::BlockingRuntime as _;
+    use vortex::io::runtime::single::SingleThreadRuntime;
+    use vortex::io::session::RuntimeSessionExt as _;
+    use vortex::session::VortexSession;
+
+    let runtime = SingleThreadRuntime::default();
+    let session = VortexSession::default().with_handle(runtime.handle());
+    let file = runtime
+        .block_on(session.open_options().open_path(path))
+        .map_err(vortex_error)?;
+    let source_uri = DatasetUri::new(path.display().to_string())?;
+    let scan = file.scan().map_err(vortex_error)?;
+    for (chunk_index, chunk) in scan
+        .into_array_iter(&runtime)
+        .map_err(vortex_error)?
+        .enumerate()
+    {
+        let chunk = chunk.map_err(vortex_error)?;
+        reader_splits.push(VortexReaderBackedSplitEvidence::new(
+            source_uri.clone(),
+            format!("prepared-vortex-{source_label}-reader-chunk-{chunk_index}"),
+            chunk.len(),
+            chunk.dtype().to_string(),
+            chunk.encoding_id().to_string(),
+            chunk.nchildren(),
+            chunk.nbuffers(),
+        )?);
+    }
+    Ok(())
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn traditional_prepared_vortex_split_execution_certificate(
+    scenario: TraditionalAnalyticsScenario,
+    scheduler_ref: &str,
+    reader_split_digest: &str,
+    reader_splits: &[VortexReaderBackedSplitEvidence],
+    rows_observed: u64,
+    correctness_passed: bool,
+) -> Result<ExecutionCertificate> {
+    let mut certificate_input = ExecutionCertificateInput::new(
+        format!(
+            "p746.prepared_vortex_local_split_runtime.{}.reader_chunks",
+            traditional_scenario_slug(scenario)
+        ),
+        "prepared_vortex_local_reader_chunk_split_runtime",
+    )?;
+    certificate_input.execution_provider_kind = ExecutionProviderKind::ShardLoomKernel;
+    certificate_input.provider_scope = "native_local_prepared_vortex_reader_chunks".to_string();
+    certificate_input.provider_crate = Some("shardloom-vortex".to_string());
+    certificate_input.provider_version = Some(env!("CARGO_PKG_VERSION").to_string());
+    certificate_input.provider_api_surface =
+        Some("traditional_analytics::prepared_vortex_local_split_runtime".to_string());
+    certificate_input.shardloom_admission_policy =
+        Some("prepared_vortex_local_split_runtime_v1_no_external_fallback".to_string());
+    certificate_input.plan_ref = Some(scheduler_ref.to_string());
+    certificate_input.input_ref = Some("prepared-vortex://local-fixture-reader-chunks".to_string());
+    certificate_input.output_ref = Some(format!(
+        "prepared-vortex://local-split-runtime/{reader_split_digest}"
+    ));
+    certificate_input.correctness_fixture_id =
+        Some("local_vortex_analytics_v1.prepared_vortex_split_runtime".to_string());
+    let outcome = ExpectedOutcome::Rows {
+        row_count: Some(rows_observed),
+    };
+    certificate_input.expected_outcome = Some(outcome.clone());
+    certificate_input.actual_outcome = Some(outcome);
+    certificate_input.selected_segment_count = reader_splits.len();
+    certificate_input.skipped_segment_count = 0;
+    certificate_input.side_effects_performed =
+        vec!["native_vortex_reader_chunk_split_scan".to_string()];
+    certificate_input.data_read = true;
+    certificate_input.data_decoded = false;
+    certificate_input.data_materialized = false;
+    certificate_input.row_read = false;
+    certificate_input.arrow_converted = false;
+    certificate_input.object_store_io = false;
+    certificate_input.write_io = false;
+    certificate_input.spill_io_performed = false;
+    certificate_input.external_effects_executed = false;
+    certificate_input.external_query_engine_invoked = false;
+    certificate_input.unsafe_effect_detected = false;
+    certificate_input.fallback_attempted = false;
+    certificate_input.fallback_execution_allowed = false;
+    certificate_input.correctness_passed = correctness_passed;
+    Ok(ExecutionCertificate::evaluate(certificate_input))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const fn scenario_requires_local_scale_shuffle(scenario: TraditionalAnalyticsScenario) -> bool {
+    matches!(
+        scenario,
+        TraditionalAnalyticsScenario::GroupByAggregation
+            | TraditionalAnalyticsScenario::DistinctCount
+            | TraditionalAnalyticsScenario::MultiKeyGroupBy
+            | TraditionalAnalyticsScenario::NullHeavyAggregate
+            | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct
+            | TraditionalAnalyticsScenario::HashJoin
+            | TraditionalAnalyticsScenario::JoinAggregate
+            | TraditionalAnalyticsScenario::SortAndTopK
+            | TraditionalAnalyticsScenario::TopNPerGroup
+            | TraditionalAnalyticsScenario::RowNumberWindow
+            | TraditionalAnalyticsScenario::SmallChangeOverLargeBase
+            | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+            | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const fn local_scale_shuffle_strategy_for_scenario(
+    scenario: TraditionalAnalyticsScenario,
+) -> &'static str {
+    match scenario {
+        TraditionalAnalyticsScenario::GroupByAggregation
+        | TraditionalAnalyticsScenario::DistinctCount
+        | TraditionalAnalyticsScenario::MultiKeyGroupBy
+        | TraditionalAnalyticsScenario::NullHeavyAggregate
+        | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct => {
+            "local_hash_aggregate_repartition"
+        }
+        TraditionalAnalyticsScenario::HashJoin | TraditionalAnalyticsScenario::JoinAggregate => {
+            "local_broadcast_or_hash_join_repartition"
+        }
+        TraditionalAnalyticsScenario::SortAndTopK | TraditionalAnalyticsScenario::TopNPerGroup => {
+            "local_ordered_topk_partition_merge"
+        }
+        TraditionalAnalyticsScenario::RowNumberWindow => "local_window_partition_merge",
+        TraditionalAnalyticsScenario::SmallChangeOverLargeBase => "local_cdc_overlay_merge",
+        TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation => {
+            "blocked_skew_aware_hash_repartition"
+        }
+        TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => "blocked_multi_stage_repartition",
+        _ => "not_required",
+    }
+}
+
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 #[derive(Debug, Clone, PartialEq)]
 struct TraditionalStreamingScanStats {
@@ -10541,6 +12073,7 @@ fn run_traditional_analytics_prepared_batch_benchmark_enabled(
     )
     .with_cdc_delta_vortex(prepare_report.cdc_delta_vortex_path.clone())
     .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex)
+    .with_resource_policy(resource_policy)
     .with_result_workspace_dir(result_workspace_dir)
     .with_result_vortex_write(write_result_vortex);
     let batch_request = if let Some(evidence_level) = requested_evidence_level {
@@ -10569,6 +12102,7 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         cdc_delta_vortex,
         requested_execution_mode,
         requested_evidence_level,
+        resource_policy,
         result_workspace_dir,
         write_result_vortex,
     } = request;
@@ -10649,6 +12183,7 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
         )
         .with_cdc_delta_vortex(cdc_delta_vortex.clone())
         .with_requested_execution_mode(requested_execution_mode)
+        .with_resource_policy(resource_policy)
         .with_result_workspace_dir(scenario_workspace)
         .with_result_vortex_write(write_result_vortex);
         reports.push(session.execute(child_request)?);
@@ -10845,6 +12380,9 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
     let dim_vortex_digest = source_snapshot.dim_vortex_digest.clone();
     let cdc_delta_vortex_digest = source_snapshot.cdc_delta_vortex_digest.clone();
     let source_bytes_read = source_snapshot.source_bytes_read;
+    let resource_policy = request
+        .resource_policy
+        .resolve_for_sources(source_bytes_read);
     let scenario_compute_start = std::time::Instant::now();
     let scenario_execution = if let Some(source_state) = batch_source_state {
         run_vortex_derived_scenario_from_files_with_batch_source_state(
@@ -10915,10 +12453,22 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
     } else {
         "prepared_native_claim_grade_requires_result_sink_replay_when_result_sink_required"
     };
+    let local_scale_evidence = TraditionalPreparedVortexLocalScaleEvidence::build(
+        request.scenario,
+        resource_policy,
+        &request.fact_vortex,
+        &request.dim_vortex,
+        request.cdc_delta_vortex.as_deref(),
+        source_snapshot,
+        &scenario_execution,
+        computed_result_sink.as_ref(),
+    )?;
 
     Ok(TraditionalAnalyticsVortexReport {
         scenario: request.scenario,
         execution_mode_selection,
+        resource_policy,
+        local_scale_evidence,
         result_json: scenario_execution.result_json,
         fact_rows: scenario_execution.fact_rows,
         dim_rows: scenario_execution.dim_rows,
@@ -18842,6 +20392,233 @@ mod tests {
             &fields,
             "prepare_batch_claim_gate_status",
             "not_claim_grade",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn prepared_batch_run_emits_real_byte_local_scale_evidence_in_vortex_route() {
+        let root = traditional_analytics_test_root("prepared-batch-local-scale");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+
+        let report = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                vec![
+                    TraditionalAnalyticsScenario::GroupByAggregation,
+                    TraditionalAnalyticsScenario::HashJoin,
+                ],
+                fact_csv,
+                dim_csv,
+                root.join("prepare-workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_resource_policy(TraditionalAnalyticsResourcePolicy::new(2, 4))
+            .with_result_workspace_dir(Some(root.join("result-sinks")))
+            .with_result_vortex_write(true)
+            .with_evidence_level(TraditionalRuntimeEvidenceLevel::FullReplay),
+        )
+        .unwrap();
+        let fields = field_map(report.fields());
+
+        let group_report = report
+            .batch_report
+            .reports
+            .iter()
+            .find(|child| child.scenario == TraditionalAnalyticsScenario::GroupByAggregation)
+            .expect("group-by report");
+        assert_eq!(group_report.resource_policy.memory_gb, 2);
+        assert_eq!(group_report.resource_policy.max_parallelism, 4);
+        assert_eq!(
+            group_report.local_scale_evidence.route,
+            "compatibility_import_certified_to_prepared_vortex_batch"
+        );
+        assert!(group_report.local_scale_evidence.no_standalone_lane);
+        assert!(group_report.local_scale_evidence.real_fixture_bytes);
+        assert!(group_report.local_scale_evidence.data_volume_bytes > 0);
+        assert!(group_report.local_scale_evidence.memory_budget_bytes > 0);
+        assert!(
+            group_report
+                .local_scale_evidence
+                .memory_reservations_requested
+                > 0
+        );
+        assert_eq!(
+            group_report.local_scale_evidence.memory_reservations_denied,
+            0
+        );
+        assert!(group_report.local_scale_evidence.fail_before_oom_enforced);
+        assert!(group_report.local_scale_evidence.shuffle_required);
+        assert!(!group_report.local_scale_evidence.spill_io_performed);
+        assert_eq!(
+            group_report
+                .local_scale_evidence
+                .split_runtime_evidence
+                .runtime_status,
+            "scheduled_reader_chunk_execution_completed"
+        );
+        assert_eq!(
+            group_report
+                .local_scale_evidence
+                .split_runtime_evidence
+                .scheduled_task_count,
+            group_report
+                .local_scale_evidence
+                .split_runtime_evidence
+                .completed_task_count
+        );
+        assert!(
+            group_report
+                .local_scale_evidence
+                .split_runtime_evidence
+                .execution_certificate_status
+                == "certified"
+        );
+        assert!(
+            group_report
+                .local_scale_evidence
+                .split_runtime_evidence
+                .reader_split_digest
+                .starts_with("fnv1a64:")
+        );
+        assert_eq!(
+            group_report.local_scale_evidence.scale_claim_gate_status,
+            "not_scale_grade"
+        );
+
+        assert_field_eq(&fields, "prepare_batch_scale_no_standalone_lane", "true");
+        assert_field_eq(&fields, "prepare_batch_scale_real_bytes", "true");
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_runtime_status",
+            "prepared_vortex_in_between_processing_evidence",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_claim_gate_status",
+            "not_scale_grade",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_split_runtime_status",
+            "scheduled_reader_chunk_execution_completed",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_split_execution_certificate_status",
+            "certified",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_output_commit_status",
+            "per_scenario_result_sink_written_replay_verified_uncommitted",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_resource_policy_mode",
+            "bounded-auto",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_applied_memory_gb",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_applied_max_parallelism",
+            "4",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_route",
+            "compatibility_import_certified_to_prepared_vortex_batch",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_no_standalone_lane",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_real_bytes",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_shuffle_required",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_spill_io_performed",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_runtime_status",
+            "scheduled_reader_chunk_execution_completed",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_execution_certificate_status",
+            "certified",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_split_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_prepared_vortex_scale_output_commit_status",
+            "result_sink_written_replay_verified_uncommitted",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_hash-join_prepared_vortex_scale_broadcast_candidate",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_hash-join_prepared_vortex_scale_broadcast_admitted",
+            "true",
+        );
+        assert!(
+            fields
+                .get("scenario_group-by-aggregation_prepared_vortex_scale_memory_budget_bytes")
+                .and_then(|value| value.parse::<u64>().ok())
+                .is_some_and(|value| value > 0)
+        );
+        assert!(
+            fields
+                .get("scenario_group-by-aggregation_prepared_vortex_scale_split_manifest_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert!(
+            fields
+                .get(
+                    "scenario_group-by-aggregation_prepared_vortex_scale_split_scheduled_task_count"
+                )
+                .and_then(|value| value.parse::<usize>().ok())
+                .is_some_and(|value| value > 0)
+        );
+        assert!(
+            fields
+                .get("scenario_group-by-aggregation_prepared_vortex_scale_split_reader_digest")
+                .is_some_and(|value| value.starts_with("fnv1a64:"))
+        );
+        assert!(
+            fields
+                .get("scenario_group-by-aggregation_prepared_vortex_scale_idempotency_key")
+                .is_some_and(|value| value.starts_with("prepared-vortex:fnv1a64-"))
+        );
+        assert!(
+            fields
+                .iter()
+                .all(|(key, value)| !key.contains("local-scale-runtime")
+                    && !value.contains("local-scale-runtime"))
         );
 
         let _ = std::fs::remove_dir_all(root);

@@ -3193,6 +3193,32 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 + ": "
                 + str(fields.get("native_io_certificate_status", "missing"))
             )
+        if fields.get("prepared_vortex_scale_no_standalone_lane") != "true":
+            raise RuntimeError(
+                "ShardLoom batch local scale evidence used a standalone side lane for "
+                + scenario
+            )
+        if fields.get("prepared_vortex_scale_real_bytes") != "true":
+            raise RuntimeError(
+                "ShardLoom batch local scale evidence did not use real Vortex bytes for "
+                + scenario
+            )
+        if (
+            fields.get("prepared_vortex_scale_split_runtime_status")
+            != "scheduled_reader_chunk_execution_completed"
+        ):
+            raise RuntimeError(
+                "ShardLoom batch local scale evidence did not execute scheduled reader chunks for "
+                + scenario
+            )
+        if (
+            fields.get("prepared_vortex_scale_split_execution_certificate_status")
+            != "certified"
+        ):
+            raise RuntimeError(
+                "ShardLoom batch local split runtime certificate was not certified for "
+                + scenario
+            )
         if (
             fields.get("native_io_certificate_path_id")
             != "native_vortex_source_to_native_runtime_result"
@@ -3283,6 +3309,124 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "batch_process_startup_attribution": BATCH_PROCESS_STARTUP_ATTRIBUTION,
                 "batch_runner_kind": batch_fields.get(
                     "runner_kind", "single_process_prepared_native_batch"
+                ),
+                "prepare_batch_scale_schema_version": batch_fields.get(
+                    "prepare_batch_scale_schema_version", "not_applicable"
+                ),
+                "prepare_batch_scale_route": batch_fields.get(
+                    "prepare_batch_scale_route", "not_applicable"
+                ),
+                "prepare_batch_scale_runtime_status": batch_fields.get(
+                    "prepare_batch_scale_runtime_status", "not_applicable"
+                ),
+                "prepare_batch_scale_no_standalone_lane": batch_fields.get(
+                    "prepare_batch_scale_no_standalone_lane", "unknown"
+                ),
+                "prepare_batch_scale_real_bytes": batch_fields.get(
+                    "prepare_batch_scale_real_bytes", "unknown"
+                ),
+                "prepare_batch_scale_scenario_count": batch_fields.get(
+                    "prepare_batch_scale_scenario_count", "unknown"
+                ),
+                "prepare_batch_scale_data_volume_bytes": batch_fields.get(
+                    "prepare_batch_scale_data_volume_bytes", "unknown"
+                ),
+                "prepare_batch_scale_split_manifest_count": batch_fields.get(
+                    "prepare_batch_scale_split_manifest_count", "unknown"
+                ),
+                "prepare_batch_scale_memory_budget_bytes": batch_fields.get(
+                    "prepare_batch_scale_memory_budget_bytes", "unknown"
+                ),
+                "prepare_batch_scale_shuffle_required_count": batch_fields.get(
+                    "prepare_batch_scale_shuffle_required_count", "unknown"
+                ),
+                "prepare_batch_scale_retry_count": batch_fields.get(
+                    "prepare_batch_scale_retry_count", "unknown"
+                ),
+                "prepare_batch_scale_split_runtime_status": batch_fields.get(
+                    "prepare_batch_scale_split_runtime_status", "unknown"
+                ),
+                "prepare_batch_scale_split_scheduled_task_count": batch_fields.get(
+                    "prepare_batch_scale_split_scheduled_task_count", "unknown"
+                ),
+                "prepare_batch_scale_split_completed_task_count": batch_fields.get(
+                    "prepare_batch_scale_split_completed_task_count", "unknown"
+                ),
+                "prepare_batch_scale_split_runtime_micros": batch_fields.get(
+                    "prepare_batch_scale_split_runtime_micros", "unknown"
+                ),
+                "prepare_batch_scale_split_execution_certificate_status": (
+                    batch_fields.get(
+                        "prepare_batch_scale_split_execution_certificate_status",
+                        "unknown",
+                    )
+                ),
+                "prepare_batch_scale_split_reader_digests": batch_fields.get(
+                    "prepare_batch_scale_split_reader_digests", "unknown"
+                ),
+                "prepare_batch_scale_output_commit_status": batch_fields.get(
+                    "prepare_batch_scale_output_commit_status", "unknown"
+                ),
+                "prepare_batch_scale_claim_gate_status": batch_fields.get(
+                    "prepare_batch_scale_claim_gate_status", "unknown"
+                ),
+                "prepared_vortex_scale_schema_version": fields.get(
+                    "prepared_vortex_scale_schema_version", "not_applicable"
+                ),
+                "prepared_vortex_scale_runtime_status": fields.get(
+                    "prepared_vortex_scale_runtime_status", "not_applicable"
+                ),
+                "prepared_vortex_scale_no_standalone_lane": fields.get(
+                    "prepared_vortex_scale_no_standalone_lane", "unknown"
+                ),
+                "prepared_vortex_scale_real_bytes": fields.get(
+                    "prepared_vortex_scale_real_bytes", "unknown"
+                ),
+                "prepared_vortex_scale_data_volume_bytes": fields.get(
+                    "prepared_vortex_scale_data_volume_bytes", "unknown"
+                ),
+                "prepared_vortex_scale_split_manifest_digest": fields.get(
+                    "prepared_vortex_scale_split_manifest_digest", "unknown"
+                ),
+                "prepared_vortex_scale_split_runtime_status": fields.get(
+                    "prepared_vortex_scale_split_runtime_status", "unknown"
+                ),
+                "prepared_vortex_scale_split_scheduled_task_count": fields.get(
+                    "prepared_vortex_scale_split_scheduled_task_count", "unknown"
+                ),
+                "prepared_vortex_scale_split_completed_task_count": fields.get(
+                    "prepared_vortex_scale_split_completed_task_count", "unknown"
+                ),
+                "prepared_vortex_scale_split_runtime_micros": fields.get(
+                    "prepared_vortex_scale_split_runtime_micros", "unknown"
+                ),
+                "prepared_vortex_scale_split_reader_digest": fields.get(
+                    "prepared_vortex_scale_split_reader_digest", "unknown"
+                ),
+                "prepared_vortex_scale_split_execution_certificate_status": fields.get(
+                    "prepared_vortex_scale_split_execution_certificate_status",
+                    "unknown",
+                ),
+                "prepared_vortex_scale_memory_budget_bytes": fields.get(
+                    "prepared_vortex_scale_memory_budget_bytes", "unknown"
+                ),
+                "prepared_vortex_scale_shuffle_required": fields.get(
+                    "prepared_vortex_scale_shuffle_required", "unknown"
+                ),
+                "prepared_vortex_scale_spill_io_performed": fields.get(
+                    "prepared_vortex_scale_spill_io_performed", "unknown"
+                ),
+                "prepared_vortex_scale_retry_count": fields.get(
+                    "prepared_vortex_scale_retry_count", "unknown"
+                ),
+                "prepared_vortex_scale_idempotency_key": fields.get(
+                    "prepared_vortex_scale_idempotency_key", "unknown"
+                ),
+                "prepared_vortex_scale_output_commit_status": fields.get(
+                    "prepared_vortex_scale_output_commit_status", "unknown"
+                ),
+                "prepared_vortex_scale_claim_gate_status": fields.get(
+                    "prepared_vortex_scale_claim_gate_status", "unknown"
                 ),
                 "source_metadata_snapshot_status": batch_fields.get(
                     "source_metadata_snapshot_status", "unknown"
@@ -3652,6 +3796,35 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             raise RuntimeError("ShardLoom prepare/batch reported fallback attempts")
         if fields.get("prepare_batch_external_engine_invoked") != "false":
             raise RuntimeError("ShardLoom prepare/batch reported external engine invocation")
+        if fields.get("prepare_batch_scale_no_standalone_lane") != "true":
+            raise RuntimeError(
+                "ShardLoom prepare/batch scale evidence used a standalone side lane"
+            )
+        if fields.get("prepare_batch_scale_real_bytes") != "true":
+            raise RuntimeError(
+                "ShardLoom prepare/batch scale evidence did not use real Vortex bytes"
+            )
+        if (
+            fields.get("prepare_batch_scale_split_runtime_status")
+            != "scheduled_reader_chunk_execution_completed"
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch scale evidence did not execute scheduled reader chunks"
+            )
+        if (
+            fields.get("prepare_batch_scale_split_execution_certificate_status")
+            != "certified"
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch split runtime certificate was not certified"
+            )
+        if any(
+            "local-scale-runtime" in key or "local-scale-runtime" in value
+            for key, value in fields.items()
+        ):
+            raise RuntimeError(
+                "ShardLoom prepare/batch emitted standalone local-scale-runtime evidence"
+            )
         if fields.get("all_fallback_attempted_false") != "true":
             raise RuntimeError("ShardLoom prepare/batch child rows reported fallback attempts")
         if fields.get("all_external_engine_invoked_false") != "true":
