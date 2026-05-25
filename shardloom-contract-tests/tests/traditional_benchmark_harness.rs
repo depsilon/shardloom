@@ -98,6 +98,10 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"compressed_kernel_registry_decoded\""));
     assert!(script.contains("\"compressed_kernel_registry_materialized\""));
     assert!(script.contains("\"compressed_kernel_registry_selection_vector_emitted\""));
+    assert!(script.contains("\"compressed_kernel_registry_input_rows\""));
+    assert!(script.contains("\"compressed_kernel_registry_decoded_reference_compared\""));
+    assert!(script.contains("\"compressed_kernel_registry_correctness_digest_status\""));
+    assert!(script.contains("\"compressed_kernel_registry_correctness_digests\""));
     assert!(script.contains("\"compressed_kernel_registry_encoded_native_claim_allowed\""));
     assert!(script.contains("\"compressed_kernel_registry_fallback_attempted\""));
     assert!(script.contains("\"compressed_kernel_registry_external_engine_invoked\""));
@@ -440,6 +444,10 @@ fn traditional_benchmark_harness_records_fairness_and_universal_io_boundaries() 
         "\"compressed_kernel_registry_pair_ids\"",
         "\"compressed_kernel_registry_pair_statuses\"",
         "\"compressed_kernel_registry_kernel_admitted\"",
+        "\"compressed_kernel_registry_input_rows\"",
+        "\"compressed_kernel_registry_decoded_reference_compared\"",
+        "\"compressed_kernel_registry_correctness_digest_status\"",
+        "\"compressed_kernel_registry_correctness_digests\"",
         "\"compressed_kernel_registry_encoded_native_claim_allowed\"",
         "\"compressed_kernel_registry_fallback_attempted\"",
         "\"compressed_kernel_registry_external_engine_invoked\"",

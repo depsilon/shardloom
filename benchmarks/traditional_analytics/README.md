@@ -410,16 +410,21 @@ reuse hits, fanout output count, no-fallback/no-external-engine fields, and clai
 `GAR-IOREUSE-1E` adds cache invalidation/fingerprint rows for current local source/prepared/plan/
 output posture. These rows are local workflow/evidence rows, not a performance leaderboard,
 persistent cache, or cache-hit claim.
-`GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence for selective-filter
-prepared/native rows. Current rows classify bitpacked filter, sequence predicate, dictionary
+`GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence for prepared/native rows.
+Current rows classify bitpacked filter, sequence predicate, dictionary
 equality/group-by, constant count/filter, sorted min/max pruning, and FSST/dictionary string
-equality where available. Non-empty selective-filter rows admit the observed
-`flag:fastlanes.bitpacked` and `value:vortex.sequence` reader-generated filter inputs; the other
-initial rows remain deterministic blockers or not available. Rows report
+equality where available. Selective-filter rows execute the observed `flag:fastlanes.bitpacked`,
+`value:vortex.sequence`, and `flag:vortex.constant` reader-generated filter inputs when present;
+group-by rows execute dictionary evidence from a real prepared Vortex `vortex.dict` reader chunk.
+Sorted/min-max and FSST/string rows remain deterministic blockers or not available. Rows report
 `compressed_kernel_registry_pair_ids`, `compressed_kernel_registry_pair_statuses`,
 `compressed_kernel_registry_kernel_admitted`, `compressed_kernel_registry_kernel_executed`,
 `compressed_kernel_registry_canonicalization_required`, `compressed_kernel_registry_decoded`,
 `compressed_kernel_registry_materialized`, and
+`compressed_kernel_registry_input_rows`,
+`compressed_kernel_registry_decoded_reference_compared`,
+`compressed_kernel_registry_correctness_digest_status`,
+`compressed_kernel_registry_correctness_digests`, and
 `compressed_kernel_registry_encoded_native_claim_allowed=false`.
 `GAR-PERF-2E` adds the scoped fused operator pipeline evidence contract. Prepared/native rows now
 report `fused_pipeline_used`, `fused_operator_family`, `fused_pipeline_family_statuses`,

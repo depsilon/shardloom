@@ -1811,10 +1811,29 @@ fn run_end_kernel_input_from_vortex_array(
 fn primitive_stat_values_from_vortex_array(
     array: &vortex::array::ArrayRef,
 ) -> Option<Vec<StatValue>> {
-    use vortex::array::arrays::primitive::PrimitiveArrayExt as _;
-    use vortex::array::dtype::PType;
+    if let Some(primitive) = direct_non_nullable_host_primitive(array) {
+        return primitive_stat_values_from_primitive_array(&primitive);
+    }
 
-    let primitive = direct_non_nullable_host_primitive(array)?;
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::PrimitiveArray;
+
+    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
+    primitive_stat_values_from_primitive_array(&primitive)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn primitive_stat_values_from_primitive_array(
+    primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
+) -> Option<Vec<StatValue>> {
+    use vortex::array::dtype::PType;
+    use vortex::array::validity::Validity;
+
+    match primitive.validity() {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return None,
+    }
     match primitive.ptype() {
         PType::U8 => Some(
             primitive
@@ -1892,10 +1911,29 @@ fn primitive_stat_values_from_vortex_array(
 
 #[cfg(feature = "vortex-local-primitives")]
 fn primitive_u32_codes_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<u32>> {
-    use vortex::array::arrays::primitive::PrimitiveArrayExt as _;
-    use vortex::array::dtype::PType;
+    if let Some(primitive) = direct_non_nullable_host_primitive(array) {
+        return primitive_u32_codes_from_primitive_array(&primitive);
+    }
 
-    let primitive = direct_non_nullable_host_primitive(array)?;
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::PrimitiveArray;
+
+    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
+    primitive_u32_codes_from_primitive_array(&primitive)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn primitive_u32_codes_from_primitive_array(
+    primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
+) -> Option<Vec<u32>> {
+    use vortex::array::dtype::PType;
+    use vortex::array::validity::Validity;
+
+    match primitive.validity() {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return None,
+    }
     match primitive.ptype() {
         PType::U8 => Some(
             primitive
@@ -1925,10 +1963,29 @@ fn primitive_u32_codes_from_vortex_array(array: &vortex::array::ArrayRef) -> Opt
 
 #[cfg(feature = "vortex-local-primitives")]
 fn primitive_u64_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<u64>> {
-    use vortex::array::arrays::primitive::PrimitiveArrayExt as _;
-    use vortex::array::dtype::PType;
+    if let Some(primitive) = direct_non_nullable_host_primitive(array) {
+        return primitive_u64_values_from_primitive_array(&primitive);
+    }
 
-    let primitive = direct_non_nullable_host_primitive(array)?;
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::PrimitiveArray;
+
+    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let primitive = array.clone().execute::<PrimitiveArray>(&mut ctx).ok()?;
+    primitive_u64_values_from_primitive_array(&primitive)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn primitive_u64_values_from_primitive_array(
+    primitive: &(impl vortex::array::arrays::primitive::PrimitiveArrayExt + ?Sized),
+) -> Option<Vec<u64>> {
+    use vortex::array::dtype::PType;
+    use vortex::array::validity::Validity;
+
+    match primitive.validity() {
+        Validity::NonNullable | Validity::AllValid => {}
+        Validity::AllInvalid | Validity::Array(_) => return None,
+    }
     match primitive.ptype() {
         PType::U8 => Some(
             primitive

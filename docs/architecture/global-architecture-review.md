@@ -1386,9 +1386,10 @@ plan before coding.
 - [x] `GAR-PERF-2D` adds scoped compressed/encoded kernel registry evidence. Initial
   encoding/operator pairs include bitpacked boolean/integer filter, sequence equality/range
   predicate, dictionary equality/group-by, constant array count/filter, sorted min/max range
-  pruning, and FSST/dictionary string equality where available. Current selective-filter rows admit
-  observed bitpacked and sequence filter inputs, keep other initial pairs blocked or not available,
-  and preserve `encoded_native_claim_allowed=false`.
+  pruning, and FSST/dictionary string equality where available. Current prepared/native fixtures
+  execute observed bitpacked, sequence, and constant filter inputs plus dictionary group-by evidence
+  from real Vortex reader chunks, keep sorted/min-max and FSST/string pairs blocked or not
+  available, and preserve `encoded_native_claim_allowed=false`.
 - [x] `GAR-PERF-2E` adds scoped fused operator pipeline evidence. Prepared/native rows now execute
   scoped residual-native fusion evidence for filter + projection + limit, filter + aggregate via
   selective-filter selection vectors, and top-k with projection; filter + group-by remains a

@@ -340,11 +340,17 @@ or documentation updates alone are insufficient.
 - [ ] GAR-RUNTIME-IMPL-4J encoded kernel registry execution pairs
   - Source: `GAR-PERF-2D`, RFC 0021, encoded execution docs,
     `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: encoded-kernel evidence exists for selected scoped inputs; broad encoded-native
-    operator coverage remains incomplete.
-  - Next slice outcome: implement or block one encoding/operator pair at a time, starting with
-    bitpacked boolean/integer filters, sequence equality/range, dictionary equality/group-by, and
-    constant array count/filter.
+  - Current state: initial pair execution now runs inside the existing prepared/native Vortex
+    reader path for bitpacked boolean/integer filters, sequence equality/range predicates, constant
+    array count/filter inputs, and dictionary equality/group-by over real `vortex.dict` reader
+    chunks. Executed pairs emit input rows, decoded-reference comparison status, correctness
+    digests, no-fallback/no-external-engine fields, and keep
+    `encoded_native_claim_allowed=false`.
+  - Next slice outcome: finish the remaining registry families in engine order: sorted/min-max
+    range-pruning over upstream sorted/statistics facts, sparse/mask/rank traversal candidates,
+    FSST/dictionary string equality, TurboQuant/vector capability blockers, nullability variants,
+    and generalized operator/function admission hooks. Each family must either execute with
+    decoded-reference correctness or block deterministically.
   - Runtime enablement: executable encoded-kernel pairs backed by decoded-reference correctness, or
     deterministic blockers.
   - User-visible surface: benchmark evidence, explain output, capability matrix.
@@ -361,7 +367,8 @@ or documentation updates alone are insufficient.
     - CUDA/FSST and GPU fixes remain blocked future accelerator context, not CPU-local runtime
       support or a performance claim.
   - Evidence required: encoding id, operator family, kernel admitted/executed, canonicalization
-    required, decoded/materialized flags, correctness digest, encoded-native claim flag.
+    required, decoded/materialized flags, input rows, decoded-reference comparison status,
+    correctness digest, encoded-native claim flag.
   - Acceptance: supported pairs pass decoded-reference correctness; unsupported encodings block
     deterministically.
   - Verification: unit tests per pair, selective-filter/group-by benchmark smoke, capability
@@ -865,7 +872,10 @@ docs/website parity, and a completed-ledger entry.
 - [ ] GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage
   - Source: `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4J`, RFC 0015, RFC 0016, RFC 0021.
   - Current state: selected residual-native operators exist; broad type/null/string/date/decimal,
-    join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Scoped local-source
+    join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Initial encoded
+    registry pairs now execute for scoped bitpacked, sequence, constant, and dictionary Vortex
+    reader inputs, but this is still pair-level runtime evidence rather than broad operator/function
+    coverage. Scoped local-source
     ranking, offset, and distribution window projections now cover `ROW_NUMBER()`, `RANK()`,
     `DENSE_RANK()`, `LAG()`, `LEAD()`, `NTILE()`, `PERCENT_RANK()`, and `CUME_DIST()` with native
     partition/order evaluation, peer-group tie semantics, offset lookups, bucket assignment, and

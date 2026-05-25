@@ -223,12 +223,13 @@ dimensions. Current limit/slice pushdown remains blocked for order-sensitive or 
 limit-like scenarios. This is scan/source-boundary evidence only; it must not be rendered as
 encoded-native operator execution or public performance proof.
 
-`GAR-PERF-2D` adds the scoped compressed/encoded kernel registry contract. Selective-filter
-prepared/native benchmark rows now expose aggregate `compressed_kernel_registry_*` fields for
+`GAR-PERF-2D` adds the scoped compressed/encoded kernel registry contract. Prepared/native
+benchmark rows now expose aggregate `compressed_kernel_registry_*` fields for
 encoding IDs, logical dtypes, physical encodings, operator families, admitted/executed flags,
-canonicalization, decode, materialization, selection-vector behavior, validity semantics,
-unsupported reasons, encoded-native claim status, no-fallback status, and a claim gate.
-Unsupported encoding/operator pairs are visible deterministic blockers or not-available rows.
+canonicalization, decode, materialization, selection-vector behavior, input rows,
+decoded-reference correctness digests, validity semantics, unsupported reasons, encoded-native
+claim status, no-fallback status, and a claim gate. Unsupported encoding/operator pairs are visible
+deterministic blockers or not-available rows.
 
 `GAR-PERF-2E` adds the scoped fused operator pipeline contract. Prepared/native rows now expose
 `fused_pipeline_used`, `fused_operator_family`, `fused_pipeline_family_statuses`,

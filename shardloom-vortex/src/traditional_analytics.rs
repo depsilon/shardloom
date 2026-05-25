@@ -6,6 +6,10 @@ use shardloom_core::{
 };
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+use crate::encoded_predicate_evaluation::{
+    VortexEncodedPredicateEvaluationStatus, evaluate_vortex_encoded_value_predicate_batch,
+};
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use crate::local_primitives::reader_generated_encoded_kernel_inputs_from_vortex_chunk;
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use crate::source_backed_encoded_execution::{
@@ -16,12 +20,12 @@ use crate::source_backed_encoded_execution::{
 use arrow_array::Array as _;
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_core::{
-    ColumnRef, ComparisonOp, DatasetUri, ExecutionCertificateInput, ExecutionProviderKind,
-    ExpectedOutcome, NativeIoAdapterFidelityReport, NativeIoMaterializationBoundaryReport,
-    NativeIoRepresentationTransition, NativeIoSideEffectReport, NativeIoSinkRequirementReport,
-    NativeIoSourceCapabilityReport, NativeIoSourcePushdownReport, PredicateExpr,
-    RepresentationState, SelectionVector, ShardLoomExecutionModeSelectionRequest, StatValue,
-    UniversalInputSource,
+    ColumnRef, ComparisonOp, DatasetUri, EncodedValueBatch, ExecutionCertificateInput,
+    ExecutionProviderKind, ExpectedOutcome, NativeIoAdapterFidelityReport,
+    NativeIoMaterializationBoundaryReport, NativeIoRepresentationTransition,
+    NativeIoSideEffectReport, NativeIoSinkRequirementReport, NativeIoSourceCapabilityReport,
+    NativeIoSourcePushdownReport, PredicateExpr, RepresentationState, SelectionVector,
+    ShardLoomExecutionModeSelectionRequest, StatValue, UniversalInputSource,
 };
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_exec::{
@@ -4290,6 +4294,16 @@ impl TraditionalAnalyticsReport {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraditionalCompressedKernelPairExecutionEvidence {
+    pub pair_id: String,
+    pub status: String,
+    pub input_rows: u64,
+    pub selected_rows: Option<u64>,
+    pub decoded_reference_compared: bool,
+    pub correctness_digest: String,
+}
+
 /// Report emitted by the native Vortex benchmark smoke runner.
 #[derive(Debug, Clone, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -4353,6 +4367,8 @@ pub struct TraditionalAnalyticsVortexReport {
     pub streaming_reader_chunk_columns_observed: Vec<String>,
     pub streaming_reader_chunk_dtype_summary: Vec<String>,
     pub streaming_reader_chunk_encoding_summary: Vec<String>,
+    pub compressed_kernel_registry_pair_execution_evidence:
+        Vec<TraditionalCompressedKernelPairExecutionEvidence>,
     pub encoded_predicate_provider_filter_column_probe_requested: bool,
     pub encoded_predicate_provider_filter_column_probe_requested_columns: Vec<String>,
     pub encoded_predicate_provider_filter_column_probe_status: String,
@@ -7414,6 +7430,10 @@ struct TraditionalCompressedKernelRegistryRow {
     decoded: bool,
     materialized: bool,
     selection_vector_emitted: bool,
+    input_rows: u64,
+    decoded_reference_compared: bool,
+    correctness_digest_status: &'static str,
+    correctness_digest: String,
     validity_semantics: &'static str,
     unsupported_kernel_reason: &'static str,
 }
@@ -7439,6 +7459,35 @@ fn observed_probe_encoding(report: &TraditionalAnalyticsVortexReport, expected: 
         .any(|summary| summary == expected)
 }
 
+fn compressed_pair_execution<'a>(
+    report: &'a TraditionalAnalyticsVortexReport,
+    pair_id: &str,
+) -> Option<&'a TraditionalCompressedKernelPairExecutionEvidence> {
+    report
+        .compressed_kernel_registry_pair_execution_evidence
+        .iter()
+        .find(|evidence| evidence.pair_id == pair_id)
+}
+
+fn pair_correctness_digest_status(
+    evidence: Option<&TraditionalCompressedKernelPairExecutionEvidence>,
+) -> &'static str {
+    if evidence.is_some_and(|evidence| evidence.decoded_reference_compared) {
+        "decoded_reference_match"
+    } else {
+        "not_emitted_pair_not_executed"
+    }
+}
+
+fn pair_correctness_digest(
+    evidence: Option<&TraditionalCompressedKernelPairExecutionEvidence>,
+) -> String {
+    evidence.map_or_else(
+        || "not_available".to_string(),
+        |evidence| evidence.correctness_digest.clone(),
+    )
+}
+
 #[allow(clippy::too_many_lines)]
 fn compressed_encoded_kernel_registry_rows(
     report: &TraditionalAnalyticsVortexReport,
@@ -7455,6 +7504,10 @@ fn compressed_encoded_kernel_registry_rows(
         && report.encoded_predicate_provider_kernel_input_count >= 2
         && bitpacked_observed
         && sequence_observed;
+    let bitpacked_execution = compressed_pair_execution(report, "bitpacked_boolean_integer_filter");
+    let sequence_execution = compressed_pair_execution(report, "sequence_equality_range_predicate");
+    let dictionary_execution = compressed_pair_execution(report, "dictionary_equality_group_by");
+    let constant_execution = compressed_pair_execution(report, "constant_array_count_filter");
 
     let (
         bitpacked_status,
@@ -7462,7 +7515,7 @@ fn compressed_encoded_kernel_registry_rows(
         bitpacked_executed,
         bitpacked_selection,
         bitpacked_reason,
-    ) = if admitted_reader_generated_filter_inputs {
+    ) = if bitpacked_execution.is_some() || admitted_reader_generated_filter_inputs {
         (
             "executed_selection_vector_filter_input",
             true,
@@ -7501,7 +7554,7 @@ fn compressed_encoded_kernel_registry_rows(
         sequence_executed,
         sequence_selection,
         sequence_reason,
-    ) = if admitted_reader_generated_filter_inputs {
+    ) = if sequence_execution.is_some() || admitted_reader_generated_filter_inputs {
         (
             "executed_selection_vector_range_input",
             true,
@@ -7534,6 +7587,55 @@ fn compressed_encoded_kernel_registry_rows(
             "scenario_has_no_sequence_filter_candidate",
         )
     };
+    let (
+        dictionary_status,
+        dictionary_admitted,
+        dictionary_executed,
+        dictionary_validity,
+        dictionary_reason,
+    ) = if dictionary_execution.is_some() {
+        (
+            "executed_dictionary_equality_group_by_input",
+            true,
+            true,
+            "fixture_dictionary_validity_no_nulls_reference_compared",
+            "none",
+        )
+    } else {
+        (
+            "blocked_dictionary_group_by_contract_pending",
+            false,
+            false,
+            "requires_dictionary_validity_fixture",
+            "dictionary_group_by_kernel_contract_pending",
+        )
+    };
+    let (
+        constant_status,
+        constant_admitted,
+        constant_executed,
+        constant_selection,
+        constant_validity,
+        constant_reason,
+    ) = if constant_execution.is_some() {
+        (
+            "executed_constant_array_count_filter_input",
+            true,
+            true,
+            true,
+            "fixture_constant_validity_no_nulls_reference_compared",
+            "none",
+        )
+    } else {
+        (
+            "blocked_constant_array_kernel_contract_pending",
+            false,
+            false,
+            false,
+            "requires_constant_validity_fixture",
+            "constant_array_count_filter_contract_pending",
+        )
+    };
 
     vec![
         TraditionalCompressedKernelRegistryRow {
@@ -7549,6 +7651,11 @@ fn compressed_encoded_kernel_registry_rows(
             decoded: false,
             materialized: false,
             selection_vector_emitted: bitpacked_selection,
+            input_rows: bitpacked_execution.map_or(0, |evidence| evidence.input_rows),
+            decoded_reference_compared: bitpacked_execution
+                .is_some_and(|evidence| evidence.decoded_reference_compared),
+            correctness_digest_status: pair_correctness_digest_status(bitpacked_execution),
+            correctness_digest: pair_correctness_digest(bitpacked_execution),
             validity_semantics: "fixture_validity_no_nulls_observed",
             unsupported_kernel_reason: bitpacked_reason,
         },
@@ -7565,24 +7672,34 @@ fn compressed_encoded_kernel_registry_rows(
             decoded: false,
             materialized: false,
             selection_vector_emitted: sequence_selection,
+            input_rows: sequence_execution.map_or(0, |evidence| evidence.input_rows),
+            decoded_reference_compared: sequence_execution
+                .is_some_and(|evidence| evidence.decoded_reference_compared),
+            correctness_digest_status: pair_correctness_digest_status(sequence_execution),
+            correctness_digest: pair_correctness_digest(sequence_execution),
             validity_semantics: "fixture_validity_no_nulls_observed",
             unsupported_kernel_reason: sequence_reason,
         },
         TraditionalCompressedKernelRegistryRow {
             pair_id: "dictionary_equality_group_by",
-            encoding_id: "vortex.dictionary",
+            encoding_id: "vortex.dict",
             logical_dtype: "string_or_low_cardinality",
             physical_encoding: "dictionary_codes_and_values",
             operator_family: "equality_group_by",
-            status: "blocked_dictionary_group_by_contract_pending",
-            kernel_admitted: false,
-            kernel_executed: false,
+            status: dictionary_status,
+            kernel_admitted: dictionary_admitted,
+            kernel_executed: dictionary_executed,
             canonicalization_required: false,
             decoded: false,
             materialized: false,
             selection_vector_emitted: false,
-            validity_semantics: "requires_dictionary_validity_fixture",
-            unsupported_kernel_reason: "dictionary_group_by_kernel_contract_pending",
+            input_rows: dictionary_execution.map_or(0, |evidence| evidence.input_rows),
+            decoded_reference_compared: dictionary_execution
+                .is_some_and(|evidence| evidence.decoded_reference_compared),
+            correctness_digest_status: pair_correctness_digest_status(dictionary_execution),
+            correctness_digest: pair_correctness_digest(dictionary_execution),
+            validity_semantics: dictionary_validity,
+            unsupported_kernel_reason: dictionary_reason,
         },
         TraditionalCompressedKernelRegistryRow {
             pair_id: "constant_array_count_filter",
@@ -7590,15 +7707,20 @@ fn compressed_encoded_kernel_registry_rows(
             logical_dtype: "any_scalar",
             physical_encoding: "constant_array",
             operator_family: "count_filter",
-            status: "blocked_constant_array_kernel_contract_pending",
-            kernel_admitted: false,
-            kernel_executed: false,
+            status: constant_status,
+            kernel_admitted: constant_admitted,
+            kernel_executed: constant_executed,
             canonicalization_required: false,
             decoded: false,
             materialized: false,
-            selection_vector_emitted: false,
-            validity_semantics: "requires_constant_validity_fixture",
-            unsupported_kernel_reason: "constant_array_count_filter_contract_pending",
+            selection_vector_emitted: constant_selection,
+            input_rows: constant_execution.map_or(0, |evidence| evidence.input_rows),
+            decoded_reference_compared: constant_execution
+                .is_some_and(|evidence| evidence.decoded_reference_compared),
+            correctness_digest_status: pair_correctness_digest_status(constant_execution),
+            correctness_digest: pair_correctness_digest(constant_execution),
+            validity_semantics: constant_validity,
+            unsupported_kernel_reason: constant_reason,
         },
         TraditionalCompressedKernelRegistryRow {
             pair_id: "sorted_min_max_range_pruning",
@@ -7613,6 +7735,10 @@ fn compressed_encoded_kernel_registry_rows(
             decoded: false,
             materialized: false,
             selection_vector_emitted: false,
+            input_rows: 0,
+            decoded_reference_compared: false,
+            correctness_digest_status: "not_emitted_pair_not_executed",
+            correctness_digest: "not_available".to_string(),
             validity_semantics: "requires_sorted_validity_and_bounds_fixture",
             unsupported_kernel_reason: "sorted_min_max_range_pruning_contract_pending",
         },
@@ -7629,6 +7755,10 @@ fn compressed_encoded_kernel_registry_rows(
             decoded: false,
             materialized: false,
             selection_vector_emitted: false,
+            input_rows: 0,
+            decoded_reference_compared: false,
+            correctness_digest_status: "not_emitted_pair_not_executed",
+            correctness_digest: "not_available".to_string(),
             validity_semantics: "requires_string_encoding_validity_fixture",
             unsupported_kernel_reason: "fsst_or_dictionary_string_fixture_not_available",
         },
@@ -7734,6 +7864,22 @@ fn compressed_encoded_kernel_registry_fields(
         (
             "compressed_kernel_registry_selection_vector_emitted".to_string(),
             registry_value_rows(&rows, |row| row.selection_vector_emitted.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_input_rows".to_string(),
+            registry_value_rows(&rows, |row| row.input_rows.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_decoded_reference_compared".to_string(),
+            registry_value_rows(&rows, |row| row.decoded_reference_compared.to_string()),
+        ),
+        (
+            "compressed_kernel_registry_correctness_digest_status".to_string(),
+            registry_static_rows(&rows, |row| row.correctness_digest_status),
+        ),
+        (
+            "compressed_kernel_registry_correctness_digests".to_string(),
+            registry_value_rows(&rows, |row| row.correctness_digest.clone()),
         ),
         (
             "compressed_kernel_registry_validity_semantics".to_string(),
@@ -9094,6 +9240,7 @@ struct TraditionalEncodedPredicateProviderRuntimeEvidence {
     selected_metric_scan_split_count: usize,
     selected_metric_data_decoded: bool,
     selected_metric_data_materialized: bool,
+    kernel_pair_execution_evidence: Vec<TraditionalCompressedKernelPairExecutionEvidence>,
     data_decoded: bool,
     data_materialized: bool,
     row_read: bool,
@@ -9129,6 +9276,7 @@ impl TraditionalEncodedPredicateProviderRuntimeEvidence {
             selected_metric_scan_split_count: 0,
             selected_metric_data_decoded: false,
             selected_metric_data_materialized: false,
+            kernel_pair_execution_evidence: Vec::new(),
             data_decoded: false,
             data_materialized: false,
             row_read: false,
@@ -9154,6 +9302,8 @@ struct TraditionalScenarioExecutionEvidence {
     reader_chunk_dtype_summary: Vec<String>,
     reader_chunk_encoding_summary: Vec<String>,
     encoded_predicate_provider: TraditionalEncodedPredicateProviderRuntimeEvidence,
+    compressed_kernel_registry_pair_execution_evidence:
+        Vec<TraditionalCompressedKernelPairExecutionEvidence>,
     data_decoded: bool,
     data_materialized: bool,
     row_read: bool,
@@ -9176,6 +9326,7 @@ impl TraditionalScenarioExecutionEvidence {
             reader_chunk_encoding_summary: Vec::new(),
             encoded_predicate_provider:
                 TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
+            compressed_kernel_registry_pair_execution_evidence: Vec::new(),
             data_decoded: true,
             data_materialized: true,
             row_read: false,
@@ -9209,6 +9360,7 @@ impl TraditionalScenarioExecutionEvidence {
             reader_chunk_encoding_summary,
             encoded_predicate_provider:
                 TraditionalEncodedPredicateProviderRuntimeEvidence::not_applicable(),
+            compressed_kernel_registry_pair_execution_evidence: Vec::new(),
             data_decoded: true,
             data_materialized: false,
             row_read: false,
@@ -9219,8 +9371,23 @@ impl TraditionalScenarioExecutionEvidence {
         stats: TraditionalStreamingScanStats,
         encoded_predicate_provider: TraditionalEncodedPredicateProviderRuntimeEvidence,
     ) -> Self {
+        let kernel_pair_execution_evidence = encoded_predicate_provider
+            .kernel_pair_execution_evidence
+            .clone();
         let mut evidence = Self::streaming(stats);
         evidence.encoded_predicate_provider = encoded_predicate_provider;
+        evidence
+            .compressed_kernel_registry_pair_execution_evidence
+            .extend(kernel_pair_execution_evidence);
+        evidence
+    }
+
+    fn streaming_with_compressed_kernel_pairs(
+        stats: TraditionalStreamingScanStats,
+        pair_execution_evidence: Vec<TraditionalCompressedKernelPairExecutionEvidence>,
+    ) -> Self {
+        let mut evidence = Self::streaming(stats);
+        evidence.compressed_kernel_registry_pair_execution_evidence = pair_execution_evidence;
         evidence
     }
 }
@@ -12709,6 +12876,9 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         streaming_reader_chunk_encoding_summary: scenario_execution
             .evidence
             .reader_chunk_encoding_summary,
+        compressed_kernel_registry_pair_execution_evidence: scenario_execution
+            .evidence
+            .compressed_kernel_registry_pair_execution_evidence,
         encoded_predicate_provider_filter_column_probe_requested: scenario_execution
             .evidence
             .encoded_predicate_provider
@@ -16674,11 +16844,12 @@ fn run_streaming_group_by_aggregation_scenario(
 ) -> Result<TraditionalScenarioExecution> {
     let dim_rows = vortex_file_row_count(dim_path)?;
     let mut groups = std::collections::BTreeMap::<u32, TraditionalGroupAccum>::new();
-    let stats = scan_fact_vortex_projected(
+    let mut dictionary_group_by_pair = TraditionalDictionaryGroupByPairAccumulator::new();
+    let stats = scan_fact_vortex_projected_with_encoded_inputs(
         fact_path,
         &["group_key", "metric"],
         None,
-        |fields, chunk_rows| {
+        |fields, chunk_rows, encoded_inputs| {
             let group_keys = primitive_field::<u32>(fields, "group_key")?;
             let metrics = primitive_field::<f64>(fields, "metric")?;
             if group_keys.len() != chunk_rows || metrics.len() != chunk_rows {
@@ -16688,6 +16859,7 @@ fn run_streaming_group_by_aggregation_scenario(
                     metrics.len()
                 )));
             }
+            dictionary_group_by_pair.observe(encoded_inputs, &group_keys)?;
             for (group_key, metric) in group_keys.into_iter().zip(metrics) {
                 groups.entry(group_key).or_default().add(metric);
             }
@@ -16696,6 +16868,7 @@ fn run_streaming_group_by_aggregation_scenario(
     )?;
     let result_json = numeric_group_rows_json(groups, "group_key");
     let rows_materialized = result_rows_materialized(&result_json)?;
+    let kernel_pair_evidence = dictionary_group_by_pair.finish()?;
     Ok(TraditionalScenarioExecution {
         result_json,
         fact_rows: stats.source_row_count,
@@ -16703,7 +16876,10 @@ fn run_streaming_group_by_aggregation_scenario(
         cdc_delta_rows: 0,
         rows_scanned: stats.source_row_count,
         rows_materialized,
-        evidence: TraditionalScenarioExecutionEvidence::streaming(stats),
+        evidence: TraditionalScenarioExecutionEvidence::streaming_with_compressed_kernel_pairs(
+            stats,
+            kernel_pair_evidence,
+        ),
     })
 }
 
@@ -17428,8 +17604,11 @@ fn scan_selective_filter_column_batches(
         reader_chunk_encoding_summary,
         probe_row_count,
     } = collect_selective_filter_column_probe(fact_path)?;
+    let predicates = selective_filter_encoded_predicates()?;
+    let kernel_pair_execution_evidence =
+        selective_filter_compressed_kernel_pair_evidence(&predicates, &encoded_kernel_inputs)?;
     let bridge = execute_vortex_reader_generated_conjunctive_filter_from_encoded_kernel_inputs(
-        &selective_filter_encoded_predicates()?,
+        &predicates,
         &source,
         &reader_splits,
         &encoded_kernel_inputs,
@@ -17472,6 +17651,7 @@ fn scan_selective_filter_column_batches(
         selected_metric_scan_split_count: 0,
         selected_metric_data_decoded: false,
         selected_metric_data_materialized: false,
+        kernel_pair_execution_evidence,
         data_decoded: bridge.data_decoded,
         data_materialized: bridge.data_materialized,
         row_read: bridge.row_read,
@@ -17600,6 +17780,498 @@ fn selective_filter_encoded_predicates() -> Result<Vec<PredicateExpr>> {
             value: StatValue::UInt64(5_000),
         },
     ])
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selective_filter_compressed_kernel_pair_evidence(
+    predicates: &[PredicateExpr],
+    inputs: &[VortexReaderGeneratedEncodedKernelInput],
+) -> Result<Vec<TraditionalCompressedKernelPairExecutionEvidence>> {
+    let mut rows = Vec::new();
+    for input in inputs {
+        let column = input.batch.segment.column.as_str();
+        let Some((pair_id, status, predicate)) =
+            selective_filter_pair_for_input(column, &input.batch.values, predicates)
+        else {
+            continue;
+        };
+        rows.push(selection_kernel_pair_execution_evidence(
+            pair_id, status, predicate, input,
+        )?);
+    }
+    Ok(combine_compressed_kernel_pair_evidence(rows))
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selective_filter_pair_for_input<'a>(
+    column: &str,
+    values: &EncodedValueBatch,
+    predicates: &'a [PredicateExpr],
+) -> Option<(&'static str, &'static str, &'a PredicateExpr)> {
+    match (column, values) {
+        ("flag", EncodedValueBatch::BitPackedUnsigned { .. }) => Some((
+            "bitpacked_boolean_integer_filter",
+            "executed_selection_vector_filter_input",
+            predicate_for_column(predicates, "flag")?,
+        )),
+        ("value", EncodedValueBatch::ArithmeticSequence { .. }) => Some((
+            "sequence_equality_range_predicate",
+            "executed_selection_vector_range_input",
+            predicate_for_column(predicates, "value")?,
+        )),
+        ("flag", EncodedValueBatch::Constant { .. }) => Some((
+            "constant_array_count_filter",
+            "executed_constant_array_count_filter_input",
+            predicate_for_column(predicates, "flag")?,
+        )),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn predicate_for_column<'a>(
+    predicates: &'a [PredicateExpr],
+    column: &str,
+) -> Option<&'a PredicateExpr> {
+    predicates.iter().find(|predicate| {
+        predicate
+            .column()
+            .is_some_and(|candidate| candidate.as_str() == column)
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn selection_kernel_pair_execution_evidence(
+    pair_id: &'static str,
+    status: &'static str,
+    predicate: &PredicateExpr,
+    input: &VortexReaderGeneratedEncodedKernelInput,
+) -> Result<TraditionalCompressedKernelPairExecutionEvidence> {
+    let report = evaluate_vortex_encoded_value_predicate_batch(
+        predicate,
+        &input.batch.segment,
+        &input.batch.values,
+    );
+    if report.status != VortexEncodedPredicateEvaluationStatus::EvaluatedSelections
+        || report.has_errors()
+    {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "compressed kernel pair {pair_id} did not produce certified selection-vector evidence; fallback execution was not attempted"
+        )));
+    }
+    let input_rows = input.batch.values.row_count().ok_or_else(|| {
+        ShardLoomError::InvalidOperation(format!(
+            "compressed kernel pair {pair_id} input row count was unavailable; fallback execution was not attempted"
+        ))
+    })?;
+    let decoded_reference_selected_rows =
+        decoded_reference_selected_count(predicate, &input.batch.values)?;
+    if report.selected_rows_metadata_count != Some(decoded_reference_selected_rows) {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "compressed kernel pair {pair_id} selected {} rows but decoded reference selected {decoded_reference_selected_rows}; fallback execution was not attempted",
+            report
+                .selected_rows_metadata_count
+                .map_or_else(|| "none".to_string(), |count| count.to_string())
+        )));
+    }
+    let correctness_digest = compressed_kernel_pair_digest(&[
+        pair_id.to_string(),
+        status.to_string(),
+        input.batch.segment.id.as_str().to_string(),
+        input.batch.segment.column.as_str().to_string(),
+        input.batch.values.label().to_string(),
+        input_rows.to_string(),
+        decoded_reference_selected_rows.to_string(),
+        predicate.summary(),
+    ]);
+    Ok(TraditionalCompressedKernelPairExecutionEvidence {
+        pair_id: pair_id.to_string(),
+        status: status.to_string(),
+        input_rows,
+        selected_rows: Some(decoded_reference_selected_rows),
+        decoded_reference_compared: true,
+        correctness_digest,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn decoded_reference_selected_count(
+    predicate: &PredicateExpr,
+    values: &EncodedValueBatch,
+) -> Result<u64> {
+    match values {
+        EncodedValueBatch::Constant { value, row_count } => {
+            if predicate_matches_stat_value(predicate, value.as_ref())? {
+                Ok(*row_count)
+            } else {
+                Ok(0)
+            }
+        }
+        EncodedValueBatch::Dictionary { dictionary, codes } => {
+            let mut selected = 0_u64;
+            for code in codes {
+                let value = match code {
+                    Some(code) => {
+                        let code = usize::try_from(*code).map_err(|error| {
+                            ShardLoomError::InvalidOperation(format!(
+                                "dictionary code {code} did not fit usize for decoded reference: {error}; fallback execution was not attempted"
+                            ))
+                        })?;
+                        dictionary.get(code).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(format!(
+                                "dictionary code {code} was outside decoded-reference dictionary; fallback execution was not attempted"
+                            ))
+                        })?
+                    }
+                    None => &None,
+                };
+                if predicate_matches_stat_value(predicate, value.as_ref())? {
+                    selected += 1;
+                }
+            }
+            Ok(selected)
+        }
+        EncodedValueBatch::RunLength { runs } => {
+            let mut selected = 0_u64;
+            for run in runs {
+                if predicate_matches_stat_value(predicate, run.value.as_ref())? {
+                    selected = selected.checked_add(run.len).ok_or_else(|| {
+                        ShardLoomError::InvalidOperation(
+                            "run-length decoded-reference selected count overflowed; fallback execution was not attempted"
+                                .to_string(),
+                        )
+                    })?;
+                }
+            }
+            Ok(selected)
+        }
+        EncodedValueBatch::BitPackedUnsigned { values, .. } => {
+            values.iter().try_fold(0_u64, |selected, value| {
+                if predicate_matches_stat_value(predicate, Some(&StatValue::UInt64(*value)))? {
+                    checked_u64_sum(selected, 1)
+                } else {
+                    Ok(selected)
+                }
+            })
+        }
+        EncodedValueBatch::ArithmeticSequence {
+            base,
+            multiplier,
+            row_count,
+        } => {
+            let mut selected = 0_u64;
+            for row_index in 0..*row_count {
+                let value = sequence_stat_value_at(base, multiplier, row_index)?;
+                if predicate_matches_stat_value(predicate, Some(&value))? {
+                    selected += 1;
+                }
+            }
+            Ok(selected)
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn predicate_matches_stat_value(
+    predicate: &PredicateExpr,
+    value: Option<&StatValue>,
+) -> Result<bool> {
+    match predicate {
+        PredicateExpr::AlwaysTrue => Ok(true),
+        PredicateExpr::AlwaysFalse => Ok(false),
+        PredicateExpr::IsNull { .. } => Ok(value.is_none()),
+        PredicateExpr::IsNotNull { .. } => Ok(value.is_some()),
+        PredicateExpr::Compare { op, value: rhs, .. } => {
+            let Some(lhs) = value else {
+                return Ok(false);
+            };
+            let Some(ordering) = compare_stat_values(lhs, rhs) else {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "decoded reference cannot compare {} with {}; fallback execution was not attempted",
+                    stat_value_kind(lhs),
+                    stat_value_kind(rhs)
+                )));
+            };
+            Ok(match op {
+                ComparisonOp::Eq => ordering == 0,
+                ComparisonOp::NotEq => ordering != 0,
+                ComparisonOp::Lt => ordering < 0,
+                ComparisonOp::LtEq => ordering <= 0,
+                ComparisonOp::Gt => ordering > 0,
+                ComparisonOp::GtEq => ordering >= 0,
+            })
+        }
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn sequence_stat_value_at(
+    base: &StatValue,
+    multiplier: &StatValue,
+    row_index: u64,
+) -> Result<StatValue> {
+    match (base, multiplier) {
+        (StatValue::UInt64(base), StatValue::UInt64(multiplier)) => {
+            let delta = multiplier.checked_mul(row_index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "unsigned sequence decoded-reference multiplier overflowed; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })?;
+            base.checked_add(delta).map(StatValue::UInt64).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "unsigned sequence decoded-reference value overflowed; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })
+        }
+        (StatValue::Int64(base), StatValue::Int64(multiplier)) => {
+            let index = i64::try_from(row_index).map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "sequence decoded-reference row index overflowed i64: {error}; fallback execution was not attempted"
+                ))
+            })?;
+            let delta = multiplier.checked_mul(index).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "signed sequence decoded-reference multiplier overflowed; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })?;
+            base.checked_add(delta).map(StatValue::Int64).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "signed sequence decoded-reference value overflowed; fallback execution was not attempted"
+                        .to_string(),
+                )
+            })
+        }
+        _ => Err(ShardLoomError::InvalidOperation(format!(
+            "decoded reference does not support sequence base {} and multiplier {}; fallback execution was not attempted",
+            stat_value_kind(base),
+            stat_value_kind(multiplier)
+        ))),
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn compare_stat_values(left: &StatValue, right: &StatValue) -> Option<i8> {
+    Some(match (left, right) {
+        (StatValue::Boolean(left), StatValue::Boolean(right)) => match left.cmp(right) {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        },
+        (StatValue::Int64(left), StatValue::Int64(right)) => match left.cmp(right) {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        },
+        (StatValue::UInt64(left), StatValue::UInt64(right)) => match left.cmp(right) {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        },
+        (StatValue::Float64(left), StatValue::Float64(right)) => match left.partial_cmp(right)? {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        },
+        (StatValue::Utf8(left), StatValue::Utf8(right)) => match left.cmp(right) {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Equal => 0,
+            std::cmp::Ordering::Greater => 1,
+        },
+        _ => return None,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn stat_value_kind(value: &StatValue) -> &'static str {
+    match value {
+        StatValue::Boolean(_) => "boolean",
+        StatValue::Int64(_) => "int64",
+        StatValue::UInt64(_) => "uint64",
+        StatValue::Float64(_) => "float64",
+        StatValue::Utf8(_) => "utf8",
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn compressed_kernel_pair_digest(parts: &[String]) -> String {
+    let mut digest = Fnv1a64::new();
+    digest.update(b"compressed_kernel_pair_correctness_v1");
+    for part in parts {
+        digest.update(part.as_bytes());
+        digest.update(b"\0");
+    }
+    format!(
+        "{}:{:016x}",
+        OUTPUT_ARTIFACT_DIGEST_ALGORITHM,
+        digest.finish()
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn combine_compressed_kernel_pair_evidence(
+    rows: Vec<TraditionalCompressedKernelPairExecutionEvidence>,
+) -> Vec<TraditionalCompressedKernelPairExecutionEvidence> {
+    let mut by_pair = std::collections::BTreeMap::<
+        String,
+        TraditionalCompressedKernelPairExecutionEvidence,
+    >::new();
+    for row in rows {
+        by_pair
+            .entry(row.pair_id.clone())
+            .and_modify(|existing| {
+                existing.input_rows = existing.input_rows.saturating_add(row.input_rows);
+                existing.selected_rows = match (existing.selected_rows, row.selected_rows) {
+                    (Some(left), Some(right)) => left.checked_add(right),
+                    _ => None,
+                };
+                existing.decoded_reference_compared &= row.decoded_reference_compared;
+                existing.correctness_digest = compressed_kernel_pair_digest(&[
+                    existing.pair_id.clone(),
+                    existing.status.clone(),
+                    existing.input_rows.to_string(),
+                    existing
+                        .selected_rows
+                        .map_or_else(|| "none".to_string(), |count| count.to_string()),
+                    existing.correctness_digest.clone(),
+                    row.correctness_digest.clone(),
+                ]);
+            })
+            .or_insert(row);
+    }
+    by_pair.into_values().collect()
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Default)]
+struct TraditionalDictionaryGroupByPairAccumulator {
+    input_rows: u64,
+    encoded_counts: std::collections::BTreeMap<String, u64>,
+    decoded_counts: std::collections::BTreeMap<String, u64>,
+    observed_dictionary_input: bool,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+impl TraditionalDictionaryGroupByPairAccumulator {
+    fn new() -> Self {
+        Self {
+            input_rows: 0,
+            encoded_counts: std::collections::BTreeMap::new(),
+            decoded_counts: std::collections::BTreeMap::new(),
+            observed_dictionary_input: false,
+        }
+    }
+
+    fn observe(
+        &mut self,
+        inputs: &[VortexReaderGeneratedEncodedKernelInput],
+        decoded_group_keys: &[u32],
+    ) -> Result<()> {
+        for input in inputs
+            .iter()
+            .filter(|input| input.batch.segment.column.as_str() == "group_key")
+        {
+            let EncodedValueBatch::Dictionary { dictionary, codes } = &input.batch.values else {
+                continue;
+            };
+            if codes.len() != decoded_group_keys.len() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "dictionary group-by kernel input row count {} did not match decoded reference row count {}; fallback execution was not attempted",
+                    codes.len(),
+                    decoded_group_keys.len()
+                )));
+            }
+            self.observed_dictionary_input = true;
+            self.input_rows =
+                checked_u64_sum(self.input_rows, usize_to_u64(decoded_group_keys.len())?)?;
+            for code in codes {
+                let value = match code {
+                    Some(code) => {
+                        let code = usize::try_from(*code).map_err(|error| {
+                            ShardLoomError::InvalidOperation(format!(
+                                "dictionary group-by code {code} did not fit usize: {error}; fallback execution was not attempted"
+                            ))
+                        })?;
+                        dictionary.get(code).ok_or_else(|| {
+                            ShardLoomError::InvalidOperation(format!(
+                                "dictionary group-by code {code} was outside dictionary values; fallback execution was not attempted"
+                            ))
+                        })?
+                    }
+                    None => &None,
+                };
+                increment_count(
+                    &mut self.encoded_counts,
+                    stat_value_evidence_key(value.as_ref()),
+                );
+            }
+            for group_key in decoded_group_keys {
+                increment_count(
+                    &mut self.decoded_counts,
+                    stat_value_evidence_key(Some(&StatValue::UInt64(u64::from(*group_key)))),
+                );
+            }
+        }
+        Ok(())
+    }
+
+    fn finish(self) -> Result<Vec<TraditionalCompressedKernelPairExecutionEvidence>> {
+        if !self.observed_dictionary_input {
+            return Ok(Vec::new());
+        }
+        if self.encoded_counts != self.decoded_counts {
+            return Err(ShardLoomError::InvalidOperation(
+                "dictionary group-by encoded counts did not match decoded reference counts; fallback execution was not attempted"
+                    .to_string(),
+            ));
+        }
+        let count_summary = count_map_summary(&self.encoded_counts);
+        let correctness_digest = compressed_kernel_pair_digest(&[
+            "dictionary_equality_group_by".to_string(),
+            "executed_dictionary_equality_group_by_input".to_string(),
+            self.input_rows.to_string(),
+            count_summary,
+        ]);
+        Ok(vec![TraditionalCompressedKernelPairExecutionEvidence {
+            pair_id: "dictionary_equality_group_by".to_string(),
+            status: "executed_dictionary_equality_group_by_input".to_string(),
+            input_rows: self.input_rows,
+            selected_rows: None,
+            decoded_reference_compared: true,
+            correctness_digest,
+        }])
+    }
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn increment_count(counts: &mut std::collections::BTreeMap<String, u64>, key: String) {
+    counts
+        .entry(key)
+        .and_modify(|count| *count = count.saturating_add(1))
+        .or_insert(1);
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn count_map_summary(counts: &std::collections::BTreeMap<String, u64>) -> String {
+    counts
+        .iter()
+        .map(|(key, count)| format!("{key}:{count}"))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn stat_value_evidence_key(value: Option<&StatValue>) -> String {
+    match value {
+        Some(StatValue::Boolean(value)) => format!("bool:{value}"),
+        Some(StatValue::Int64(value)) => format!("int64:{value}"),
+        Some(StatValue::UInt64(value)) => format!("uint64:{value}"),
+        Some(StatValue::Float64(value)) => format!("float64:{value:?}"),
+        Some(StatValue::Utf8(value)) => format!("utf8:{value}"),
+        None => "null".to_string(),
+    }
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -17839,6 +18511,25 @@ fn scan_fact_vortex_projected(
         usize,
     ) -> Result<()>,
 ) -> Result<TraditionalStreamingScanStats> {
+    scan_fact_vortex_projected_with_encoded_inputs(
+        path,
+        projected_columns,
+        filter,
+        |fields, chunk_rows, _encoded_inputs| process(fields, chunk_rows),
+    )
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn scan_fact_vortex_projected_with_encoded_inputs(
+    path: &std::path::Path,
+    projected_columns: &[&'static str],
+    filter: Option<vortex::array::expr::Expression>,
+    mut process: impl FnMut(
+        &std::collections::BTreeMap<String, vortex::array::ArrayRef>,
+        usize,
+        &[VortexReaderGeneratedEncodedKernelInput],
+    ) -> Result<()>,
+) -> Result<TraditionalStreamingScanStats> {
     use vortex::VortexSessionDefault as _;
     use vortex::array::expr::{root, select};
     use vortex::file::OpenOptionsSessionExt as _;
@@ -17862,6 +18553,7 @@ fn scan_fact_vortex_projected(
     if projection_pushdown_applied {
         scan = scan.with_projection(select(projected_columns.to_vec(), root()));
     }
+    let source_uri = DatasetUri::new(path.display().to_string())?;
     let mut result_row_count = 0_u64;
     let mut arrays_read_count = 0_usize;
     let mut max_chunk_rows = 0_usize;
@@ -17871,13 +18563,19 @@ fn scan_fact_vortex_projected(
     for chunk in scan.into_array_iter(&runtime).map_err(vortex_error)? {
         let chunk = chunk.map_err(vortex_error)?;
         let chunk_rows = chunk.len();
+        let split_ref = format!("vortex-local-scan-chunk-{arrays_read_count}");
+        let encoded_kernel_inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            &split_ref,
+            &chunk,
+        )?;
         let fields = projected_fields_from_chunk(chunk, projected_columns)?;
         for (column, array) in &fields {
             reader_chunk_columns_observed.insert(column.clone());
             reader_chunk_dtype_summary.insert(format!("{column}:{:?}", array.dtype()));
             reader_chunk_encoding_summary.insert(format!("{column}:{}", array.encoding_id()));
         }
-        process(&fields, chunk_rows)?;
+        process(&fields, chunk_rows, &encoded_kernel_inputs)?;
         result_row_count = checked_u64_sum(result_row_count, usize_to_u64(chunk_rows)?)?;
         arrays_read_count += 1;
         max_chunk_rows = max_chunk_rows.max(chunk_rows);
@@ -19146,6 +19844,47 @@ mod tests {
         std::fs::write(&fact_csv, fact).unwrap();
         std::fs::write(&dim_csv, dim).unwrap();
         (fact_csv, dim_csv)
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn write_dictionary_group_by_vortex_inputs(root: &std::path::Path) -> (PathBuf, PathBuf) {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{PrimitiveArray, StructArray};
+        use vortex::array::dtype::FieldNames;
+        use vortex::array::validity::Validity;
+
+        std::fs::create_dir_all(root).unwrap();
+        let fact_vortex = root.join("fact-dictionary-group.vortex");
+        let dim_vortex = root.join("dim.vortex");
+        let row_count = 8_192_usize;
+        let dictionary_values = [0_u32, 123_400, 617_000, 1_234_000, 12_340_000, 37_020_000];
+        let group_key = (0..row_count)
+            .map(|index| dictionary_values[index % dictionary_values.len()])
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let metric = (0..row_count)
+            .map(|_| 1.0_f64)
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let fact = StructArray::try_new(
+            FieldNames::from(["group_key", "metric"]),
+            vec![group_key, metric],
+            row_count,
+            Validity::NonNullable,
+        )
+        .expect("dictionary group fact struct")
+        .into_array();
+        write_vortex_array(&fact_vortex, &fact).expect("fact vortex");
+        write_dim_vortex(
+            &[TraditionalDimRow {
+                dim_key: 1,
+                dim_label: "one".to_string(),
+                weight: 1.0,
+            }],
+            &dim_vortex,
+        )
+        .expect("dim vortex");
+        (fact_vortex, dim_vortex)
     }
 
     #[test]
@@ -22975,7 +23714,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_encoding_ids",
-            "fastlanes.bitpacked|vortex.sequence|vortex.dictionary|vortex.constant|vortex.sorted_statistics|fsst_or_dictionary_string",
+            "fastlanes.bitpacked|vortex.sequence|vortex.dict|vortex.constant|vortex.sorted_statistics|fsst_or_dictionary_string",
         );
         assert_field_eq(
             &fields,
@@ -22991,6 +23730,26 @@ mod tests {
             &fields,
             "compressed_kernel_registry_selection_vector_emitted",
             "true|true|false|false|false|false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_input_rows",
+            "512|512|0|0|0|0",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_decoded_reference_compared",
+            "true|true|false|false|false|false",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_correctness_digest_status",
+            "decoded_reference_match",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_correctness_digests",
+            "fnv1a64:",
         );
         assert_field_eq(
             &fields,
@@ -23202,17 +23961,140 @@ mod tests {
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_admitted_pair_count",
-            "0",
+            "2",
         );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_executed_pair_count",
-            "0",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_kernel_admitted",
+            "false|true|false|true|false|false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_kernel_executed",
+            "false|true|false|true|false|false",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_pair_statuses",
+            "executed_constant_array_count_filter_input",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_input_rows",
+            "0|512|0|512|0|0",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_decoded_reference_compared",
+            "false|true|false|true|false|false",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_correctness_digest_status",
+            "decoded_reference_match",
         );
         assert_field_eq(
             &fields,
             "compressed_kernel_registry_encoded_native_claim_allowed",
             "false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_fallback_attempted",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_external_engine_invoked",
+            "false",
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    #[test]
+    fn dictionary_group_by_pair_executes_from_prepared_vortex_reader_chunk() {
+        let root = traditional_analytics_test_root("dictionary-group-kernel-pair");
+        let (fact_vortex, dim_vortex) = write_dictionary_group_by_vortex_inputs(&root);
+
+        let report = run_traditional_analytics_vortex_benchmark(
+            TraditionalAnalyticsVortexRequest::new(
+                TraditionalAnalyticsScenario::GroupByAggregation,
+                fact_vortex,
+                dim_vortex,
+            )
+            .with_requested_execution_mode(ShardLoomExecutionMode::PreparedVortex),
+        )
+        .unwrap();
+
+        assert_eq!(
+            report.result_json,
+            "[{\"group_key\":0,\"row_count\":1366,\"metric_sum\":1366.0},{\"group_key\":123400,\"row_count\":1366,\"metric_sum\":1366.0},{\"group_key\":617000,\"row_count\":1365,\"metric_sum\":1365.0},{\"group_key\":1234000,\"row_count\":1365,\"metric_sum\":1365.0},{\"group_key\":12340000,\"row_count\":1365,\"metric_sum\":1365.0},{\"group_key\":37020000,\"row_count\":1365,\"metric_sum\":1365.0}]"
+        );
+        assert!(
+            report
+                .streaming_reader_chunk_encoding_summary
+                .iter()
+                .any(|summary| summary == "group_key:vortex.dict"),
+            "{:?}",
+            report.streaming_reader_chunk_encoding_summary
+        );
+        let fields = field_map(report.fields());
+        assert_field_contains(
+            &fields,
+            "encoded_predicate_provider_reader_chunk_encoding_summary",
+            "group_key:vortex.dict",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_pair_statuses",
+            "executed_dictionary_equality_group_by_input",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_kernel_admitted",
+            "false|false|true|false|false|false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_kernel_executed",
+            "false|false|true|false|false|false",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_input_rows",
+            "0|0|8192|0|0|0",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_decoded_reference_compared",
+            "false|false|true|false|false|false",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_correctness_digest_status",
+            "decoded_reference_match",
+        );
+        assert_field_contains(
+            &fields,
+            "compressed_kernel_registry_correctness_digests",
+            "fnv1a64:",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_admitted_pair_count",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "compressed_kernel_registry_executed_pair_count",
+            "1",
         );
         assert_field_eq(
             &fields,
