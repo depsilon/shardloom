@@ -22,8 +22,9 @@ native_vortex
 direct_compatibility_transient
 ```
 
-`direct_compatibility_transient` remains unsupported until a ShardLoom-native direct transient
-executor and direct-mode evidence exist. It must not satisfy Vortex-native claim gates.
+`direct_compatibility_transient` is supported only for scoped local adapter smoke paths with
+ShardLoom-native direct-mode evidence. It must not satisfy Vortex-native claim gates, broad
+SQL/DataFrame claims, object-store/table claims, or performance claims.
 
 ## Shared Selection Report Fields
 
