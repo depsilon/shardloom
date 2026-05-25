@@ -49,6 +49,7 @@ RUNTIME_FALLBACK_ALIAS_FIELDS = (
     "evidence_level_fallback_attempted",
     "prepared_native_vortex_lifecycle_fallback_attempted",
     "prepare_batch_lifecycle_fallback_attempted",
+    "pulseweave_fallback_attempted",
 )
 RUNTIME_EXTERNAL_ENGINE_ALIAS_FIELDS = (
     "external_engine_invoked",
@@ -56,6 +57,7 @@ RUNTIME_EXTERNAL_ENGINE_ALIAS_FIELDS = (
     "evidence_level_external_engine_invoked",
     "prepared_native_vortex_lifecycle_external_engine_invoked",
     "prepare_batch_lifecycle_external_engine_invoked",
+    "pulseweave_external_engine_invoked",
 )
 REQUIRED_OUTPUT_ENVELOPE_FIELDS = frozenset(
     {
@@ -87,6 +89,7 @@ RUNTIME_ENVELOPE_FIELD_ALIASES: Mapping[str, tuple[str, ...]] = {
         "runtime_fallback_execution_attempted",
         "prepared_native_vortex_lifecycle_fallback_attempted",
         "prepare_batch_lifecycle_fallback_attempted",
+        "pulseweave_fallback_attempted",
     ),
     "external_engine_invoked": (
         "runtime_external_engine_invoked",
@@ -94,6 +97,7 @@ RUNTIME_ENVELOPE_FIELD_ALIASES: Mapping[str, tuple[str, ...]] = {
         "external_query_engine_invoked",
         "prepared_native_vortex_lifecycle_external_engine_invoked",
         "prepare_batch_lifecycle_external_engine_invoked",
+        "pulseweave_external_engine_invoked",
     ),
     "claim_gate_status": (
         "runtime_claim_gate_status",
@@ -195,6 +199,97 @@ PREPARED_VORTEX_SPLIT_OPERATOR_BOOLEAN_FIELDS = (
     "prepared_vortex_scale_split_operator_global_merge_used",
     "prepared_vortex_scale_split_operator_fallback_attempted",
     "prepared_vortex_scale_split_operator_external_engine_invoked",
+)
+PULSEWEAVE_REQUIRED_FIELDS = (
+    "pulseweave_schema_version",
+    "pulseweave_status",
+    "pulseweave_application_scope",
+    "pulseweave_runtime_decision_applied",
+    "pulseweave_policy_mutated",
+    "pulseweave_decision_digest",
+    "pulseweave_blocker",
+    "pulseweave_claim_gate_status",
+    "pulseweave_fallback_attempted",
+    "pulseweave_external_engine_invoked",
+    "native_io_certificate_status",
+    "flow_inventory_schema_version",
+    "flow_inventory_wip_limit",
+    "flow_inventory_peak_in_flight",
+    "flow_inventory_ready_task_count",
+    "flow_inventory_held_for_memory_count",
+    "flow_inventory_held_for_downstream_count",
+    "flow_inventory_completed_task_count",
+    "flow_inventory_failed_task_count",
+    "flow_inventory_backpressure_event_count",
+    "flow_inventory_existing_scheduler_preserved",
+    "scarcity_ledger_schema_version",
+    "scarcity_ledger_memory_price_bps",
+    "scarcity_ledger_queue_price_bps",
+    "scarcity_ledger_decode_price_bps",
+    "scarcity_ledger_sink_price_bps",
+    "scarcity_ledger_spill_price_bps",
+    "scarcity_ledger_total_price_bps",
+    "scarcity_ledger_selected_action",
+    "scarcity_ledger_decision_reason",
+    "scarcity_ledger_decision_digest",
+    "endopulse_schema_version",
+    "endopulse_signal_set",
+    "endopulse_previous_target_task_bytes",
+    "endopulse_next_target_task_bytes",
+    "endopulse_previous_wip_limit",
+    "endopulse_next_wip_limit",
+    "endopulse_adjustment_applied",
+    "endopulse_hysteresis_state",
+    "endopulse_persistent_state_used",
+    "proofbound_schema_version",
+    "proofbound_pre_application_status",
+    "proofbound_post_application_status",
+    "proofbound_required_evidence",
+    "proofbound_missing_evidence",
+    "proofbound_certificate_status",
+    "proofbound_no_fallback_status",
+    "proofbound_claim_allowed",
+)
+PULSEWEAVE_BOOLEAN_FIELDS = (
+    "pulseweave_runtime_decision_applied",
+    "pulseweave_policy_mutated",
+    "pulseweave_fallback_attempted",
+    "pulseweave_external_engine_invoked",
+    "flow_inventory_existing_scheduler_preserved",
+    "endopulse_adjustment_applied",
+    "endopulse_persistent_state_used",
+    "proofbound_claim_allowed",
+)
+PULSEWEAVE_INTEGER_FIELDS = (
+    "flow_inventory_wip_limit",
+    "flow_inventory_peak_in_flight",
+    "flow_inventory_ready_task_count",
+    "flow_inventory_held_for_memory_count",
+    "flow_inventory_held_for_downstream_count",
+    "flow_inventory_completed_task_count",
+    "flow_inventory_failed_task_count",
+    "flow_inventory_backpressure_event_count",
+    "scarcity_ledger_memory_price_bps",
+    "scarcity_ledger_queue_price_bps",
+    "scarcity_ledger_decode_price_bps",
+    "scarcity_ledger_sink_price_bps",
+    "scarcity_ledger_spill_price_bps",
+    "scarcity_ledger_total_price_bps",
+    "endopulse_previous_target_task_bytes",
+    "endopulse_next_target_task_bytes",
+    "endopulse_previous_wip_limit",
+    "endopulse_next_wip_limit",
+)
+PULSEWEAVE_CORRECTNESS_OUTPUT_FIELDS = (
+    "prepared_vortex_scale_correctness_digest",
+    "prepared_vortex_scale_split_operator_correctness_digest",
+    "computed_result_vortex_digest",
+    "output_plan_digest",
+    "sink_artifact_digest",
+)
+PULSEWEAVE_NONE_LITERAL_FIELDS = (
+    "pulseweave_blocker",
+    "proofbound_missing_evidence",
 )
 
 
@@ -815,6 +910,9 @@ def validate_runtime_execution_envelope(
     ):
         _validate_prepared_vortex_split_operator_runtime(envelope, issues)
 
+    if _field_present(envelope, "pulseweave_status"):
+        _validate_pulseweave_runtime(envelope, issues)
+
     if runtime_expected and envelope.status == "success":
         _require_any_field(
             envelope,
@@ -1095,6 +1193,116 @@ def _validate_prepared_vortex_split_operator_runtime(
             issues,
             "prepared_vortex_scale_split_operator_external_engine_invoked",
             "certified prepared Vortex split-operator runtime cannot invoke an external engine",
+        )
+
+
+def _validate_pulseweave_runtime(
+    envelope: OutputEnvelope,
+    issues: list[RuntimeEnvelopeValidationIssue],
+) -> None:
+    for field in PULSEWEAVE_REQUIRED_FIELDS:
+        present = (
+            _runtime_field(envelope, field) is not None
+            if field in PULSEWEAVE_NONE_LITERAL_FIELDS
+            else _field_present(envelope, field)
+        )
+        if not present:
+            issues.append(
+                RuntimeEnvelopeValidationIssue(
+                    code="missing_required_field",
+                    field=field,
+                    message=f"PulseWeave runtime evidence is missing {field}",
+                )
+            )
+    for field in PULSEWEAVE_BOOLEAN_FIELDS:
+        if _field_present(envelope, field) and _safe_field_bool(envelope, field) is None:
+            _add_invalid_issue(
+                issues,
+                field,
+                f"PulseWeave runtime field {field} must be true or false",
+            )
+    for field in PULSEWEAVE_INTEGER_FIELDS:
+        value = envelope.field(field)
+        if value is None or not _field_present(envelope, field):
+            continue
+        try:
+            parsed = int(value)
+        except ValueError:
+            _add_invalid_issue(
+                issues,
+                field,
+                f"PulseWeave runtime field {field} must be an integer",
+            )
+            continue
+        if parsed < 0:
+            _add_invalid_issue(
+                issues,
+                field,
+                f"PulseWeave runtime field {field} must be non-negative",
+            )
+
+    if _safe_field_bool(envelope, "pulseweave_fallback_attempted") is True:
+        _add_invalid_issue(
+            issues,
+            "pulseweave_fallback_attempted",
+            "PulseWeave runtime cannot attempt fallback execution",
+        )
+    if _safe_field_bool(envelope, "pulseweave_external_engine_invoked") is True:
+        _add_invalid_issue(
+            issues,
+            "pulseweave_external_engine_invoked",
+            "PulseWeave runtime cannot invoke an external engine",
+        )
+    if _safe_field_bool(envelope, "endopulse_persistent_state_used") is True:
+        _add_invalid_issue(
+            issues,
+            "endopulse_persistent_state_used",
+            "PulseWeave first-slice EndoPulse evidence cannot use persistent state",
+        )
+
+    applied = _safe_field_bool(envelope, "pulseweave_runtime_decision_applied")
+    if applied is True:
+        expected_values = {
+            "pulseweave_status": "applied",
+            "pulseweave_blocker": "none",
+            "pulseweave_claim_gate_status": "pulseweave_runtime_certified",
+            "proofbound_pre_application_status": "admitted",
+            "proofbound_post_application_status": "certified",
+            "proofbound_certificate_status": "certified",
+            "proofbound_no_fallback_status": "verified",
+            "native_io_certificate_status": "certified",
+        }
+        for field, expected in expected_values.items():
+            value = envelope.field(field)
+            if value is not None and value != expected:
+                _add_invalid_issue(
+                    issues,
+                    field,
+                    f"PulseWeave applied runtime requires {field}={expected}",
+                )
+        if _safe_field_bool(envelope, "proofbound_claim_allowed") is not True:
+            _add_invalid_issue(
+                issues,
+                "proofbound_claim_allowed",
+                "PulseWeave applied runtime requires proofbound_claim_allowed=true",
+            )
+        if not _execution_certificate_status_certified(envelope):
+            _add_invalid_issue(
+                issues,
+                "execution_certificate_status",
+                "PulseWeave applied runtime requires a certified execution certificate",
+            )
+        _require_any_field(
+            envelope,
+            issues,
+            field_group="pulseweave_correctness_output_digest",
+            fields=PULSEWEAVE_CORRECTNESS_OUTPUT_FIELDS,
+        )
+    elif applied is False and envelope.field("pulseweave_status") == "applied":
+        _add_invalid_issue(
+            issues,
+            "pulseweave_status",
+            "PulseWeave status cannot be applied when runtime_decision_applied=false",
         )
 
 

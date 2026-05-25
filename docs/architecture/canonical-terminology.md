@@ -319,10 +319,12 @@ candidates.
   policy before feedback loops mutate execution policy. Automatic work-shaping fields are
   deterministic plan-only recommendations for repeated independent shard tasks; they do not apply
   policy mutations or authorize runtime/performance claims.
-- **PulseWeave Runtime**: proposed certificate-gated automatic prepared/local runtime-control layer
+- **PulseWeave Runtime**: certificate-gated automatic prepared/local runtime-control layer
   combining bounded work-in-progress, deterministic resource-scarcity accounting, local slow
   feedback, and evidence-gated application under `auto` without new required user inputs, AI,
-  persistent tuning state, or fallback execution.
+  persistent tuning state, or fallback execution. The first implemented slice is scoped to
+  prepared/native local batch routes and emits `pulseweave_*`, `flow_inventory_*`,
+  `scarcity_ledger_*`, `endopulse_*`, and `proofbound_*` evidence in the existing route.
 - **FlowInventory Scheduler**: PulseWeave subcomponent that applies Kanban-style bounded
   work-in-progress control to admitted prepared/local task batches.
 - **ScarcityLedger Allocator**: PulseWeave subcomponent that records deterministic resource-price

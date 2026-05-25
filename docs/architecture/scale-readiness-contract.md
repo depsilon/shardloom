@@ -104,12 +104,17 @@ object-store execution, table execution, or performance evidence.
 
 Prepared/native Vortex batch rows additionally expose
 `prepared_vortex_scale_split_manifest_*`, `prepared_vortex_scale_split_runtime_*`, and
-`prepare_batch_scale_*` rollups. Those fields are emitted inside
+`prepare_batch_scale_*` rollups. `GAR-RUNTIME-IMPL-5R` also attaches PulseWeave runtime-control
+evidence to the same route through `pulseweave_*`, `flow_inventory_*`, `scarcity_ledger_*`,
+`endopulse_*`, `proofbound_*`, and `prepare_batch_scale_pulseweave_*` fields. Those fields are
+emitted inside
 `traditional-analytics-prepare-batch-run` from real prepared Vortex file bytes and reader chunks,
 must report `prepared_vortex_scale_no_standalone_lane=true`, and now certify a bounded local
-reader-chunk scheduler with `prepared_vortex_scale_split_runtime_status` and
-`prepared_vortex_scale_split_execution_certificate_status`. They do not replace the claim-gated
-SplitManifest contract fields below or imply claim-grade split-parallel operator runtime,
+reader-chunk scheduler plus certificate-gated local task shaping with
+`prepared_vortex_scale_split_runtime_status`,
+`prepared_vortex_scale_split_execution_certificate_status`, and ProofBound-certified PulseWeave
+fields. They do not replace the claim-gated SplitManifest contract fields below or imply
+claim-grade split-parallel operator runtime,
 larger-than-memory runtime, object-store execution, distributed execution, or performance evidence.
 
 Prepared/native Vortex rows with admitted split-operator evidence also emit

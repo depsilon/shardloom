@@ -812,6 +812,85 @@ RUNTIME_EXECUTION_VALIDATION_EVIDENCE_FIELDS = (
     "prepared_vortex_scale_split_operator_execution_certificate_id",
     "prepared_vortex_scale_split_operator_execution_certificate_status",
 )
+PULSEWEAVE_RUNTIME_EVIDENCE_FIELDS = (
+    "pulseweave_schema_version",
+    "pulseweave_status",
+    "pulseweave_application_scope",
+    "pulseweave_runtime_decision_applied",
+    "pulseweave_policy_mutated",
+    "pulseweave_decision_digest",
+    "pulseweave_blocker",
+    "pulseweave_claim_gate_status",
+    "pulseweave_fallback_attempted",
+    "pulseweave_external_engine_invoked",
+    "flow_inventory_schema_version",
+    "flow_inventory_wip_limit",
+    "flow_inventory_peak_in_flight",
+    "flow_inventory_ready_task_count",
+    "flow_inventory_held_for_memory_count",
+    "flow_inventory_held_for_downstream_count",
+    "flow_inventory_completed_task_count",
+    "flow_inventory_failed_task_count",
+    "flow_inventory_backpressure_event_count",
+    "flow_inventory_existing_scheduler_preserved",
+    "scarcity_ledger_schema_version",
+    "scarcity_ledger_memory_price_bps",
+    "scarcity_ledger_queue_price_bps",
+    "scarcity_ledger_decode_price_bps",
+    "scarcity_ledger_sink_price_bps",
+    "scarcity_ledger_spill_price_bps",
+    "scarcity_ledger_total_price_bps",
+    "scarcity_ledger_selected_action",
+    "scarcity_ledger_decision_reason",
+    "scarcity_ledger_decision_digest",
+    "endopulse_schema_version",
+    "endopulse_signal_set",
+    "endopulse_previous_target_task_bytes",
+    "endopulse_next_target_task_bytes",
+    "endopulse_previous_wip_limit",
+    "endopulse_next_wip_limit",
+    "endopulse_adjustment_applied",
+    "endopulse_hysteresis_state",
+    "endopulse_persistent_state_used",
+    "proofbound_schema_version",
+    "proofbound_pre_application_status",
+    "proofbound_post_application_status",
+    "proofbound_required_evidence",
+    "proofbound_missing_evidence",
+    "proofbound_certificate_status",
+    "proofbound_no_fallback_status",
+    "proofbound_claim_allowed",
+)
+PULSEWEAVE_RUNTIME_BOOLEAN_FIELDS = (
+    "pulseweave_runtime_decision_applied",
+    "pulseweave_policy_mutated",
+    "pulseweave_fallback_attempted",
+    "pulseweave_external_engine_invoked",
+    "flow_inventory_existing_scheduler_preserved",
+    "endopulse_adjustment_applied",
+    "endopulse_persistent_state_used",
+    "proofbound_claim_allowed",
+)
+PULSEWEAVE_RUNTIME_INTEGER_FIELDS = (
+    "flow_inventory_wip_limit",
+    "flow_inventory_peak_in_flight",
+    "flow_inventory_ready_task_count",
+    "flow_inventory_held_for_memory_count",
+    "flow_inventory_held_for_downstream_count",
+    "flow_inventory_completed_task_count",
+    "flow_inventory_failed_task_count",
+    "flow_inventory_backpressure_event_count",
+    "scarcity_ledger_memory_price_bps",
+    "scarcity_ledger_queue_price_bps",
+    "scarcity_ledger_decode_price_bps",
+    "scarcity_ledger_sink_price_bps",
+    "scarcity_ledger_spill_price_bps",
+    "scarcity_ledger_total_price_bps",
+    "endopulse_previous_target_task_bytes",
+    "endopulse_next_target_task_bytes",
+    "endopulse_previous_wip_limit",
+    "endopulse_next_wip_limit",
+)
 OPTIMIZER_TRACE_SCHEMA_VERSION = "shardloom.evidence_aware_optimizer_trace.v1"
 OPTIMIZER_TRACE_FIELDS = (
     "optimizer_trace_schema_version",
@@ -3386,6 +3465,48 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "ShardLoom batch local split runtime certificate was not certified for "
                 + scenario
             )
+        for field, expected in (
+            ("pulseweave_status", "applied"),
+            ("pulseweave_runtime_decision_applied", "true"),
+            ("pulseweave_blocker", "none"),
+            ("pulseweave_claim_gate_status", "pulseweave_runtime_certified"),
+            ("pulseweave_fallback_attempted", "false"),
+            ("pulseweave_external_engine_invoked", "false"),
+            ("proofbound_pre_application_status", "admitted"),
+            ("proofbound_post_application_status", "certified"),
+            ("proofbound_certificate_status", "certified"),
+            ("proofbound_no_fallback_status", "verified"),
+            ("proofbound_claim_allowed", "true"),
+        ):
+            if fields.get(field) != expected:
+                raise RuntimeError(
+                    "ShardLoom batch PulseWeave evidence was not certified for "
+                    + scenario
+                    + ": "
+                    + field
+                    + "="
+                    + str(fields.get(field, "missing"))
+                )
+        for field in (
+            "flow_inventory_wip_limit",
+            "flow_inventory_peak_in_flight",
+            "scarcity_ledger_selected_action",
+            "endopulse_next_wip_limit",
+            "endopulse_persistent_state_used",
+            "pulseweave_decision_digest",
+        ):
+            if field not in fields:
+                raise RuntimeError(
+                    "ShardLoom batch PulseWeave evidence was missing for "
+                    + scenario
+                    + ": "
+                    + field
+                )
+        if fields.get("endopulse_persistent_state_used") != "false":
+            raise RuntimeError(
+                "ShardLoom batch PulseWeave used persistent EndoPulse state for "
+                + scenario
+            )
         if (
             fields.get("native_io_certificate_path_id")
             != "native_vortex_source_to_native_runtime_result"
@@ -3546,6 +3667,31 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 "prepare_batch_scale_claim_gate_status": batch_fields.get(
                     "prepare_batch_scale_claim_gate_status", "unknown"
                 ),
+                "prepare_batch_scale_pulseweave_status": batch_fields.get(
+                    "prepare_batch_scale_pulseweave_status", "unknown"
+                ),
+                "prepare_batch_scale_pulseweave_applied_count": batch_fields.get(
+                    "prepare_batch_scale_pulseweave_applied_count", "unknown"
+                ),
+                "prepare_batch_scale_pulseweave_policy_mutated_count": batch_fields.get(
+                    "prepare_batch_scale_pulseweave_policy_mutated_count", "unknown"
+                ),
+                "prepare_batch_scale_pulseweave_decision_digests": batch_fields.get(
+                    "prepare_batch_scale_pulseweave_decision_digests", "unknown"
+                ),
+                "prepare_batch_scale_flow_inventory_min_wip_limit": batch_fields.get(
+                    "prepare_batch_scale_flow_inventory_min_wip_limit", "unknown"
+                ),
+                "prepare_batch_scale_scarcity_ledger_selected_actions": batch_fields.get(
+                    "prepare_batch_scale_scarcity_ledger_selected_actions", "unknown"
+                ),
+                "prepare_batch_scale_endopulse_adjustment_applied_count": batch_fields.get(
+                    "prepare_batch_scale_endopulse_adjustment_applied_count",
+                    "unknown",
+                ),
+                "prepare_batch_scale_proofbound_claim_allowed_count": batch_fields.get(
+                    "prepare_batch_scale_proofbound_claim_allowed_count", "unknown"
+                ),
                 "prepared_vortex_scale_schema_version": fields.get(
                     "prepared_vortex_scale_schema_version", "not_applicable"
                 ),
@@ -3655,6 +3801,37 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
                 ),
                 "prepared_vortex_scale_claim_gate_status": fields.get(
                     "prepared_vortex_scale_claim_gate_status", "unknown"
+                ),
+                "pulseweave_status": fields.get("pulseweave_status", "unknown"),
+                "pulseweave_runtime_decision_applied": fields.get(
+                    "pulseweave_runtime_decision_applied", "unknown"
+                ),
+                "pulseweave_policy_mutated": fields.get(
+                    "pulseweave_policy_mutated", "unknown"
+                ),
+                "pulseweave_decision_digest": fields.get(
+                    "pulseweave_decision_digest", "unknown"
+                ),
+                "pulseweave_claim_gate_status": fields.get(
+                    "pulseweave_claim_gate_status", "unknown"
+                ),
+                "flow_inventory_wip_limit": fields.get(
+                    "flow_inventory_wip_limit", "unknown"
+                ),
+                "flow_inventory_peak_in_flight": fields.get(
+                    "flow_inventory_peak_in_flight", "unknown"
+                ),
+                "scarcity_ledger_selected_action": fields.get(
+                    "scarcity_ledger_selected_action", "unknown"
+                ),
+                "endopulse_next_wip_limit": fields.get(
+                    "endopulse_next_wip_limit", "unknown"
+                ),
+                "proofbound_certificate_status": fields.get(
+                    "proofbound_certificate_status", "unknown"
+                ),
+                "proofbound_claim_allowed": fields.get(
+                    "proofbound_claim_allowed", "unknown"
                 ),
                 "source_metadata_snapshot_status": batch_fields.get(
                     "source_metadata_snapshot_status", "unknown"
@@ -4084,6 +4261,30 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         ):
             raise RuntimeError(
                 "ShardLoom prepare/batch split runtime certificate was not certified"
+            )
+        if fields.get("prepare_batch_scale_pulseweave_status") != "pulseweave_applied":
+            raise RuntimeError(
+                "ShardLoom prepare/batch PulseWeave did not apply inside the prepared route"
+            )
+        if parse_optional_int(
+            fields.get("prepare_batch_scale_pulseweave_applied_count")
+        ) != len(scenarios):
+            raise RuntimeError(
+                "ShardLoom prepare/batch PulseWeave did not apply to every child scenario"
+            )
+        if parse_optional_int(
+            fields.get("prepare_batch_scale_proofbound_claim_allowed_count")
+        ) != len(scenarios):
+            raise RuntimeError(
+                "ShardLoom prepare/batch ProofBound did not certify every child scenario"
+            )
+        if fields.get("prepare_batch_scale_pulseweave_decision_digests") in {
+            None,
+            "",
+            "unknown",
+        }:
+            raise RuntimeError(
+                "ShardLoom prepare/batch PulseWeave decision digests were missing"
             )
         if any(
             "local-scale-runtime" in key or "local-scale-runtime" in value
@@ -12726,6 +12927,14 @@ def successful_result_from_iterations(
                 "evidence_level_external_engine_invoked",
             ):
                 metrics.setdefault(field, parse_optional_bool(value))
+            else:
+                metrics.setdefault(field, value)
+        for field in PULSEWEAVE_RUNTIME_EVIDENCE_FIELDS:
+            value = evidence.get(field)
+            if field in PULSEWEAVE_RUNTIME_BOOLEAN_FIELDS:
+                metrics.setdefault(field, parse_optional_bool(value))
+            elif field in PULSEWEAVE_RUNTIME_INTEGER_FIELDS:
+                metrics.setdefault(field, parse_optional_int(value))
             else:
                 metrics.setdefault(field, value)
     for field in RUNTIME_EXECUTION_VALIDATION_EVIDENCE_FIELDS:

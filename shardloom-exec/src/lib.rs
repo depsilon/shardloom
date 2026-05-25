@@ -19,6 +19,7 @@ use shardloom_core::{
 use shardloom_plan::{Plan, PlanKind};
 
 pub mod memory;
+pub mod pulseweave;
 pub mod recovery;
 pub mod runtime;
 pub mod sizing;
@@ -1156,6 +1157,15 @@ pub use memory::{
     SpillFileRef, SpillFileStatus, SpillFormat, SpillPartition, SpillPlan, SpillPlanStatus,
     SpillPolicy, SpillReport, plan_memory_runtime_hardening_gate,
     plan_operator_memory_spill_declarations,
+};
+
+// PulseWeave automatic local runtime-control policy. This module is pure
+// policy/evidence code; provider crates decide whether an admitted route may
+// apply its batch plan.
+pub use pulseweave::{
+    EndoPulseDecision, FlowInventoryReport, ProofBoundAutoGate, PulseWeaveInput, PulseWeaveReport,
+    PulseWeaveTaskShape, ScarcityLedgerAction, ScarcityLedgerDecision, compute_scarcity_ledger,
+    evaluate_proofbound_auto_gate, plan_endopulse_adjustment, plan_flow_inventory, plan_pulseweave,
 };
 
 // Recovery, retry, cancellation, cleanup, and commit promotion contracts.

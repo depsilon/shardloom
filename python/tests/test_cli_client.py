@@ -98,6 +98,68 @@ _FAKE_CLI_ENVELOPE_PRELUDE = textwrap.dedent(
 )
 
 
+def _complete_pulseweave_runtime_fields() -> dict[str, object]:
+    return {
+        "prepared_state_id": "prepared-state://pulseweave",
+        "prepared_state_digest": "fnv1a64:prepared",
+        "data_decoded": False,
+        "runtime_execution_certificate_id": "execution.pulseweave",
+        "runtime_execution_certificate_status": "certified",
+        "native_io_certificate_status": "certified",
+        "fallback_attempted": False,
+        "external_engine_invoked": False,
+        "claim_gate_status": "not_claim_grade",
+        "prepared_vortex_scale_correctness_digest": "fnv1a64:correct",
+        "pulseweave_schema_version": "shardloom.pulseweave.runtime_control.v1",
+        "pulseweave_status": "applied",
+        "pulseweave_application_scope": "prepared_vortex_local_batch",
+        "pulseweave_runtime_decision_applied": True,
+        "pulseweave_policy_mutated": True,
+        "pulseweave_decision_digest": "fnv1a64:pulse",
+        "pulseweave_blocker": "none",
+        "pulseweave_claim_gate_status": "pulseweave_runtime_certified",
+        "pulseweave_fallback_attempted": False,
+        "pulseweave_external_engine_invoked": False,
+        "flow_inventory_schema_version": "shardloom.pulseweave.flow_inventory.v1",
+        "flow_inventory_wip_limit": 2,
+        "flow_inventory_peak_in_flight": 2,
+        "flow_inventory_ready_task_count": 5,
+        "flow_inventory_held_for_memory_count": 0,
+        "flow_inventory_held_for_downstream_count": 3,
+        "flow_inventory_completed_task_count": 5,
+        "flow_inventory_failed_task_count": 0,
+        "flow_inventory_backpressure_event_count": 1,
+        "flow_inventory_existing_scheduler_preserved": False,
+        "scarcity_ledger_schema_version": "shardloom.pulseweave.scarcity_ledger.v1",
+        "scarcity_ledger_memory_price_bps": 0,
+        "scarcity_ledger_queue_price_bps": 10000,
+        "scarcity_ledger_decode_price_bps": 0,
+        "scarcity_ledger_sink_price_bps": 2500,
+        "scarcity_ledger_spill_price_bps": 0,
+        "scarcity_ledger_total_price_bps": 10000,
+        "scarcity_ledger_selected_action": "hold_for_downstream",
+        "scarcity_ledger_decision_reason": "downstream result-sink pressure limits in-flight work",
+        "scarcity_ledger_decision_digest": "fnv1a64:ledger",
+        "endopulse_schema_version": "shardloom.pulseweave.endopulse.v1",
+        "endopulse_signal_set": "sink_pressure",
+        "endopulse_previous_target_task_bytes": 67108864,
+        "endopulse_next_target_task_bytes": 67108864,
+        "endopulse_previous_wip_limit": 2,
+        "endopulse_next_wip_limit": 1,
+        "endopulse_adjustment_applied": True,
+        "endopulse_hysteresis_state": "one_window_local_only",
+        "endopulse_persistent_state_used": False,
+        "proofbound_schema_version": "shardloom.pulseweave.proofbound.v1",
+        "proofbound_pre_application_status": "admitted",
+        "proofbound_post_application_status": "certified",
+        "proofbound_required_evidence": "prepared_local_route,memory_budget,max_parallelism,task_estimates,materialization_decode_boundary,correctness_digest,output_digest,execution_certificate,native_io_certificate,no_fallback",
+        "proofbound_missing_evidence": "none",
+        "proofbound_certificate_status": "certified",
+        "proofbound_no_fallback_status": "verified",
+        "proofbound_claim_allowed": True,
+    }
+
+
 class ShardLoomClientTests(unittest.TestCase):
     def fake_cli(self, body: str) -> list[str]:
         tempdir = tempfile.TemporaryDirectory()
@@ -1701,6 +1763,54 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertTrue(validation.passed)
         self.assertEqual(validation.missing_fields, ())
+
+    def test_runtime_execution_field_validation_blocks_incomplete_pulseweave_proof(
+        self,
+    ) -> None:
+        fields = _complete_pulseweave_runtime_fields()
+        del fields["flow_inventory_wip_limit"]
+
+        validation = validate_runtime_execution_fields(
+            fields,
+            command="traditional-analytics-benchmark-row",
+            surface_id="pulseweave_incomplete",
+            execution_mode="prepared_vortex",
+        )
+
+        self.assertFalse(validation.passed)
+        self.assertIn("flow_inventory_wip_limit", validation.missing_fields)
+
+    def test_runtime_execution_field_validation_blocks_pulseweave_without_certified_proof(
+        self,
+    ) -> None:
+        fields = _complete_pulseweave_runtime_fields()
+        fields["runtime_execution_certificate_status"] = "evidence_incomplete"
+        fields["proofbound_certificate_status"] = "evidence_incomplete"
+
+        validation = validate_runtime_execution_fields(
+            fields,
+            command="traditional-analytics-benchmark-row",
+            surface_id="pulseweave_missing_certificate",
+            execution_mode="prepared_vortex",
+        )
+
+        self.assertFalse(validation.passed)
+        self.assertIn("execution_certificate_status", validation.invalid_fields)
+        self.assertIn("proofbound_certificate_status", validation.invalid_fields)
+
+    def test_runtime_execution_field_validation_accepts_complete_pulseweave_proof(
+        self,
+    ) -> None:
+        validation = validate_runtime_execution_fields(
+            _complete_pulseweave_runtime_fields(),
+            command="traditional-analytics-benchmark-row",
+            surface_id="pulseweave_complete",
+            execution_mode="prepared_vortex",
+        )
+
+        self.assertTrue(validation.passed)
+        self.assertEqual(validation.missing_fields, ())
+        self.assertEqual(validation.invalid_fields, ())
 
     def test_sql_local_source_report_result_rows_validate_jsonl_objects(self) -> None:
         def report_for(result_jsonl: str) -> SqlLocalSourceSmokeReport:

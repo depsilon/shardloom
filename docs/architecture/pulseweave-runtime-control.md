@@ -1,10 +1,11 @@
 # PulseWeave Runtime Control
 
-Status: proposed runtime implementation reference for automatic prepared/local work shaping.
+Status: first prepared/local runtime implementation slice landed under `GAR-RUNTIME-IMPL-5R`;
+remaining broader scopes stay blocked by their owning runtime items.
 
 ## Summary
 
-PulseWeave is the proposed implementation name for a certificate-gated runtime control layer that
+PulseWeave is the implementation name for a certificate-gated runtime control layer that
 makes ShardLoom's existing `auto` behavior more useful without adding user knobs, AI, persistent
 learning, hidden maintenance state, or external-engine fallback.
 
@@ -28,6 +29,22 @@ result = (
 No new required argument should be introduced. Existing optional `memory_gb=` and
 `max_parallelism=` values remain explicit caps for jobs or benchmarks that need them; PulseWeave
 must operate inside those caps rather than requiring the user to understand the control loop.
+
+## Implementation Status
+
+`GAR-RUNTIME-IMPL-5R` adds the first applied slice:
+
+- provider-neutral policy in `shardloom-exec/src/pulseweave.rs`
+- prepared/native batch wiring in `shardloom-vortex/src/traditional_analytics.rs`
+- per-child `pulseweave_*`, `flow_inventory_*`, `scarcity_ledger_*`, `endopulse_*`, and
+  `proofbound_*` evidence on the real prepared Vortex processing route
+- `prepare_batch_scale_pulseweave_*` aggregate rollups on the existing prepare/batch envelope
+- Python runtime-envelope validation that blocks incomplete or uncertified PulseWeave claims
+- benchmark artifact promotion passthrough for future refreshed evidence
+
+The implementation remains scoped to local prepared/native batch routes over certified Vortex
+artifacts. Object-store runtime, live/hybrid runtime, distributed execution, effectful adapters,
+real query-data spill, production readiness, and performance claims remain non-goals here.
 
 ## Invention-Disclosure Names
 
@@ -278,7 +295,7 @@ Pre-application requirements:
 
 - route is prepared/local Vortex or native/local Vortex;
 - fallback is disabled by policy;
-- task estimates are present or the route has a deterministic fallback-to-existing-shape path;
+- task estimates are present or the route has a deterministic preserve-existing-shape path;
 - memory budget and max parallelism are known;
 - effectful external work is not involved;
 - real query-data spill is not required unless spill support has been separately admitted;
@@ -287,8 +304,8 @@ Pre-application requirements:
 Post-application requirements:
 
 - output correctness digest is unchanged from the admitted semantics;
-- runtime execution certificate is present when the row is claimable;
-- Native I/O certificate refs remain present where required;
+- runtime execution certificate is present and certified when the row is claimable;
+- Native I/O certificate status remains present and certified where required;
 - materialization/decode evidence remains explicit;
 - `fallback_attempted=false`;
 - `external_engine_invoked=false`;
@@ -298,7 +315,7 @@ If any precondition fails, the row should set:
 
 ```text
 pulseweave_runtime_decision_applied=false
-pulseweave_application_status=blocked
+pulseweave_status=blocked
 pulseweave_blocker=<stable blocker id>
 ```
 
@@ -320,6 +337,7 @@ pulseweave_blocker
 pulseweave_claim_gate_status
 pulseweave_fallback_attempted=false
 pulseweave_external_engine_invoked=false
+native_io_certificate_status=certified
 ```
 
 FlowInventory fields:
@@ -382,29 +400,27 @@ proofbound_claim_allowed
 Field values must be stable strings or integers suitable for benchmark artifacts, release gates,
 Python typed reports, website status rendering, and runtime envelope validation.
 
-## Suggested Rust API
+## Rust API
 
-The first implementation should add a provider-neutral module in `shardloom-exec`, for example:
+The first implementation adds a provider-neutral module in `shardloom-exec`:
 
 ```text
 shardloom-exec/src/pulseweave.rs
 ```
 
-Suggested types:
+Implemented types:
 
 ```rust
 pub struct PulseWeaveInput { ... }
 pub struct PulseWeaveTaskShape { ... }
-pub struct FlowInventoryPolicy { ... }
 pub struct FlowInventoryReport { ... }
 pub struct ScarcityLedgerDecision { ... }
-pub struct EndoPulseWindow { ... }
 pub struct EndoPulseDecision { ... }
 pub struct ProofBoundAutoGate { ... }
 pub struct PulseWeaveReport { ... }
 ```
 
-Suggested pure functions:
+Implemented pure functions:
 
 ```rust
 pub fn plan_flow_inventory(input: &PulseWeaveInput) -> Result<FlowInventoryReport>;
@@ -424,21 +440,21 @@ call external systems, write outputs, mutate global state, or invoke fallback en
 
 ## Prepared/Local Integration
 
-After the pure policy module lands, wire it into these prepared/local areas:
+The pure policy module is wired into these prepared/local areas:
 
 ```text
 shardloom-vortex/src/traditional_analytics.rs
 ```
 
-Initial integration points:
+Integration points:
 
 - `TraditionalPreparedVortexLocalSplitRuntimeEvidence::build`
 - `TraditionalPreparedVortexLocalScaleEvidence::build`
 - helper that builds `traditional_prepared_vortex_scale_tasks`
 - field emission for `prepared_vortex_scale_*` and `prepare_batch_scale_*` row prefixes
 
-The implementation should replace direct `tasks.chunks(max_parallelism)` scheduling with a helper
-that asks PulseWeave for a bounded local batch plan. When PulseWeave reports
+The implementation replaces direct `tasks.chunks(max_parallelism)` scheduling with a helper that
+asks PulseWeave for a bounded local batch plan. When PulseWeave reports
 `pulseweave_runtime_decision_applied=false`, that helper must preserve existing behavior and emit
 blocked/report-only evidence rather than changing runtime behavior silently.
 
@@ -531,7 +547,10 @@ Benchmark interpretation:
 
 ## Implementation Slices
 
-### Slice 1 - Policy And Evidence Contract
+Slices 1-4 are implemented by `GAR-RUNTIME-IMPL-5R` for the prepared/local batch route. They remain
+here as the design-to-code trace, not as a live unchecked queue.
+
+### Implemented Slice 1 - Policy And Evidence Contract
 
 Outcome:
 
@@ -555,7 +574,7 @@ $env:RUSTUP_TOOLCHAIN='1.91.1'; cargo test -p shardloom-contract-tests --test dy
 git diff --check
 ```
 
-### Slice 2 - Prepared/Local Evidence Wiring
+### Implemented Slice 2 - Prepared/Local Evidence Wiring
 
 Outcome:
 
@@ -580,7 +599,7 @@ python -m pytest python/tests/test_cli_client.py -k "traditional_analytics_prepa
 git diff --check
 ```
 
-### Slice 3 - Runtime Application For Local Prepared Batches
+### Implemented Slice 3 - Runtime Application For Local Prepared Batches
 
 Outcome:
 
@@ -606,7 +625,7 @@ python -m compileall -q python/src python/tests scripts examples
 git diff --check
 ```
 
-### Slice 4 - Python And Benchmark Ergonomics
+### Implemented Slice 4 - Python And Benchmark Ergonomics
 
 Outcome:
 
@@ -660,10 +679,14 @@ git diff --check
 
 PulseWeave must fail closed:
 
-- Missing memory budget: `pulseweave_application_status=blocked_missing_memory_budget`.
-- Missing task estimate: `pulseweave_application_status=blocked_missing_task_estimate`.
-- Unsupported spill requirement: `pulseweave_application_status=blocked_unsupported_spill`.
-- External effect present: `pulseweave_application_status=blocked_external_effect`.
+- Missing memory budget: `pulseweave_status=blocked`,
+  `proofbound_pre_application_status=blocked_missing_memory_budget`.
+- Missing task estimate: `pulseweave_status=blocked`,
+  `proofbound_pre_application_status=blocked_missing_task_estimate`.
+- Unsupported spill requirement: `pulseweave_status=blocked`,
+  `proofbound_pre_application_status=blocked_unsupported_spill`.
+- External effect present: `pulseweave_status=report_only_blocked`,
+  `proofbound_pre_application_status=blocked_fallback_policy`.
 - Fallback attempted or allowed: validation failure.
 - Missing certificate on claimable row: validation failure.
 

@@ -54,12 +54,12 @@ are advisory only: `automatic_work_shaping_applied=false`,
 `automatic_work_shaping_claim_allowed=false`, `policy_mutated=false`, and `tasks_executed=false`
 until a later runtime promotion gate admits policy mutation and certificate evidence.
 
-`docs/architecture/pulseweave-runtime-control.md` defines the planned runtime follow-through for
-that promotion gate. PulseWeave is scoped first to prepared/local Vortex batch routes and decomposes
-runtime application into FlowInventory bounded work-in-progress control, ScarcityLedger
-resource-scarcity accounting, EndoPulse run-local feedback, and ProofBound evidence gating. That
-reference does not authorize object-store, distributed, live/hybrid, real query-data spill, AI, or
-fallback execution.
+`docs/architecture/pulseweave-runtime-control.md` defines the first runtime follow-through for that
+promotion gate. `GAR-RUNTIME-IMPL-5R` scopes PulseWeave to prepared/local Vortex batch routes and
+decomposes runtime application into FlowInventory bounded work-in-progress control,
+ScarcityLedger resource-scarcity accounting, EndoPulse run-local feedback, and ProofBound evidence
+gating. That implementation does not authorize object-store, distributed, live/hybrid, real
+query-data spill, AI, or fallback execution.
 
 ## Runtime Boundary
 

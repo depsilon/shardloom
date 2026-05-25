@@ -4,6 +4,7 @@ use shardloom_core::{
     Diagnostic, ExecutionCertificate, NativeIoCertificate, Result, ShardLoomError,
     ShardLoomExecutionMode, ShardLoomExecutionModeSelectionReport,
 };
+use shardloom_exec::PulseWeaveReport;
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use crate::encoded_predicate_evaluation::{
@@ -30,9 +31,10 @@ use shardloom_core::{
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
 use shardloom_exec::{
     ByteSize, MemoryBudget, MemoryOwner, MemoryPoolPlan, MemoryReservationId, OperatorMemoryClass,
-    OperatorMemorySpillDeclaration, OperatorMemorySpillDeclarationReport,
-    ShardLoomCancellationExecutionGateReport, ShardLoomCancellationExecutionGateRequest,
-    ShardLoomRetryExecutionGateReport, ShardLoomRetryExecutionGateRequest, SpillPolicy, TaskId,
+    OperatorMemorySpillDeclaration, OperatorMemorySpillDeclarationReport, PulseWeaveInput,
+    PulseWeaveTaskShape, ShardLoomCancellationExecutionGateReport,
+    ShardLoomCancellationExecutionGateRequest, ShardLoomRetryExecutionGateReport,
+    ShardLoomRetryExecutionGateRequest, SpillPolicy, TaskId, plan_pulseweave,
 };
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -4629,6 +4631,94 @@ impl TraditionalAnalyticsPreparedBatchReport {
         } else {
             "input_read_only_result_sink_not_requested"
         };
+        let prepare_batch_scale_pulseweave_applied_count = self
+            .batch_report
+            .reports
+            .iter()
+            .filter(|report| {
+                report
+                    .local_scale_evidence
+                    .pulseweave_report
+                    .runtime_decision_applied
+            })
+            .count();
+        let prepare_batch_scale_pulseweave_policy_mutated_count = self
+            .batch_report
+            .reports
+            .iter()
+            .filter(|report| report.local_scale_evidence.pulseweave_report.policy_mutated)
+            .count();
+        let prepare_batch_scale_pulseweave_status =
+            match prepare_batch_scale_pulseweave_applied_count {
+                0 => "pulseweave_report_only_or_blocked",
+                count if count == self.batch_report.reports.len() => "pulseweave_applied",
+                _ => "pulseweave_partially_applied",
+            };
+        let prepare_batch_scale_pulseweave_decision_digests = self
+            .batch_report
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .local_scale_evidence
+                    .pulseweave_report
+                    .decision_digest
+                    .clone()
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let prepare_batch_scale_flow_inventory_min_wip_limit = self
+            .batch_report
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .local_scale_evidence
+                    .pulseweave_report
+                    .flow_inventory
+                    .wip_limit
+            })
+            .min()
+            .unwrap_or(0);
+        let prepare_batch_scale_scarcity_ledger_selected_actions = self
+            .batch_report
+            .reports
+            .iter()
+            .map(|report| {
+                report
+                    .local_scale_evidence
+                    .pulseweave_report
+                    .scarcity_ledger
+                    .selected_action
+                    .as_str()
+                    .to_string()
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let prepare_batch_scale_endopulse_adjustment_applied_count = self
+            .batch_report
+            .reports
+            .iter()
+            .filter(|report| {
+                report
+                    .local_scale_evidence
+                    .pulseweave_report
+                    .endopulse
+                    .adjustment_applied
+            })
+            .count();
+        let prepare_batch_scale_proofbound_claim_allowed_count = self
+            .batch_report
+            .reports
+            .iter()
+            .filter(|report| {
+                report
+                    .local_scale_evidence
+                    .pulseweave_report
+                    .proofbound
+                    .claim_allowed
+            })
+            .count();
         let prepare_batch_lifecycle_status = self.prepare_batch_lifecycle_status();
         let prepare_batch_lifecycle_output_status = self.prepare_batch_lifecycle_output_status();
         let prepare_batch_lifecycle_scan_status = self.prepare_batch_lifecycle_scan_status();
@@ -4901,6 +4991,38 @@ impl TraditionalAnalyticsPreparedBatchReport {
             (
                 "prepare_batch_scale_output_commit_status".to_string(),
                 prepare_batch_scale_output_commit_status.to_string(),
+            ),
+            (
+                "prepare_batch_scale_pulseweave_status".to_string(),
+                prepare_batch_scale_pulseweave_status.to_string(),
+            ),
+            (
+                "prepare_batch_scale_pulseweave_applied_count".to_string(),
+                prepare_batch_scale_pulseweave_applied_count.to_string(),
+            ),
+            (
+                "prepare_batch_scale_pulseweave_policy_mutated_count".to_string(),
+                prepare_batch_scale_pulseweave_policy_mutated_count.to_string(),
+            ),
+            (
+                "prepare_batch_scale_pulseweave_decision_digests".to_string(),
+                prepare_batch_scale_pulseweave_decision_digests,
+            ),
+            (
+                "prepare_batch_scale_flow_inventory_min_wip_limit".to_string(),
+                prepare_batch_scale_flow_inventory_min_wip_limit.to_string(),
+            ),
+            (
+                "prepare_batch_scale_scarcity_ledger_selected_actions".to_string(),
+                prepare_batch_scale_scarcity_ledger_selected_actions,
+            ),
+            (
+                "prepare_batch_scale_endopulse_adjustment_applied_count".to_string(),
+                prepare_batch_scale_endopulse_adjustment_applied_count.to_string(),
+            ),
+            (
+                "prepare_batch_scale_proofbound_claim_allowed_count".to_string(),
+                prepare_batch_scale_proofbound_claim_allowed_count.to_string(),
             ),
             (
                 "prepare_batch_scale_claim_gate_status".to_string(),
@@ -10802,6 +10924,7 @@ pub struct TraditionalPreparedVortexLocalScaleEvidence {
     pub reader_chunk_count: usize,
     pub split_runtime_evidence: TraditionalPreparedVortexLocalSplitRuntimeEvidence,
     pub split_operator_runtime_evidence: TraditionalPreparedVortexLocalSplitOperatorRuntimeEvidence,
+    pub pulseweave_report: PulseWeaveReport,
     pub byte_range_splitting_declared: bool,
     pub row_range_splitting_declared: bool,
     pub projection_mask: String,
@@ -10865,6 +10988,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
         cdc_delta_vortex: Option<&std::path::Path>,
         source_snapshot: &TraditionalVortexSourceSnapshot,
         scenario_execution: &TraditionalScenarioExecution,
+        native_io_certificate_status: &str,
         computed_result_sink: Option<&TraditionalComputedResultSinkVerification>,
     ) -> Result<Self> {
         let split_runtime_evidence = TraditionalPreparedVortexLocalSplitRuntimeEvidence::build(
@@ -10883,42 +11007,6 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
         )?;
         let max_parallelism = resource_policy.max_parallelism.max(1);
         let memory_budget = MemoryBudget::from_gib(u64::from(resource_policy.memory_gb))?;
-        let mut memory_pool = MemoryPoolPlan::new(memory_budget.clone());
-        let mut memory_reservations_requested = 0;
-        let mut memory_reservations_granted = 0;
-        let mut memory_reservations_released = 0;
-        let mut memory_reservations_denied = 0;
-        let mut peak_memory_bytes = 0;
-        for batch in tasks.chunks(max_parallelism) {
-            let mut granted_reservations = Vec::new();
-            for task in batch {
-                memory_reservations_requested += 1;
-                let reservation_id = MemoryReservationId::new(format!(
-                    "prepared-vortex-local-scale-{}",
-                    task.task_id.as_str()
-                ))?;
-                let owner = MemoryOwner::new(task.operator_class, task.label)?
-                    .with_task_id(task.task_id.clone());
-                let admission = memory_pool.admit_reservation(
-                    reservation_id.clone(),
-                    owner,
-                    ByteSize::from_bytes(task.estimated_memory_bytes),
-                )?;
-                peak_memory_bytes = peak_memory_bytes
-                    .max(admission.reserved_after.as_bytes())
-                    .max(admission.reserved_before.as_bytes());
-                if admission.granted_decision() {
-                    memory_reservations_granted += 1;
-                    granted_reservations.push(reservation_id);
-                } else {
-                    memory_reservations_denied += 1;
-                }
-            }
-            for reservation_id in granted_reservations {
-                memory_pool.release_reservation(&reservation_id)?;
-                memory_reservations_released += 1;
-            }
-        }
         let retry_gate = ShardLoomRetryExecutionGateReport::from_request(
             ShardLoomRetryExecutionGateRequest::new()
                 .retry_requested(true)
@@ -10995,6 +11083,71 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
             &scenario_execution.result_json,
             &scenario_execution.rows_materialized.to_string(),
         ]);
+        let preliminary_memory_evidence = prepared_vortex_memory_reservation_evidence(
+            &tasks,
+            memory_budget.clone(),
+            max_parallelism,
+        )?;
+        let preliminary_pulseweave_report = plan_prepared_vortex_pulseweave(
+            scenario,
+            resource_policy,
+            &tasks,
+            &source_state_digest,
+            &correctness_digest,
+            computed_result_sink.map_or(correctness_digest.as_str(), |sink| sink.digest.as_str()),
+            &split_runtime_evidence,
+            scenario_execution,
+            native_io_certificate_status,
+            computed_result_sink.is_some(),
+            &preliminary_memory_evidence,
+        )?;
+        let pulseweave_batch_window =
+            preliminary_pulseweave_report.batch_window_size(max_parallelism);
+        let mut memory_evidence = prepared_vortex_memory_reservation_evidence(
+            &tasks,
+            memory_budget.clone(),
+            pulseweave_batch_window,
+        )?;
+        let mut pulseweave_report = plan_prepared_vortex_pulseweave(
+            scenario,
+            resource_policy,
+            &tasks,
+            &source_state_digest,
+            &correctness_digest,
+            computed_result_sink.map_or(correctness_digest.as_str(), |sink| sink.digest.as_str()),
+            &split_runtime_evidence,
+            scenario_execution,
+            native_io_certificate_status,
+            computed_result_sink.is_some(),
+            &memory_evidence,
+        )?;
+        let final_pulseweave_batch_window = pulseweave_report.batch_window_size(max_parallelism);
+        if final_pulseweave_batch_window != pulseweave_batch_window {
+            memory_evidence = prepared_vortex_memory_reservation_evidence(
+                &tasks,
+                memory_budget.clone(),
+                final_pulseweave_batch_window,
+            )?;
+            pulseweave_report = plan_prepared_vortex_pulseweave(
+                scenario,
+                resource_policy,
+                &tasks,
+                &source_state_digest,
+                &correctness_digest,
+                computed_result_sink
+                    .map_or(correctness_digest.as_str(), |sink| sink.digest.as_str()),
+                &split_runtime_evidence,
+                scenario_execution,
+                native_io_certificate_status,
+                computed_result_sink.is_some(),
+                &memory_evidence,
+            )?;
+        }
+        let memory_reservations_requested = memory_evidence.memory_reservations_requested;
+        let memory_reservations_granted = memory_evidence.memory_reservations_granted;
+        let memory_reservations_released = memory_evidence.memory_reservations_released;
+        let memory_reservations_denied = memory_evidence.memory_reservations_denied;
+        let peak_memory_bytes = memory_evidence.peak_memory_bytes;
         let memory_budget_exceeded = memory_reservations_denied > 0;
         let fail_before_oom_enforced = !memory_budget_exceeded
             && memory_reservations_granted == memory_reservations_requested
@@ -11048,6 +11201,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
             reader_chunk_count,
             split_runtime_evidence,
             split_operator_runtime_evidence,
+            pulseweave_report,
             byte_range_splitting_declared: true,
             row_range_splitting_declared: true,
             projection_mask,
@@ -11550,6 +11704,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
                 self.output_commit_status.clone(),
             ),
         ];
+        fields.extend(self.pulseweave_report.fields());
         fields.extend(self.split_operator_runtime_evidence.fields());
         fields.extend(self.split_runtime_evidence.fields());
         fields
@@ -11613,6 +11768,146 @@ fn traditional_prepared_vortex_scale_tasks(
         )?);
     }
     Ok(tasks)
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PreparedVortexMemoryReservationEvidence {
+    memory_reservations_requested: usize,
+    memory_reservations_granted: usize,
+    memory_reservations_released: usize,
+    memory_reservations_denied: usize,
+    peak_memory_bytes: u64,
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+fn prepared_vortex_memory_reservation_evidence(
+    tasks: &[TraditionalRuntimeTaskEvidence],
+    memory_budget: MemoryBudget,
+    batch_window_size: usize,
+) -> Result<PreparedVortexMemoryReservationEvidence> {
+    let mut memory_pool = MemoryPoolPlan::new(memory_budget);
+    let mut memory_reservations_requested = 0;
+    let mut memory_reservations_granted = 0;
+    let mut memory_reservations_released = 0;
+    let mut memory_reservations_denied = 0;
+    let mut peak_memory_bytes = 0;
+    for batch in tasks.chunks(batch_window_size.max(1)) {
+        let mut granted_reservations = Vec::new();
+        for task in batch {
+            memory_reservations_requested += 1;
+            let reservation_id = MemoryReservationId::new(format!(
+                "prepared-vortex-local-scale-{}",
+                task.task_id.as_str()
+            ))?;
+            let owner = MemoryOwner::new(task.operator_class, task.label)?
+                .with_task_id(task.task_id.clone());
+            let admission = memory_pool.admit_reservation(
+                reservation_id.clone(),
+                owner,
+                ByteSize::from_bytes(task.estimated_memory_bytes),
+            )?;
+            peak_memory_bytes = peak_memory_bytes
+                .max(admission.reserved_after.as_bytes())
+                .max(admission.reserved_before.as_bytes());
+            if admission.granted_decision() {
+                memory_reservations_granted += 1;
+                granted_reservations.push(reservation_id);
+            } else {
+                memory_reservations_denied += 1;
+            }
+        }
+        for reservation_id in granted_reservations {
+            memory_pool.release_reservation(&reservation_id)?;
+            memory_reservations_released += 1;
+        }
+    }
+    Ok(PreparedVortexMemoryReservationEvidence {
+        memory_reservations_requested,
+        memory_reservations_granted,
+        memory_reservations_released,
+        memory_reservations_denied,
+        peak_memory_bytes,
+    })
+}
+
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+#[allow(clippy::too_many_arguments)]
+fn plan_prepared_vortex_pulseweave(
+    scenario: TraditionalAnalyticsScenario,
+    resource_policy: TraditionalAnalyticsResourcePolicy,
+    tasks: &[TraditionalRuntimeTaskEvidence],
+    source_state_digest: &str,
+    correctness_digest: &str,
+    output_digest: &str,
+    split_runtime_evidence: &TraditionalPreparedVortexLocalSplitRuntimeEvidence,
+    scenario_execution: &TraditionalScenarioExecution,
+    native_io_certificate_status: &str,
+    result_sink_requested: bool,
+    memory_evidence: &PreparedVortexMemoryReservationEvidence,
+) -> Result<PulseWeaveReport> {
+    let task_shapes = tasks
+        .iter()
+        .map(|task| {
+            PulseWeaveTaskShape::new(
+                task.task_id.as_str(),
+                task.label,
+                task.operator_class,
+                task.estimated_memory_bytes,
+            )
+            .map(|shape| {
+                shape
+                    .with_estimated_rows(scenario_execution.rows_scanned)
+                    .with_refs(
+                        format!("source-state://{source_state_digest}"),
+                        format!("prepared-vortex-local-task://{}", task.task_id.as_str()),
+                    )
+                    .with_shape_permissions(true, true, true)
+                    .with_materialization_and_sink(
+                        scenario_execution.evidence.data_materialized,
+                        if task.operator_class == OperatorMemoryClass::Sink {
+                            "vortex_result_sink"
+                        } else {
+                            "none"
+                        },
+                    )
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let input = PulseWeaveInput::new(
+        "compatibility_import_certified_to_prepared_vortex_batch",
+        "prepared_vortex_local_batch",
+        format!(
+            "traditional_analytics:{}:{}",
+            traditional_scenario_slug(scenario),
+            source_state_digest
+        ),
+        task_shapes,
+        u64::try_from(memory_gb_to_bytes(resource_policy.memory_gb)).unwrap_or(u64::MAX),
+        resource_policy.max_parallelism,
+        resource_policy.target_partition_bytes,
+    )?
+    .with_task_byte_limits(
+        TraditionalAnalyticsResourcePolicy::MIN_PARTITION_BYTES,
+        TraditionalAnalyticsResourcePolicy::MAX_PARTITION_BYTES,
+    )
+    .with_boundaries(true, true)
+    .with_result_sink(result_sink_requested, result_sink_requested)
+    .with_correctness_and_output(correctness_digest, output_digest)
+    .with_execution_certificate(
+        split_runtime_evidence.execution_certificate_id.clone(),
+        split_runtime_evidence.execution_certificate_status.clone(),
+    )
+    .with_native_io_certificate_status(native_io_certificate_status)
+    .with_memory_observations(
+        memory_evidence.memory_reservations_requested,
+        memory_evidence.memory_reservations_granted,
+        memory_evidence.memory_reservations_denied,
+        memory_evidence.peak_memory_bytes,
+    )
+    .with_spill(false, false)
+    .with_no_fallback_policy(false, false, false);
+    plan_pulseweave(input)
 }
 
 #[cfg(feature = "vortex-traditional-analytics-benchmark")]
@@ -14002,6 +14297,7 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         request.cdc_delta_vortex.as_deref(),
         source_snapshot,
         &scenario_execution,
+        native_io_certificate.status(),
         computed_result_sink.as_ref(),
     )?;
 
@@ -22796,6 +23092,53 @@ mod tests {
             group_report.local_scale_evidence.scale_claim_gate_status,
             "not_scale_grade"
         );
+        assert_eq!(
+            group_report.local_scale_evidence.pulseweave_report.status,
+            "applied"
+        );
+        assert!(
+            group_report
+                .local_scale_evidence
+                .pulseweave_report
+                .runtime_decision_applied
+        );
+        assert!(
+            group_report
+                .local_scale_evidence
+                .pulseweave_report
+                .policy_mutated
+        );
+        assert_eq!(
+            group_report
+                .local_scale_evidence
+                .pulseweave_report
+                .flow_inventory
+                .wip_limit,
+            2
+        );
+        assert_eq!(
+            group_report
+                .local_scale_evidence
+                .pulseweave_report
+                .endopulse
+                .next_wip_limit,
+            1
+        );
+        assert!(
+            group_report
+                .local_scale_evidence
+                .pulseweave_report
+                .decision_digest
+                .starts_with("fnv1a64:")
+        );
+        assert_eq!(
+            group_report
+                .local_scale_evidence
+                .pulseweave_report
+                .proofbound
+                .certificate_status,
+            "certified"
+        );
 
         let hash_report = report
             .batch_report
@@ -22859,6 +23202,32 @@ mod tests {
             &fields,
             "prepare_batch_scale_output_commit_status",
             "per_scenario_result_sink_written_replay_verified_uncommitted",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_pulseweave_status",
+            "pulseweave_applied",
+        );
+        assert_field_eq(&fields, "prepare_batch_scale_pulseweave_applied_count", "2");
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_pulseweave_policy_mutated_count",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_flow_inventory_min_wip_limit",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_endopulse_adjustment_applied_count",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "prepare_batch_scale_proofbound_claim_allowed_count",
+            "2",
         );
         assert_field_eq(
             &fields,
@@ -23022,6 +23391,46 @@ mod tests {
             &fields,
             "scenario_group-by-aggregation_prepared_vortex_scale_output_commit_status",
             "result_sink_written_replay_verified_uncommitted",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_pulseweave_status",
+            "applied",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_pulseweave_runtime_decision_applied",
+            "true",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_flow_inventory_wip_limit",
+            "2",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_endopulse_next_wip_limit",
+            "1",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_endopulse_persistent_state_used",
+            "false",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_proofbound_certificate_status",
+            "certified",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_proofbound_no_fallback_status",
+            "verified",
+        );
+        assert_field_eq(
+            &fields,
+            "scenario_group-by-aggregation_proofbound_claim_allowed",
+            "true",
         );
         assert_field_eq(
             &fields,
