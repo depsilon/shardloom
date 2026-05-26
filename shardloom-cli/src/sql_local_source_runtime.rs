@@ -15763,7 +15763,7 @@ fn validate_sql_local_source_clause_order(
 }
 
 fn parse_sql_local_source_statement(raw: &str) -> Result<ParsedSqlLocalSource, ShardLoomError> {
-    let statement = normalize_sql_statement(raw)?;
+    let statement = normalize_and_validate_sql_statement(raw)?;
     if !statement
         .get(..6)
         .is_some_and(|prefix| prefix.eq_ignore_ascii_case("select"))
@@ -15915,6 +15915,12 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
     }
 }
 
+fn normalize_and_validate_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
+    let statement = normalize_sql_statement(raw)?;
+    validate_advanced_scalar_policy_boundaries(&statement)?;
+    Ok(statement)
+}
+
 fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -15930,6 +15936,96 @@ fn normalize_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
         return Err(unsupported_sql_error("SQL statement must not be empty"));
     }
     Ok(statement.to_string())
+}
+
+fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), ShardLoomError> {
+    if contains_keyword_outside_quotes(statement, "interval") {
+        return Err(unsupported_sql_error(
+            "ANSI INTERVAL literals and interval arithmetic are not admitted; use DATE_ADD_DAYS, DATE_SUB_DAYS, TIMESTAMP_ADD_SECONDS, or TIMESTAMP_SUB_SECONDS for the scoped UTC runtime slice",
+        ));
+    }
+    if contains_keyword_outside_quotes(statement, "at time zone")
+        || contains_keyword_outside_quotes(statement, "with time zone")
+    {
+        return Err(unsupported_sql_error(
+            "timezone database and non-UTC timestamp semantics are not admitted; timestamp literals must stay in scoped UTC timestamp_micros form",
+        ));
+    }
+    if contains_keyword_outside_quotes(statement, "collate") {
+        return Err(unsupported_sql_error(
+            "SQL COLLATE and locale-aware collation semantics are not admitted; UTF-8 comparisons remain case-sensitive codepoint comparisons in this slice",
+        ));
+    }
+    if contains_keyword_outside_quotes(statement, "regexp")
+        || contains_keyword_outside_quotes(statement, "regexp_like")
+        || contains_keyword_outside_quotes(statement, "regex")
+        || contains_keyword_outside_quotes(statement, "rlike")
+    {
+        return Err(unsupported_sql_error(
+            "regex and regexp pattern semantics are not admitted; use scoped LIKE prefix, suffix, or contains predicates",
+        ));
+    }
+    if contains_advanced_decimal_cast_target(statement)? {
+        return Err(unsupported_sql_error(
+            "decimal precision/scale casts are not admitted by the current scalar semantics profile",
+        ));
+    }
+    Ok(())
+}
+
+fn contains_advanced_decimal_cast_target(statement: &str) -> Result<bool, ShardLoomError> {
+    for function_name in ["cast", "try_cast"] {
+        if contains_cast_target_with_decimal_dtype(statement, function_name)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn contains_cast_target_with_decimal_dtype(
+    statement: &str,
+    function_name: &str,
+) -> Result<bool, ShardLoomError> {
+    let mut search_start = 0;
+    while search_start < statement.len() {
+        let Some(relative_index) =
+            find_keyword_outside_quotes(&statement[search_start..], function_name)
+        else {
+            break;
+        };
+        let name_index = search_start + relative_index;
+        let after_name = &statement[name_index + function_name.len()..];
+        let leading_whitespace = after_name.len() - after_name.trim_start().len();
+        let open_index = name_index + function_name.len() + leading_whitespace;
+        if statement.as_bytes().get(open_index) != Some(&b'(') {
+            search_start = name_index + function_name.len();
+            continue;
+        }
+        let close_index =
+            matching_closing_parenthesis(statement, open_index)?.ok_or_else(|| {
+                unsupported_sql_error(
+                    "CAST/TRY_CAST expressions must be written as CAST(<column> AS <dtype>)",
+                )
+            })?;
+        let inner = statement[open_index + 1..close_index].trim();
+        if let Some(as_index) = find_keyword_outside_quotes_and_parentheses(inner, "as")? {
+            let target_dtype = inner[as_index + "as".len()..].trim();
+            if target_is_advanced_decimal_dtype(target_dtype) {
+                return Ok(true);
+            }
+        }
+        search_start = close_index + 1;
+    }
+    Ok(false)
+}
+
+fn target_is_advanced_decimal_dtype(target_dtype: &str) -> bool {
+    ["decimal128", "decimal", "numeric"].iter().any(|dtype| {
+        target_dtype
+            .get(..dtype.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(dtype))
+            && keyword_boundary(target_dtype, 0, dtype.len())
+    })
 }
 
 fn rewrite_having_aggregate_predicate(
@@ -23404,7 +23500,75 @@ mod tests {
         )
         .expect_err("decimal cast target remains blocked");
 
-        assert!(error.to_string().contains("CAST target dtype"));
+        assert!(
+            error
+                .to_string()
+                .contains("decimal precision/scale casts are not admitted")
+        );
+        assert!(error.to_string().contains("external_engine_invoked=false"));
+    }
+
+    #[test]
+    fn parser_blocks_advanced_scalar_policy_constructs_without_fallback() {
+        for (statement, expected) in [
+            (
+                "SELECT id,DATE_ADD_DAYS(event_date, INTERVAL '1' DAY) AS next_day FROM 'target/input.csv' LIMIT 5",
+                "ANSI INTERVAL literals and interval arithmetic are not admitted",
+            ),
+            (
+                "SELECT id,TIMESTAMP '2026-05-19T12:34:56Z' AT TIME ZONE 'America/Chicago' AS local_ts FROM 'target/input.csv' LIMIT 5",
+                "timezone database and non-UTC timestamp semantics are not admitted",
+            ),
+            (
+                "SELECT id,label FROM 'target/input.csv' WHERE label REGEXP '^a' LIMIT 5",
+                "regex and regexp pattern semantics are not admitted",
+            ),
+            (
+                "SELECT id,label COLLATE nocase AS folded FROM 'target/input.csv' LIMIT 5",
+                "SQL COLLATE and locale-aware collation semantics are not admitted",
+            ),
+            (
+                "SELECT id,TRY_CAST(label AS decimal128) AS unsupported FROM 'target/input.csv' LIMIT 5",
+                "decimal precision/scale casts are not admitted",
+            ),
+        ] {
+            let error = parse_sql_local_source_statement(statement)
+                .expect_err("advanced scalar policy construct remains blocked");
+
+            assert!(
+                error.to_string().contains(expected),
+                "expected {expected:?}, got {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
+    }
+
+    #[test]
+    fn parser_allows_decimal_policy_words_outside_cast_targets() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,CAST(amount AS float64) AS numeric FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect("numeric alias is not a decimal cast target");
+
+        assert_eq!(parsed.cast_projections[0].alias, "numeric");
+        assert_eq!(
+            parsed.cast_projections[0].target_dtype,
+            LogicalDType::Float64
+        );
+    }
+
+    #[test]
+    fn timestamp_literal_blocks_non_utc_offsets_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,TIMESTAMP '2026-05-19T12:34:56+00:00' AS offset_ts FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect_err("offset timestamp literal remains blocked");
+
+        assert!(
+            error
+                .to_string()
+                .contains("TIMESTAMP literals must use TIMESTAMP")
+        );
         assert!(error.to_string().contains("external_engine_invoked=false"));
     }
 

@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D-F1 advanced scalar deterministic semantics closeout
+  - Date: 2026-05-26
+  - Branch/PR: `runtime-4d-f1-advanced-scalars` / #966.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D-F1 advanced scalar, decimal, interval, timezone, and collation semantics`.
+    - RFC 0021 expression/kernel architecture and admitted semantics matrix residual gaps.
+  - Scope:
+    - Added a shared SQL local-source advanced-scalar policy guard so decimal precision/scale casts,
+      `AT TIME ZONE` / `WITH TIME ZONE`, ANSI `INTERVAL`, regex/regexp predicates, and SQL
+      `COLLATE` fail before execution with deterministic no-fallback diagnostics.
+    - Promoted scalar conformance coverage from planned placeholders to executed blocker fixtures
+      for decimal precision/scale, timezone database policy, interval/date-time completeness,
+      regex pattern semantics, and locale/collation policy while preserving admitted UTC
+      timestamp_micros, Date32, case-sensitive UTF-8, and binary-equality behavior.
+    - Expanded the admitted semantics matrix from 18 rows / 2 unsupported diagnostics to 23 rows /
+      7 unsupported diagnostics. The new rows cover non-UTC timestamp literals, timezone database
+      conversion, interval literals/arithmetic, regex predicates, and locale-aware collation.
+    - Moved `GAR-RUNTIME-IMPL-4D-F1` out of the live Planned queue; the next live internal-engine
+      items start at complex dtype semantics, advanced predicate/subquery semantics, and broad
+      encoded-kernel/operator coverage.
+  - Field schema:
+    - Semantic conformance now reports `semantic_dimension_count=22`,
+      `executed_fixture_count=16`, `passed_fixture_count=16`, `planned_fixture_count=3`, and
+      `blocked_fixture_count=3`.
+    - Admitted semantics now reports `matrix_row_count=23`, `executable_fixture_count=16`, and
+      `unsupported_diagnostic_count=7`.
+    - All new blocked families keep `fallback_attempted=false`, `external_engine_invoked=false`,
+      and deterministic `SL_INVALID_INPUT` or expression unsupported diagnostics.
+  - Claim boundary:
+    - This closes advanced scalar residuals by making the unsupported policy explicit. It does not
+      admit decimal arithmetic, decimal storage, timezone database conversion, interval semantics,
+      regex engines, locale-aware collation, ANSI SQL parity, production SQL/DataFrame support, or
+      performance claims.
+    - External engines remain comparison baselines/oracles only and never satisfy runtime behavior.
+  - No-standalone-lane audit:
+    - Unsupported scalar cases are checked through the existing SQL local-source runtime and
+      side-effect-free semantic conformance suite. No separate scalar execution lane, fallback
+      evaluator, Spark path, DataFusion path, or CSV-specific process was introduced.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli --test semantic_conformance_suite_snapshots`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test expression_operator_semantics advanced_scalar`
+    - `cargo +1.91.1 test -p shardloom-cli parser_blocks_advanced_scalar_policy_constructs_without_fallback`
+    - `cargo +1.91.1 test -p shardloom-cli parser_allows_decimal_policy_words_outside_cast_targets`
+    - `cargo +1.91.1 test -p shardloom-cli timestamp_literal_blocks_non_utc_offsets_without_fallback`
+    - `cargo +1.91.1 test -p shardloom-cli cast_predicate_blocks_unadmitted_dtype`
+    - `cargo +1.91.1 test -p shardloom-cli --test sql_local_source_runtime_smoke sql_local_source_smoke_executes_cast_projection_without_fallback`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m compileall -q scripts website`
+    - `python scripts/check_admitted_semantics_matrix.py`
+    - `python scripts/check_release_readiness.py --allow-blocked`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_golden_workflows.py`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_use_case_glossary.py`
+    - `python scripts/check_ci_gate_matrix.py`
+    - `python scripts/check_benchmark_constitution.py`
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `python scripts/check_benchmark_environment.py`
+    - `git diff --check`
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D/5G expression/operator closeout and semantics matrix expansion
   - Date: 2026-05-26
   - Branch/PR: `runtime-4d-expression-operator-closeout` / #965.

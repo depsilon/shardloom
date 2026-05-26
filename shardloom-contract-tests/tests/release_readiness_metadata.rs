@@ -2350,6 +2350,11 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "aggregate_having_output_rows",
         "unsupported_numeric_division_by_zero",
         "unsupported_cast_decimal128",
+        "unsupported_non_utc_timestamp_literal",
+        "unsupported_timezone_database_policy",
+        "unsupported_interval_literal",
+        "unsupported_regex_predicate",
+        "unsupported_locale_collation",
         "semantic-conformance-suite",
         "correctness-harness-plan",
         "target/admitted-semantics-matrix-report.json",
@@ -2388,6 +2393,11 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "join_multi_key_expression_condition",
         "unsupported_numeric_division_by_zero",
         "unsupported_cast_decimal128",
+        "unsupported_non_utc_timestamp_literal",
+        "unsupported_timezone_database_policy",
+        "unsupported_interval_literal",
+        "unsupported_regex_predicate",
+        "unsupported_locale_collation",
         "decoded_reference_only",
         "deterministic_unsupported_diagnostic",
         "\"fallback_attempted\": false",
@@ -2403,9 +2413,9 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
     for required in [
         "shardloom.admitted_semantics_matrix_report.v1",
         "python scripts\\check_admitted_semantics_matrix.py",
-        "matrix_row_count=18",
+        "matrix_row_count=23",
         "executable_fixture_count=16",
-        "unsupported_diagnostic_count=2",
+        "unsupported_diagnostic_count=7",
         "property_execution_performed=true",
         "decoded_reference_differential_execution_performed=true",
         "semantic_conformance_suite_status=passed",
@@ -5899,7 +5909,9 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
             "`GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout"
         )
     );
-    assert!(plan.contains("`GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout are complete"));
+    assert!(plan.contains(
+        "`GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout plus `GAR-RUNTIME-IMPL-4D-F1`"
+    ));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains(
@@ -5919,8 +5931,12 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     assert!(!plan.contains(
         "- [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families"
     ));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4D-F1"));
+    assert!(
+        completed
+            .contains("GAR-RUNTIME-IMPL-4D-F1 advanced scalar deterministic semantics closeout")
+    );
     for follow_up in [
-        "- [ ] GAR-RUNTIME-IMPL-4D-F1",
         "- [ ] GAR-RUNTIME-IMPL-4D-F2",
         "- [ ] GAR-RUNTIME-IMPL-4D-F3",
         "- [ ] GAR-RUNTIME-IMPL-5G-F1",

@@ -42,11 +42,11 @@ fn semantic_conformance_suite_executes_current_fixtures_without_fallback() {
         "suite_status",
         "partial_fixture_passed_planned_remaining"
     )));
-    assert!(output.contains(&field("semantic_dimension_count", "18")));
-    assert!(output.contains(&field("executed_fixture_count", "11")));
-    assert!(output.contains(&field("passed_fixture_count", "11")));
+    assert!(output.contains(&field("semantic_dimension_count", "22")));
+    assert!(output.contains(&field("executed_fixture_count", "16")));
+    assert!(output.contains(&field("passed_fixture_count", "16")));
     assert!(output.contains(&field("failed_fixture_count", "0")));
-    assert!(output.contains(&field("planned_fixture_count", "4")));
+    assert!(output.contains(&field("planned_fixture_count", "3")));
     assert!(output.contains(&field("blocked_fixture_count", "3")));
     assert!(output.contains(&field("in_memory_fixture_execution", "true")));
     assert!(output.contains(&field("external_oracle_used", "false")));
@@ -74,7 +74,7 @@ fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
 
     assert!(output.contains(&field(
         "row_order",
-        "null_comparison,three_valued_logic,null_sort_ordering,nan_equality_order,signed_zero,integer_overflow,decimal_precision_scale,timestamp_timezone,date_parsing,string_case_sensitivity,binary_equality,empty_aggregate_behavior,count_null_behavior,join_null_semantics,window_frame_defaults,duplicate_column_behavior,nested_list_equality,schema_field_identity"
+        "null_comparison,three_valued_logic,null_sort_ordering,nan_equality_order,signed_zero,integer_overflow,decimal_precision_scale,timestamp_timezone,timezone_database_policy,interval_arithmetic_policy,date_parsing,string_case_sensitivity,regex_pattern_policy,locale_collation_policy,binary_equality,empty_aggregate_behavior,count_null_behavior,join_null_semantics,window_frame_defaults,duplicate_column_behavior,nested_list_equality,schema_field_identity"
     )));
     assert!(output.contains(&field(
         "semantic_row_null_comparison_fixture_status",
@@ -104,7 +104,27 @@ fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
         "semantic_row_timestamp_timezone_current_support",
         "utc_timestamp_micros_fixture_certified_non_utc_blocked"
     )));
+    assert!(output.contains(&field(
+        "semantic_row_decimal_precision_scale_current_support",
+        "unsupported_diagnostic_certified"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_timezone_database_policy_passed",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_interval_arithmetic_policy_blocker_id",
+        "gar-runtime-impl-4d-f1.interval_semantics_unsupported"
+    )));
     assert!(output.contains(&field("semantic_row_date_parsing_fixture_status", "passed")));
+    assert!(output.contains(&field(
+        "semantic_row_regex_pattern_policy_current_support",
+        "unsupported_diagnostic_certified"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_locale_collation_policy_passed",
+        "true"
+    )));
     assert!(output.contains(&field(
         "semantic_row_binary_equality_current_support",
         "bytewise_equality_fixture_certified_ordering_blocked"
