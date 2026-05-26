@@ -738,6 +738,9 @@ fn columnar_column_families(
                 let array = batch.column(projected_column.reader_index);
                 reject_columnar_nulls(&projected_column.column, array.as_ref())?;
                 let candidate = arrow_column_family(&projected_column.column, array.as_ref())?;
+                if candidate == "float64" {
+                    reject_columnar_non_finite_floats(&projected_column.column, array.as_ref())?;
+                }
                 if let Some(existing) = family {
                     if existing != candidate {
                         return Err(ShardLoomError::InvalidOperation(format!(
@@ -763,6 +766,28 @@ fn reject_columnar_nulls(column: &str, array: &dyn Array) -> Result<()> {
         return Err(ShardLoomError::InvalidOperation(format!(
             "local vortex_ingest column '{column}' contains nulls; scoped Vortex ingest admits non-null boolean, int64, uint64, float64, utf8, date32, and timestamp_micros only; no fallback execution was attempted"
         )));
+    }
+    Ok(())
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn reject_columnar_non_finite_floats(column: &str, array: &dyn Array) -> Result<()> {
+    if let Some(array) = array.as_any().downcast_ref::<Float32Array>() {
+        for index in 0..array.len() {
+            if !array.value(index).is_finite() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local vortex_ingest column '{column}' contains non-finite float32; no fallback execution was attempted"
+                )));
+            }
+        }
+    } else if let Some(array) = array.as_any().downcast_ref::<Float64Array>() {
+        for index in 0..array.len() {
+            if !array.value(index).is_finite() {
+                return Err(ShardLoomError::InvalidOperation(format!(
+                    "local vortex_ingest column '{column}' contains non-finite float64; no fallback execution was attempted"
+                )));
+            }
+        }
     }
     Ok(())
 }
@@ -1431,6 +1456,49 @@ mod tests {
         assert!(report.manual_scalar_copy_avoided);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
+    }
+
+    #[cfg(feature = "universal-format-io")]
+    #[test]
+    fn local_flat_columnar_record_batch_rejects_non_finite_float_before_provider_path() {
+        use std::sync::Arc;
+
+        use arrow_array::{Float64Array, Int64Array, RecordBatch};
+        use arrow_schema::{DataType, Field, Schema};
+
+        let path = std::env::temp_dir().join(format!(
+            "shardloom-vortex-ingest-columnar-non-finite-{}-{}.vortex",
+            std::process::id(),
+            1
+        ));
+        let _ = std::fs::remove_file(&path);
+        let columns = vec!["id".to_string(), "metric".to_string()];
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("metric", DataType::Float64, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![1, 2])),
+                Arc::new(Float64Array::from(vec![1.5, f64::NAN])),
+            ],
+        )
+        .expect("record batch");
+        let source = FlatLocalColumnarSource {
+            header: columns.clone(),
+            materialized_columns: columns.clone(),
+            reader_projection_columns: columns,
+            batches: vec![batch],
+            row_count: 2,
+        };
+        let request = VortexPreparedStateColumnarWriteRequest::new(&path, source);
+
+        let error = write_flat_columnar_vortex_prepared_state(request)
+            .expect_err("non-finite float should be rejected");
+
+        assert!(error.to_string().contains("non-finite float64"));
+        assert!(!path.exists());
     }
 
     #[cfg(feature = "universal-format-io")]

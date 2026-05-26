@@ -1334,6 +1334,7 @@ pub fn plan_workspace_safe_local_output(
 ) -> Result<WorkspaceSafeLocalWritePlan> {
     let workspace_root = workspace_root.as_ref();
     let requested_output_path = requested_output_path.as_ref();
+    reject_workspace_safe_root_symlink(workspace_root)?;
     let canonical_workspace_root = fs::canonicalize(workspace_root).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "workspace-safe local output root '{}' must already exist and be canonicalizable: {error}; no fallback execution was attempted",
@@ -1436,6 +1437,7 @@ pub fn write_workspace_safe_bytes(
     let operation_label = operation_label.into();
     let plan =
         plan_workspace_safe_local_output(workspace_root, requested_output_path, allow_overwrite)?;
+    reject_workspace_safe_symlink_race(&plan)?;
     fs::create_dir_all(&plan.parent_path).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
             "failed to create workspace-safe local output directory '{}': {error}; no fallback execution was attempted",
@@ -1607,6 +1609,28 @@ fn workspace_path_safety_error(report: &WorkspacePathSafetyReport) -> ShardLoomE
     ))
 }
 
+fn reject_workspace_safe_root_symlink(workspace_root: &Path) -> Result<()> {
+    let metadata = fs::symlink_metadata(workspace_root).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "workspace-safe local output root '{}' must already exist and be inspectable before canonicalization: {error}; no fallback execution was attempted",
+            workspace_root.display()
+        ))
+    })?;
+    if metadata.file_type().is_symlink() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "workspace-safe local output root '{}' is a symlink and will not be followed; no fallback execution was attempted",
+            workspace_root.display()
+        )));
+    }
+    if !metadata.is_dir() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "workspace-safe local output root '{}' must be a directory; no fallback execution was attempted",
+            workspace_root.display()
+        )));
+    }
+    Ok(())
+}
+
 fn canonicalize_local_output_target_path(requested_absolute: &Path) -> Result<PathBuf> {
     let parent = requested_absolute.parent().ok_or_else(|| {
         ShardLoomError::InvalidOperation(format!(
@@ -1642,6 +1666,18 @@ fn canonicalize_local_output_parent(parent: &Path) -> Result<PathBuf> {
             )));
         };
         candidate = next.to_path_buf();
+    }
+    let candidate_metadata = fs::symlink_metadata(&candidate).map_err(|error| {
+        ShardLoomError::InvalidOperation(format!(
+            "failed to inspect workspace-safe local output parent ancestor '{}': {error}; no fallback execution was attempted",
+            candidate.display()
+        ))
+    })?;
+    if candidate_metadata.file_type().is_symlink() {
+        return Err(ShardLoomError::InvalidOperation(format!(
+            "workspace-safe local output parent ancestor '{}' is a symlink and will not be followed; no fallback execution was attempted",
+            candidate.display()
+        )));
     }
     let mut canonical = fs::canonicalize(&candidate).map_err(|error| {
         ShardLoomError::InvalidOperation(format!(
@@ -3137,6 +3173,62 @@ mod tests {
             assert_eq!(std::fs::read(&real_target).unwrap(), b"real");
         }
         let _ = std::fs::remove_file(&symlink_target);
+        std::fs::remove_dir_all(workspace).unwrap();
+    }
+
+    #[test]
+    fn workspace_safe_local_write_rejects_symlink_roots_when_supported() {
+        let workspace = workspace_write_fixture_root("symlink_root");
+        let real_root = workspace.join("real-root");
+        let symlink_root = workspace.join("link-root");
+        std::fs::create_dir_all(&real_root).unwrap();
+
+        #[cfg(unix)]
+        let symlink_result = std::os::unix::fs::symlink(&real_root, &symlink_root);
+        #[cfg(windows)]
+        let symlink_result = std::os::windows::fs::symlink_dir(&real_root, &symlink_root);
+        #[cfg(not(any(unix, windows)))]
+        let symlink_result: std::io::Result<()> = Err(std::io::Error::other("unsupported"));
+
+        if symlink_result.is_ok() {
+            let error = plan_workspace_safe_local_output(&symlink_root, "out.jsonl", true)
+                .expect_err("symlink workspace root is rejected before canonicalization");
+            assert!(error.message().contains("root"));
+            assert!(error.message().contains("symlink"));
+        }
+        let _ = std::fs::remove_file(&symlink_root);
+        let _ = std::fs::remove_dir(&symlink_root);
+        std::fs::remove_dir_all(workspace).unwrap();
+    }
+
+    #[test]
+    fn workspace_safe_local_write_rejects_existing_symlink_parent_before_mkdir() {
+        let workspace = workspace_write_fixture_root("symlink_parent");
+        let real_parent = workspace.join("real-parent");
+        let symlink_parent = workspace.join("link-parent");
+        std::fs::create_dir_all(&real_parent).unwrap();
+
+        #[cfg(unix)]
+        let symlink_result = std::os::unix::fs::symlink(&real_parent, &symlink_parent);
+        #[cfg(windows)]
+        let symlink_result = std::os::windows::fs::symlink_dir(&real_parent, &symlink_parent);
+        #[cfg(not(any(unix, windows)))]
+        let symlink_result: std::io::Result<()> = Err(std::io::Error::other("unsupported"));
+
+        if symlink_result.is_ok() {
+            let error = write_workspace_safe_bytes(
+                &workspace,
+                "link-parent/nested/out.jsonl",
+                true,
+                "test local output",
+                b"new",
+            )
+            .expect_err("symlink parent is rejected before directory creation");
+            assert!(error.message().contains("symlink"));
+            assert!(!real_parent.join("nested").exists());
+        }
+        let _ = std::fs::remove_file(&symlink_parent);
+        let _ = std::fs::remove_dir(&symlink_parent);
         std::fs::remove_dir_all(workspace).unwrap();
     }
 

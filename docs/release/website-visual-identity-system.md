@@ -138,7 +138,7 @@ Use clear public labels while allowing branded page framing.
 | --- | --- | --- |
 | Home | Command Deck | Explain ShardLoom's value and current posture. |
 | Field Guide | Technical Dossiers | Explain concepts and evidence vocabulary. |
-| Telemetry | Benchmark Evidence | Present local evidence without leaderboard claims. |
+| Benchmarks | Benchmark Evidence | Present local evidence without leaderboard claims. |
 | Compute Flow | Mission Map | Show the execution route and claim gates. |
 | Status | Launch/Readiness Board | List supported, report-only, blocked, and planned posture. |
 | Docs | Archive / Source Docs | Link back to README and architecture references. |
@@ -196,7 +196,7 @@ Each concept page should include:
 The structure may use field-manual technique, but it must not copy a specific game, product, or
 third-party documentation brand.
 
-## Benchmark Telemetry Direction
+## Benchmark Evidence Direction
 
 The benchmark page must be framed as evidence, not a leaderboard.
 

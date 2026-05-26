@@ -10,7 +10,7 @@
 use std::{
     fmt::Write as _,
     fs::{self, File},
-    io::{Read, Seek, SeekFrom},
+    io::{Read, Seek, SeekFrom, Write as _},
     path::{Path, PathBuf},
     process::ExitCode,
     time::UNIX_EPOCH,
@@ -1426,11 +1426,106 @@ fn staging_object_path(target_path: &Path, idempotency_key: &str) -> PathBuf {
     ))
 }
 
+fn backup_object_path(target_path: &Path, idempotency_key: &str) -> PathBuf {
+    let parent = target_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let file_name = target_path
+        .file_name()
+        .map_or_else(|| "object".into(), |name| name.to_string_lossy());
+    parent.join(".shardloom-object-store-staging").join(format!(
+        "{}.{}.backup",
+        file_name,
+        sanitize_idempotency_key(idempotency_key)
+    ))
+}
+
 fn commit_manifest_sidecar_path(target_path: &Path) -> PathBuf {
     PathBuf::from(format!(
         "{}.shardloom-commit.json",
         target_path.to_string_lossy()
     ))
+}
+
+struct LocalEmulatorWriteBackups {
+    target_backup_path: PathBuf,
+    manifest_backup_path: PathBuf,
+    target_taken: bool,
+    manifest_taken: bool,
+}
+
+impl LocalEmulatorWriteBackups {
+    fn new(target_path: &Path, commit_manifest_path: &Path, idempotency_key: &str) -> Self {
+        Self {
+            target_backup_path: backup_object_path(target_path, idempotency_key),
+            manifest_backup_path: backup_object_path(commit_manifest_path, idempotency_key),
+            target_taken: false,
+            manifest_taken: false,
+        }
+    }
+
+    fn restore(&self, target_path: &Path, commit_manifest_path: &Path) {
+        if self.target_taken {
+            let _ = fs::rename(&self.target_backup_path, target_path);
+        }
+        if self.manifest_taken {
+            let _ = fs::rename(&self.manifest_backup_path, commit_manifest_path);
+        }
+    }
+
+    fn restore_required(
+        &self,
+        target_path: &Path,
+        commit_manifest_path: &Path,
+    ) -> std::io::Result<()> {
+        if self.target_taken {
+            fs::rename(&self.target_backup_path, target_path)?;
+        }
+        if self.manifest_taken {
+            fs::rename(&self.manifest_backup_path, commit_manifest_path)?;
+        }
+        Ok(())
+    }
+
+    fn discard(self) -> std::io::Result<()> {
+        if self.target_taken {
+            remove_file_if_exists(&self.target_backup_path)?;
+        }
+        if self.manifest_taken {
+            remove_file_if_exists(&self.manifest_backup_path)?;
+        }
+        Ok(())
+    }
+}
+
+fn prepare_local_emulator_write_backups(
+    target_path: &Path,
+    commit_manifest_path: &Path,
+    idempotency_key: &str,
+    allow_overwrite: bool,
+) -> std::io::Result<LocalEmulatorWriteBackups> {
+    let mut backups =
+        LocalEmulatorWriteBackups::new(target_path, commit_manifest_path, idempotency_key);
+    if !allow_overwrite {
+        return Ok(backups);
+    }
+    remove_file_if_exists(&backups.target_backup_path)?;
+    remove_file_if_exists(&backups.manifest_backup_path)?;
+    if target_path.exists() {
+        fs::rename(target_path, &backups.target_backup_path)?;
+        backups.target_taken = true;
+    }
+    if commit_manifest_path.exists() {
+        match fs::rename(commit_manifest_path, &backups.manifest_backup_path) {
+            Ok(()) => backups.manifest_taken = true,
+            Err(error) => {
+                backups.restore(target_path, commit_manifest_path);
+                return Err(error);
+            }
+        }
+    }
+    Ok(backups)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1452,23 +1547,26 @@ fn perform_local_emulator_write_commit(
     }
     remove_file_if_exists(staging_path)?;
     fs::write(staging_path, payload)?;
+    let backups = prepare_local_emulator_write_backups(
+        target_path,
+        commit_manifest_path,
+        idempotency_key,
+        allow_overwrite,
+    )?;
     if allow_overwrite {
-        remove_file_if_exists(target_path)?;
-        remove_file_if_exists(commit_manifest_path)?;
+        if let Err(error) = fs::rename(staging_path, target_path) {
+            let _ = remove_file_if_exists(staging_path);
+            backups.restore(target_path, commit_manifest_path);
+            return Err(error);
+        }
+    } else {
+        create_target_exclusively_from_staging(staging_path, target_path, payload)?;
     }
-    if target_path.exists() {
-        remove_file_if_exists(staging_path)?;
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::AlreadyExists,
-            "local-emulator target already exists",
-        ));
-    }
-
-    fs::rename(staging_path, target_path)?;
     let target_bytes = match fs::read(target_path) {
         Ok(bytes) => bytes,
         Err(error) => {
             let _ = remove_file_if_exists(target_path);
+            backups.restore(target_path, commit_manifest_path);
             return Err(error);
         }
     };
@@ -1486,6 +1584,7 @@ fn perform_local_emulator_write_commit(
     let commit_manifest_digest = fnv64_digest(&manifest);
     if let Err(error) = fs::write(commit_manifest_path, manifest) {
         let _ = remove_file_if_exists(target_path);
+        backups.restore(target_path, commit_manifest_path);
         return Err(error);
     }
 
@@ -1493,8 +1592,10 @@ fn perform_local_emulator_write_commit(
     let status = if rollback_after_commit {
         cleanup_deleted_count += usize::from(remove_file_if_exists(target_path)?);
         cleanup_deleted_count += usize::from(remove_file_if_exists(commit_manifest_path)?);
+        backups.restore_required(target_path, commit_manifest_path)?;
         ObjectStoreWriteSmokeStatus::RolledBack
     } else {
+        backups.discard()?;
         ObjectStoreWriteSmokeStatus::Committed
     };
 
@@ -1505,6 +1606,36 @@ fn perform_local_emulator_write_commit(
         target_content_digest,
         commit_manifest_digest,
     })
+}
+
+fn create_target_exclusively_from_staging(
+    staging_path: &Path,
+    target_path: &Path,
+    payload: &[u8],
+) -> std::io::Result<()> {
+    let mut target = match fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(target_path)
+    {
+        Ok(target) => target,
+        Err(error) => {
+            let _ = remove_file_if_exists(staging_path);
+            return Err(error);
+        }
+    };
+    if let Err(error) = target.write_all(payload) {
+        let _ = remove_file_if_exists(target_path);
+        let _ = remove_file_if_exists(staging_path);
+        return Err(error);
+    }
+    if let Err(error) = target.sync_all() {
+        let _ = remove_file_if_exists(target_path);
+        let _ = remove_file_if_exists(staging_path);
+        return Err(error);
+    }
+    remove_file_if_exists(staging_path)?;
+    Ok(())
 }
 
 fn remove_file_if_exists(path: &Path) -> std::io::Result<bool> {
@@ -2368,18 +2499,21 @@ fn parse_requested_range(raw: &str) -> Result<RequestedRange, ShardLoomError> {
 }
 
 fn is_remote_object_store_uri(source: &str) -> bool {
-    source.starts_with("s3://")
-        || source.starts_with("gs://")
-        || source.starts_with("gcs://")
-        || source.starts_with("abfs://")
-        || source.starts_with("abfss://")
+    let Some((scheme, _)) = source.split_once("://") else {
+        return false;
+    };
+    matches!(
+        scheme.to_ascii_lowercase().as_str(),
+        "s3" | "gs" | "gcs" | "abfs" | "abfss"
+    )
 }
 
 fn parse_object_store_uri(source: &str) -> Result<ParsedObjectStoreUri, ShardLoomError> {
     let (scheme, rest) = source.split_once("://").ok_or_else(|| {
         ShardLoomError::InvalidOperation("object-store URI must include a scheme".to_string())
     })?;
-    let provider = match scheme {
+    let scheme = scheme.to_ascii_lowercase();
+    let provider = match scheme.as_str() {
         "s3" => "s3",
         "gs" | "gcs" => "gcs",
         "abfs" | "abfss" => "adls",
@@ -2394,11 +2528,6 @@ fn parse_object_store_uri(source: &str) -> Result<ParsedObjectStoreUri, ShardLoo
             "public fixture object URI must not include query strings or fragments".to_string(),
         ));
     }
-    if rest.contains('@') {
-        return Err(ShardLoomError::InvalidOperation(
-            "object-store URI must not include credentials or userinfo".to_string(),
-        ));
-    }
     let Some((bucket, key)) = rest.split_once('/') else {
         return Err(ShardLoomError::InvalidOperation(
             "object-store URI must include bucket/container and object key".to_string(),
@@ -2409,11 +2538,51 @@ fn parse_object_store_uri(source: &str) -> Result<ParsedObjectStoreUri, ShardLoo
             "object-store URI bucket/container and object key must be non-empty".to_string(),
         ));
     }
+    validate_object_store_authority(scheme.as_str(), bucket, key)?;
     Ok(ParsedObjectStoreUri {
         provider,
         bucket: bucket.to_string(),
         key: key.to_string(),
     })
+}
+
+fn validate_object_store_authority(
+    scheme: &str,
+    authority: &str,
+    key: &str,
+) -> Result<(), ShardLoomError> {
+    if key.contains('@') {
+        return Err(ShardLoomError::InvalidOperation(
+            "object-store URI object key must not include credentials or userinfo".to_string(),
+        ));
+    }
+    if matches!(scheme, "abfs" | "abfss") {
+        if authority.matches('@').count() > 1 {
+            return Err(ShardLoomError::InvalidOperation(
+                "ADLS object-store URI authority must contain at most one container/account separator".to_string(),
+            ));
+        }
+        if let Some((container, account)) = authority.split_once('@') {
+            if container.trim().is_empty() || account.trim().is_empty() {
+                return Err(ShardLoomError::InvalidOperation(
+                    "ADLS object-store URI container and account authority must be non-empty"
+                        .to_string(),
+                ));
+            }
+            if container.contains(':') {
+                return Err(ShardLoomError::InvalidOperation(
+                    "object-store URI must not include credentials or userinfo".to_string(),
+                ));
+            }
+        }
+        return Ok(());
+    }
+    if authority.contains('@') {
+        return Err(ShardLoomError::InvalidOperation(
+            "object-store URI must not include credentials or userinfo".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 fn provider_for_source_or_profile(source: &str, profile: &str) -> &'static str {
@@ -2436,7 +2605,8 @@ fn redact_object_store_uri(source: &str) -> String {
     let Some((scheme, rest)) = without_query.split_once("://") else {
         return without_query.to_string();
     };
-    if let Some((_userinfo, tail)) = rest.split_once('@') {
+    if object_store_uri_has_userinfo(scheme, rest) {
+        let tail = rest.rsplit_once('@').map_or(rest, |(_, tail)| tail);
         format!("{scheme}://<redacted>@{tail}")
     } else {
         without_query.to_string()
@@ -2444,10 +2614,29 @@ fn redact_object_store_uri(source: &str) -> String {
 }
 
 fn requested_uri_redaction_status(source: &str) -> &'static str {
-    if source.contains('?') || source.contains('#') || source.contains('@') {
+    if source.contains('?') || source.contains('#') {
+        return "redacted";
+    }
+    let Some((scheme, rest)) = source.split_once("://") else {
+        return "not_required";
+    };
+    if object_store_uri_has_userinfo(scheme, rest) {
         "redacted"
     } else {
         "not_required"
+    }
+}
+
+fn object_store_uri_has_userinfo(scheme: &str, rest: &str) -> bool {
+    let authority = rest.split('/').next().unwrap_or(rest);
+    let scheme = scheme.to_ascii_lowercase();
+    if matches!(scheme.as_str(), "abfs" | "abfss") {
+        authority.matches('@').count() > 1
+            || authority
+                .split_once('@')
+                .is_some_and(|(container, _)| container.contains(':'))
+    } else {
+        authority.contains('@')
     }
 }
 
@@ -2457,25 +2646,34 @@ fn normalize_local_emulator_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
             "local-emulator object path must not be empty".to_string(),
         ));
     }
-    if let Some(rest) = raw.strip_prefix("file://") {
+    if let Some((scheme, rest)) = raw.split_once("://") {
+        if !scheme.eq_ignore_ascii_case("file") {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "unsupported URI scheme for local-emulator object-store path: {raw}"
+            )));
+        }
         if rest.is_empty() {
             return Err(ShardLoomError::InvalidOperation(
                 "file:// path must include a local path".to_string(),
             ));
         }
-        let path = if rest.len() >= 3 && rest.as_bytes()[0] == b'/' && rest.as_bytes()[2] == b':' {
-            &rest[1..]
-        } else {
-            rest
-        };
-        return Ok(PathBuf::from(path));
-    }
-    if raw.contains("://") {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "unsupported URI scheme for local-emulator object-store path: {raw}"
-        )));
+        return Ok(local_file_uri_path(rest));
     }
     Ok(PathBuf::from(raw))
+}
+
+fn local_file_uri_path(rest: &str) -> PathBuf {
+    let local_rest = if let Some(path) = rest.strip_prefix("localhost/") {
+        format!("/{path}")
+    } else {
+        rest.to_string()
+    };
+    if local_rest.len() >= 3 && local_rest.as_bytes()[0] == b'/' && local_rest.as_bytes()[2] == b':'
+    {
+        PathBuf::from(&local_rest[1..])
+    } else {
+        PathBuf::from(local_rest)
+    }
 }
 
 fn fnv64_digest(value: &str) -> String {
@@ -2642,6 +2840,71 @@ mod tests {
         assert_eq!(output_field(&fields, "external_engine_invoked"), "false");
         assert!(
             output_field(&fields, "source_state_id").starts_with("object-store-public-fixture-")
+        );
+    }
+
+    #[test]
+    fn public_fixture_accepts_adls_container_account_authority() {
+        let fixture = std::env::temp_dir().join(format!(
+            "shardloom-object-store-public-adls-fixture-{}.bin",
+            std::process::id()
+        ));
+        fs::write(&fixture, b"abcdef").expect("fixture write");
+
+        let report = execute_object_store_read_smoke(
+            "abfss://public-container@storageacct.dfs.core.windows.net/orders.vortex",
+            PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE,
+            None,
+            Some(fixture.to_string_lossy().as_ref()),
+            false,
+        );
+        let fields = object_store_read_smoke_fields(&report);
+        fs::remove_file(&fixture).expect("fixture cleanup");
+
+        assert!(!report.has_errors());
+        assert_eq!(report.object_store_provider, "adls");
+        assert_eq!(
+            report.object_store_bucket,
+            "public-container@storageacct.dfs.core.windows.net"
+        );
+        assert_eq!(report.object_store_key, "orders.vortex");
+        assert_eq!(
+            output_field(&fields, "requested_uri_redaction_status"),
+            "not_required"
+        );
+    }
+
+    #[test]
+    fn uri_redaction_keeps_valid_adls_authority_visible() {
+        assert_eq!(
+            redact_object_store_uri("abfss://container@account.dfs.core.windows.net/path.vortex"),
+            "abfss://container@account.dfs.core.windows.net/path.vortex"
+        );
+        assert_eq!(
+            requested_uri_redaction_status(
+                "abfss://container@account.dfs.core.windows.net/path.vortex"
+            ),
+            "not_required"
+        );
+        assert_eq!(
+            redact_object_store_uri("s3://user@bucket/path.vortex?token=secret"),
+            "s3://<redacted>@bucket/path.vortex"
+        );
+        assert_eq!(
+            requested_uri_redaction_status("s3://user@bucket/path.vortex"),
+            "redacted"
+        );
+    }
+
+    #[test]
+    fn local_file_uri_normalization_strips_localhost_authority() {
+        assert_eq!(
+            normalize_local_emulator_path("file://localhost/tmp/orders.vortex").unwrap(),
+            PathBuf::from("/tmp/orders.vortex")
+        );
+        assert_eq!(
+            normalize_local_emulator_path("FILE:///C:/tmp/orders.vortex").unwrap(),
+            PathBuf::from("C:/tmp/orders.vortex")
         );
     }
 

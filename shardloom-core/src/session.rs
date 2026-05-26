@@ -531,18 +531,6 @@ impl SessionRuntimeArtifactIds {
                 .to_string(),
         }
     }
-
-    fn source_state_digest(&self) -> String {
-        session_runtime_digest(&[&self.source_state, "source-fingerprint:v1"])
-    }
-
-    fn vortex_prepared_state_digest(&self) -> String {
-        session_runtime_digest(&[&self.vortex_prepared_state, "prepared-fingerprint:v1"])
-    }
-
-    fn output_plan_digest(&self) -> String {
-        session_runtime_digest(&[&self.output_plan, "output-fingerprint:v1"])
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -606,12 +594,43 @@ fn summarize_session_runtime_events(
     }
 }
 
+fn latest_session_artifact_digest(
+    events: &[ShardLoomSessionCacheEvent],
+    kind: ShardLoomSessionCacheArtifactKind,
+    artifact_id: &str,
+    fallback_fingerprint: &str,
+) -> String {
+    let fingerprint = events
+        .iter()
+        .rev()
+        .find(|event| event.kind == kind && event.artifact_id == artifact_id)
+        .map_or(fallback_fingerprint, |event| {
+            event.fingerprint_digest.as_str()
+        });
+    session_runtime_digest(&[artifact_id, fingerprint])
+}
+
 impl ShardLoomSessionRuntimeReport {
     fn from_runtime(runtime: ScopedSessionRuntime) -> Self {
         let artifact_ids = SessionRuntimeArtifactIds::smoke();
-        let source_state_digest = artifact_ids.source_state_digest();
-        let vortex_prepared_state_digest = artifact_ids.vortex_prepared_state_digest();
-        let output_plan_digest = artifact_ids.output_plan_digest();
+        let source_state_digest = latest_session_artifact_digest(
+            &runtime.events,
+            ShardLoomSessionCacheArtifactKind::SourceState,
+            &artifact_ids.source_state,
+            "source-fingerprint:v1",
+        );
+        let vortex_prepared_state_digest = latest_session_artifact_digest(
+            &runtime.events,
+            ShardLoomSessionCacheArtifactKind::VortexPreparedState,
+            &artifact_ids.vortex_prepared_state,
+            "prepared-fingerprint:v1",
+        );
+        let output_plan_digest = latest_session_artifact_digest(
+            &runtime.events,
+            ShardLoomSessionCacheArtifactKind::OutputPlan,
+            &artifact_ids.output_plan,
+            "output-fingerprint:v1",
+        );
         let event_summary = summarize_session_runtime_events(&runtime.events);
 
         Self {
@@ -877,7 +896,26 @@ mod tests {
             "source_fingerprint_changed,schema_digest_changed,output_artifact_fingerprint_changed"
         );
         assert!(report.reuse_digest.starts_with("fnv1a64:"));
-        assert!(report.source_state_digest.starts_with("fnv1a64:"));
-        assert!(report.output_plan_digest.starts_with("fnv1a64:"));
+        assert_eq!(
+            report.source_state_digest,
+            session_runtime_digest(&[
+                "source-state://session-cache-smoke/local-orders",
+                "source-fingerprint:v2"
+            ])
+        );
+        assert_eq!(
+            report.vortex_prepared_state_digest,
+            session_runtime_digest(&[
+                "vortex-prepared-state://session-cache-smoke/local-orders",
+                "prepared-fingerprint:v1"
+            ])
+        );
+        assert_eq!(
+            report.output_plan_digest,
+            session_runtime_digest(&[
+                "output-plan://session-cache-smoke/local-orders-jsonl",
+                "output-fingerprint:v2"
+            ])
+        );
     }
 }

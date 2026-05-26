@@ -16,7 +16,7 @@ python scripts\check_package_channel_readiness.py
 The hard release-readiness gate also consumes this matrix:
 
 ```powershell
-python scripts\check_release_readiness.py --allow-blocked
+python scripts\check_release_readiness.py
 ```
 
 Release-readiness and CI use the stricter local evidence mode:

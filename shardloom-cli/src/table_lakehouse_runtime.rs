@@ -991,11 +991,13 @@ fn remove_file_if_exists(path: &Path) -> std::io::Result<bool> {
 }
 
 fn is_remote_uri(source: &str) -> bool {
-    source.starts_with("s3://")
-        || source.starts_with("gs://")
-        || source.starts_with("gcs://")
-        || source.starts_with("abfs://")
-        || source.starts_with("abfss://")
+    let Some((scheme, _)) = source.split_once("://") else {
+        return false;
+    };
+    matches!(
+        scheme.to_ascii_lowercase().as_str(),
+        "s3" | "gs" | "gcs" | "abfs" | "abfss"
+    )
 }
 
 fn normalize_local_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
@@ -1004,25 +1006,34 @@ fn normalize_local_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
             "local manifest target path must not be empty".to_string(),
         ));
     }
-    if let Some(rest) = raw.strip_prefix("file://") {
+    if let Some((scheme, rest)) = raw.split_once("://") {
+        if !scheme.eq_ignore_ascii_case("file") {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "unsupported URI scheme for local table manifest path: {raw}"
+            )));
+        }
         if rest.is_empty() {
             return Err(ShardLoomError::InvalidOperation(
                 "file:// path must include a local path".to_string(),
             ));
         }
-        let path = if rest.len() >= 3 && rest.as_bytes()[0] == b'/' && rest.as_bytes()[2] == b':' {
-            &rest[1..]
-        } else {
-            rest
-        };
-        return Ok(PathBuf::from(path));
-    }
-    if raw.contains("://") {
-        return Err(ShardLoomError::InvalidOperation(format!(
-            "unsupported URI scheme for local table manifest path: {raw}"
-        )));
+        return Ok(local_file_uri_path(rest));
     }
     Ok(PathBuf::from(raw))
+}
+
+fn local_file_uri_path(rest: &str) -> PathBuf {
+    let local_rest = if let Some(path) = rest.strip_prefix("localhost/") {
+        format!("/{path}")
+    } else {
+        rest.to_string()
+    };
+    if local_rest.len() >= 3 && local_rest.as_bytes()[0] == b'/' && local_rest.as_bytes()[2] == b':'
+    {
+        PathBuf::from(&local_rest[1..])
+    } else {
+        PathBuf::from(local_rest)
+    }
 }
 
 fn fnv64_digest(value: &str) -> String {
@@ -1192,6 +1203,27 @@ mod tests {
         assert_eq!(
             fnv64_digest(&payload),
             execute_digest_without_file_io_for_test()
+        );
+    }
+
+    #[test]
+    fn remote_uri_detection_is_scheme_case_insensitive() {
+        assert!(is_remote_uri("S3://bucket/table/manifest.json"));
+        assert!(is_remote_uri(
+            "ABFSS://container@account.dfs.core.windows.net/table"
+        ));
+        assert!(!is_remote_uri("file://localhost/tmp/table.json"));
+    }
+
+    #[test]
+    fn file_uri_normalization_strips_localhost_authority() {
+        assert_eq!(
+            normalize_local_path("file://localhost/tmp/table-manifest.json").unwrap(),
+            PathBuf::from("/tmp/table-manifest.json")
+        );
+        assert_eq!(
+            normalize_local_path("FILE:///C:/tmp/table-manifest.json").unwrap(),
+            PathBuf::from("C:/tmp/table-manifest.json")
         );
     }
 

@@ -1687,6 +1687,18 @@ fn eval_string_predicate(
     let value = eval_expression(&args[0], row)?;
     let needle = eval_expression(&args[1], row)?;
     let data_materialized = value.data_materialized || needle.data_materialized;
+    if !matches!(value.value, ScalarValue::Utf8(_) | ScalarValue::Null)
+        || !matches!(needle.value, ScalarValue::Utf8(_) | ScalarValue::Null)
+    {
+        return Err(EvalFailure::unsupported(
+            "string_predicate",
+            format!(
+                "function {name:?} supports UTF-8/null operands only, got {} and {}",
+                value.value.dtype().as_str(),
+                needle.value.dtype().as_str()
+            ),
+        ));
+    }
     if value.value.is_null() || needle.value.is_null() {
         return Ok(
             EvalValue::null(LogicalDType::Boolean, NullBehavior::NullPropagating)
@@ -3444,6 +3456,27 @@ mod tests {
         assert_eq!(report.operator_family, "string_predicate");
         assert_eq!(report.value, Some(ScalarValue::Boolean(true)));
         assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn expression_semantics_rejects_string_predicate_type_errors_before_nulls() {
+        let expression = Expression::new(
+            expr_id("contains-null-wrong-type"),
+            ExpressionKind::FunctionCall {
+                name: "contains".to_string(),
+                args: vec![
+                    Expression::literal(expr_id("null-text"), ScalarValue::Null),
+                    Expression::literal(expr_id("bad-needle"), ScalarValue::Int64(1)),
+                ],
+            },
+        );
+        let report = evaluate_expression(&expression, &row(&[]));
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert_eq!(report.operator_family, "string_predicate");
+        assert!(report.has_errors());
         assert!(!report.fallback_attempted);
         assert!(!report.external_engine_invoked);
     }

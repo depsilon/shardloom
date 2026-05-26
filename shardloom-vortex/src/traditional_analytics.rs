@@ -7463,7 +7463,7 @@ const fn scan_limit_requested_rows(scenario: TraditionalAnalyticsScenario) -> Op
 
 const fn scan_limit_request_scope(scenario: TraditionalAnalyticsScenario) -> &'static str {
     match scenario {
-        TraditionalAnalyticsScenario::FilterProjectionLimit => "global_source_order_after_filter",
+        TraditionalAnalyticsScenario::FilterProjectionLimit => "global_id_order_after_filter",
         TraditionalAnalyticsScenario::SortAndTopK => "global_ordered_top_k",
         TraditionalAnalyticsScenario::TopNPerGroup => "per_group_ranked_top_n",
         TraditionalAnalyticsScenario::RowNumberWindow => "per_group_row_number_window",
@@ -7490,7 +7490,7 @@ const fn scan_residual_limit_status(
     match (residual_limit_required, residual_limit_applied, scenario) {
         (false, _, _) => "not_needed",
         (true, true, TraditionalAnalyticsScenario::FilterProjectionLimit) => {
-            "applied_by_shardloom_native_source_order_residual"
+            "applied_by_shardloom_native_id_order_residual"
         }
         (true, true, TraditionalAnalyticsScenario::SortAndTopK) => {
             "applied_by_shardloom_native_top_k_residual"
@@ -7528,7 +7528,7 @@ const fn scan_residual_limit_reason(
             "limit-like residual was not executed because the scenario did not run through the local Vortex scan/source boundary"
         }
         (true, true, TraditionalAnalyticsScenario::FilterProjectionLimit) => {
-            "Vortex Scan admitted filter and projection; ShardLoom applies the order-sensitive source-order limit as a native residual over scanned rows"
+            "Vortex Scan admitted filter and projection; ShardLoom applies the order-sensitive id-order limit as a native residual over scanned rows"
         }
         (true, true, TraditionalAnalyticsScenario::SortAndTopK) => {
             "Vortex Scan admits projection only; ShardLoom applies ordered top-k heap semantics as a native residual"
@@ -7546,7 +7546,7 @@ const fn scan_residual_limit_reason(
 fn scan_pushdown_limit_blocker_reason(scenario: TraditionalAnalyticsScenario) -> &'static str {
     match scenario {
         TraditionalAnalyticsScenario::FilterProjectionLimit => {
-            "filter/projection/limit currently keeps the limit in ShardLoom residual logic because the scan limit is order-sensitive"
+            "filter/projection/limit currently keeps the limit in ShardLoom residual logic because the scan limit is id-order/order-sensitive"
         }
         TraditionalAnalyticsScenario::SortAndTopK => {
             "top-k requires ordered heap semantics and is not a source-order Vortex Scan limit"
@@ -10977,6 +10977,21 @@ pub struct TraditionalPreparedVortexLocalScaleEvidence {
     pub correctness_digest: String,
 }
 
+#[cfg(feature = "vortex-traditional-analytics-benchmark")]
+const fn prepared_vortex_local_scale_route(mode: ShardLoomExecutionMode) -> &'static str {
+    match mode {
+        ShardLoomExecutionMode::Auto => "auto_selected_vortex_batch",
+        ShardLoomExecutionMode::NativeVortex => "native_vortex_batch",
+        ShardLoomExecutionMode::PreparedVortex => "prepared_vortex_batch",
+        ShardLoomExecutionMode::CompatibilityImportCertified => {
+            "compatibility_import_certified_to_prepared_vortex_batch"
+        }
+        ShardLoomExecutionMode::DirectCompatibilityTransient => {
+            "direct_compatibility_transient_to_vortex_batch"
+        }
+    }
+}
+
 impl TraditionalPreparedVortexLocalScaleEvidence {
     #[cfg(feature = "vortex-traditional-analytics-benchmark")]
     #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
@@ -10990,6 +11005,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
         scenario_execution: &TraditionalScenarioExecution,
         native_io_certificate_status: &str,
         computed_result_sink: Option<&TraditionalComputedResultSinkVerification>,
+        route: &'static str,
     ) -> Result<Self> {
         let split_runtime_evidence = TraditionalPreparedVortexLocalSplitRuntimeEvidence::build(
             scenario,
@@ -11100,6 +11116,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
             native_io_certificate_status,
             computed_result_sink.is_some(),
             &preliminary_memory_evidence,
+            route,
         )?;
         let pulseweave_batch_window =
             preliminary_pulseweave_report.batch_window_size(max_parallelism);
@@ -11120,6 +11137,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
             native_io_certificate_status,
             computed_result_sink.is_some(),
             &memory_evidence,
+            route,
         )?;
         let final_pulseweave_batch_window = pulseweave_report.batch_window_size(max_parallelism);
         if final_pulseweave_batch_window != pulseweave_batch_window {
@@ -11141,6 +11159,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
                 native_io_certificate_status,
                 computed_result_sink.is_some(),
                 &memory_evidence,
+                route,
             )?;
         }
         let memory_reservations_requested = memory_evidence.memory_reservations_requested;
@@ -11175,7 +11194,7 @@ impl TraditionalPreparedVortexLocalScaleEvidence {
         };
         Ok(Self {
             schema_version: PREPARED_VORTEX_LOCAL_SCALE_SCHEMA_VERSION.to_string(),
-            route: "compatibility_import_certified_to_prepared_vortex_batch".to_string(),
+            route: route.to_string(),
             runtime_status: "prepared_vortex_in_between_processing_evidence".to_string(),
             no_standalone_lane: true,
             real_fixture_bytes: source_snapshot.source_bytes_read > 0,
@@ -11845,6 +11864,7 @@ fn plan_prepared_vortex_pulseweave(
     native_io_certificate_status: &str,
     result_sink_requested: bool,
     memory_evidence: &PreparedVortexMemoryReservationEvidence,
+    route: &str,
 ) -> Result<PulseWeaveReport> {
     let task_shapes = tasks
         .iter()
@@ -11875,7 +11895,7 @@ fn plan_prepared_vortex_pulseweave(
         })
         .collect::<Result<Vec<_>>>()?;
     let input = PulseWeaveInput::new(
-        "compatibility_import_certified_to_prepared_vortex_batch",
+        route,
         "prepared_vortex_local_batch",
         format!(
             "traditional_analytics:{}:{}",
@@ -12043,6 +12063,8 @@ const fn prepared_vortex_local_split_operator_family(
         TraditionalAnalyticsScenario::HashJoin | TraditionalAnalyticsScenario::JoinAggregate => {
             "stateful_hash_join"
         }
+        TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation => "stateful_hash_join",
+        TraditionalAnalyticsScenario::ScaleStressMultiStageEtl => "stateful_multi_stage_etl",
         TraditionalAnalyticsScenario::SortAndTopK | TraditionalAnalyticsScenario::TopNPerGroup => {
             "stateful_ordered_topk"
         }
@@ -12065,6 +12087,8 @@ const fn prepared_vortex_local_split_operator_is_stateful(
             | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct
             | TraditionalAnalyticsScenario::HashJoin
             | TraditionalAnalyticsScenario::JoinAggregate
+            | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+            | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl
             | TraditionalAnalyticsScenario::SortAndTopK
             | TraditionalAnalyticsScenario::TopNPerGroup
             | TraditionalAnalyticsScenario::RowNumberWindow
@@ -12085,6 +12109,8 @@ const fn prepared_vortex_local_split_operator_uses_local_combine(
             | TraditionalAnalyticsScenario::HighCardinalityStringGroupDistinct
             | TraditionalAnalyticsScenario::HashJoin
             | TraditionalAnalyticsScenario::JoinAggregate
+            | TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+            | TraditionalAnalyticsScenario::ScaleStressMultiStageEtl
             | TraditionalAnalyticsScenario::SortAndTopK
             | TraditionalAnalyticsScenario::TopNPerGroup
             | TraditionalAnalyticsScenario::RowNumberWindow
@@ -14012,12 +14038,18 @@ fn run_traditional_analytics_vortex_batch_benchmark_enabled(
                 traditional_scenario_slug(scenario)
             ))
         });
+        let child_cdc_delta_vortex =
+            if scenario == TraditionalAnalyticsScenario::SmallChangeOverLargeBase {
+                cdc_delta_vortex.clone()
+            } else {
+                None
+            };
         let child_request = TraditionalAnalyticsVortexRequest::new(
             scenario,
             fact_vortex.clone(),
             dim_vortex.clone(),
         )
-        .with_cdc_delta_vortex(cdc_delta_vortex.clone())
+        .with_cdc_delta_vortex(child_cdc_delta_vortex)
         .with_requested_execution_mode(requested_execution_mode)
         .with_resource_policy(resource_policy)
         .with_result_workspace_dir(scenario_workspace)
@@ -14174,9 +14206,14 @@ fn run_traditional_analytics_vortex_benchmark_with_batch_source_state(
     request: TraditionalAnalyticsVortexRequest,
     source_state: &TraditionalVortexBatchSourceState,
 ) -> Result<TraditionalAnalyticsVortexReport> {
+    let source_snapshot = TraditionalVortexSourceSnapshot::from_paths(
+        &request.fact_vortex,
+        &request.dim_vortex,
+        request.cdc_delta_vortex.as_deref(),
+    )?;
     run_traditional_analytics_vortex_benchmark_with_source_context(
         request,
-        &source_state.source_snapshot,
+        &source_snapshot,
         Some(source_state),
     )
 }
@@ -14299,6 +14336,7 @@ fn run_traditional_analytics_vortex_benchmark_with_source_context(
         &scenario_execution,
         native_io_certificate.status(),
         computed_result_sink.as_ref(),
+        prepared_vortex_local_scale_route(request.requested_execution_mode),
     )?;
 
     Ok(TraditionalAnalyticsVortexReport {
@@ -21007,6 +21045,41 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn scale_stress_split_operator_metadata_stays_stateful_while_runtime_blocked() {
+        assert!(!prepared_vortex_local_split_operator_runtime_supported(
+            TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+        ));
+        assert_eq!(
+            prepared_vortex_local_split_operator_family(
+                TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+            ),
+            "stateful_hash_join"
+        );
+        assert!(prepared_vortex_local_split_operator_is_stateful(
+            TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+        ));
+        assert!(prepared_vortex_local_split_operator_uses_local_combine(
+            TraditionalAnalyticsScenario::ScaleStressSkewedJoinAggregation
+        ));
+        assert!(!prepared_vortex_local_split_operator_runtime_supported(
+            TraditionalAnalyticsScenario::ScaleStressMultiStageEtl
+        ));
+        assert_eq!(
+            prepared_vortex_local_split_operator_family(
+                TraditionalAnalyticsScenario::ScaleStressMultiStageEtl
+            ),
+            "stateful_multi_stage_etl"
+        );
+        assert!(prepared_vortex_local_split_operator_is_stateful(
+            TraditionalAnalyticsScenario::ScaleStressMultiStageEtl
+        ));
+        assert!(prepared_vortex_local_split_operator_uses_local_combine(
+            TraditionalAnalyticsScenario::ScaleStressMultiStageEtl
+        ));
+    }
+
+    #[test]
     fn disabled_build_returns_explicit_error() {
         if cfg!(feature = "vortex-traditional-analytics-benchmark") {
             return;
@@ -21940,6 +22013,57 @@ mod tests {
             err.to_string()
                 .contains("requires a CDC delta source via --cdc-delta")
         );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[cfg(feature = "vortex-traditional-analytics-benchmark")]
+    fn prepared_batch_keeps_cdc_delta_evidence_on_cdc_child_only() {
+        let root = traditional_analytics_test_root("cdc-batch-child-scope");
+        let (fact_csv, dim_csv) = write_tiny_traditional_csv_inputs(&root);
+        let cdc_csv = root.join("cdc_delta.csv");
+        std::fs::write(
+            &cdc_csv,
+            "id,op,value,metric,effective_ts\n1,update,7000,10.00,2024-12-01T00:00:00Z\n",
+        )
+        .unwrap();
+
+        let report = run_traditional_analytics_prepared_batch_benchmark(
+            TraditionalAnalyticsPreparedBatchRequest::new(
+                vec![
+                    TraditionalAnalyticsScenario::SmallChangeOverLargeBase,
+                    TraditionalAnalyticsScenario::SelectiveFilter,
+                ],
+                fact_csv,
+                dim_csv,
+                root.join("prepare-workspace"),
+            )
+            .with_input_format(TraditionalAnalyticsInputFormat::Csv)
+            .with_cdc_delta_input(Some(cdc_csv))
+            .with_resource_policy(TraditionalAnalyticsResourcePolicy::new(2, 4)),
+        )
+        .unwrap();
+
+        let cdc_child = report
+            .batch_report
+            .reports
+            .iter()
+            .find(|child| child.scenario == TraditionalAnalyticsScenario::SmallChangeOverLargeBase)
+            .expect("cdc child");
+        let selective_child = report
+            .batch_report
+            .reports
+            .iter()
+            .find(|child| child.scenario == TraditionalAnalyticsScenario::SelectiveFilter)
+            .expect("selective child");
+
+        assert_eq!(cdc_child.cdc_delta_rows, 1);
+        assert!(cdc_child.cdc_delta_vortex_path.is_some());
+        assert!(cdc_child.cdc_delta_vortex_bytes > 0);
+        assert_eq!(selective_child.cdc_delta_rows, 0);
+        assert!(selective_child.cdc_delta_vortex_path.is_none());
+        assert_eq!(selective_child.cdc_delta_vortex_bytes, 0);
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -22993,7 +23117,7 @@ mod tests {
         assert_eq!(group_report.resource_policy.max_parallelism, 4);
         assert_eq!(
             group_report.local_scale_evidence.route,
-            "compatibility_import_certified_to_prepared_vortex_batch"
+            "prepared_vortex_batch"
         );
         assert!(group_report.local_scale_evidence.no_standalone_lane);
         assert!(group_report.local_scale_evidence.real_fixture_bytes);
@@ -23272,7 +23396,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_group-by-aggregation_prepared_vortex_scale_route",
-            "compatibility_import_certified_to_prepared_vortex_batch",
+            "prepared_vortex_batch",
         );
         assert_field_eq(
             &fields,
@@ -24122,7 +24246,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_filter---projection---limit_scan_limit_request_scope",
-            "global_source_order_after_filter",
+            "global_id_order_after_filter",
         );
         assert_field_eq(
             &fields,
@@ -24137,7 +24261,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_filter---projection---limit_scan_residual_limit_status",
-            "applied_by_shardloom_native_source_order_residual",
+            "applied_by_shardloom_native_id_order_residual",
         );
         assert_field_eq(
             &fields,
@@ -24157,7 +24281,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_filter---projection---limit_scan_residual_limit_reason",
-            "Vortex Scan admitted filter and projection; ShardLoom applies the order-sensitive source-order limit as a native residual over scanned rows",
+            "Vortex Scan admitted filter and projection; ShardLoom applies the order-sensitive id-order limit as a native residual over scanned rows",
         );
         assert_field_eq(
             &fields,
@@ -24172,7 +24296,7 @@ mod tests {
         assert_field_eq(
             &fields,
             "scenario_filter---projection---limit_scan_pushdown_blocker_reason",
-            "filter/projection/limit currently keeps the limit in ShardLoom residual logic because the scan limit is order-sensitive",
+            "filter/projection/limit currently keeps the limit in ShardLoom residual logic because the scan limit is id-order/order-sensitive",
         );
         assert_field_eq(
             &fields,
@@ -28169,7 +28293,7 @@ mod tests {
             native_fields
                 .get("scan_limit_request_scope")
                 .map(String::as_str),
-            Some("global_source_order_after_filter")
+            Some("global_id_order_after_filter")
         );
         assert_eq!(
             native_fields
@@ -28187,7 +28311,7 @@ mod tests {
             native_fields
                 .get("scan_residual_limit_status")
                 .map(String::as_str),
-            Some("applied_by_shardloom_native_source_order_residual")
+            Some("applied_by_shardloom_native_id_order_residual")
         );
         assert_eq!(
             native_fields
@@ -28212,7 +28336,7 @@ mod tests {
                 .get("scan_residual_limit_reason")
                 .map(String::as_str),
             Some(
-                "Vortex Scan admitted filter and projection; ShardLoom applies the order-sensitive source-order limit as a native residual over scanned rows"
+                "Vortex Scan admitted filter and projection; ShardLoom applies the order-sensitive id-order limit as a native residual over scanned rows"
             )
         );
         assert_eq!(

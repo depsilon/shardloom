@@ -499,6 +499,7 @@ def validate_matrix_manifest(
             "blockers": ["missing admitted semantics matrix manifest"],
             "row_count": 0,
             "row_ids": [],
+            "remaining_matrix_gaps": sorted(expected_case_ids),
         }
     if payload.get("schema_version") != MATRIX_SCHEMA_VERSION:
         blockers.append(

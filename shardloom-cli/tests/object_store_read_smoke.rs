@@ -149,6 +149,41 @@ fn public_no_credential_fixture_profile_reads_uri_shape_without_network() {
 }
 
 #[test]
+fn public_no_credential_fixture_profile_accepts_adls_container_account_uri() {
+    let fixture = std::env::temp_dir().join(format!(
+        "shardloom-object-store-public-adls-fixture-integration-{}.bin",
+        std::process::id()
+    ));
+    fs::write(&fixture, b"abcdef").expect("fixture write");
+    let args = vec![
+        "object-store-read-smoke".to_string(),
+        "abfss://public-container@storageacct.dfs.core.windows.net/orders.vortex".to_string(),
+        "--profile".to_string(),
+        "public-no-credential-fixture".to_string(),
+        "--public-fixture-path".to_string(),
+        fixture.to_string_lossy().into_owned(),
+    ];
+
+    let (success, output, stderr) = run_object_store_read_smoke_json(&args);
+    fs::remove_file(&fixture).expect("fixture cleanup");
+
+    assert!(success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert!(output.contains("\"status\":\"success\""));
+    assert!(output.contains(&field("object_store_provider", "adls")));
+    assert!(output.contains(&field(
+        "object_store_bucket",
+        "public-container@storageacct.dfs.core.windows.net"
+    )));
+    assert!(output.contains(&field("object_store_key", "orders.vortex")));
+    assert!(output.contains(&field("requested_uri_redaction_status", "not_required")));
+    assert!(output.contains(&field("credential_resolution_performed", "false")));
+    assert!(output.contains(&field("network_probe_performed", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn public_no_credential_fixture_profile_requires_explicit_fixture_path() {
     let args = vec![
         "object-store-read-smoke".to_string(),

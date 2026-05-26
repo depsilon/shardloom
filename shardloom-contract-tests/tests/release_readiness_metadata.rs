@@ -2069,7 +2069,7 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
         "cargo check --workspace --all-features",
         "python scripts/check_dependency_audit.py --release-gate",
         "python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda",
-        "python scripts/check_release_readiness.py --allow-blocked",
+        "python scripts/check_release_readiness.py",
         "npm run build",
         "node website/validate_static_assets.js",
     ] {
@@ -3362,8 +3362,8 @@ fn use_case_atlas_closeout_remains_generated_and_validated() {
     for required in [
         "ShardLoom's public website should be a simple interpretation layer",
         "The repo remains the source of truth for phase plans, RFCs, use cases, recipes, and support",
-        "generated Use Case Atlas pages",
-        "The underlying repository docs remain intact",
+        "website now renders a compact Starlight surface",
+        "The underlying repository docs remain authoritative",
     ] {
         assert!(
             website_plan.contains(required),
@@ -3486,15 +3486,17 @@ fn field_guide_atlas_closeout_remains_generated_and_claim_safe() {
 
     let minimal_reset = read_repo_file("docs/architecture/website-minimal-public-surface-reset.md");
     for required in [
+        "Status: superseded by the compact Astro/Starlight website source",
         "public website should be a simple interpretation layer",
+        "What can a reader run or inspect today?",
         "What does the current benchmark evidence show?",
         "How does work move through the compute engine?",
-        "Remove from the public site:",
-        "generated Field Guide pages",
-        "generated Use Case Atlas pages",
-        "generated status board",
-        "generated README mirror",
-        "Pagefind search bundle",
+        "Do not reintroduce:",
+        "the old Python static-site generator",
+        "a generated README mirror",
+        "hand-edited generated site data",
+        "The underlying repository docs remain authoritative",
+        "website-src/scripts/sync-content.mjs",
         "Light mode first",
         "Avoid cyberpunk dashboard sprawl",
     ] {

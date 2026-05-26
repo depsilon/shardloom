@@ -772,6 +772,17 @@ def validate_runtime_execution_envelope(
         or _runtime_field(envelope, "selected_execution_mode")
         or _runtime_field(envelope, "execution_mode")
     )
+    if runtime_expected and envelope.status != "success":
+        issues.append(
+            RuntimeEnvelopeValidationIssue(
+                code="invalid_runtime_status",
+                field="status",
+                message=(
+                    "runtime validation expected a successful execution envelope, "
+                    f"got status={envelope.status}"
+                ),
+            )
+        )
 
     for field in ("fallback_attempted", "external_engine_invoked", "claim_gate_status"):
         if not _field_present(envelope, field):
@@ -1031,7 +1042,15 @@ def _field_present(envelope: OutputEnvelope, key: str) -> bool:
     value = _runtime_field(envelope, key)
     if value is None:
         return False
-    return value.strip().lower() not in {"", "none", "not_applicable", "missing"}
+    return value.strip().lower() not in {
+        "",
+        "none",
+        "not_applicable",
+        "missing",
+        "[]",
+        "{}",
+        "()",
+    }
 
 
 def _safe_field_bool(envelope: OutputEnvelope, key: str) -> bool | None:
@@ -1066,11 +1085,15 @@ def _execution_certificate_present(envelope: OutputEnvelope) -> bool:
     for field in EXECUTION_CERTIFICATE_REF_FIELDS:
         if _field_present(envelope, field):
             return True
-    return any(
+    return any(_is_execution_certificate(certificate) for certificate in envelope.certificates)
+
+
+def _is_execution_certificate(certificate: Mapping[str, Any]) -> bool:
+    certificate_id = str(certificate.get("id", ""))
+    return (
         str(certificate.get("kind", "")) == "execution_certificate"
-        or str(certificate.get("id", "")).startswith("execution.")
-        or ".execution." in str(certificate.get("id", ""))
-        for certificate in envelope.certificates
+        or certificate_id.startswith("execution.")
+        or ".execution." in certificate_id
     )
 
 
@@ -1080,7 +1103,8 @@ def _execution_certificate_status_certified(envelope: OutputEnvelope) -> bool:
         if value is not None and value.strip().lower() == "certified":
             return True
     return any(
-        str(certificate.get("status", "")).strip().lower() == "certified"
+        _is_execution_certificate(certificate)
+        and str(certificate.get("status", "")).strip().lower() == "certified"
         for certificate in envelope.certificates
     )
 

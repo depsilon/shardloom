@@ -2082,10 +2082,10 @@ fn validate_sql_local_source_output_request(
     }
     let mut paths = BTreeSet::new();
     if let Some(output_path) = output_path {
-        paths.insert(normalized_output_path_key(output_path));
+        paths.insert(canonical_output_path_key(output_path)?);
     }
     for target in fanout_outputs {
-        if !paths.insert(normalized_output_path_key(&target.path)) {
+        if !paths.insert(canonical_output_path_key(&target.path)?) {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "SQL local-source fanout output path is duplicated: {}; no fallback execution was attempted",
                 target.path.display()
@@ -2114,6 +2114,12 @@ fn normalized_output_path_key(path: &Path) -> String {
     path.to_string_lossy()
         .replace('\\', "/")
         .to_ascii_lowercase()
+}
+
+fn canonical_output_path_key(path: &Path) -> Result<String, ShardLoomError> {
+    let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+    let plan = shardloom_core::plan_workspace_safe_local_output(workspace_root, path, true)?;
+    Ok(normalized_output_path_key(&plan.target_path))
 }
 
 fn run_vortex_ingest_smoke(
@@ -6474,7 +6480,7 @@ fn bind_sql_local_source(
     validate_window_projection_shape(parsed)?;
     validate_order_by_source(parsed, header)?;
     validate_computed_projection_shape(parsed)?;
-    validate_projection_output_names(parsed)?;
+    validate_projection_output_names(parsed, header)?;
     if parsed.is_grouped_aggregate() {
         validate_grouped_aggregate_sources(parsed, header)?;
     } else if parsed.is_aggregate() {
@@ -6948,13 +6954,20 @@ fn validate_having_source_columns(
     Ok(())
 }
 
-fn validate_projection_output_names(parsed: &ParsedSqlLocalSource) -> Result<(), ShardLoomError> {
+fn validate_projection_output_names(
+    parsed: &ParsedSqlLocalSource,
+    expanded_star_columns: &[String],
+) -> Result<(), ShardLoomError> {
     if !parsed.has_computed_projection() && !parsed.has_window_projection() {
         return Ok(());
     }
     let mut output_names = BTreeSet::new();
     for column in &parsed.projections {
-        if column != "*" {
+        if column == "*" {
+            for expanded_column in expanded_star_columns {
+                require_unique_projection_output_name(&mut output_names, expanded_column)?;
+            }
+        } else {
             require_unique_projection_output_name(&mut output_names, column)?;
         }
     }
@@ -7146,7 +7159,7 @@ fn bind_join_sql_local_source(
             ));
         }
         validate_projection_source_columns(parsed, &qualified_header)?;
-        validate_projection_output_names(parsed)?;
+        validate_projection_output_names(parsed, &qualified_header)?;
     }
     validate_aggregate_output_names(parsed)?;
     if parsed.has_having() && !parsed.is_aggregate() {
@@ -16090,6 +16103,16 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                 window_projection.alias.clone(),
             ));
             window_projections.push(window_projection);
+        } else if let Some(conditional_projection) = parse_conditional_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::Conditional(
+                conditional_projection.alias.clone(),
+            ));
+            conditional_projections.push(conditional_projection);
+        } else if let Some(predicate_projection) = parse_predicate_projection(projection)? {
+            projection_order.push(ParsedProjectionOutput::Predicate(
+                predicate_projection.alias.clone(),
+            ));
+            predicate_projections.push(predicate_projection);
         } else if let Some(generic_projection) = parse_generic_expression_projection(projection)? {
             projection_order.push(ParsedProjectionOutput::GenericExpression(
                 generic_projection.alias.clone(),
@@ -16124,16 +16147,6 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
                 nullif_projection.alias.clone(),
             ));
             nullif_projections.push(nullif_projection);
-        } else if let Some(conditional_projection) = parse_conditional_projection(projection)? {
-            projection_order.push(ParsedProjectionOutput::Conditional(
-                conditional_projection.alias.clone(),
-            ));
-            conditional_projections.push(conditional_projection);
-        } else if let Some(predicate_projection) = parse_predicate_projection(projection)? {
-            projection_order.push(ParsedProjectionOutput::Predicate(
-                predicate_projection.alias.clone(),
-            ));
-            predicate_projections.push(predicate_projection);
         } else if let Some(date_arithmetic_projection) =
             parse_date_arithmetic_projection(projection)?
         {
@@ -16188,6 +16201,15 @@ fn parse_projection_list(raw: &str) -> Result<ParsedProjectionList, ShardLoomErr
         .iter()
         .any(|output| matches!(output, ParsedProjectionOutput::Raw(column) if column == "*"));
     if has_star_projection {
+        let star_count = projection_order
+            .iter()
+            .filter(|output| matches!(output, ParsedProjectionOutput::Raw(column) if column == "*"))
+            .count();
+        if star_count > 1 {
+            return Err(unsupported_sql_error(
+                "SELECT * may appear only once in this scoped smoke",
+            ));
+        }
         if !aggregates.is_empty() {
             return Err(unsupported_sql_error(
                 "SELECT * cannot be mixed with aggregate functions in this scoped smoke",
@@ -18239,6 +18261,11 @@ fn parse_substr_string_function_args(
         &mut source_columns,
         expression_source_columns(&value_expression),
     );
+    if source_columns.is_empty() {
+        return Err(unsupported_sql_error(
+            "SUBSTR/SUBSTRING string function expressions require a source column first argument",
+        ));
+    }
     Ok(ParsedStringFunctionArgs {
         expression_args: vec![
             value_expression,
@@ -18279,6 +18306,11 @@ fn parse_left_right_string_function_args(
         &mut source_columns,
         expression_source_columns(&value_expression),
     );
+    if source_columns.is_empty() {
+        return Err(unsupported_sql_error(&format!(
+            "{function_name} string function expressions require a source column first argument"
+        )));
+    }
     Ok(ParsedStringFunctionArgs {
         expression_args: vec![
             value_expression,
@@ -18315,6 +18347,11 @@ fn parse_replace_string_function_args(
         &mut source_columns,
         expression_source_columns(&value_expression),
     );
+    if source_columns.is_empty() {
+        return Err(unsupported_sql_error(
+            "REPLACE string function expressions require a source column first argument",
+        ));
+    }
     Ok(ParsedStringFunctionArgs {
         expression_args: vec![
             value_expression,
@@ -18704,7 +18741,8 @@ fn parse_source_clause(raw: &str) -> Result<ParsedSourceClause, ShardLoomError> 
 }
 
 fn find_join_keyword(raw: &str) -> Option<(usize, usize, ParsedJoinType)> {
-    [
+    let mut best = None;
+    for (keyword, join_type) in [
         ("left outer join", ParsedJoinType::LeftOuterEqui),
         ("left join", ParsedJoinType::LeftOuterEqui),
         ("right outer join", ParsedJoinType::RightOuterEqui),
@@ -18718,11 +18756,18 @@ fn find_join_keyword(raw: &str) -> Option<(usize, usize, ParsedJoinType)> {
         ("cross join", ParsedJoinType::Cross),
         ("inner join", ParsedJoinType::InnerEqui),
         ("join", ParsedJoinType::InnerEqui),
-    ]
-    .into_iter()
-    .find_map(|(keyword, join_type)| {
-        find_keyword_outside_quotes(raw, keyword).map(|index| (index, keyword.len(), join_type))
-    })
+    ] {
+        let Some(index) = find_keyword_outside_quotes(raw, keyword) else {
+            continue;
+        };
+        let candidate = (index, keyword.len(), join_type);
+        if best.is_none_or(|(best_index, best_len, _)| {
+            index < best_index || (index == best_index && keyword.len() > best_len)
+        }) {
+            best = Some(candidate);
+        }
+    }
+    best
 }
 
 fn parse_aliased_source(raw: &str, side: &str) -> Result<(PathBuf, String), ShardLoomError> {
@@ -21389,6 +21434,118 @@ mod tests {
     }
 
     #[test]
+    fn parser_blocks_repeated_wildcard_projection_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT *,* FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+        )
+        .expect_err("repeated wildcard projection is not admitted");
+
+        assert!(
+            error
+                .to_string()
+                .contains("SELECT * may appear only once in this scoped smoke")
+        );
+    }
+
+    #[test]
+    fn binder_blocks_star_computed_alias_collisions_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT *,amount + 5 AS id FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
+        )
+        .expect("star plus computed alias parses before binding");
+
+        let error = bind_sql_local_source(
+            &parsed,
+            &["id".to_string(), "label".to_string(), "amount".to_string()],
+            None,
+        )
+        .expect_err("computed alias cannot collide with expanded wildcard columns");
+
+        assert!(
+            error
+                .to_string()
+                .contains("computed projection smoke requires unique output column names")
+        );
+    }
+
+    #[test]
+    fn binder_blocks_star_window_alias_collisions_without_fallback() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT *,ROW_NUMBER() OVER (ORDER BY amount ASC) AS id FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect("star plus window alias parses before binding");
+
+        let error = bind_sql_local_source(
+            &parsed,
+            &["id".to_string(), "label".to_string(), "amount".to_string()],
+            None,
+        )
+        .expect_err("window alias cannot collide with expanded wildcard columns");
+
+        assert!(
+            error
+                .to_string()
+                .contains("computed projection smoke requires unique output column names")
+        );
+    }
+
+    #[test]
+    fn parser_blocks_left_right_literal_first_argument_without_fallback() {
+        let error = parse_sql_local_source_statement(
+            "SELECT id,LEFT('literal', 2) AS prefix FROM 'target/input.csv' LIMIT 5",
+        )
+        .expect_err("LEFT requires a source column first argument");
+
+        assert!(
+            error.to_string().contains(
+                "LEFT string function expressions require a source column first argument"
+            )
+        );
+    }
+
+    #[test]
+    fn request_blocks_canonical_duplicate_fanout_paths_without_fallback() {
+        let workspace = std::env::temp_dir().join(format!(
+            "shardloom_sql_fanout_duplicate_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&workspace);
+        std::fs::create_dir_all(&workspace).expect("create duplicate fanout workspace");
+        let output = workspace.join("out.jsonl");
+        let duplicate = workspace.join(".").join("out.jsonl");
+
+        let error = parse_sql_local_source_request(
+            "SELECT id FROM 'target/input.csv' LIMIT 1".to_string(),
+            vec![
+                "--output-format".to_string(),
+                "jsonl".to_string(),
+                "--output".to_string(),
+                output.display().to_string(),
+                "--fanout-output".to_string(),
+                format!("csv={}", duplicate.display()),
+            ]
+            .into_iter(),
+        )
+        .expect_err("canonical duplicate fanout path is rejected");
+
+        assert!(
+            error
+                .to_string()
+                .contains("SQL local-source fanout output path is duplicated")
+        );
+        std::fs::remove_dir_all(workspace).expect("remove duplicate fanout workspace");
+    }
+
+    #[test]
+    fn parser_uses_earliest_join_keyword_for_join_type() {
+        let raw = "'target/fact.csv' AS f JOIN 'target/dim.csv' AS d ON f.id = d.id LEFT JOIN tail";
+        let (index, keyword_len, join_type) = find_join_keyword(raw).expect("join keyword found");
+
+        assert_eq!(&raw[index..index + keyword_len], "JOIN");
+        assert_eq!(join_type, ParsedJoinType::InnerEqui);
+    }
+
+    #[test]
     fn parses_generic_expression_projection_statement() {
         let parsed = parse_sql_local_source_statement(
             "SELECT id,(amount + tax) * 2 AS gross,ABS(amount - tax) AS spread FROM 'target/input.csv' WHERE amount >= 10 LIMIT 5",
@@ -21926,6 +22083,27 @@ mod tests {
         assert_eq!(
             parsed.execution_certificate_suffix(),
             "computed-projection-filter-limit"
+        );
+    }
+
+    #[test]
+    fn parses_generic_expression_compare_projection_as_predicate_projection() {
+        let parsed = parse_sql_local_source_statement(
+            "SELECT id,amount + fee >= 10 AS is_profitable FROM 'target/input.csv' WHERE id >= 1 LIMIT 5",
+        )
+        .expect("generic expression predicate projection parses");
+
+        assert_eq!(parsed.predicate_projections.len(), 1);
+        assert_eq!(parsed.predicate_projections[0].alias, "is_profitable");
+        assert_eq!(
+            parsed.predicate_projections[0].predicate.family(),
+            "generic_expression"
+        );
+        assert!(parsed.generic_expression_projections.is_empty());
+        assert_eq!(parsed.predicate_projection_source_columns(), "amount+fee");
+        assert_eq!(
+            parsed.predicate_projection_output_columns(),
+            "is_profitable"
         );
     }
 

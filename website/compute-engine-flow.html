@@ -35,9 +35,11 @@ The repo-alignment review and completed overhaul mapping live in:
 docs/architecture/compute-engine-flow-overhaul-review.md
 ```
 
-The website renders this file as `website/compute-engine-flow.html` through
-`website/build_static_pages.py`. Keep this Markdown document as the canonical source; the generated
-page is a static publication surface for readers who need the same flow outside GitHub.
+The website syncs this file through `website-src/scripts/sync-content.mjs` and renders it into
+`website/compute-engine-flow/index.html` plus the legacy `website/compute-engine-flow.html`
+compatibility page during `npm run build` from `website-src/`. Keep this Markdown document as the
+canonical source; the generated page is a static publication surface for readers who need the same
+flow outside GitHub.
 
 ## One-Sentence Vision
 

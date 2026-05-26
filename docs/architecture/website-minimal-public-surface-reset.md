@@ -1,14 +1,21 @@
 # Website Minimal Public Surface Reset
 
+Status: superseded by the compact Astro/Starlight website source in `website-src/`.
+
 ## Design Thesis
 
 ShardLoom's public website should be a simple interpretation layer, not a second documentation
 system. The repo remains the source of truth for phase plans, RFCs, use cases, recipes, and support
-matrices. The website should answer three questions quickly:
+matrices. The website now renders a compact Starlight surface from repository source data, but the
+same reset principle still applies: generated pages interpret current evidence and route posture;
+they do not become independent support or release sources of truth. The website should answer these
+questions quickly:
 
 - What is ShardLoom?
-- What does the current benchmark evidence show?
+- What can a reader run or inspect today?
 - How does work move through the compute engine?
+- What does the current benchmark evidence show?
+- Which claims remain blocked?
 
 ## External Structure Reference
 
@@ -23,28 +30,48 @@ trade dress.
 Keep:
 
 - `/` as the main public overview.
+- `/start` as the first local proof path.
+- `/field-guide` as a compact vocabulary atlas.
+- `/use-cases` as the generated "can I use this?" browser.
 - `/benchmarks` as the benchmark artifact interpretation page.
+- `/architecture` and `/docs` as shallow entry points back to source docs.
 - `/compute-engine-flow` as the route/diagram translation page.
+- `/status` as the generated support/posture matrix.
 - GitHub as the primary source-docs destination.
 
-Remove from the public site:
+Do not reintroduce:
 
-- generated Field Guide pages;
-- generated Use Case Atlas pages;
-- generated status board;
-- generated README mirror;
-- Pagefind search bundle;
-- large multi-page atlas navigation.
+- the old Python static-site generator;
+- a generated README mirror;
+- hand-edited generated site data;
+- a sprawling docs duplicate that hides repo source docs;
+- public pages that imply production support, performance claims, package publication, or fallback
+  execution.
 
-The underlying repository docs remain intact.
+The underlying repository docs remain authoritative. `website-src/scripts/sync-content.mjs` copies
+approved source docs, use-case/status rows, and committed benchmark artifacts into the Astro build.
 
 ## Information Architecture
 
 ```text
 Home
-  -> Benchmark evidence
+  -> Start
+  -> Field Guide
+  -> Use Cases
   -> Compute flow
+  -> Benchmark evidence
+  -> Status
   -> GitHub repository
+
+Start
+  -> first-10-minutes local proof
+  -> release dry-run path
+  -> local Python smoke
+
+Use Cases
+  -> runnable local smokes
+  -> deterministic blockers
+  -> expected evidence fields
 
 Benchmark evidence
   -> artifact lane availability
@@ -59,6 +86,10 @@ Compute flow
   -> VortexPreparedState / execution modes
   -> OutputPlan / evidence / claim gate
   -> raw Mermaid source as expandable reference
+
+Status
+  -> runtime-supported / smoke-supported / report-only / blocked / planned posture
+  -> package-channel and compatibility boundaries
 ```
 
 ## Visual Direction
@@ -87,12 +118,15 @@ Benchmarks remain local evidence and external engines remain baseline context on
 Required local checks:
 
 ```powershell
-python website\build_static_pages.py
+Push-Location website-src
+npm run build
+npm run check
+Pop-Location
 python scripts\check_website_readiness.py
 node website\validate_static_assets.js
-python -m compileall -q scripts website
+python -m compileall -q scripts website-src
 git diff --check
 ```
 
-For visual QA, serve `website/` locally and inspect `/`, `/benchmarks`, and
-`/compute-engine-flow` at mobile and desktop widths.
+For visual QA, serve `website/` locally and inspect `/`, `/start`, `/use-cases`, `/benchmarks`,
+`/compute-engine-flow`, and `/status` at mobile and desktop widths.

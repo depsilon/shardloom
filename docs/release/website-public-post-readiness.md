@@ -30,13 +30,19 @@ status=passed
 
 - All committed static pages exist:
   - `website/index.html`
-  - `website/benchmarks.html`
-  - `website/compute-engine-flow.html`
-  - `website/status.html`
-  - `website/readme.html`
+  - `website/start/index.html`
   - `website/field-guide/index.html`
-  - `website/field-guide/*.html`
+  - `website/use-cases/index.html`
+  - `website/benchmarks/index.html`
+  - `website/architecture/index.html`
+  - `website/compute-engine-flow/index.html`
+  - `website/status/index.html`
+  - `website/docs/index.html`
+  - `website/field-guide/*/index.html`
+  - `website/use-cases/*/index.html`
   - `website/404.html`
+  - legacy `.html` compatibility pages for start, field-guide, use-cases, benchmarks,
+    architecture, compute-engine-flow, status, and docs
 - Local logo/favicon assets exist and every page links the favicon.
 - All referenced local website assets exist in `website/assets/`.
 - Runtime website files do not fetch `raw.githubusercontent.com`.
@@ -72,11 +78,13 @@ Do not publish or promote a site-changing PR if the readiness report finds:
 
 ## Manual Review
 
-The script is a gate, not a substitute for visual review. Before a public post, also check:
+The script is a gate, not a substitute for visual review. Before a public post, rebuild the site
+from `website-src/` with `npm run build` and `npm run check`, then also check:
 
-- desktop and mobile screenshots for the homepage, Telemetry, Compute Flow, Status, and Field Guide;
+- desktop and mobile screenshots for the homepage, Benchmarks, Compute Flow, Status, and Field
+  Guide;
 - first viewport clearly shows ShardLoom identity without duplicating the header logo treatment;
-- Telemetry reads as evidence, not a leaderboard;
+- Benchmarks reads as evidence, not a leaderboard;
 - Compute Flow reads as a mission map before the detailed reference;
 - Status clearly separates supported local smoke, fixture-smoke, report-only, blocked, planned, and
   not-claimed surfaces;

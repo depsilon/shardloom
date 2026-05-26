@@ -406,6 +406,60 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
         self.assertEqual(rows, ({"id": 2, "label": "beta"},))
 
+    def test_local_csv_query_builder_helpers_return_unsupported_on_non_success_smoke(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                if sys.argv[1] == "sql-local-source-smoke":
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "sql-local-source-smoke",
+                        "status": "unsupported",
+                        "summary": "unsupported",
+                        "human_text": "unsupported",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"},
+                            {"key": "claim_gate_status", "value": "not_claim_grade"}
+                        ],
+                    }))
+                elif sys.argv[1] == "workflow-unsupported-plan":
+                    print(json.dumps({
+                        "schema_version": "shardloom.output.v2",
+                        "command": "workflow-unsupported-plan",
+                        "status": "unsupported",
+                        "summary": "unsupported",
+                        "human_text": "unsupported",
+                        "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                        "diagnostics": [],
+                        "fields": [
+                            {"key": "operation", "value": sys.argv[2]},
+                            {"key": "blocker_id", "value": "test.unsupported"},
+                            {"key": "fallback_attempted", "value": "false"},
+                            {"key": "external_engine_invoked", "value": "false"},
+                            {"key": "claim_gate_status", "value": "not_claim_grade"}
+                        ],
+                    }))
+                else:
+                    raise AssertionError(sys.argv)
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+        workflow = ctx.read_csv("target/input.csv").select("id")
+
+        rows = workflow.to_python_objects()
+        schema = workflow.schema()
+
+        self.assertIsInstance(rows, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(rows.operation, "to-python-objects")
+        self.assertIsInstance(schema, sl.UnsupportedWorkflowOperationReport)
+        self.assertEqual(schema.operation, "schema")
+
     def test_local_csv_query_builder_schema_quality_helpers_invoke_sql_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
@@ -7556,6 +7610,60 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertFalse(report.fallback_attempted)
         self.assertFalse(report.external_engine_invoked)
         self.assertEqual(report.claim_gate_status, "fixture_smoke_only")
+
+    def test_sequence_fluent_query_uses_inclusive_generate_series(self) -> None:
+        statement = (
+            "SELECT value AS seq FROM generate_series(1, 5, 2) WHERE value >= 3"
+        )
+        binary = self.fake_cli(
+            textwrap.dedent(
+                f"""
+                import json, sys
+
+                assert sys.argv[1:] == [
+                    "generated-source-sql-smoke",
+                    "target/sequence-query.jsonl",
+                    {statement!r},
+                    "--output-format",
+                    "jsonl",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({{
+                    "schema_version": "shardloom.output.v2",
+                    "command": "generated-source-sql-smoke",
+                    "status": "success",
+                    "summary": "generated sql",
+                    "human_text": "generated sql",
+                    "fallback": {{"attempted": False, "allowed": False, "engine": None, "reason": "disabled"}},
+                    "diagnostics": [],
+                    "fields": [
+                        {{"key": "output_path", "value": "target/sequence-query.jsonl"}},
+                        {{"key": "generated_source_kind", "value": "sql_generate_series_range"}},
+                        {{"key": "generated_source_row_count", "value": "2"}},
+                        {{"key": "generated_source_sql_generator_function", "value": "generate_series"}},
+                        {{"key": "generated_source_range_end_inclusive", "value": "true"}},
+                        {{"key": "fallback_attempted", "value": "false"}},
+                        {{"key": "external_engine_invoked", "value": "false"}},
+                        {{"key": "claim_gate_status", "value": "fixture_smoke_only"}}
+                    ],
+                }}))
+                """
+            )
+        )
+        ctx = ShardLoomContext(ShardLoomClient(binary=binary))
+
+        report = (
+            ctx.sequence(1, 5, step=2, column="seq")
+            .filter(sl.col("seq") >= 3)
+            .write("target/sequence-query.jsonl")
+        )
+
+        self.assertEqual(report.envelope.command, "generated-source-sql-smoke")
+        self.assertEqual(report.generated_source_sql_generator_function, "generate_series")
+        self.assertTrue(report.generated_source_range_end_inclusive)
+        self.assertFalse(report.fallback_attempted)
+        self.assertFalse(report.external_engine_invoked)
 
     def test_sql_source_free_write_invokes_generated_source_sql_smoke(self) -> None:
         binary = self.fake_cli(

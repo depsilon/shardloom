@@ -659,15 +659,29 @@ merged profile artifact. Optimized build rows are not public performance claims.
 
 ### Website Evidence Snapshot
 
-The static website benchmark page is generated from local smoke artifacts under
-`target/shardloom-benchmark-evidence/`:
+The static website benchmark page is generated from promoted benchmark artifacts. Promote a local
+artifact into the committed website bundle first:
 
 ```powershell
-python website\build_static_pages.py --benchmark-dir target\shardloom-benchmark-evidence
+python scripts\promote_benchmark_artifact.py `
+  --profile full_local `
+  --input target\benchmark-artifacts\traditional-full-local.json
 ```
 
-The generated `website/benchmarks.html` and
-`website/assets/data/benchmark-evidence.json` preserve execution-mode separation for
+Then rebuild the Astro/Starlight static output:
+
+```powershell
+Push-Location website-src
+npm run build
+npm run check
+Pop-Location
+python scripts\check_website_readiness.py
+node website\validate_static_assets.js
+```
+
+The generated `website/benchmarks/index.html`, legacy compatibility page
+`website/benchmarks.html`, and `website/assets/data/benchmark-evidence.json` preserve
+execution-mode separation for
 `compatibility_import_certified`, `prepared_vortex`, and `native_vortex`; stage timing fields such
 as source read, compatibility parse/import, Vortex write/reopen/scan, operator compute, result sink,
 evidence render, and total runtime; `encoded_predicate_provider_*` rows where applicable;

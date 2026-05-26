@@ -394,6 +394,23 @@ PREPARED_NATIVE_VORTEX_LIFECYCLE_FIELDS = (
     "prepared_native_vortex_lifecycle_claim_gate_status",
     "prepared_native_vortex_lifecycle_claim_boundary",
 )
+PREPARED_NATIVE_VORTEX_LIFECYCLE_BOOL_FIELDS = {
+    "prepared_native_vortex_lifecycle_filter_pushdown_applied",
+    "prepared_native_vortex_lifecycle_projection_pushdown_applied",
+    "prepared_native_vortex_lifecycle_data_decoded",
+    "prepared_native_vortex_lifecycle_data_materialized",
+    "prepared_native_vortex_lifecycle_result_sink_requested",
+    "prepared_native_vortex_lifecycle_result_sink_written",
+    "prepared_native_vortex_lifecycle_result_sink_replay_verified",
+    "prepared_native_vortex_lifecycle_no_standalone_lane",
+    "prepared_native_vortex_lifecycle_fallback_attempted",
+    "prepared_native_vortex_lifecycle_external_engine_invoked",
+}
+PREPARED_NATIVE_VORTEX_LIFECYCLE_INT_FIELDS = {
+    "prepared_native_vortex_lifecycle_rows_scanned",
+    "prepared_native_vortex_lifecycle_arrays_read_count",
+    "prepared_native_vortex_lifecycle_materialization_boundary_rows",
+}
 PERSISTENT_RUNNER_STATUS = "process_per_scenario_attributed_not_reduced"
 BATCH_RUNNER_STATUS = "single_process_batch_runner_supported"
 BATCH_PROCESS_STARTUP_ATTRIBUTION = "single_process_batch_cli_wall_shared_across_scenarios"
@@ -4548,6 +4565,21 @@ def parse_optional_bool(value: Any) -> bool | None:
     if text == "false":
         return False
     return None
+
+
+def prepared_native_vortex_lifecycle_metrics(evidence: dict[str, str]) -> dict[str, Any]:
+    metrics: dict[str, Any] = {}
+    for field in PREPARED_NATIVE_VORTEX_LIFECYCLE_FIELDS:
+        if field not in evidence:
+            continue
+        value = evidence.get(field)
+        if field in PREPARED_NATIVE_VORTEX_LIFECYCLE_BOOL_FIELDS:
+            metrics[field] = parse_optional_bool(value)
+        elif field in PREPARED_NATIVE_VORTEX_LIFECYCLE_INT_FIELDS:
+            metrics[field] = parse_optional_int(value)
+        else:
+            metrics[field] = value
+    return metrics
 
 
 def first_meaningful_field(*values: Any) -> Any:
@@ -12745,6 +12777,7 @@ def successful_result_from_iterations(
             "persistent_runner_status", PERSISTENT_RUNNER_STATUS
         ),
     }
+    metrics.update(prepared_native_vortex_lifecycle_metrics(evidence))
     metrics.update(
         source_state_contract_metadata(
             runner.name,
