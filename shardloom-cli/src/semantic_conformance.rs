@@ -8,9 +8,9 @@ use std::process::ExitCode;
 
 use shardloom_core::{
     CommandStatus, ComparisonOp, Diagnostic, DiagnosticCode, ExprId, Expression,
-    ExpressionEvaluationStatus, ExpressionInputRow, ExpressionKind, OutputFormat, ScalarValue,
-    evaluate_expression, format_iso_date32, format_iso_timestamp_micros, parse_iso_date32,
-    parse_iso_timestamp_micros,
+    ExpressionEvaluationStatus, ExpressionInputRow, ExpressionKind, LogicalDType, OutputFormat,
+    ScalarValue, evaluate_expression, format_iso_date32, format_iso_timestamp_micros,
+    parse_iso_date32, parse_iso_timestamp_micros,
 };
 
 use crate::{
@@ -40,6 +40,12 @@ struct SemanticFixtureRow {
     passed: bool,
 }
 
+#[derive(Clone, Copy)]
+struct SemanticBlockerEvidence {
+    blocker_id: &'static str,
+    required_future_evidence: &'static str,
+}
+
 impl SemanticFixtureRow {
     fn executed(
         id: &'static str,
@@ -58,6 +64,29 @@ impl SemanticFixtureRow {
             assertion,
             blocker_id: "none",
             required_future_evidence: "none",
+            fixture_executed: true,
+            passed,
+        }
+    }
+
+    fn executed_blocker(
+        id: &'static str,
+        dimension: &'static str,
+        operator_family: &'static str,
+        current_support: &'static str,
+        assertion: &'static str,
+        blocker: SemanticBlockerEvidence,
+        passed: bool,
+    ) -> Self {
+        Self {
+            id,
+            dimension,
+            operator_family,
+            fixture_status: if passed { "passed" } else { "failed" },
+            current_support,
+            assertion,
+            blocker_id: blocker.blocker_id,
+            required_future_evidence: blocker.required_future_evidence,
             fixture_executed: true,
             passed,
         }
@@ -199,6 +228,17 @@ fn predicate_semantic_rows() -> Vec<SemanticFixtureRow> {
 }
 
 fn scalar_semantic_rows() -> Vec<SemanticFixtureRow> {
+    let mut rows = basic_numeric_scalar_rows();
+    rows.extend(decimal_scalar_blocker_rows());
+    rows.extend(utc_timestamp_scalar_rows());
+    rows.extend(timezone_interval_scalar_blocker_rows());
+    rows.extend(date_string_scalar_rows());
+    rows.extend(regex_collation_scalar_blocker_rows());
+    rows.extend(binary_scalar_rows());
+    rows
+}
+
+fn basic_numeric_scalar_rows() -> Vec<SemanticFixtureRow> {
     vec![
         SemanticFixtureRow::executed(
             "nan_equality_order",
@@ -224,21 +264,66 @@ fn scalar_semantic_rows() -> Vec<SemanticFixtureRow> {
             "overflow is detected instead of wrapping silently",
             integer_overflow_fixture(),
         ),
-        SemanticFixtureRow::planned(
-            "decimal_precision_scale",
-            "decimal precision/scale",
+    ]
+}
+
+fn decimal_scalar_blocker_rows() -> Vec<SemanticFixtureRow> {
+    vec![SemanticFixtureRow::executed_blocker(
+        "decimal_precision_scale",
+        "decimal precision/scale",
+        "scalar_expressions",
+        "unsupported_diagnostic_certified",
+        "decimal precision/scale casts fail deterministically until a native decimal dtype policy lands",
+        SemanticBlockerEvidence {
+            blocker_id: "gar-runtime-impl-4d-f1.decimal_precision_scale_unsupported",
+            required_future_evidence: "decimal_dtype_policy,precision_scale_fixture,overflow_diagnostic",
+        },
+        decimal_precision_scale_blocker_fixture(),
+    )]
+}
+
+fn utc_timestamp_scalar_rows() -> Vec<SemanticFixtureRow> {
+    vec![SemanticFixtureRow::executed(
+        "timestamp_timezone",
+        "timestamp unit and timezone handling",
+        "scalar_expressions",
+        "utc_timestamp_micros_fixture_certified_non_utc_blocked",
+        "UTC timestamp_micros parses and formats while non-UTC and offset timestamp forms are deterministic blockers",
+        timestamp_timezone_fixture(),
+    )]
+}
+
+fn timezone_interval_scalar_blocker_rows() -> Vec<SemanticFixtureRow> {
+    vec![
+        SemanticFixtureRow::executed_blocker(
+            "timezone_database_policy",
+            "timezone database policy",
             "scalar_expressions",
-            "p74.semantic.decimal_precision_scale.profile_missing",
-            "decimal_dtype_policy,precision_scale_fixture,overflow_diagnostic",
+            "unsupported_diagnostic_certified",
+            "named timezone database semantics fail deterministically; UTC timestamp_micros remains the admitted timestamp profile",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f1.timezone_database_unsupported",
+                required_future_evidence: "timezone_database_policy,non_utc_offset_fixture,claim_boundary",
+            },
+            timezone_database_policy_fixture(),
         ),
-        SemanticFixtureRow::executed(
-            "timestamp_timezone",
-            "timestamp unit and timezone handling",
+        SemanticFixtureRow::executed_blocker(
+            "interval_arithmetic_policy",
+            "interval/date-time completeness",
             "scalar_expressions",
-            "utc_timestamp_micros_fixture_certified_non_utc_blocked",
-            "UTC timestamp_micros parses and formats while non-UTC and offset timestamp forms are deterministic blockers",
-            timestamp_timezone_fixture(),
+            "unsupported_diagnostic_certified",
+            "ANSI interval literals and calendar interval arithmetic fail deterministically outside scoped day/second functions",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f1.interval_semantics_unsupported",
+                required_future_evidence: "interval_dtype_policy,calendar_arithmetic_fixture,overflow_diagnostic",
+            },
+            interval_arithmetic_policy_fixture(),
         ),
+    ]
+}
+
+fn date_string_scalar_rows() -> Vec<SemanticFixtureRow> {
+    vec![
         SemanticFixtureRow::executed(
             "date_parsing",
             "date parsing",
@@ -255,15 +340,47 @@ fn scalar_semantic_rows() -> Vec<SemanticFixtureRow> {
             "ShardLoomNative string equality is case-sensitive unless a future collation says otherwise",
             string_case_sensitivity_fixture(),
         ),
-        SemanticFixtureRow::executed(
-            "binary_equality",
-            "binary equality",
+    ]
+}
+
+fn regex_collation_scalar_blocker_rows() -> Vec<SemanticFixtureRow> {
+    vec![
+        SemanticFixtureRow::executed_blocker(
+            "regex_pattern_policy",
+            "regex pattern semantics",
             "scalar_expressions",
-            "bytewise_equality_fixture_certified_ordering_blocked",
-            "Binary equality is bytewise; binary ordering comparisons remain deterministic blockers",
-            binary_equality_fixture(),
+            "unsupported_diagnostic_certified",
+            "regex/regexp pattern functions fail deterministically; scoped LIKE/string predicates remain the admitted string pattern profile",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f1.regex_semantics_unsupported",
+                required_future_evidence: "regex_engine_policy,pattern_fixture,claim_boundary",
+            },
+            regex_pattern_policy_fixture(),
+        ),
+        SemanticFixtureRow::executed_blocker(
+            "locale_collation_policy",
+            "locale/collation policy",
+            "scalar_expressions",
+            "unsupported_diagnostic_certified",
+            "locale-aware collation fails deterministically while UTF-8 equality remains case-sensitive codepoint equality",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f1.locale_collation_unsupported",
+                required_future_evidence: "locale_collation_policy,unicode_casefold_fixture,claim_boundary",
+            },
+            locale_collation_policy_fixture(),
         ),
     ]
+}
+
+fn binary_scalar_rows() -> Vec<SemanticFixtureRow> {
+    vec![SemanticFixtureRow::executed(
+        "binary_equality",
+        "binary equality",
+        "scalar_expressions",
+        "bytewise_equality_fixture_certified_ordering_blocked",
+        "Binary equality is bytewise; binary ordering comparisons remain deterministic blockers",
+        binary_equality_fixture(),
+    )]
 }
 
 fn aggregate_semantic_rows() -> Vec<SemanticFixtureRow> {
@@ -361,7 +478,7 @@ fn semantic_fields(rows: &[SemanticFixtureRow]) -> Vec<(String, String)> {
         field("fixture_status_vocabulary", "passed,failed,planned,blocked"),
         field(
             "required_semantic_dimensions",
-            "null_comparison,three_valued_logic,null_sort_ordering,nan_equality_order,signed_zero,integer_overflow,decimal_precision_scale,timestamp_timezone,date_parsing,string_case_sensitivity,binary_equality,empty_aggregate_behavior,count_null_behavior,join_null_semantics,window_frame_defaults,duplicate_column_behavior,nested_list_equality,schema_field_identity",
+            "null_comparison,three_valued_logic,null_sort_ordering,nan_equality_order,signed_zero,integer_overflow,decimal_precision_scale,timestamp_timezone,timezone_database_policy,interval_arithmetic_policy,date_parsing,string_case_sensitivity,regex_pattern_policy,locale_collation_policy,binary_equality,empty_aggregate_behavior,count_null_behavior,join_null_semantics,window_frame_defaults,duplicate_column_behavior,nested_list_equality,schema_field_identity",
         ),
         field(
             "certification_blocker_ids",
@@ -518,6 +635,21 @@ fn integer_overflow_fixture() -> bool {
     i64::MAX.checked_add(1).is_none()
 }
 
+fn decimal_precision_scale_blocker_fixture() -> bool {
+    let expression = Expression::cast(
+        ExprId::new("decimal-cast").expect("fixture expression id"),
+        Expression::literal(
+            ExprId::new("decimal-source").expect("fixture expression id"),
+            ScalarValue::Utf8("12.34".to_string()),
+        ),
+        LogicalDType::Extension("decimal128(10,2)".to_string()),
+    );
+    unsupported_report_certified(&evaluate_expression(
+        &expression,
+        &ExpressionInputRow::new(),
+    ))
+}
+
 fn string_case_sensitivity_fixture() -> bool {
     "ShardLoom" != "shardloom"
 }
@@ -533,6 +665,16 @@ fn timestamp_timezone_fixture() -> bool {
         && parse_iso_timestamp_micros("2026-05-19 12:34:56Z").is_err()
 }
 
+fn timezone_database_policy_fixture() -> bool {
+    parse_iso_timestamp_micros("2026-05-19T12:34:56Z[America/Chicago]").is_err()
+        && parse_iso_timestamp_micros("2026-05-19T12:34:56 America/Chicago").is_err()
+        && parse_iso_timestamp_micros("2026-05-19T12:34:56-05:00").is_err()
+}
+
+fn interval_arithmetic_policy_fixture() -> bool {
+    unsupported_function_fixture("interval_add_months")
+}
+
 fn date_parsing_fixture() -> bool {
     let Ok(parsed) = parse_iso_date32("2026-05-19") else {
         return false;
@@ -542,6 +684,64 @@ fn date_parsing_fixture() -> bool {
         && parse_iso_date32("2023-02-29").is_err()
         && parse_iso_date32("2026-5-19").is_err()
         && parse_iso_date32("2026-13-01").is_err()
+}
+
+fn regex_pattern_policy_fixture() -> bool {
+    unsupported_function_fixture("regexp_like")
+}
+
+fn locale_collation_policy_fixture() -> bool {
+    let codepoint_compare = evaluate_expression(
+        &Expression::new(
+            ExprId::new("case-sensitive-utf8-eq").expect("fixture expression id"),
+            ExpressionKind::Compare {
+                left: Box::new(Expression::literal(
+                    ExprId::new("case-left").expect("fixture expression id"),
+                    ScalarValue::Utf8("ShardLoom".to_string()),
+                )),
+                op: ComparisonOp::Eq,
+                right: Box::new(Expression::literal(
+                    ExprId::new("case-right").expect("fixture expression id"),
+                    ScalarValue::Utf8("shardloom".to_string()),
+                )),
+            },
+        ),
+        &ExpressionInputRow::new(),
+    );
+    codepoint_compare.status == ExpressionEvaluationStatus::Evaluated
+        && codepoint_compare.value == Some(ScalarValue::Boolean(false))
+        && !codepoint_compare.fallback_attempted
+        && !codepoint_compare.external_engine_invoked
+        && unsupported_function_fixture("collate_eq")
+}
+
+fn unsupported_function_fixture(name: &'static str) -> bool {
+    let expression = Expression::new(
+        ExprId::new(format!("{name}-fixture")).expect("fixture expression id"),
+        ExpressionKind::FunctionCall {
+            name: name.to_string(),
+            args: vec![Expression::literal(
+                ExprId::new(format!("{name}-arg")).expect("fixture expression id"),
+                ScalarValue::Utf8("alpha".to_string()),
+            )],
+        },
+    );
+    unsupported_report_certified(&evaluate_expression(
+        &expression,
+        &ExpressionInputRow::new(),
+    ))
+}
+
+fn unsupported_report_certified(report: &shardloom_core::ExpressionEvaluationReport) -> bool {
+    report.status == ExpressionEvaluationStatus::Unsupported
+        && report.has_errors()
+        && !report.fallback_attempted
+        && !report.external_engine_invoked
+        && !report.fallback_execution_allowed()
+        && report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.fallback.attempted)
 }
 
 fn binary_equality_fixture() -> bool {

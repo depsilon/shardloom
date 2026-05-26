@@ -610,11 +610,16 @@ plan before coding.
   release-gate composed string functions, temporal arithmetic/difference, CASE projections,
   IN-list NULL semantics, scalar IN subqueries, grouped COUNT(DISTINCT), hidden aggregate HAVING,
   mixed window, and multi-key join fixtures without fallback or external runtime engines.
+- [x] GAR-RUNTIME-IMPL-4D-F1 advanced scalar closeout adds executed conformance fixtures and
+  admitted-matrix unsupported rows for decimal precision/scale casts, non-UTC timestamp literals,
+  timezone database conversion, ANSI interval literals/arithmetic, regex/regexp predicates, and
+  locale-aware collation. SQL local-source parsing now fails those constructs through a shared
+  advanced-scalar policy guard before execution, always with no fallback/external engine
+  invocation.
 - [x] Parent `GAR-RUNTIME-IMPL-4D`/`GAR-RUNTIME-IMPL-5G` is complete for admitted local expression/
-  operator scope; residual decimal precision/scale, timezone database and non-UTC timestamp policy,
-  nested/list/struct/variant/union semantics, advanced subqueries/predicate completeness, and broad
-  encoded-kernel/operator coverage are split into explicit follow-up runtime items in the phased
-  plan rather than hidden in the parent item.
+  operator scope; residual nested/list/struct/variant/union semantics, advanced subqueries/
+  predicate completeness, and broad encoded-kernel/operator coverage are split into explicit
+  follow-up runtime items in the phased plan rather than hidden in the parent item.
 
 ### RFC 0022 - Plan IR and Substrait-Compatible Interoperability
 

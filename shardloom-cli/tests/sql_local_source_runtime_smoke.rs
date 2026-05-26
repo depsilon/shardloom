@@ -2103,7 +2103,7 @@ fn sql_local_source_smoke_executes_cast_projection_without_fallback() {
         String::from_utf8_lossy(&blocked.stderr)
     );
     assert!(blocked_output.contains(
-        "CAST target dtype must be one of int64, float64, utf8, boolean, date32, or timestamp_micros"
+        "decimal precision/scale casts are not admitted by the current scalar semantics profile"
     ));
     assert!(blocked_output.contains("external_engine_invoked=false"));
 

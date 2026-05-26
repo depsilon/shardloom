@@ -794,10 +794,58 @@ def unsupported_cases() -> list[UnsupportedCase]:
             source_text="id,label\n1,alpha\n",
             statement_template="SELECT id,CAST(label AS decimal128) AS unsupported FROM '{source}' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
-            diagnostic_fragment=(
-                "CAST target dtype must be one of int64, float64, utf8, boolean, "
-                "date32, or timestamp_micros"
+            diagnostic_fragment="decimal precision/scale casts are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_non_utc_timestamp_literal",
+            source_name="timestamp-offset-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id,TIMESTAMP '2026-05-19T12:34:56+00:00' AS unsupported "
+                "FROM '{source}' LIMIT 10"
             ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="TIMESTAMP literals must use TIMESTAMP",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_timezone_database_policy",
+            source_name="timezone-db-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id,TIMESTAMP '2026-05-19T12:34:56Z' AT TIME ZONE "
+                "'America/Chicago' AS unsupported FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="timezone database and non-UTC timestamp semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_interval_literal",
+            source_name="interval-unsupported.csv",
+            source_text="id,event_date\n1,2026-05-19\n",
+            statement_template=(
+                "SELECT id,DATE_ADD_DAYS(event_date, INTERVAL '1' DAY) AS unsupported "
+                "FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="ANSI INTERVAL literals and interval arithmetic are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_regex_predicate",
+            source_name="regex-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template="SELECT id,label FROM '{source}' WHERE label REGEXP '^a' LIMIT 10",
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="regex and regexp pattern semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_locale_collation",
+            source_name="collation-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id,label COLLATE nocase AS folded FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="SQL COLLATE and locale-aware collation semantics are not admitted",
         ),
     ]
 
@@ -1208,7 +1256,7 @@ def main() -> int:
                     "query_execution": "false",
                     "runtime_execution": "false",
                 },
-                integer_minimums={"executed_fixture_count": 11, "passed_fixture_count": 11},
+                integer_minimums={"executed_fixture_count": 16, "passed_fixture_count": 16},
             )
         )
         stages.append(

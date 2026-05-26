@@ -285,7 +285,8 @@ closeout, `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout, and
 `GAR-RUNTIME-IMPL-5K` public no-credential object-store fixture read admission,
 `GAR-RUNTIME-IMPL-4Q/5N` live/hybrid loopback control-plane and distributed-blocker admission,
 `GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout, and the parent
-`GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout are complete and recorded in the ledger.
+`GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout plus `GAR-RUNTIME-IMPL-4D-F1`
+advanced scalar deterministic semantics closeout are complete and recorded in the ledger.
 Continue with the split internal-engine follow-ups below before SQL/Python surface backstops,
 benchmark and Foundry gates, and release usability.
 Completed queue blocks have moved to
@@ -303,35 +304,6 @@ below. They are coverage-assurance backstops, not a second parallel runtime queu
 item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-RUNTIME-IMPL-4D-F1 advanced scalar, decimal, interval, timezone, and collation semantics
-  - Source: RFC 0021, RFC 0015, admitted semantics matrix residual gaps.
-  - Current state: the parent `GAR-RUNTIME-IMPL-4D` local expression-family closeout is complete and
-    recorded in the ledger for admitted numeric, cast/try-cast, null, predicate, UTF-8 string,
-    Date32, UTC timestamp, temporal arithmetic/difference, binary equality, conditional, IN,
-    aggregate/HAVING, join, and window fixture evidence. This follow-up owns scalar semantics that
-    were explicitly split out as non-goals rather than hidden inside the closed parent item.
-  - Next slice outcome: admit or deterministically block decimal precision/scale, non-UTC timezone
-    database semantics, interval/date-time completeness, regex/collation/locale policy, and any
-    related coercion/function families.
-  - Runtime enablement: ShardLoom-native scalar semantics for admitted advanced families or stable
-    unsupported diagnostics with no fallback.
-  - User-visible surface: SQL/Python capability reports and docs only after engine behavior and
-    matrix fixtures exist.
-  - Implementation scope: expression IR, dtype/coercion policy, temporal parsers, scalar function
-    registry, diagnostics, admitted-semantics matrix rows.
-  - Evidence required: input/output dtype, null/coercion policy, decoded reference, unsupported
-    diagnostic, correctness digest, no-fallback fields.
-  - Acceptance: every newly admitted scalar family has executable fixtures; unsupported scalar
-    families have deterministic diagnostics and documented claim boundaries.
-  - Verification: expression unit/contract tests, SQL/Python smokes where surfaced, admitted
-    semantics matrix, release readiness metadata.
-  - Non-goals: no ANSI parity or broad production SQL claim.
-  - Claim boundary: scalar family and dtype pairs explicitly admitted by fixtures.
-  - Fallback boundary: no external runtime evaluator.
-  - Dependencies/blockers: dtype policy, decoded-reference fixtures, SQL/Python lowering.
-  - Ledger rule: ledger entry must list admitted scalar families and remaining blocked scalar
-    families.
 
 - [ ] GAR-RUNTIME-IMPL-4D-F2 nested, list, struct, variant, union, and binary-source semantics
   - Source: RFC 0021, Vortex dtype opportunities, admitted semantics matrix residual gaps.

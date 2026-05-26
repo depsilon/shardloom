@@ -88,6 +88,65 @@ fn expression_semantics_baseline_keeps_unsupported_paths_deterministic() {
 }
 
 #[test]
+fn expression_semantics_advanced_scalar_blockers_are_deterministic() {
+    let decimal = Expression::cast(
+        expr_id("decimal-cast"),
+        Expression::literal(
+            expr_id("decimal-source"),
+            ScalarValue::Utf8("12.34".to_string()),
+        ),
+        LogicalDType::Extension("decimal128(10,2)".to_string()),
+    );
+    let decimal_report = evaluate_expression(&decimal, &ExpressionInputRow::new());
+
+    assert_eq!(
+        decimal_report.status,
+        ExpressionEvaluationStatus::Unsupported
+    );
+    assert!(decimal_report.has_errors());
+    assert_eq!(
+        decimal_report.output_dtype,
+        Some(LogicalDType::Extension("decimal128(10,2)".to_string()))
+    );
+    assert!(!decimal_report.fallback_attempted);
+    assert!(!decimal_report.external_engine_invoked);
+    assert!(
+        decimal_report
+            .diagnostics
+            .iter()
+            .all(|d| !d.fallback.attempted)
+    );
+
+    for function_name in ["interval_add_months", "regexp_like", "collate_eq"] {
+        let expression = Expression::new(
+            expr_id(function_name),
+            ExpressionKind::FunctionCall {
+                name: function_name.to_string(),
+                args: vec![Expression::literal(
+                    expr_id(&format!("{function_name}-arg")),
+                    ScalarValue::Utf8("alpha".to_string()),
+                )],
+            },
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.fallback.attempted)
+        );
+    }
+
+    assert!(parse_iso_timestamp_micros("2026-05-19T12:34:56+00:00").is_err());
+    assert!(parse_iso_timestamp_micros("2026-05-19T12:34:56Z[America/Chicago]").is_err());
+}
+
+#[test]
 fn expression_semantics_binary_equality_is_bytewise_and_null_propagating() {
     let equal = Expression::new(
         expr_id("binary-eq"),
