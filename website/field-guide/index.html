@@ -141,7 +141,7 @@
 </ul>
 <div class="sl-heading-wrapper level-h2"><h2 id="platform-boundaries">Platform Boundaries</h2><a class="sl-anchor-link" href="#platform-boundaries"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentcolor" d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 0 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 1 0-1.42-1.42Zm8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 0 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 1 0 1.42 1.42l3.88-3.89a4.49 4.49 0 0 0 0-6.33ZM8.83 15.17a1 1 0 0 0 1.1.22 1 1 0 0 0 .32-.22l4.92-4.92a1 1 0 0 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42Z"></path></svg></span><span class="sr-only" data-pagefind-ignore="true">Section titled “Platform Boundaries”</span></a></div>
 <ul>
-<li><a href="/field-guide/object-store-boundary/">Object-store boundary</a> - S3/GCS/ADLS remain separate blocked/report-only routes until runtime evidence is admitted.</li>
+<li><a href="/field-guide/object-store-boundary/">Object-store boundary</a> - S3/GCS/ADLS now have a public no-credential fixture read smoke, while live provider runtime remains separately blocked.</li>
 <li><a href="/field-guide/table-lakehouse-boundary/">Table/lakehouse boundary</a> - Iceberg, Delta, and Hudi table metadata/runtime/commit support are distinct gated claims.</li>
 <li><a href="/field-guide/foundry-boundary/">Foundry boundary</a> - Local/dev-stack Foundry proof posture without production Foundry runtime or Spark substitution claims.</li>
 </ul>

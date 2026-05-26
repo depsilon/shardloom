@@ -8,7 +8,7 @@
 - **Status:** `smoke_supported`
 - **Execution mode:** `object_store_read_smoke`
 - **Engine mode:** `batch`
-- **Claim boundary:** Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.
+- **Claim boundary:** Local-emulator object-store read smoke only; public no-credential fixture reads use a separate profile. Live real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ ShardLoom can run an explicit local-emulator object-store read smoke over a loca
 
 ## Claim Boundary
 
-Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.
+Local-emulator object-store read smoke only; public no-credential fixture reads use a separate profile. Live real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.
 
 ## How To Try It
 
@@ -51,7 +51,7 @@ A fixture-smoke report with SourceState digest fields, selected byte-range evide
 
 ## Common Mistakes
 
-- `using_real_s3_uri`
+- `using_real_s3_uri_with_local_emulator_profile`
 - `expecting_credentials_to_resolve`
 - `treating_local_emulator_smoke_as_production_object_store_support`
 
@@ -64,6 +64,7 @@ A fixture-smoke report with SourceState digest fields, selected byte-range evide
 
 ## Related Use Cases
 
+- `object-store-public-no-credential-fixture-read-smoke`
 - `object-store-local-emulator-write-smoke`
 - `object-store-boundary-report`
 - `table-lakehouse-boundary-report`
@@ -72,4 +73,4 @@ A fixture-smoke report with SourceState digest fields, selected byte-range evide
 ## Related Field Guide Terms
 
 - `website/field-guide/native-io-certificate.html` - Native I/O certificate (`Evidence + Certificates` / `smoke_supported`)
-- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `blocked`)
+- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `smoke_supported`)

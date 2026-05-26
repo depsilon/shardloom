@@ -804,6 +804,11 @@ pub struct ObjectStoreByteRangeProviderGateReport {
     pub execution_certificate_required: bool,
     pub native_io_certificate_required: bool,
     pub benchmark_evidence_required: bool,
+    pub public_no_credential_fixture_profile_admitted: bool,
+    pub public_no_credential_fixture_read_allowed: bool,
+    pub public_no_credential_fixture_listing_allowed: bool,
+    pub public_no_credential_fixture_cache_write_allowed: bool,
+    pub live_provider_network_read_allowed: bool,
     pub range_read_execution_allowed: bool,
     pub full_file_read_allowed: bool,
     pub credential_resolution_allowed: bool,
@@ -840,6 +845,11 @@ impl ObjectStoreByteRangeProviderGateReport {
             execution_certificate_required: true,
             native_io_certificate_required: true,
             benchmark_evidence_required: true,
+            public_no_credential_fixture_profile_admitted: true,
+            public_no_credential_fixture_read_allowed: true,
+            public_no_credential_fixture_listing_allowed: true,
+            public_no_credential_fixture_cache_write_allowed: false,
+            live_provider_network_read_allowed: false,
             range_read_execution_allowed: false,
             full_file_read_allowed: false,
             credential_resolution_allowed: false,
@@ -861,6 +871,8 @@ impl ObjectStoreByteRangeProviderGateReport {
     pub const fn side_effect_free(&self) -> bool {
         !self.range_read_execution_allowed
             && !self.full_file_read_allowed
+            && !self.public_no_credential_fixture_cache_write_allowed
+            && !self.live_provider_network_read_allowed
             && !self.credential_resolution_allowed
             && !self.credentials_resolved
             && !self.retry_execution_allowed

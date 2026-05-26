@@ -16,6 +16,57 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5K object-store read runtime admission
+  - Date: 2026-05-25
+  - Branch/PR: `runtime-object-store-read-5k` / #961.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5K object-store read runtime admission`.
+    - `GAR-RUNTIME-IMPL-4N` local-emulator read smoke and `GAR-COMPAT-1C` object-store
+      admission ladder.
+    - `docs/architecture/object-store-request-planner.md`.
+  - Scope:
+    - Added the `public-no-credential-fixture` `object-store-read-smoke` profile. It parses
+      `s3://`, `gs://`, `gcs://`, `abfs://`, and `abfss://` object URIs, rejects credentials,
+      query strings, fragments, missing bucket/container, and missing object keys, and requires an
+      explicit `--public-fixture-path` local file for real fixture bytes.
+    - Reused the existing local read path for full-file and byte-range bytes, SourceState digest
+      evidence, Native I/O certificate posture, and no-fallback fields; no provider client,
+      credential resolution, network probe, cache write, cloud write, table commit, or external
+      query engine is invoked.
+    - Added optional `--fixture-listing` as a one-object fixture listing proof only; live provider
+      listing remains blocked.
+    - Extended the Python client wrapper, CLI/unit/integration tests, request-plan byte-range gate
+      fields, compatibility scoreboard, runs-today/status rows, Use Case Atlas, website data, and
+      architecture docs so the admitted fixture profile is visible without overclaiming live cloud
+      support.
+    - Removed `GAR-RUNTIME-IMPL-5K` from the live Planned queue; the remaining engine-internal
+      ordering continues with `4Q/5N`, then `4R/5O`, then final `4D/5G`.
+  - Field schema:
+    - Identity/read fields: `provider_profile=public-no-credential-fixture`,
+      `object_store_provider`, `object_store_bucket`, `object_store_key`,
+      `object_store_uri_parse_status`, `requested_uri_redaction_status`, `public_fixture_path`,
+      `byte_range_read_status`, `full_file_read_status`, `streaming_read_status`,
+      `object_etag`, `object_version`, `read_digest`, and SourceState digest fields.
+    - Policy fields: `credential_policy_status=public_no_credential_fixture_admitted`,
+      `credential_resolution_performed=false`, `network_probe_performed=false`,
+      `provider_probe_performed=false`, `listing_status`, `listing_object_count`,
+      `cache_write_allowed=false`, `local_cache_status=not_performed_public_fixture_read_through`,
+      and `live_provider_network_read_allowed=false`.
+    - Claim fields: `native_io_certificate_status=public_fixture_smoke_only`,
+      `claim_gate_status=public_fixture_smoke_only`,
+      `public_no_credential_fixture_claim_allowed=true`, `object_store_io=true`,
+      `write_io=false`, `fallback_attempted=false`, and `external_engine_invoked=false`.
+  - Claim boundary:
+    - This is an explicit public no-credential fixture read smoke only. The URI shape is provider
+      scoped, but bytes come from the caller-supplied local fixture path.
+    - Live S3/GCS/ADLS network reads, authenticated reads, credential resolution, provider probes,
+      provider listing, cache writes, cloud writes, table/lakehouse commits, distributed runtime,
+      production use, performance, and Spark-replacement claims remain blocked.
+    - External engines remain baselines/oracles only and cannot satisfy object-store read evidence.
+  - Verification:
+    - Focused CLI, Python, and release-readiness checks are recorded in the PR once local gates and
+      CI are green.
+
 - [x] Session label: GAR-RUNTIME-IMPL-5R PulseWeave automatic prepared/local runtime control
   - Date: 2026-05-25
   - Branch/PR: `runtime-pulseweave-5r` / #960.
@@ -43,8 +94,9 @@ phase plan first.
     - Updated benchmark harness checks, benchmark artifact promotion passthrough, use-case
       evidence mirrors, runtime-envelope status docs, compute-flow/scale references, terminology,
       and release-visible metadata tests.
-    - Removed `GAR-RUNTIME-IMPL-5R` from the live Planned queue; the next engine-internal runtime
-      queue starts at `GAR-RUNTIME-IMPL-5K` before `4Q/5N`, `4R/5O`, and final `4D/5G`.
+    - Removed `GAR-RUNTIME-IMPL-5R` from the live Planned queue; after the follow-on
+      `GAR-RUNTIME-IMPL-5K` read admission, the engine-internal runtime queue continues with
+      `4Q/5N`, `4R/5O`, and final `4D/5G`.
   - Field schema:
     - PulseWeave aggregate: `pulseweave_schema_version`, `pulseweave_status`,
       `pulseweave_application_scope`, `pulseweave_runtime_decision_applied`,
@@ -137,9 +189,7 @@ phase plan first.
     - Runtime capability upgrade, new source/sink support, performance claims, package/publication
       claims, SQL/DataFrame expansion, object-store/table runtime, or external fallback execution.
   - Follow-up:
-    - Continue live work in logical order with `GAR-RUNTIME-IMPL-5R` PulseWeave automatic
-      prepared/local runtime control, then `GAR-RUNTIME-IMPL-5K` object-store read runtime
-      admission before `4Q/5N`, `4R/5O`, and final `4D/5G`.
+    - Continue live work in logical order with `4Q/5N`, then `4R/5O`, and final `4D/5G`.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4P/5M prepared Vortex declared local scale runtime closeout
   - Date: 2026-05-25
@@ -206,8 +256,8 @@ phase plan first.
       claims, SQL/DataFrame/user-surface expansion, Spark replacement claims, or external fallback
       execution.
   - Follow-up:
-    - Continue live work in logical order with `GAR-RUNTIME-IMPL-5H`, then `5K`, `4Q/5N`,
-      `4R/5O`, and final `4D/5G` runtime-family closeout before surface/release items.
+    - Continue live work in logical order with `4Q/5N`, then `4R/5O`, and final `4D/5G`
+      runtime-family closeout before surface/release items.
 
 - [x] Session label: GAR-RUNTIME-IMPL-4F/4F1/5D UniversalIngress and local adapter parity closeout
   - Date: 2026-05-25

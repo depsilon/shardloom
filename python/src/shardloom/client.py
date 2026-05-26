@@ -8595,11 +8595,17 @@ class ShardLoomClient:
         *,
         profile: str = "local-emulator",
         byte_range: tuple[int, int] | None = None,
+        public_fixture_path: str | os.PathLike[str] | None = None,
+        fixture_listing: bool = False,
         check: bool = True,
     ) -> OutputEnvelope:
-        """Run the explicit local-emulator object-store read smoke."""
+        """Run an explicit object-store read smoke for an admitted fixture profile."""
 
         command = ["object-store-read-smoke", str(local_object_path), "--profile", profile]
+        if public_fixture_path is not None:
+            command.extend(["--public-fixture-path", str(public_fixture_path)])
+        if fixture_listing:
+            command.append("--fixture-listing")
         if byte_range is not None:
             offset, length = byte_range
             command.extend(["--range", f"{offset}:{length}"])

@@ -30,7 +30,7 @@ which are blocked, and what evidence would be required before any support claim 
 ```
 
 This scoreboard is not a production support claim, a performance claim, a Spark replacement claim,
-or an object-store/lakehouse/Foundry runtime claim.
+or a live object-store, lakehouse, or Foundry runtime claim.
 
 This scoreboard also does not make `prepared_vortex` a reader for non-Vortex sources.
 `prepared_vortex` executes from `VortexPreparedState`. Non-Vortex sources reach it through
@@ -74,7 +74,7 @@ fallback execution.
 | SQLite | Database file | `report-only` | No first-class SQLite import/export runtime path is supported. | Future rows must separate file import/export from query pushdown. | No database Native I/O certificate may be claimed. | Connector policy, SQL dialect boundary, transaction snapshot evidence, no-fallback diagnostics. | Database endpoint support is not claimed. |
 | Postgres / MySQL | Database service | `report-only` | No first-class runtime connector is supported. | Future rows must separate import/export from remote query pushdown and baseline/oracle usage. | No network or credential I/O is performed. | Credential policy, network policy, snapshot semantics, import/export evidence. | External databases are not fallback engines. |
 | JDBC / ODBC | Connector bridge | `report-only` | No JDBC or ODBC runtime bridge is supported. | Future rows must classify bridge maturity, driver dependency, credentials, and query pushdown boundaries. | No bridge certificate may be claimed. | Dependency/license policy, driver loading, credentials, diagnostics, imported schema evidence. | Connector availability is not claimed. |
-| S3 / GCS / ADLS | Object store | `blocked` | Object-store range planning/report surfaces exist, but runtime object-store I/O is blocked. | GAR-COMPAT-1C owns the runtime admission ladder. | No credential resolution, network probe, byte-range read, full-file read, write, or commit may run in this posture. | URI parse, credential policy, public read, authenticated read, byte-range read, full-file read, cache, write staging, commit protocol. | No object-store runtime claim. |
+| S3 / GCS / ADLS | Object store | `smoke-supported` | The public no-credential fixture profile parses provider URIs and reads explicit local fixture bytes only. Live provider runtime remains blocked. | GAR-COMPAT-1C owns the runtime admission ladder and separates fixture admission from live provider gates. | Native I/O evidence is fixture-scoped; credential resolution, network probes, provider probes, cache writes, cloud writes, and commits remain disabled. | Credential policy, authenticated reads, live byte-range/full-file provider reads, cache, write staging, commit protocol. | Public fixture object-store read smoke only; no live provider, table/lakehouse, production, performance, or Spark-replacement claim. |
 | Iceberg / Delta / Hudi | Table/lakehouse format | `report-only` | Table/lakehouse commit runtime is not supported. | GAR-COMPAT-1D owns table scan, metadata, snapshot, delete/tombstone, append, merge/update/delete, commit, and rollback classification. | Local table metadata smoke does not imply table-format runtime or commit semantics. | Table metadata readers, snapshot semantics, delete/tombstone handling, object-store/catalog integration, commit/rollback evidence. | No production lakehouse claim. |
 | Vortex | Native file/layout | `runtime-supported` | Scoped local Vortex runtime paths exist for evidence-backed workloads. | Coverage rows must state execution mode, provider, materialization/decode fields, and claim gate. | Vortex is the highest-fidelity source and sink target when the path is evidence-backed. | Broader Source/Split/Sink, object-store Vortex I/O, encoded-native operators, and output fidelity evidence. | Scoped local Vortex evidence only; no universal runtime or performance claim. |
 | Generated / source-free outputs | Generated source | `smoke-supported` | `shardloom.generated_source_certificate_contract.v1` exposes no-dataset, user-generated, and engine-native generated-source contract rows. Scoped local JSONL/CSV smokes exist for `ctx.from_rows([...]).write(...)`, `ctx.literal_table([...]).write(...)`, `ctx.calendar(...).write(...)`, `ctx.range(...).write(...)`, `ctx.sequence(...).write(...)`, `ctx.sql_values(...).write(...)`, `ctx.sql_literal_select(...).write(...)`, `ctx.sql("SELECT * FROM generate_series/range(...)").write(...)`, scoped `ctx.sql("SELECT value AS id, value + 1 AS next FROM range(...)").write(...)` range projections, and scoped generated `with_column(...)` helpers. | GAR-GEN-1A/1B own the GeneratedSourceCertificate contract; GAR-GEN-1C owns local user-generated output; GAR-GEN-1D owns local range output; this runtime slice owns local sequence, scoped SQL generator output, scoped range projection, and generated `with_column` rows; GAR-GEN-1E owns source-free API admission rows; GAR-RUNTIME-IMPL-1A owns scoped source-free SQL output smoke; GAR-COMPAT-1B projects those rows into this compatibility map. | No source Native I/O certificate is claimed when no source dataset is read; output evidence remains required. | Synthetic generators, broad SQL/DataFrame runtime, object-store/Foundry output proof, broader output formats. | Local user-row, literal-table, calendar, range, sequence, SQL `VALUES`, SQL literal `SELECT`, scoped SQL `generate_series`/`range`, scoped range projection, and scoped generated `with_column` JSONL/CSV fixture-smoke generated-output runtime only. |
@@ -140,15 +140,19 @@ when source/output/replay/certificate proof is incomplete.
 
 ## Object-Store And Lakehouse Boundary
 
-Object-store and table/lakehouse entries remain blocked or report-only until evidence exists for the
-specific runtime action being claimed.
+Object-store live-provider and table/lakehouse entries remain blocked or report-only until evidence
+exists for the specific runtime action being claimed. The only admitted object-store runtime action
+is the explicit public no-credential fixture profile, which parses S3/GCS/ADLS URIs and reads
+caller-supplied local bytes without credentials, network, provider probes, cache writes, cloud
+writes, or commits.
 
 Do not collapse these steps into one support flag:
 
 ```text
 object-store URI parse
 credential policy
-signed or public no-credential read
+public no-credential fixture read
+signed or authenticated provider read
 byte-range read
 full-file read
 local cache
@@ -162,9 +166,9 @@ merge/update/delete
 rollback
 ```
 
-Read support and write/commit support must stay separate. Public no-credential reads and
-authenticated reads must stay separate. Metadata smoke must not imply table scan or table commit
-runtime.
+Read support and write/commit support must stay separate. Public no-credential fixture reads, live
+public provider reads, and authenticated reads must stay separate. Metadata smoke must not imply
+table scan or table commit runtime.
 
 ## Generated-Output Boundary
 
@@ -245,15 +249,15 @@ universal_compatibility_generated_output_broad_sql_dataframe_claim_allowed=false
 The JSON projection also includes
 `object_store_admission_ladder.schema_version=shardloom.universal_compatibility.object_store_admission_ladder.v1`
 for the GAR-COMPAT-1C object-store runtime admission ladder. The ladder is provider-neutral across
-S3, GCS, and ADLS, and it keeps URI recognition, credential policy, public read, authenticated
-read, byte-range read, full-file read, local cache, write staging, and commit protocol as separate
-claim gates.
+S3, GCS, and ADLS, and it keeps URI recognition, credential policy, public no-credential fixture
+read, authenticated read, live byte-range read, live full-file read, local cache, write staging, and
+commit protocol as separate claim gates.
 
 | Row | Status | Credential policy | Read/write allowed | Boundary |
 | --- | --- | --- | --- | --- |
 | `object_store_uri_parse` | `report-only` | `not_required_for_parse` | no read/write | URI recognition only; no provider, credential, network, read, write, or commit effect. |
 | `credential_policy` | `blocked` | `required_not_admitted` | no read/write | Credential resolution remains blocked; no secrets are read. |
-| `public_no_credential_read` | `blocked` | `public_read_policy_required` | no read/write | Public no-credential reads remain blocked until network/provider/read evidence exists. |
+| `public_no_credential_read` | `smoke-supported` | `public_no_credential_fixture_admitted` | fixture read only | Parses S3/GCS/ADLS URIs and reads caller-supplied local fixture bytes; live provider reads remain blocked. |
 | `authenticated_read` | `blocked` | `authenticated_read_policy_required` | no read/write | Credentialed reads are a separate blocked gate from public reads. |
 | `byte_range_read` | `blocked` | `read_policy_required` | no read/write | Byte-range reads remain blocked despite planning evidence. |
 | `full_file_read` | `blocked` | `read_policy_required` | no read/write | Full-file reads remain blocked and distinct from byte-range reads. |
@@ -267,16 +271,23 @@ Every object-store ladder row preserves:
 credential_resolution_performed=false
 network_probe_allowed=false
 provider_probe_allowed=false
-object_store_io=false
 write_io=false
 fallback_attempted=false
 external_engine_invoked=false
-claim_gate_status=not_claim_grade
 ```
 
-The ladder exposes admission status only. It does not authorize credential resolution, provider
-probing, S3/GCS/ADLS reads, local cache runtime, writes, commit protocol execution, table/lakehouse
-runtime, production use, performance claims, or external fallback execution.
+The fixture-admitted row also reports:
+
+```text
+object_store_io=true
+native_io_certificate_status=public_fixture_smoke_only
+claim_gate_status=public_fixture_smoke_only
+```
+
+The ladder exposes admission status plus fixture-scoped read evidence. It does not authorize
+credential resolution, provider probing, live S3/GCS/ADLS reads, local cache runtime, writes,
+commit protocol execution, table/lakehouse runtime, production use, performance claims, or external
+fallback execution.
 
 ### Iceberg/Delta/Hudi Table-Format Boundary Matrix
 

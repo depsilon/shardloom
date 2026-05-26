@@ -1,17 +1,17 @@
 ---
 title: "Object-store boundary"
-description: "S3/GCS/ADLS remain separate blocked/report-only routes until runtime evidence is admitted."
+description: "S3/GCS/ADLS now have a public no-credential fixture read smoke, while live provider runtime remains separately blocked."
 sidebar: {"label":"Object-store boundary"}
 ---
 
 
-<span class="status-chip status-blocked">blocked</span>
+<span class="status-chip status-smoke-supported">smoke_supported</span>
 
-S3/GCS/ADLS remain separate blocked/report-only routes until runtime evidence is admitted.
+S3/GCS/ADLS now have a public no-credential fixture read smoke, while live provider runtime remains separately blocked.
 
 ## Plain-English Meaning
 
-S3/GCS/ADLS remain separate blocked/report-only routes until runtime evidence is admitted.
+S3/GCS/ADLS now have a public no-credential fixture read smoke, while live provider runtime remains separately blocked.
 
 ## Why It Matters
 
@@ -19,12 +19,12 @@ This concept helps users understand how ShardLoom separates source admission, Vo
 
 ## How ShardLoom Uses It
 
-- Route: `Future object-store route`
+- Route: `Object-store fixture route`
 - Category: Platform Boundaries
 
 ## Current Support
 
-Status: `blocked`
+Status: `smoke_supported`
 
 ## Evidence Fields
 
@@ -39,6 +39,7 @@ This Field Guide entry does not expand runtime support, performance claims, prod
 ## Try It / Related Use Cases
 
 - [object-store-boundary-report](/use-cases/object-store-boundary-report)
+- [object-store-public-no-credential-fixture-read-smoke](/use-cases/object-store-public-no-credential-fixture-read-smoke)
 - [object-store-local-emulator-read-smoke](/use-cases/object-store-local-emulator-read-smoke)
 - [object-store-local-emulator-write-smoke](/use-cases/object-store-local-emulator-write-smoke)
 - [local-table-append-commit-rehearsal-smoke](/use-cases/local-table-append-commit-rehearsal-smoke)

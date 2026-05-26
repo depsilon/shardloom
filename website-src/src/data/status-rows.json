@@ -295,27 +295,78 @@
   },
   {
     "capability": "S3 / GCS / ADLS",
-    "status": "blocked",
+    "status": "smoke_supported",
     "inputs": [
       "s3",
       "gcs",
-      "adls"
+      "adls",
+      "public_fixture_local_file"
     ],
     "outputs": [
+      "public_fixture_read_evidence",
       "blocked_diagnostic"
     ],
-    "route": "object_store_report_only",
+    "route": "object_store_read_smoke object_store_report_only",
     "platform": "object_store",
     "evidence": [
+      "provider_profile=public-no-credential-fixture",
+      "object_store_uri_parse_status",
       "credential_policy_status",
-      "object_store_io=false",
-      "fallback_attempted=false"
+      "network_probe_performed=false",
+      "provider_probe_performed=false",
+      "object_store_io",
+      "native_io_certificate_status",
+      "claim_gate_status",
+      "fallback_attempted=false",
+      "external_engine_invoked=false"
     ],
-    "works": "Object-store posture is documented as a boundary.",
-    "blocked": "No object-store runtime, byte-range read, write, commit, or credentialed network path is claimed.",
+    "works": "An explicit public no-credential fixture profile parses S3/GCS/ADLS URIs and reads caller-supplied local fixture bytes with SourceState and Native I/O evidence.",
+    "blocked": "Live provider network reads, credential resolution, authenticated reads, cache writes, cloud writes, table commits, distributed runtime, and production object-store claims remain blocked.",
     "references": [
       "docs/use-cases/use-case-index.yml",
       "docs/architecture/object-store-request-planner.md"
+    ]
+  },
+  {
+    "capability": "Object-store public no-credential fixture read",
+    "status": "smoke_supported",
+    "inputs": [
+      "s3_uri",
+      "gcs_uri",
+      "adls_uri",
+      "public_fixture_local_file"
+    ],
+    "outputs": [
+      "provider_uri_parse_evidence",
+      "source_state_evidence",
+      "native_io_certificate",
+      "read_digest"
+    ],
+    "route": "object_store_read_smoke",
+    "platform": "object_store_fixture",
+    "evidence": [
+      "provider_profile=public-no-credential-fixture",
+      "object_store_provider",
+      "object_store_bucket",
+      "object_store_key",
+      "object_store_uri_parse_status",
+      "byte_range_read_status",
+      "full_file_read_status",
+      "listing_status",
+      "credential_resolution_performed=false",
+      "network_probe_performed=false",
+      "provider_probe_performed=false",
+      "native_io_certificate_status",
+      "claim_gate_status",
+      "fallback_attempted=false",
+      "external_engine_invoked=false"
+    ],
+    "works": "The profile admits a supported S3/GCS/ADLS URI plus an explicit local fixture path for byte-range or full-file read smoke evidence without credentials or network effects.",
+    "blocked": "No live public bucket fetch, signed URL support, authenticated provider read, cache write, cloud write, table/lakehouse commit, distributed runtime, production, or performance claim is made.",
+    "references": [
+      "docs/use-cases/use-case-index.yml",
+      "docs/architecture/object-store-request-planner.md",
+      "python/README.md"
     ]
   },
   {

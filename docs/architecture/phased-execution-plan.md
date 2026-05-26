@@ -281,11 +281,12 @@ rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
 `GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle, the `GAR-RUNTIME-IMPL-4F/4F1/5D`
 local adapter/ingest parity closeout, `GAR-RUNTIME-IMPL-4P/5M` declared local scale runtime
 closeout, `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout, and
-`GAR-RUNTIME-IMPL-5R` PulseWeave automatic prepared/local runtime control are complete and recorded
-in the ledger. Continue through object-store/control-plane/effectful-operation gates (`5K`,
-`4Q`/`5N`, `4R`/`5O`), then expression/operator closeout (`4D`/`5G`) as the last 4-series
-runtime-family closeout before SQL/Python surface backstops, benchmark and Foundry gates, and
-release usability. Completed queue blocks have moved to
+`GAR-RUNTIME-IMPL-5R` PulseWeave automatic prepared/local runtime control, and
+`GAR-RUNTIME-IMPL-5K` public no-credential object-store fixture read admission are complete and
+recorded in the ledger. Continue through control-plane/effectful-operation gates (`4Q`/`5N`,
+`4R`/`5O`), then expression/operator closeout (`4D`/`5G`) as the last 4-series runtime-family
+closeout before SQL/Python surface backstops, benchmark and Foundry gates, and release usability.
+Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
 
@@ -300,36 +301,6 @@ below. They are coverage-assurance backstops, not a second parallel runtime queu
 item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission
-  - Source: `GAR-RUNTIME-IMPL-4N`, `GAR-COMPAT-1C`, `GAR-SCALE-1E`,
-    `docs/architecture/object-store-request-planner.md`.
-  - Current state: `GAR-RUNTIME-IMPL-4N` admits `object-store-read-smoke` for an explicit
-    `local-emulator` local fixture profile with SourceState and Native I/O evidence. Public
-    no-credential object-store reads, authenticated reads, credential policy, network policy,
-    listing, local cache, and real provider proofs remain blocked.
-  - Next slice outcome: extend beyond the local-emulator fixture into provider URI parse,
-    effect/credential policy, optional listing, byte-range/full-file read, local cache boundary,
-    and SourceState evidence for an approved public no-credential fixture profile.
-  - Runtime enablement: provider/profile-scoped object-store read runtime with credential/network
-    admission and no-default-effect policy.
-  - User-visible surface: CLI/Python object-store diagnostics, capability/status pages, use cases.
-  - Implementation scope: provider abstraction, policy gate, credential redaction, request planner,
-    byte-range adapter, cache boundary, emulator/public-fixture tests.
-  - Evidence required: provider/profile, credential/network status, object version/ETag, byte
-    ranges, SourceState id, Native I/O certificate, no-fallback fields.
-  - Acceptance: public and authenticated read gates are separate; no network probe or credential
-    resolution runs by default; unsupported providers fail closed.
-  - Verification: policy tests, mocked/emulator read smoke, SourceState snapshot tests, release
-    readiness, website status checks.
-  - Non-goals: no object-store write, table commit, production object-store claim, or managed
-    platform claim.
-  - Claim boundary: provider/profile-specific read proof only.
-  - Fallback boundary: storage provider access does not authorize external query execution.
-  - Dependencies/blockers: security/effect policy, provider test harness, dependency/license review,
-    emulator or public no-credential fixture.
-  - Ledger rule: ledger entry must record provider, credential posture, proof refs, and blocked
-    providers.
 
 - [ ] GAR-RUNTIME-IMPL-4Q live, hybrid, loopback control-plane, and distributed blockers
   - Source: RFC 0034, RFC 0035, `GAR-SCALE-1F`.

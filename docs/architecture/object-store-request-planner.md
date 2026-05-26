@@ -32,10 +32,13 @@ shardloom cg10-object-store-runtime-gate --format json
       `ObjectStoreRuntimeBlockerMatrixRow` entries.
 - [x] Gate object-store and distributed runtime execution through
       `ObjectStoreRuntimePromotionGateReport` before enabling runtime object-store IO.
+- [x] Admit `public-no-credential-fixture` as a no-network read profile that parses S3/GCS/ADLS
+      object URIs and reads explicit local fixture bytes with SourceState and Native I/O evidence.
 Out of scope until promoted GAR slices complete:
 
-- Byte-range read execution remains blocked after `GAR-0008-A`; that slice adds the provider gate
-  only.
+- Live-provider byte-range read execution remains blocked after `GAR-0008-A`; that slice adds the
+  provider gate only. `GAR-RUNTIME-IMPL-5K` admits public no-credential fixture bytes without
+  provider/network I/O.
 - Coordinator/worker start, distributed tasks, checkpoint/attempt records, retry execution, cleanup,
   and object-store commits remain blocked after `GAR-0008-B`; that slice adds the blocker matrix
   only. `GAR-0017-A` exposes the fault-tolerance execution gate and `GAR-0028-A` exposes the
@@ -70,6 +73,11 @@ For the byte-range provider gate:
 - `byte_range_provider_gate_data_read=false`
 - `byte_range_provider_gate_object_store_io=false`
 - `byte_range_provider_gate_write_io=false`
+- `byte_range_provider_gate_public_no_credential_fixture_profile_admitted=true`
+- `byte_range_provider_gate_public_no_credential_fixture_read_allowed=true`
+- `byte_range_provider_gate_public_no_credential_fixture_listing_allowed=true`
+- `byte_range_provider_gate_public_no_credential_fixture_cache_write_allowed=false`
+- `byte_range_provider_gate_live_provider_network_read_allowed=false`
 - `byte_range_provider_gate_fallback_attempted=false`
 - `byte_range_provider_gate_fallback_execution_allowed=false`
 - `byte_range_provider_gate_external_engine_invoked=false`
@@ -77,7 +85,11 @@ For the byte-range provider gate:
 
 The provider gate requires provider capability policy, credential-effect policy, request-budget
 policy, retry policy, idempotency-key contract, execution certificate, Native I/O certificate, and
-benchmark evidence before future byte-range reads may be promoted.
+benchmark evidence before future live-provider byte-range reads may be promoted. The
+`public-no-credential-fixture` profile is separately admitted as a no-network fixture path: it may
+parse S3/GCS/ADLS object URIs and read explicit local fixture bytes, but it does not authorize live
+provider fetches, credential resolution, network probes, provider probes, cache writes, or provider
+listing.
 
 For the object-store runtime blocker matrix:
 
@@ -174,6 +186,62 @@ command with deterministic `SL_OBJECT_STORE_UNSUPPORTED` diagnostics and with
 The local-emulator smoke does not authorize credential lookup, provider listing, public-object
 reads, authenticated reads, object-store writes, table/lakehouse commits, distributed execution,
 performance claims, production use, or external-engine fallback.
+
+## GAR-RUNTIME-IMPL-5K Public No-Credential Fixture Read Smoke
+
+`GAR-RUNTIME-IMPL-5K` admits a second runtime read profile:
+
+```powershell
+shardloom object-store-read-smoke <s3|gs|gcs|abfs|abfss URI> --profile public-no-credential-fixture --public-fixture-path <local-fixture-path> [--fixture-listing] [--range offset:length] --format json
+```
+
+The profile parses supported S3/GCS/ADLS object URIs and then reads caller-supplied local fixture
+bytes. It is the first public no-credential admission proof, but still not a live cloud-provider
+network read. The command rejects missing fixture paths, unsupported URI schemes, URI query strings
+or fragments, URI userinfo/credentials, empty bucket/container names, empty object keys, missing
+fixture files, invalid ranges, and unreadable fixture bytes with deterministic diagnostics. It does
+not resolve credentials, probe a provider, open a network connection, write a local cache entry, or
+invoke any external query engine.
+
+Successful public fixture rows emit:
+
+```text
+provider_profile=public-no-credential-fixture
+object_store_provider=s3 | gcs | adls
+object_store_bucket
+object_store_key
+object_store_uri_parse_status=parsed_public_no_credential_fixture_uri
+requested_uri_redaction_status
+public_fixture_path
+byte_range_read_status=performed_public_no_credential_fixture | not_requested
+full_file_read_status=performed_public_no_credential_fixture | not_requested
+listing_status=performed_public_fixture_single_object | not_requested_public_fixture
+object_etag
+object_version
+source_state_id
+source_state_digest
+source_fingerprint_kind=public_no_credential_fixture_uri_metadata_range_digest
+source_content_digest
+credential_policy_status=public_no_credential_fixture_admitted
+credential_resolution_performed=false
+network_probe_performed=false
+provider_probe_performed=false
+local_cache_status=not_performed_public_fixture_read_through
+native_io_certificate_status=public_fixture_smoke_only
+claim_gate_status=public_fixture_smoke_only
+public_no_credential_fixture_claim_allowed=true
+public_object_store_claim_allowed=false
+production_object_store_claim_allowed=false
+object_store_io=true
+object_store_read_io=true
+object_store_write_io=false
+fallback_attempted=false
+external_engine_invoked=false
+```
+
+The public fixture profile does not authorize live public bucket reads, signed URLs, authenticated
+reads, provider listing, local cache writes, cloud writes, table/lakehouse commits, distributed
+runtime, performance claims, production use, or external-engine fallback.
 
 ## GAR-RUNTIME-IMPL-4O Local-Emulator Write/Commit Smoke
 
@@ -310,7 +378,7 @@ write_staging
 commit_protocol
 ```
 
-Every ladder row keeps:
+Every ladder row keeps live-provider effects disabled:
 
 ```text
 credential_resolution_performed=false
@@ -323,10 +391,12 @@ external_engine_invoked=false
 claim_gate_status=not_claim_grade
 ```
 
-`object_store_uri_parse` is report-only URI vocabulary. Public no-credential reads,
-authenticated reads, byte-range reads, full-file reads, local cache, write staging, and commit
-protocol remain blocked until separate runtime evidence exists. The ladder is status visibility
-only; it does not authorize credential lookup, provider probes, network traffic, object-store
+`object_store_uri_parse` is report-only URI vocabulary. `public_no_credential_read` is now admitted
+only for the `public-no-credential-fixture` profile, where the URI is parsed and caller-supplied
+local fixture bytes are read without credentials, provider probes, network traffic, or cache writes.
+Authenticated reads, live-provider byte-range reads, full-file provider reads, local cache writes,
+write staging, and commit protocol remain blocked until separate runtime evidence exists. The
+ladder does not authorize credential lookup, provider probes, network traffic, live object-store
 reads/writes, local cache runtime, commit protocol execution, table/lakehouse runtime, production
 use, performance claims, or fallback execution.
 

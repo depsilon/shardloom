@@ -52,6 +52,7 @@
     "python/README.md"
   ],
   "related_use_cases": [
+    "object-store-public-no-credential-fixture-read-smoke",
     "object-store-local-emulator-read-smoke",
     "object-store-boundary-report",
     "local-table-append-commit-rehearsal-smoke",

@@ -1969,6 +1969,27 @@ mod tests {
     }
 
     #[test]
+    fn object_store_read_smoke_public_fixture_profile_returns_success() {
+        let fixture = std::env::temp_dir().join(format!(
+            "shardloom-cli-object-store-public-fixture-{}.bin",
+            std::process::id()
+        ));
+        std::fs::write(&fixture, b"abcdef").expect("fixture write");
+        let code = run(vec![
+            "object-store-read-smoke".to_string(),
+            "s3://shardloom-public-fixtures/object.vortex".to_string(),
+            "--profile".to_string(),
+            "public-no-credential-fixture".to_string(),
+            "--public-fixture-path".to_string(),
+            fixture.to_string_lossy().into_owned(),
+            "--range".to_string(),
+            "1:3".to_string(),
+        ]);
+        std::fs::remove_file(&fixture).expect("fixture cleanup");
+        assert_eq!(code, ExitCode::SUCCESS);
+    }
+
+    #[test]
     fn object_store_write_smoke_local_emulator_returns_success() {
         let temp_dir = std::env::temp_dir().join(format!(
             "shardloom-cli-object-store-write-smoke-{}",

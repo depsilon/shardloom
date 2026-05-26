@@ -5,52 +5,58 @@
 ## Quick Answer
 
 - **Audience:** user asking whether S3, GCS, or ADLS runtime I/O works
-- **Status:** `blocked`
-- **Execution mode:** `report_only_blocked`
-- **Engine mode:** `none`
-- **Claim boundary:** Cloud object-store read/write runtime is blocked/report-only; local-emulator smokes do not create S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claims.
+- **Status:** `smoke_supported`
+- **Execution mode:** `object_store_read_smoke`
+- **Engine mode:** `batch`
+- **Claim boundary:** S3/GCS/ADLS URI parsing plus an explicit public no-credential fixture read profile is smoke-supported when the caller supplies local fixture bytes with --public-fixture-path. Live provider network reads, credential resolution, authenticated reads, cache writes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.
 
 ## Can ShardLoom Do This?
 
-Object-store and cloud storage boundary is blocked or unsupported until the listed evidence exists.
+Object-store and cloud storage boundary has an explicit public no-credential fixture read smoke. It is runtime evidence for provider URI admission over caller-supplied local fixture bytes only; live provider reads and writes remain blocked.
 
 ## Claim Boundary
 
-Cloud object-store read/write runtime is blocked/report-only; local-emulator smokes do not create S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claims.
+S3/GCS/ADLS URI parsing plus an explicit public no-credential fixture read profile is smoke-supported when the caller supplies local fixture bytes with --public-fixture-path. Live provider network reads, credential resolution, authenticated reads, cache writes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.
 
 ## How To Try It
 
 ```powershell
-target\debug\shardloom object-store-request-plan --format json
+target\debug\shardloom object-store-read-smoke s3://shardloom-public-fixtures/orders.vortex --profile public-no-credential-fixture --public-fixture-path target\object-store-public-fixture.vortex --range 0:16 --format json
 ```
 
 ## Blocker
 
-Cloud object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed beyond local-emulator smokes.
+Live cloud object-store I/O still needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed beyond explicit local fixture bytes.
 
 ## Internal Flow
 
-`s3_uri, gcs_uri, adls_uri -> report_only_blocked -> none -> object_store_plan, deterministic_blocker -> evidence -> claim gate`
+`s3_uri, gcs_uri, adls_uri -> object_store_read_smoke -> batch -> object_store_plan, deterministic_blocker, public_fixture_read_evidence -> evidence -> claim gate`
 
 ## Evidence You Should See
 
+- `provider_profile=public-no-credential-fixture`
+- `object_store_uri_parse_status`
 - `credential_policy_status`
+- `public_no_credential_fixture_claim_allowed`
 - `network_probe_allowed=false`
-- `byte_range_read_allowed`
-- `object_store_io=false`
+- `network_probe_performed=false`
+- `provider_probe_performed=false`
+- `object_store_io`
 - `write_io=false`
-- `native_io_certificate_status=blocked`
+- `native_io_certificate_status`
+- `claim_gate_status`
 - `fallback_attempted=false`
 - `external_engine_invoked=false`
 
 ## Expected Output Or Evidence
 
-A blocked or report-only object-store plan with no provider probe and no external engine invocation.
+A public no-credential fixture smoke report with parsed provider/bucket/key fields, SourceState digest fields, selected byte-range/full-file evidence, Native I/O certificate status, credential/network/provider probes disabled, fallback_attempted=false, and external_engine_invoked=false.
 
 ## Common Mistakes
 
-- `expecting_public_s3_read`
+- `expecting_live_public_s3_network_read`
 - `assuming_signed_url_support`
+- `omitting_public_fixture_path`
 - `treating_planner_as_runtime_io`
 
 ## Reference Files
@@ -62,6 +68,7 @@ A blocked or report-only object-store plan with no provider probe and no externa
 
 ## Related Use Cases
 
+- `object-store-public-no-credential-fixture-read-smoke`
 - `object-store-local-emulator-read-smoke`
 - `object-store-local-emulator-write-smoke`
 - `table-lakehouse-boundary-report`
@@ -72,6 +79,6 @@ A blocked or report-only object-store plan with no provider probe and no externa
 - `website/field-guide/no-fallback.html` - No fallback (`Start Here` / `runtime_supported`)
 - `website/field-guide/universal-ingress.html` - UniversalIngress (`UniversalIngress` / `report_only`)
 - `website/field-guide/scale-classes.html` - Scale classes (`Scale + Resource Envelope` / `planned`)
-- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `blocked`)
+- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `smoke_supported`)
 - `website/field-guide/table-lakehouse-boundary.html` - Table/lakehouse boundary (`Platform Boundaries` / `blocked`)
 - `website/field-guide/deterministic-blockers.html` - Deterministic blockers (`Unsupported Diagnostics` / `runtime_supported`)

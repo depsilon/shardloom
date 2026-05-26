@@ -2885,6 +2885,18 @@ class ObjectStoreAdmissionLadder:
         )
 
     @property
+    def public_no_credential_read_supported(self) -> bool:
+        """Whether the public no-credential fixture profile is admitted."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_object_store_ladder_public_no_credential_read_supported",
+                False,
+            )
+            is True
+        )
+
+    @property
     def all_rows_no_effects(self) -> bool:
         """Whether every ladder row preserves no-effects/no-fallback posture."""
 
@@ -2895,6 +2907,30 @@ class ObjectStoreAdmissionLadder:
             )
             is True
             and all(row.no_effects_no_fallback for row in self.rows)
+        )
+
+    @property
+    def all_live_provider_effects_disabled(self) -> bool:
+        """Whether live provider credential/network/cache/write effects stay disabled."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_object_store_ladder_all_live_provider_effects_disabled",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def all_no_fallback_no_external_engine(self) -> bool:
+        """Whether every ladder row preserves no-fallback/no-external-engine posture."""
+
+        return (
+            self.capability.envelope.field_bool(
+                "universal_compatibility_object_store_ladder_all_rows_no_fallback_no_external_engine",
+                False,
+            )
+            is True
         )
 
     def row(self, row_id: str) -> ObjectStoreAdmissionLadderRow:

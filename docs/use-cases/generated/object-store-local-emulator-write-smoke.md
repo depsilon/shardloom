@@ -69,6 +69,7 @@ A fixture-smoke report with staged write, sidecar commit-manifest, idempotency, 
 
 ## Related Use Cases
 
+- `object-store-public-no-credential-fixture-read-smoke`
 - `object-store-local-emulator-read-smoke`
 - `object-store-boundary-report`
 - `local-table-append-commit-rehearsal-smoke`
@@ -78,4 +79,4 @@ A fixture-smoke report with staged write, sidecar commit-manifest, idempotency, 
 ## Related Field Guide Terms
 
 - `website/field-guide/native-io-certificate.html` - Native I/O certificate (`Evidence + Certificates` / `smoke_supported`)
-- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `blocked`)
+- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `smoke_supported`)

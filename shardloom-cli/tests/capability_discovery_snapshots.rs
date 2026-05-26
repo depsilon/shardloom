@@ -2758,7 +2758,7 @@ fn assert_universal_compatibility_source_rows(output: &str) {
 fn assert_universal_compatibility_unsupported_boundaries(output: &str) {
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_row_object_store_s3_gcs_adls_support_status",
-        "blocked"
+        "smoke-supported"
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_row_object_store_s3_gcs_adls_fallback_attempted",
@@ -2812,8 +2812,8 @@ fn runs_today_exposes_generated_current_support_matrix() {
             "runs_today_family_order",
             "cli_command,python_api,input_format,output_format,execution_mode,claim_state",
         ),
-        ("runs_today_row_count", "28"),
-        ("runs_today_executable_row_count", "13"),
+        ("runs_today_row_count", "29"),
+        ("runs_today_executable_row_count", "14"),
         ("runs_today_feature_gated_row_count", "5"),
         ("runs_today_diagnostic_only_row_count", "3"),
         ("runs_today_report_only_row_count", "1"),
@@ -2821,7 +2821,7 @@ fn runs_today_exposes_generated_current_support_matrix() {
         ("runs_today_future_row_count", "1"),
         ("runs_today_cli_command_row_count", "6"),
         ("runs_today_python_api_row_count", "4"),
-        ("runs_today_input_format_row_count", "4"),
+        ("runs_today_input_format_row_count", "5"),
         ("runs_today_output_format_row_count", "3"),
         ("runs_today_execution_mode_row_count", "6"),
         ("runs_today_claim_state_row_count", "5"),
@@ -2866,6 +2866,7 @@ fn runs_today_exposes_generated_current_support_matrix() {
         ),
         ("python_status_capabilities", "diagnostic_only"),
         ("input_object_store_cloud", "blocked"),
+        ("input_object_store_public_fixture", "executable"),
         ("execution_report_only_surfaces", "report_only"),
         ("execution_live_hybrid_remote_distributed", "future"),
         ("claim_performance_superiority", "blocked"),
@@ -2982,6 +2983,10 @@ fn assert_object_store_ladder_fields(output: &str) {
         "report-only"
     )));
     assert!(output.contains(&string_field_pair(
+        "universal_compatibility_object_store_ladder_row_public_no_credential_read_support_status",
+        "smoke-supported"
+    )));
+    assert!(output.contains(&string_field_pair(
         "universal_compatibility_object_store_ladder_row_byte_range_read_blocker_id",
         "gar-compat-1c.byte_range_read_runtime_blocked"
     )));
@@ -2990,8 +2995,6 @@ fn assert_object_store_ladder_fields(output: &str) {
         "authenticated_read_policy_required"
     )));
     for key in [
-        "universal_compatibility_object_store_ladder_runtime_supported",
-        "universal_compatibility_object_store_ladder_public_no_credential_read_supported",
         "universal_compatibility_object_store_ladder_authenticated_read_supported",
         "universal_compatibility_object_store_ladder_byte_range_read_supported",
         "universal_compatibility_object_store_ladder_full_file_read_supported",
@@ -3000,7 +3003,6 @@ fn assert_object_store_ladder_fields(output: &str) {
         "universal_compatibility_object_store_ladder_credential_resolution_performed",
         "universal_compatibility_object_store_ladder_network_probe_allowed",
         "universal_compatibility_object_store_ladder_provider_probe_allowed",
-        "universal_compatibility_object_store_ladder_object_store_io",
         "universal_compatibility_object_store_ladder_write_io",
         "universal_compatibility_object_store_ladder_fallback_attempted",
         "universal_compatibility_object_store_ladder_external_engine_invoked",
@@ -3011,7 +3013,27 @@ fn assert_object_store_ladder_fields(output: &str) {
         );
     }
     assert!(output.contains(&field_pair(
+        "universal_compatibility_object_store_ladder_runtime_supported",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_object_store_ladder_public_no_credential_read_supported",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_object_store_ladder_object_store_io",
+        true
+    )));
+    assert!(output.contains(&field_pair(
         "universal_compatibility_object_store_ladder_all_rows_no_effects",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_object_store_ladder_all_live_provider_effects_disabled",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_object_store_ladder_all_rows_no_fallback_no_external_engine",
         true
     )));
 }

@@ -83,6 +83,7 @@ A fixture-smoke report with base/append/committed snapshot ids, committed manife
 
 ## Related Use Cases
 
+- `object-store-public-no-credential-fixture-read-smoke`
 - `object-store-local-emulator-write-smoke`
 - `object-store-local-emulator-read-smoke`
 - `table-lakehouse-boundary-report`
@@ -91,5 +92,5 @@ A fixture-smoke report with base/append/committed snapshot ids, committed manife
 ## Related Field Guide Terms
 
 - `website/field-guide/native-io-certificate.html` - Native I/O certificate (`Evidence + Certificates` / `smoke_supported`)
-- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `blocked`)
+- `website/field-guide/object-store-boundary.html` - Object-store boundary (`Platform Boundaries` / `smoke_supported`)
 - `website/field-guide/table-lakehouse-boundary.html` - Table/lakehouse boundary (`Platform Boundaries` / `blocked`)
