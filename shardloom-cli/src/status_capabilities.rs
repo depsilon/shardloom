@@ -848,20 +848,20 @@ const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
         surface: "S3 / GCS / ADLS",
         family: "object_store",
         direction: "read_write",
-        support_status: "blocked",
+        support_status: "smoke-supported",
         runtime_supported: false,
-        smoke_supported: false,
+        smoke_supported: true,
         report_only: false,
-        credential_required: true,
-        network_required: true,
-        source_io_performed: false,
+        credential_required: false,
+        network_required: false,
+        source_io_performed: true,
         output_io_performed: false,
-        native_io_certificate_status: "not_emitted",
+        native_io_certificate_status: "public_fixture_smoke_only",
         generated_source_certificate_status: "not_applicable",
-        blocker_id: "gar-compat-1c.object_store_runtime_blocked",
-        required_future_evidence: "uri_parse_credential_policy_public_read_byte_range_read_write_staging_commit_protocol",
-        claim_gate_status: "not_claim_grade",
-        claim_boundary: "no object-store runtime claim",
+        blocker_id: "none_public_no_credential_fixture_profile_only",
+        required_future_evidence: "live_provider_network_policy,credential_policy,authenticated_read_certificate,cache_policy,cloud_write_staging,commit_protocol",
+        claim_gate_status: "public_fixture_smoke_only",
+        claim_boundary: "public no-credential fixture read smoke only; live S3/GCS/ADLS provider reads, credential resolution, cache writes, cloud writes, commits, table/lakehouse, production, performance, and Spark-replacement claims remain blocked",
     },
     UniversalCompatibilityRow {
         id: "table_lakehouse_iceberg_delta_hudi",
@@ -1323,23 +1323,23 @@ const OBJECT_STORE_ADMISSION_LADDER_ROWS: &[ObjectStoreAdmissionLadderRow] = &[
         id: "public_no_credential_read",
         provider_scope: "s3,gcs,adls",
         stage: "public_no_credential_read",
-        support_status: "blocked",
-        credential_policy_status: "public_read_policy_required",
+        support_status: "smoke-supported",
+        credential_policy_status: "public_no_credential_fixture_admitted",
         credential_resolution_performed: false,
         network_probe_allowed: false,
         provider_probe_allowed: false,
-        byte_range_read_allowed: false,
-        full_file_read_allowed: false,
+        byte_range_read_allowed: true,
+        full_file_read_allowed: true,
         local_cache_allowed: false,
         write_io_allowed: false,
         commit_protocol_allowed: false,
-        object_store_io: false,
+        object_store_io: true,
         write_io: false,
-        native_io_certificate_status: "not_emitted_blocked",
-        blocker_id: "gar-compat-1c.public_read_network_runtime_blocked",
-        required_evidence: "public_uri_policy,network_effect_policy,provider_probe_policy,read_certificate,request_budget,no_fallback_evidence",
-        claim_gate_status: "not_claim_grade",
-        claim_boundary: "Public no-credential reads remain blocked until network/provider/read evidence exists.",
+        native_io_certificate_status: "public_fixture_smoke_only",
+        blocker_id: "none_public_no_credential_fixture_profile_only",
+        required_evidence: "public_fixture_path,public_uri_policy,network_effect_policy,source_state_digest,native_io_certificate,no_fallback_evidence",
+        claim_gate_status: "public_fixture_smoke_only",
+        claim_boundary: "Public no-credential fixture reads parse S3/GCS/ADLS URIs and read caller-supplied local fixture bytes only. Live provider network reads remain blocked.",
     },
     ObjectStoreAdmissionLadderRow {
         id: "authenticated_read",
@@ -5573,6 +5573,22 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         external_engine_invoked: false,
     },
     RunsTodaySupportRow {
+        id: "input_object_store_public_fixture",
+        family: "input_format",
+        surface: "s3,gcs,adls,public_fixture_local_file",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "object_store_public_fixture_read_smoke,object_store_boundary_use_cases,python.tests.test_cli_client",
+        blocker_id: "none",
+        claim_gate_status: "public_fixture_smoke_only",
+        claim_boundary: "explicit public no-credential fixture read smoke only; parses provider URIs and reads caller-supplied local fixture bytes without credentials, network probes, cache writes, cloud writes, table commits, production, or performance claims",
+        runtime_execution: true,
+        data_read: true,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
         id: "output_inline_jsonl_csv",
         family: "output_format",
         surface: "inline_jsonl,csv",
@@ -8945,6 +8961,18 @@ fn object_store_admission_ladder_all_no_effects() -> bool {
     })
 }
 
+fn object_store_admission_ladder_all_live_provider_effects_disabled() -> bool {
+    OBJECT_STORE_ADMISSION_LADDER_ROWS.iter().all(|row| {
+        !row.credential_resolution_performed
+            && !row.network_probe_allowed
+            && !row.provider_probe_allowed
+            && !row.local_cache_allowed
+            && !row.write_io_allowed
+            && !row.commit_protocol_allowed
+            && !row.write_io
+    })
+}
+
 fn table_format_boundary_matrix_row_order() -> String {
     TABLE_FORMAT_BOUNDARY_MATRIX_ROWS
         .iter()
@@ -9397,12 +9425,12 @@ fn append_universal_compatibility_object_store_ladder_fields(fields: &mut Vec<(S
     push_bool_field(
         fields,
         "universal_compatibility_object_store_ladder_runtime_supported",
-        false,
+        true,
     );
     push_bool_field(
         fields,
         "universal_compatibility_object_store_ladder_public_no_credential_read_supported",
-        false,
+        true,
     );
     push_bool_field(
         fields,
@@ -9452,7 +9480,7 @@ fn append_universal_compatibility_object_store_ladder_fields(fields: &mut Vec<(S
     push_bool_field(
         fields,
         "universal_compatibility_object_store_ladder_object_store_io",
-        false,
+        true,
     );
     push_bool_field(
         fields,
@@ -9474,15 +9502,25 @@ fn append_universal_compatibility_object_store_ladder_fields(fields: &mut Vec<(S
         "universal_compatibility_object_store_ladder_all_rows_no_effects",
         object_store_admission_ladder_all_no_effects(),
     );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_all_live_provider_effects_disabled",
+        object_store_admission_ladder_all_live_provider_effects_disabled(),
+    );
+    push_bool_field(
+        fields,
+        "universal_compatibility_object_store_ladder_all_rows_no_fallback_no_external_engine",
+        true,
+    );
     push_field(
         fields,
         "universal_compatibility_object_store_ladder_claim_gate_status",
-        "not_claim_grade",
+        "public_fixture_smoke_only",
     );
     push_field(
         fields,
         "universal_compatibility_object_store_ladder_claim_boundary",
-        "S3/GCS/ADLS admission ladder visibility only; no credential resolution, network probe, provider probe, object-store read, object-store write, cache, commit, table/lakehouse, production, performance, or Spark-replacement claim",
+        "S3/GCS/ADLS admission ladder plus public no-credential fixture read smoke. The admitted fixture profile parses provider URIs and reads explicit local fixture bytes only; no credential resolution, network probe, provider probe, live provider read, object-store write, cache write, commit, table/lakehouse, production, performance, or Spark-replacement claim",
     );
 
     for row in OBJECT_STORE_ADMISSION_LADDER_ROWS {

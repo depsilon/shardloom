@@ -2061,6 +2061,25 @@ print(read.field_bool("network_probe_performed"))
 print(read.field_bool("fallback_attempted"))
 ```
 
+For the public no-credential fixture profile, pass a supported S3/GCS/ADLS URI
+and an explicit local fixture file. ShardLoom parses the provider URI and reads
+the fixture bytes only; it does not resolve credentials, probe the provider, or
+open a network connection.
+
+```python
+public_read = client.object_store_read_smoke(
+    "s3://shardloom-public-fixtures/orders.vortex",
+    profile="public-no-credential-fixture",
+    public_fixture_path="target/object-store-public-fixture.vortex",
+    fixture_listing=True,
+    byte_range=(0, 16),
+)
+print(public_read.field("object_store_uri_parse_status"))
+print(public_read.field("native_io_certificate_status"))
+print(public_read.field_bool("public_no_credential_fixture_claim_allowed"))
+print(public_read.field_bool("network_probe_performed"))
+```
+
 For the first explicit object-store write runtime proof, use the separate
 local-emulator write smoke. It stages a local source file into a local-emulator
 target path, commits a sidecar manifest, emits idempotency and digest evidence,
@@ -2080,10 +2099,10 @@ print(write.field_bool("object_store_write_io"))
 print(write.field_bool("fallback_attempted"))
 ```
 
-Both object-store smokes are local-emulator fixtures only. Real S3/GCS/ADLS
-URIs, credentials, network probes, provider listing, public/authenticated cloud
-reads or writes, table/lakehouse commits, catalog interaction, distributed
-runtime, and production object-store claims remain blocked.
+Object-store read/write smokes remain fixture-scoped. Live real S3/GCS/ADLS
+network reads, credentials, provider probes, signed URLs, authenticated cloud
+reads or writes, cache writes, table/lakehouse commits, catalog interaction,
+distributed runtime, and production object-store claims remain blocked.
 
 For the first fixture-scoped table append commit rehearsal, use the local
 manifest smoke. It writes a staged committed manifest plus sidecar table commit

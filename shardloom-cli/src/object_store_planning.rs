@@ -739,6 +739,31 @@ fn append_byte_range_provider_gate_requirement_fields(
         "byte_range_provider_gate_benchmark_evidence_required",
         report.benchmark_evidence_required,
     );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_public_no_credential_fixture_profile_admitted",
+        report.public_no_credential_fixture_profile_admitted,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_public_no_credential_fixture_read_allowed",
+        report.public_no_credential_fixture_read_allowed,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_public_no_credential_fixture_listing_allowed",
+        report.public_no_credential_fixture_listing_allowed,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_public_no_credential_fixture_cache_write_allowed",
+        report.public_no_credential_fixture_cache_write_allowed,
+    );
+    push_bool_field(
+        fields,
+        "byte_range_provider_gate_live_provider_network_read_allowed",
+        report.live_provider_network_read_allowed,
+    );
 }
 
 fn append_byte_range_provider_gate_disabled_effect_fields(

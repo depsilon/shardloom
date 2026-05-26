@@ -82,6 +82,8 @@ fn object_store_request_json_preserves_report_only_runtime_boundaries() {
     for key in [
         "byte_range_provider_gate_range_read_execution_allowed",
         "byte_range_provider_gate_full_file_read_allowed",
+        "byte_range_provider_gate_public_no_credential_fixture_cache_write_allowed",
+        "byte_range_provider_gate_live_provider_network_read_allowed",
         "byte_range_provider_gate_credential_resolution_allowed",
         "byte_range_provider_gate_credentials_resolved",
         "byte_range_provider_gate_retry_execution_allowed",
@@ -108,6 +110,9 @@ fn object_store_request_json_preserves_report_only_runtime_boundaries() {
         "byte_range_provider_gate_execution_certificate_required",
         "byte_range_provider_gate_native_io_certificate_required",
         "byte_range_provider_gate_benchmark_evidence_required",
+        "byte_range_provider_gate_public_no_credential_fixture_profile_admitted",
+        "byte_range_provider_gate_public_no_credential_fixture_read_allowed",
+        "byte_range_provider_gate_public_no_credential_fixture_listing_allowed",
         "byte_range_provider_gate_side_effect_free",
     ] {
         assert!(

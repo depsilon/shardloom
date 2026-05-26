@@ -67,6 +67,7 @@
     "python/README.md"
   ],
   "related_use_cases": [
+    "object-store-public-no-credential-fixture-read-smoke",
     "object-store-local-emulator-write-smoke",
     "object-store-local-emulator-read-smoke",
     "table-lakehouse-boundary-report",

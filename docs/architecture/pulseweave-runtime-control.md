@@ -43,8 +43,9 @@ must operate inside those caps rather than requiring the user to understand the 
 - benchmark artifact promotion passthrough for future refreshed evidence
 
 The implementation remains scoped to local prepared/native batch routes over certified Vortex
-artifacts. Object-store runtime, live/hybrid runtime, distributed execution, effectful adapters,
-real query-data spill, production readiness, and performance claims remain non-goals here.
+artifacts. Live object-store provider runtime, live/hybrid runtime, distributed execution,
+effectful adapters, real query-data spill, production readiness, and performance claims remain
+non-goals here.
 
 ## Invention-Disclosure Names
 
@@ -106,8 +107,8 @@ decision object attached to execution evidence.
 - No AI, model calls, learned policies, or Bayesian runtime decisions.
 - No persistent cross-run tuning database.
 - No hidden global state, daemon, service, or background maintenance loop.
-- No object-store runtime, distributed runtime, live/hybrid runtime, Foundry runtime, or remote
-  worker promotion in the first slice.
+- No live object-store provider runtime, distributed runtime, live/hybrid runtime, Foundry runtime,
+  or remote worker promotion in the first slice.
 - No Spark, DataFusion, DuckDB, Polars, pandas, Velox, Dask, Ray, or Vortex query-engine fallback.
 - No public performance, superiority, production, or Spark-displacement claim from the first slice.
 - No spill implementation for real query data unless a separate spill item authorizes it.

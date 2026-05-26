@@ -1260,9 +1260,9 @@
       "title": "Object-store and cloud storage boundary",
       "capability_family": "object_store_boundaries",
       "audience": "user asking whether S3, GCS, or ADLS runtime I/O works",
-      "status": "blocked",
-      "execution_mode": "report_only_blocked",
-      "engine_mode": "none",
+      "status": "smoke_supported",
+      "execution_mode": "object_store_read_smoke",
+      "engine_mode": "batch",
       "inputs": [
         "s3_uri",
         "gcs_uri",
@@ -1270,25 +1270,32 @@
       ],
       "outputs": [
         "object_store_plan",
-        "deterministic_blocker"
+        "deterministic_blocker",
+        "public_fixture_read_evidence"
       ],
       "evidence_fields": [
+        "provider_profile=public-no-credential-fixture",
+        "object_store_uri_parse_status",
         "credential_policy_status",
+        "public_no_credential_fixture_claim_allowed",
         "network_probe_allowed=false",
-        "byte_range_read_allowed",
-        "object_store_io=false",
+        "network_probe_performed=false",
+        "provider_probe_performed=false",
+        "object_store_io",
         "write_io=false",
-        "native_io_certificate_status=blocked",
+        "native_io_certificate_status",
+        "claim_gate_status",
         "fallback_attempted=false",
         "external_engine_invoked=false"
       ],
-      "claim_boundary": "Cloud object-store read/write runtime is blocked/report-only; local-emulator smokes do not create S3/GCS/ADLS, lakehouse, distributed, credential, network, or production claims.",
-      "runnable_example": "target\\debug\\shardloom object-store-request-plan --format json",
-      "blocked_explanation": "Cloud object-store I/O needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed beyond local-emulator smokes.",
-      "expected_output_evidence": "A blocked or report-only object-store plan with no provider probe and no external engine invocation.",
+      "claim_boundary": "S3/GCS/ADLS URI parsing plus an explicit public no-credential fixture read profile is smoke-supported when the caller supplies local fixture bytes with --public-fixture-path. Live provider network reads, credential resolution, authenticated reads, cache writes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.",
+      "runnable_example": "target\\debug\\shardloom object-store-read-smoke s3://shardloom-public-fixtures/orders.vortex --profile public-no-credential-fixture --public-fixture-path target\\object-store-public-fixture.vortex --range 0:16 --format json",
+      "blocked_explanation": "Live cloud object-store I/O still needs provider, credential, byte-range, retry, idempotency, commit, certificate, and no-fallback evidence before support can be claimed beyond explicit local fixture bytes.",
+      "expected_output_evidence": "A public no-credential fixture smoke report with parsed provider/bucket/key fields, SourceState digest fields, selected byte-range/full-file evidence, Native I/O certificate status, credential/network/provider probes disabled, fallback_attempted=false, and external_engine_invoked=false.",
       "common_mistakes": [
-        "expecting_public_s3_read",
+        "expecting_live_public_s3_network_read",
         "assuming_signed_url_support",
+        "omitting_public_fixture_path",
         "treating_planner_as_runtime_io"
       ],
       "references": [
@@ -1298,6 +1305,7 @@
         "docs/architecture/universal-compatibility-coverage-scoreboard.md"
       ],
       "related_use_cases": [
+        "object-store-public-no-credential-fixture-read-smoke",
         "object-store-local-emulator-read-smoke",
         "object-store-local-emulator-write-smoke",
         "table-lakehouse-boundary-report",
@@ -1336,11 +1344,11 @@
         "fallback_attempted=false",
         "external_engine_invoked=false"
       ],
-      "claim_boundary": "Local-emulator object-store read smoke only; real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.",
+      "claim_boundary": "Local-emulator object-store read smoke only; public no-credential fixture reads use a separate profile. Live real S3/GCS/ADLS providers, credentials, network probes, cloud writes, table/lakehouse commits, distributed runtime, production use, and performance claims remain blocked.",
       "runnable_example": "target\\debug\\shardloom object-store-read-smoke target\\object-store-fixture.bin --profile local-emulator --range 0:16 --format json",
       "expected_output_evidence": "A fixture-smoke report with SourceState digest fields, selected byte-range evidence, Native I/O certificate status, credential/network probes disabled, fallback_attempted=false, and external_engine_invoked=false.",
       "common_mistakes": [
-        "using_real_s3_uri",
+        "using_real_s3_uri_with_local_emulator_profile",
         "expecting_credentials_to_resolve",
         "treating_local_emulator_smoke_as_production_object_store_support"
       ],
@@ -1351,10 +1359,83 @@
         "python/README.md"
       ],
       "related_use_cases": [
+        "object-store-public-no-credential-fixture-read-smoke",
         "object-store-local-emulator-write-smoke",
         "object-store-boundary-report",
         "table-lakehouse-boundary-report",
         "output-result-sink-and-fanout-boundary"
+      ]
+    },
+    {
+      "id": "object-store-public-no-credential-fixture-read-smoke",
+      "title": "Object-store public no-credential fixture read smoke",
+      "capability_family": "object_store_boundaries",
+      "audience": "user validating provider/profile-scoped S3/GCS/ADLS URI admission without credentials or network effects",
+      "status": "smoke_supported",
+      "execution_mode": "object_store_read_smoke",
+      "engine_mode": "batch",
+      "inputs": [
+        "s3_uri",
+        "gcs_uri",
+        "adls_uri",
+        "public_fixture_local_file"
+      ],
+      "outputs": [
+        "provider_uri_parse_evidence",
+        "source_state_evidence",
+        "native_io_certificate",
+        "read_digest"
+      ],
+      "evidence_fields": [
+        "provider_profile=public-no-credential-fixture",
+        "object_store_provider",
+        "object_store_bucket",
+        "object_store_key",
+        "object_store_uri_parse_status",
+        "requested_uri_redaction_status",
+        "public_fixture_path",
+        "public_no_credential_fixture_profile=true",
+        "byte_range_read_status",
+        "full_file_read_status",
+        "listing_status",
+        "object_etag",
+        "object_version",
+        "source_state_id",
+        "source_state_digest",
+        "source_fingerprint_kind",
+        "source_content_digest",
+        "credential_policy_status=public_no_credential_fixture_admitted",
+        "credential_resolution_performed=false",
+        "network_probe_performed=false",
+        "provider_probe_performed=false",
+        "local_cache_status",
+        "native_io_certificate_status=public_fixture_smoke_only",
+        "public_no_credential_fixture_claim_allowed=true",
+        "claim_gate_status=public_fixture_smoke_only",
+        "fallback_attempted=false",
+        "external_engine_invoked=false"
+      ],
+      "claim_boundary": "Public no-credential fixture read smoke only. ShardLoom parses a supported S3/GCS/ADLS URI and reads explicit local fixture bytes supplied by the caller; it does not contact a provider, resolve credentials, probe a network, write cache entries, perform cloud writes, commit tables, enable distributed runtime, claim production use, or claim performance.",
+      "runnable_example": "target\\debug\\shardloom object-store-read-smoke s3://shardloom-public-fixtures/orders.vortex --profile public-no-credential-fixture --public-fixture-path target\\object-store-public-fixture.vortex --fixture-listing --range 0:16 --format json",
+      "expected_output_evidence": "A public fixture report with parsed provider/bucket/key fields, no credential/network/provider probe fields, optional single-object fixture listing evidence, SourceState digest fields, ETag/version fixture evidence, Native I/O status, fallback_attempted=false, and external_engine_invoked=false.",
+      "common_mistakes": [
+        "omitting_public_fixture_path",
+        "expecting_network_fetch",
+        "expecting_credentials_to_resolve",
+        "treating_public_fixture_smoke_as_live_cloud_provider_support",
+        "treating_fixture_listing_as_provider_listing"
+      ],
+      "references": [
+        "docs/architecture/object-store-request-planner.md",
+        "docs/architecture/universal-input-contract.md",
+        "docs/architecture/vortex-public-api-inventory.md",
+        "python/README.md"
+      ],
+      "related_use_cases": [
+        "object-store-local-emulator-read-smoke",
+        "object-store-boundary-report",
+        "object-store-local-emulator-write-smoke",
+        "table-lakehouse-boundary-report"
       ]
     },
     {
@@ -1411,6 +1492,7 @@
         "python/README.md"
       ],
       "related_use_cases": [
+        "object-store-public-no-credential-fixture-read-smoke",
         "object-store-local-emulator-read-smoke",
         "object-store-boundary-report",
         "local-table-append-commit-rehearsal-smoke",
@@ -1487,6 +1569,7 @@
         "python/README.md"
       ],
       "related_use_cases": [
+        "object-store-public-no-credential-fixture-read-smoke",
         "object-store-local-emulator-write-smoke",
         "object-store-local-emulator-read-smoke",
         "table-lakehouse-boundary-report",

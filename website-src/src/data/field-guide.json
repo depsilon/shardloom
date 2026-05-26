@@ -55,7 +55,8 @@
     ],
     "related_use_cases": [
       "sql-dataframe-capability-posture",
-      "object-store-boundary-report"
+      "object-store-boundary-report",
+      "object-store-public-no-credential-fixture-read-smoke"
     ],
     "references": [
       "README.md",
@@ -141,7 +142,8 @@
     ],
     "related_use_cases": [
       "vortex-ingest-prepare-once-local",
-      "object-store-boundary-report"
+      "object-store-boundary-report",
+      "object-store-public-no-credential-fixture-read-smoke"
     ],
     "references": [
       "docs/architecture/universal-ingress-route-taxonomy.md",
@@ -355,6 +357,7 @@
     "related_use_cases": [
       "local-file-etl-cleanup-smoke",
       "object-store-local-emulator-read-smoke",
+      "object-store-public-no-credential-fixture-read-smoke",
       "object-store-local-emulator-write-smoke",
       "local-table-append-commit-rehearsal-smoke",
       "output-result-sink-and-fanout-boundary"
@@ -570,7 +573,8 @@
     ],
     "related_use_cases": [
       "benchmark-interpretation-evidence-not-leaderboard",
-      "object-store-boundary-report"
+      "object-store-boundary-report",
+      "object-store-public-no-credential-fixture-read-smoke"
     ],
     "references": [
       "docs/architecture/scale-readiness-contract.md",
@@ -581,9 +585,9 @@
     "slug": "object-store-boundary",
     "title": "Object-store boundary",
     "category": "Platform Boundaries",
-    "status": "blocked",
-    "summary": "S3/GCS/ADLS remain separate blocked/report-only routes until runtime evidence is admitted.",
-    "route": "Future object-store route",
+    "status": "smoke_supported",
+    "summary": "S3/GCS/ADLS now have a public no-credential fixture read smoke, while live provider runtime remains separately blocked.",
+    "route": "Object-store fixture route",
     "evidence_fields": [
       "credential_policy_status",
       "object_store_involved",
@@ -591,6 +595,7 @@
     ],
     "related_use_cases": [
       "object-store-boundary-report",
+      "object-store-public-no-credential-fixture-read-smoke",
       "object-store-local-emulator-read-smoke",
       "object-store-local-emulator-write-smoke",
       "local-table-append-commit-rehearsal-smoke",
@@ -660,7 +665,8 @@
     ],
     "related_use_cases": [
       "sql-dataframe-capability-posture",
-      "object-store-boundary-report"
+      "object-store-boundary-report",
+      "object-store-public-no-credential-fixture-read-smoke"
     ],
     "references": [
       "docs/architecture/compute-engine-flow-reference.md",

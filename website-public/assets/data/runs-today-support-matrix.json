@@ -35,6 +35,7 @@
     "input_vortex_local",
     "input_parquet_arrow_avro_orc",
     "input_object_store_cloud",
+    "input_object_store_public_fixture",
     "output_inline_jsonl_csv",
     "output_vortex_local",
     "output_parquet_arrow_avro_orc",
@@ -50,9 +51,9 @@
     "claim_package_publication",
     "claim_object_store_lakehouse_foundry_production"
   ],
-  "row_count": 28,
+  "row_count": 29,
   "support_state_counts": {
-    "executable": 13,
+    "executable": 14,
     "feature_gated": 5,
     "diagnostic_only": 3,
     "report_only": 1,
@@ -62,7 +63,7 @@
   "family_counts": {
     "cli_command": 6,
     "python_api": 4,
-    "input_format": 4,
+    "input_format": 5,
     "output_format": 3,
     "execution_mode": 6,
     "claim_state": 5
@@ -105,6 +106,7 @@
     "traditional_direct_transient_structured_tests",
     "object_store_request_plan",
     "object_store_boundary_use_cases",
+    "object_store_public_fixture_read_smoke",
     "fanout_replay_tests",
     "sql_local_source_vortex_output_tests",
     "vortex_output_commit_tests",
@@ -470,6 +472,31 @@
       "claim_boundary": "cloud object-store runtime and credentialed network reads are blocked",
       "runtime_execution": false,
       "data_read": false,
+      "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "input_object_store_public_fixture",
+      "family": "input_format",
+      "surface": [
+        "s3",
+        "gcs",
+        "adls",
+        "public_fixture_local_file"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "object_store_public_fixture_read_smoke",
+        "object_store_boundary_use_cases",
+        "python.tests.test_cli_client"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "public_fixture_smoke_only",
+      "claim_boundary": "explicit public no-credential fixture read smoke only; parses provider URIs and reads caller-supplied local fixture bytes without credentials, network probes, cache writes, cloud writes, table commits, production, or performance claims",
+      "runtime_execution": true,
+      "data_read": true,
       "write_io": false,
       "fallback_attempted": false,
       "external_engine_invoked": false

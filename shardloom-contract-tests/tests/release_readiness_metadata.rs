@@ -979,9 +979,14 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "\"credential_resolution_performed\": false",
         "\"network_probe_allowed\": false",
         "\"provider_probe_allowed\": false",
-        "\"object_store_io\": false",
+        "\"object_store_io\": true",
         "\"write_io\": false",
-        "\"all_rows_no_effects\": true",
+        "\"all_rows_no_effects\": false",
+        "\"all_live_provider_effects_disabled\": true",
+        "\"all_rows_no_fallback_no_external_engine\": true",
+        "\"provider_profile\": \"public-no-credential-fixture\"",
+        "\"credential_policy_status\": \"public_no_credential_fixture_admitted\"",
+        "\"native_io_certificate_status\": \"public_fixture_smoke_only\"",
         "\"table_format_boundary_matrix\"",
         "\"schema_version\": \"shardloom.universal_compatibility.table_format_boundary_matrix.v1\"",
         "\"row_id\": \"table_metadata_read\"",
@@ -1019,7 +1024,7 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "\"support_status\": \"smoke-supported\"",
         "\"support_status\": \"report-only\"",
         "\"support_status\": \"blocked\"",
-        "No object-store runtime",
+        "live S3/GCS/ADLS provider reads",
         "No production lakehouse",
         "Only source-free SQL VALUES/literal",
         "Future validation target only",
@@ -1036,14 +1041,16 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "schema_version=shardloom.universal_compatibility_coverage_scoreboard.v1",
         "typed capability views",
         "S3/GCS/ADLS",
-        "S3/GCS/ADLS remain blocked",
+        "Live provider runtime remains blocked",
+        "public no-credential fixture",
         "Foundry remains a future validation target",
         "Compatibility-Level Generated-Output Rows",
         "universal_compatibility_generated_output_no_dataset_smoke_separate=true",
         "S3/GCS/ADLS Object-Store Admission Ladder",
         "credential_resolution_performed=false",
         "provider_probe_allowed=false",
-        "object_store_io=false",
+        "object_store_io=true",
+        "public_fixture_smoke_only",
         "Iceberg/Delta/Hudi Table-Format Boundary Matrix",
         "table_metadata_read_allowed=false",
         "table_data_read_allowed=false",
@@ -5834,7 +5841,7 @@ fn gar_runtime_impl_4i_scan_pushdown_completion_remains_projected() {
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4J"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4K"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5H"));
-    assert!(plan.contains("- [ ] GAR-RUNTIME-IMPL-5K"));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5K"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains("GAR-RUNTIME-IMPL-4I Vortex Scan pushdown completion matrix"));
@@ -5845,6 +5852,7 @@ fn gar_runtime_impl_4i_scan_pushdown_completion_remains_projected() {
     assert!(completed.contains("shardloom.prepared_vortex.scan_pushdown_matrix.v1"));
     assert!(completed.contains("gar-perf-2c.limit_pushdown_not_admitted"));
     assert!(completed.contains("gar-perf-2c.filter_pushdown_not_lowered"));
+    assert!(completed.contains("GAR-RUNTIME-IMPL-5K object-store read runtime admission"));
 }
 
 #[test]
@@ -5859,7 +5867,7 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
         "ProofBound Auto Gate",
         "fallback_attempted=false",
         "external_engine_invoked=false",
-        "No object-store runtime, distributed runtime, live/hybrid runtime",
+        "No live object-store provider runtime, distributed runtime, live/hybrid runtime",
     ] {
         assert!(
             doc.contains(required),
@@ -5870,15 +5878,18 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
     assert!(plan.contains("docs/architecture/pulseweave-runtime-control.md"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5R"));
-    assert!(plan.contains("- [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission"));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission"));
     let expression_closeout = plan
         .find("- [ ] GAR-RUNTIME-IMPL-4D")
         .expect("4D expression/operator closeout must remain planned");
-    let object_store_admission = plan
-        .find("- [ ] GAR-RUNTIME-IMPL-5K")
-        .expect("object-store admission must remain planned after PulseWeave");
+    let control_plane_gate = plan
+        .find("- [ ] GAR-RUNTIME-IMPL-4Q")
+        .expect("live/hybrid control-plane gate must remain planned before 4D");
+    let effectful_adapter_gate = plan
+        .find("- [ ] GAR-RUNTIME-IMPL-4R")
+        .expect("effectful adapter gate must remain planned before 4D");
     assert!(
-        object_store_admission < expression_closeout,
+        control_plane_gate < expression_closeout && effectful_adapter_gate < expression_closeout,
         "remaining engine-internal runtime gates must stay before 4D closeout"
     );
 

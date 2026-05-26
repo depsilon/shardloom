@@ -9394,9 +9394,9 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_row_count", "value": "4"},
                     {"key": "universal_compatibility_row_order", "value": "vortex,object_store_s3_gcs_adls,sql_values_literals,foundry"},
                     {"key": "universal_compatibility_runtime_supported_count", "value": "1"},
-                    {"key": "universal_compatibility_smoke_supported_count", "value": "0"},
-                    {"key": "universal_compatibility_report_only_count", "value": "2"},
-                    {"key": "universal_compatibility_blocked_count", "value": "1"},
+                    {"key": "universal_compatibility_smoke_supported_count", "value": "2"},
+                    {"key": "universal_compatibility_report_only_count", "value": "1"},
+                    {"key": "universal_compatibility_blocked_count", "value": "0"},
                     {"key": "universal_compatibility_claim_boundary", "value": "capability map only"},
                     {"key": "universal_compatibility_all_rows_fallback_attempted_false", "value": "true"},
                     {"key": "universal_compatibility_all_rows_external_engine_invoked_false", "value": "true"},
@@ -9422,9 +9422,12 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                     {"key": "universal_compatibility_object_store_ladder_schema_version", "value": "shardloom.universal_compatibility.object_store_admission_ladder.v1"},
                     {"key": "universal_compatibility_object_store_ladder_id", "value": "gar-compat-1c.object_store_runtime_admission_ladder"},
                     {"key": "universal_compatibility_object_store_ladder_provider_scope", "value": "s3,gcs,adls"},
-                    {"key": "universal_compatibility_object_store_ladder_row_order", "value": "object_store_uri_parse,credential_policy,public_no_credential_read,authenticated_read,byte_range_read,write_staging,commit_protocol"},
-                    {"key": "universal_compatibility_object_store_ladder_runtime_supported", "value": "false"},
-                    {"key": "universal_compatibility_object_store_ladder_all_rows_no_effects", "value": "true"},
+                    {"key": "universal_compatibility_object_store_ladder_row_order", "value": "object_store_uri_parse,credential_policy,public_no_credential_read,authenticated_read,byte_range_read,full_file_read,local_cache,write_staging,commit_protocol"},
+                    {"key": "universal_compatibility_object_store_ladder_runtime_supported", "value": "true"},
+                    {"key": "universal_compatibility_object_store_ladder_public_no_credential_read_supported", "value": "true"},
+                    {"key": "universal_compatibility_object_store_ladder_all_rows_no_effects", "value": "false"},
+                    {"key": "universal_compatibility_object_store_ladder_all_live_provider_effects_disabled", "value": "true"},
+                    {"key": "universal_compatibility_object_store_ladder_all_rows_no_fallback_no_external_engine", "value": "true"},
                     {"key": "universal_compatibility_table_format_matrix_schema_version", "value": "shardloom.universal_compatibility.table_format_boundary_matrix.v1"},
                     {"key": "universal_compatibility_table_format_matrix_id", "value": "gar-compat-1d.table_format_boundary_matrix"},
                     {"key": "universal_compatibility_table_format_matrix_format_scope", "value": "iceberg,delta,hudi"},
@@ -9504,14 +9507,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": f"{prefix}_claim_gate_status", "value": "not_claim_grade"},
                         {"key": f"{prefix}_claim_boundary", "value": "claim boundary"},
                     ])
-                for row_id, stage, status, credential_policy_status, blocker in [
-                    ("object_store_uri_parse", "uri_parse", "report-only", "not_required_for_parse", "gar-compat-1c.uri_parse_only_no_provider_runtime"),
-                    ("credential_policy", "credential_policy", "blocked", "required_not_admitted", "gar-compat-1c.credential_resolution_blocked"),
-                    ("public_no_credential_read", "public_no_credential_read", "blocked", "public_read_policy_required", "gar-compat-1c.public_read_network_runtime_blocked"),
-                    ("authenticated_read", "authenticated_read", "blocked", "authenticated_read_policy_required", "gar-compat-1c.authenticated_read_runtime_blocked"),
-                    ("byte_range_read", "byte_range_read", "blocked", "read_policy_required", "gar-compat-1c.byte_range_read_runtime_blocked"),
-                    ("write_staging", "write_staging", "blocked", "write_policy_required", "gar-compat-1c.write_staging_runtime_blocked"),
-                    ("commit_protocol", "commit_protocol", "blocked", "commit_policy_required", "gar-compat-1c.commit_protocol_runtime_blocked"),
+                for row_id, stage, status, credential_policy_status, byte_range, full_file, object_io, native_status, claim_status, blocker in [
+                    ("object_store_uri_parse", "uri_parse", "report-only", "not_required_for_parse", "false", "false", "false", "not_emitted_report_only", "not_claim_grade", "gar-compat-1c.uri_parse_only_no_provider_runtime"),
+                    ("credential_policy", "credential_policy", "blocked", "required_not_admitted", "false", "false", "false", "not_emitted_blocked", "not_claim_grade", "gar-compat-1c.credential_resolution_blocked"),
+                    ("public_no_credential_read", "public_no_credential_read", "smoke-supported", "public_no_credential_fixture_admitted", "true", "true", "true", "public_fixture_smoke_only", "public_fixture_smoke_only", "none_public_no_credential_fixture_profile_only"),
+                    ("authenticated_read", "authenticated_read", "blocked", "authenticated_read_policy_required", "false", "false", "false", "not_emitted_blocked", "not_claim_grade", "gar-compat-1c.authenticated_read_runtime_blocked"),
+                    ("byte_range_read", "byte_range_read", "blocked", "read_policy_required", "false", "false", "false", "not_emitted_blocked", "not_claim_grade", "gar-compat-1c.byte_range_read_runtime_blocked"),
+                    ("full_file_read", "full_file_read", "blocked", "read_policy_required", "false", "false", "false", "not_emitted_blocked", "not_claim_grade", "gar-compat-1c.full_file_read_runtime_blocked"),
+                    ("local_cache", "local_cache", "blocked", "cache_source_policy_required", "false", "false", "false", "not_emitted_blocked", "not_claim_grade", "gar-compat-1c.local_cache_runtime_blocked"),
+                    ("write_staging", "write_staging", "blocked", "write_policy_required", "false", "false", "false", "not_emitted_blocked", "not_claim_grade", "gar-compat-1c.write_staging_runtime_blocked"),
+                    ("commit_protocol", "commit_protocol", "blocked", "commit_policy_required", "false", "false", "false", "not_emitted_blocked", "not_claim_grade", "gar-compat-1c.commit_protocol_runtime_blocked"),
                 ]:
                     prefix = f"universal_compatibility_object_store_ladder_row_{row_id}"
                     fields.extend([
@@ -9522,19 +9527,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": f"{prefix}_credential_resolution_performed", "value": "false"},
                         {"key": f"{prefix}_network_probe_allowed", "value": "false"},
                         {"key": f"{prefix}_provider_probe_allowed", "value": "false"},
-                        {"key": f"{prefix}_byte_range_read_allowed", "value": "false"},
-                        {"key": f"{prefix}_full_file_read_allowed", "value": "false"},
+                        {"key": f"{prefix}_byte_range_read_allowed", "value": byte_range},
+                        {"key": f"{prefix}_full_file_read_allowed", "value": full_file},
                         {"key": f"{prefix}_local_cache_allowed", "value": "false"},
                         {"key": f"{prefix}_write_io_allowed", "value": "false"},
                         {"key": f"{prefix}_commit_protocol_allowed", "value": "false"},
-                        {"key": f"{prefix}_object_store_io", "value": "false"},
+                        {"key": f"{prefix}_object_store_io", "value": object_io},
                         {"key": f"{prefix}_write_io", "value": "false"},
-                        {"key": f"{prefix}_native_io_certificate_status", "value": "not_emitted_blocked"},
+                        {"key": f"{prefix}_native_io_certificate_status", "value": native_status},
                         {"key": f"{prefix}_fallback_attempted", "value": "false"},
                         {"key": f"{prefix}_external_engine_invoked", "value": "false"},
                         {"key": f"{prefix}_blocker_id", "value": blocker},
                         {"key": f"{prefix}_required_evidence", "value": "future_evidence"},
-                        {"key": f"{prefix}_claim_gate_status", "value": "not_claim_grade"},
+                        {"key": f"{prefix}_claim_gate_status", "value": claim_status},
                         {"key": f"{prefix}_claim_boundary", "value": "claim boundary"},
                     ])
                 for row_id, surface, family, status, runtime, write_io, generated, output_io, source_cert, output_cert, generated_cert, claim_status, blocker in [
@@ -9574,11 +9579,11 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": f"{prefix}_claim_gate_status", "value": claim_status},
                         {"key": f"{prefix}_claim_boundary", "value": "claim boundary"},
                     ])
-                for row_id, surface, family, direction, status, runtime, report_only, credential, network, source_io, output_io, native_status, generated_status, claim_status, blocker, claim_boundary in [
-                    ("vortex", "Vortex", "native_file_layout", "read_write", "runtime-supported", "true", "false", "false", "false", "true", "true", "scoped_local_vortex_evidence_backed", "not_applicable", "fixture_smoke_only", "gar-compat-1a.vortex_universal_runtime_evidence_missing", "scoped local Vortex evidence only"),
-                    ("object_store_s3_gcs_adls", "S3 / GCS / ADLS", "object_store", "read_write", "blocked", "false", "false", "true", "true", "false", "false", "not_emitted", "not_applicable", "not_claim_grade", "gar-compat-1c.object_store_runtime_blocked", "no object-store runtime claim"),
-                    ("sql_values_literals", "SQL VALUES / literals", "sql_frontend", "api", "smoke-supported", "false", "false", "false", "false", "false", "true", "local_output_certificate_required", "scoped_local_jsonl_csv_smoke", "fixture_smoke_only", "none_scoped_local_sql_values_literals_jsonl_csv_smoke_only", "source-free SQL VALUES/literal local JSONL/CSV fixture smoke only"),
-                    ("foundry", "Foundry", "platform_integration", "api", "report-only", "false", "true", "true", "true", "false", "false", "not_emitted", "not_emitted_report_only", "not_claim_grade", "gar-compat-1a.foundry_platform_proof_missing", "future validation target only"),
+                for row_id, surface, family, direction, status, runtime, smoke, report_only, credential, network, source_io, output_io, native_status, generated_status, claim_status, blocker, claim_boundary in [
+                    ("vortex", "Vortex", "native_file_layout", "read_write", "runtime-supported", "true", "true", "false", "false", "false", "true", "true", "scoped_local_vortex_evidence_backed", "not_applicable", "fixture_smoke_only", "gar-compat-1a.vortex_universal_runtime_evidence_missing", "scoped local Vortex evidence only"),
+                    ("object_store_s3_gcs_adls", "S3 / GCS / ADLS", "object_store", "read_write", "smoke-supported", "false", "true", "false", "false", "false", "true", "false", "public_fixture_smoke_only", "not_applicable", "public_fixture_smoke_only", "none_public_no_credential_fixture_profile_only", "public fixture object-store read smoke only"),
+                    ("sql_values_literals", "SQL VALUES / literals", "sql_frontend", "api", "smoke-supported", "false", "true", "false", "false", "false", "false", "true", "local_output_certificate_required", "scoped_local_jsonl_csv_smoke", "fixture_smoke_only", "none_scoped_local_sql_values_literals_jsonl_csv_smoke_only", "source-free SQL VALUES/literal local JSONL/CSV fixture smoke only"),
+                    ("foundry", "Foundry", "platform_integration", "api", "report-only", "false", "false", "true", "true", "true", "false", "false", "not_emitted", "not_emitted_report_only", "not_claim_grade", "gar-compat-1a.foundry_platform_proof_missing", "future validation target only"),
                 ]:
                     prefix = f"universal_compatibility_row_{row_id}"
                     fields.extend([
@@ -9587,7 +9592,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": f"{prefix}_direction", "value": direction},
                         {"key": f"{prefix}_support_status", "value": status},
                         {"key": f"{prefix}_runtime_supported", "value": runtime},
-                        {"key": f"{prefix}_smoke_supported", "value": "false"},
+                        {"key": f"{prefix}_smoke_supported", "value": smoke},
                         {"key": f"{prefix}_report_only", "value": report_only},
                         {"key": f"{prefix}_credential_required", "value": credential},
                         {"key": f"{prefix}_network_required", "value": network},
@@ -9626,8 +9631,8 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "docs/architecture/universal-compatibility-coverage-scoreboard.json",
         )
         self.assertEqual(scoreboard.runtime_supported_count, 1)
-        self.assertEqual(scoreboard.blocked_count, 1)
-        self.assertEqual(scoreboard.row("object-store-s3-gcs-adls").support_status, "blocked")
+        self.assertEqual(scoreboard.blocked_count, 0)
+        self.assertEqual(scoreboard.row("object-store-s3-gcs-adls").support_status, "smoke-supported")
         self.assertTrue(scoreboard.row("vortex").supported_for_runtime_claims)
         self.assertTrue(scoreboard.row("foundry").blocked_or_report_only)
         self.assertFalse(scoreboard.object_store_runtime_supported)
@@ -9680,9 +9685,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "shardloom.universal_compatibility.object_store_admission_ladder.v1",
         )
         self.assertEqual(object_store.provider_scope, ("s3", "gcs", "adls"))
-        self.assertFalse(object_store.runtime_supported)
-        self.assertTrue(object_store.all_rows_no_effects)
+        self.assertTrue(object_store.runtime_supported)
+        self.assertTrue(object_store.public_no_credential_read_supported)
+        self.assertFalse(object_store.all_rows_no_effects)
+        self.assertTrue(object_store.all_live_provider_effects_disabled)
+        self.assertTrue(object_store.all_no_fallback_no_external_engine)
         self.assertTrue(object_store.row("object-store-uri-parse").no_effects_no_fallback)
+        self.assertEqual(object_store.row("public_no_credential_read").support_status, "smoke-supported")
+        self.assertTrue(object_store.row("public_no_credential_read").byte_range_read_allowed)
+        self.assertTrue(object_store.row("public_no_credential_read").full_file_read_allowed)
+        self.assertTrue(object_store.row("public_no_credential_read").object_store_io)
         self.assertEqual(object_store.row("credential_policy").support_status, "blocked")
         self.assertEqual(
             object_store.row("authenticated_read").credential_policy_status,

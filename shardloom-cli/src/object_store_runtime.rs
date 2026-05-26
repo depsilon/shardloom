@@ -1,11 +1,11 @@
 //! Provider/profile-scoped object-store runtime smoke handlers.
 //!
-//! The runtime path in this module is deliberately narrow: it admits only an
-//! explicit local-emulator profile backed by a local file path. Real S3, GCS,
-//! ADLS, credentials, network probes, table commits, and external query engines
-//! remain blocked. Local-emulator write support is a fixture-scoped staged
-//! object write plus sidecar commit-manifest smoke, not production object-store
-//! or lakehouse commit support.
+//! The runtime path in this module is deliberately narrow: it admits explicit
+//! local-emulator reads/writes and a public no-credential fixture read profile.
+//! The public fixture profile parses S3/GCS/ADLS URIs and reads caller-supplied
+//! local fixture bytes only; it never resolves credentials, probes providers,
+//! opens a network connection, writes cache entries, commits tables, or invokes
+//! external query engines.
 
 use std::{
     fmt::Write as _,
@@ -30,13 +30,17 @@ const OBJECT_STORE_READ_SMOKE_COMMAND: &str = "object-store-read-smoke";
 const OBJECT_STORE_READ_SMOKE_SCHEMA_VERSION: &str = "shardloom.object_store_read_smoke.v1";
 const OBJECT_STORE_WRITE_SMOKE_COMMAND: &str = "object-store-write-smoke";
 const OBJECT_STORE_WRITE_SMOKE_SCHEMA_VERSION: &str = "shardloom.object_store_write_smoke.v1";
-const DEFAULT_PROFILE: &str = "local-emulator";
+const LOCAL_EMULATOR_PROFILE: &str = "local-emulator";
+const PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE: &str = "public-no-credential-fixture";
+const DEFAULT_PROFILE: &str = LOCAL_EMULATOR_PROFILE;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ObjectStoreReadSmokeStatus {
     Succeeded,
     BlockedRemoteProvider,
     BlockedUnsupportedProfile,
+    BlockedInvalidUri,
+    BlockedMissingFixturePath,
     BlockedMissingObject,
     BlockedInvalidRange,
     BlockedReadError,
@@ -48,6 +52,8 @@ impl ObjectStoreReadSmokeStatus {
             Self::Succeeded => "succeeded",
             Self::BlockedRemoteProvider => "blocked_remote_provider",
             Self::BlockedUnsupportedProfile => "blocked_unsupported_profile",
+            Self::BlockedInvalidUri => "blocked_invalid_uri",
+            Self::BlockedMissingFixturePath => "blocked_missing_fixture_path",
             Self::BlockedMissingObject => "blocked_missing_object",
             Self::BlockedInvalidRange => "blocked_invalid_range",
             Self::BlockedReadError => "blocked_read_error",
@@ -91,8 +97,12 @@ struct ObjectStoreReadSmokeReport {
     status: ObjectStoreReadSmokeStatus,
     diagnostics: Vec<Diagnostic>,
     provider_profile: String,
+    object_store_provider: String,
+    object_store_bucket: String,
+    object_store_key: String,
     requested_uri: String,
     local_path: Option<PathBuf>,
+    fixture_listing_requested: bool,
     read_mode: ReadMode,
     requested_range: Option<RequestedRange>,
     object_size_bytes: u64,
@@ -103,6 +113,76 @@ struct ObjectStoreReadSmokeReport {
     source_state_digest: String,
     source_content_digest: String,
     source_fingerprint_kind: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ObjectStoreReadBlockerContext {
+    provider_profile: String,
+    requested_uri: String,
+    object_store_provider: String,
+    object_store_bucket: String,
+    object_store_key: String,
+    fixture_listing_requested: bool,
+    read_mode: ReadMode,
+    requested_range: Option<RequestedRange>,
+}
+
+impl ObjectStoreReadBlockerContext {
+    fn new(
+        source: &str,
+        profile: &str,
+        read_mode: ReadMode,
+        requested_range: Option<RequestedRange>,
+        fixture_listing_requested: bool,
+    ) -> Self {
+        Self {
+            provider_profile: profile.to_string(),
+            requested_uri: source.to_string(),
+            object_store_provider: provider_for_source_or_profile(source, profile).to_string(),
+            object_store_bucket: "not_available".to_string(),
+            object_store_key: "not_available".to_string(),
+            fixture_listing_requested,
+            read_mode,
+            requested_range,
+        }
+    }
+
+    fn with_redacted_uri(mut self, source: &str) -> Self {
+        self.requested_uri = redact_object_store_uri(source);
+        self
+    }
+}
+
+#[derive(Debug)]
+struct ObjectStoreReadSuccessInput<'a> {
+    source: &'a str,
+    profile: &'a str,
+    object_store_provider: String,
+    object_store_bucket: String,
+    object_store_key: String,
+    local_path: PathBuf,
+    fixture_listing_requested: bool,
+    read_mode: ReadMode,
+    metadata: &'a fs::Metadata,
+    requested_range: Option<RequestedRange>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ObjectStoreDisabledEffectPolicy<'a> {
+    credential_policy_status: &'a str,
+    network_effect_status: &'a str,
+    listing_allowed: bool,
+    listing_status: &'a str,
+    listing_object_count: usize,
+    local_cache_status: &'a str,
+    public_no_credential_fixture_profile: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedObjectStoreUri {
+    provider: &'static str,
+    bucket: String,
+    key: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -232,20 +312,21 @@ impl ObjectStoreWriteSmokeReport {
 impl ObjectStoreReadSmokeReport {
     fn blocked(
         status: ObjectStoreReadSmokeStatus,
-        provider_profile: impl Into<String>,
-        requested_uri: impl Into<String>,
-        read_mode: ReadMode,
-        requested_range: Option<RequestedRange>,
+        context: ObjectStoreReadBlockerContext,
         diagnostic: Diagnostic,
     ) -> Self {
         Self {
             status,
             diagnostics: vec![diagnostic],
-            provider_profile: provider_profile.into(),
-            requested_uri: requested_uri.into(),
+            provider_profile: context.provider_profile,
+            requested_uri: context.requested_uri,
+            object_store_provider: context.object_store_provider,
+            object_store_bucket: context.object_store_bucket,
+            object_store_key: context.object_store_key,
             local_path: None,
-            read_mode,
-            requested_range,
+            fixture_listing_requested: context.fixture_listing_requested,
+            read_mode: context.read_mode,
+            requested_range: context.requested_range,
             object_size_bytes: 0,
             object_mtime_millis: None,
             bytes_read: 0,
@@ -268,11 +349,7 @@ impl ObjectStoreReadSmokeReport {
     }
 
     fn to_human_text(&self) -> String {
-        let claim_gate_status = if self.has_errors() {
-            "not_claim_grade"
-        } else {
-            "fixture_smoke_only"
-        };
+        let claim_gate_status = read_claim_gate_status(self);
         format!(
             "object_store_read_smoke(status={}, profile={}, read_mode={}, bytes_read={}, object_store_io={}, fallback_attempted=false, external_engine_invoked=false, claim_gate_status={})",
             self.status.as_str(),
@@ -302,6 +379,8 @@ pub(crate) fn handle_object_store_read_smoke(
 
     let mut profile = DEFAULT_PROFILE.to_string();
     let mut requested_range = None;
+    let mut public_fixture_path: Option<String> = None;
+    let mut fixture_listing_requested = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--profile" => {
@@ -316,6 +395,22 @@ pub(crate) fn handle_object_store_read_smoke(
                     );
                 };
                 profile = value;
+            }
+            "--public-fixture-path" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        OBJECT_STORE_READ_SMOKE_COMMAND,
+                        format,
+                        "object-store read smoke failed",
+                        &ShardLoomError::InvalidOperation(
+                            "missing value for --public-fixture-path".to_string(),
+                        ),
+                    );
+                };
+                public_fixture_path = Some(value);
+            }
+            "--fixture-listing" => {
+                fixture_listing_requested = true;
             }
             "--range" => {
                 let Some(value) = args.next() else {
@@ -344,7 +439,13 @@ pub(crate) fn handle_object_store_read_smoke(
         }
     }
 
-    let report = execute_object_store_read_smoke(&source, &profile, requested_range);
+    let report = execute_object_store_read_smoke(
+        &source,
+        &profile,
+        requested_range,
+        public_fixture_path.as_deref(),
+        fixture_listing_requested,
+    );
     emit_object_store_read_smoke_report(format, &report)
 }
 
@@ -450,10 +551,7 @@ fn emit_blocked_range_parse(
 ) -> ExitCode {
     let report = ObjectStoreReadSmokeReport::blocked(
         ObjectStoreReadSmokeStatus::BlockedInvalidRange,
-        profile,
-        source,
-        ReadMode::ByteRange,
-        None,
+        ObjectStoreReadBlockerContext::new(source, profile, ReadMode::ByteRange, None, false),
         Diagnostic::invalid_input(
             "object_store_read_range",
             error.to_string(),
@@ -477,7 +575,7 @@ fn emit_object_store_read_smoke_report(
         OBJECT_STORE_READ_SMOKE_COMMAND,
         format,
         status,
-        "object-store local-emulator read smoke".to_string(),
+        object_store_read_summary(&report.provider_profile).to_string(),
         report.to_human_text(),
         report.diagnostics.clone(),
         object_store_read_smoke_fields(report),
@@ -519,42 +617,180 @@ fn execute_object_store_read_smoke(
     source: &str,
     profile: &str,
     requested_range: Option<RequestedRange>,
+    public_fixture_path: Option<&str>,
+    fixture_listing_requested: bool,
 ) -> ObjectStoreReadSmokeReport {
     let read_mode = read_mode_for(requested_range);
-    if let Some(report) = early_profile_blocker(source, profile, read_mode, requested_range) {
+    if let Some(report) = early_profile_blocker(
+        source,
+        profile,
+        read_mode,
+        requested_range,
+        public_fixture_path,
+        fixture_listing_requested,
+    ) {
         return report;
+    }
+    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        return execute_public_fixture_read_smoke(
+            source,
+            profile,
+            requested_range,
+            public_fixture_path.expect("checked by early_profile_blocker"),
+            fixture_listing_requested,
+        );
     }
 
     let local_path = match normalize_local_emulator_path(source) {
         Ok(path) => path,
         Err(error) => {
-            return local_path_blocker(source, profile, read_mode, requested_range, &error);
+            return local_path_blocker(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+                &error,
+            );
         }
     };
     let metadata = match local_emulator_metadata(&local_path) {
         Ok(metadata) => metadata,
         Err(error) => {
-            return local_metadata_blocker(source, profile, read_mode, requested_range, &error);
+            return local_metadata_blocker(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+                &error,
+            );
         }
     };
-    if let Some(report) = range_blocker(source, profile, read_mode, requested_range, metadata.len())
-    {
+    if let Some(report) = range_blocker(
+        source,
+        profile,
+        read_mode,
+        requested_range,
+        metadata.len(),
+        fixture_listing_requested,
+    ) {
         return report;
     }
 
     let bytes = match read_local_emulator_bytes(&local_path, requested_range) {
         Ok(bytes) => bytes,
         Err(error) => {
-            return read_error_blocker(source, profile, read_mode, requested_range, &error);
+            return read_error_blocker(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+                &error,
+            );
         }
     };
     successful_object_store_read_report(
+        ObjectStoreReadSuccessInput {
+            source,
+            profile,
+            object_store_provider: "local_emulator".to_string(),
+            object_store_bucket: "not_applicable".to_string(),
+            object_store_key: "not_applicable".to_string(),
+            local_path,
+            fixture_listing_requested: false,
+            read_mode,
+            metadata: &metadata,
+            requested_range,
+        },
+        &bytes,
+    )
+}
+
+fn execute_public_fixture_read_smoke(
+    source: &str,
+    profile: &str,
+    requested_range: Option<RequestedRange>,
+    public_fixture_path: &str,
+    fixture_listing_requested: bool,
+) -> ObjectStoreReadSmokeReport {
+    let read_mode = read_mode_for(requested_range);
+    let parsed = match parse_object_store_uri(source) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            return public_fixture_uri_blocker(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+                &error,
+            );
+        }
+    };
+    let local_path = match normalize_local_emulator_path(public_fixture_path) {
+        Ok(path) => path,
+        Err(error) => {
+            return public_fixture_path_blocker(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+                &error,
+            );
+        }
+    };
+    let metadata = match local_emulator_metadata(&local_path) {
+        Ok(metadata) => metadata,
+        Err(error) => {
+            return local_metadata_blocker(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+                &error,
+            );
+        }
+    };
+    if let Some(report) = range_blocker(
         source,
         profile,
-        local_path,
         read_mode,
-        &metadata,
         requested_range,
+        metadata.len(),
+        fixture_listing_requested,
+    ) {
+        return report;
+    }
+    let bytes = match read_local_emulator_bytes(&local_path, requested_range) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            return read_error_blocker(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+                &error,
+            );
+        }
+    };
+    successful_object_store_read_report(
+        ObjectStoreReadSuccessInput {
+            source,
+            profile,
+            object_store_provider: parsed.provider.to_string(),
+            object_store_bucket: parsed.bucket,
+            object_store_key: parsed.key,
+            local_path,
+            fixture_listing_requested,
+            read_mode,
+            metadata: &metadata,
+            requested_range,
+        },
         &bytes,
     )
 }
@@ -716,36 +952,126 @@ fn early_profile_blocker(
     profile: &str,
     read_mode: ReadMode,
     requested_range: Option<RequestedRange>,
+    public_fixture_path: Option<&str>,
+    fixture_listing_requested: bool,
 ) -> Option<ObjectStoreReadSmokeReport> {
+    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        if let Err(error) = parse_object_store_uri(source) {
+            return Some(public_fixture_uri_blocker(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+                &error,
+            ));
+        }
+        if public_fixture_path.map(str::trim).is_none_or(str::is_empty) {
+            return Some(ObjectStoreReadSmokeReport::blocked(
+                ObjectStoreReadSmokeStatus::BlockedMissingFixturePath,
+                ObjectStoreReadBlockerContext::new(
+                    source,
+                    profile,
+                    read_mode,
+                    requested_range,
+                    fixture_listing_requested,
+                ),
+                Diagnostic::invalid_input(
+                    "object_store_public_fixture_path",
+                    "public-no-credential-fixture profile requires --public-fixture-path",
+                    "Provide an explicit local fixture file; ShardLoom will not probe the provider or network.",
+                ),
+            ));
+        }
+        return None;
+    }
     if profile != DEFAULT_PROFILE {
         return Some(ObjectStoreReadSmokeReport::blocked(
             ObjectStoreReadSmokeStatus::BlockedUnsupportedProfile,
-            profile,
-            source,
-            read_mode,
-            requested_range,
+            ObjectStoreReadBlockerContext::new(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+            ),
             Diagnostic::object_store_blocked(
                 "object_store_read_profile",
                 format!("profile {profile} is not admitted for object-store read runtime"),
-                "Use --profile local-emulator with a local fixture path.",
+                "Use --profile local-emulator with a local fixture path, or --profile public-no-credential-fixture with a supported object URI and --public-fixture-path.",
             ),
         ));
     }
     if is_remote_object_store_uri(source) {
         return Some(ObjectStoreReadSmokeReport::blocked(
             ObjectStoreReadSmokeStatus::BlockedRemoteProvider,
-            profile,
-            source,
-            read_mode,
-            requested_range,
+            ObjectStoreReadBlockerContext::new(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+            ),
             Diagnostic::object_store_blocked(
                 "object_store_remote_read",
                 "real S3/GCS/ADLS providers remain blocked; no credential or network probe was performed",
-                "Use a local-emulator fixture path for this smoke proof.",
+                "Use --profile public-no-credential-fixture with --public-fixture-path for the approved public fixture read proof, or a local-emulator fixture path.",
             ),
         ));
     }
     None
+}
+
+fn public_fixture_uri_blocker(
+    source: &str,
+    profile: &str,
+    read_mode: ReadMode,
+    requested_range: Option<RequestedRange>,
+    fixture_listing_requested: bool,
+    error: &ShardLoomError,
+) -> ObjectStoreReadSmokeReport {
+    ObjectStoreReadSmokeReport::blocked(
+        ObjectStoreReadSmokeStatus::BlockedInvalidUri,
+        ObjectStoreReadBlockerContext::new(
+            source,
+            profile,
+            read_mode,
+            requested_range,
+            fixture_listing_requested,
+        )
+        .with_redacted_uri(source),
+        Diagnostic::invalid_input(
+            "object_store_public_fixture_uri",
+            error.to_string(),
+            "Use a supported s3://, gs://, gcs://, abfs://, or abfss:// object URI with a bucket/container and object key.",
+        ),
+    )
+}
+
+fn public_fixture_path_blocker(
+    source: &str,
+    profile: &str,
+    read_mode: ReadMode,
+    requested_range: Option<RequestedRange>,
+    fixture_listing_requested: bool,
+    error: &ShardLoomError,
+) -> ObjectStoreReadSmokeReport {
+    ObjectStoreReadSmokeReport::blocked(
+        ObjectStoreReadSmokeStatus::BlockedReadError,
+        ObjectStoreReadBlockerContext::new(
+            source,
+            profile,
+            read_mode,
+            requested_range,
+            fixture_listing_requested,
+        )
+        .with_redacted_uri(source),
+        Diagnostic::invalid_input(
+            "object_store_public_fixture_path",
+            error.to_string(),
+            "Use a local path or file:// path for the public fixture bytes; remote fixture paths are not admitted.",
+        ),
+    )
 }
 
 fn local_path_blocker(
@@ -753,14 +1079,19 @@ fn local_path_blocker(
     profile: &str,
     read_mode: ReadMode,
     requested_range: Option<RequestedRange>,
+    fixture_listing_requested: bool,
     error: &ShardLoomError,
 ) -> ObjectStoreReadSmokeReport {
     ObjectStoreReadSmokeReport::blocked(
         ObjectStoreReadSmokeStatus::BlockedReadError,
-        profile,
-        source,
-        read_mode,
-        requested_range,
+        ObjectStoreReadBlockerContext::new(
+            source,
+            profile,
+            read_mode,
+            requested_range,
+            fixture_listing_requested,
+        )
+        .with_redacted_uri(source),
         Diagnostic::invalid_input(
             "object_store_local_emulator_path",
             error.to_string(),
@@ -782,30 +1113,39 @@ fn local_metadata_blocker(
     profile: &str,
     read_mode: ReadMode,
     requested_range: Option<RequestedRange>,
+    fixture_listing_requested: bool,
     error: &LocalEmulatorMetadataError,
 ) -> ObjectStoreReadSmokeReport {
     match error {
         LocalEmulatorMetadataError::NotRegularFile => ObjectStoreReadSmokeReport::blocked(
             ObjectStoreReadSmokeStatus::BlockedMissingObject,
-            profile,
-            source,
-            read_mode,
-            requested_range,
+            ObjectStoreReadBlockerContext::new(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+            )
+            .with_redacted_uri(source),
             Diagnostic::object_store_blocked(
-                "object_store_local_emulator_object",
-                "local-emulator source is not a regular file",
-                "Use a regular local fixture file.",
+                object_store_read_object_feature(profile),
+                "object-store read fixture source is not a regular file",
+                "Use a regular local fixture file for the admitted profile.",
             ),
         ),
         LocalEmulatorMetadataError::StatFailed(error) => ObjectStoreReadSmokeReport::blocked(
             ObjectStoreReadSmokeStatus::BlockedMissingObject,
-            profile,
-            source,
-            read_mode,
-            requested_range,
+            ObjectStoreReadBlockerContext::new(
+                source,
+                profile,
+                read_mode,
+                requested_range,
+                fixture_listing_requested,
+            )
+            .with_redacted_uri(source),
             Diagnostic::object_store_blocked(
-                "object_store_local_emulator_object",
-                format!("local-emulator fixture could not be statted: {error}"),
+                object_store_read_object_feature(profile),
+                format!("object-store read fixture could not be statted: {error}"),
                 "Create the local fixture file and retry.",
             ),
         ),
@@ -818,6 +1158,7 @@ fn range_blocker(
     read_mode: ReadMode,
     requested_range: Option<RequestedRange>,
     object_size_bytes: u64,
+    fixture_listing_requested: bool,
 ) -> Option<ObjectStoreReadSmokeReport> {
     let range = requested_range?;
     if range.length > 0 && range.offset.saturating_add(range.length) <= object_size_bytes {
@@ -825,10 +1166,14 @@ fn range_blocker(
     }
     Some(ObjectStoreReadSmokeReport::blocked(
         ObjectStoreReadSmokeStatus::BlockedInvalidRange,
-        profile,
-        source,
-        read_mode,
-        requested_range,
+        ObjectStoreReadBlockerContext::new(
+            source,
+            profile,
+            read_mode,
+            requested_range,
+            fixture_listing_requested,
+        )
+        .with_redacted_uri(source),
         Diagnostic::invalid_input(
             "object_store_read_range",
             format!(
@@ -845,14 +1190,19 @@ fn read_error_blocker(
     profile: &str,
     read_mode: ReadMode,
     requested_range: Option<RequestedRange>,
+    fixture_listing_requested: bool,
     error: &std::io::Error,
 ) -> ObjectStoreReadSmokeReport {
     ObjectStoreReadSmokeReport::blocked(
         ObjectStoreReadSmokeStatus::BlockedReadError,
-        profile,
-        source,
-        read_mode,
-        requested_range,
+        ObjectStoreReadBlockerContext::new(
+            source,
+            profile,
+            read_mode,
+            requested_range,
+            fixture_listing_requested,
+        )
+        .with_redacted_uri(source),
         Diagnostic::new(
             DiagnosticCode::ObjectStoreUnsupported,
             DiagnosticSeverity::Error,
@@ -1243,16 +1593,11 @@ fn sanitize_idempotency_key(idempotency_key: &str) -> String {
 }
 
 fn successful_object_store_read_report(
-    source: &str,
-    profile: &str,
-    local_path: PathBuf,
-    read_mode: ReadMode,
-    metadata: &fs::Metadata,
-    requested_range: Option<RequestedRange>,
+    input: ObjectStoreReadSuccessInput<'_>,
     bytes: &[u8],
 ) -> ObjectStoreReadSmokeReport {
     let read_digest = fnv64_digest_bytes(bytes);
-    let mtime_millis = metadata.modified().ok().and_then(|mtime| {
+    let mtime_millis = input.metadata.modified().ok().and_then(|mtime| {
         mtime
             .duration_since(UNIX_EPOCH)
             .ok()
@@ -1261,35 +1606,47 @@ fn successful_object_store_read_report(
     let source_content_digest = read_digest.clone();
     let fingerprint_material = format!(
         "{}|{}|{}|{}|{}|{}",
-        source,
-        metadata.len(),
+        input.source,
+        input.metadata.len(),
         mtime_millis.unwrap_or_default(),
-        read_mode.as_str(),
-        requested_range.map_or(0, |range| range.offset),
+        input.read_mode.as_str(),
+        input.requested_range.map_or(0, |range| range.offset),
         read_digest
     );
     let source_state_digest = fnv64_digest(&fingerprint_material);
+    let source_state_prefix = if input.profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "object-store-public-fixture"
+    } else {
+        "object-store-local-emulator"
+    };
     let source_state_id = format!(
-        "object-store-local-emulator-{}",
+        "{}-{}",
+        source_state_prefix,
         source_state_digest.replace(':', "-")
     );
 
     ObjectStoreReadSmokeReport {
         status: ObjectStoreReadSmokeStatus::Succeeded,
         diagnostics: vec![],
-        provider_profile: profile.to_string(),
-        requested_uri: source.to_string(),
-        local_path: Some(local_path),
-        read_mode,
-        requested_range,
-        object_size_bytes: metadata.len(),
+        provider_profile: input.profile.to_string(),
+        object_store_provider: input.object_store_provider,
+        object_store_bucket: input.object_store_bucket,
+        object_store_key: input.object_store_key,
+        requested_uri: input.source.to_string(),
+        local_path: Some(input.local_path),
+        fixture_listing_requested: input.fixture_listing_requested,
+        read_mode: input.read_mode,
+        requested_range: input.requested_range,
+        object_size_bytes: input.metadata.len(),
         object_mtime_millis: mtime_millis,
         bytes_read: bytes.len(),
         read_digest: source_content_digest.clone(),
         source_state_id,
         source_state_digest,
         source_content_digest,
-        source_fingerprint_kind: if requested_range.is_some() {
+        source_fingerprint_kind: if input.profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+            "public_no_credential_fixture_uri_metadata_range_digest"
+        } else if input.requested_range.is_some() {
             "local_emulator_metadata_plus_range_digest"
         } else {
             "local_emulator_content_digest"
@@ -1302,7 +1659,7 @@ fn object_store_read_smoke_fields(report: &ObjectStoreReadSmokeReport) -> Vec<(S
     push_object_store_identity_fields(&mut fields, report);
     push_object_store_read_fields(&mut fields, report);
     push_object_store_source_state_fields(&mut fields, report);
-    push_object_store_policy_fields(&mut fields);
+    push_object_store_policy_fields(&mut fields, report);
     push_object_store_claim_fields(&mut fields, report);
     fields
 }
@@ -1313,7 +1670,13 @@ fn push_object_store_identity_fields(
 ) {
     let local_emulator_path = report.local_path.as_ref().map_or_else(
         || "not_applicable".to_string(),
-        |path| path.to_string_lossy().into_owned(),
+        |path| {
+            if report.provider_profile == LOCAL_EMULATOR_PROFILE {
+                path.to_string_lossy().into_owned()
+            } else {
+                "not_applicable".to_string()
+            }
+        },
     );
     push_field(
         fields,
@@ -1324,12 +1687,37 @@ fn push_object_store_identity_fields(
     push_field(
         fields,
         "runtime_enablement",
-        "local_emulator_object_store_read",
+        read_runtime_enablement(&report.provider_profile),
     );
     push_field(fields, "provider_profile", &report.provider_profile);
-    push_field(fields, "object_store_provider", "local_emulator");
-    push_field(fields, "requested_uri", &report.requested_uri);
+    push_field(
+        fields,
+        "object_store_provider",
+        &report.object_store_provider,
+    );
+    push_field(fields, "object_store_bucket", &report.object_store_bucket);
+    push_field(fields, "object_store_key", &report.object_store_key);
+    push_field(
+        fields,
+        "object_store_uri_parse_status",
+        object_store_uri_parse_status(report),
+    );
+    push_field(
+        fields,
+        "requested_uri",
+        &redact_object_store_uri(&report.requested_uri),
+    );
+    push_field(
+        fields,
+        "requested_uri_redaction_status",
+        requested_uri_redaction_status(&report.requested_uri),
+    );
     push_field(fields, "local_emulator_path", &local_emulator_path);
+    push_field(
+        fields,
+        "public_fixture_path",
+        &public_fixture_path_field(report),
+    );
     push_field(fields, "object_store_read_status", report.status.as_str());
 }
 
@@ -1342,17 +1730,17 @@ fn push_object_store_read_fields(
     push_field(
         fields,
         "byte_range_read_status",
-        byte_range_read_status(report.read_mode, has_errors),
+        byte_range_read_status(report, has_errors),
     );
     push_field(
         fields,
         "full_file_read_status",
-        full_file_read_status(report.read_mode, has_errors),
+        full_file_read_status(report, has_errors),
     );
     push_field(
         fields,
         "streaming_read_status",
-        streaming_read_status(report.read_mode, has_errors),
+        streaming_read_status(report, has_errors),
     );
     push_u64_field(
         fields,
@@ -1373,8 +1761,8 @@ fn push_object_store_read_fields(
             .object_mtime_millis
             .map_or_else(|| "not_available".to_string(), |value| value.to_string()),
     );
-    push_field(fields, "object_etag", "not_applicable_local_emulator");
-    push_field(fields, "object_version", "not_applicable_local_emulator");
+    push_field(fields, "object_etag", &object_etag(report));
+    push_field(fields, "object_version", &object_version(report));
     push_field(fields, "read_digest", &report.read_digest);
 }
 
@@ -1404,16 +1792,43 @@ fn push_object_store_source_state_fields(
     push_field(fields, "compression", "unknown");
 }
 
-fn push_object_store_policy_fields(fields: &mut Vec<(String, String)>) {
+fn push_object_store_policy_fields(
+    fields: &mut Vec<(String, String)>,
+    report: &ObjectStoreReadSmokeReport,
+) {
+    push_object_store_disabled_effect_policy_fields(
+        fields,
+        &ObjectStoreDisabledEffectPolicy {
+            credential_policy_status: credential_policy_status(
+                &report.provider_profile,
+                report.has_errors(),
+            ),
+            network_effect_status: network_effect_status(&report.provider_profile),
+            listing_allowed: report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE
+                && report.fixture_listing_requested
+                && !report.has_errors(),
+            listing_status: listing_status(report),
+            listing_object_count: listing_object_count(report),
+            local_cache_status: local_cache_status(report),
+            public_no_credential_fixture_profile: report.provider_profile
+                == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE,
+        },
+    );
+}
+
+fn push_object_store_disabled_effect_policy_fields(
+    fields: &mut Vec<(String, String)>,
+    policy: &ObjectStoreDisabledEffectPolicy<'_>,
+) {
     push_field(
         fields,
         "credential_policy_status",
-        "not_required_local_emulator",
+        policy.credential_policy_status,
     );
     push_field(
         fields,
         "network_effect_status",
-        "not_required_local_emulator",
+        policy.network_effect_status,
     );
     push_bool_field(fields, "credential_resolution_allowed", false);
     push_bool_field(fields, "credential_resolution_performed", false);
@@ -1421,14 +1836,17 @@ fn push_object_store_policy_fields(fields: &mut Vec<(String, String)>) {
     push_bool_field(fields, "network_probe_performed", false);
     push_bool_field(fields, "provider_probe_allowed", false);
     push_bool_field(fields, "provider_probe_performed", false);
-    push_bool_field(fields, "listing_allowed", false);
-    push_field(
-        fields,
-        "listing_status",
-        "not_performed_local_emulator_single_object",
-    );
+    push_bool_field(fields, "listing_allowed", policy.listing_allowed);
+    push_field(fields, "listing_status", policy.listing_status);
+    push_count_field(fields, "listing_object_count", policy.listing_object_count);
     push_bool_field(fields, "cache_write_allowed", false);
-    push_field(fields, "local_cache_status", "not_performed");
+    push_field(fields, "local_cache_status", policy.local_cache_status);
+    push_bool_field(
+        fields,
+        "public_no_credential_fixture_profile",
+        policy.public_no_credential_fixture_profile,
+    );
+    push_bool_field(fields, "live_provider_network_read_allowed", false);
 }
 
 fn push_object_store_claim_fields(
@@ -1439,32 +1857,30 @@ fn push_object_store_claim_fields(
     push_field(
         fields,
         "native_io_certificate_id",
-        "gar-runtime-impl-4n.local_emulator_object_store_read.native_io",
+        native_io_certificate_id(&report.provider_profile),
     );
     push_field(
         fields,
         "native_io_certificate_status",
-        if has_errors {
-            "blocked"
-        } else {
-            "fixture_smoke_only"
-        },
+        read_certificate_status(report),
     );
+    push_field(fields, "claim_gate_status", read_claim_gate_status(report));
     push_field(
         fields,
-        "claim_gate_status",
-        if has_errors {
-            "not_claim_grade"
-        } else {
-            "fixture_smoke_only"
-        },
+        "object_store_read_claim_gate_status",
+        read_claim_gate_status(report),
     );
     push_field(
         fields,
         "claim_boundary",
-        "local-emulator object-store read smoke only; no S3/GCS/ADLS, credential, network, production, table, commit, distributed, performance, or Spark-replacement claim",
+        read_claim_boundary(&report.provider_profile),
     );
     push_bool_field(fields, "object_store_runtime_supported", !has_errors);
+    push_bool_field(
+        fields,
+        "public_no_credential_fixture_claim_allowed",
+        !has_errors && report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE,
+    );
     push_bool_field(fields, "public_object_store_claim_allowed", false);
     push_bool_field(fields, "production_object_store_claim_allowed", false);
     push_bool_field(fields, "object_store_io", !has_errors);
@@ -1607,7 +2023,18 @@ fn push_object_store_write_policy_fields(
     report: &ObjectStoreWriteSmokeReport,
 ) {
     let has_errors = report.has_errors();
-    push_object_store_policy_fields(fields);
+    push_object_store_disabled_effect_policy_fields(
+        fields,
+        &ObjectStoreDisabledEffectPolicy {
+            credential_policy_status: "not_required_local_emulator",
+            network_effect_status: "not_required_local_emulator",
+            listing_allowed: false,
+            listing_status: "not_performed_local_emulator_single_object",
+            listing_object_count: 0,
+            local_cache_status: "not_performed",
+            public_no_credential_fixture_profile: false,
+        },
+    );
     push_bool_field(fields, "remote_write_allowed", false);
     push_bool_field(fields, "local_emulator_write_allowed", !has_errors);
     push_bool_field(fields, "write_staging_allowed", !has_errors);
@@ -1724,31 +2151,183 @@ fn path_field(path: Option<&Path>) -> String {
     )
 }
 
-fn byte_range_read_status(read_mode: ReadMode, has_errors: bool) -> &'static str {
-    if read_mode == ReadMode::ByteRange && !has_errors {
-        "performed_local_emulator"
-    } else if read_mode == ReadMode::ByteRange {
+fn byte_range_read_status(report: &ObjectStoreReadSmokeReport, has_errors: bool) -> &'static str {
+    if report.read_mode == ReadMode::ByteRange && !has_errors {
+        if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+            "performed_public_no_credential_fixture"
+        } else {
+            "performed_local_emulator"
+        }
+    } else if report.read_mode == ReadMode::ByteRange {
         "blocked"
     } else {
         "not_requested"
     }
 }
 
-fn full_file_read_status(read_mode: ReadMode, has_errors: bool) -> &'static str {
-    if read_mode == ReadMode::FullFile && !has_errors {
-        "performed_local_emulator"
-    } else if read_mode == ReadMode::FullFile {
+fn full_file_read_status(report: &ObjectStoreReadSmokeReport, has_errors: bool) -> &'static str {
+    if report.read_mode == ReadMode::FullFile && !has_errors {
+        if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+            "performed_public_no_credential_fixture"
+        } else {
+            "performed_local_emulator"
+        }
+    } else if report.read_mode == ReadMode::FullFile {
         "blocked"
     } else {
         "not_requested"
     }
 }
 
-fn streaming_read_status(read_mode: ReadMode, has_errors: bool) -> &'static str {
-    if read_mode == ReadMode::FullFile && !has_errors {
-        "performed_local_emulator_full_file_stream"
+fn streaming_read_status(report: &ObjectStoreReadSmokeReport, has_errors: bool) -> &'static str {
+    if report.read_mode == ReadMode::FullFile && !has_errors {
+        if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+            "performed_public_fixture_full_file_stream"
+        } else {
+            "performed_local_emulator_full_file_stream"
+        }
     } else {
         "not_performed"
+    }
+}
+
+fn object_store_read_summary(profile: &str) -> &'static str {
+    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "object-store public fixture read smoke"
+    } else {
+        "object-store local-emulator read smoke"
+    }
+}
+
+fn read_runtime_enablement(profile: &str) -> &'static str {
+    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "public_no_credential_fixture_object_store_read"
+    } else {
+        "local_emulator_object_store_read"
+    }
+}
+
+fn object_store_uri_parse_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE && !report.has_errors() {
+        "parsed_public_no_credential_fixture_uri"
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "blocked_public_no_credential_fixture_uri"
+    } else {
+        "not_requested_local_emulator"
+    }
+}
+
+fn credential_policy_status(profile: &str, has_errors: bool) -> &'static str {
+    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE && !has_errors {
+        "public_no_credential_fixture_admitted"
+    } else if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "public_no_credential_fixture_blocked"
+    } else {
+        "not_required_local_emulator"
+    }
+}
+
+fn network_effect_status(profile: &str) -> &'static str {
+    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "disabled_public_fixture"
+    } else {
+        "not_required_local_emulator"
+    }
+}
+
+fn listing_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE
+        && report.fixture_listing_requested
+        && !report.has_errors()
+    {
+        "performed_public_fixture_single_object"
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "not_requested_public_fixture"
+    } else {
+        "not_performed_local_emulator_single_object"
+    }
+}
+
+fn listing_object_count(report: &ObjectStoreReadSmokeReport) -> usize {
+    usize::from(
+        report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE
+            && report.fixture_listing_requested
+            && !report.has_errors(),
+    )
+}
+
+fn local_cache_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "not_performed_public_fixture_read_through"
+    } else {
+        "not_performed"
+    }
+}
+
+fn native_io_certificate_id(profile: &str) -> &'static str {
+    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "gar-runtime-impl-5k.public_no_credential_fixture_read.native_io"
+    } else {
+        "gar-runtime-impl-4n.local_emulator_object_store_read.native_io"
+    }
+}
+
+fn read_certificate_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "blocked"
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "public_fixture_smoke_only"
+    } else {
+        "fixture_smoke_only"
+    }
+}
+
+fn read_claim_gate_status(report: &ObjectStoreReadSmokeReport) -> &'static str {
+    if report.has_errors() {
+        "not_claim_grade"
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "public_fixture_smoke_only"
+    } else {
+        "fixture_smoke_only"
+    }
+}
+
+fn read_claim_boundary(profile: &str) -> &'static str {
+    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "public no-credential object-store fixture read smoke only; URI parsing, SourceState, byte-range/full-file fixture bytes, optional fixture listing, Native I/O evidence, and no-fallback fields are admitted without credentials or network probes; live S3/GCS/ADLS provider reads, authenticated reads, cache writes, cloud writes, table commits, distributed runtime, production use, performance, and Spark-replacement claims remain blocked"
+    } else {
+        "local-emulator object-store read smoke only; no S3/GCS/ADLS, credential, network, production, table, commit, distributed, performance, or Spark-replacement claim"
+    }
+}
+
+fn public_fixture_path_field(report: &ObjectStoreReadSmokeReport) -> String {
+    if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        path_field(report.local_path.as_deref())
+    } else {
+        "not_applicable".to_string()
+    }
+}
+
+fn object_etag(report: &ObjectStoreReadSmokeReport) -> String {
+    if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE && !report.has_errors() {
+        format!("public-fixture-{}", report.read_digest.replace(':', "-"))
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "not_emitted_no_public_fixture_read".to_string()
+    } else {
+        "not_applicable_local_emulator".to_string()
+    }
+}
+
+fn object_version(report: &ObjectStoreReadSmokeReport) -> String {
+    if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE && !report.has_errors() {
+        format!(
+            "public-fixture-mtime-{}",
+            report.object_mtime_millis.unwrap_or_default()
+        )
+    } else if report.provider_profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "not_emitted_no_public_fixture_read".to_string()
+    } else {
+        "not_applicable_local_emulator".to_string()
     }
 }
 
@@ -1794,6 +2373,82 @@ fn is_remote_object_store_uri(source: &str) -> bool {
         || source.starts_with("gcs://")
         || source.starts_with("abfs://")
         || source.starts_with("abfss://")
+}
+
+fn parse_object_store_uri(source: &str) -> Result<ParsedObjectStoreUri, ShardLoomError> {
+    let (scheme, rest) = source.split_once("://").ok_or_else(|| {
+        ShardLoomError::InvalidOperation("object-store URI must include a scheme".to_string())
+    })?;
+    let provider = match scheme {
+        "s3" => "s3",
+        "gs" | "gcs" => "gcs",
+        "abfs" | "abfss" => "adls",
+        _ => {
+            return Err(ShardLoomError::InvalidOperation(format!(
+                "unsupported object-store URI scheme: {scheme}"
+            )));
+        }
+    };
+    if rest.contains('?') || rest.contains('#') {
+        return Err(ShardLoomError::InvalidOperation(
+            "public fixture object URI must not include query strings or fragments".to_string(),
+        ));
+    }
+    if rest.contains('@') {
+        return Err(ShardLoomError::InvalidOperation(
+            "object-store URI must not include credentials or userinfo".to_string(),
+        ));
+    }
+    let Some((bucket, key)) = rest.split_once('/') else {
+        return Err(ShardLoomError::InvalidOperation(
+            "object-store URI must include bucket/container and object key".to_string(),
+        ));
+    };
+    if bucket.trim().is_empty() || key.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "object-store URI bucket/container and object key must be non-empty".to_string(),
+        ));
+    }
+    Ok(ParsedObjectStoreUri {
+        provider,
+        bucket: bucket.to_string(),
+        key: key.to_string(),
+    })
+}
+
+fn provider_for_source_or_profile(source: &str, profile: &str) -> &'static str {
+    if profile == LOCAL_EMULATOR_PROFILE {
+        return "local_emulator";
+    }
+    parse_object_store_uri(source).map_or("unknown", |parsed| parsed.provider)
+}
+
+fn object_store_read_object_feature(profile: &str) -> &'static str {
+    if profile == PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE {
+        "object_store_public_fixture_object"
+    } else {
+        "object_store_local_emulator_object"
+    }
+}
+
+fn redact_object_store_uri(source: &str) -> String {
+    let without_query = source.split(['?', '#']).next().unwrap_or(source);
+    let Some((scheme, rest)) = without_query.split_once("://") else {
+        return without_query.to_string();
+    };
+    if let Some((_userinfo, tail)) = rest.split_once('@') {
+        format!("{scheme}://<redacted>@{tail}")
+    } else {
+        without_query.to_string()
+    }
+}
+
+fn requested_uri_redaction_status(source: &str) -> &'static str {
+    if source.contains('?') || source.contains('#') || source.contains('@') {
+        "redacted"
+    } else {
+        "not_required"
+    }
 }
 
 fn normalize_local_emulator_path(raw: &str) -> Result<PathBuf, ShardLoomError> {
@@ -1871,6 +2526,8 @@ mod tests {
                 offset: 1,
                 length: 3,
             }),
+            None,
+            false,
         );
         let fields = object_store_read_smoke_fields(&report);
         fs::remove_file(&fixture).expect("fixture cleanup");
@@ -1899,8 +2556,13 @@ mod tests {
 
     #[test]
     fn remote_provider_is_blocked_without_probe_or_io() {
-        let report =
-            execute_object_store_read_smoke("s3://bucket/object.vortex", DEFAULT_PROFILE, None);
+        let report = execute_object_store_read_smoke(
+            "s3://bucket/object.vortex",
+            DEFAULT_PROFILE,
+            None,
+            None,
+            false,
+        );
         let fields = object_store_read_smoke_fields(&report);
 
         assert!(report.has_errors());
@@ -1918,6 +2580,68 @@ mod tests {
         assert_eq!(
             report.diagnostics[0].code,
             DiagnosticCode::ObjectStoreUnsupported
+        );
+    }
+
+    #[test]
+    fn public_no_credential_fixture_reads_remote_uri_shape_without_network() {
+        let fixture = std::env::temp_dir().join(format!(
+            "shardloom-object-store-public-fixture-{}.bin",
+            std::process::id()
+        ));
+        fs::write(&fixture, b"abcdef").expect("fixture write");
+
+        let report = execute_object_store_read_smoke(
+            "s3://public-bucket/orders.vortex",
+            PUBLIC_NO_CREDENTIAL_FIXTURE_PROFILE,
+            Some(RequestedRange {
+                offset: 2,
+                length: 2,
+            }),
+            Some(fixture.to_string_lossy().as_ref()),
+            true,
+        );
+        let fields = object_store_read_smoke_fields(&report);
+        fs::remove_file(&fixture).expect("fixture cleanup");
+
+        assert!(!report.has_errors());
+        assert_eq!(report.object_store_provider, "s3");
+        assert_eq!(report.object_store_bucket, "public-bucket");
+        assert_eq!(report.object_store_key, "orders.vortex");
+        assert_eq!(
+            output_field(&fields, "object_store_uri_parse_status"),
+            "parsed_public_no_credential_fixture_uri"
+        );
+        assert_eq!(
+            output_field(&fields, "byte_range_read_status"),
+            "performed_public_no_credential_fixture"
+        );
+        assert_eq!(
+            output_field(&fields, "credential_policy_status"),
+            "public_no_credential_fixture_admitted"
+        );
+        assert_eq!(output_field(&fields, "network_probe_performed"), "false");
+        assert_eq!(output_field(&fields, "provider_probe_performed"), "false");
+        assert_eq!(
+            output_field(&fields, "listing_status"),
+            "performed_public_fixture_single_object"
+        );
+        assert_eq!(
+            output_field(&fields, "native_io_certificate_status"),
+            "public_fixture_smoke_only"
+        );
+        assert_eq!(
+            output_field(&fields, "claim_gate_status"),
+            "public_fixture_smoke_only"
+        );
+        assert_eq!(
+            output_field(&fields, "public_no_credential_fixture_claim_allowed"),
+            "true"
+        );
+        assert_eq!(output_field(&fields, "fallback_attempted"), "false");
+        assert_eq!(output_field(&fields, "external_engine_invoked"), "false");
+        assert!(
+            output_field(&fields, "source_state_id").starts_with("object-store-public-fixture-")
         );
     }
 
