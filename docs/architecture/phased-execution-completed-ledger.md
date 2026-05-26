@@ -16,6 +16,101 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4Q/5N live/hybrid loopback control-plane and distributed blocker closeout
+  - Date: 2026-05-26
+  - Branch/PR: `runtime-4q-control-plane-closeout` / #963.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4Q live, hybrid, loopback control-plane, and distributed blockers`.
+    - `GAR-RUNTIME-IMPL-5N live, hybrid, control-plane, and distributed-runtime promotion`.
+    - RFC 0034, RFC 0035, `GAR-SCALE-1F`, and the user direction to keep control-plane work
+      loopback-scoped, evidence-backed, and non-standalone.
+  - Scope:
+    - Extended `rest-api-local-lifecycle` beyond the certified local batch path with
+      `certified-live-fixture` and `certified-hybrid-fixture` scenarios. Both run as in-process
+      loopback fixtures, expose small-result JSON boundaries, and keep Vortex/Arrow artifact result
+      modes reserved for the batch fixture.
+    - Added typed control-plane evidence fields across core reports, CLI JSON/text output, and the
+      Python client: `engine_mode`, `control_plane_invoked`, `control_plane_scope`,
+      `network_policy`, `checkpoint_state_posture`, `live_fixture_invoked`,
+      `hybrid_fixture_invoked`, `remote_worker_invoked`, `distributed_runtime_status`,
+      `distributed_worker_blocker_id`, `distributed_claim_gate_status`, and
+      `small_result_boundary`.
+    - Kept distributed/runtime expansion fail-closed with
+      `distributed_runtime_status=blocked`,
+      `distributed_worker_blocker_id=gar-runtime-impl-4q.distributed_worker_runtime_blocked`,
+      `remote_worker_invoked=false`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - Updated the CLI protocol snapshots and Python typed client wrapper so agent/API consumers can
+      inspect engine mode, loopback scope, live/hybrid fixture posture, small-result boundaries, and
+      distributed blockers without reading architecture prose.
+    - Refreshed the comparative benchmark/public website bundle in the same PR because the runtime
+      section exposed stale side-lane posture: `full_local_plus_spark` is now the current promoted
+      profile, PySpark `spark-default` and `spark-local-tuned` are required lanes for that profile,
+      the alias-only `native-vortex` lane is no longer injected into profile accounting, and the
+      public benchmark page renders PySpark as a required baseline rather than a hidden optional
+      lane.
+    - Fixed benchmark execution gaps found during the refresh: `shardloom-vortex` selects
+      `native_vortex`, prepared lanes select `prepared_vortex`, PulseWeave admits the real
+      prepared/native batch route IDs, `top-N per group` runs across pandas, Polars eager/lazy,
+      DuckDB, DataFusion, Dask, and PySpark, and reader-generated UTF-8 dictionary/run-end evidence
+      lowers without panicking on `VarBinView` values.
+    - Removed `GAR-RUNTIME-IMPL-4Q` and `GAR-RUNTIME-IMPL-5N` from the live Planned queue; the
+      engine-internal 4-series ordering now continues with `4R/5O` and keeps `4D/5G` last.
+  - Field schema:
+    - Control-plane scope: `engine_mode`, `control_plane_invoked`, `control_plane_scope`,
+      `network_policy`, `checkpoint_state_posture`, `small_result_boundary`.
+    - Fixture posture: `live_fixture_invoked`, `hybrid_fixture_invoked`, small-result availability,
+      lifecycle events, execution-certificate refs, Native I/O refs, materialization/profile/
+      lineage/no-fallback refs.
+    - Distributed blocker posture: `remote_worker_invoked=false`,
+      `distributed_runtime_status=blocked`,
+      `distributed_worker_blocker_id=gar-runtime-impl-4q.distributed_worker_runtime_blocked`,
+      `distributed_claim_gate_status=not_distributed_runtime_grade`.
+    - Benchmark profile posture: `benchmark_profile=full_local_plus_spark`, required PySpark lanes,
+      PulseWeave result fields, result-sink Native I/O/replay fields, no alias-only `native-vortex`
+      profile lane.
+  - Claim boundary:
+    - The live/hybrid paths are fixture/local loopback control-plane proofs only. They do not start
+      a production REST service, daemon, broker, remote worker, distributed runtime, external
+      network listener, credential path, exactly-once stream, or remote data plane.
+    - The benchmark refresh is local pre-release evidence only. It does not create performance,
+      superiority, Spark-displacement, production SQL/DataFrame, object-store/lakehouse/Foundry,
+      package-publication, or distributed-runtime claims.
+    - External engines, including PySpark, remain comparison baselines only and never execute
+      unsupported ShardLoom work as fallback.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 test -p shardloom-core rest_api_local_lifecycle --lib`
+    - `cargo +1.91.1 test -p shardloom-cli rest_api_local_lifecycle --test api_protocol_snapshots`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_rest_api_local_lifecycle_view`
+    - `cargo +1.91.1 test -p shardloom-vortex reader_chunk --features vortex-local-primitives --lib`
+    - `cargo +1.91.1 test -p shardloom-vortex enabled_hash_join_uses_prepared_native_vortex_scan --features vortex-traditional-analytics-benchmark --lib`
+    - `cargo +1.91.1 test -p shardloom-exec pulseweave --lib`
+    - `python -m compileall benchmarks\traditional_analytics\run.py benchmarks\traditional_analytics\benchmark_registry.py scripts\promote_benchmark_artifact.py scripts\check_benchmark_environment.py`
+    - `python scripts\check_benchmark_environment.py --profile full_local_plus_spark`
+    - `python benchmarks\traditional_analytics\run.py --rows 1000 --dim-rows 100 --iterations 1 --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,spark-default,spark-local-tuned --formats csv,parquet --scenario "selective filter" --scenario "filter + projection + limit" --scenario "group by aggregation" --scenario "hash join" --scenario "top-N per group" --dataset-profile narrow_fact_dim --shardloom-result-sink`
+    - `python scripts\promote_benchmark_artifact.py --profile full_local_plus_spark --input target\benchmark-artifacts\runtime-4q-full-local-plus-spark-after-fixes.json`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_benchmark_constitution.py`
+    - `python scripts\check_website_readiness.py`
+    - `node website-src\node_modules\astro\bin\astro.mjs build`
+    - `node website-src\scripts\postbuild-static.mjs`
+    - `node website\validate_static_assets.js`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - `python scripts\check_evidence_schema_registry.py`
+    - `python scripts\check_runtime_promotion_evidence.py`
+    - `python scripts\check_ci_gate_matrix.py`
+    - `python scripts\check_admitted_semantics_matrix.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python -m unittest discover -s python\tests`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-RUNTIME-IMPL-5K object-store read runtime admission
   - Date: 2026-05-25
   - Branch/PR: `runtime-object-store-read-5k` / #961.

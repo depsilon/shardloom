@@ -6397,6 +6397,36 @@ class RestApiLocalLifecycle:
         return self.envelope.field("lifecycle_status")
 
     @property
+    def engine_mode(self) -> str | None:
+        """Return the engine mode routed through the local lifecycle."""
+
+        return self.envelope.field("engine_mode")
+
+    @property
+    def control_plane_invoked(self) -> bool:
+        """Whether the local lifecycle control-plane envelope was invoked."""
+
+        return self.envelope.field_bool("control_plane_invoked", False) is True
+
+    @property
+    def control_plane_scope(self) -> str | None:
+        """Return the local control-plane scope."""
+
+        return self.envelope.field("control_plane_scope")
+
+    @property
+    def network_policy(self) -> str | None:
+        """Return the lifecycle network policy."""
+
+        return self.envelope.field("network_policy")
+
+    @property
+    def checkpoint_state_posture(self) -> str | None:
+        """Return the checkpoint/state posture."""
+
+        return self.envelope.field("checkpoint_state_posture")
+
+    @property
     def query_id(self) -> str | None:
         """Return the query handle."""
 
@@ -6476,6 +6506,48 @@ class RestApiLocalLifecycle:
         """Return retry state."""
 
         return self.envelope.field("retry_status")
+
+    @property
+    def live_fixture_invoked(self) -> bool:
+        """Whether the in-memory live fixture runtime was invoked."""
+
+        return self.envelope.field_bool("live_fixture_invoked", False) is True
+
+    @property
+    def hybrid_fixture_invoked(self) -> bool:
+        """Whether the in-memory hybrid fixture runtime was invoked."""
+
+        return self.envelope.field_bool("hybrid_fixture_invoked", False) is True
+
+    @property
+    def remote_worker_invoked(self) -> bool:
+        """Whether any remote worker was invoked."""
+
+        return self.envelope.field_bool("remote_worker_invoked", False) is True
+
+    @property
+    def distributed_runtime_status(self) -> str | None:
+        """Return distributed runtime status."""
+
+        return self.envelope.field("distributed_runtime_status")
+
+    @property
+    def distributed_worker_blocker_id(self) -> str | None:
+        """Return the stable distributed worker blocker id."""
+
+        return self.envelope.field("distributed_worker_blocker_id")
+
+    @property
+    def distributed_claim_gate_status(self) -> str | None:
+        """Return distributed claim-gate status."""
+
+        return self.envelope.field("distributed_claim_gate_status")
+
+    @property
+    def small_result_boundary(self) -> str | None:
+        """Return the small-result transfer boundary."""
+
+        return self.envelope.field("small_result_boundary")
 
     @property
     def query_execution(self) -> bool:

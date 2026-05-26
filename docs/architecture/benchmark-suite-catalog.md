@@ -182,10 +182,12 @@ execution certificates, Native I/O certificates, Vortex-native claim gates, or n
 and they must never run unsupported ShardLoom work as fallback.
 
 `shardloom-prepare-batch` is now a required ShardLoom lane for `full_local`,
-`full_local_plus_spark`, and `extended_local` published profiles. The completeness validator checks
-that the promoted artifact covers every profile-required format and scenario and that the
-single-process prepare/batch route appears as row evidence instead of being omitted from the public
-benchmark bundle.
+`full_local_plus_spark`, and `extended_local` published profiles. The `full_local_plus_spark`
+profile also requires the split PySpark baselines `spark-default` and `spark-local-tuned`; missing
+PySpark/JDK setup fails that profile instead of being treated as an optional lane. The completeness
+validator checks that the promoted artifact covers every profile-required format and scenario and
+that the single-process prepare/batch route appears as row evidence instead of being omitted from
+the public benchmark bundle.
 ```
 
 Required row fields include requested/selected execution mode, mode-selection reason, preparation
@@ -782,7 +784,9 @@ it does not run benchmarks, invoke external engines, or upgrade `performance_cla
 
 ## Baseline Policy
 
-Local optional baselines are plugin contracts, not runtime dependencies:
+Local baseline lanes are comparison contracts, not runtime dependencies. The `full_local_plus_spark`
+profile requires the local CPU baselines plus the two PySpark profiles; extended/GPU lanes remain
+explicit opt-ins:
 
 ```text
 pandas
@@ -829,6 +833,15 @@ Vortex layout/write advisor fields derived from workload, benchmark, runtime, an
 evidence. It does not execute comparative benchmarks, apply layout rewrites, or publish performance
 claims.
 
+The current promoted website artifact is `full_local_plus_spark`: ShardLoom cold/import,
+ShardLoom native Vortex, ShardLoom prepared Vortex, `shardloom-prepare-batch`, pandas, Polars
+eager/lazy, DuckDB, DataFusion, Dask, `spark-default`, and `spark-local-tuned` are all required and
+available for the selected CSV/Parquet local scenarios. The artifact keeps PulseWeave evidence in
+the prepared/native batch route and no longer publishes an alias-only `native-vortex` profile lane;
+native Vortex evidence is represented by `shardloom-vortex` rows with
+`selected_execution_mode=native_vortex`. This is still local pre-release benchmark evidence, not a
+performance, superiority, Spark-displacement, or production claim.
+
 The `compute-capability-matrix` now carries a GAR-0006-A predicate/DType coverage table for
 predicate, DType, null-semantics, nested-shape, and statistics families. Those rows are benchmark
 interpretation aids, not new runtime paths: each family records support status, required statistics,
@@ -836,17 +849,19 @@ fixture/evidence gaps, unsupported diagnostic codes where applicable, `fallback_
 `external_engine_invoked=false`, and a claim boundary so local benchmark coverage is not mistaken
 for broad predicate, DType, null, nested, or production metadata-only support.
 
-The next benchmark closeout step is P7.4.4 claim-grade local benchmark readiness, not release work.
-That closeout should run selected local comparative reruns, keep managed platforms out, preserve
-coverage rows separately from timing rows, and promote rows only when the artifact carries
-workload-scoped correctness, benchmark, execution-certificate, Native I/O, materialization/decode,
-and no-fallback evidence. Rows without that evidence must remain `fixture_smoke_only`,
-`not_claim_grade`, `unsupported`, `blocked`, or `external_baseline_only` as appropriate.
+The next benchmark closeout step is claim-grade and broad-format local benchmark readiness, not
+release work. That closeout should keep managed platforms out, preserve coverage rows separately
+from timing rows, extend current profile evidence across JSONL/Arrow IPC/Avro/ORC where required,
+and promote rows only when the artifact carries workload-scoped correctness, benchmark,
+execution-certificate, Native I/O, materialization/decode, and no-fallback evidence. Rows without
+that evidence must remain `fixture_smoke_only`, `not_claim_grade`, `unsupported`, `blocked`, or
+`external_baseline_only` as appropriate.
 
 Suggested first local smoke:
 
 ```powershell
-python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,pandas,polars-eager,polars-lazy,duckdb,datafusion --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 100000 --iterations 3
+python scripts\check_benchmark_environment.py --profile full_local_plus_spark
+python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,spark-default,spark-local-tuned --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 100000 --iterations 3 --shardloom-result-sink --require-all-engines
 ```
 
 Then run profile-specific checks:

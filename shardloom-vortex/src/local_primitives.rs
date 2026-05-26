@@ -1550,8 +1550,7 @@ fn dictionary_kernel_input_from_vortex_array(
     let Some(dtype) = shardloom_logical_dtype_from_vortex_dtype(array.dtype()) else {
         return Ok(None);
     };
-    let Some(dictionary) = primitive_stat_values_from_vortex_array(dictionary_array.values())
-    else {
+    let Some(dictionary) = stat_values_from_vortex_array(dictionary_array.values()) else {
         return Ok(None);
     };
     let Some(codes) = primitive_u32_codes_from_vortex_array(dictionary_array.codes()) else {
@@ -1765,7 +1764,7 @@ fn run_end_kernel_input_from_vortex_array(
     let Some(ends) = primitive_u64_values_from_vortex_array(run_end_array.ends()) else {
         return Ok(None);
     };
-    let Some(values) = primitive_stat_values_from_vortex_array(run_end_array.values()) else {
+    let Some(values) = stat_values_from_vortex_array(run_end_array.values()) else {
         return Ok(None);
     };
     if ends.len() != values.len() {
@@ -1805,6 +1804,26 @@ fn run_end_kernel_input_from_vortex_array(
     let batch =
         VortexEncodedValuePredicateBatch::new(segment, EncodedValueBatch::RunLength { runs });
     VortexReaderGeneratedEncodedKernelInput::new(source_uri.clone(), split_ref, batch).map(Some)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
+fn stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<StatValue>> {
+    use vortex::array::dtype::DType;
+
+    match array.dtype() {
+        DType::Primitive(_, _) => primitive_stat_values_from_vortex_array(array),
+        DType::Utf8(_) => utf8_stat_values_from_vortex_array(array),
+        DType::Null
+        | DType::Bool(_)
+        | DType::Decimal(_, _)
+        | DType::Binary(_)
+        | DType::Struct(_, _)
+        | DType::List(_, _)
+        | DType::FixedSizeList(_, _, _)
+        | DType::Extension(_)
+        | DType::Union(_)
+        | DType::Variant(_) => None,
+    }
 }
 
 #[cfg(feature = "vortex-local-primitives")]
@@ -1910,9 +1929,30 @@ fn primitive_stat_values_from_primitive_array(
 }
 
 #[cfg(feature = "vortex-local-primitives")]
+fn utf8_stat_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<StatValue>> {
+    use vortex::array::VortexSessionExecute as _;
+    use vortex::array::arrays::VarBinViewArray;
+
+    let mut ctx = vortex::array::LEGACY_SESSION.create_execution_ctx();
+    let utf8 = array.clone().execute::<VarBinViewArray>(&mut ctx).ok()?;
+    let mut values = Vec::with_capacity(utf8.len());
+    for index in 0..utf8.len() {
+        let bytes = utf8.bytes_at(index);
+        let text = std::str::from_utf8(bytes.as_slice()).ok()?;
+        values.push(StatValue::Utf8(text.to_string()));
+    }
+    Some(values)
+}
+
+#[cfg(feature = "vortex-local-primitives")]
 fn primitive_u32_codes_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<u32>> {
     use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::PrimitiveArray;
+    use vortex::array::dtype::DType;
+
+    if !matches!(array.dtype(), DType::Primitive(_, _)) {
+        return None;
+    }
 
     if let Some(primitive) = direct_non_nullable_host_primitive(array) {
         return primitive_u32_codes_from_primitive_array(&primitive);
@@ -1965,6 +2005,11 @@ fn primitive_u32_codes_from_primitive_array(
 fn primitive_u64_values_from_vortex_array(array: &vortex::array::ArrayRef) -> Option<Vec<u64>> {
     use vortex::array::VortexSessionExecute as _;
     use vortex::array::arrays::PrimitiveArray;
+    use vortex::array::dtype::DType;
+
+    if !matches!(array.dtype(), DType::Primitive(_, _)) {
+        return None;
+    }
 
     if let Some(primitive) = direct_non_nullable_host_primitive(array) {
         return primitive_u64_values_from_primitive_array(&primitive);
@@ -2856,6 +2901,115 @@ mod tests {
             }
             other => panic!("expected dictionary batch, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn reader_chunk_utf8_dictionary_values_lower_into_encoded_kernel_inputs() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{DictArray, PrimitiveArray, VarBinViewArray};
+
+        let codes = [0_u8, 1, 0, 2]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let values = VarBinViewArray::from_iter_str(["alpha", "beta", "gamma"]).into_array();
+        let chunk = DictArray::try_new(codes, values)
+            .expect("utf8 dictionary array")
+            .into_array();
+        let source_uri = DatasetUri::new("file:///tmp/utf8-dictionary.vortex").expect("uri");
+
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            "split-utf8-dict",
+            &chunk,
+        )
+        .expect("kernel inputs");
+
+        assert_eq!(inputs.len(), 1);
+        let input = inputs.first().expect("input");
+        assert!(input.provider_boundary.is_policy_admitted());
+        assert!(input.mapping_evidence_complete());
+        assert!(!input.has_forbidden_effects());
+        assert_eq!(
+            input.batch.segment.layout.encoding,
+            EncodingKind::Dictionary
+        );
+        assert_eq!(input.batch.segment.dtype, LogicalDType::Utf8);
+        assert_eq!(input.batch.segment.stats.row_count, Some(4));
+        assert_eq!(input.batch.segment.stats.null_count, Some(0));
+        match &input.batch.values {
+            EncodedValueBatch::Dictionary { dictionary, codes } => {
+                assert_eq!(
+                    dictionary,
+                    &vec![
+                        Some(StatValue::Utf8("alpha".to_string())),
+                        Some(StatValue::Utf8("beta".to_string())),
+                        Some(StatValue::Utf8("gamma".to_string())),
+                    ]
+                );
+                assert_eq!(codes, &vec![Some(0), Some(1), Some(0), Some(2)]);
+            }
+            other => panic!("expected dictionary batch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn reader_chunk_struct_lowers_utf8_dictionary_child_without_panic() {
+        use vortex::array::IntoArray as _;
+        use vortex::array::arrays::{DictArray, PrimitiveArray, StructArray, VarBinViewArray};
+        use vortex::array::dtype::FieldNames;
+        use vortex::array::validity::Validity;
+
+        let dim_key = [1_u32, 2, 1, 3]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let label_codes = [0_u8, 1, 0, 2]
+            .into_iter()
+            .collect::<PrimitiveArray>()
+            .into_array();
+        let label_values = VarBinViewArray::from_iter_str(["one", "two", "three"]).into_array();
+        let dim_label = DictArray::try_new(label_codes, label_values)
+            .expect("utf8 dictionary labels")
+            .into_array();
+        let chunk = StructArray::try_new(
+            FieldNames::from(["dim_key", "dim_label"]),
+            vec![dim_key, dim_label],
+            4,
+            Validity::NonNullable,
+        )
+        .expect("struct chunk")
+        .into_array();
+        let source_uri = DatasetUri::new("file:///tmp/hash-join-dim.vortex").expect("uri");
+
+        let inputs = reader_generated_encoded_kernel_inputs_from_vortex_chunk(
+            &source_uri,
+            "split-hash-join-dim",
+            &chunk,
+        )
+        .expect("kernel inputs");
+
+        assert_eq!(inputs.len(), 1);
+        assert!(inputs.iter().all(|input| input.mapping_evidence_complete()));
+        assert!(inputs.iter().all(|input| !input.has_forbidden_effects()));
+        let columns = inputs
+            .iter()
+            .map(|input| {
+                (
+                    input.batch.segment.column.as_str().to_string(),
+                    input.batch.segment.dtype.clone(),
+                    input.batch.segment.layout.encoding.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            columns,
+            vec![(
+                "dim_label".to_string(),
+                LogicalDType::Utf8,
+                EncodingKind::Dictionary,
+            )]
+        );
     }
 
     #[test]

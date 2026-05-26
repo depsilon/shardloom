@@ -158,7 +158,6 @@ PROFILES: dict[str, BenchmarkProfile] = {
             "shardloom-prepared-vortex",
             "shardloom-prepare-batch",
             "shardloom-vortex",
-            "native-vortex",
         ),
         required_formats=("csv",),
         optional_formats=("parquet",),
@@ -182,7 +181,7 @@ PROFILES: dict[str, BenchmarkProfile] = {
             "datafusion",
             "dask",
         ),
-        optional_lanes=("native-vortex",),
+        optional_lanes=(),
         required_formats=("csv", "parquet"),
         optional_formats=("jsonl", "arrow-ipc", "avro", "orc"),
         required_scenarios=(
@@ -218,7 +217,7 @@ PROFILES: dict[str, BenchmarkProfile] = {
             "spark-default",
             "spark-local-tuned",
         ),
-        optional_lanes=("native-vortex",),
+        optional_lanes=(),
         required_formats=("csv", "parquet"),
         optional_formats=("jsonl", "arrow-ipc", "avro", "orc"),
         required_scenarios=(
@@ -292,7 +291,7 @@ PROFILES: dict[str, BenchmarkProfile] = {
     "io_reuse_and_fanout": BenchmarkProfile(
         name="io_reuse_and_fanout",
         required_lanes=("shardloom", "shardloom-prepared-vortex", "shardloom-prepare-batch"),
-        optional_lanes=("shardloom-vortex", "native-vortex"),
+        optional_lanes=("shardloom-vortex",),
         required_formats=("csv", "parquet", "vortex"),
         optional_formats=("jsonl", "arrow-ipc", "avro", "orc"),
         required_scenarios=("io_reuse_and_fanout", "source_state_reuse"),

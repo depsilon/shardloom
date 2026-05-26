@@ -3003,6 +3003,14 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
     env["RUSTUP_TOOLCHAIN"] = env.get("RUSTUP_TOOLCHAIN", "1.91.1")
     prepared_paths: dict[str, dict[str, Path | float | str]] = {}
     single_process_prepare_batch = engine_name == "shardloom-prepare-batch"
+    vortex_execution_mode = (
+        "native_vortex" if engine_name == "shardloom-vortex" else "prepared_vortex"
+    )
+    vortex_mode_selection_reason = (
+        "existing Vortex input was scanned by the native Vortex route"
+        if vortex_execution_mode == "native_vortex"
+        else "compatibility input was prepared into Vortex once before scenario timing"
+    )
 
     def prepare_format(paths: DatasetPaths, data_format: str) -> None:
         if data_format in prepared_paths:
@@ -3145,7 +3153,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             str(prepared["fact"]),
             str(prepared["dim"]),
             "--execution-mode",
-            "prepared_vortex",
+            vortex_execution_mode,
         ]
         if scenario == "small change over large base":
             command.extend(["--cdc-delta-vortex", str(prepared["cdc_delta"])])
@@ -3323,11 +3331,15 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             prepared_digests.append(str(prepared["cdc_delta_digest"]))
         fields.update(
             {
-                "requested_execution_mode": "prepared_vortex",
-                "selected_execution_mode": "prepared_vortex",
-                "execution_mode": "prepared_vortex",
-                "mode_selection_reason": (
-                    "compatibility input was prepared into Vortex once before scenario timing"
+                "requested_execution_mode": vortex_execution_mode,
+                "selected_execution_mode": fields.get(
+                    "selected_execution_mode", vortex_execution_mode
+                ),
+                "execution_mode": fields.get(
+                    "selected_execution_mode", vortex_execution_mode
+                ),
+                "mode_selection_reason": fields.get(
+                    "mode_selection_reason", vortex_mode_selection_reason
                 ),
                 "execution_mode_family": "native_vortex",
                 "preparation_millis": str(prepared["preparation_millis"]),
@@ -3571,14 +3583,15 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
         batch_wall = completed.get("process_wall_millis", "not_measured")
         fields.update(
             {
-                "requested_execution_mode": "prepared_vortex",
+                "requested_execution_mode": vortex_execution_mode,
                 "selected_execution_mode": fields.get(
-                    "selected_execution_mode", "prepared_vortex"
+                    "selected_execution_mode", vortex_execution_mode
                 ),
-                "execution_mode": fields.get("selected_execution_mode", "prepared_vortex"),
+                "execution_mode": fields.get(
+                    "selected_execution_mode", vortex_execution_mode
+                ),
                 "mode_selection_reason": fields.get(
-                    "mode_selection_reason",
-                    "compatibility input was prepared into Vortex once before scenario timing",
+                    "mode_selection_reason", vortex_mode_selection_reason
                 ),
                 "execution_mode_family": "native_vortex",
                 "preparation_millis": str(prepared["preparation_millis"]),
@@ -4344,7 +4357,7 @@ def shardloom_vortex_runner(engine_name: str = "shardloom-vortex") -> EngineRunn
             str(prepared["fact"]),
             str(prepared["dim"]),
             "--execution-mode",
-            "prepared_vortex",
+            vortex_execution_mode,
             "--evidence-level",
             SHARDLOOM_EVIDENCE_LEVEL,
             "--format",
@@ -5318,6 +5331,17 @@ def polars_eager_runner() -> EngineRunner:
         )
         return normalize_rank_rows(rows)
 
+    def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
+        frame = read_fact(paths, data_format)
+        rows = (
+            frame.sort(["group_key", "metric", "id"], descending=[False, True, False])
+            .with_columns((pl.col("id").cum_count().over("group_key")).alias("rank"))
+            .filter(pl.col("rank") <= 3)
+            .select(["group_key", "id", "metric", "rank"])
+            .to_dicts()
+        )
+        return normalize_top_group_rows(rows)
+
     def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         fact = read_fact(paths, data_format)
         dim = read_dim(paths, data_format)
@@ -5376,6 +5400,7 @@ def polars_eager_runner() -> EngineRunner:
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
             "row number window": row_number_window,
+            "top-N per group": top_n_per_group,
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
@@ -5539,6 +5564,18 @@ def polars_lazy_runner() -> EngineRunner:
         )
         return normalize_multi_group_rows(rows, ("dim_label", "category"))
 
+    def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
+        rows = (
+            scan_fact(paths, data_format)
+            .sort(["group_key", "metric", "id"], descending=[False, True, False])
+            .with_columns((pl.col("id").cum_count().over("group_key")).alias("rank"))
+            .filter(pl.col("rank") <= 3)
+            .select(["group_key", "id", "metric", "rank"])
+            .collect()
+            .to_dicts()
+        )
+        return normalize_top_group_rows(rows)
+
     return EngineRunner(
         "polars-lazy",
         f"{module_version('polars')} (lazy scan API)",
@@ -5553,6 +5590,7 @@ def polars_lazy_runner() -> EngineRunner:
             "filter + projection + limit": filter_projection_limit,
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
+            "top-N per group": top_n_per_group,
         },
         formats=("csv", "jsonl", "parquet"),
     )
@@ -5696,6 +5734,18 @@ def duckdb_runner() -> EngineRunner:
             )
         )
 
+    def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
+        return normalize_top_group_rows(
+            query(
+                paths,
+                data_format,
+                "select group_key, id, metric, rank from ("
+                "select group_key, id, metric, "
+                "row_number() over (partition by group_key order by metric desc, id asc) as rank "
+                "from {fact}) where rank <= 3",
+            )
+        )
+
     def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_group_rows(
             query(
@@ -5737,6 +5787,7 @@ def duckdb_runner() -> EngineRunner:
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
             "row number window": row_number_window,
+            "top-N per group": top_n_per_group,
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
@@ -5920,6 +5971,18 @@ def spark_runner(profile: str) -> EngineRunner:
         ]
         return normalize_rank_rows(rows)
 
+    def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
+        window = Window.partitionBy("group_key").orderBy(F.col("metric").desc(), F.col("id").asc())
+        rows = [
+            row.asDict()
+            for row in read_fact(paths, data_format)
+            .withColumn("rank", F.row_number().over(window))
+            .where(F.col("rank") <= 3)
+            .select("group_key", "id", "metric", "rank")
+            .collect()
+        ]
+        return normalize_top_group_rows(rows)
+
     def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         rows = [
             row.asDict()
@@ -5969,6 +6032,7 @@ def spark_runner(profile: str) -> EngineRunner:
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
             "row number window": row_number_window,
+            "top-N per group": top_n_per_group,
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
@@ -6097,6 +6161,18 @@ def datafusion_runner() -> EngineRunner:
             )
         )
 
+    def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
+        return normalize_top_group_rows(
+            query(
+                paths,
+                data_format,
+                "select group_key, id, metric, rank from ("
+                "select group_key, id, metric, "
+                "row_number() over (partition by group_key order by metric desc, id asc) as rank "
+                "from fact) where rank <= 3",
+            )
+        )
+
     def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         return normalize_group_rows(
             query(
@@ -6136,6 +6212,7 @@ def datafusion_runner() -> EngineRunner:
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
             "row number window": row_number_window,
+            "top-N per group": top_n_per_group,
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
@@ -6249,6 +6326,15 @@ def dask_runner() -> EngineRunner:
         )
         return normalize_rank_rows(rows)
 
+    def top_n_per_group(paths: DatasetPaths, data_format: str) -> Any:
+        frame = compute_frame(read_fact(paths, data_format))
+        ranked = frame.sort_values(["group_key", "metric", "id"], ascending=[True, False, True])
+        ranked["rank"] = ranked.groupby("group_key").cumcount() + 1
+        rows = ranked[ranked["rank"] <= 3][["group_key", "id", "metric", "rank"]].to_dict(
+            "records"
+        )
+        return normalize_top_group_rows(rows)
+
     def scale_stress(paths: DatasetPaths, data_format: str) -> Any:
         fact = read_fact(paths, data_format)
         dim = read_dim(paths, data_format)
@@ -6294,6 +6380,7 @@ def dask_runner() -> EngineRunner:
             "multi-key group by": multi_key_group_by,
             "join + aggregate": join_aggregate,
             "row number window": row_number_window,
+            "top-N per group": top_n_per_group,
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
@@ -8481,7 +8568,9 @@ def materialization_policy(engine: str, data_format: str) -> str:
         )
     if engine == "shardloom-prepare-batch":
         return "single_process_compatibility_prepare_then_prepared_vortex_before_scenario_timing"
-    if engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
+    if engine == "shardloom-vortex":
+        return "native_vortex_input_before_scenario_timing"
+    if engine == "shardloom-prepared-vortex":
         return "prepared_vortex_input_before_scenario_timing"
     if data_format == SHARDLOOM_VORTEX_FORMAT:
         return "native_vortex_input"
@@ -8495,7 +8584,9 @@ def native_vortex_or_compatibility_import(engine: str, data_format: str) -> str:
         return "direct_compatibility_transient_no_vortex_persistence"
     if engine == "shardloom-prepare-batch":
         return "compatibility_import_certified_to_prepared_vortex_batch"
-    if engine in ("shardloom-vortex", "shardloom-prepared-vortex"):
+    if engine == "shardloom-vortex":
+        return "native_vortex"
+    if engine == "shardloom-prepared-vortex":
         return "prepared_vortex"
     if data_format == SHARDLOOM_VORTEX_FORMAT:
         return "native_vortex"
@@ -15651,35 +15742,35 @@ def render_prepared_state_matrix(artifact: dict[str, Any]) -> str:
     for row in artifact["prepared_state_matrix"]:
         rows.append(
             [
-                row["scenario_name"],
-                row["engine"],
-                row["status"],
-                str(row["execution_mode"]),
-                str(row["prepared_state_status"]),
-                str(row["prepared_state_id"]),
-                str(row["prepared_state_digest"]),
-                str(row["source_state_id"]),
-                str(row["vortex_artifact_ref"]).replace("|", "\\|"),
-                str(row["vortex_artifact_digest"]).replace("|", "\\|"),
-                str(row["layout_summary"]),
-                str(row["encoding_summary"]).replace("|", "\\|"),
-                str(row["statistics_summary"]),
-                str(row["prepared_state_reuse_allowed"]),
-                str(row["prepared_state_reuse_hit"]),
-                str(row["prepared_state_reuse_reason"]).replace("|", "\\|"),
-                str(row["preparation_included_in_timing"]),
-                format_metric(row["vortex_prepare_millis"], " ms"),
-                str(row["vortex_array_build_provider_kind"]),
-                str(row["vortex_array_build_provider_surface"]).replace("|", "\\|"),
-                str(row["vortex_array_build_strategy"]),
-                str(row["vortex_array_build_input_layout"]),
-                str(row["vortex_array_build_record_batch_count"]),
-                str(row["vortex_array_build_manual_scalar_copy_avoided"]),
-                str(row["prepared_state_native_io_certificate_status"]),
-                str(row["prepared_state_materialization_decode_boundary_ref"]),
-                str(row["prepared_state_claim_gate_status"]),
-                str(row["prepared_state_fallback_attempted"]),
-                str(row["prepared_state_external_engine_invoked"]),
+                row.get("scenario_name", "unknown"),
+                row.get("engine", "unknown"),
+                row.get("status", "unknown"),
+                str(row.get("execution_mode", "unknown")),
+                str(row.get("prepared_state_status", "unknown")),
+                str(row.get("prepared_state_id", "none")),
+                str(row.get("prepared_state_digest", "none")),
+                str(row.get("source_state_id", "none")),
+                str(row.get("vortex_artifact_ref", "none")).replace("|", "\\|"),
+                str(row.get("vortex_artifact_digest", "none")).replace("|", "\\|"),
+                str(row.get("layout_summary", "not_executed")),
+                str(row.get("encoding_summary", "not_executed")).replace("|", "\\|"),
+                str(row.get("statistics_summary", "not_executed")),
+                str(row.get("prepared_state_reuse_allowed", False)),
+                str(row.get("prepared_state_reuse_hit", False)),
+                str(row.get("prepared_state_reuse_reason", "not reported")).replace("|", "\\|"),
+                str(row.get("preparation_included_in_timing", False)),
+                format_metric(row.get("vortex_prepare_millis"), " ms"),
+                str(row.get("vortex_array_build_provider_kind", "not_applicable")),
+                str(row.get("vortex_array_build_provider_surface", "not_applicable")).replace("|", "\\|"),
+                str(row.get("vortex_array_build_strategy", "not_applicable")),
+                str(row.get("vortex_array_build_input_layout", "not_applicable")),
+                str(row.get("vortex_array_build_record_batch_count", 0)),
+                str(row.get("vortex_array_build_manual_scalar_copy_avoided", False)),
+                str(row.get("prepared_state_native_io_certificate_status", "none")),
+                str(row.get("prepared_state_materialization_decode_boundary_ref", "none")),
+                str(row.get("prepared_state_claim_gate_status", "not_claim_grade")),
+                str(row.get("prepared_state_fallback_attempted", False)),
+                str(row.get("prepared_state_external_engine_invoked", False)),
             ]
         )
     if not rows:

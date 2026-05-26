@@ -63,10 +63,11 @@ each selected compatibility format into local Vortex files before running the
 temporary benchmark operator. The `shardloom-vortex` and `shardloom-prepared-vortex`
 lanes prepare native Vortex artifacts once for each requested source format and then
 report the native/prepared scenario result under that source-format row, such as CSV
-or Parquet. The optional `shardloom-prepare-batch` lane runs the scoped
+or Parquet. The `shardloom-prepare-batch` lane runs the scoped
 compatibility prepare plus prepared/native batch route in one ShardLoom process and
-keeps preparation timing split from child query timing. These lanes do not add
-standalone `.vortex` report rows.
+keeps preparation timing split from child query timing. It is required for published
+full local profiles because it carries the single-process prepared/native route,
+source-state, scale, and PulseWeave evidence. These lanes do not add standalone `.vortex` report rows.
 The optional `shardloom-direct-transient` lane runs scoped local CSV/JSONL and feature-gated
 Parquet/Arrow IPC/Avro/ORC `selective filter` and `filter + projection + limit` smoke paths
 without persistent Vortex write/reopen. It exists to prove direct transient admission, shared
@@ -923,7 +924,9 @@ Apache Arrow's `arrow-avro` crate.
 Spark/PySpark also requires a local JDK. Install JDK 17 or newer, set
 `JAVA_HOME`, and ensure `java` is on `PATH` before expecting Spark rows to run.
 Without Java, the harness records Spark profiles as missing dependencies while
-still running the other engines.
+still running the other engines. Missing Spark/PySpark dependencies fail the
+`full_local_plus_spark` profile because `spark-default` and `spark-local-tuned`
+are required baselines there, not optional lanes.
 
 Spark rows are split into `spark-default` and `spark-local-tuned`. The default
 profile uses `local[*]` plus Spark defaults, while the tuned profile caps
@@ -940,6 +943,13 @@ JDK there.
 
 ```powershell
 benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 100000 --iterations 3 --formats csv,parquet --require-all-engines
+```
+
+Run the current full local plus PySpark profile before promoting website artifacts:
+
+```powershell
+benchmarks\traditional_analytics\.venv\Scripts\python scripts\check_benchmark_environment.py --profile full_local_plus_spark
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 100000 --iterations 3 --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,spark-default,spark-local-tuned --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --shardloom-result-sink --require-all-engines
 ```
 
 `--require-all-engines` is strict for automation: it still writes JSON and

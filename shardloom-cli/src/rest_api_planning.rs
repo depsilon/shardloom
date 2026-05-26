@@ -992,6 +992,19 @@ fn append_local_lifecycle_identity_fields(
     push_field(fields, "api_version", report.api_version);
     push_field(fields, "scenario", report.scenario.as_str());
     push_field(fields, "lifecycle_status", report.lifecycle_status.as_str());
+    push_field(fields, "engine_mode", report.engine_mode);
+    push_bool_field(
+        fields,
+        "control_plane_invoked",
+        report.control_plane_invoked,
+    );
+    push_field(fields, "control_plane_scope", report.control_plane_scope);
+    push_field(fields, "network_policy", report.network_policy);
+    push_field(
+        fields,
+        "checkpoint_state_posture",
+        report.checkpoint_state_posture,
+    );
     push_field(fields, "query_id", report.query_id);
     push_field(fields, "plan_handle", report.plan_handle);
     push_field(fields, "endpoint_paths", &report.endpoint_paths.join(","));
@@ -1116,6 +1129,37 @@ fn append_local_lifecycle_control_fields(
         fields,
         "retry_diagnostic_code",
         report.retry_diagnostic_code,
+    );
+    push_bool_field(fields, "live_fixture_invoked", report.live_fixture_invoked);
+    push_bool_field(
+        fields,
+        "hybrid_fixture_invoked",
+        report.hybrid_fixture_invoked,
+    );
+    push_bool_field(
+        fields,
+        "remote_worker_invoked",
+        report.remote_worker_invoked,
+    );
+    push_field(
+        fields,
+        "distributed_runtime_status",
+        report.distributed_runtime_status,
+    );
+    push_field(
+        fields,
+        "distributed_worker_blocker_id",
+        report.distributed_worker_blocker_id,
+    );
+    push_field(
+        fields,
+        "distributed_claim_gate_status",
+        report.distributed_claim_gate_status,
+    );
+    push_field(
+        fields,
+        "small_result_boundary",
+        report.small_result_boundary,
     );
 }
 

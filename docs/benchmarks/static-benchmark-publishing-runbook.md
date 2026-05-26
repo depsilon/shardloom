@@ -28,8 +28,11 @@ package-publication claims.
   separately admitted.
 - `io_reuse_and_fanout`: source/prepared/output reuse and cross-format fanout benchmark family.
 
-Missing required lanes fail the selected full profile. Missing optional lanes remain visible with a
-reason. External engines are baseline context only and never ShardLoom fallback execution.
+Missing required lanes fail the selected full profile. `full_local_plus_spark` treats PySpark
+`spark-default` and `spark-local-tuned` as required baselines, so `pyspark` and a local JDK must be
+available before publishing that profile. Missing optional extended/GPU/object-store lanes remain
+visible with a reason. External engines are baseline context only and never ShardLoom fallback
+execution.
 
 ## Publish A Local Artifact
 
@@ -37,7 +40,7 @@ reason. External engines are baseline context only and never ShardLoom fallback 
 python -m venv .venv-bench
 .\.venv-bench\Scripts\Activate.ps1
 python -m pip install -r benchmarks\traditional_analytics\requirements-full-local.txt
-python scripts\check_benchmark_environment.py --profile full_local
+python scripts\check_benchmark_environment.py --profile full_local_plus_spark
 ```
 
 Run the benchmark and write the local execution artifact:
@@ -47,15 +50,18 @@ python benchmarks\traditional_analytics\run.py `
   --rows 100000 `
   --iterations 3 `
   --include-taxonomy-extra `
-  --engines shardloom,shardloom-prepared-vortex,shardloom-vortex,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask `
+  --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,spark-default,spark-local-tuned `
   --formats csv,parquet `
+  --shardloom-result-sink `
   --require-all-engines `
-  --output target\benchmark-artifacts\traditional-full-local.json `
-  --markdown-output target\benchmark-artifacts\traditional-full-local.md
+  --output target\benchmark-artifacts\traditional-full-local-plus-spark.json `
+  --markdown-output target\benchmark-artifacts\traditional-full-local-plus-spark.md
 ```
 
 The legacy `polars` CLI alias expands to `polars-eager` and `polars-lazy`, but full-local publishing
 commands should name the split lanes explicitly so the manifest and raw rows remain easy to audit.
+The legacy `spark` CLI alias expands to `spark-default` and `spark-local-tuned`, but publishing
+commands should name the PySpark split lanes explicitly for the same reason.
 Optional extended lanes such as `pyarrow-dataset`, `pyarrow-acero`, `clickhouse-local`, `daft`,
 `ray-data`, `ibis-*`, and `cudf-gpu` are selected only by extended/GPU profiles or explicit
 `--engines` requests. Missing optional dependencies and unimplemented adapters must remain visible
@@ -65,8 +71,8 @@ Promote the local execution artifact into committed website artifacts:
 
 ```powershell
 python scripts\promote_benchmark_artifact.py `
-  --profile full_local `
-  --input target\benchmark-artifacts\traditional-full-local.json
+  --profile full_local_plus_spark `
+  --input target\benchmark-artifacts\traditional-full-local-plus-spark.json
 ```
 
 The promotion step is the only supported way to refresh the public comparative benchmark snapshot.

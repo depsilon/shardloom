@@ -26996,6 +26996,32 @@ mod tests {
                 .map(String::as_str),
             Some("false")
         );
+        assert_eq!(
+            native_fields
+                .get("prepared_vortex_scale_route")
+                .map(String::as_str),
+            Some("native_vortex_batch")
+        );
+        assert_eq!(
+            native_fields.get("pulseweave_status").map(String::as_str),
+            Some("applied")
+        );
+        assert_eq!(
+            native_fields
+                .get("pulseweave_runtime_decision_applied")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            native_fields.get("pulseweave_blocker").map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            native_fields
+                .get("proofbound_missing_evidence")
+                .map(String::as_str),
+            Some("none")
+        );
 
         let _ = std::fs::remove_dir_all(root);
     }
