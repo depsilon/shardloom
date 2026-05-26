@@ -11,11 +11,8 @@ tags, add secrets, or authorize fallback execution.
 python scripts\check_release_readiness.py
 ```
 
-For local inspection while evidence is still incomplete:
-
-```powershell
-python scripts\check_release_readiness.py --allow-blocked
-```
+Do not run the hard release gate with `--allow-blocked` in CI or release-readiness evidence. Inspect
+the emitted blocker report or the component gates when evidence is still incomplete.
 
 The script writes:
 

@@ -2005,6 +2005,12 @@ fn normalized_generated_output_path_key(path: &Path) -> String {
         .to_ascii_lowercase()
 }
 
+fn canonical_generated_output_path_key(path: &Path) -> Result<String, ShardLoomError> {
+    let workspace_root = shardloom_core::infer_local_output_workspace_root(path)?;
+    let plan = shardloom_core::plan_workspace_safe_local_output(workspace_root, path, true)?;
+    Ok(normalized_generated_output_path_key(&plan.target_path))
+}
+
 fn generated_fanout_plan_digest_fragment(fanout_outputs: &[GeneratedOutputTarget]) -> String {
     fanout_outputs
         .iter()
@@ -2027,10 +2033,10 @@ fn preflight_generated_output_writes(
 ) -> Result<(), ShardLoomError> {
     let mut paths = BTreeSet::new();
     validate_generated_output_format_available(output_format, output_path)?;
-    paths.insert(normalized_generated_output_path_key(output_path));
+    paths.insert(canonical_generated_output_path_key(output_path)?);
     for target in fanout_outputs {
         validate_generated_output_format_available(target.output_format, &target.output_path)?;
-        if !paths.insert(normalized_generated_output_path_key(&target.output_path)) {
+        if !paths.insert(canonical_generated_output_path_key(&target.output_path)?) {
             return Err(ShardLoomError::InvalidOperation(format!(
                 "generated-source fanout output path is duplicated: {}; no fallback execution was attempted",
                 target.output_path.display()

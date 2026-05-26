@@ -1404,7 +1404,7 @@ class SqlLocalSourceSmokeReport:
             part.strip()
             for group in value.split(";")
             for part in group.split(",")
-            if part.strip() and part.strip() != "none"
+            if part.strip()
         )
 
     @property
@@ -1448,7 +1448,7 @@ class SqlLocalSourceSmokeReport:
         return tuple(
             int(value)
             for value in _csv_values(self.envelope.field("window_offset_rows"))
-            if value != "none"
+            if value not in {"none", "not_applicable"}
         )
 
     @property
@@ -1458,7 +1458,7 @@ class SqlLocalSourceSmokeReport:
         return tuple(
             int(value)
             for value in _csv_values(self.envelope.field("window_bucket_counts"))
-            if value != "none"
+            if value not in {"none", "not_applicable"}
         )
 
     @property
@@ -8038,7 +8038,7 @@ class ShardLoomClient:
         cdc_delta_vortex: str | os.PathLike[str] | None = None,
         workspace: str | os.PathLike[str] | None = None,
         write_result_vortex: bool = False,
-        execution_mode: str | None = "prepared_vortex",
+        execution_mode: str | None = None,
         evidence_level: str | None = None,
         check: bool = True,
     ) -> OutputEnvelope:

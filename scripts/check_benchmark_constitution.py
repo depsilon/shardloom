@@ -249,7 +249,7 @@ def row_missing_fields(
             ),
         ),
         "cold_warm_state": first_present(row, ("cache_mode", "cache_state")),
-        "stage_timings": any(key in row for key in STAGE_TIMING_FIELDS),
+        "stage_timings": first_present(row, STAGE_TIMING_FIELDS),
         "cost_unit_fields": first_present(
             row,
             (

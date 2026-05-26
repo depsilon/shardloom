@@ -246,18 +246,19 @@ def check_mirrored_file(
     source: Path,
     mirror: Path,
     label: str,
+    repo_root: Path,
     blockers: list[str],
 ) -> None:
     if not source.exists():
-        blockers.append(f"missing canonical {label}: {source.relative_to(ROOT).as_posix()}")
+        blockers.append(f"missing canonical {label}: {rel(source, repo_root)}")
         return
     if not mirror.exists():
-        blockers.append(f"missing mirrored {label}: {mirror.relative_to(ROOT).as_posix()}")
+        blockers.append(f"missing mirrored {label}: {rel(mirror, repo_root)}")
         return
     if not same_text(source, mirror):
         blockers.append(
-            f"{label} drift: {mirror.relative_to(ROOT).as_posix()} does not match "
-            f"{source.relative_to(ROOT).as_posix()}"
+            f"{label} drift: {rel(mirror, repo_root)} does not match "
+            f"{rel(source, repo_root)}"
         )
 
 
@@ -392,12 +393,14 @@ def main() -> int:
         source=canonical_flow,
         mirror=flow_snapshot,
         label="compute-flow snapshot",
+        repo_root=repo_root,
         blockers=blockers,
     )
     check_mirrored_file(
         source=canonical_flow,
         mirror=repo_root / "website-public/assets/data/compute-engine-flow-reference.md",
         label="compute-flow public-dir snapshot",
+        repo_root=repo_root,
         blockers=blockers,
     )
 
@@ -417,12 +420,14 @@ def main() -> int:
             source=canonical_benchmark_results,
             mirror=mirror,
             label="benchmark evidence bundle",
+            repo_root=repo_root,
             blockers=blockers,
         )
     check_mirrored_file(
         source=canonical_benchmark_results,
         mirror=canonical_benchmark_data,
         label="benchmark public-dir data snapshot",
+        repo_root=repo_root,
         blockers=blockers,
     )
     for mirror in (
@@ -433,6 +438,7 @@ def main() -> int:
             source=canonical_benchmark_manifest,
             mirror=mirror,
             label="benchmark manifest bundle",
+            repo_root=repo_root,
             blockers=blockers,
         )
 

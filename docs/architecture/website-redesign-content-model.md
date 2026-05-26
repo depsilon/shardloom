@@ -278,21 +278,19 @@ package publication, or external-engine fallback.
 
 ## Generator Requirements
 
-If the current Python generator remains:
+The current site generator is the Astro/Starlight source tree under `website-src/`.
 
-- put structured registries near the top of `website/build_static_pages.py` only while small;
-- move registries into separate JSON/YAML files when they become hard to review;
-- generate pages from templates/helpers instead of repeated string fragments;
-- keep `website/validate_static_assets.js` route-aware;
-- keep `scripts/check_website_readiness.py` claim-aware.
-
-If Astro is later approved:
-
-- model these as content collections;
-- keep static output;
-- preserve existing route redirects;
-- preserve validation and Cloudflare deployment;
-- avoid runtime external fetches.
+- Keep canonical source data in repository docs, `docs/use-cases/use-case-index.yml`, status JSON,
+  and committed benchmark artifacts.
+- Use `website-src/scripts/sync-content.mjs` to copy canonical content into Astro import data before
+  each build.
+- Model generated Field Guide, Use Case Atlas, status, benchmark, and architecture pages as
+  content/data-driven routes instead of hand-edited generated HTML.
+- Keep static output under `website/` and preserve legacy `.html` compatibility pages through
+  `website-src/scripts/postbuild-static.mjs`.
+- Keep `website/validate_static_assets.js` route-aware.
+- Keep `scripts/check_website_readiness.py` claim-aware.
+- Avoid runtime external fetches.
 
 ## Acceptance For This Content Model
 

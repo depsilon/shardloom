@@ -751,9 +751,13 @@ pub fn compute_scarcity_ledger(
     };
     let queue_price_bps = if flow.wip_limit == 0 {
         10_000
+    } else if flow.held_for_downstream_count == 0 {
+        0
     } else {
-        let numerator = u32::try_from(flow.peak_in_flight).unwrap_or(u32::MAX);
-        let denominator = u32::try_from(flow.wip_limit).unwrap_or(u32::MAX).max(1);
+        let numerator = u32::try_from(flow.held_for_downstream_count).unwrap_or(u32::MAX);
+        let denominator = u32::try_from(flow.ready_task_count)
+            .unwrap_or(u32::MAX)
+            .max(1);
         u16::try_from(numerator.saturating_mul(10_000) / denominator).unwrap_or(10_000)
     };
     let decode_price_bps = if input
@@ -1237,8 +1241,19 @@ mod tests {
             ledger.selected_action,
             ScarcityLedgerAction::HoldForDownstream
         );
+        assert_eq!(ledger.queue_price_bps, 3_333);
         assert_eq!(ledger.sink_price_bps, 2_500);
         assert!(ledger.decision_digest.starts_with("fnv1a64:"));
+    }
+
+    #[test]
+    fn scarcity_ledger_does_not_charge_queue_price_without_downstream_backlog() {
+        let input = admitted_input().with_result_sink(false, false);
+        let flow = plan_flow_inventory(&input).expect("flow");
+        let ledger = compute_scarcity_ledger(&input, &flow);
+
+        assert_eq!(flow.held_for_downstream_count, 0);
+        assert_eq!(ledger.queue_price_bps, 0);
     }
 
     #[test]

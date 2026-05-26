@@ -1340,6 +1340,11 @@ fn sql_smoke_writes_generate_series_topn_fanout_and_replay_evidence() {
 #[test]
 fn generated_source_fanout_rejects_duplicate_paths_before_writes() {
     let output_path = unique_output_path("generated-sql-range-fanout-duplicate");
+    let duplicate_path = output_path
+        .parent()
+        .expect("temp path has parent")
+        .join(".")
+        .join(output_path.file_name().expect("temp path has file name"));
     let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
         .args([
             "generated-source-sql-smoke",
@@ -1347,7 +1352,7 @@ fn generated_source_fanout_rejects_duplicate_paths_before_writes() {
             "SELECT * FROM range(1, 3)",
             "--fanout-output",
         ])
-        .arg(format!("csv={}", output_path.display()))
+        .arg(format!("csv={}", duplicate_path.display()))
         .args(["--format", "json"])
         .output()
         .expect("generated-source-sql-smoke command runs");

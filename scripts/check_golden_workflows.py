@@ -130,8 +130,16 @@ def no_fallback_blockers(payload: dict[str, Any], label: str) -> list[str]:
             blockers.append(f"{label}: envelope fallback.attempted must be false")
         if fallback.get("allowed") is not False:
             blockers.append(f"{label}: envelope fallback.allowed must be false")
+    else:
+        blockers.append(f"{label}: envelope fallback marker is missing")
 
-    for key, value in field_map(payload).items():
+    fields = field_map(payload)
+    lowered_keys = tuple(key.lower() for key in fields)
+    if not any("external_engine_invoked" in key for key in lowered_keys) and not any(
+        "external_query_engine_invoked" in key for key in lowered_keys
+    ):
+        blockers.append(f"{label}: external engine marker is missing")
+    for key, value in fields.items():
         lowered = key.lower()
         bool_value = bool_field(value)
         if "fallback_attempted" in lowered and bool_value is not False:

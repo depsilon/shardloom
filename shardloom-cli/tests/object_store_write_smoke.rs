@@ -133,6 +133,76 @@ fn rollback_after_commit_cleans_target_and_manifest_with_evidence() {
 }
 
 #[test]
+fn no_overwrite_rejects_existing_target_without_clobbering_payload() {
+    let temp_dir = temp_case_dir("no-overwrite-existing");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let source = temp_dir.join("payload.bin");
+    let target = temp_dir.join("object.bin");
+    fs::write(&source, b"new payload").expect("fixture write");
+    fs::write(&target, b"original payload").expect("target write");
+    let args = vec![
+        "object-store-write-smoke".to_string(),
+        source.to_string_lossy().into_owned(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-emulator".to_string(),
+    ];
+
+    let (success, output, stderr) = run_object_store_write_smoke_json(&args);
+
+    assert!(!success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert_eq!(
+        fs::read(&target).expect("target payload"),
+        b"original payload"
+    );
+    assert!(output.contains(&field("object_store_write_status", "blocked_target_exists")));
+    assert!(output.contains(&field("object_store_write_io", "false")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
+fn allow_overwrite_replaces_existing_target_after_staging() {
+    let temp_dir = temp_case_dir("overwrite-existing");
+    let _ = fs::remove_dir_all(&temp_dir);
+    fs::create_dir_all(&temp_dir).expect("temp dir");
+    let source = temp_dir.join("payload.bin");
+    let target = temp_dir.join("object.bin");
+    fs::write(&source, b"replacement payload").expect("fixture write");
+    fs::write(&target, b"original payload").expect("target write");
+    let args = vec![
+        "object-store-write-smoke".to_string(),
+        source.to_string_lossy().into_owned(),
+        target.to_string_lossy().into_owned(),
+        "--profile".to_string(),
+        "local-emulator".to_string(),
+        "--allow-overwrite".to_string(),
+    ];
+
+    let (success, output, stderr) = run_object_store_write_smoke_json(&args);
+
+    assert!(success, "stdout={output} stderr={stderr}");
+    assert!(stderr.is_empty(), "stderr={stderr}");
+    assert_eq!(
+        fs::read(&target).expect("target payload"),
+        b"replacement payload"
+    );
+    assert!(sidecar_path(&target).exists(), "commit manifest exists");
+    assert!(output.contains(&field("object_store_write_status", "committed")));
+    assert!(output.contains(&field("allow_overwrite", "true")));
+    assert!(output.contains(&field("commit_status", "committed_local_emulator_object")));
+    assert!(output.contains(&field("object_store_write_io", "true")));
+    assert!(output.contains(&field("fallback_attempted", "false")));
+    assert!(output.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_dir_all(&temp_dir).expect("fixture cleanup");
+}
+
+#[test]
 fn remote_target_is_blocked_without_write_or_probe() {
     let temp_dir = temp_case_dir("remote");
     let _ = fs::remove_dir_all(&temp_dir);

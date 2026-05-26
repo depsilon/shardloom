@@ -56,6 +56,9 @@ Current runtime support is intentionally scoped and evidence-gated:
   output;
 - scoped local-source output/fanout to JSONL/CSV, feature-gated Parquet/Arrow IPC/Avro/ORC, and
   feature-gated local Vortex sinks with local replay/fidelity evidence;
+- fixture-scoped object-store URI parsing for S3/GCS/ADLS, public no-credential local-fixture
+  reads, and local-emulator read/write smokes with credential, network, and provider probes
+  disabled;
 - local Vortex/prepared-native benchmark evidence for selected traditional analytics scenarios;
 - feature-gated local `vortex_ingest` runtime that prepares admitted flat scalar local sources into a
   local `.vortex` artifact and emits `VortexPreparedState` evidence with explicit
@@ -63,8 +66,9 @@ Current runtime support is intentionally scoped and evidence-gated:
 - Python and SQL workflows that expose normal read/filter/select/write calls while preserving
   internal SourceState, Vortex preparation, OutputPlan, replay, reuse, and no-fallback evidence
   behind the user surface;
-- report-only or blocked status for broader SQL/DataFrame, object-store, lakehouse/table,
-  distributed, live/hybrid production, Foundry production, and package-publication claims.
+- report-only or blocked status for broader SQL/DataFrame, live/authenticated object-store
+  providers, lakehouse/table commits, distributed, live/hybrid production, Foundry production, and
+  package-publication claims.
 
 Unsupported work must emit a deterministic blocker instead of delegating execution to Spark,
 DataFusion, DuckDB, Polars, Dask, Ray, pandas, Velox, Trino, a database, a warehouse, or another
@@ -167,14 +171,19 @@ Useful checks while working locally:
 ```powershell
 cargo test -p shardloom-contract-tests --test release_readiness_metadata
 cargo test -p shardloom-contract-tests --test traditional_benchmark_harness
-python website\build_static_pages.py
+Push-Location website-src
+npm run build
+npm run check
+Pop-Location
 python scripts\check_website_readiness.py
 node website\validate_static_assets.js
 git diff --check
 ```
 
-The public website is generated from `website/build_static_pages.py` and committed static assets.
-It should stay compact, light-mode, benchmark/compute-flow/repo centered, and claim-safe.
+The public website is generated from `website-src/` Astro/Starlight source and committed static
+assets under `website/`. `npm run sync-content` copies canonical docs, use-case/status rows, and
+benchmark artifacts into the site build; do not hand-edit generated website copies independently.
+The site should stay compact, light-mode, benchmark/compute-flow/repo centered, and claim-safe.
 
 ## License
 

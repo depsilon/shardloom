@@ -1018,6 +1018,7 @@ class GeneratedRangeSource(_GeneratedStructuredOutputMixin):
             step=self.step,
             column=self.column,
             client=self.client,
+            source_kind=self.source_kind,
         )
 
 
@@ -1030,6 +1031,7 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
     step: int
     column: str
     client: ShardLoomClient
+    source_kind: str = "range"
     predicate: str | None = None
     select_items: tuple[str, ...] = ()
     sort_key: tuple[str, tuple[str, ...]] | None = None
@@ -1046,6 +1048,7 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             step=self.step,
             column=self.column,
             client=self.client,
+            source_kind=self.source_kind,
             predicate=_sql_generated_range_expression_sql(predicate, self.column),
             select_items=self.select_items,
             sort_key=self.sort_key,
@@ -1066,6 +1069,7 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             step=self.step,
             column=self.column,
             client=self.client,
+            source_kind=self.source_kind,
             predicate=self.predicate,
             select_items=_normalize_generated_range_select_items(columns, self.column),
             sort_key=self.sort_key,
@@ -1095,6 +1099,7 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             step=self.step,
             column=self.column,
             client=self.client,
+            source_kind=self.source_kind,
             predicate=self.predicate,
             select_items=select_items + (f"{expression_sql} AS {column_name}",),
             sort_key=self.sort_key,
@@ -1118,6 +1123,7 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             step=self.step,
             column=self.column,
             client=self.client,
+            source_kind=self.source_kind,
             predicate=self.predicate,
             select_items=self.select_items,
             sort_key=(direction, sort_columns),
@@ -1133,6 +1139,7 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
             step=self.step,
             column=self.column,
             client=self.client,
+            source_kind=self.source_kind,
             predicate=self.predicate,
             select_items=self.select_items,
             sort_key=self.sort_key,
@@ -1224,9 +1231,10 @@ class GeneratedRangeQuerySource(_GeneratedStructuredOutputMixin):
         select_items = self.select_items or _default_generated_range_select_items(
             self.column
         )
+        generator = "generate_series" if self.source_kind == "sequence" else "range"
         statement = (
             f"SELECT {', '.join(select_items)} "
-            f"FROM range({self.start}, {self.end}, {self.step})"
+            f"FROM {generator}({self.start}, {self.end}, {self.step})"
         )
         if self.predicate is not None:
             statement = f"{statement} WHERE {self.predicate}"
@@ -2202,7 +2210,10 @@ class LazyFrame:
         """Return bounded Python row objects for admitted local-source workflows."""
 
         if statement := self._sql_local_source_statement():
-            return self.client.sql_local_source_smoke(statement, check=check).result_rows
+            smoke_report = self.client.sql_local_source_smoke(statement, check=check)
+            if smoke_report.envelope.status != "success":
+                return self._unsupported_operation("to-python-objects", check=check)
+            return smoke_report.result_rows
         return self._unsupported_operation("to-python-objects", check=check)
 
     def write_vortex(
@@ -2664,6 +2675,8 @@ class LazyFrame:
         if statement is None:
             return None
         smoke_report = self.client.sql_local_source_smoke(statement, check=check)
+        if smoke_report.envelope.status != "success":
+            return None
         return _workflow_schema_report(self, smoke_report)
 
     def _append_group_by_aggregate(

@@ -43,6 +43,14 @@ fn evidence_schema_registry_global_output_is_typed_and_claim_safe() {
         "integer"
     )));
     assert!(output.contains(&field(
+        "evidence_schema_field_execution_certificate_report_runtime_execution_dtype",
+        "boolean"
+    )));
+    assert!(output.contains(&field(
+        "evidence_schema_field_compute_capability_matrix_report_support_status_vocabulary_cardinality",
+        "list_or_csv"
+    )));
+    assert!(output.contains(&field(
         "evidence_schema_surface_benchmark_constitution_report_command_examples",
         "benchmark-constitution"
     )));

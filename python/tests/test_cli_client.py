@@ -1632,6 +1632,100 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(validation.passed)
         self.assertIn("execution_certificate_status", validation.invalid_fields)
 
+    def test_runtime_execution_validation_ignores_certified_non_execution_certificate(
+        self,
+    ) -> None:
+        envelope = OutputEnvelope.from_json(
+            {
+                "schema_version": "shardloom.output.v2",
+                "command": "runtime-field-mapping",
+                "status": "success",
+                "summary": "runtime field mapping",
+                "human_text": "runtime field mapping",
+                "fallback": {
+                    "attempted": False,
+                    "allowed": False,
+                    "engine": None,
+                    "reason": "disabled",
+                },
+                "diagnostics": [],
+                "result": {
+                    "fields": [
+                        {"key": "source_state_id", "value": "source-state://certified-level"},
+                        {"key": "data_decoded", "value": "false"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"},
+                        {"key": "claim_gate_status", "value": "not_claim_grade"},
+                        {"key": "evidence_level", "value": "certified"},
+                    ]
+                },
+                "result_refs": [],
+                "artifacts": [],
+                "artifact_refs": [],
+                "certificates": [
+                    {
+                        "id": "native_io.fixture",
+                        "kind": "native_io_certificate",
+                        "status": "certified",
+                        "uri": None,
+                    }
+                ],
+                "policy": {"fields": []},
+                "lifecycle": {"fields": []},
+                "capability_snapshot": {"fields": []},
+                "fields": [],
+            }
+        )
+
+        validation = envelope.runtime_execution_validation(
+            surface_id="certified_non_execution_certificate"
+        )
+
+        self.assertFalse(validation.passed)
+        self.assertIn("execution_certificate_status", validation.invalid_fields)
+        self.assertIn("execution_certificate", validation.missing_fields)
+
+    def test_runtime_execution_field_validation_treats_empty_cert_refs_as_missing(
+        self,
+    ) -> None:
+        validation = validate_runtime_execution_fields(
+            {
+                "source_state_id": "source-state://empty-cert-refs",
+                "data_decoded": False,
+                "execution_certificate_refs": "[]",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "claim_gate_status": "fixture_smoke_only",
+            },
+            command="traditional-analytics-benchmark-row",
+            surface_id="empty_cert_refs",
+        )
+
+        self.assertFalse(validation.passed)
+        self.assertIn("execution_certificate", validation.missing_fields)
+
+    def test_runtime_execution_field_validation_blocks_non_success_runtime_expected(
+        self,
+    ) -> None:
+        validation = validate_runtime_execution_fields(
+            {
+                "source_state_id": "source-state://unsupported",
+                "data_decoded": False,
+                "runtime_execution_certificate_id": "execution.unsupported",
+                "runtime_execution_certificate_status": "certified",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+                "claim_gate_status": "not_claim_grade",
+            },
+            command="traditional-analytics-benchmark-row",
+            status="unsupported",
+            surface_id="unsupported_runtime_expected",
+            runtime_expected=True,
+        )
+
+        self.assertFalse(validation.passed)
+        self.assertIn("status", validation.invalid_fields)
+
     def test_runtime_execution_field_validation_blocks_full_replay_without_replay_proof(
         self,
     ) -> None:
@@ -1879,9 +1973,10 @@ class ShardLoomClientTests(unittest.TestCase):
                 "capability_snapshot": {"fields": []},
                 "fields": [
                     {"key": "result_jsonl", "value": "{}\n"},
+                    {"key": "window_partition_columns", "value": "none,category"},
                     {"key": "window_value_columns", "value": "label,label"},
-                    {"key": "window_offset_rows", "value": "1,2"},
-                    {"key": "window_bucket_counts", "value": "4,none"},
+                    {"key": "window_offset_rows", "value": "1,not_applicable,2"},
+                    {"key": "window_bucket_counts", "value": "4,none,not_applicable"},
                     {"key": "window_lag_runtime_execution", "value": "true"},
                     {"key": "window_lead_runtime_execution", "value": "true"},
                     {"key": "window_ntile_runtime_execution", "value": "true"},
@@ -1893,6 +1988,7 @@ class ShardLoomClientTests(unittest.TestCase):
         report = SqlLocalSourceSmokeReport(envelope)
 
         self.assertEqual(report.window_value_columns, ("label", "label"))
+        self.assertEqual(report.window_partition_columns, ("none", "category"))
         self.assertEqual(report.window_offset_rows, (1, 2))
         self.assertEqual(report.window_bucket_counts, (4,))
         self.assertTrue(report.window_lag_runtime_execution)
@@ -3062,7 +3158,7 @@ class ShardLoomClientTests(unittest.TestCase):
                             ("sql_source_free_projection", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_range_projection_jsonl_csv_smoke_only", "sql_parser,sql_binder,sql_planner,range_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("sql_generate_series_range", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_sql_generate_series_range_jsonl_csv_smoke_only", "sql_parser,sql_binder,sql_table_function_contract,range_generator_semantics,scoped_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
                             ("dataframe_source_free_projection", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.dataframe_source_free_projection_runtime_not_implemented", "typed_expression_contract,projection_plan_digest,generated_source_certificate,execution_certificate", "not_claim_grade"),
-                            ("dataframe_generated_with_column", "fixture_smoke_supported", "true", "false", "true", "false", "true", "none_scoped_local_generated_with_column_jsonl_csv_smoke_only", "generated_row_literal_projection,range_projection_expression_semantics,generated_source_certificate,output_native_io_certificate,execution_certificate,no_fallback_evidence", "fixture_smoke_only"),
+                            ("dataframe_generated_with_column", "report_only", "false", "false", "false", "false", "false", "gar-gen-1.dataframe_generated_with_column_runtime_not_implemented", "dataframe_with_column_expression_contract,generated_source_plan_contract,generated_source_certificate", "not_claim_grade"),
                         ]
                         fields.extend([
                             {"key": "generated_source_api_admission_schema_version", "value": "shardloom.generated_source_api_admission.v1"},
@@ -3823,7 +3919,7 @@ class ShardLoomClientTests(unittest.TestCase):
             capabilities.dataframe.generated_source_api_admission.row(
                 "dataframe_generated_with_column"
             ).claim_gate_status,
-            "fixture_smoke_only",
+            "not_claim_grade",
         )
         self.assertTrue(
             capabilities.api_surfaces.generated_source_api_admission.row(
@@ -6710,7 +6806,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(artifacts.cleanup_policy, "caller_owned_workspace_cleanup")
         self.assertTrue(artifacts.reuse_eligible)
 
-    def test_traditional_analytics_vortex_batch_run_dispatches_prepared_batch(self) -> None:
+    def test_traditional_analytics_vortex_batch_run_preserves_cli_default_mode(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
                 """
@@ -6725,8 +6821,6 @@ class ShardLoomClientTests(unittest.TestCase):
                     "--workspace",
                     "out",
                     "--write-result-vortex",
-                    "--execution-mode",
-                    "prepared_vortex",
                     "--evidence-level",
                     "full_replay",
                     "--format",
@@ -6766,6 +6860,46 @@ class ShardLoomClientTests(unittest.TestCase):
 
         self.assertEqual(result.command, "traditional-analytics-vortex-batch-run")
         self.assertEqual(result.field("source_state_digest"), "fnv1a64:batch")
+
+    def test_traditional_analytics_vortex_batch_run_accepts_explicit_mode(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "traditional-analytics-vortex-batch-run",
+                    "hash join",
+                    "fact.vortex",
+                    "dim.vortex",
+                    "--execution-mode",
+                    "prepared_vortex",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "traditional-analytics-vortex-batch-run",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "selected_execution_mode", "value": "prepared_vortex"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).traditional_analytics_vortex_batch_run(
+            "hash join",
+            "fact.vortex",
+            "dim.vortex",
+            execution_mode="prepared_vortex",
+        )
+
+        self.assertEqual(result.field("selected_execution_mode"), "prepared_vortex")
 
     def test_traditional_analytics_prepare_batch_run_dispatches_combined_route(self) -> None:
         binary = self.fake_cli(

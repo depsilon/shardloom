@@ -409,6 +409,7 @@ fn field_cardinality(field_key: &str) -> &'static str {
     if field_key.ends_with("_order")
         || field_key.ends_with("_refs")
         || field_key.ends_with("_claims")
+        || field_key.ends_with("_vocabulary")
         || field_key.contains("_columns")
         || field_key.contains("_operations")
         || field_key.contains("_surfaces")
@@ -436,7 +437,8 @@ fn field_no_fallback_semantics(field_key: &str) -> &'static str {
 }
 
 fn is_boolean_field(field_key: &str) -> bool {
-    field_key.starts_with("all_")
+    field_key == "runtime_execution"
+        || field_key.starts_with("all_")
         || field_key.ends_with("_allowed")
         || field_key.ends_with("_attempted")
         || field_key.ends_with("_invoked")
@@ -539,6 +541,15 @@ mod tests {
             "evidence_schema_field_execution_mode_selection_report_fallback_attempted_no_fallback_semantics".to_string(),
             "must_remain_false".to_string()
         )));
+    }
+
+    #[test]
+    fn field_classification_covers_runtime_execution_and_vocabularies() {
+        assert_eq!(field_dtype("runtime_execution"), "boolean");
+        assert_eq!(
+            field_cardinality("support_status_vocabulary"),
+            "list_or_csv"
+        );
     }
 
     #[test]

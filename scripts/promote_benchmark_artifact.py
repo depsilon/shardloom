@@ -594,9 +594,6 @@ def should_validate_runtime_row(row: dict[str, Any]) -> bool:
 def runtime_validation_for_row(row: dict[str, Any]) -> dict[str, Any] | None:
     if not should_validate_runtime_row(row):
         return None
-    existing = row.get("runtime_execution_validation")
-    if isinstance(existing, dict) and existing.get("status") == "passed":
-        return existing
     status = str(row.get("status", "unknown"))
     runtime_expected = status == "success"
     validation = validate_runtime_execution_fields(
