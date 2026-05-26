@@ -31,8 +31,8 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=9
-executable_fixture_count=7
+matrix_row_count=18
+executable_fixture_count=16
 unsupported_diagnostic_count=2
 property_lane_count=1
 property_seed_order=20260521
@@ -56,13 +56,22 @@ Covered fixture rows:
 - `null_coalesce_nullif`
 - `predicate_projection_three_valued`
 - `aggregate_having_output_rows`
+- `string_function_composition_utf8`
+- `temporal_arithmetic_difference_utc`
+- `conditional_projection_case_when`
+- `in_predicate_literal_null_semantics`
+- `in_subquery_scalar_semantics`
+- `distinct_count_grouped`
+- `having_hidden_aggregate_expression`
+- `window_rank_offset_distribution`
+- `join_multi_key_expression_condition`
 - `unsupported_numeric_division_by_zero`
 - `unsupported_cast_decimal128`
 
 Current remaining gaps are decimal precision/scale semantics, timezone database and non-UTC
-timestamp policy, binary and nested/list equality semantics, join/window semantic certification,
-external-oracle result artifact population, and fuzz execution beyond the deterministic seeded
-property lane.
+timestamp policy, nested/list/struct equality semantics, correlated multi-column and nested
+subquery semantics, external-oracle result artifact population, and fuzz execution beyond the
+deterministic seeded property lane.
 
 Claim boundary: admitted SQL local-source expression/operator correctness evidence only. This does
 not authorize ANSI SQL parity, production semantic parity, broad SQL/DataFrame support, performance

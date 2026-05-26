@@ -283,11 +283,11 @@ local adapter/ingest parity closeout, `GAR-RUNTIME-IMPL-4P/5M` declared local sc
 closeout, `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout, and
 `GAR-RUNTIME-IMPL-5R` PulseWeave automatic prepared/local runtime control,
 `GAR-RUNTIME-IMPL-5K` public no-credential object-store fixture read admission,
-`GAR-RUNTIME-IMPL-4Q/5N` live/hybrid loopback control-plane and distributed-blocker admission, and
-`GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout are complete and
-recorded in the ledger. Continue with expression/operator closeout (`4D`/`5G`) as the last 4-series
-runtime-family closeout before SQL/Python surface backstops, benchmark and Foundry gates, and
-release usability.
+`GAR-RUNTIME-IMPL-4Q/5N` live/hybrid loopback control-plane and distributed-blocker admission,
+`GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout, and the parent
+`GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout are complete and recorded in the ledger.
+Continue with the split internal-engine follow-ups below before SQL/Python surface backstops,
+benchmark and Foundry gates, and release usability.
 Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
@@ -304,97 +304,106 @@ item only after the matching 4-series runtime item has landed or when the 4-seri
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
 
-- [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families
-  - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics,
-    `docs/architecture/vortex-public-api-inventory.md`.
-  - Current state: scoped SQL/Python local-source expression coverage has moved well past the first
-    predicate/projection leaves; detailed completed 4D slices live in
-    `docs/architecture/phased-execution-completed-ledger.md`. Scoped local-source computed
-    projections now also admit `SELECT *` plus computed/literal projection outputs, so Python
-    `read_csv(...)`, flat `read_json(...)`, and feature-gated flat scalar structured readers can
-    lower `with_column(...).filter(...).sort(...).limit(...)` without requiring an explicit
-    `select(...)`; computed-projection top-N now sorts projected rows by computed aliases and can
-    still sort by source columns when the source column is not projected. Scoped scalar/grouped
-    aggregate `HAVING` now evaluates admitted predicates over emitted aggregate output rows for
-    local-source SQL/Python and join-aggregate paths. Scoped local-source aggregate HAVING also
-    admits unprojected `COUNT(*)`, `COUNT(column)`, `COUNT(DISTINCT column)`, `SUM`, `AVG`, `MIN`,
-    and `MAX` aggregate functions as hidden HAVING-only evaluation columns, strips those columns
-    from user output, and keeps unsupported aggregate shapes or non-output source-column references
-    deterministically blocked. Scoped UTF-8 string predicates/projections now also admit composed
-    expression trees across `LOWER` / `UPPER` / `TRIM`, `CONCAT`, `SUBSTR` / `SUBSTRING`,
-    `LEFT` / `RIGHT`, `REPLACE`, and `LENGTH` for local-source SQL/Python paths while preserving
-    deterministic blockers for source-free or unsupported string expression shapes.
-    The remaining work is the parity gap
-    around broader non-UTF-8 non-numeric expression families, broader coercion/function coverage,
-    broader HAVING expression trees, interval/date-time and timezone-database semantics,
-    correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness beyond
-    the currently admitted leaves, and final SQL/Python ergonomics. Unsupported residual work must
-    continue to fail with deterministic no-fallback diagnostics.
-  - Closeout posture: this parent item remains open for the residual parity gaps above.
-    A future closeout PR must either implement those gaps or split each non-goal into separate
-    follow-on runtime items before marking `GAR-RUNTIME-IMPL-4D` complete.
-  - Next slice outcome: add one implementation PR per remaining expression family: remaining
-    non-numeric expression/function families, richer IN semantics only where evidence-backed,
-    timestamp/timezone helpers, interval/date-time completeness where admitted, and broader typed
-    coercions/functions.
-  - Runtime enablement: executable ShardLoom-native expression families or deterministic runtime
-    blockers for unsupported operators.
-  - User-visible surface: SQL/Python query builder, explain output, capability matrix, docs.
-  - Implementation scope: expression IR, type coercion policy, null semantics, parser lowering,
-    native evaluators, diagnostics.
-  - Vortex 0.71/0.72 opportunity mapping:
-    - Pluggable struct cast informs ShardLoom-native cast/coercion admission only after local
-      correctness tests and output evidence exist.
-    - Variant array and `VariantGet` inform nested/semi-structured expression blockers and later
-      scoped runtime support.
-    - `DType::Union` must remain explicit unsupported/runtime-blocked until union semantics,
-      nullability, schema reporting, and output evidence are implemented.
-    - Statistic expression support can inform metadata-first expression planning, but cannot become
-      a correctness or performance claim by itself.
-  - Evidence required: expression family, input/output dtype, null policy, cast status, decoded/
-    materialized flags, correctness digest, no-fallback fields.
-  - Acceptance: every admitted expression has fixture coverage and unsupported expressions report a
-    deterministic diagnostic.
-  - Verification: expression unit tests, SQL/Python smoke tests, unsupported snapshots, release
-    readiness metadata.
-  - Non-goals: no arbitrary UDFs, regex parity, timezone completeness, or ANSI SQL claim.
-  - Claim boundary: expression-family support per admitted dtype/operator.
-  - Fallback boundary: expression evaluation must remain ShardLoom-native.
-  - Dependencies/blockers: expression IR stability, dtype coercion policy, decoded-reference
-    fixtures, and SQL/Python lowering.
-  - Ledger rule: ledger entry must enumerate expression families, dtypes, and blockers.
+- [ ] GAR-RUNTIME-IMPL-4D-F1 advanced scalar, decimal, interval, timezone, and collation semantics
+  - Source: RFC 0021, RFC 0015, admitted semantics matrix residual gaps.
+  - Current state: the parent `GAR-RUNTIME-IMPL-4D` local expression-family closeout is complete and
+    recorded in the ledger for admitted numeric, cast/try-cast, null, predicate, UTF-8 string,
+    Date32, UTC timestamp, temporal arithmetic/difference, binary equality, conditional, IN,
+    aggregate/HAVING, join, and window fixture evidence. This follow-up owns scalar semantics that
+    were explicitly split out as non-goals rather than hidden inside the closed parent item.
+  - Next slice outcome: admit or deterministically block decimal precision/scale, non-UTC timezone
+    database semantics, interval/date-time completeness, regex/collation/locale policy, and any
+    related coercion/function families.
+  - Runtime enablement: ShardLoom-native scalar semantics for admitted advanced families or stable
+    unsupported diagnostics with no fallback.
+  - User-visible surface: SQL/Python capability reports and docs only after engine behavior and
+    matrix fixtures exist.
+  - Implementation scope: expression IR, dtype/coercion policy, temporal parsers, scalar function
+    registry, diagnostics, admitted-semantics matrix rows.
+  - Evidence required: input/output dtype, null/coercion policy, decoded reference, unsupported
+    diagnostic, correctness digest, no-fallback fields.
+  - Acceptance: every newly admitted scalar family has executable fixtures; unsupported scalar
+    families have deterministic diagnostics and documented claim boundaries.
+  - Verification: expression unit/contract tests, SQL/Python smokes where surfaced, admitted
+    semantics matrix, release readiness metadata.
+  - Non-goals: no ANSI parity or broad production SQL claim.
+  - Claim boundary: scalar family and dtype pairs explicitly admitted by fixtures.
+  - Fallback boundary: no external runtime evaluator.
+  - Dependencies/blockers: dtype policy, decoded-reference fixtures, SQL/Python lowering.
+  - Ledger rule: ledger entry must list admitted scalar families and remaining blocked scalar
+    families.
 
-- [ ] GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage
-  - Source: `GAR-RUNTIME-IMPL-4D`, `GAR-RUNTIME-IMPL-4J`, RFC 0015, RFC 0016, RFC 0021.
-  - Current state: selected residual-native operators exist; broad type/null/string/date/decimal,
-    join/window/top-k, fused, and encoded-kernel coverage remains incomplete. Initial encoded
-    registry pairs now execute for scoped bitpacked, sequence, constant, and dictionary Vortex
-    reader inputs, but this is still pair-level runtime evidence rather than broad operator/function
-    coverage. Scoped local-source
-    ranking, offset, and distribution window projections now cover `ROW_NUMBER()`, `RANK()`,
-    `DENSE_RANK()`, `LAG()`, `LEAD()`, `NTILE()`, `PERCENT_RANK()`, and `CUME_DIST()` with native
-    partition/order evaluation, peer-group tie semantics, offset lookups, bucket assignment, and
-    cumulative/percent rank evidence, but general window value functions, frames, encoded window
-    kernels, and
-    distributed/object-store window execution remain open. Scoped
-    `COUNT(DISTINCT column)` is runtime-admitted for local scalar and grouped aggregate rows with
-    `distinct_aggregate_*` evidence, SQL `NULL`-ignoring distinct-count semantics, Python
-    `sl.count_distinct(...)` aggregate lowering, deterministic blockers for unsupported
-    `DISTINCT` aggregate shapes such as `SUM(DISTINCT ...)` or `COUNT(DISTINCT *)`, and no external
-    fallback.
-  - Next slice outcome: promote operator families one at a time with decoded-reference correctness,
-    unsupported diagnostics, and encoded-kernel admission where available.
+- [ ] GAR-RUNTIME-IMPL-4D-F2 nested, list, struct, variant, union, and binary-source semantics
+  - Source: RFC 0021, Vortex dtype opportunities, admitted semantics matrix residual gaps.
+  - Current state: core bytewise binary equality is admitted for `ScalarValue::Binary`, and binary
+    ordering remains a deterministic blocker. SQL/local source binary-input coverage, nested/list/
+    struct equality, variant access, union semantics, parent/child null behavior, and schema-field
+    identity are not yet admitted.
+  - Next slice outcome: implement the next meaty complex-dtype semantics section end to end, or
+    record deterministic blockers and required evidence for each non-admitted dtype family.
+  - Runtime enablement: ShardLoom-native equality/access semantics for admitted complex dtypes or
+    stable unsupported diagnostics.
+  - User-visible surface: capability matrix, typed diagnostics, and docs only after runtime
+    evidence exists.
+  - Implementation scope: expression value model, dtype metadata, parser/binder lowering where
+    exposed, encoded/native kernel admission, diagnostics.
+  - Evidence required: dtype family, parent/child null policy, schema identity policy,
+    decoded-reference rows, correctness digest, no-fallback fields.
+  - Acceptance: admitted complex dtype semantics have unit, contract, and matrix evidence; unsupported
+    complex dtypes block deterministically.
+  - Verification: expression tests, contract tests, admitted semantics matrix, release readiness.
+  - Non-goals: no blanket nested/Arrow/Vortex parity without fixture-backed semantics.
+  - Claim boundary: dtype/operator pairs explicitly admitted by fixtures.
+  - Fallback boundary: no decoded external-engine evaluator.
+  - Dependencies/blockers: value representation policy, Vortex dtype metadata, decoded references.
+  - Ledger rule: ledger entry must list each complex dtype family and blocker/status.
+
+- [ ] GAR-RUNTIME-IMPL-4D-F3 advanced predicate, HAVING, and subquery semantics
+  - Source: RFC 0021, SQL/Python local runtime smokes, admitted semantics matrix residual gaps.
+  - Current state: admitted predicate leaves, logical trees, bounded literal/subquery IN, hidden
+    HAVING aggregates, and SQL three-valued filtering are release-gated. Correlated, multi-column,
+    joined, filtered, grouped, ordered, limited, and nested subqueries plus broader arbitrary
+    predicate/HAVING expression completeness remain deterministic blockers.
+  - Next slice outcome: promote the next advanced predicate/subquery section with executable
+    ShardLoom-native behavior and blocked diagnostics for every unsupported related shape.
+  - Runtime enablement: native predicate/subquery/HAVING semantics for admitted shapes.
+  - User-visible surface: SQL/Python only after the binder/runtime evidence is in place.
+  - Implementation scope: parser/binder admission, expression lowering, subquery materialization
+    limits, predicate evaluator, diagnostics, admitted matrix rows.
+  - Evidence required: predicate family, subquery shape, row/materialization bounds, null policy,
+    correctness digest, no-fallback fields.
+  - Acceptance: admitted predicate/subquery shapes execute through native runtime; unsupported
+    shapes fail with stable diagnostics and no fallback.
+  - Verification: SQL runtime smokes, Python query tests, admitted semantics matrix, release
+    readiness metadata.
+  - Non-goals: no broad SQL optimizer or ANSI-subquery parity claim.
+  - Claim boundary: explicitly admitted predicate/subquery shapes only.
+  - Fallback boundary: no external query engine fallback.
+  - Dependencies/blockers: binder shape policy, bounded materialization policy, decoded references.
+  - Ledger rule: ledger entry must enumerate admitted and blocked predicate/subquery shapes.
+
+- [ ] GAR-RUNTIME-IMPL-5G-F1 broad physical operator, function, and encoded-kernel coverage
+  - Source: parent `GAR-RUNTIME-IMPL-5G`, RFC 0015, RFC 0016, RFC 0021.
+  - Current state: the parent 5G closeout now has release-gated evidence for admitted scalar
+    expression/function families, grouped/scalar aggregates, COUNT(DISTINCT), HAVING hidden
+    aggregates, multi-key joins, mixed window families, and semantic conformance promotion. Broad
+    encoded kernels, general join/window frames, fused top-k/filter/project kernels, and additional
+    encoding/operator pairs remain separate internal-engine work.
+  - Next slice outcome: promote broad operator/kernel families in coherent sections with decoded
+    references, unsupported diagnostics, encoded-kernel admission where available, and benchmark/
+    capability/report parity.
   - Runtime enablement: ShardLoom-native operator/function execution coverage with deterministic
     blockers for unsupported families.
-  - User-visible surface: CLI/Python/SQL/DataFrame workflows, benchmark rows, capability matrix.
-  - Implementation scope: expression IR, scalar/aggregate operators, join/window/top-k operators,
-    type coercion, null/string/date policy, encoded kernel registry, blockers.
+  - User-visible surface: CLI/Python/SQL/DataFrame capability reports only after runtime evidence
+    exists.
+  - Implementation scope: scalar/aggregate/join/window/top-k operators, encoded kernel registry,
+    planner admission, benchmark rows, blockers.
   - Evidence required: operator/function family, input/output schema, type/null policy, encoding id,
     decoded/materialized flags, correctness digest, encoded-native claim flag, no-fallback fields.
-  - Acceptance: each supported operator family has success tests, edge-case tests, unsupported
-    diagnostics, and correctness evidence; unsupported encodings block deterministically.
+  - Acceptance: each supported operator/kernel family has success tests, edge-case tests,
+    unsupported diagnostics, correctness evidence, and benchmark/capability rows where surfaced.
   - Verification: unit/property/correctness tests, fixture manifest checks, encoded-kernel tests,
-    benchmark smoke per family.
+    benchmark smoke per family, release readiness.
   - Non-goals: no arbitrary UDFs, ANSI parity, blanket encoded-native claim, or performance claim.
   - Claim boundary: operator/function/encoding-pair support only.
   - Fallback boundary: external engines may be test oracles only, never runtime evaluators.

@@ -72,6 +72,7 @@ class SqlFixtureCase:
     expected_jsonl: str
     expected_fields: dict[str, str]
     property_seed: int | None = None
+    auxiliary_sources: tuple[tuple[str, str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -290,6 +291,310 @@ def property_numeric_case() -> SqlFixtureCase:
     )
 
 
+def string_function_composition_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="string_function_composition_utf8",
+        source_name="string-functions.csv",
+        source_text="id,label,segment\n1,alpha,north\n2,beta,east\n3,alpaca,north\n4,,west\n",
+        statement_template=(
+            "SELECT id,CONCAT(label, '-', segment) AS label_key,SUBSTR(label, 2, 3) AS middle,"
+            "LEFT(label, 2) AS prefix,RIGHT(label, 2) AS suffix,REPLACE(label, 'a', '') AS scrubbed "
+            "FROM '{source}' WHERE CONCAT(label, '-', segment) = 'alpha-north' LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"label_key":"alpha-north","middle":"lph","prefix":"al",'
+            '"suffix":"ha","scrubbed":"lph"}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "string_function",
+            "string_function_runtime_execution": "true",
+            "string_function_operator": "concat",
+            "string_function_source_column": "label+segment",
+            "string_function_literal_count": "2",
+            "string_function_projection_runtime_execution": "true",
+            "string_function_projection_operator": "concat,substr,left,right,replace",
+            "string_function_projection_source_column": "label+segment,label,label,label,label",
+            "string_function_projection_output_column": "label_key,middle,prefix,suffix,scrubbed",
+            "string_function_projection_literal_count": "1,2,1,1,2",
+            "projected_columns": "id,label_key,middle,prefix,suffix,scrubbed",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def temporal_arithmetic_difference_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="temporal_arithmetic_difference_utc",
+        source_name="temporal-arithmetic.csv",
+        source_text=(
+            "id,start_date,end_date,start_ts,end_ts\n"
+            "1,2026-05-19,2026-05-23,2026-05-19T12:34:45Z,2026-05-19T12:37:50Z\n"
+            "2,2026-01-01,2026-01-10,2026-01-01T00:00:00Z,2026-01-01T00:01:30Z\n"
+        ),
+        statement_template=(
+            "SELECT id,DATE_ADD_DAYS(CAST(start_date AS date32), 3) AS plus_three,"
+            "DATE_SUB_DAYS(end_date, 2) AS end_minus_two,"
+            "DATE_DIFF_DAYS(CAST(end_date AS date32), start_date) AS span_days,"
+            "TIMESTAMP_ADD_SECONDS(CAST(start_ts AS timestamp_micros), 90) AS shifted_ts,"
+            "TIMESTAMP_DIFF_SECONDS(CAST(end_ts AS timestamp_micros), start_ts) AS elapsed_seconds "
+            "FROM '{source}' WHERE DATE_DIFF_DAYS(end_date, start_date) >= 4 LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"id":1,"plus_three":"2026-05-22","end_minus_two":"2026-05-21",'
+            '"span_days":4,"shifted_ts":"2026-05-19T12:36:15Z","elapsed_seconds":185}\n'
+            '{"id":2,"plus_three":"2026-01-04","end_minus_two":"2026-01-08",'
+            '"span_days":9,"shifted_ts":"2026-01-01T00:01:30Z","elapsed_seconds":90}\n'
+        ),
+        expected_fields={
+            "predicate_operator_family": "generic_expression",
+            "generic_expression_predicate_runtime_execution": "true",
+            "generic_expression_predicate_operator_family": "temporal_difference",
+            "date_arithmetic_projection_runtime_execution": "true",
+            "date_arithmetic_projection_operator": "date_add_days,date_sub_days",
+            "date_arithmetic_projection_output_column": "plus_three,end_minus_two",
+            "timestamp_arithmetic_projection_runtime_execution": "true",
+            "timestamp_arithmetic_projection_operator": "timestamp_add_seconds",
+            "timestamp_arithmetic_projection_output_column": "shifted_ts",
+            "generic_expression_projection_runtime_execution": "true",
+            "generic_expression_projection_output_column": "span_days,elapsed_seconds",
+            "projected_columns": "id,plus_three,end_minus_two,span_days,shifted_ts,elapsed_seconds",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def conditional_projection_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="conditional_projection_case_when",
+        source_name="conditional.csv",
+        source_text=(
+            "id,label,amount,event_date,preferred_label,fallback_label\n"
+            "1,alpha,8,2025-12-31,preferred-alpha,fallback-alpha\n"
+            "2,beta,15,2026-05-19,preferred-beta,fallback-beta\n"
+            "3,gamma,,2026-06-01,preferred-gamma,fallback-gamma\n"
+        ),
+        statement_template=(
+            "SELECT id,CASE WHEN amount >= 10 THEN 'large' ELSE 'small' END AS size_band,"
+            "CASE WHEN event_date >= DATE '2026-01-01' THEN DATE '2026-12-31' ELSE DATE '2025-12-31' END AS cutoff_day,"
+            "CASE WHEN amount >= 10 THEN preferred_label ELSE fallback_label END AS label_choice "
+            "FROM '{source}' WHERE id >= 1 LIMIT 3"
+        ),
+        expected_jsonl=(
+            '{"id":1,"size_band":"small","cutoff_day":"2025-12-31","label_choice":"fallback-alpha"}\n'
+            '{"id":2,"size_band":"large","cutoff_day":"2026-12-31","label_choice":"preferred-beta"}\n'
+            '{"id":3,"size_band":"small","cutoff_day":"2026-12-31","label_choice":"fallback-gamma"}\n'
+        ),
+        expected_fields={
+            "conditional_projection_runtime_execution": "true",
+            "conditional_projection_predicate_family": "comparison,comparison,comparison",
+            "conditional_projection_source_column": "amount,event_date,amount+fallback_label+preferred_label",
+            "conditional_projection_output_column": "size_band,cutoff_day,label_choice",
+            "conditional_projection_then_dtype": "utf8,date32,utf8",
+            "conditional_projection_else_dtype": "utf8,date32,utf8",
+            "projected_columns": "id,size_band,cutoff_day,label_choice",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def in_predicate_literal_null_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="in_predicate_literal_null_semantics",
+        source_name="in-null.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,beta,15\n3,,21\n4,gamma,13\n",
+        statement_template="SELECT id,label FROM '{source}' WHERE label IN ('alpha', NULL) LIMIT 10",
+        expected_jsonl='{"id":1,"label":"alpha"}\n',
+        expected_fields={
+            "predicate_operator_family": "in_predicate",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "2",
+            "in_list_null_value_count": "1",
+            "in_predicate_null_semantics": "sql_three_valued_where_filter",
+            "selected_row_count": "1",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def in_subquery_scalar_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="in_subquery_scalar_semantics",
+        source_name="in-subquery-source.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id IN (SELECT id FROM '{allowed}') LIMIT 10"
+        ),
+        expected_jsonl='{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',
+        expected_fields={
+            "predicate_operator_family": "in_subquery",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "3",
+            "in_list_null_value_count": "1",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_source_column": "id",
+            "in_subquery_source_format": "csv",
+            "in_subquery_materialized_value_count": "3",
+            "in_subquery_materialized_null_value_count": "1",
+            "in_predicate_null_semantics": "sql_three_valued_where_filter",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(("allowed", "in-subquery-allowed.csv", "id\n1\n3\nNULL\n"),),
+    )
+
+
+def distinct_count_grouped_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="distinct_count_grouped",
+        source_name="count-distinct.csv",
+        source_text=(
+            "id,region,customer_id,amount\n"
+            "1,east,c1,10\n"
+            "2,east,c1,12\n"
+            "3,east,c2,14\n"
+            "4,east,,16\n"
+            "5,west,c3,7\n"
+            "6,west,c4,8\n"
+            "7,west,c3,9\n"
+        ),
+        statement_template=(
+            "SELECT region,count(DISTINCT customer_id) AS unique_customers,count(*) AS rows "
+            "FROM '{source}' WHERE amount >= 8 GROUP BY region LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"region":"east","unique_customers":2,"rows":4}\n'
+            '{"region":"west","unique_customers":2,"rows":2}\n'
+        ),
+        expected_fields={
+            "aggregate_runtime_execution": "true",
+            "aggregate_operator_family": "grouped_aggregate",
+            "aggregate_functions": "count(DISTINCT customer_id),count(*)",
+            "distinct_aggregate_runtime_execution": "true",
+            "distinct_aggregate_function": "count(DISTINCT customer_id)",
+            "distinct_aggregate_column": "customer_id",
+            "distinct_aggregate_null_semantics": "sql_count_distinct_ignores_nulls",
+            "group_by_runtime_execution": "true",
+            "group_by_group_count": "2",
+            "projected_columns": "region,unique_customers,rows",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def having_hidden_aggregate_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="having_hidden_aggregate_expression",
+        source_name="having-hidden.csv",
+        source_text="id,region,amount\n1,east,10\n2,west,5\n3,east,12\n4,west,14\n5,north,3\n",
+        statement_template=(
+            "SELECT region,count(*) AS rows FROM '{source}' WHERE amount >= 0 GROUP BY region "
+            "HAVING sum(amount) >= 10 AND count(*) >= 2 AND count(DISTINCT id) >= 2 "
+            "ORDER BY rows DESC LIMIT 10"
+        ),
+        expected_jsonl='{"region":"east","rows":2}\n{"region":"west","rows":2}\n',
+        expected_fields={
+            "having_runtime_execution": "true",
+            "having_operator_family": "logical_predicate",
+            "having_source_column": "sum(amount),count(*),count(DISTINCT id)",
+            "having_aggregate_runtime_execution": "true",
+            "having_aggregate_function": "sum(amount),count(*),count(DISTINCT id)",
+            "having_aggregate_output_column": "__having_sum_amount_1,__having_count_all_2,__having_count_distinct_id_3",
+            "output_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def window_mixed_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="window_rank_offset_distribution",
+        source_name="windows.csv",
+        source_text=(
+            "id,region,amount\n"
+            "1,east,30\n"
+            "2,east,20\n"
+            "3,east,10\n"
+            "4,west,15\n"
+            "5,west,5\n"
+        ),
+        statement_template=(
+            "SELECT id,region,amount,"
+            "ROW_NUMBER() OVER (PARTITION BY region ORDER BY amount DESC) AS rn,"
+            "RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS r,"
+            "LAG(amount) OVER (PARTITION BY region ORDER BY amount DESC) AS previous_amount,"
+            "NTILE(2) OVER (PARTITION BY region ORDER BY amount DESC) AS bucket "
+            "FROM '{source}' LIMIT 5"
+        ),
+        expected_jsonl=(
+            '{"id":1,"region":"east","amount":30,"rn":1,"r":1,"previous_amount":null,"bucket":1}\n'
+            '{"id":2,"region":"east","amount":20,"rn":2,"r":2,"previous_amount":30,"bucket":1}\n'
+            '{"id":3,"region":"east","amount":10,"rn":3,"r":3,"previous_amount":20,"bucket":2}\n'
+            '{"id":4,"region":"west","amount":15,"rn":1,"r":1,"previous_amount":null,"bucket":1}\n'
+            '{"id":5,"region":"west","amount":5,"rn":2,"r":2,"previous_amount":15,"bucket":2}\n'
+        ),
+        expected_fields={
+            "window_runtime_execution": "true",
+            "window_operator_family": "mixed",
+            "window_function": "row_number,rank,lag,ntile",
+            "window_partition_columns": "region;region;region;region",
+            "window_order_by_columns": "amount;amount;amount;amount",
+            "window_order_by_directions": "desc;desc;desc;desc",
+            "window_output_columns": "rn,r,previous_amount,bucket",
+            "window_row_number_runtime_execution": "true",
+            "window_rank_runtime_execution": "true",
+            "window_lag_runtime_execution": "true",
+            "window_ntile_runtime_execution": "true",
+            "projected_columns": "id,region,amount,rn,r,previous_amount,bucket",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+    )
+
+
+def join_multi_key_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="join_multi_key_expression_condition",
+        source_name="join-fact.csv",
+        source_text=(
+            "id,customer_id,region,amount\n"
+            "1,10,east,8\n"
+            "2,20,west,15\n"
+            "3,20,east,21\n"
+            "4,30,east,22\n"
+            "5,30,west,23\n"
+        ),
+        statement_template=(
+            "SELECT f.id,d.segment FROM '{source}' AS f INNER JOIN '{dim}' AS d "
+            "ON f.customer_id = d.customer_id AND f.region = d.region "
+            "WHERE f.amount >= 10 LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"f.id":2,"d.segment":"enterprise"}\n'
+            '{"f.id":3,"d.segment":"consumer"}\n'
+            '{"f.id":5,"d.segment":"startup"}\n'
+        ),
+        expected_fields={
+            "sql_statement_kind": "local_source_inner_equi_join_filter_limit",
+            "join_runtime_execution": "true",
+            "join_type": "inner_equi",
+            "join_left_key": "f.customer_id,f.region",
+            "join_right_key": "d.customer_id,d.region",
+            "join_key_arity": "2",
+            "join_multi_key_runtime_execution": "true",
+            "join_matched_row_count": "3",
+            "join_rows_output": "3",
+            "projected_columns": "f.id,d.segment",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "dim",
+                "join-dim.csv",
+                "customer_id,region,segment\n20,west,enterprise\n20,east,consumer\n30,west,startup\n99,east,orphan\n",
+            ),
+        ),
+    )
+
+
 def executable_cases() -> list[SqlFixtureCase]:
     return [
         property_numeric_case(),
@@ -461,6 +766,15 @@ def executable_cases() -> list[SqlFixtureCase]:
                 "claim_gate_status": "fixture_smoke_only",
             },
         ),
+        string_function_composition_case(),
+        temporal_arithmetic_difference_case(),
+        conditional_projection_case(),
+        in_predicate_literal_null_case(),
+        in_subquery_scalar_case(),
+        distinct_count_grouped_case(),
+        having_hidden_aggregate_case(),
+        window_mixed_case(),
+        join_multi_key_case(),
     ]
 
 
@@ -604,7 +918,13 @@ def run_executable_case(
     matrix_row: dict[str, Any] | None,
 ) -> dict[str, Any]:
     source_path = materialize_source(work_dir, case.case_id, case.source_name, case.source_text)
-    statement = case.statement_template.format(source=source_path)
+    format_paths: dict[str, Path] = {"source": source_path}
+    auxiliary_refs: list[Path] = []
+    for placeholder, source_name, source_text in case.auxiliary_sources:
+        auxiliary_path = materialize_source(work_dir, case.case_id, source_name, source_text)
+        format_paths[placeholder] = auxiliary_path
+        auxiliary_refs.append(auxiliary_path)
+    statement = case.statement_template.format(**format_paths)
     completed = run_cli_json(
         repo_root=repo_root,
         binary=binary,
@@ -667,6 +987,7 @@ def run_executable_case(
         "status": "passed" if not blockers else "failed",
         "artifact_ref": rel(repo_root, artifact_ref),
         "source_ref": rel(repo_root, source_path),
+        "auxiliary_source_refs": [rel(repo_root, path) for path in auxiliary_refs],
         "decoded_reference_digest": expected_digest,
         "correctness_digest": fields.get("correctness_digest", "") if payload else "",
         "result_digest": fields.get("result_digest", "") if payload else "",
@@ -887,7 +1208,7 @@ def main() -> int:
                     "query_execution": "false",
                     "runtime_execution": "false",
                 },
-                integer_minimums={"executed_fixture_count": 8, "passed_fixture_count": 8},
+                integer_minimums={"executed_fixture_count": 11, "passed_fixture_count": 11},
             )
         )
         stages.append(

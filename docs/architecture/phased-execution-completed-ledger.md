@@ -16,6 +16,78 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D/5G expression/operator closeout and semantics matrix expansion
+  - Date: 2026-05-26
+  - Branch/PR: `runtime-4d-expression-operator-closeout` / #965.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families`.
+    - `GAR-RUNTIME-IMPL-5G physical operator, function, and encoded-kernel coverage`.
+    - RFC 0021 expression engine and RFC 0015 semantic correctness requirements.
+  - Scope:
+    - Added core bytewise binary equality/inequality semantics for `ScalarValue::Binary`, with
+      `NULL` propagation and deterministic no-fallback blockers for binary ordering comparisons.
+    - Promoted semantic conformance rows for UTC timestamp parsing/formatting, Date32 parsing/
+      invalid-date blockers, and binary bytewise equality from planned to executed/passed.
+    - Expanded the admitted semantics matrix from 9 rows / 7 executable fixtures to 18 rows / 16
+      executable fixtures. New release-gated fixtures cover composed UTF-8 string functions,
+      temporal arithmetic/difference, CASE/conditional projections, literal IN NULL semantics,
+      scalar IN subqueries, grouped COUNT(DISTINCT), hidden aggregate HAVING expressions, mixed
+      window row_number/rank/lag/ntile semantics, and multi-key inner equi-join execution.
+    - Extended the matrix validator to materialize auxiliary local sources so subquery and join
+      fixtures execute through the same local-source runtime funnel instead of becoming standalone
+      side lanes.
+    - Tightened the benchmark preflight/registry surface so the default environment validator
+      targets the current `full_local_plus_spark` profile, PySpark `spark-default` and
+      `spark-local-tuned` remain required baselines for that profile, and ready ShardLoom lanes are
+      required rather than optional in smoke and I/O reuse profiles.
+    - Moved the parent 4D/5G closeout out of the live queue and split the remaining non-goals into
+      explicit internal-engine follow-ups for advanced scalar semantics, complex dtype semantics,
+      advanced predicates/subqueries/HAVING, and broad encoded-kernel/operator coverage.
+  - Field schema:
+    - Binary expression reports preserve `operator_family=comparison`, `output_dtype=boolean`,
+      `null_behavior=null_propagating`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`; unsupported ordering carries a stable comparison diagnostic.
+    - Admitted semantics report fields now include `matrix_row_count=18`,
+      `executable_fixture_count=16`, `unsupported_diagnostic_count=2`,
+      `semantic_conformance_suite_status=passed`, and no-fallback/no-external-engine fields.
+    - New fixture rows preserve operator-family evidence fields for string functions, temporal
+      arithmetic/difference, conditional projection, IN predicates/subqueries, distinct aggregates,
+      HAVING aggregates, windows, and joins.
+  - Claim boundary:
+    - This closes the parent 4D/5G admitted local expression/operator scope only. It does not claim
+      ANSI SQL parity, production semantic parity, regex/collation/timezone database completeness,
+      decimal precision/scale, nested/list/struct/variant/union semantics, correlated subquery
+      parity, broad encoded-native coverage, performance, or Spark-displacement.
+    - External engines remain comparison baselines/oracles only and never satisfy runtime behavior.
+  - No-standalone-lane audit:
+    - New matrix fixtures all execute through `sql-local-source-smoke` and ShardLoom-owned local
+      readers/evaluators. Auxiliary source fixtures are materialized only as additional local
+      inputs for the same SQL local-source runtime path.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-core binary --lib`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test expression_operator_semantics expression_semantics_binary`
+    - `cargo +1.91.1 test -p shardloom-cli --test semantic_conformance_suite_snapshots`
+    - `cargo +1.91.1 test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test traditional_benchmark_harness traditional_benchmark_harness_lists_all_required_engines`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m compileall -q benchmarks\traditional_analytics\benchmark_registry.py scripts\check_benchmark_environment.py scripts\promote_benchmark_artifact.py`
+    - `python scripts\check_admitted_semantics_matrix.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python scripts\check_benchmark_environment.py`
+    - `python scripts\check_benchmark_environment.py --profile smoke`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_benchmark_constitution.py`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_golden_workflows.py`
+    - `node website\validate_static_assets.js`
+    - `git diff --check`
+
 - [x] Session label: GAR-RUNTIME-IMPL-4R/5O effectful-operation local fixture/admission closeout
   - Date: 2026-05-26
   - Branch/PR: `runtime-4r-effectful-operations` / #964.

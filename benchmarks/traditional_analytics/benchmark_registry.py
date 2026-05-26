@@ -153,12 +153,13 @@ LANES: dict[str, Lane] = {
 PROFILES: dict[str, BenchmarkProfile] = {
     "smoke": BenchmarkProfile(
         name="smoke",
-        required_lanes=("shardloom",),
-        optional_lanes=(
+        required_lanes=(
+            "shardloom",
             "shardloom-prepared-vortex",
             "shardloom-prepare-batch",
             "shardloom-vortex",
         ),
+        optional_lanes=(),
         required_formats=("csv",),
         optional_formats=("parquet",),
         required_scenarios=("selective filter",),
@@ -290,8 +291,13 @@ PROFILES: dict[str, BenchmarkProfile] = {
     ),
     "io_reuse_and_fanout": BenchmarkProfile(
         name="io_reuse_and_fanout",
-        required_lanes=("shardloom", "shardloom-prepared-vortex", "shardloom-prepare-batch"),
-        optional_lanes=("shardloom-vortex",),
+        required_lanes=(
+            "shardloom",
+            "shardloom-prepared-vortex",
+            "shardloom-prepare-batch",
+            "shardloom-vortex",
+        ),
+        optional_lanes=(),
         required_formats=("csv", "parquet", "vortex"),
         optional_formats=("jsonl", "arrow-ipc", "avro", "orc"),
         required_scenarios=("io_reuse_and_fanout", "source_state_reuse"),

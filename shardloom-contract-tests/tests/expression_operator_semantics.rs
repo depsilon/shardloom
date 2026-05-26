@@ -88,6 +88,96 @@ fn expression_semantics_baseline_keeps_unsupported_paths_deterministic() {
 }
 
 #[test]
+fn expression_semantics_binary_equality_is_bytewise_and_null_propagating() {
+    let equal = Expression::new(
+        expr_id("binary-eq"),
+        ExpressionKind::Compare {
+            left: Box::new(Expression::column(expr_id("payload"), col("payload"))),
+            op: ComparisonOp::Eq,
+            right: Box::new(Expression::literal(
+                expr_id("needle"),
+                ScalarValue::Binary(vec![0, 1, 255]),
+            )),
+        },
+    );
+    let equal_report = evaluate_expression(
+        &equal,
+        &row(&[("payload", ScalarValue::Binary(vec![0, 1, 255]))]),
+    );
+
+    assert_eq!(equal_report.status, ExpressionEvaluationStatus::Evaluated);
+    assert_eq!(equal_report.value, Some(ScalarValue::Boolean(true)));
+    assert_eq!(equal_report.output_dtype, Some(LogicalDType::Boolean));
+    assert_eq!(equal_report.operator_family, "comparison");
+    assert_eq!(equal_report.null_behavior, NullBehavior::NullPropagating);
+    assert!(!equal_report.fallback_attempted);
+    assert!(!equal_report.external_engine_invoked);
+
+    let unequal = Expression::new(
+        expr_id("binary-neq"),
+        ExpressionKind::Compare {
+            left: Box::new(Expression::column(expr_id("payload-neq"), col("payload"))),
+            op: ComparisonOp::NotEq,
+            right: Box::new(Expression::literal(
+                expr_id("other"),
+                ScalarValue::Binary(vec![0, 1, 254]),
+            )),
+        },
+    );
+    let unequal_report = evaluate_expression(
+        &unequal,
+        &row(&[("payload", ScalarValue::Binary(vec![0, 1, 255]))]),
+    );
+
+    assert_eq!(unequal_report.status, ExpressionEvaluationStatus::Evaluated);
+    assert_eq!(unequal_report.value, Some(ScalarValue::Boolean(true)));
+    assert_eq!(unequal_report.output_dtype, Some(LogicalDType::Boolean));
+    assert!(!unequal_report.fallback_attempted);
+    assert!(!unequal_report.external_engine_invoked);
+
+    let null_report = evaluate_expression(&equal, &row(&[("payload", ScalarValue::Null)]));
+
+    assert_eq!(null_report.status, ExpressionEvaluationStatus::Evaluated);
+    assert_eq!(null_report.value, Some(ScalarValue::Null));
+    assert_eq!(null_report.output_dtype, Some(LogicalDType::Boolean));
+    assert!(!null_report.fallback_attempted);
+    assert!(!null_report.external_engine_invoked);
+}
+
+#[test]
+fn expression_semantics_binary_ordering_is_not_admitted_without_fallback() {
+    let ordered = Expression::new(
+        expr_id("binary-gt"),
+        ExpressionKind::Compare {
+            left: Box::new(Expression::literal(
+                expr_id("left"),
+                ScalarValue::Binary(vec![1, 2, 4]),
+            )),
+            op: ComparisonOp::Gt,
+            right: Box::new(Expression::literal(
+                expr_id("right"),
+                ScalarValue::Binary(vec![1, 2, 3]),
+            )),
+        },
+    );
+    let report = evaluate_expression(&ordered, &ExpressionInputRow::new());
+
+    assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+    assert_eq!(report.operator_family, "comparison");
+    assert!(report.has_errors());
+    assert!(report.diagnostics.iter().all(|d| !d.fallback.attempted));
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.reason.as_deref()
+                == Some("binary comparison admits equality and inequality only"))
+    );
+    assert!(!report.fallback_attempted);
+    assert!(!report.external_engine_invoked);
+}
+
+#[test]
 fn expression_semantics_evaluates_utf8_string_predicates_without_fallback() {
     let starts_with = Expression::new(
         expr_id("starts-with"),

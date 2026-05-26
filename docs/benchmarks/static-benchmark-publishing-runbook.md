@@ -18,7 +18,8 @@ package-publication claims.
 
 ## Profiles
 
-- `smoke`: ShardLoom-only quick checks.
+- `smoke`: quick checks for the ready ShardLoom lanes (`shardloom`,
+  `shardloom-prepared-vortex`, `shardloom-prepare-batch`, and `shardloom-vortex`).
 - `full_local`: ShardLoom plus pandas, Polars eager/lazy, DuckDB, DataFusion, and Dask.
 - `full_local_plus_spark`: `full_local` plus `spark-default` and `spark-local-tuned`.
 - `extended_local`: optional local ecosystem lanes such as pyarrow, clickhouse-local, Daft, Ray
@@ -42,6 +43,10 @@ python -m venv .venv-bench
 python -m pip install -r benchmarks\traditional_analytics\requirements-full-local.txt
 python scripts\check_benchmark_environment.py --profile full_local_plus_spark
 ```
+
+`check_benchmark_environment.py` defaults to `full_local_plus_spark` so an unqualified preflight
+checks the same required PySpark-backed profile as the public benchmark artifact. Use
+`--profile smoke` only for quick ShardLoom-lane bring-up checks.
 
 Run the benchmark and write the local execution artifact:
 

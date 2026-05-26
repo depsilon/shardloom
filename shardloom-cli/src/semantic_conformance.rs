@@ -6,7 +6,12 @@
 
 use std::process::ExitCode;
 
-use shardloom_core::{CommandStatus, Diagnostic, DiagnosticCode, OutputFormat};
+use shardloom_core::{
+    CommandStatus, ComparisonOp, Diagnostic, DiagnosticCode, ExprId, Expression,
+    ExpressionEvaluationStatus, ExpressionInputRow, ExpressionKind, OutputFormat, ScalarValue,
+    evaluate_expression, format_iso_date32, format_iso_timestamp_micros, parse_iso_date32,
+    parse_iso_timestamp_micros,
+};
 
 use crate::{
     cli_output::{emit, emit_error},
@@ -226,19 +231,21 @@ fn scalar_semantic_rows() -> Vec<SemanticFixtureRow> {
             "p74.semantic.decimal_precision_scale.profile_missing",
             "decimal_dtype_policy,precision_scale_fixture,overflow_diagnostic",
         ),
-        SemanticFixtureRow::planned(
+        SemanticFixtureRow::executed(
             "timestamp_timezone",
             "timestamp unit and timezone handling",
             "scalar_expressions",
-            "p74.semantic.timestamp_timezone.profile_missing",
-            "timestamp_unit_policy,timezone_policy,temporal_fixture",
+            "utc_timestamp_micros_fixture_certified_non_utc_blocked",
+            "UTC timestamp_micros parses and formats while non-UTC and offset timestamp forms are deterministic blockers",
+            timestamp_timezone_fixture(),
         ),
-        SemanticFixtureRow::planned(
+        SemanticFixtureRow::executed(
             "date_parsing",
             "date parsing",
             "scalar_expressions",
-            "p74.semantic.date_parsing.profile_missing",
-            "date_parser_policy,invalid_date_diagnostic,temporal_fixture",
+            "date32_fixture_certified_invalid_dates_blocked",
+            "ISO Date32 parses and formats valid dates while invalid calendar dates are deterministic blockers",
+            date_parsing_fixture(),
         ),
         SemanticFixtureRow::executed(
             "string_case_sensitivity",
@@ -248,12 +255,13 @@ fn scalar_semantic_rows() -> Vec<SemanticFixtureRow> {
             "ShardLoomNative string equality is case-sensitive unless a future collation says otherwise",
             string_case_sensitivity_fixture(),
         ),
-        SemanticFixtureRow::planned(
+        SemanticFixtureRow::executed(
             "binary_equality",
             "binary equality",
             "scalar_expressions",
-            "p74.semantic.binary_equality.profile_missing",
-            "binary_dtype_policy,bytewise_fixture",
+            "bytewise_equality_fixture_certified_ordering_blocked",
+            "Binary equality is bytewise; binary ordering comparisons remain deterministic blockers",
+            binary_equality_fixture(),
         ),
     ]
 }
@@ -512,6 +520,93 @@ fn integer_overflow_fixture() -> bool {
 
 fn string_case_sensitivity_fixture() -> bool {
     "ShardLoom" != "shardloom"
+}
+
+fn timestamp_timezone_fixture() -> bool {
+    let Ok(parsed) = parse_iso_timestamp_micros("2026-05-19T12:34:56.123456Z") else {
+        return false;
+    };
+    format_iso_timestamp_micros(parsed) == "2026-05-19T12:34:56.123456Z"
+        && parse_iso_timestamp_micros("2026-05-19T12:34:56Z").is_ok()
+        && parse_iso_timestamp_micros("2026-05-19T12:34:56+00:00").is_err()
+        && parse_iso_timestamp_micros("2026-05-19T12:34:56").is_err()
+        && parse_iso_timestamp_micros("2026-05-19 12:34:56Z").is_err()
+}
+
+fn date_parsing_fixture() -> bool {
+    let Ok(parsed) = parse_iso_date32("2026-05-19") else {
+        return false;
+    };
+    format_iso_date32(parsed) == "2026-05-19"
+        && parse_iso_date32("2024-02-29").is_ok()
+        && parse_iso_date32("2023-02-29").is_err()
+        && parse_iso_date32("2026-5-19").is_err()
+        && parse_iso_date32("2026-13-01").is_err()
+}
+
+fn binary_equality_fixture() -> bool {
+    let equal = evaluate_expression(
+        &binary_compare_expression(
+            "binary-eq",
+            ComparisonOp::Eq,
+            vec![0, 1, 255],
+            vec![0, 1, 255],
+        ),
+        &ExpressionInputRow::new(),
+    );
+    let not_equal = evaluate_expression(
+        &binary_compare_expression(
+            "binary-neq",
+            ComparisonOp::NotEq,
+            vec![0, 1, 255],
+            vec![0, 1, 254],
+        ),
+        &ExpressionInputRow::new(),
+    );
+    let ordered = evaluate_expression(
+        &binary_compare_expression(
+            "binary-lt",
+            ComparisonOp::Lt,
+            vec![0, 1, 254],
+            vec![0, 1, 255],
+        ),
+        &ExpressionInputRow::new(),
+    );
+
+    equal.status == ExpressionEvaluationStatus::Evaluated
+        && equal.value == Some(ScalarValue::Boolean(true))
+        && !equal.fallback_attempted
+        && !equal.external_engine_invoked
+        && not_equal.status == ExpressionEvaluationStatus::Evaluated
+        && not_equal.value == Some(ScalarValue::Boolean(true))
+        && !not_equal.fallback_attempted
+        && !not_equal.external_engine_invoked
+        && ordered.status == ExpressionEvaluationStatus::Unsupported
+        && ordered.has_errors()
+        && !ordered.fallback_attempted
+        && !ordered.external_engine_invoked
+}
+
+fn binary_compare_expression(
+    id: &'static str,
+    op: ComparisonOp,
+    left: Vec<u8>,
+    right: Vec<u8>,
+) -> Expression {
+    Expression::new(
+        ExprId::new(id).expect("fixture expression id"),
+        ExpressionKind::Compare {
+            left: Box::new(Expression::literal(
+                ExprId::new(format!("{id}.left")).expect("left expression id"),
+                ScalarValue::Binary(left),
+            )),
+            op,
+            right: Box::new(Expression::literal(
+                ExprId::new(format!("{id}.right")).expect("right expression id"),
+                ScalarValue::Binary(right),
+            )),
+        },
+    )
 }
 
 fn empty_aggregate_fixture() -> bool {

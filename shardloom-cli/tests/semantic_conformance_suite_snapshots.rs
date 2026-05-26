@@ -43,10 +43,10 @@ fn semantic_conformance_suite_executes_current_fixtures_without_fallback() {
         "partial_fixture_passed_planned_remaining"
     )));
     assert!(output.contains(&field("semantic_dimension_count", "18")));
-    assert!(output.contains(&field("executed_fixture_count", "8")));
-    assert!(output.contains(&field("passed_fixture_count", "8")));
+    assert!(output.contains(&field("executed_fixture_count", "11")));
+    assert!(output.contains(&field("passed_fixture_count", "11")));
     assert!(output.contains(&field("failed_fixture_count", "0")));
-    assert!(output.contains(&field("planned_fixture_count", "7")));
+    assert!(output.contains(&field("planned_fixture_count", "4")));
     assert!(output.contains(&field("blocked_fixture_count", "3")));
     assert!(output.contains(&field("in_memory_fixture_execution", "true")));
     assert!(output.contains(&field("external_oracle_used", "false")));
@@ -100,6 +100,16 @@ fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
         "semantic_row_string_case_sensitivity_passed",
         "true"
     )));
+    assert!(output.contains(&field(
+        "semantic_row_timestamp_timezone_current_support",
+        "utc_timestamp_micros_fixture_certified_non_utc_blocked"
+    )));
+    assert!(output.contains(&field("semantic_row_date_parsing_fixture_status", "passed")));
+    assert!(output.contains(&field(
+        "semantic_row_binary_equality_current_support",
+        "bytewise_equality_fixture_certified_ordering_blocked"
+    )));
+    assert!(output.contains(&field("semantic_row_binary_equality_passed", "true")));
     assert!(output.contains(&field(
         "semantic_row_null_sort_ordering_blocker_id",
         "cg21.workflow.sort.operator_unsupported"
