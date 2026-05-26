@@ -659,6 +659,14 @@ const CATALOG_ADAPTERS: &[&str] = &[
     "glue_like_catalog",
     "nessie_like_catalog",
 ];
+const DATABASE_ADAPTERS: &[&str] = &[
+    "sqlite",
+    "postgres_mysql",
+    "jdbc_odbc",
+    "snowflake",
+    "bigquery",
+    "databricks_sql",
+];
 const EFFECTFUL_ADAPTERS: &[&str] = &["api", "llm", "embeddings", "vector_index"];
 const UNSTRUCTURED_ADAPTERS: &[&str] = &[
     "unstructured_text",
@@ -780,6 +788,36 @@ const FOUNDATION_INPUT_ADAPTERS: &[(&str, InputCapabilityStatus, &str)] = &[
         "Nessie-like catalog adapter",
     ),
     (
+        "sqlite",
+        InputCapabilityStatus::Supported,
+        "local SQLite file import/export fixture adapter",
+    ),
+    (
+        "postgres_mysql",
+        InputCapabilityStatus::RequiresCredentials,
+        "network database connector adapter blocked without credential/network policy",
+    ),
+    (
+        "jdbc_odbc",
+        InputCapabilityStatus::RequiresCredentials,
+        "JDBC/ODBC connector adapter blocked without driver, credential, and network policy",
+    ),
+    (
+        "snowflake",
+        InputCapabilityStatus::RequiresCredentials,
+        "warehouse connector adapter blocked without credential/network policy",
+    ),
+    (
+        "bigquery",
+        InputCapabilityStatus::RequiresCredentials,
+        "warehouse connector adapter blocked without credential/network policy",
+    ),
+    (
+        "databricks_sql",
+        InputCapabilityStatus::RequiresCredentials,
+        "warehouse connector adapter blocked without credential/network policy",
+    ),
+    (
         "unstructured_text",
         InputCapabilityStatus::RequiresExplicitEnablement,
         "unstructured text source adapter",
@@ -884,6 +922,10 @@ impl InputAdapterRegistrySnapshot {
     #[must_use]
     pub fn catalog_adapter_order(&self) -> String {
         self.ordered_names(CATALOG_ADAPTERS)
+    }
+    #[must_use]
+    pub fn database_adapter_order(&self) -> String {
+        self.ordered_names(DATABASE_ADAPTERS)
     }
     #[must_use]
     pub fn effectful_adapter_order(&self) -> String {
@@ -1075,6 +1117,15 @@ mod tests {
         assert_eq!(
             reg.catalog_adapter_order(),
             "local_catalog,hive_compatible_catalog,iceberg_rest_compatible_catalog,glue_like_catalog,nessie_like_catalog"
+        );
+        assert_eq!(
+            reg.database_adapter_order(),
+            "sqlite,postgres_mysql,jdbc_odbc,snowflake,bigquery,databricks_sql"
+        );
+        assert_eq!(reg.adapter_status("sqlite"), Some("supported"));
+        assert_eq!(
+            reg.adapter_status("postgres_mysql"),
+            Some("requires_credentials")
         );
         assert_eq!(reg.adapter_status("parquet"), Some("planned"));
         assert_eq!(

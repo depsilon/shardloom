@@ -16,6 +16,107 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4R/5O effectful-operation local fixture/admission closeout
+  - Date: 2026-05-26
+  - Branch/PR: `runtime-4r-effectful-operations` / #964.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4R adapters, databases, UDFs, extensions, and effectful operations`.
+    - `GAR-RUNTIME-IMPL-5O adapter, UDF, plugin, and effectful-operation runtime backstop`.
+    - RFC 0011, RFC 0023, RFC 0032, and the user direction that SQLite/database work must not
+      become a standalone side lane outside the intended runtime/admission funnel.
+  - Scope:
+    - Added `sqlite-local-import-export-smoke` as the only admitted database fixture runtime. It
+      reads a caller-supplied local SQLite file, scans a named table only, writes a
+      workspace-safe JSONL export, replays a roundtrip SQLite artifact, and optionally applies
+      post-scan fixture ordering inside ShardLoom. It rejects arbitrary SQL, query pushdown, BLOB
+      columns/cells, non-UTF-8 text, non-finite real values, credentials, network databases,
+      warehouses, dynamic extensions, and fallback execution.
+    - Added `shardloom.effectful_operation_admission_matrix.v1` across effect-budget,
+      operational-hardening, extension/UDF, capability/status, and typed-envelope surfaces. The
+      matrix admits only local SQLite import/export fixture IO, typed extension manifest
+      inspection, and the built-in deterministic scalar UDF fixture; every network, credential,
+      plugin, dynamic-loading, model/API, embedding, vector, Python UDF, WASM, Rust plugin, and
+      external-service path remains blocked by default.
+    - Added `udf-local-scalar-fixture-smoke` and Python client wrappers for the deterministic
+      nullable `int64 -> int64` fixture UDF (`sl_fixture_double_i64`). The UDF is built in,
+      null-propagating, overflow-blocking, and performs no sandboxed execution, dynamic loading,
+      external effect, fallback, or external-engine invocation.
+    - Updated input/database adapter visibility, CLI command registry/families, Python README and
+      typed client, status/runs-today matrices, Use Case Atlas, Field Guide, website data, and
+      generated static website artifacts so local SQLite and deterministic UDF support are visible
+      as fixture-smoke support only.
+    - Updated universal ingress and compatibility scoreboards so SQLite is treated as a local
+      fixture import/export exception, not a prepared-Vortex lane, direct-query lane, network
+      connector, production connector, or query-pushdown/runtime-performance claim.
+    - Removed `GAR-RUNTIME-IMPL-4R` and `GAR-RUNTIME-IMPL-5O` from the live Planned queue; the
+      next runtime-family closeout remains `GAR-RUNTIME-IMPL-4D`/`5G`.
+  - Field schema:
+    - SQLite fixture fields include local source/roundtrip paths, table name, column order,
+      declared types, row counts, source/export/roundtrip digests, workspace-safe write evidence,
+      `sqlite_sql_execution_scope=single_table_scan_only`,
+      `sqlite_query_pushdown_allowed=false`,
+      `sqlite_ordering_execution_scope=shardloom_fixture_post_scan|not_requested`,
+      `credential_policy_status=not_required_local_file_only`,
+      `network_policy=disabled_no_network_probe`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - UDF fixture fields include `runtime_kind=builtin_deterministic_fixture`, UDF id/version,
+      input/output dtypes, determinism, null policy, input/output digests, output row count,
+      `sandbox_required=false`, `dynamic_loading_performed=false`,
+      `external_effect_executed=false`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+    - Admission-matrix fields include admitted local fixture count, metadata-only count, blocked
+      count, blocker ids, required evidence, and global false fields for credential resolution,
+      network probes, dynamic loading, extension code execution, external effects, dependency
+      expansion, fallback, and external engine use.
+  - Claim boundary:
+    - SQLite support is a local named-table import/export fixture smoke only. It does not authorize
+      arbitrary SQL, query pushdown, Vortex ingest, prepared-state reuse, network database
+      connectors, JDBC/ODBC, REST/Flight/ADBC, cloud warehouses, credentials, production connector
+      support, performance claims, or Spark/database replacement claims.
+    - Extension support remains metadata inspection only. No plugin ABI, extension code loading,
+      dynamic dependency expansion, sandbox runtime, or extension execution is admitted.
+    - UDF support is limited to the built-in deterministic scalar fixture. Arbitrary Rust, WASM,
+      Python, SQL-defined, table-function, aggregate, external-service, model/API, embedding, and
+      vector effects remain blocked.
+    - External engines remain comparison baselines/oracles only and never satisfy runtime work as
+      fallback.
+  - No-standalone-lane audit:
+    - SQLite does not create a direct query/runtime lane. The route taxonomy keeps non-Vortex
+      prepared execution funneled through `UniversalIngress -> SourceState -> vortex_ingest ->
+      VortexPreparedState`, while SQLite Vortex ingest remains explicitly not admitted for this
+      fixture smoke.
+  - Verification:
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --target-dir C:\tmp\shardloom-target-4r --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --target-dir C:\tmp\shardloom-target-4r --workspace --all-targets`
+    - `cargo +1.91.1 test --target-dir C:\tmp\shardloom-target-4r -p shardloom-core effectful_operation_admission_matrix_admits_only_local_fixtures --lib`
+    - `cargo +1.91.1 test --target-dir C:\tmp\shardloom-target-4r -p shardloom-core deterministic_scalar_udf_fixture --lib`
+    - `cargo +1.91.1 test --target-dir C:\tmp\shardloom-target-4r -p shardloom-cli --test sqlite_local_runtime_snapshots`
+    - `cargo +1.91.1 test --target-dir C:\tmp\shardloom-target-4r -p shardloom-cli --test extension_manifest_effect_matrix_snapshots`
+    - `cargo +1.91.1 test --target-dir C:\tmp\shardloom-target-4r -p shardloom-cli --test effect_budget_plan_snapshots`
+    - `cargo +1.91.1 test --target-dir C:\tmp\shardloom-target-4r -p shardloom-cli --test input_adapters_snapshots`
+    - `cargo +1.91.1 test --target-dir C:\tmp\shardloom-target-4r -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo +1.91.1 test --target-dir C:\tmp\shardloom-target-4r -p shardloom-cli --bin shardloom command_registry`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_extension_udf_and_sqlite_effectful_operation_helpers`
+    - `python -m unittest discover -s python\tests`
+    - `python -m compileall -q python\src python\tests scripts website`
+    - `python scripts\check_universal_ingress_routes.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_evidence_schema_registry.py`
+    - `python scripts\check_runtime_promotion_evidence.py`
+    - `python scripts\check_ci_gate_matrix.py`
+    - `python scripts\check_admitted_semantics_matrix.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `node website-src\node_modules\astro\bin\astro.mjs build`
+    - `node website-src\scripts\postbuild-static.mjs`
+    - `node website\validate_static_assets.js`
+    - `git diff --check`
+
 - [x] Session label: GAR-RUNTIME-IMPL-4Q/5N live/hybrid loopback control-plane and distributed blocker closeout
   - Date: 2026-05-26
   - Branch/PR: `runtime-4q-control-plane-closeout` / #963.

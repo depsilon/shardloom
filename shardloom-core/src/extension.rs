@@ -306,6 +306,7 @@ impl PluginAbiRequirement {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UdfRuntimeKind {
+    BuiltinDeterministicFixture,
     RustNative,
     Wasm,
     Python,
@@ -317,6 +318,7 @@ impl UdfRuntimeKind {
     #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match self {
+            Self::BuiltinDeterministicFixture => "builtin_deterministic_fixture",
             Self::RustNative => "rust_native",
             Self::Wasm => "wasm",
             Self::Python => "python",
@@ -334,9 +336,144 @@ impl UdfRuntimeKind {
     }
     #[must_use]
     pub const fn is_available_initially(&self) -> bool {
-        false
+        matches!(self, Self::BuiltinDeterministicFixture)
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeterministicScalarUdfFixtureReport {
+    pub schema_version: &'static str,
+    pub udf_id: &'static str,
+    pub udf_version: &'static str,
+    pub runtime_kind: UdfRuntimeKind,
+    pub input_dtype: &'static str,
+    pub output_dtype: &'static str,
+    pub determinism: &'static str,
+    pub null_policy: &'static str,
+    pub input_row_count: usize,
+    pub output_row_count: usize,
+    pub input_digest: String,
+    pub output_digest: String,
+    pub output_values: Vec<Option<i64>>,
+    pub overflow_blocked: bool,
+    pub sandbox_required: bool,
+    pub network_allowed: bool,
+    pub credential_resolution_performed: bool,
+    pub dynamic_loading_performed: bool,
+    pub extension_code_executed: bool,
+    pub external_effect_executed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_gate_status: &'static str,
+    pub claim_boundary: &'static str,
+}
+
+impl DeterministicScalarUdfFixtureReport {
+    #[must_use]
+    pub fn output_values_summary(&self) -> String {
+        self.output_values
+            .iter()
+            .map(|value| value.map_or_else(|| "null".to_string(), |v| v.to_string()))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    #[must_use]
+    pub fn no_fallback_invariant_holds(&self) -> bool {
+        !self.sandbox_required
+            && !self.network_allowed
+            && !self.credential_resolution_performed
+            && !self.dynamic_loading_performed
+            && !self.extension_code_executed
+            && !self.external_effect_executed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+
+    #[must_use]
+    pub fn to_human_text(&self) -> String {
+        format!(
+            "deterministic scalar UDF fixture\nudf: {} {}\nruntime: {}\ninput rows: {}\noutput rows: {}\noutputs: {}\nfallback execution: disabled",
+            self.udf_id,
+            self.udf_version,
+            self.runtime_kind.as_str(),
+            self.input_row_count,
+            self.output_row_count,
+            self.output_values_summary()
+        )
+    }
+}
+
+/// Execute the only admitted UDF fixture: a built-in, pure, null-propagating
+/// `i64 -> i64` scalar that doubles the input value with overflow blocking.
+///
+/// This is intentionally not an arbitrary UDF registry, plugin loader, WASM
+/// runtime, Python bridge, SQL-defined UDF, or external-service UDF.
+///
+/// # Errors
+/// Returns an explicit invalid-operation error if an input would overflow.
+pub fn run_deterministic_scalar_udf_fixture(
+    values: &[Option<i64>],
+) -> Result<DeterministicScalarUdfFixtureReport> {
+    let mut output_values = Vec::with_capacity(values.len());
+    for value in values {
+        match value {
+            Some(v) => output_values.push(Some(v.checked_mul(2).ok_or_else(|| {
+                ShardLoomError::InvalidOperation(
+                    "deterministic scalar UDF fixture overflow blocked; no fallback execution was attempted"
+                        .to_string(),
+                )
+            })?)),
+            None => output_values.push(None),
+        }
+    }
+    let input_summary = summarize_optional_i64_values(values);
+    let output_summary = summarize_optional_i64_values(&output_values);
+    Ok(DeterministicScalarUdfFixtureReport {
+        schema_version: "shardloom.deterministic_scalar_udf_fixture.v1",
+        udf_id: "sl_fixture_double_i64",
+        udf_version: "0.1.0",
+        runtime_kind: UdfRuntimeKind::BuiltinDeterministicFixture,
+        input_dtype: "int64_nullable",
+        output_dtype: "int64_nullable",
+        determinism: "pure_deterministic",
+        null_policy: "null_propagating",
+        input_row_count: values.len(),
+        output_row_count: output_values.len(),
+        input_digest: fnv64_digest_text(&input_summary),
+        output_digest: fnv64_digest_text(&output_summary),
+        output_values,
+        overflow_blocked: false,
+        sandbox_required: false,
+        network_allowed: false,
+        credential_resolution_performed: false,
+        dynamic_loading_performed: false,
+        extension_code_executed: false,
+        external_effect_executed: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "Only the built-in deterministic scalar UDF fixture is admitted; arbitrary Rust, WASM, Python, SQL-defined, table-function, and external-service UDF execution remains blocked.",
+    })
+}
+
+fn summarize_optional_i64_values(values: &[Option<i64>]) -> String {
+    values
+        .iter()
+        .map(|value| value.map_or_else(|| "null".to_string(), |v| v.to_string()))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn fnv64_digest_text(value: &str) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in value.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    format!("fnv64:{hash:016x}")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SandboxPolicyKind {
     None,
@@ -1661,6 +1798,11 @@ mod tests {
         assert!(!UdfRuntimeKind::Python.is_available_initially())
     }
     #[test]
+    fn builtin_fixture_udf_available_without_sandbox() {
+        assert!(UdfRuntimeKind::BuiltinDeterministicFixture.is_available_initially());
+        assert!(!UdfRuntimeKind::BuiltinDeterministicFixture.requires_sandboxing());
+    }
+    #[test]
     fn metadata_policy_safe() {
         assert!(SandboxPolicy::metadata_only().is_safe_default())
     }
@@ -1906,5 +2048,31 @@ mod tests {
             assert!(!row.external_engine_invoked);
             assert!(row.claim_boundary.contains("no") || row.claim_boundary.contains("remain"));
         }
+    }
+
+    #[test]
+    fn deterministic_scalar_udf_fixture_doubles_nullable_ints_without_effects() {
+        let report =
+            run_deterministic_scalar_udf_fixture(&[Some(3), None, Some(-4)]).expect("fixture");
+        assert_eq!(
+            report.schema_version,
+            "shardloom.deterministic_scalar_udf_fixture.v1"
+        );
+        assert_eq!(report.udf_id, "sl_fixture_double_i64");
+        assert_eq!(
+            report.runtime_kind,
+            UdfRuntimeKind::BuiltinDeterministicFixture
+        );
+        assert_eq!(report.output_values, vec![Some(6), None, Some(-8)]);
+        assert_eq!(report.output_values_summary(), "6,null,-8");
+        assert_eq!(report.claim_gate_status, "fixture_smoke_only");
+        assert!(report.no_fallback_invariant_holds());
+    }
+
+    #[test]
+    fn deterministic_scalar_udf_fixture_blocks_overflow() {
+        let error = run_deterministic_scalar_udf_fixture(&[Some(i64::MAX)])
+            .expect_err("overflow is blocked");
+        assert!(error.message().contains("overflow blocked"));
     }
 }

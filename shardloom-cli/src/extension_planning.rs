@@ -7,11 +7,13 @@
 use std::process::ExitCode;
 
 use shardloom_core::{
-    CommandStatus, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind, ExtensionManifest,
-    ExtensionManifestEffectCapabilityMatrix, ExtensionManifestEffectCapabilityRow,
-    ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion, OutputFormat,
-    PluginAbiUdfSandboxBlockerReport, PluginAbiUdfSandboxBlockerRow, ShardLoomError,
-    UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
+    CommandStatus, DeterministicScalarUdfFixtureReport, EffectfulOperationAdmissionMatrix,
+    EffectfulOperationAdmissionRow, ExtensionId, ExtensionInspectionReport, ExtensionLicenseKind,
+    ExtensionManifest, ExtensionManifestEffectCapabilityMatrix,
+    ExtensionManifestEffectCapabilityRow, ExtensionProvenance, ExtensionRegistrySnapshot,
+    ExtensionVersion, OutputFormat, PluginAbiUdfSandboxBlockerReport,
+    PluginAbiUdfSandboxBlockerRow, ShardLoomError, UdfRuntimeKind,
+    plan_plugin_abi_udf_sandbox_blocker, run_deterministic_scalar_udf_fixture,
 };
 
 use crate::cli_output::{emit, emit_error};
@@ -82,6 +84,9 @@ pub(crate) fn handle_udf_runtime_plan(
     format: OutputFormat,
 ) -> ExitCode {
     let runtime = match args.next().as_deref() {
+        Some("fixture" | "builtin-fixture" | "builtin-deterministic") => {
+            UdfRuntimeKind::BuiltinDeterministicFixture
+        }
         Some("rust") => UdfRuntimeKind::RustNative,
         Some("wasm") => UdfRuntimeKind::Wasm,
         Some("python") => UdfRuntimeKind::Python,
@@ -102,9 +107,202 @@ pub(crate) fn handle_udf_runtime_plan(
         "udf runtime availability skeleton".to_string(),
         text,
         vec![],
-        extension_report_only_fields("udf_runtime_plan"),
+        udf_runtime_plan_fields(runtime),
     );
     ExitCode::SUCCESS
+}
+
+pub(crate) fn handle_udf_local_scalar_fixture_smoke(
+    mut args: std::vec::IntoIter<String>,
+    format: OutputFormat,
+) -> ExitCode {
+    let Some(values_raw) = args.next() else {
+        return emit_error(
+            "udf-local-scalar-fixture-smoke",
+            format,
+            "udf local scalar fixture failed",
+            &ShardLoomError::InvalidOperation(
+                "missing comma-separated int64/null values".to_string(),
+            ),
+        );
+    };
+    let values = match parse_nullable_i64_values(&values_raw) {
+        Ok(values) => values,
+        Err(error) => {
+            return emit_error(
+                "udf-local-scalar-fixture-smoke",
+                format,
+                "udf local scalar fixture failed",
+                &error,
+            );
+        }
+    };
+    let report = match run_deterministic_scalar_udf_fixture(&values) {
+        Ok(report) => report,
+        Err(error) => {
+            return emit_error(
+                "udf-local-scalar-fixture-smoke",
+                format,
+                "udf local scalar fixture failed",
+                &error,
+            );
+        }
+    };
+    emit(
+        "udf-local-scalar-fixture-smoke",
+        format,
+        CommandStatus::Success,
+        "deterministic scalar UDF fixture smoke".to_string(),
+        report.to_human_text(),
+        vec![],
+        udf_local_scalar_fixture_fields(&report),
+    );
+    ExitCode::SUCCESS
+}
+
+fn parse_nullable_i64_values(values_raw: &str) -> Result<Vec<Option<i64>>, ShardLoomError> {
+    if values_raw.trim().is_empty() {
+        return Err(ShardLoomError::InvalidOperation(
+            "comma-separated values must not be empty".to_string(),
+        ));
+    }
+    let mut values = Vec::new();
+    for token in values_raw.split(',') {
+        let token = token.trim();
+        if token.eq_ignore_ascii_case("null") {
+            values.push(None);
+        } else if token.is_empty() {
+            return Err(ShardLoomError::InvalidOperation(
+                "comma-separated values must not contain empty entries".to_string(),
+            ));
+        } else {
+            let value = token.parse::<i64>().map_err(|error| {
+                ShardLoomError::InvalidOperation(format!(
+                    "invalid int64 UDF fixture value {token:?}: {error}"
+                ))
+            })?;
+            values.push(Some(value));
+        }
+    }
+    Ok(values)
+}
+
+fn udf_runtime_plan_fields(runtime: UdfRuntimeKind) -> Vec<(String, String)> {
+    let mut fields = extension_report_only_fields("udf_runtime_plan");
+    fields.extend([
+        ("udf_runtime_kind".to_string(), runtime.as_str().to_string()),
+        (
+            "udf_runtime_available_initially".to_string(),
+            runtime.is_available_initially().to_string(),
+        ),
+        (
+            "udf_runtime_sandboxing_required".to_string(),
+            runtime.requires_sandboxing().to_string(),
+        ),
+        (
+            "udf_runtime_fixture_command".to_string(),
+            if runtime.is_available_initially() {
+                "udf-local-scalar-fixture-smoke"
+            } else {
+                "none"
+            }
+            .to_string(),
+        ),
+    ]);
+    fields
+}
+
+fn udf_local_scalar_fixture_fields(
+    report: &DeterministicScalarUdfFixtureReport,
+) -> Vec<(String, String)> {
+    let mut fields = vec![
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "mode".to_string(),
+            "udf_local_scalar_fixture_smoke".to_string(),
+        ),
+        (
+            "schema_version".to_string(),
+            report.schema_version.to_string(),
+        ),
+        ("udf_id".to_string(), report.udf_id.to_string()),
+        ("udf_version".to_string(), report.udf_version.to_string()),
+        (
+            "udf_runtime_kind".to_string(),
+            report.runtime_kind.as_str().to_string(),
+        ),
+        ("udf_type".to_string(), "scalar".to_string()),
+        ("input_dtype".to_string(), report.input_dtype.to_string()),
+        ("output_dtype".to_string(), report.output_dtype.to_string()),
+        ("determinism".to_string(), report.determinism.to_string()),
+        ("null_policy".to_string(), report.null_policy.to_string()),
+        (
+            "input_row_count".to_string(),
+            report.input_row_count.to_string(),
+        ),
+        (
+            "output_row_count".to_string(),
+            report.output_row_count.to_string(),
+        ),
+        ("input_digest".to_string(), report.input_digest.clone()),
+        ("output_digest".to_string(), report.output_digest.clone()),
+        ("output_values".to_string(), report.output_values_summary()),
+        (
+            "overflow_blocked".to_string(),
+            report.overflow_blocked.to_string(),
+        ),
+        (
+            "sandbox_required".to_string(),
+            report.sandbox_required.to_string(),
+        ),
+        (
+            "network_allowed".to_string(),
+            report.network_allowed.to_string(),
+        ),
+        (
+            "credential_resolution_performed".to_string(),
+            report.credential_resolution_performed.to_string(),
+        ),
+        (
+            "dynamic_loading_performed".to_string(),
+            report.dynamic_loading_performed.to_string(),
+        ),
+        (
+            "extension_code_executed".to_string(),
+            report.extension_code_executed.to_string(),
+        ),
+        (
+            "external_effect_executed".to_string(),
+            report.external_effect_executed.to_string(),
+        ),
+        (
+            "fallback_attempted".to_string(),
+            report.fallback_attempted.to_string(),
+        ),
+        (
+            "external_engine_invoked".to_string(),
+            report.external_engine_invoked.to_string(),
+        ),
+        (
+            "no_fallback_invariant_holds".to_string(),
+            report.no_fallback_invariant_holds().to_string(),
+        ),
+        (
+            "claim_gate_status".to_string(),
+            report.claim_gate_status.to_string(),
+        ),
+        (
+            "claim_boundary".to_string(),
+            report.claim_boundary.to_string(),
+        ),
+    ];
+    append_effectful_operation_admission_matrix_fields(&mut fields);
+    append_extension_manifest_effect_capability_matrix_fields(&mut fields);
+    append_plugin_abi_udf_sandbox_blocker_fields(&mut fields);
+    fields
 }
 
 fn extension_report_only_fields(mode: &str) -> Vec<(String, String)> {
@@ -122,6 +320,7 @@ fn extension_report_only_fields(mode: &str) -> Vec<(String, String)> {
     ];
     append_extension_manifest_effect_capability_matrix_fields(&mut fields);
     append_plugin_abi_udf_sandbox_blocker_fields(&mut fields);
+    append_effectful_operation_admission_matrix_fields(&mut fields);
     fields
 }
 
@@ -342,6 +541,161 @@ pub(crate) fn append_plugin_abi_udf_sandbox_blocker_fields(fields: &mut Vec<(Str
     for row in &report.rows {
         append_plugin_abi_udf_sandbox_blocker_row_fields(fields, row);
     }
+}
+
+pub(crate) fn append_effectful_operation_admission_matrix_fields(
+    fields: &mut Vec<(String, String)>,
+) {
+    let matrix = EffectfulOperationAdmissionMatrix::current();
+    let row_order = matrix.row_order().join(",");
+    let blocker_ids = matrix.blocker_ids().join(",");
+    let required_evidence = matrix.required_evidence().join("|");
+    for (key, value) in [
+        (
+            "effectful_operation_admission_matrix_schema_version",
+            matrix.schema_version,
+        ),
+        ("effectful_operation_admission_matrix_id", matrix.matrix_id),
+        ("effectful_operation_admission_docs_ref", matrix.docs_ref),
+        (
+            "effectful_operation_admission_support_status_vocabulary",
+            "fixture_smoke_supported,metadata_only_supported,blocked",
+        ),
+        (
+            "effectful_operation_admission_claim_gate_status",
+            matrix.claim_gate_status,
+        ),
+    ] {
+        push_field(fields, key, value);
+    }
+    push_count_field(
+        fields,
+        "effectful_operation_admission_row_count",
+        matrix.rows.len(),
+    );
+    push_count_field(
+        fields,
+        "effectful_operation_admission_admitted_local_fixture_count",
+        matrix.admitted_local_fixture_count(),
+    );
+    push_count_field(
+        fields,
+        "effectful_operation_admission_metadata_only_count",
+        matrix.metadata_only_count(),
+    );
+    push_count_field(
+        fields,
+        "effectful_operation_admission_blocked_count",
+        matrix.blocked_count(),
+    );
+    for (key, value) in [
+        (
+            "effectful_operation_admission_row_order",
+            row_order.as_str(),
+        ),
+        (
+            "effectful_operation_admission_blocker_ids",
+            blocker_ids.as_str(),
+        ),
+        (
+            "effectful_operation_admission_required_evidence",
+            required_evidence.as_str(),
+        ),
+    ] {
+        push_field(fields, key, value);
+    }
+    append_effectful_operation_admission_matrix_bool_fields(fields, &matrix);
+    for row in &matrix.rows {
+        append_effectful_operation_admission_row_fields(fields, row);
+    }
+}
+
+fn append_effectful_operation_admission_matrix_bool_fields(
+    fields: &mut Vec<(String, String)>,
+    matrix: &EffectfulOperationAdmissionMatrix,
+) {
+    for (key, value) in [
+        (
+            "effectful_operation_admission_all_external_and_sandboxed_paths_blocked",
+            matrix.all_external_and_sandboxed_paths_blocked(),
+        ),
+        (
+            "effectful_operation_admission_credential_resolution_performed",
+            matrix.credential_resolution_performed,
+        ),
+        (
+            "effectful_operation_admission_network_probe_performed",
+            matrix.network_probe_performed,
+        ),
+        (
+            "effectful_operation_admission_dynamic_loading_performed",
+            matrix.dynamic_loading_performed,
+        ),
+        (
+            "effectful_operation_admission_extension_code_executed",
+            matrix.extension_code_executed,
+        ),
+        (
+            "effectful_operation_admission_external_effect_executed",
+            matrix.external_effect_executed,
+        ),
+        (
+            "effectful_operation_admission_dependency_expansion_allowed",
+            matrix.dependency_expansion_allowed,
+        ),
+        (
+            "effectful_operation_admission_fallback_attempted",
+            matrix.fallback_attempted,
+        ),
+        (
+            "effectful_operation_admission_external_engine_invoked",
+            matrix.external_engine_invoked,
+        ),
+    ] {
+        push_bool_field(fields, key, value);
+    }
+}
+
+fn append_effectful_operation_admission_row_fields(
+    fields: &mut Vec<(String, String)>,
+    row: &EffectfulOperationAdmissionRow,
+) {
+    let prefix = format!("effectful_operation_admission_row_{}", row.row_id);
+    for (suffix, value) in [
+        ("family", row.family),
+        ("operation", row.operation),
+        ("support_status", row.support_status),
+        ("admission_scope", row.admission_scope),
+        ("permission_status", row.permission_status),
+        ("effect_status", row.effect_status),
+        ("blocker_id", row.blocker_id),
+        ("diagnostic_code", row.diagnostic_code),
+        ("required_evidence", row.required_evidence),
+    ] {
+        push_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    for (suffix, value) in [
+        ("credential_required", row.credential_required),
+        ("network_required", row.network_required),
+        ("sandbox_required", row.sandbox_required),
+        (
+            "local_filesystem_io_allowed",
+            row.local_filesystem_io_allowed,
+        ),
+        ("runtime_fixture_available", row.runtime_fixture_available),
+        ("extension_code_executed", row.extension_code_executed),
+        ("dynamic_loading_performed", row.dynamic_loading_performed),
+        ("external_effect_executed", row.external_effect_executed),
+        ("fallback_attempted", row.fallback_attempted),
+        ("external_engine_invoked", row.external_engine_invoked),
+    ] {
+        push_bool_field(fields, &format!("{prefix}_{suffix}"), value);
+    }
+    push_field(
+        fields,
+        &format!("{prefix}_claim_boundary"),
+        row.claim_boundary,
+    );
 }
 
 fn append_plugin_abi_udf_sandbox_blocker_bool_fields(

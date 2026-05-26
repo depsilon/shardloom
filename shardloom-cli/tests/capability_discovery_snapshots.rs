@@ -550,6 +550,64 @@ const EXTERNAL_EFFECT_BLOCKER_ROW_SUFFIXES: [&str; 17] = [
     "claim_boundary",
 ];
 
+const EFFECTFUL_OPERATION_ADMISSION_FIELD_KEYS: [&str; 21] = [
+    "effectful_operation_admission_matrix_schema_version",
+    "effectful_operation_admission_matrix_id",
+    "effectful_operation_admission_docs_ref",
+    "effectful_operation_admission_support_status_vocabulary",
+    "effectful_operation_admission_claim_gate_status",
+    "effectful_operation_admission_row_count",
+    "effectful_operation_admission_admitted_local_fixture_count",
+    "effectful_operation_admission_metadata_only_count",
+    "effectful_operation_admission_blocked_count",
+    "effectful_operation_admission_row_order",
+    "effectful_operation_admission_blocker_ids",
+    "effectful_operation_admission_required_evidence",
+    "effectful_operation_admission_all_external_and_sandboxed_paths_blocked",
+    "effectful_operation_admission_credential_resolution_performed",
+    "effectful_operation_admission_network_probe_performed",
+    "effectful_operation_admission_dynamic_loading_performed",
+    "effectful_operation_admission_extension_code_executed",
+    "effectful_operation_admission_external_effect_executed",
+    "effectful_operation_admission_dependency_expansion_allowed",
+    "effectful_operation_admission_fallback_attempted",
+    "effectful_operation_admission_external_engine_invoked",
+];
+
+const EFFECTFUL_OPERATION_ADMISSION_ROW_IDS: [&str; 8] = [
+    "local_sqlite_import_export",
+    "typed_extension_manifest_inspection",
+    "deterministic_scalar_udf_fixture",
+    "network_database_connectors",
+    "rest_flight_adbc_connectors",
+    "python_udf",
+    "wasm_or_dynamic_plugin_udf",
+    "llm_api_embedding_vector_effects",
+];
+
+const EFFECTFUL_OPERATION_ADMISSION_ROW_SUFFIXES: [&str; 20] = [
+    "family",
+    "operation",
+    "support_status",
+    "admission_scope",
+    "permission_status",
+    "effect_status",
+    "blocker_id",
+    "diagnostic_code",
+    "required_evidence",
+    "credential_required",
+    "network_required",
+    "sandbox_required",
+    "local_filesystem_io_allowed",
+    "runtime_fixture_available",
+    "extension_code_executed",
+    "dynamic_loading_performed",
+    "external_effect_executed",
+    "fallback_attempted",
+    "external_engine_invoked",
+    "claim_boundary",
+];
+
 const EXTENSION_MANIFEST_EFFECT_FIELD_KEYS: [&str; 21] = [
     "extension_manifest_effect_matrix_schema_version",
     "extension_manifest_effect_matrix_id",
@@ -1051,6 +1109,16 @@ fn with_observability_contract_fields(base_keys: &[&'static str]) -> Vec<String>
 
 fn with_external_effect_blocker_fields(base_keys: &[&'static str]) -> Vec<String> {
     let mut keys: Vec<String> = base_keys.iter().copied().map(str::to_string).collect();
+    append_external_effect_and_admission_keys(&mut keys);
+    keys
+}
+
+fn append_external_effect_and_admission_keys(keys: &mut Vec<String>) {
+    append_external_effect_blocker_keys(keys);
+    append_effectful_operation_admission_keys(keys);
+}
+
+fn append_external_effect_blocker_keys(keys: &mut Vec<String>) {
     keys.extend(
         EXTERNAL_EFFECT_BLOCKER_FIELD_KEYS
             .into_iter()
@@ -1063,7 +1131,21 @@ fn with_external_effect_blocker_fields(base_keys: &[&'static str]) -> Vec<String
                 .map(|suffix| format!("external_effect_blocker_row_{row_id}_{suffix}")),
         );
     }
-    keys
+}
+
+fn append_effectful_operation_admission_keys(keys: &mut Vec<String>) {
+    keys.extend(
+        EFFECTFUL_OPERATION_ADMISSION_FIELD_KEYS
+            .into_iter()
+            .map(str::to_string),
+    );
+    for row_id in EFFECTFUL_OPERATION_ADMISSION_ROW_IDS {
+        keys.extend(
+            EFFECTFUL_OPERATION_ADMISSION_ROW_SUFFIXES
+                .into_iter()
+                .map(|suffix| format!("effectful_operation_admission_row_{row_id}_{suffix}")),
+        );
+    }
 }
 
 fn append_extension_manifest_effect_keys(keys: &mut Vec<String>) {
@@ -2029,6 +2111,7 @@ fn capability_discovery_json_field_keys_are_stable() {
                         .into_iter()
                         .map(str::to_string)
                         .collect();
+                append_external_effect_and_admission_keys(&mut keys);
                 append_unstructured_adapter_capability_keys(&mut keys);
                 keys
             }
@@ -2149,6 +2232,7 @@ fn udf_and_effectful_capabilities_expose_external_effect_blockers() {
     for scope in [
         "udfs",
         "event-api-saas-adapters",
+        "universal-adapters",
         "unstructured-media",
         "extensions",
         "security-governance",
@@ -2185,6 +2269,30 @@ fn udf_and_effectful_capabilities_expose_external_effect_blockers() {
         assert!(output.contains(&field_pair(
             "external_effect_blocker_external_engine_invoked",
             false
+        )));
+        assert!(output.contains(&string_field_pair(
+            "effectful_operation_admission_matrix_schema_version",
+            "shardloom.effectful_operation_admission_matrix.v1"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "effectful_operation_admission_claim_gate_status",
+            "fixture_smoke_only"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "effectful_operation_admission_row_local_sqlite_import_export_support_status",
+            "fixture_smoke_supported"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "effectful_operation_admission_row_deterministic_scalar_udf_fixture_support_status",
+            "fixture_smoke_supported"
+        )));
+        assert!(output.contains(&string_field_pair(
+            "effectful_operation_admission_row_network_database_connectors_support_status",
+            "blocked"
+        )));
+        assert!(output.contains(&field_pair(
+            "effectful_operation_admission_all_external_and_sandboxed_paths_blocked",
+            true
         )));
         for row in [
             "sql_udf",
@@ -2753,6 +2861,18 @@ fn assert_universal_compatibility_source_rows(output: &str) {
         "universal_compatibility_row_json_output_io_performed",
         false
     )));
+    assert!(output.contains(&string_field_pair(
+        "universal_compatibility_row_sqlite_support_status",
+        "smoke-supported"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_row_sqlite_source_io_performed",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_row_sqlite_output_io_performed",
+        true
+    )));
 }
 
 fn assert_universal_compatibility_unsupported_boundaries(output: &str) {
@@ -2812,16 +2932,16 @@ fn runs_today_exposes_generated_current_support_matrix() {
             "runs_today_family_order",
             "cli_command,python_api,input_format,output_format,execution_mode,claim_state",
         ),
-        ("runs_today_row_count", "29"),
-        ("runs_today_executable_row_count", "14"),
+        ("runs_today_row_count", "33"),
+        ("runs_today_executable_row_count", "18"),
         ("runs_today_feature_gated_row_count", "5"),
         ("runs_today_diagnostic_only_row_count", "3"),
         ("runs_today_report_only_row_count", "1"),
         ("runs_today_blocked_row_count", "5"),
         ("runs_today_future_row_count", "1"),
-        ("runs_today_cli_command_row_count", "6"),
-        ("runs_today_python_api_row_count", "4"),
-        ("runs_today_input_format_row_count", "5"),
+        ("runs_today_cli_command_row_count", "8"),
+        ("runs_today_python_api_row_count", "5"),
+        ("runs_today_input_format_row_count", "6"),
         ("runs_today_output_format_row_count", "3"),
         ("runs_today_execution_mode_row_count", "6"),
         ("runs_today_claim_state_row_count", "5"),
@@ -2864,7 +2984,11 @@ fn runs_today_exposes_generated_current_support_matrix() {
             "cli_direct_transient_local_adapter_benchmark",
             "feature_gated",
         ),
+        ("cli_sqlite_local_import_export_smoke", "executable"),
+        ("cli_udf_local_scalar_fixture_smoke", "executable"),
         ("python_status_capabilities", "diagnostic_only"),
+        ("python_effectful_fixture_helpers", "executable"),
+        ("input_sqlite_local_database_file", "executable"),
         ("input_object_store_cloud", "blocked"),
         ("input_object_store_public_fixture", "executable"),
         ("execution_report_only_surfaces", "report_only"),
@@ -3098,7 +3222,19 @@ fn assert_database_warehouse_matrix_fields(output: &str) {
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_database_warehouse_matrix_row_sqlite_file_support_status",
-        "report-only"
+        "smoke-supported"
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_database_warehouse_matrix_runtime_supported",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_database_warehouse_matrix_import_runtime_supported",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "universal_compatibility_database_warehouse_matrix_export_runtime_supported",
+        true
     )));
     assert!(output.contains(&string_field_pair(
         "universal_compatibility_database_warehouse_matrix_row_postgres_blocker_id",
@@ -3110,12 +3246,9 @@ fn assert_database_warehouse_matrix_fields(output: &str) {
     )));
     assert!(output.contains(&field_pair(
         "universal_compatibility_database_warehouse_matrix_external_baseline_only",
-        true
+        false
     )));
     for key in [
-        "universal_compatibility_database_warehouse_matrix_runtime_supported",
-        "universal_compatibility_database_warehouse_matrix_import_runtime_supported",
-        "universal_compatibility_database_warehouse_matrix_export_runtime_supported",
         "universal_compatibility_database_warehouse_matrix_query_pushdown_supported",
         "universal_compatibility_database_warehouse_matrix_credential_resolution_performed",
         "universal_compatibility_database_warehouse_matrix_network_probe_performed",

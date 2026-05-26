@@ -8916,6 +8916,74 @@ class ShardLoomClient:
 
         return self.run(["input-adapters"], check=check)
 
+    def extension_registry(self, *, check: bool = True) -> OutputEnvelope:
+        """Return the side-effect-free extension registry snapshot."""
+
+        return self.run(["extension-registry"], check=check)
+
+    def extension_inspect(
+        self,
+        extension_id: str,
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Inspect extension manifest metadata without loading extension code."""
+
+        return self.run(["extension-inspect", extension_id], check=check)
+
+    def udf_runtime_plan(
+        self,
+        runtime: str = "unknown",
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Return UDF runtime posture, including the admitted built-in fixture."""
+
+        return self.run(["udf-runtime-plan", runtime], check=check)
+
+    def udf_local_scalar_fixture_smoke(
+        self,
+        values: Sequence[int | None] | str,
+        *,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the built-in deterministic nullable-int64 scalar UDF fixture."""
+
+        if isinstance(values, str):
+            encoded_values = values
+        else:
+            encoded_values = ",".join("null" if value is None else str(value) for value in values)
+        return self.run(["udf-local-scalar-fixture-smoke", encoded_values], check=check)
+
+    def sqlite_local_import_export_smoke(
+        self,
+        database_path: str | os.PathLike[str],
+        *,
+        table: str,
+        export_jsonl: str | os.PathLike[str],
+        roundtrip_db: str | os.PathLike[str],
+        order_by: str | None = None,
+        allow_overwrite: bool = False,
+        check: bool = True,
+    ) -> OutputEnvelope:
+        """Run the local SQLite file import/export fixture smoke."""
+
+        command: list[CommandPart] = [
+            "sqlite-local-import-export-smoke",
+            str(database_path),
+            "--table",
+            table,
+            "--export-jsonl",
+            str(export_jsonl),
+            "--roundtrip-db",
+            str(roundtrip_db),
+        ]
+        if order_by is not None:
+            command.extend(["--order-by", order_by])
+        if allow_overwrite:
+            command.append("--allow-overwrite")
+        return self.run(command, check=check)
+
     def input_plan(
         self,
         dataset_uri: str | os.PathLike[str],

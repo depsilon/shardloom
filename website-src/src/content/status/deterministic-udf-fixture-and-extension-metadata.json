@@ -1,0 +1,32 @@
+{
+  "capability": "Deterministic UDF fixture and extension metadata",
+  "status": "smoke_supported",
+  "inputs": [
+    "nullable_int64_values",
+    "extension_manifest_id"
+  ],
+  "outputs": [
+    "deterministic_udf_fixture_result",
+    "extension_manifest_metadata",
+    "effectful_operation_admission_matrix"
+  ],
+  "route": "udf_local_scalar_fixture_smoke extension_inspection",
+  "platform": "extension_fixture",
+  "evidence": [
+    "udf_id=sl_fixture_double_i64",
+    "udf_deterministic=true",
+    "udf_null_behavior=null_propagating",
+    "extension_code_executed=false",
+    "external_effect_executed=false",
+    "claim_gate_status=fixture_smoke_only",
+    "fallback_attempted=false",
+    "external_engine_invoked=false"
+  ],
+  "works": "The built-in nullable-int64 scalar fixture runs deterministically, and extension manifests are inspectable without loading extension code.",
+  "blocked": "Arbitrary Python/WASM/Rust/plugin/SQL/external-service UDFs, dynamic loading, API/LLM/embedding/vector effects, credentials, and network effects remain blocked.",
+  "references": [
+    "docs/architecture/effectful-operation-admission-matrix.md",
+    "docs/architecture/extension-manifest-effect-capability-matrix.md",
+    "python/README.md"
+  ]
+}

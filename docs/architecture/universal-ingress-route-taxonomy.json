@@ -327,17 +327,17 @@
         "local_database_file"
       ],
       "source_kind": "non_vortex_source",
-      "universal_ingress_status": "report_only",
+      "universal_ingress_status": "smoke_supported",
       "source_adapter_id": "sqlite_input_adapter",
-      "source_adapter_status": "report_only",
-      "source_adapter_blocker_id": "gar-compat-1a.sqlite.connector_evidence_missing",
+      "source_adapter_status": "smoke_supported",
+      "source_adapter_blocker_id": "none",
       "ingress_route": "vortex_ingest",
       "ingress_route_label": "Vortex ingest / prepare once route",
       "ingress_certification_level": "source_state_required",
       "vortex_ingest_status": "report_only",
-      "vortex_ingest_blocker_id": "gar-compat-1a.sqlite.connector_evidence_missing",
+      "vortex_ingest_blocker_id": "gar-runtime-impl-4r.sqlite_vortex_ingest_not_admitted",
       "compatibility_import_certified_status": "report_only",
-      "compatibility_import_certified_blocker_id": "gar-compat-1a.sqlite.connector_evidence_missing",
+      "compatibility_import_certified_blocker_id": "gar-runtime-impl-4r.sqlite_vortex_ingest_not_admitted",
       "prepared_vortex_direct_source_input_allowed": false,
       "prepared_vortex_requires_prepared_state": true,
       "prepared_vortex_input_contract": "non-Vortex source -> UniversalIngress/InputAdapter -> SourceState -> vortex_ingest -> VortexPreparedState -> prepared_vortex",
@@ -346,7 +346,7 @@
       "fallback_attempted": false,
       "external_engine_invoked": false,
       "claim_gate_status": "not_claim_grade",
-      "claim_boundary": "SQLite import/export support is not claimed."
+      "claim_boundary": "SQLite local file import/export is smoke-supported only through sqlite-local-import-export-smoke; optional ordering is ShardLoom post-scan fixture ordering, BLOB schemas/values are blocked, and Vortex ingest, arbitrary SQL pushdown, network databases, production connectors, fallback, and performance claims remain blocked."
     },
     {
       "source_surface_id": "postgres_mysql",

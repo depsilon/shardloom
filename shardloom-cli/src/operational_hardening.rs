@@ -2475,6 +2475,7 @@ pub(crate) fn effect_budget_fields(report: &EffectBudgetReport) -> Vec<(String, 
         ),
     ];
     append_external_effect_blocker_matrix_fields(&mut fields);
+    crate::extension_planning::append_effectful_operation_admission_matrix_fields(&mut fields);
     fields
 }
 

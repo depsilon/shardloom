@@ -4,6 +4,11 @@
 calls, embedding generation, vector search, plugin execution, media extraction, and network egress
 are visible as deterministic capability rows, but every effectful path is denied by default.
 
+`udf-local-scalar-fixture-smoke` is the only admitted UDF-like runtime fixture. It is built into
+ShardLoom, pure deterministic, nullable-int64 only, and recorded by
+`docs/architecture/effectful-operation-admission-matrix.md`; it is not a plugin, Python/WASM/Rust
+extension, SQL-defined UDF, table function, or external-service UDF.
+
 ## User Surfaces
 
 - `effect-budget-plan --format json`
@@ -12,6 +17,7 @@ are visible as deterministic capability rows, but every effectful path is denied
 - `capabilities unstructured-media --format json`
 - `capabilities extensions --format json`
 - `capabilities security-governance --format json`
+- `udf-local-scalar-fixture-smoke <values> --format json`
 
 ## Contract Fields
 

@@ -134,7 +134,8 @@ pub use diagnostics::{
 };
 pub use effect_budget::{
     EffectBudgetEntry, EffectBudgetReport, EffectBudgetScope, EffectBudgetStatus,
-    ExternalEffectBlockerMatrix, ExternalEffectBlockerRow,
+    EffectfulOperationAdmissionMatrix, EffectfulOperationAdmissionRow, ExternalEffectBlockerMatrix,
+    ExternalEffectBlockerRow,
 };
 pub use encoded::{
     ByteRange, ColumnRef, ComparisonOp, EncodedEvalCapability, EncodedPredicateEvaluationReport,
@@ -159,13 +160,14 @@ pub use execution_certificate::{
     plan_execution_certificate_evidence_surface,
 };
 pub use extension::{
-    ExtensionCapability, ExtensionCapabilityStatus, ExtensionCategory, ExtensionEffectDeclaration,
-    ExtensionId, ExtensionInspectionReport, ExtensionInspectionStatus, ExtensionLicenseKind,
-    ExtensionLifecycleState, ExtensionManifest, ExtensionManifestEffectCapabilityMatrix,
-    ExtensionManifestEffectCapabilityRow, ExtensionPermission, ExtensionProvenance,
-    ExtensionRegistrySnapshot, ExtensionVersion, PluginAbiRequirement, PluginAbiStatus,
-    PluginAbiUdfSandboxBlockerReport, PluginAbiUdfSandboxBlockerRow, SandboxPolicy,
-    SandboxPolicyKind, UdfRuntimeKind, plan_plugin_abi_udf_sandbox_blocker,
+    DeterministicScalarUdfFixtureReport, ExtensionCapability, ExtensionCapabilityStatus,
+    ExtensionCategory, ExtensionEffectDeclaration, ExtensionId, ExtensionInspectionReport,
+    ExtensionInspectionStatus, ExtensionLicenseKind, ExtensionLifecycleState, ExtensionManifest,
+    ExtensionManifestEffectCapabilityMatrix, ExtensionManifestEffectCapabilityRow,
+    ExtensionPermission, ExtensionProvenance, ExtensionRegistrySnapshot, ExtensionVersion,
+    PluginAbiRequirement, PluginAbiStatus, PluginAbiUdfSandboxBlockerReport,
+    PluginAbiUdfSandboxBlockerRow, SandboxPolicy, SandboxPolicyKind, UdfRuntimeKind,
+    plan_plugin_abi_udf_sandbox_blocker, run_deterministic_scalar_udf_fixture,
 };
 
 pub use feature_footprint::{

@@ -7902,6 +7902,84 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(input_plan.command, "input-plan")
         self.assertTrue(input_plan.field_bool("plan_only"))
 
+    def test_extension_udf_and_sqlite_effectful_operation_helpers(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+
+                args = sys.argv[1:]
+                if args == ["extension-registry", "--format", "json"]:
+                    command = "extension-registry"
+                    fields = [{"key": "effectful_operation_admission_matrix_schema_version", "value": "shardloom.effectful_operation_admission_matrix.v1"}]
+                elif args == ["extension-inspect", "example.fixture", "--format", "json"]:
+                    command = "extension-inspect"
+                    fields = [{"key": "extension_code_executed", "value": "false"}]
+                elif args == ["udf-runtime-plan", "fixture", "--format", "json"]:
+                    command = "udf-runtime-plan"
+                    fields = [{"key": "udf_runtime_kind", "value": "builtin_deterministic_fixture"}]
+                elif args == ["udf-local-scalar-fixture-smoke", "3,null,-4", "--format", "json"]:
+                    command = "udf-local-scalar-fixture-smoke"
+                    fields = [{"key": "output_values", "value": "6,null,-8"}]
+                elif args == [
+                    "sqlite-local-import-export-smoke",
+                    "target/orders.sqlite",
+                    "--table",
+                    "orders",
+                    "--export-jsonl",
+                    "target/orders.jsonl",
+                    "--roundtrip-db",
+                    "target/orders-roundtrip.sqlite",
+                    "--order-by",
+                    "id",
+                    "--allow-overwrite",
+                    "--format",
+                    "json",
+                ]:
+                    command = "sqlite-local-import-export-smoke"
+                    fields = [{"key": "roundtrip_replay_verified", "value": "true"}]
+                else:
+                    raise AssertionError(sys.argv)
+
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": command,
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": fields,
+                }))
+                """
+            )
+        )
+        client = ShardLoomClient(binary=binary)
+
+        self.assertEqual(client.extension_registry().command, "extension-registry")
+        self.assertEqual(
+            client.extension_inspect("example.fixture").field("extension_code_executed"),
+            "false",
+        )
+        self.assertEqual(
+            client.udf_runtime_plan("fixture").field("udf_runtime_kind"),
+            "builtin_deterministic_fixture",
+        )
+        self.assertEqual(
+            client.udf_local_scalar_fixture_smoke([3, None, -4]).field("output_values"),
+            "6,null,-8",
+        )
+        sqlite = client.sqlite_local_import_export_smoke(
+            "target/orders.sqlite",
+            table="orders",
+            export_jsonl="target/orders.jsonl",
+            roundtrip_db="target/orders-roundtrip.sqlite",
+            order_by="id",
+            allow_overwrite=True,
+        )
+        self.assertEqual(sqlite.command, "sqlite-local-import-export-smoke")
+        self.assertTrue(sqlite.field_bool("roundtrip_replay_verified"))
+
     def test_plan_import_and_export_helpers_expose_substrait_contract(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(

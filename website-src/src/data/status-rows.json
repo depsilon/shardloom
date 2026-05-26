@@ -79,6 +79,69 @@
     ]
   },
   {
+    "capability": "Local SQLite file",
+    "status": "smoke_supported",
+    "inputs": [
+      "local_sqlite_file",
+      "sqlite_table_name"
+    ],
+    "outputs": [
+      "jsonl",
+      "roundtrip_sqlite",
+      "evidence"
+    ],
+    "route": "sqlite_local_import_export_smoke universal_ingress",
+    "platform": "local_database_file",
+    "evidence": [
+      "source_adapter_id=sqlite_input_adapter",
+      "sqlite_sql_execution_scope=single_table_scan_only",
+      "sqlite_query_pushdown_allowed=false",
+      "roundtrip_replay_verified",
+      "effectful_operation_admission_claim_gate_status",
+      "fallback_attempted=false",
+      "external_engine_invoked=false"
+    ],
+    "works": "A local SQLite file can be table-scanned by name into workspace-safe JSONL and roundtripped into a local SQLite artifact with replay evidence.",
+    "blocked": "No arbitrary SQL, query pushdown, SQLite Vortex ingest, BLOB export, network database, warehouse, credentials, production connector, or performance claim is made.",
+    "references": [
+      "docs/architecture/effectful-operation-admission-matrix.md",
+      "docs/architecture/universal-ingress-route-taxonomy.md",
+      "python/README.md"
+    ]
+  },
+  {
+    "capability": "Deterministic UDF fixture and extension metadata",
+    "status": "smoke_supported",
+    "inputs": [
+      "nullable_int64_values",
+      "extension_manifest_id"
+    ],
+    "outputs": [
+      "deterministic_udf_fixture_result",
+      "extension_manifest_metadata",
+      "effectful_operation_admission_matrix"
+    ],
+    "route": "udf_local_scalar_fixture_smoke extension_inspection",
+    "platform": "extension_fixture",
+    "evidence": [
+      "udf_id=sl_fixture_double_i64",
+      "udf_deterministic=true",
+      "udf_null_behavior=null_propagating",
+      "extension_code_executed=false",
+      "external_effect_executed=false",
+      "claim_gate_status=fixture_smoke_only",
+      "fallback_attempted=false",
+      "external_engine_invoked=false"
+    ],
+    "works": "The built-in nullable-int64 scalar fixture runs deterministically, and extension manifests are inspectable without loading extension code.",
+    "blocked": "Arbitrary Python/WASM/Rust/plugin/SQL/external-service UDFs, dynamic loading, API/LLM/embedding/vector effects, credentials, and network effects remain blocked.",
+    "references": [
+      "docs/architecture/effectful-operation-admission-matrix.md",
+      "docs/architecture/extension-manifest-effect-capability-matrix.md",
+      "python/README.md"
+    ]
+  },
+  {
     "capability": "Local Parquet",
     "status": "smoke_supported",
     "inputs": [

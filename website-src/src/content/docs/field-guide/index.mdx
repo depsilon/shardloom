@@ -12,9 +12,9 @@ A compact atlas for ShardLoom vocabulary. This Starlight-powered Field Guide exp
 - [Start Here](#start-here)
 - [Execution Routes](#execution-routes)
 - [UniversalIngress](#universalingress)
+- [Evidence + Certificates](#evidence-certificates)
 - [Vortex Ingest](#vortex-ingest)
 - [Prepared/Native Vortex](#prepared-native-vortex)
-- [Evidence + Certificates](#evidence-certificates)
 - [Benchmarks](#benchmarks)
 - [I/O + Outputs](#i-o-outputs)
 - [Scale + Resource Envelope](#scale-resource-envelope)
@@ -38,6 +38,15 @@ A compact atlas for ShardLoom vocabulary. This Starlight-powered Field Guide exp
 - [UniversalIngress](/field-guide/universal-ingress/) - The source admission layer that recognizes, admits, or blocks every potential input family.
 - [SourceState](/field-guide/source-state/) - Reusable source identity, schema, fingerprint, adapter posture, and source evidence.
 - [Source adapter status](/field-guide/source-adapter-status/) - The visible admit/block posture for an input adapter and source format.
+- [Local SQLite fixture](/field-guide/local-sqlite-fixture/) - A named local SQLite table scan to workspace-safe JSONL plus roundtrip SQLite replay, without SQL pushdown or network effects.
+
+## Evidence + Certificates
+
+- [Effectful operation admission](/field-guide/effectful-operation-admission/) - The matrix that admits local fixture/metadata exceptions while blocking network, credential, plugin, UDF, API, model, and vector effects by default.
+- [claim_gate_status](/field-guide/claim-gate-status/) - The field that says whether evidence is claim-grade, fixture-smoke-only, report-only, or blocked.
+- [Native I/O certificate](/field-guide/native-io-certificate/) - Evidence for admitted local source or sink I/O without external engine fallback.
+- [Materialization boundary](/field-guide/materialization-boundary/) - Evidence describing when data was decoded, materialized, or kept source-backed.
+- [Result-sink replay](/field-guide/result-sink-replay/) - Output proof that a local result sink can be replayed or checked for evidence consistency.
 
 ## Vortex Ingest
 
@@ -50,13 +59,6 @@ A compact atlas for ShardLoom vocabulary. This Starlight-powered Field Guide exp
 - [prepared_vortex](/field-guide/prepared-vortex/) - Prepared warm execution over an existing VortexPreparedState, not direct non-Vortex input.
 - [native_vortex](/field-guide/native-vortex/) - Execution over input that already exists as Vortex before the query starts.
 - [Source-backed scan](/field-guide/source-backed-scan/) - Prepared/native scan evidence showing columns, pushdown, decode, and materialization posture.
-
-## Evidence + Certificates
-
-- [claim_gate_status](/field-guide/claim-gate-status/) - The field that says whether evidence is claim-grade, fixture-smoke-only, report-only, or blocked.
-- [Native I/O certificate](/field-guide/native-io-certificate/) - Evidence for admitted local source or sink I/O without external engine fallback.
-- [Materialization boundary](/field-guide/materialization-boundary/) - Evidence describing when data was decoded, materialized, or kept source-backed.
-- [Result-sink replay](/field-guide/result-sink-replay/) - Output proof that a local result sink can be replayed or checked for evidence consistency.
 
 ## Benchmarks
 

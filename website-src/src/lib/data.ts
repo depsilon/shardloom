@@ -41,6 +41,12 @@ const REFERENCE_PROOFS: Record<string, string> = {
   "python/README.md": "Python wrapper scope, local smoke usage, and Python API claim boundaries.",
   "docs/architecture/compute-engine-flow-reference.md":
     "Canonical execution-mode, engine-mode, evidence, and claim-gate flow definitions.",
+  "docs/architecture/effect-budget-plan.md":
+    "Deny-by-default effect budget policy and the local fixture exceptions for the current effectful-operation slice.",
+  "docs/architecture/effectful-operation-admission-matrix.md":
+    "Effectful-operation admission rows for local SQLite, extension metadata, deterministic UDF fixture, and blocked external effects.",
+  "docs/architecture/extension-manifest-effect-capability-matrix.md":
+    "Extension manifest inspection posture and blockers for dynamic loading, plugin execution, and arbitrary UDF execution.",
   "docs/architecture/object-store-request-planner.md":
     "Object-store route admission, local-emulator evidence, and remote-provider blockers.",
   "docs/architecture/table-intelligence-layer.md":

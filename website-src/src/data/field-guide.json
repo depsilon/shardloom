@@ -195,6 +195,49 @@
     ]
   },
   {
+    "slug": "local-sqlite-fixture",
+    "title": "Local SQLite fixture",
+    "category": "UniversalIngress",
+    "status": "smoke_supported",
+    "summary": "A named local SQLite table scan to workspace-safe JSONL plus roundtrip SQLite replay, without SQL pushdown or network effects.",
+    "route": "UniversalIngress -> local_sqlite_import_export",
+    "evidence_fields": [
+      "source_adapter_id=sqlite_input_adapter",
+      "sqlite_sql_execution_scope=single_table_scan_only",
+      "sqlite_query_pushdown_allowed=false",
+      "roundtrip_replay_verified"
+    ],
+    "related_use_cases": [
+      "local-sqlite-udf-effectful-boundary"
+    ],
+    "references": [
+      "docs/architecture/universal-ingress-route-taxonomy.md",
+      "docs/architecture/effectful-operation-admission-matrix.md"
+    ]
+  },
+  {
+    "slug": "effectful-operation-admission",
+    "title": "Effectful operation admission",
+    "category": "Evidence + Certificates",
+    "status": "smoke_supported",
+    "summary": "The matrix that admits local fixture/metadata exceptions while blocking network, credential, plugin, UDF, API, model, and vector effects by default.",
+    "route": "EffectBudget -> effectful operation admission",
+    "evidence_fields": [
+      "effectful_operation_admission_claim_gate_status",
+      "effectful_operation_admission_all_external_and_sandboxed_paths_blocked",
+      "external_effect_executed=false",
+      "fallback_attempted=false"
+    ],
+    "related_use_cases": [
+      "local-sqlite-udf-effectful-boundary"
+    ],
+    "references": [
+      "docs/architecture/effectful-operation-admission-matrix.md",
+      "docs/architecture/effect-budget-plan.md",
+      "docs/architecture/extension-manifest-effect-capability-matrix.md"
+    ]
+  },
+  {
     "slug": "vortex-ingest",
     "title": "vortex_ingest",
     "category": "Vortex Ingest",

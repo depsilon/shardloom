@@ -308,6 +308,7 @@ fn is_input_planning_command(command: &str) -> bool {
         command,
         "input-adapters"
             | "input-plan"
+            | "sqlite-local-import-export-smoke"
             | "vortex-input-plan"
             | "vortex-read-plan"
             | "vortex-task-graph"
@@ -384,7 +385,10 @@ fn is_object_store_planning_command(command: &str) -> bool {
 fn is_extension_planning_command(command: &str) -> bool {
     matches!(
         command,
-        "extension-registry" | "extension-inspect" | "udf-runtime-plan"
+        "extension-registry"
+            | "extension-inspect"
+            | "udf-runtime-plan"
+            | "udf-local-scalar-fixture-smoke"
     )
 }
 

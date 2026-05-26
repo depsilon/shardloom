@@ -25,14 +25,18 @@
     "cli_sql_local_source_smoke",
     "cli_vortex_ingest_smoke",
     "cli_generated_source_smokes",
+    "cli_sqlite_local_import_export_smoke",
+    "cli_udf_local_scalar_fixture_smoke",
     "cli_prepared_vortex_batch_benchmark",
     "cli_direct_transient_local_adapter_benchmark",
     "python_status_capabilities",
     "python_local_query_builder",
     "python_generated_source_helpers",
     "python_prepared_vortex_batch",
+    "python_effectful_fixture_helpers",
     "input_csv_json_jsonl_ndjson",
     "input_vortex_local",
+    "input_sqlite_local_database_file",
     "input_parquet_arrow_avro_orc",
     "input_object_store_cloud",
     "input_object_store_public_fixture",
@@ -51,9 +55,9 @@
     "claim_package_publication",
     "claim_object_store_lakehouse_foundry_production"
   ],
-  "row_count": 29,
+  "row_count": 33,
   "support_state_counts": {
-    "executable": 14,
+    "executable": 18,
     "feature_gated": 5,
     "diagnostic_only": 3,
     "report_only": 1,
@@ -61,9 +65,9 @@
     "future": 1
   },
   "family_counts": {
-    "cli_command": 6,
-    "python_api": 4,
-    "input_format": 5,
+    "cli_command": 8,
+    "python_api": 5,
+    "input_format": 6,
     "output_format": 3,
     "execution_mode": 6,
     "claim_state": 5
@@ -89,18 +93,22 @@
     "vortex_ingest_evidence_fields",
     "generated_source_runtime_tests",
     "generated_source_certificate_contract",
+    "sqlite_local_runtime_snapshots",
+    "effectful_operation_admission_matrix",
+    "universal_ingress_route_taxonomy",
+    "extension_manifest_effect_matrix_snapshots",
+    "python.tests.test_cli_client",
     "traditional_benchmark_harness",
     "benchmark_runtime_tests",
     "prepared_vortex_batch_python_tests",
     "traditional_direct_transient_tests",
-    "python.tests.test_cli_client",
     "python.tests.test_quickstart_proof",
     "python.tests.test_query_builder",
     "vortex_ingest_smoke_text_adapter_tests",
-    "universal_ingress_route_taxonomy",
     "vortex_count_tests",
     "vortex_filter_project_tests",
     "prepared_vortex_batch_tests",
+    "input_adapters_snapshots",
     "feature_gated_sql_local_source_tests",
     "vortex_ingest_smoke_structured_adapter_tests",
     "traditional_direct_transient_structured_tests",
@@ -230,6 +238,50 @@
       "runtime_execution": true,
       "data_read": false,
       "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "cli_sqlite_local_import_export_smoke",
+      "family": "cli_command",
+      "surface": [
+        "sqlite-local-import-export-smoke"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "sqlite_local_runtime_snapshots",
+        "effectful_operation_admission_matrix",
+        "universal_ingress_route_taxonomy"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "local SQLite table-scan import/export fixture only; no arbitrary SQL pushdown, network database, warehouse, credentials, extension loading, fallback, or performance claim",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "cli_udf_local_scalar_fixture_smoke",
+      "family": "cli_command",
+      "surface": [
+        "udf-local-scalar-fixture-smoke"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "extension_manifest_effect_matrix_snapshots",
+        "effectful_operation_admission_matrix",
+        "python.tests.test_cli_client"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "built-in deterministic nullable-int64 scalar fixture only; arbitrary Rust/WASM/Python/SQL/external-service UDFs remain blocked",
+      "runtime_execution": true,
+      "data_read": false,
+      "write_io": false,
       "fallback_attempted": false,
       "external_engine_invoked": false
     },
@@ -377,6 +429,32 @@
       "external_engine_invoked": false
     },
     {
+      "id": "python_effectful_fixture_helpers",
+      "family": "python_api",
+      "surface": [
+        "ShardLoomClient.sqlite_local_import_export_smoke",
+        "ShardLoomClient.udf_local_scalar_fixture_smoke",
+        "ShardLoomClient.extension_registry",
+        "ShardLoomClient.extension_inspect",
+        "ShardLoomClient.udf_runtime_plan"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "python.tests.test_cli_client",
+        "sqlite_local_runtime_snapshots",
+        "extension_manifest_effect_matrix_snapshots"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "thin Python CLI helpers for local SQLite fixture, extension metadata, and built-in deterministic UDF fixture only; no native binding, arbitrary UDF, plugin, network connector, or fallback claim",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": true,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
       "id": "input_csv_json_jsonl_ndjson",
       "family": "input_format",
       "surface": [
@@ -422,6 +500,29 @@
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,
+      "fallback_attempted": false,
+      "external_engine_invoked": false
+    },
+    {
+      "id": "input_sqlite_local_database_file",
+      "family": "input_format",
+      "surface": [
+        "sqlite",
+        "local_database_file"
+      ],
+      "support_state": "executable",
+      "feature_gate": "default",
+      "evidence_refs": [
+        "sqlite_local_runtime_snapshots",
+        "universal_ingress_route_taxonomy",
+        "input_adapters_snapshots"
+      ],
+      "blocker_id": "none",
+      "claim_gate_status": "fixture_smoke_only",
+      "claim_boundary": "local SQLite file table-scan import/export smoke only; Vortex ingest, arbitrary SQL, network databases, warehouses, credentials, production connectors, fallback, and performance claims remain blocked",
+      "runtime_execution": true,
+      "data_read": true,
+      "write_io": true,
       "fallback_attempted": false,
       "external_engine_invoked": false
     },

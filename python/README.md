@@ -1991,7 +1991,9 @@ print(adapters.field("common_structured_adapter_order"))
 print(adapters.field("critical_structured_adapter_order"))
 print(adapters.field("object_store_adapter_order"))
 print(adapters.field("catalog_adapter_order"))
+print(adapters.field("database_adapter_order"))
 print(adapters.field("parquet_status"))
+print(adapters.field("sqlite_status"))
 
 plan = client.input_plan("file://tmp/example.parquet")
 print(plan.field("source_kind"))
@@ -2001,11 +2003,17 @@ print(plan.field("plan_only"))
 
 Common structured inputs are tracked as `native_vortex`, `parquet`,
 `arrow_ipc`, `csv`, JSON/NDJSON through `jsonl`, `avro`, and `orc`.
-Lakehouse/table, object-store, catalog, effectful, and unstructured/media
-families are also represented in the registry. The current implemented live
-path is the feature-gated local compatibility-file-to-Vortex benchmark smoke
-and native `.vortex` replay; production adapter certification, object-store
-runtime, catalogs, SQL, DataFrame runtime, and UDF runtime remain future work.
+Database adapters are visible separately: SQLite has a local import/export
+fixture smoke, while Postgres/MySQL, JDBC/ODBC, Snowflake, BigQuery, and
+Databricks SQL remain credential/network-gated. Lakehouse/table, object-store,
+catalog, effectful, and unstructured/media families are also represented in the
+registry. The current implemented live paths are scoped local fixture/evidence
+paths only: feature-gated local compatibility-file-to-Vortex benchmark smokes,
+native `.vortex` replay, public/local object-store fixture smokes, local table
+commit rehearsal, local SQLite import/export smoke, and the built-in
+deterministic scalar UDF fixture. Production adapter certification, live
+object-store runtime, catalogs, broad SQL/DataFrame runtime, arbitrary UDFs, and
+network connectors remain future work.
 
 For a single source/sink compatibility view, use the typed scoreboard instead
 of scraping architecture prose:
@@ -2104,6 +2112,53 @@ network reads, credentials, provider probes, signed URLs, authenticated cloud
 reads or writes, cache writes, table/lakehouse commits, catalog interaction,
 distributed runtime, and production object-store claims remain blocked.
 
+For the local SQLite adapter fixture, create or point at a local SQLite file and
+use the import/export smoke. The command table-scans a named table, writes a
+workspace-safe JSONL export, and creates a roundtrip SQLite artifact. It does not
+accept arbitrary SQL, push queries down, connect to network databases, resolve
+credentials, load extensions, or use SQLite as a fallback engine. `order_by` is
+post-scan fixture ordering in ShardLoom, and BLOB schemas/values are rejected.
+
+```python
+sqlite = client.sqlite_local_import_export_smoke(
+    "target/orders.sqlite",
+    table="orders",
+    export_jsonl="target/orders-sqlite.jsonl",
+    roundtrip_db="target/orders-roundtrip.sqlite",
+    order_by="id",
+    allow_overwrite=True,
+)
+print(sqlite.field("sqlite_sql_execution_scope"))
+print(sqlite.field_bool("sqlite_query_pushdown_allowed"))
+print(sqlite.field("sqlite_ordering_execution_scope"))
+print(sqlite.field_bool("roundtrip_replay_verified"))
+```
+
+For the built-in deterministic scalar UDF fixture, use the nullable-int64
+fixture smoke. It proves UDF metadata, determinism, null propagation, overflow
+blocking, and effect policy for one built-in fixture only. It is not Python,
+WASM, Rust plugin, SQL-defined, table-function, or external-service UDF support.
+
+```python
+udf = client.udf_local_scalar_fixture_smoke([1, None, 3])
+print(udf.field("udf_id"))
+print(udf.field("output_values"))
+print(udf.field_bool("external_effect_executed"))
+print(udf.field_bool("fallback_attempted"))
+```
+
+Extension metadata and UDF runtime posture remain inspectable without executing
+extension code:
+
+```python
+extensions = client.extension_registry()
+fixture_plan = client.udf_runtime_plan("fixture")
+python_plan = client.udf_runtime_plan("python")
+print(extensions.field("extension_manifest_effect_all_runtime_blocked"))
+print(fixture_plan.field("runtime_kind"))
+print(python_plan.field("runtime_support_status"))
+```
+
 For the first fixture-scoped table append commit rehearsal, use the local
 manifest smoke. It writes a staged committed manifest plus sidecar table commit
 record, reports base/append/committed snapshot ids and digest evidence, and can
@@ -2170,12 +2225,13 @@ for row in endpoints.rows:
 ```
 
 The `database_warehouse_boundary_matrix` keeps SQLite, Postgres, MySQL,
-JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL separate from ShardLoom
-runtime execution. Current rows do not load drivers, resolve credentials, probe
-networks, import/export data, push queries down, or use external databases and
-warehouses as fallback engines. Important row IDs include `sqlite_file`,
-`postgres`, `mysql`, `jdbc_odbc`, `snowflake`, `bigquery`, and
-`databricks_sql`.
+JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL separate. SQLite is the only
+admitted fixture exception: `sqlite_file` is smoke-supported for local named
+table import/export through `sqlite-local-import-export-smoke`, with query
+pushdown disabled and no credentials/network probes. Postgres/MySQL, JDBC/ODBC,
+Snowflake, BigQuery, and Databricks SQL remain blocked as connectors and cannot
+serve as fallback engines. Important row IDs include `sqlite_file`, `postgres`,
+`mysql`, `jdbc_odbc`, `snowflake`, `bigquery`, and `databricks_sql`.
 
 The client also exposes advisory optimization reports:
 

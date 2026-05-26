@@ -11,11 +11,17 @@ matrix blocks operations such as UDFs, API calls, LLM calls, embeddings, vector 
 execution, media extraction, and network egress; this matrix explains which extension families would
 need those policies before any extension runtime can be admitted.
 
+The current admitted runtime exception is not a plugin extension: it is the built-in
+`udf-local-scalar-fixture-smoke` deterministic scalar fixture recorded in
+`docs/architecture/effectful-operation-admission-matrix.md`. Dynamic plugin loading, arbitrary UDFs,
+Python/WASM/Rust extension execution, and external-service UDFs remain blocked here.
+
 The matrix is emitted by:
 
 - `shardloom extension-registry --format json`
 - `shardloom extension-inspect <extension_id> --format json`
 - `shardloom udf-runtime-plan <runtime> --format json`
+- `shardloom udf-local-scalar-fixture-smoke <values> --format json`
 - `shardloom capabilities extensions --format json`
 - `shardloom capabilities udfs --format json`
 - `shardloom capabilities security-governance --format json`
@@ -101,6 +107,7 @@ Not allowed:
 - no extension execution claim
 - no plugin dynamic-loading claim
 - no UDF runtime claim
+- no arbitrary UDF runtime claim beyond the separately admitted built-in deterministic fixture
 - no API/LLM/embedding/vector/model-call runtime claim
 - no object-store/catalog/connector runtime claim
 - no credential resolution claim

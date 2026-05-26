@@ -36,6 +36,7 @@ use crate::{
     evidence_certificates::append_best_default_certification_gate_fields,
     evidence_schema_registry::append_evidence_schema_registry_capability_fields,
     extension_planning::{
+        append_effectful_operation_admission_matrix_fields,
         append_extension_manifest_effect_capability_matrix_fields,
         append_plugin_abi_udf_sandbox_blocker_fields,
     },
@@ -788,20 +789,20 @@ const UNIVERSAL_COMPATIBILITY_ROWS: &[UniversalCompatibilityRow] = &[
         surface: "SQLite",
         family: "database_file",
         direction: "read_write",
-        support_status: "report-only",
-        runtime_supported: false,
-        smoke_supported: false,
-        report_only: true,
+        support_status: "smoke-supported",
+        runtime_supported: true,
+        smoke_supported: true,
+        report_only: false,
         credential_required: false,
         network_required: false,
-        source_io_performed: false,
-        output_io_performed: false,
-        native_io_certificate_status: "not_emitted",
+        source_io_performed: true,
+        output_io_performed: true,
+        native_io_certificate_status: "local_sqlite_import_export_fixture_smoke",
         generated_source_certificate_status: "not_applicable",
-        blocker_id: "gar-compat-1a.sqlite.connector_evidence_missing",
-        required_future_evidence: "connector_policy_transaction_snapshot_no_fallback_diagnostics",
-        claim_gate_status: "not_claim_grade",
-        claim_boundary: "sqlite import/export support is not claimed",
+        blocker_id: "none_local_sqlite_import_export_fixture_smoke_only",
+        required_future_evidence: "vortex_ingest_route,transaction_snapshot_contract,query_pushdown_blockers,production_connector_evidence",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "local SQLite file table-scan import/export fixture smoke only; no arbitrary SQL, query pushdown, Vortex ingest, network database, warehouse, production connector, fallback, or performance claim",
     },
     UniversalCompatibilityRow {
         id: "postgres_mysql",
@@ -1715,22 +1716,22 @@ const DATABASE_WAREHOUSE_BOUNDARY_MATRIX_ROWS: &[DatabaseWarehouseBoundaryMatrix
         endpoint_scope: "sqlite",
         endpoint_family: "database_file",
         connector_type: "embedded_file_database",
-        support_status: "report-only",
+        support_status: "smoke-supported",
         credential_required: false,
         network_required: false,
         driver_dependency_required: true,
         credential_resolution_performed: false,
         network_probe_performed: false,
         driver_loaded: false,
-        import_runtime_supported: false,
-        export_runtime_supported: false,
+        import_runtime_supported: true,
+        export_runtime_supported: true,
         query_pushdown_supported: false,
-        external_baseline_only: true,
-        native_io_certificate_status: "not_emitted_report_only",
-        blocker_id: "gar-compat-1e.sqlite_import_export_runtime_blocked",
-        required_evidence: "sqlite_dependency_policy,transaction_snapshot_contract,import_certificate,export_certificate,no_fallback_diagnostics",
-        claim_gate_status: "not_claim_grade",
-        claim_boundary: "SQLite import/export is report-only; no driver is loaded and no database file is read or written.",
+        external_baseline_only: false,
+        native_io_certificate_status: "local_sqlite_import_export_fixture_smoke",
+        blocker_id: "none_local_sqlite_import_export_fixture_smoke_only",
+        required_evidence: "sqlite_dependency_policy,table_schema,column_order,workspace_safe_jsonl_export,roundtrip_sqlite_row_count,no_fallback_diagnostics",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "SQLite import/export is smoke-supported only through sqlite-local-import-export-smoke: a named local table scan to workspace-safe JSONL plus roundtrip SQLite replay. Arbitrary SQL, query pushdown, credentials, network databases, warehouses, and production connectors remain blocked.",
     },
     DatabaseWarehouseBoundaryMatrixRow {
         id: "postgres",
@@ -5413,6 +5414,38 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         external_engine_invoked: false,
     },
     RunsTodaySupportRow {
+        id: "cli_sqlite_local_import_export_smoke",
+        family: "cli_command",
+        surface: "sqlite-local-import-export-smoke",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "sqlite_local_runtime_snapshots,effectful_operation_admission_matrix,universal_ingress_route_taxonomy",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "local SQLite table-scan import/export fixture only; no arbitrary SQL pushdown, network database, warehouse, credentials, extension loading, fallback, or performance claim",
+        runtime_execution: true,
+        data_read: true,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "cli_udf_local_scalar_fixture_smoke",
+        family: "cli_command",
+        surface: "udf-local-scalar-fixture-smoke",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "extension_manifest_effect_matrix_snapshots,effectful_operation_admission_matrix,python.tests.test_cli_client",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "built-in deterministic nullable-int64 scalar fixture only; arbitrary Rust/WASM/Python/SQL/external-service UDFs remain blocked",
+        runtime_execution: true,
+        data_read: false,
+        write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
         id: "cli_prepared_vortex_batch_benchmark",
         family: "cli_command",
         surface: "traditional-analytics-vortex-batch-run,traditional-analytics-vortex-run,traditional-analytics-prepare-batch-run",
@@ -5509,6 +5542,22 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         external_engine_invoked: false,
     },
     RunsTodaySupportRow {
+        id: "python_effectful_fixture_helpers",
+        family: "python_api",
+        surface: "ShardLoomClient.sqlite_local_import_export_smoke,ShardLoomClient.udf_local_scalar_fixture_smoke,ShardLoomClient.extension_registry,ShardLoomClient.extension_inspect,ShardLoomClient.udf_runtime_plan",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "python.tests.test_cli_client,sqlite_local_runtime_snapshots,extension_manifest_effect_matrix_snapshots",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "thin Python CLI helpers for local SQLite fixture, extension metadata, and built-in deterministic UDF fixture only; no native binding, arbitrary UDF, plugin, network connector, or fallback claim",
+        runtime_execution: true,
+        data_read: true,
+        write_io: true,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
         id: "input_csv_json_jsonl_ndjson",
         family: "input_format",
         surface: "csv,json,jsonl,ndjson",
@@ -5537,6 +5586,22 @@ const RUNS_TODAY_SUPPORT_ROWS: &[RunsTodaySupportRow] = &[
         runtime_execution: true,
         data_read: true,
         write_io: false,
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    },
+    RunsTodaySupportRow {
+        id: "input_sqlite_local_database_file",
+        family: "input_format",
+        surface: "sqlite,local_database_file",
+        support_state: "executable",
+        feature_gate: "default",
+        evidence_refs: "sqlite_local_runtime_snapshots,universal_ingress_route_taxonomy,input_adapters_snapshots",
+        blocker_id: "none",
+        claim_gate_status: "fixture_smoke_only",
+        claim_boundary: "local SQLite file table-scan import/export smoke only; Vortex ingest, arbitrary SQL, network databases, warehouses, credentials, production connectors, fallback, and performance claims remain blocked",
+        runtime_execution: true,
+        data_read: true,
+        write_io: true,
         fallback_attempted: false,
         external_engine_invoked: false,
     },
@@ -9021,8 +9086,6 @@ fn database_warehouse_boundary_matrix_all_no_effects() -> bool {
         !row.credential_resolution_performed
             && !row.network_probe_performed
             && !row.driver_loaded
-            && !row.import_runtime_supported
-            && !row.export_runtime_supported
             && !row.query_pushdown_supported
     })
 }
@@ -9842,6 +9905,11 @@ fn append_universal_compatibility_database_warehouse_matrix_fields(
     );
     push_count_field(
         fields,
+        "universal_compatibility_database_warehouse_matrix_smoke_supported_count",
+        database_warehouse_boundary_matrix_status_count("smoke-supported"),
+    );
+    push_count_field(
+        fields,
         "universal_compatibility_database_warehouse_matrix_report_only_count",
         database_warehouse_boundary_matrix_status_count("report-only"),
     );
@@ -9853,17 +9921,17 @@ fn append_universal_compatibility_database_warehouse_matrix_fields(
     push_bool_field(
         fields,
         "universal_compatibility_database_warehouse_matrix_runtime_supported",
-        false,
+        true,
     );
     push_bool_field(
         fields,
         "universal_compatibility_database_warehouse_matrix_import_runtime_supported",
-        false,
+        true,
     );
     push_bool_field(
         fields,
         "universal_compatibility_database_warehouse_matrix_export_runtime_supported",
-        false,
+        true,
     );
     push_bool_field(
         fields,
@@ -9888,7 +9956,7 @@ fn append_universal_compatibility_database_warehouse_matrix_fields(
     push_bool_field(
         fields,
         "universal_compatibility_database_warehouse_matrix_external_baseline_only",
-        true,
+        false,
     );
     push_bool_field(
         fields,
@@ -9908,12 +9976,12 @@ fn append_universal_compatibility_database_warehouse_matrix_fields(
     push_field(
         fields,
         "universal_compatibility_database_warehouse_matrix_claim_gate_status",
-        "not_claim_grade",
+        "fixture_smoke_only",
     );
     push_field(
         fields,
         "universal_compatibility_database_warehouse_matrix_claim_boundary",
-        "Database and warehouse import/export boundary visibility only; no connector runtime, driver loading, credential resolution, network probe, query pushdown, fallback engine, production, performance, or Spark-replacement support",
+        "Local SQLite file import/export fixture smoke is admitted through sqlite-local-import-export-smoke only; network database and warehouse connectors, credential resolution, network probes, driver loading, query pushdown, fallback engines, production, performance, and Spark-replacement support remain blocked",
     );
 
     for row in DATABASE_WAREHOUSE_BOUNDARY_MATRIX_ROWS {
@@ -10564,11 +10632,13 @@ fn world_class_surface_fields(
         scope,
         CapabilityDiscoveryScope::Udfs
             | CapabilityDiscoveryScope::EventApiSaasAdapters
+            | CapabilityDiscoveryScope::UniversalAdapters
             | CapabilityDiscoveryScope::UnstructuredMedia
             | CapabilityDiscoveryScope::Extensions
             | CapabilityDiscoveryScope::SecurityGovernance
     ) {
         append_external_effect_blocker_matrix_fields(&mut fields);
+        append_effectful_operation_admission_matrix_fields(&mut fields);
     }
     if matches!(
         scope,

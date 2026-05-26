@@ -34,6 +34,7 @@ mod prepared_source_backed_execution;
 mod rest_api_planning;
 mod semantic_conformance;
 mod sql_local_source_runtime;
+mod sqlite_local_runtime;
 mod status_capabilities;
 mod table_lakehouse_runtime;
 mod typed_envelope;
@@ -888,6 +889,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("vortex-ingest-smoke") => {
             sql_local_source_runtime::handle_vortex_ingest_smoke(args, format)
         }
+        Some("sqlite-local-import-export-smoke") => {
+            sqlite_local_runtime::handle_sqlite_local_import_export_smoke(args, format)
+        }
         Some("workflow-unsupported-plan") => {
             workflow_planning::handle_workflow_unsupported_plan(args, format)
         }
@@ -920,6 +924,9 @@ fn run(args: Vec<String>) -> ExitCode {
         Some("extension-registry") => extension_planning::handle_extension_registry(format),
         Some("extension-inspect") => extension_planning::handle_extension_inspect(args, format),
         Some("udf-runtime-plan") => extension_planning::handle_udf_runtime_plan(args, format),
+        Some("udf-local-scalar-fixture-smoke") => {
+            extension_planning::handle_udf_local_scalar_fixture_smoke(args, format)
+        }
         Some("security-plan") => operational_hardening::handle_security_plan(format),
         Some("security-governance-evidence-gate") => {
             operational_hardening::handle_security_governance_evidence_gate(format)

@@ -11,6 +11,15 @@ The effect budget does not authorize runtime behavior, credentials, network call
 catalog probes, file probes, UDF/plugin execution, model calls, media extraction, writes,
 benchmarks, or fallback execution.
 
+`GAR-RUNTIME-IMPL-4R/5O` adds a companion effectful-operation admission matrix for the current local
+fixture exceptions: local SQLite import/export smoke, typed extension-manifest inspection, and the
+built-in deterministic scalar UDF fixture. SQLite admission is a named-table local fixture scan to
+workspace-safe JSONL plus roundtrip SQLite replay; optional ordering happens after the scan in
+ShardLoom fixture code, and BLOB schemas/values are blocked. The effect budget remains
+deny-by-default for external effects; those admitted rows are local/metadata-only and keep
+credentials, network probes, dynamic loading, extension-code execution, fallback, and
+external-engine invocation disabled.
+
 ## Default Policy
 
 - External effects are denied by default.

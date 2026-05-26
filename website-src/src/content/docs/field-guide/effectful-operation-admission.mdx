@@ -1,0 +1,50 @@
+---
+title: "Effectful operation admission"
+description: "The matrix that admits local fixture/metadata exceptions while blocking network, credential, plugin, UDF, API, model, and vector effects by default."
+sidebar: {"label":"Effectful operation admission"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+The matrix that admits local fixture/metadata exceptions while blocking network, credential, plugin, UDF, API, model, and vector effects by default.
+
+## Plain-English Meaning
+
+The matrix that admits local fixture/metadata exceptions while blocking network, credential, plugin, UDF, API, model, and vector effects by default.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `EffectBudget -> effectful operation admission`
+- Category: Evidence + Certificates
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `effectful_operation_admission_claim_gate_status`
+- `effectful_operation_admission_all_external_and_sandboxed_paths_blocked`
+- `external_effect_executed=false`
+- `fallback_attempted=false`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [local-sqlite-udf-effectful-boundary](/use-cases/local-sqlite-udf-effectful-boundary)
+
+## Reference Files
+
+<ul data-citation-block="reference-files">
+<li><code>docs/architecture/effectful-operation-admission-matrix.md</code> - What this proves: Effectful-operation admission rows for local SQLite, extension metadata, deterministic UDF fixture, and blocked external effects.</li>
+<li><code>docs/architecture/effect-budget-plan.md</code> - What this proves: Deny-by-default effect budget policy and the local fixture exceptions for the current effectful-operation slice.</li>
+<li><code>docs/architecture/extension-manifest-effect-capability-matrix.md</code> - What this proves: Extension manifest inspection posture and blockers for dynamic loading, plugin execution, and arbitrary UDF execution.</li>
+</ul>

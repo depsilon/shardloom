@@ -1014,8 +1014,8 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "\"credential_resolution_performed\": false",
         "\"network_probe_performed\": false",
         "\"driver_loaded\": false",
-        "\"import_runtime_supported\": false",
-        "\"export_runtime_supported\": false",
+        "\"import_runtime_supported\": true",
+        "\"export_runtime_supported\": true",
         "\"query_pushdown_supported\": false",
         "\"external_baseline_only\": true",
         "\"fallback_attempted\": false",
@@ -1060,8 +1060,8 @@ fn universal_compatibility_scoreboard_projection_is_discoverable() {
         "credential_resolution_performed=false",
         "network_probe_performed=false",
         "driver_loaded=false",
-        "import_runtime_supported=false",
-        "export_runtime_supported=false",
+        "import_runtime_supported=true",
+        "export_runtime_supported=true",
         "query_pushdown_supported=false",
         "fallback_attempted=false",
         "external_engine_invoked=false",
@@ -5883,6 +5883,11 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4Q"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5N"));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4R"));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5O"));
+    assert!(plan.contains(
+        "`GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout are complete"
+    ));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains(
@@ -5891,21 +5896,16 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     assert!(completed.contains("certified-live-fixture"));
     assert!(completed.contains("certified-hybrid-fixture"));
     assert!(completed.contains("gar-runtime-impl-4q.distributed_worker_runtime_blocked"));
-
-    let expression_closeout = plan
-        .find("- [ ] GAR-RUNTIME-IMPL-4D")
-        .expect("4D expression/operator closeout must remain planned");
-    let effectful_adapter_gate = plan
-        .find("- [ ] GAR-RUNTIME-IMPL-4R")
-        .expect("effectful adapter gate must remain planned before 4D");
-    let effectful_adapter_backstop = plan
-        .find("- [ ] GAR-RUNTIME-IMPL-5O")
-        .expect("effectful adapter backstop must remain planned before 4D");
     assert!(
-        effectful_adapter_gate < expression_closeout
-            && effectful_adapter_backstop < expression_closeout,
-        "remaining engine-internal runtime gates must stay before 4D closeout"
+        completed.contains(
+            "GAR-RUNTIME-IMPL-4R/5O effectful-operation local fixture/admission closeout"
+        )
     );
+    assert!(completed.contains("sqlite-local-import-export-smoke"));
+    assert!(completed.contains("udf-local-scalar-fixture-smoke"));
+
+    plan.find("- [ ] GAR-RUNTIME-IMPL-4D")
+        .expect("4D expression/operator closeout must remain planned after 4R/5O");
 
     let terminology = read_repo_file("docs/architecture/canonical-terminology.md");
     for required in [

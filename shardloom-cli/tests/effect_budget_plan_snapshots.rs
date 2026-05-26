@@ -125,3 +125,53 @@ fn effect_budget_json_exposes_udf_external_effect_blocker_matrix() {
         assert!(output.contains(&field(&format!("{prefix}_effect_executed"), "false")));
     }
 }
+
+#[test]
+fn effect_budget_json_exposes_effectful_operation_admission_matrix() {
+    let output = run_effect_budget_plan_json();
+
+    assert!(output.contains(&field(
+        "effectful_operation_admission_matrix_schema_version",
+        "shardloom.effectful_operation_admission_matrix.v1"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_claim_gate_status",
+        "fixture_smoke_only"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_admitted_local_fixture_count",
+        "2"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_metadata_only_count",
+        "1"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_all_external_and_sandboxed_paths_blocked",
+        "true"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_row_local_sqlite_import_export_support_status",
+        "fixture_smoke_supported"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_row_typed_extension_manifest_inspection_support_status",
+        "metadata_only_supported"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_row_deterministic_scalar_udf_fixture_support_status",
+        "fixture_smoke_supported"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_row_network_database_connectors_support_status",
+        "blocked"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_network_probe_performed",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "effectful_operation_admission_external_engine_invoked",
+        "false"
+    )));
+}

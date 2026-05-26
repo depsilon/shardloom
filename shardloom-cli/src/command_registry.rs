@@ -58,6 +58,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "generated-source-sql-smoke",
     "sql-local-source-smoke",
     "vortex-ingest-smoke",
+    "sqlite-local-import-export-smoke",
     "workflow-unsupported-plan",
     "workload-certification-dossier",
     "claim-gate-closeout",
@@ -76,6 +77,7 @@ pub(crate) const REGISTERED_COMMANDS: &[&str] = &[
     "extension-registry",
     "extension-inspect",
     "udf-runtime-plan",
+    "udf-local-scalar-fixture-smoke",
     "security-plan",
     "security-governance-evidence-gate",
     "effect-budget-plan",
@@ -803,6 +805,12 @@ fn command_usage_fragment(command: &str) -> String {
         }
         "sql-local-source-smoke" => format!("{command} <sql-statement>"),
         "vortex-ingest-smoke" => format!("{command} <local-source-path> <target.vortex>"),
+        "sqlite-local-import-export-smoke" => {
+            format!(
+                "{command} <db.sqlite> --table <table> --export-jsonl <path> --roundtrip-db <path> [--order-by <column>] [--allow-overwrite]"
+            )
+        }
+        "udf-local-scalar-fixture-smoke" => format!("{command} <comma-separated-int64-or-null>"),
         "traditional-analytics-prepare-batch-run" => {
             format!("{command} <scenario_csv> <fact_input> <dim_input> --workspace <dir>")
         }
@@ -1090,6 +1098,12 @@ fn command_owning_phase_item(command: &str) -> &'static str {
     }
     if command == "session-cache-smoke" {
         return "GAR-RUNTIME-IMPL-4L/GAR-RUNTIME-IMPL-5I";
+    }
+    if matches!(
+        command,
+        "sqlite-local-import-export-smoke" | "udf-local-scalar-fixture-smoke"
+    ) {
+        return "GAR-RUNTIME-IMPL-4R/GAR-RUNTIME-IMPL-5O";
     }
     match classify_command(command).as_str() {
         "status_capabilities" => "REVIEW-P1-1",

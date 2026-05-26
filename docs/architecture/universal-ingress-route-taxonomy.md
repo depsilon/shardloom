@@ -123,6 +123,13 @@ It projects the existing universal compatibility scoreboard into route status ro
 Recognized does not mean supported. Unsupported rows must carry deterministic blocker IDs, preserve
 `fallback_attempted=false`, and preserve `external_engine_invoked=false`.
 
+SQLite/local database files now have a narrow local adapter smoke: `sqlite-local-import-export-smoke`
+table-scans a named table from a local SQLite file, writes a workspace-safe JSONL export, and creates
+a roundtrip local SQLite artifact with row-count replay evidence. The optional `--order-by` flag is
+post-scan fixture ordering in ShardLoom, not SQLite query pushdown, and BLOB schemas/values are
+blocked. That does not admit arbitrary SQL, query pushdown, Vortex ingest, network databases,
+warehouses, credentials, extension loading, fallback execution, or performance claims.
+
 ## Benchmark Interpretation
 
 Benchmark pages and docs should compare routes, not front doors:
