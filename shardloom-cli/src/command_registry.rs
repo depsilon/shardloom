@@ -773,7 +773,7 @@ fn command_usage_fragment(command: &str) -> String {
         }
         "rest-api-local-lifecycle" => {
             format!(
-                "{command} [certified-local-batch|cancel-requested|retry-requested|blocked-uncertified]"
+                "{command} [certified-local-batch|certified-live-fixture|certified-hybrid-fixture|cancel-requested|retry-requested|blocked-uncertified]"
             )
         }
         "rest-api-event-stream" => {

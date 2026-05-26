@@ -6121,6 +6121,11 @@ class ShardLoomClientTests(unittest.TestCase):
                     "fields": [
                         {"key": "scenario", "value": "certified-local-batch"},
                         {"key": "lifecycle_status", "value": "succeeded"},
+                        {"key": "engine_mode", "value": "batch"},
+                        {"key": "control_plane_invoked", "value": "true"},
+                        {"key": "control_plane_scope", "value": "in_process_local_batch"},
+                        {"key": "network_policy", "value": "loopback_only_no_listener"},
+                        {"key": "checkpoint_state_posture", "value": "local_ephemeral_result_lifecycle"},
                         {"key": "query_id", "value": "query://cg23/certified-local-batch/0001"},
                         {"key": "result_ref", "value": "result://cg23/certified-local-batch/0001"},
                         {"key": "lifecycle_operations", "value": "execute,status,cancel,retry,profile,certificates,lineage,results,artifacts,cleanup"},
@@ -6134,6 +6139,13 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "non_certified_path_blocked", "value": "false"},
                         {"key": "cancellation_status", "value": "not_requested"},
                         {"key": "retry_status", "value": "not_requested"},
+                        {"key": "live_fixture_invoked", "value": "false"},
+                        {"key": "hybrid_fixture_invoked", "value": "false"},
+                        {"key": "remote_worker_invoked", "value": "false"},
+                        {"key": "distributed_runtime_status", "value": "blocked"},
+                        {"key": "distributed_worker_blocker_id", "value": "gar-runtime-impl-4q.distributed_worker_runtime_blocked"},
+                        {"key": "distributed_claim_gate_status", "value": "not_distributed_runtime_grade"},
+                        {"key": "small_result_boundary", "value": "inline_json_paged_json_jsonl_vortex_artifact_arrow_ipc_boundary"},
                         {"key": "query_execution", "value": "true"},
                         {"key": "runtime_execution", "value": "true"},
                         {"key": "local_execution_performed", "value": "true"},
@@ -6150,6 +6162,11 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsInstance(result, RestApiLocalLifecycle)
         self.assertEqual(result.scenario, "certified-local-batch")
         self.assertEqual(result.lifecycle_status, "succeeded")
+        self.assertEqual(result.engine_mode, "batch")
+        self.assertTrue(result.control_plane_invoked)
+        self.assertEqual(result.control_plane_scope, "in_process_local_batch")
+        self.assertEqual(result.network_policy, "loopback_only_no_listener")
+        self.assertEqual(result.checkpoint_state_posture, "local_ephemeral_result_lifecycle")
         self.assertEqual(result.query_id, "query://cg23/certified-local-batch/0001")
         self.assertEqual(result.result_ref, "result://cg23/certified-local-batch/0001")
         self.assertIn("cleanup", result.lifecycle_operations)
@@ -6163,6 +6180,19 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.non_certified_path_blocked)
         self.assertEqual(result.cancellation_status, "not_requested")
         self.assertEqual(result.retry_status, "not_requested")
+        self.assertFalse(result.live_fixture_invoked)
+        self.assertFalse(result.hybrid_fixture_invoked)
+        self.assertFalse(result.remote_worker_invoked)
+        self.assertEqual(result.distributed_runtime_status, "blocked")
+        self.assertEqual(
+            result.distributed_worker_blocker_id,
+            "gar-runtime-impl-4q.distributed_worker_runtime_blocked",
+        )
+        self.assertEqual(result.distributed_claim_gate_status, "not_distributed_runtime_grade")
+        self.assertEqual(
+            result.small_result_boundary,
+            "inline_json_paged_json_jsonl_vortex_artifact_arrow_ipc_boundary",
+        )
         self.assertTrue(result.query_execution)
         self.assertTrue(result.runtime_execution)
         self.assertTrue(result.local_execution_performed)

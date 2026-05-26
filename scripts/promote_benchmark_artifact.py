@@ -82,6 +82,12 @@ PUBLISHED_METRIC_KEYS = (
     "output_plan_digest",
     "sink_artifact_ref",
     "sink_artifact_digest",
+    "computed_result_vortex_path",
+    "computed_result_vortex_digest",
+    "computed_result_sink_replay_verified",
+    "evidence_level_result_sink_replay_verified",
+    "result_sink_replay_verified",
+    "evidence_level_result_sink_replay_refs",
     "data_decoded",
     "data_materialized",
     "materialization_required",
@@ -89,6 +95,10 @@ PUBLISHED_METRIC_KEYS = (
     "operator_temporary_materialization_used",
     "materialization_boundary_report_emitted",
     "representation_transition_summary",
+    "native_io_certificate_status",
+    "source_native_io_certificate_status",
+    "computed_result_sink_native_io_certificate_status",
+    "result_native_io_certificate_status",
     "execution_certificate_id",
     "execution_certificate_status",
     "runtime_execution_certificate_status",
@@ -286,8 +296,6 @@ def available_lanes(artifact: dict[str, Any], rows: list[dict[str, Any]]) -> lis
         if isinstance(metadata, dict) and metadata.get("available") is True
     }
     lanes.update(str(row.get("engine")) for row in rows if row.get("engine"))
-    if "shardloom-vortex" in lanes:
-        lanes.add("native-vortex")
     return sorted(lanes)
 
 

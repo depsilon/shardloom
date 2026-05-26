@@ -218,6 +218,11 @@ type PlanPreviewStageSpec = (
 #[allow(clippy::struct_excessive_bools)]
 struct LocalLifecycleScenarioContract {
     lifecycle_status: RestApiLocalLifecycleStatus,
+    engine_mode: &'static str,
+    control_plane_scope: &'static str,
+    checkpoint_state_posture: &'static str,
+    live_fixture_invoked: bool,
+    hybrid_fixture_invoked: bool,
     query_id: &'static str,
     result_id: &'static str,
     result_ref: &'static str,
@@ -400,6 +405,8 @@ pub struct RestApiPlanPreviewReport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RestApiLocalLifecycleScenario {
     CertifiedLocalBatch,
+    CertifiedLiveFixture,
+    CertifiedHybridFixture,
     CancelRequested,
     RetryRequested,
     BlockedUncertified,
@@ -410,6 +417,8 @@ impl RestApiLocalLifecycleScenario {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::CertifiedLocalBatch => "certified-local-batch",
+            Self::CertifiedLiveFixture => "certified-live-fixture",
+            Self::CertifiedHybridFixture => "certified-hybrid-fixture",
             Self::CancelRequested => "cancel-requested",
             Self::RetryRequested => "retry-requested",
             Self::BlockedUncertified => "blocked-uncertified",
@@ -420,6 +429,8 @@ impl RestApiLocalLifecycleScenario {
     pub const fn all() -> &'static [Self] {
         &[
             Self::CertifiedLocalBatch,
+            Self::CertifiedLiveFixture,
+            Self::CertifiedHybridFixture,
             Self::CancelRequested,
             Self::RetryRequested,
             Self::BlockedUncertified,
@@ -430,6 +441,8 @@ impl RestApiLocalLifecycleScenario {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "certified-local-batch" => Some(Self::CertifiedLocalBatch),
+            "certified-live-fixture" => Some(Self::CertifiedLiveFixture),
+            "certified-hybrid-fixture" => Some(Self::CertifiedHybridFixture),
             "cancel-requested" => Some(Self::CancelRequested),
             "retry-requested" => Some(Self::RetryRequested),
             "blocked-uncertified" => Some(Self::BlockedUncertified),
@@ -747,6 +760,18 @@ pub struct RestApiLocalLifecycleReport {
     pub api_version: &'static str,
     pub scenario: RestApiLocalLifecycleScenario,
     pub lifecycle_status: RestApiLocalLifecycleStatus,
+    pub engine_mode: &'static str,
+    pub control_plane_invoked: bool,
+    pub control_plane_scope: &'static str,
+    pub network_policy: &'static str,
+    pub checkpoint_state_posture: &'static str,
+    pub live_fixture_invoked: bool,
+    pub hybrid_fixture_invoked: bool,
+    pub remote_worker_invoked: bool,
+    pub distributed_runtime_status: &'static str,
+    pub distributed_worker_blocker_id: &'static str,
+    pub distributed_claim_gate_status: &'static str,
+    pub small_result_boundary: &'static str,
     pub endpoint_paths: Vec<&'static str>,
     pub lifecycle_operations: Vec<&'static str>,
     pub query_id: &'static str,
@@ -1841,8 +1866,7 @@ impl RestApiLocalLifecycleReport {
     #[allow(clippy::too_many_lines)]
     pub fn for_scenario(scenario: RestApiLocalLifecycleScenario) -> Self {
         let contract = lifecycle_scenario_contract(scenario);
-        let evidence_available =
-            matches!(scenario, RestApiLocalLifecycleScenario::CertifiedLocalBatch);
+        let evidence_available = lifecycle_evidence_available(scenario);
 
         Self {
             schema_version: REST_API_LOCAL_LIFECYCLE_SCHEMA_VERSION,
@@ -1850,6 +1874,18 @@ impl RestApiLocalLifecycleReport {
             api_version: API_VERSION,
             scenario,
             lifecycle_status: contract.lifecycle_status,
+            engine_mode: contract.engine_mode,
+            control_plane_invoked: true,
+            control_plane_scope: contract.control_plane_scope,
+            network_policy: "loopback_only_no_listener",
+            checkpoint_state_posture: contract.checkpoint_state_posture,
+            live_fixture_invoked: contract.live_fixture_invoked,
+            hybrid_fixture_invoked: contract.hybrid_fixture_invoked,
+            remote_worker_invoked: false,
+            distributed_runtime_status: "blocked",
+            distributed_worker_blocker_id: "gar-runtime-impl-4q.distributed_worker_runtime_blocked",
+            distributed_claim_gate_status: "not_distributed_runtime_grade",
+            small_result_boundary: lifecycle_small_result_boundary(scenario),
             endpoint_paths: local_lifecycle_endpoint_paths(),
             lifecycle_operations: vec![
                 "execute",
@@ -1869,61 +1905,46 @@ impl RestApiLocalLifecycleReport {
             result_ref: contract.result_ref,
             result_artifact_ref: contract.result_artifact_ref,
             execution_certificate_ref: if evidence_available {
-                "certificates/cg23/certified-local-batch/execution.json"
+                lifecycle_execution_certificate_ref(scenario)
             } else {
                 "none"
             },
             native_io_certificate_ref: if evidence_available {
-                "certificates/cg23/certified-local-batch/native-io.json"
+                lifecycle_native_io_certificate_ref(scenario)
             } else {
                 "none"
             },
             materialization_boundary_report_ref: if evidence_available {
-                "artifacts/cg23/certified-local-batch/materialization.json"
+                lifecycle_materialization_boundary_report_ref(scenario)
             } else {
                 "none"
             },
             profile_artifact_ref: if evidence_available {
-                "artifacts/cg23/certified-local-batch/profile.json"
+                lifecycle_profile_artifact_ref(scenario)
             } else {
                 "none"
             },
             lineage_artifact_ref: if evidence_available {
-                "artifacts/cg23/certified-local-batch/lineage.json"
+                lifecycle_lineage_artifact_ref(scenario)
             } else {
                 "none"
             },
             no_fallback_evidence_artifact_ref: if evidence_available {
-                "artifacts/cg23/certified-local-batch/no-fallback.json"
+                lifecycle_no_fallback_evidence_artifact_ref(scenario)
             } else {
                 "none"
             },
             lifecycle_events: contract.lifecycle_events,
             result_policies: local_lifecycle_result_policies(),
-            inline_json_available: matches!(
-                scenario,
-                RestApiLocalLifecycleScenario::CertifiedLocalBatch
-            ),
-            paged_json_available: matches!(
-                scenario,
-                RestApiLocalLifecycleScenario::CertifiedLocalBatch
-            ),
-            jsonl_ndjson_available: matches!(
-                scenario,
-                RestApiLocalLifecycleScenario::CertifiedLocalBatch
-            ),
-            vortex_artifact_available: matches!(
-                scenario,
-                RestApiLocalLifecycleScenario::CertifiedLocalBatch
-            ),
+            inline_json_available: lifecycle_inline_result_available(scenario),
+            paged_json_available: lifecycle_inline_result_available(scenario),
+            jsonl_ndjson_available: lifecycle_inline_result_available(scenario),
+            vortex_artifact_available: lifecycle_columnar_artifact_available(scenario),
             object_reference_available: false,
-            arrow_ipc_available: matches!(
-                scenario,
-                RestApiLocalLifecycleScenario::CertifiedLocalBatch
-            ),
+            arrow_ipc_available: lifecycle_columnar_artifact_available(scenario),
             arrow_ipc_materialization: "decoded_columnar_boundary",
             arrow_ipc_certified_native: false,
-            preferred_high_fidelity_result_modes: vec!["vortex_artifact", "object_reference"],
+            preferred_high_fidelity_result_modes: lifecycle_preferred_result_modes(scenario),
             result_ttl_seconds: 3600,
             retention_policy: "local_ephemeral",
             cleanup_required: true,
@@ -1976,6 +1997,7 @@ impl RestApiLocalLifecycleReport {
             || self.credential_resolution
             || self.data_read
             || self.data_materialized
+            || self.remote_worker_invoked
             || self.write_io
             || self.external_engine_invoked
             || self.fallback_execution_allowed
@@ -2004,11 +2026,16 @@ impl RestApiLocalLifecycleReport {
     #[must_use]
     pub fn to_human_text(&self) -> String {
         format!(
-            "rest api local lifecycle\nschema_version: {}\nreport: {}\nscenario: {}\nstatus: {}\nquery: {}\nresult: {}\nevents: {}\nresult policies: {}\nserver started: false\nnetwork listener: false\nexternal engine: disabled\nfallback execution: disabled",
+            "rest api local lifecycle\nschema_version: {}\nreport: {}\nscenario: {}\nstatus: {}\nengine mode: {}\ncontrol plane scope: {}\nnetwork policy: {}\ncheckpoint/state posture: {}\ndistributed runtime: {}\nquery: {}\nresult: {}\nevents: {}\nresult policies: {}\nserver started: false\nnetwork listener: false\nremote worker: disabled\nexternal engine: disabled\nfallback execution: disabled",
             self.schema_version,
             self.report_id,
             self.scenario.as_str(),
             self.lifecycle_status.as_str(),
+            self.engine_mode,
+            self.control_plane_scope,
+            self.network_policy,
+            self.checkpoint_state_posture,
+            self.distributed_runtime_status,
             self.query_id,
             self.result_ref,
             self.lifecycle_event_summary(),
@@ -2678,9 +2705,165 @@ fn local_lifecycle_endpoint_paths() -> Vec<&'static str> {
 const fn local_lifecycle_plan_handle(scenario: RestApiLocalLifecycleScenario) -> &'static str {
     match scenario {
         RestApiLocalLifecycleScenario::CertifiedLocalBatch => "plan://cg23/certified-local-batch",
+        RestApiLocalLifecycleScenario::CertifiedLiveFixture => "plan://cg23/certified-live-fixture",
+        RestApiLocalLifecycleScenario::CertifiedHybridFixture => {
+            "plan://cg23/certified-hybrid-fixture"
+        }
         RestApiLocalLifecycleScenario::CancelRequested => "plan://cg23/cancel-requested",
         RestApiLocalLifecycleScenario::RetryRequested => "plan://cg23/retry-requested",
         RestApiLocalLifecycleScenario::BlockedUncertified => "plan://cg23/blocked-uncertified",
+    }
+}
+
+const fn lifecycle_evidence_available(scenario: RestApiLocalLifecycleScenario) -> bool {
+    matches!(
+        scenario,
+        RestApiLocalLifecycleScenario::CertifiedLocalBatch
+            | RestApiLocalLifecycleScenario::CertifiedLiveFixture
+            | RestApiLocalLifecycleScenario::CertifiedHybridFixture
+    )
+}
+
+const fn lifecycle_inline_result_available(scenario: RestApiLocalLifecycleScenario) -> bool {
+    lifecycle_evidence_available(scenario)
+}
+
+const fn lifecycle_columnar_artifact_available(scenario: RestApiLocalLifecycleScenario) -> bool {
+    matches!(scenario, RestApiLocalLifecycleScenario::CertifiedLocalBatch)
+}
+
+const fn lifecycle_execution_certificate_ref(
+    scenario: RestApiLocalLifecycleScenario,
+) -> &'static str {
+    match scenario {
+        RestApiLocalLifecycleScenario::CertifiedLocalBatch => {
+            "certificates/cg23/certified-local-batch/execution.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedLiveFixture => {
+            "certificates/cg22/live/fixture/group-count/execution.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedHybridFixture => {
+            "certificates/cg22/hybrid/fixture/group-count/execution.json"
+        }
+        RestApiLocalLifecycleScenario::CancelRequested
+        | RestApiLocalLifecycleScenario::RetryRequested
+        | RestApiLocalLifecycleScenario::BlockedUncertified => "none",
+    }
+}
+
+const fn lifecycle_native_io_certificate_ref(
+    scenario: RestApiLocalLifecycleScenario,
+) -> &'static str {
+    match scenario {
+        RestApiLocalLifecycleScenario::CertifiedLocalBatch => {
+            "certificates/cg23/certified-local-batch/native-io.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedLiveFixture => {
+            "certificates/cg22/live/fixture/group-count/native-io.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedHybridFixture => {
+            "certificates/cg22/hybrid/fixture/group-count/native-io.json"
+        }
+        RestApiLocalLifecycleScenario::CancelRequested
+        | RestApiLocalLifecycleScenario::RetryRequested
+        | RestApiLocalLifecycleScenario::BlockedUncertified => "none",
+    }
+}
+
+const fn lifecycle_materialization_boundary_report_ref(
+    scenario: RestApiLocalLifecycleScenario,
+) -> &'static str {
+    match scenario {
+        RestApiLocalLifecycleScenario::CertifiedLocalBatch => {
+            "artifacts/cg23/certified-local-batch/materialization.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedLiveFixture => {
+            "artifacts/cg23/certified-live-fixture/materialization.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedHybridFixture => {
+            "artifacts/cg23/certified-hybrid-fixture/materialization.json"
+        }
+        RestApiLocalLifecycleScenario::CancelRequested
+        | RestApiLocalLifecycleScenario::RetryRequested
+        | RestApiLocalLifecycleScenario::BlockedUncertified => "none",
+    }
+}
+
+const fn lifecycle_profile_artifact_ref(scenario: RestApiLocalLifecycleScenario) -> &'static str {
+    match scenario {
+        RestApiLocalLifecycleScenario::CertifiedLocalBatch => {
+            "artifacts/cg23/certified-local-batch/profile.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedLiveFixture => {
+            "artifacts/cg23/certified-live-fixture/profile.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedHybridFixture => {
+            "artifacts/cg23/certified-hybrid-fixture/profile.json"
+        }
+        RestApiLocalLifecycleScenario::CancelRequested
+        | RestApiLocalLifecycleScenario::RetryRequested
+        | RestApiLocalLifecycleScenario::BlockedUncertified => "none",
+    }
+}
+
+const fn lifecycle_lineage_artifact_ref(scenario: RestApiLocalLifecycleScenario) -> &'static str {
+    match scenario {
+        RestApiLocalLifecycleScenario::CertifiedLocalBatch => {
+            "artifacts/cg23/certified-local-batch/lineage.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedLiveFixture => {
+            "artifacts/cg23/certified-live-fixture/lineage.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedHybridFixture => {
+            "artifacts/cg23/certified-hybrid-fixture/lineage.json"
+        }
+        RestApiLocalLifecycleScenario::CancelRequested
+        | RestApiLocalLifecycleScenario::RetryRequested
+        | RestApiLocalLifecycleScenario::BlockedUncertified => "none",
+    }
+}
+
+const fn lifecycle_no_fallback_evidence_artifact_ref(
+    scenario: RestApiLocalLifecycleScenario,
+) -> &'static str {
+    match scenario {
+        RestApiLocalLifecycleScenario::CertifiedLocalBatch => {
+            "artifacts/cg23/certified-local-batch/no-fallback.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedLiveFixture => {
+            "artifacts/cg23/certified-live-fixture/no-fallback.json"
+        }
+        RestApiLocalLifecycleScenario::CertifiedHybridFixture => {
+            "artifacts/cg23/certified-hybrid-fixture/no-fallback.json"
+        }
+        RestApiLocalLifecycleScenario::CancelRequested
+        | RestApiLocalLifecycleScenario::RetryRequested
+        | RestApiLocalLifecycleScenario::BlockedUncertified => "none",
+    }
+}
+
+const fn lifecycle_small_result_boundary(scenario: RestApiLocalLifecycleScenario) -> &'static str {
+    match scenario {
+        RestApiLocalLifecycleScenario::CertifiedLocalBatch => {
+            "inline_json_paged_json_jsonl_vortex_artifact_arrow_ipc_boundary"
+        }
+        RestApiLocalLifecycleScenario::CertifiedLiveFixture
+        | RestApiLocalLifecycleScenario::CertifiedHybridFixture => {
+            "inline_json_paged_json_jsonl_only"
+        }
+        RestApiLocalLifecycleScenario::CancelRequested
+        | RestApiLocalLifecycleScenario::RetryRequested
+        | RestApiLocalLifecycleScenario::BlockedUncertified => "none",
+    }
+}
+
+fn lifecycle_preferred_result_modes(scenario: RestApiLocalLifecycleScenario) -> Vec<&'static str> {
+    if lifecycle_columnar_artifact_available(scenario) {
+        vec!["vortex_artifact", "object_reference"]
+    } else if lifecycle_inline_result_available(scenario) {
+        vec!["inline_json", "paged_json", "jsonl_ndjson"]
+    } else {
+        Vec::new()
     }
 }
 
@@ -2732,6 +2915,11 @@ fn lifecycle_scenario_contract(
     match scenario {
         RestApiLocalLifecycleScenario::CertifiedLocalBatch => LocalLifecycleScenarioContract {
             lifecycle_status: RestApiLocalLifecycleStatus::Succeeded,
+            engine_mode: "batch",
+            control_plane_scope: "in_process_local_batch",
+            checkpoint_state_posture: "local_ephemeral_result_lifecycle",
+            live_fixture_invoked: false,
+            hybrid_fixture_invoked: false,
             query_id: "query://cg23/certified-local-batch/0001",
             result_id: "result://cg23/certified-local-batch/0001",
             result_ref: "result://cg23/certified-local-batch/0001",
@@ -2781,8 +2969,123 @@ fn lifecycle_scenario_contract(
             local_execution_performed: true,
             diagnostics: Vec::new(),
         },
+        RestApiLocalLifecycleScenario::CertifiedLiveFixture => LocalLifecycleScenarioContract {
+            lifecycle_status: RestApiLocalLifecycleStatus::Succeeded,
+            engine_mode: "live",
+            control_plane_scope: "in_process_loopback_fixture",
+            checkpoint_state_posture: "in_memory_live_fixture_checkpoint",
+            live_fixture_invoked: true,
+            hybrid_fixture_invoked: false,
+            query_id: "query://cg23/certified-live-fixture/group-count",
+            result_id: "result://cg23/certified-live-fixture/group-count",
+            result_ref: "result://cg23/certified-live-fixture/group-count",
+            result_artifact_ref: "none",
+            lifecycle_events: lifecycle_events(&[
+                (
+                    "execute_requested",
+                    "accepted",
+                    "certified live fixture execute request accepted",
+                ),
+                (
+                    "live_fixture_invoked",
+                    "running",
+                    "in-memory live fixture runtime invoked through loopback control plane",
+                ),
+                (
+                    "event_stream_ready",
+                    "succeeded",
+                    "SSE event contract refs are ready without opening a listener",
+                ),
+                (
+                    "freshness_certificate_ready",
+                    "succeeded",
+                    "live fixture freshness and execution certificate refs are ready",
+                ),
+                (
+                    "result_ready",
+                    "succeeded",
+                    "small-result JSON handles are ready",
+                ),
+                (
+                    "retention_started",
+                    "retained",
+                    "local ephemeral retention window started",
+                ),
+            ]),
+            non_certified_path_blocked: false,
+            cancellation_requested: false,
+            cancellation_status: "not_requested",
+            cancel_diagnostic_code: "none",
+            retry_requested: false,
+            retry_status: "not_requested",
+            retry_diagnostic_code: "none",
+            query_execution: true,
+            runtime_execution: true,
+            local_execution_performed: true,
+            diagnostics: Vec::new(),
+        },
+        RestApiLocalLifecycleScenario::CertifiedHybridFixture => LocalLifecycleScenarioContract {
+            lifecycle_status: RestApiLocalLifecycleStatus::Succeeded,
+            engine_mode: "hybrid",
+            control_plane_scope: "in_process_loopback_fixture",
+            checkpoint_state_posture: "in_memory_hybrid_overlay_checkpoint",
+            live_fixture_invoked: false,
+            hybrid_fixture_invoked: true,
+            query_id: "query://cg23/certified-hybrid-fixture/group-count",
+            result_id: "result://cg23/certified-hybrid-fixture/group-count",
+            result_ref: "result://cg23/certified-hybrid-fixture/group-count",
+            result_artifact_ref: "none",
+            lifecycle_events: lifecycle_events(&[
+                (
+                    "execute_requested",
+                    "accepted",
+                    "certified hybrid fixture execute request accepted",
+                ),
+                (
+                    "hybrid_fixture_invoked",
+                    "running",
+                    "in-memory hybrid overlay runtime invoked through loopback control plane",
+                ),
+                (
+                    "event_stream_ready",
+                    "succeeded",
+                    "SSE event contract refs are ready without opening a listener",
+                ),
+                (
+                    "overlay_certificate_ready",
+                    "succeeded",
+                    "hybrid overlay and execution certificate refs are ready",
+                ),
+                (
+                    "result_ready",
+                    "succeeded",
+                    "small-result JSON handles are ready",
+                ),
+                (
+                    "retention_started",
+                    "retained",
+                    "local ephemeral retention window started",
+                ),
+            ]),
+            non_certified_path_blocked: false,
+            cancellation_requested: false,
+            cancellation_status: "not_requested",
+            cancel_diagnostic_code: "none",
+            retry_requested: false,
+            retry_status: "not_requested",
+            retry_diagnostic_code: "none",
+            query_execution: true,
+            runtime_execution: true,
+            local_execution_performed: true,
+            diagnostics: Vec::new(),
+        },
         RestApiLocalLifecycleScenario::CancelRequested => LocalLifecycleScenarioContract {
             lifecycle_status: RestApiLocalLifecycleStatus::Canceled,
+            engine_mode: "batch",
+            control_plane_scope: "in_process_control_only",
+            checkpoint_state_posture: "lifecycle_control_no_runtime",
+            live_fixture_invoked: false,
+            hybrid_fixture_invoked: false,
             query_id: "query://cg23/cancel-requested/0001",
             result_id: "none",
             result_ref: "none",
@@ -2827,6 +3130,11 @@ fn lifecycle_scenario_contract(
         },
         RestApiLocalLifecycleScenario::RetryRequested => LocalLifecycleScenarioContract {
             lifecycle_status: RestApiLocalLifecycleStatus::RetryScheduled,
+            engine_mode: "batch",
+            control_plane_scope: "in_process_control_only",
+            checkpoint_state_posture: "lifecycle_control_no_runtime",
+            live_fixture_invoked: false,
+            hybrid_fixture_invoked: false,
             query_id: "query://cg23/retry-requested/0001",
             result_id: "none",
             result_ref: "none",
@@ -2873,6 +3181,11 @@ fn lifecycle_scenario_contract(
         },
         RestApiLocalLifecycleScenario::BlockedUncertified => LocalLifecycleScenarioContract {
             lifecycle_status: RestApiLocalLifecycleStatus::Blocked,
+            engine_mode: "none",
+            control_plane_scope: "in_process_blocker",
+            checkpoint_state_posture: "blocked_before_checkpoint",
+            live_fixture_invoked: false,
+            hybrid_fixture_invoked: false,
             query_id: "query://cg23/blocked-uncertified/0001",
             result_id: "none",
             result_ref: "none",
@@ -4141,6 +4454,26 @@ mod tests {
             report.lifecycle_status,
             RestApiLocalLifecycleStatus::Succeeded
         );
+        assert_eq!(report.engine_mode, "batch");
+        assert!(report.control_plane_invoked);
+        assert_eq!(report.control_plane_scope, "in_process_local_batch");
+        assert_eq!(report.network_policy, "loopback_only_no_listener");
+        assert_eq!(
+            report.checkpoint_state_posture,
+            "local_ephemeral_result_lifecycle"
+        );
+        assert!(!report.live_fixture_invoked);
+        assert!(!report.hybrid_fixture_invoked);
+        assert!(!report.remote_worker_invoked);
+        assert_eq!(report.distributed_runtime_status, "blocked");
+        assert_eq!(
+            report.distributed_worker_blocker_id,
+            "gar-runtime-impl-4q.distributed_worker_runtime_blocked"
+        );
+        assert_eq!(
+            report.distributed_claim_gate_status,
+            "not_distributed_runtime_grade"
+        );
         assert_eq!(
             report.result_ref,
             "result://cg23/certified-local-batch/0001"
@@ -4178,6 +4511,72 @@ mod tests {
         assert!(!report.write_io);
         assert!(!report.fallback_attempted);
         assert!(!report.effect_policy_violated());
+    }
+
+    #[test]
+    fn rest_api_local_lifecycle_live_and_hybrid_fixture_paths_are_loopback_scoped() {
+        let live = RestApiLocalLifecycleReport::for_scenario(
+            RestApiLocalLifecycleScenario::CertifiedLiveFixture,
+        );
+        let hybrid = RestApiLocalLifecycleReport::for_scenario(
+            RestApiLocalLifecycleScenario::CertifiedHybridFixture,
+        );
+
+        assert_eq!(live.status(), CommandStatus::Success);
+        assert_eq!(live.engine_mode, "live");
+        assert_eq!(live.control_plane_scope, "in_process_loopback_fixture");
+        assert_eq!(live.network_policy, "loopback_only_no_listener");
+        assert_eq!(
+            live.checkpoint_state_posture,
+            "in_memory_live_fixture_checkpoint"
+        );
+        assert!(live.live_fixture_invoked);
+        assert!(!live.hybrid_fixture_invoked);
+        assert_eq!(
+            live.result_ref,
+            "result://cg23/certified-live-fixture/group-count"
+        );
+        assert_eq!(live.result_artifact_ref, "none");
+        assert!(live.inline_json_available);
+        assert!(!live.vortex_artifact_available);
+        assert!(!live.arrow_ipc_available);
+        assert_eq!(
+            live.small_result_boundary,
+            "inline_json_paged_json_jsonl_only"
+        );
+        assert_eq!(
+            live.execution_certificate_ref,
+            "certificates/cg22/live/fixture/group-count/execution.json"
+        );
+        assert!(live.query_execution);
+        assert!(live.runtime_execution);
+        assert!(live.local_execution_performed);
+        assert!(!live.remote_worker_invoked);
+        assert_eq!(live.distributed_runtime_status, "blocked");
+        assert_eq!(
+            live.distributed_claim_gate_status,
+            "not_distributed_runtime_grade"
+        );
+        assert!(!live.fallback_attempted);
+        assert!(!live.effect_policy_violated());
+
+        assert_eq!(hybrid.status(), CommandStatus::Success);
+        assert_eq!(hybrid.engine_mode, "hybrid");
+        assert_eq!(hybrid.control_plane_scope, "in_process_loopback_fixture");
+        assert_eq!(
+            hybrid.checkpoint_state_posture,
+            "in_memory_hybrid_overlay_checkpoint"
+        );
+        assert!(!hybrid.live_fixture_invoked);
+        assert!(hybrid.hybrid_fixture_invoked);
+        assert_eq!(
+            hybrid.execution_certificate_ref,
+            "certificates/cg22/hybrid/fixture/group-count/execution.json"
+        );
+        assert!(hybrid.runtime_execution);
+        assert!(!hybrid.remote_worker_invoked);
+        assert!(!hybrid.fallback_attempted);
+        assert!(!hybrid.effect_policy_violated());
     }
 
     #[test]

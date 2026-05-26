@@ -5881,17 +5881,29 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     assert!(plan.contains("docs/architecture/pulseweave-runtime-control.md"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5R"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5K object-store read runtime admission"));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4Q"));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5N"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains(
+        "GAR-RUNTIME-IMPL-4Q/5N live/hybrid loopback control-plane and distributed blocker closeout"
+    ));
+    assert!(completed.contains("certified-live-fixture"));
+    assert!(completed.contains("certified-hybrid-fixture"));
+    assert!(completed.contains("gar-runtime-impl-4q.distributed_worker_runtime_blocked"));
+
     let expression_closeout = plan
         .find("- [ ] GAR-RUNTIME-IMPL-4D")
         .expect("4D expression/operator closeout must remain planned");
-    let control_plane_gate = plan
-        .find("- [ ] GAR-RUNTIME-IMPL-4Q")
-        .expect("live/hybrid control-plane gate must remain planned before 4D");
     let effectful_adapter_gate = plan
         .find("- [ ] GAR-RUNTIME-IMPL-4R")
         .expect("effectful adapter gate must remain planned before 4D");
+    let effectful_adapter_backstop = plan
+        .find("- [ ] GAR-RUNTIME-IMPL-5O")
+        .expect("effectful adapter backstop must remain planned before 4D");
     assert!(
-        control_plane_gate < expression_closeout && effectful_adapter_gate < expression_closeout,
+        effectful_adapter_gate < expression_closeout
+            && effectful_adapter_backstop < expression_closeout,
         "remaining engine-internal runtime gates must stay before 4D closeout"
     );
 

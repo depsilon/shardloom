@@ -275,17 +275,18 @@ Runtime completion rule:
   in this live queue.
 
 #### GAR-RUNTIME-IMPL-4 - Final Full-Runtime Implementation Leaf Queue
-Current runtime ordering note (2026-05-25): prioritize engine-internal completion first. The
+Current runtime ordering note (2026-05-26): prioritize engine-internal completion first. The
 `GAR-RUNTIME-IMPL-4I` scan/pushdown matrix, `GAR-RUNTIME-IMPL-4K` runtime-envelope validator
 rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
 `GAR-RUNTIME-IMPL-5F` prepared/native Vortex lifecycle, the `GAR-RUNTIME-IMPL-4F/4F1/5D`
 local adapter/ingest parity closeout, `GAR-RUNTIME-IMPL-4P/5M` declared local scale runtime
 closeout, `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout, and
-`GAR-RUNTIME-IMPL-5R` PulseWeave automatic prepared/local runtime control, and
-`GAR-RUNTIME-IMPL-5K` public no-credential object-store fixture read admission are complete and
-recorded in the ledger. Continue through control-plane/effectful-operation gates (`4Q`/`5N`,
-`4R`/`5O`), then expression/operator closeout (`4D`/`5G`) as the last 4-series runtime-family
-closeout before SQL/Python surface backstops, benchmark and Foundry gates, and release usability.
+`GAR-RUNTIME-IMPL-5R` PulseWeave automatic prepared/local runtime control,
+`GAR-RUNTIME-IMPL-5K` public no-credential object-store fixture read admission, and
+`GAR-RUNTIME-IMPL-4Q/5N` live/hybrid loopback control-plane and distributed-blocker admission are
+complete and recorded in the ledger. Continue through effectful-operation gates (`4R`/`5O`), then
+expression/operator closeout (`4D`/`5G`) as the last 4-series runtime-family closeout before
+SQL/Python surface backstops, benchmark and Foundry gates, and release usability.
 Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
@@ -301,58 +302,6 @@ below. They are coverage-assurance backstops, not a second parallel runtime queu
 item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-RUNTIME-IMPL-4Q live, hybrid, loopback control-plane, and distributed blockers
-  - Source: RFC 0034, RFC 0035, `GAR-SCALE-1F`.
-  - Current state: batch has local evidence; live/hybrid, REST/event APIs, remote workers, and
-    distributed execution are scoped, blocked, or report-only.
-  - Next slice outcome: implement engine-mode diagnostics, a local in-memory live/hybrid fixture if
-    admitted, opt-in loopback control-plane lifecycle, and fail-closed distributed worker blockers.
-  - Runtime enablement: engine-mode admission and loopback-only runtime controls, plus fail-closed
-    distributed blockers.
-  - User-visible surface: CLI/Python engine-mode status, optional local API, compute-flow, website
-    status/use cases.
-  - Implementation scope: engine-mode admission, local control-plane lifecycle, fixture scheduler,
-    API schema, blocker diagnostics, small-result boundary.
-  - Evidence required: engine mode, control-plane invoked flag, live/hybrid state, checkpoint/state
-    posture, network policy, remote worker invoked status, no-fallback fields.
-  - Acceptance: labels cannot imply unsupported runtime; remote execution never runs accidentally;
-    local API is opt-in, loopback-scoped, and evidence-backed.
-  - Verification: engine-mode contract tests, fixture workflow tests, API/blocker tests, website
-    readiness, release readiness.
-  - Non-goals: no production REST service, daemon, broker/state-store runtime, remote workers,
-    distributed claim, or exactly-once claim.
-  - Claim boundary: fixture/local control-plane proof only.
-  - Fallback boundary: remote APIs cannot trigger external compute.
-  - Dependencies/blockers: lifecycle/security policy, evidence envelope, local API schema,
-    loopback-only network guard, and distributed blocker diagnostics.
-  - Ledger rule: ledger entry must record API surface and blocked live/hybrid/distributed behavior.
-
-- [ ] GAR-RUNTIME-IMPL-5N live, hybrid, control-plane, and distributed-runtime promotion
-  - Source: `GAR-RUNTIME-IMPL-4Q`, RFC 0034, RFC 0035, `GAR-SCALE-1F`.
-  - Current state: batch has local evidence; live/hybrid, REST/event APIs, remote workers, and
-    distributed execution are scoped, blocked, or report-only.
-  - Next slice outcome: implement engine-mode diagnostics, a local in-memory live/hybrid fixture if
-    admitted, opt-in loopback control-plane lifecycle, and fail-closed distributed worker blockers.
-  - Runtime enablement: admitted local live/hybrid/control-plane runtime plus distributed execution
-    blockers.
-  - User-visible surface: CLI/Python engine-mode status, optional local API, compute-flow, website
-    status/use cases.
-  - Implementation scope: engine-mode admission, local control-plane lifecycle, fixture scheduler,
-    API schema, blocker diagnostics, small-result boundary.
-  - Evidence required: engine mode, control-plane invoked flag, live/hybrid state, checkpoint/state
-    posture, network policy, remote-worker invoked status, no-fallback fields.
-  - Acceptance: labels cannot imply unsupported runtime; remote execution never runs accidentally;
-    local API is opt-in, loopback-scoped, and evidence-backed.
-  - Verification: engine-mode contract tests, fixture workflow tests, API/blocker tests, website
-    readiness, release readiness.
-  - Non-goals: no production REST service, daemon, broker/state-store runtime, remote workers,
-    distributed claim, or exactly-once claim.
-  - Claim boundary: fixture/local control-plane proof only.
-  - Fallback boundary: remote APIs cannot trigger external compute.
-  - Dependencies/blockers: lifecycle/security policy, evidence envelope, local API schema,
-    loopback-only network guard, distributed blocker diagnostics.
-  - Ledger rule: ledger entry must record API surface and blocked live/hybrid/distributed behavior.
 
 - [ ] GAR-RUNTIME-IMPL-4R adapters, databases, UDFs, extensions, and effectful operations
   - Source: RFC 0011, RFC 0023, adapter/governance docs.
@@ -594,24 +543,20 @@ validators, docs/website parity, and a completed-ledger entry.
 
 - [ ] GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate
   - Source: `GAR-RUNTIME-IMPL-4M`, `GAR-BENCH-PUB-1`, benchmark publishing runbook.
-  - Current state: benchmark publishing has a structured artifact model, but every runtime
-    promotion still needs fresh, profile-scoped evidence and public website/docs rendering. The
-    current public benchmark artifact is `full_local` and therefore shows CSV/Parquet comparative
-    rows without Spark profile rows; the website must keep `spark-default` and
-    `spark-local-tuned` visible as `full_local_plus_spark` lanes even when the current artifact did
-    not request them. The benchmark registry and release gate now require `shardloom-prepare-batch`
-    for full local published profiles, and the current promoted `full_local` artifact includes the
-    ShardLoom cold route, prepared route, single-process prepare/batch route, native Vortex route,
-    and local comparison baselines across CSV/Parquet required scenarios. Current promoted rows
-    still include ShardLoom `blocked`, `fixture_smoke_only`, and external `external_baseline_only`
-    rows, and the main artifact lacks broad-format JSONL/Arrow IPC/Avro/ORC comparative coverage.
-    Benchmark pages must also pull current support and claim-boundary context from generated
-    status/evidence data instead of carrying their own explanatory copy.
+  - Current state: benchmark publishing has a structured artifact model and the current public
+    benchmark artifact is `full_local_plus_spark`. That profile requires
+    `spark-default` and `spark-local-tuned` PySpark lanes alongside ShardLoom, ShardLoom prepared
+    Vortex, ShardLoom native Vortex, `shardloom-prepare-batch`, pandas, Polars eager/lazy, DuckDB,
+    DataFusion, and Dask. The latest promoted CSV/Parquet artifact has all required lanes
+    available, preserves PulseWeave and result-sink evidence fields, removes the alias-only
+    `native-vortex` lane from profile accounting, and keeps external lanes baseline-only. Remaining
+    gaps are broader JSONL/Arrow IPC/Avro/ORC comparative coverage, claim-grade row promotion, and
+    any future public benchmark claim gates.
   - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
     promoted runtime path and block stale or incomplete public claims. The next public comparative
-    refresh should run or explicitly gate `full_local_plus_spark`, include Spark lane availability,
-    publish broad-format coverage for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC, and move the
-    main ShardLoom comparative roster toward `claim_grade` rows only for admitted runtime paths.
+    refresh should preserve `full_local_plus_spark` required PySpark lane enforcement, publish
+    broad-format coverage for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC, and move the main
+    ShardLoom comparative roster toward `claim_grade` rows only for admitted runtime paths.
   - Runtime enablement: runtime-claim publishing validator that keeps public support status tied to
     fresh evidence.
   - User-visible surface: website benchmarks, docs/benchmarks, status page, release readiness.
@@ -622,8 +567,9 @@ validators, docs/website parity, and a completed-ledger entry.
     refs, certificate refs, no-fallback fields, claim gate, Spark lane availability, format
     coverage, and source-state/prepared-state coverage.
   - Acceptance: promoted paths are not presented publicly without current evidence; missing
-    required lanes/scenarios/formats are visible and block claim-grade status; Spark lanes are visible in
-    artifact lane availability; broad formats are visible as available or missing; prepared/native
+    required lanes/scenarios/formats are visible and block claim-grade status; Spark lanes are
+    required and available for `full_local_plus_spark` artifacts; broad formats are visible as
+    available or missing; prepared/native
     source-state coverage is rendered from batch evidence instead of a misleading scalar count; the
     raw comparative roster renders all promoted rows, not a sample; the main ShardLoom comparative
     roster has no `blocked`, `unsupported`, `not_claim_grade`, or `fixture_smoke_only` rows before

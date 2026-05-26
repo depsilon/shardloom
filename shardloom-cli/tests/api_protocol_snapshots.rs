@@ -355,6 +355,14 @@ fn rest_api_local_lifecycle_json_exposes_certified_result_and_evidence_refs() {
     )));
     assert!(output.contains(&field("scenario", "certified-local-batch")));
     assert!(output.contains(&field("lifecycle_status", "succeeded")));
+    assert!(output.contains(&field("engine_mode", "batch")));
+    assert!(output.contains(&field("control_plane_invoked", "true")));
+    assert!(output.contains(&field("control_plane_scope", "in_process_local_batch")));
+    assert!(output.contains(&field("network_policy", "loopback_only_no_listener")));
+    assert!(output.contains(&field(
+        "checkpoint_state_posture",
+        "local_ephemeral_result_lifecycle"
+    )));
     assert!(output.contains(&field(
         "lifecycle_operations",
         "execute,status,cancel,retry,profile,certificates,lineage,results,artifacts,cleanup"
@@ -401,6 +409,60 @@ fn rest_api_local_lifecycle_json_exposes_certified_result_and_evidence_refs() {
 }
 
 #[test]
+fn rest_api_local_lifecycle_json_exposes_live_and_hybrid_loopback_fixture_paths() {
+    let live = run_rest_api_local_lifecycle("certified-live-fixture");
+    let hybrid = run_rest_api_local_lifecycle("certified-hybrid-fixture");
+
+    assert!(live.contains("\"status\":\"success\""));
+    assert!(live.contains(&field("scenario", "certified-live-fixture")));
+    assert!(live.contains(&field("engine_mode", "live")));
+    assert!(live.contains(&field("control_plane_invoked", "true")));
+    assert!(live.contains(&field("control_plane_scope", "in_process_loopback_fixture")));
+    assert!(live.contains(&field("network_policy", "loopback_only_no_listener")));
+    assert!(live.contains(&field(
+        "checkpoint_state_posture",
+        "in_memory_live_fixture_checkpoint"
+    )));
+    assert!(live.contains(&field("live_fixture_invoked", "true")));
+    assert!(live.contains(&field("hybrid_fixture_invoked", "false")));
+    assert!(live.contains(&field("remote_worker_invoked", "false")));
+    assert!(live.contains(&field("distributed_runtime_status", "blocked")));
+    assert!(live.contains(&field(
+        "distributed_worker_blocker_id",
+        "gar-runtime-impl-4q.distributed_worker_runtime_blocked"
+    )));
+    assert!(live.contains(&field(
+        "distributed_claim_gate_status",
+        "not_distributed_runtime_grade"
+    )));
+    assert!(live.contains(&field(
+        "small_result_boundary",
+        "inline_json_paged_json_jsonl_only"
+    )));
+    assert!(live.contains(&field("inline_json_available", "true")));
+    assert!(live.contains(&field("vortex_artifact_available", "false")));
+    assert!(live.contains(&field("arrow_ipc_available", "false")));
+    assert!(live.contains(&field("runtime_execution", "true")));
+    assert!(live.contains(&field("fallback_attempted", "false")));
+    assert!(live.contains(&field("external_engine_invoked", "false")));
+
+    assert!(hybrid.contains("\"status\":\"success\""));
+    assert!(hybrid.contains(&field("scenario", "certified-hybrid-fixture")));
+    assert!(hybrid.contains(&field("engine_mode", "hybrid")));
+    assert!(hybrid.contains(&field(
+        "checkpoint_state_posture",
+        "in_memory_hybrid_overlay_checkpoint"
+    )));
+    assert!(hybrid.contains(&field("live_fixture_invoked", "false")));
+    assert!(hybrid.contains(&field("hybrid_fixture_invoked", "true")));
+    assert!(hybrid.contains(&field("remote_worker_invoked", "false")));
+    assert!(hybrid.contains(&field("distributed_runtime_status", "blocked")));
+    assert!(hybrid.contains(&field("runtime_execution", "true")));
+    assert!(hybrid.contains(&field("fallback_attempted", "false")));
+    assert!(hybrid.contains(&field("external_engine_invoked", "false")));
+}
+
+#[test]
 fn rest_api_local_lifecycle_json_covers_cancel_retry_and_blocked_diagnostics() {
     let cancel = run_rest_api_local_lifecycle("cancel-requested");
     let retry = run_rest_api_local_lifecycle("retry-requested");
@@ -433,6 +495,8 @@ fn rest_api_local_lifecycle_json_covers_cancel_retry_and_blocked_diagnostics() {
 fn rest_api_local_lifecycle_json_preserves_no_external_effects_and_no_fallback_policy() {
     for scenario in [
         "certified-local-batch",
+        "certified-live-fixture",
+        "certified-hybrid-fixture",
         "cancel-requested",
         "retry-requested",
         "blocked-uncertified",
@@ -455,7 +519,10 @@ fn rest_api_local_lifecycle_json_preserves_no_external_effects_and_no_fallback_p
         assert!(output.contains(&field("execution_delegated", "false")));
         assert!(output.contains(&field("effect_policy_violated", "false")));
         assert!(output.contains(&field("external_effects_executed", "false")));
-        let no_runtime = if scenario == "certified-local-batch" {
+        let no_runtime = if matches!(
+            scenario,
+            "certified-local-batch" | "certified-live-fixture" | "certified-hybrid-fixture"
+        ) {
             "false"
         } else {
             "true"

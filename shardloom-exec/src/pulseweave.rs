@@ -1126,7 +1126,9 @@ fn is_prepared_local_scope(input: &PulseWeaveInput) -> bool {
         input.route.as_str(),
         "compatibility_import_certified_to_prepared_vortex_batch"
             | "prepared_vortex"
+            | "prepared_vortex_batch"
             | "native_vortex"
+            | "native_vortex_batch"
     ) && input.application_scope.contains("prepared_vortex_local")
 }
 
@@ -1278,6 +1280,23 @@ mod tests {
         assert_eq!(gate.post_application_status, "certified");
         assert_eq!(gate.no_fallback_status, "verified");
         assert!(gate.claim_allowed);
+    }
+
+    #[test]
+    fn proofbound_admits_single_run_prepared_native_batch_routes() {
+        for route in ["prepared_vortex_batch", "native_vortex_batch"] {
+            let input = PulseWeaveInput {
+                route: route.to_string(),
+                ..admitted_input()
+            };
+            let report = plan_pulseweave(input).expect("pulseweave report");
+
+            assert_eq!(report.status, "applied");
+            assert!(report.runtime_decision_applied);
+            assert_eq!(report.blocker, "none");
+            assert_eq!(report.proofbound.missing_evidence, "none");
+            assert!(report.proofbound.claim_allowed);
+        }
     }
 
     #[test]
