@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4D-F1 advanced scalar deterministic semantics closeout
   - Date: 2026-05-26
-  - Branch/PR: `runtime-4d-f1-advanced-scalars` / pending.
+  - Branch/PR: `runtime-4d-f1-advanced-scalars` / #966.
   - Source:
     - `GAR-RUNTIME-IMPL-4D-F1 advanced scalar, decimal, interval, timezone, and collation semantics`.
     - RFC 0021 expression/kernel architecture and admitted semantics matrix residual gaps.
