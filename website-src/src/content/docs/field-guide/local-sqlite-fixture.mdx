@@ -1,0 +1,49 @@
+---
+title: "Local SQLite fixture"
+description: "A named local SQLite table scan to workspace-safe JSONL plus roundtrip SQLite replay, without SQL pushdown or network effects."
+sidebar: {"label":"Local SQLite fixture"}
+---
+
+
+<span class="status-chip status-smoke-supported">smoke_supported</span>
+
+A named local SQLite table scan to workspace-safe JSONL plus roundtrip SQLite replay, without SQL pushdown or network effects.
+
+## Plain-English Meaning
+
+A named local SQLite table scan to workspace-safe JSONL plus roundtrip SQLite replay, without SQL pushdown or network effects.
+
+## Why It Matters
+
+This concept helps users understand how ShardLoom separates source admission, Vortex preparation, execution route selection, output planning, and claim-gated evidence.
+
+## How ShardLoom Uses It
+
+- Route: `UniversalIngress -> local_sqlite_import_export`
+- Category: UniversalIngress
+
+## Current Support
+
+Status: `smoke_supported`
+
+## Evidence Fields
+
+- `source_adapter_id=sqlite_input_adapter`
+- `sqlite_sql_execution_scope=single_table_scan_only`
+- `sqlite_query_pushdown_allowed=false`
+- `roundtrip_replay_verified`
+
+## What It Does Not Claim
+
+This Field Guide entry does not expand runtime support, performance claims, production readiness, object-store/lakehouse support, Foundry production support, package publication, broad SQL/DataFrame support, Spark-displacement claims, or fallback execution.
+
+## Try It / Related Use Cases
+
+- [local-sqlite-udf-effectful-boundary](/use-cases/local-sqlite-udf-effectful-boundary)
+
+## Reference Files
+
+<ul data-citation-block="reference-files">
+<li><code>docs/architecture/universal-ingress-route-taxonomy.md</code> - What this proves: UniversalIngress, Vortex ingest, prepared-state, and route-timing contract boundaries.</li>
+<li><code>docs/architecture/effectful-operation-admission-matrix.md</code> - What this proves: Effectful-operation admission rows for local SQLite, extension metadata, deterministic UDF fixture, and blocked external effects.</li>
+</ul>

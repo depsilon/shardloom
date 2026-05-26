@@ -487,6 +487,10 @@ fn input_adapter_registry_fields(snapshot: &InputAdapterRegistrySnapshot) -> Vec
             snapshot.catalog_adapter_order(),
         ),
         (
+            "database_adapter_order".to_string(),
+            snapshot.database_adapter_order(),
+        ),
+        (
             "effectful_adapter_order".to_string(),
             snapshot.effectful_adapter_order(),
         ),
@@ -524,6 +528,12 @@ fn input_adapter_registry_fields(snapshot: &InputAdapterRegistrySnapshot) -> Vec
         "http_range",
         "local_catalog",
         "hive_compatible_catalog",
+        "sqlite",
+        "postgres_mysql",
+        "jdbc_odbc",
+        "snowflake",
+        "bigquery",
+        "databricks_sql",
         "unstructured_text",
     ] {
         fields.push((

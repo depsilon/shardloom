@@ -1041,8 +1041,10 @@ plan before coding.
   `GAR-COMPAT-1E` adds
   `shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1` so SQLite, Postgres,
   MySQL, JDBC/ODBC, Snowflake, BigQuery, and Databricks SQL import/export/query-pushdown posture is
-  visible while preserving no credential resolution, network probe, driver loading, import/export
-  runtime, query pushdown, fallback, or external-engine effects.
+  visible. SQLite is now the only local fixture exception through `sqlite-local-import-export-smoke`
+  named-table import/export; all rows still preserve no credential resolution, network probe, driver
+  loading, query pushdown, fallback, or external-engine effects, and the network database/warehouse
+  rows remain blocked.
 - [x] `GAR-IOREUSE-1F` adds the remaining Native I/O reuse ladder after
   `GAR-IOREUSE-1A` established the universal local SourceState benchmark/report contract and
   `GAR-IOREUSE-1B` established the scoped VortexPreparedState benchmark/report contract and

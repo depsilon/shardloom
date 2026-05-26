@@ -282,11 +282,12 @@ rollout, `GAR-RUNTIME-IMPL-4L/5I` scoped session/cache lifecycle,
 local adapter/ingest parity closeout, `GAR-RUNTIME-IMPL-4P/5M` declared local scale runtime
 closeout, `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout, and
 `GAR-RUNTIME-IMPL-5R` PulseWeave automatic prepared/local runtime control,
-`GAR-RUNTIME-IMPL-5K` public no-credential object-store fixture read admission, and
-`GAR-RUNTIME-IMPL-4Q/5N` live/hybrid loopback control-plane and distributed-blocker admission are
-complete and recorded in the ledger. Continue through effectful-operation gates (`4R`/`5O`), then
-expression/operator closeout (`4D`/`5G`) as the last 4-series runtime-family closeout before
-SQL/Python surface backstops, benchmark and Foundry gates, and release usability.
+`GAR-RUNTIME-IMPL-5K` public no-credential object-store fixture read admission,
+`GAR-RUNTIME-IMPL-4Q/5N` live/hybrid loopback control-plane and distributed-blocker admission, and
+`GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout are complete and
+recorded in the ledger. Continue with expression/operator closeout (`4D`/`5G`) as the last 4-series
+runtime-family closeout before SQL/Python surface backstops, benchmark and Foundry gates, and
+release usability.
 Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
@@ -302,64 +303,6 @@ below. They are coverage-assurance backstops, not a second parallel runtime queu
 item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-RUNTIME-IMPL-4R adapters, databases, UDFs, extensions, and effectful operations
-  - Source: RFC 0011, RFC 0023, adapter/governance docs.
-  - Current state: databases/warehouses, REST/Flight/ADBC, UDFs, plugins, LLM/API/embedding/vector
-    effects, and extension execution are report-only or blocked.
-  - Next slice outcome: implement local SQLite import/export if admitted, typed adapter manifests,
-    extension inspection, one pure deterministic local scalar UDF fixture if approved, and
-    fail-closed diagnostics for networked/effectful paths.
-  - Runtime enablement: scoped local adapter/UDF execution or inspection with effectful/networked
-    paths blocked by runtime policy.
-  - User-visible surface: capability views, Python/CLI adapter and extension commands, use cases,
-    website status.
-  - Implementation scope: connector registry, credential/effect policy, local fixture adapter,
-    extension manifest schema, UDF admission, sandbox/effect blockers.
-  - Evidence required: connector/extension id/version/digest, credential/network/effect status,
-    import/export direction, UDF type/determinism/null contract, runtime flags, no-fallback fields.
-  - Acceptance: external systems are never fallback engines; users can inspect adapters/extensions
-    safely; effectful operations block by default; admitted UDFs are local, deterministic, typed,
-    and evidence-backed.
-  - Verification: SQLite/local fixture smoke if admitted, manifest validation tests, UDF blocker
-    tests, unsupported network diagnostics, capability snapshots, release readiness.
-  - Non-goals: no query pushdown, warehouse execution, arbitrary Python execution, network effects,
-    LLM/API calls, plugin marketplace, or production UDF sandbox claim.
-  - Claim boundary: scoped local import/export, inspection, or deterministic UDF fixture only.
-  - Fallback boundary: adapters/extensions/UDFs must not delegate compute to external engines or
-    services.
-  - Dependencies/blockers: sandbox/security review, manifest schema, credential/effect policy,
-    fixture data, and dependency/license review.
-  - Ledger rule: ledger entry must separate admitted local behaviors from denied effects.
-
-- [ ] GAR-RUNTIME-IMPL-5O adapters, databases, UDFs, extensions, and effectful operations
-  - Source: `GAR-RUNTIME-IMPL-4R`, RFC 0011, RFC 0023, adapter/governance docs.
-  - Current state: databases/warehouses, REST/Flight/ADBC, wrappers/connectors, UDFs, plugins,
-    LLM/API/embedding/vector effects, and extension execution are report-only or blocked.
-  - Next slice outcome: implement local SQLite import/export if admitted, typed adapter manifests,
-    extension inspection, one pure deterministic local scalar UDF fixture if approved, and
-    fail-closed diagnostics for networked/effectful paths.
-  - Runtime enablement: scoped adapter/UDF runtime or safe inspection, with all effectful external
-    paths denied by default.
-  - User-visible surface: capability views, Python/CLI adapter and extension commands, use cases,
-    website status.
-  - Implementation scope: connector registry, credential/effect policy, local fixture adapter,
-    extension manifest schema, UDF admission, sandbox/effect blockers.
-  - Evidence required: connector/extension id/version/digest, credential/network/effect status,
-    import/export direction, UDF type/determinism/null contract, runtime flags, no-fallback fields.
-  - Acceptance: external systems are never fallback engines; users can inspect adapters/extensions
-    safely; effectful operations block by default; admitted UDFs are local, deterministic, typed,
-    and evidence-backed.
-  - Verification: SQLite/local fixture smoke if admitted, manifest validation tests, UDF blocker
-    tests, unsupported network diagnostics, capability snapshots, release readiness.
-  - Non-goals: no query pushdown, warehouse execution, arbitrary Python execution, network effects,
-    LLM/API calls, plugin marketplace, or production UDF sandbox claim.
-  - Claim boundary: scoped local import/export, inspection, or deterministic UDF fixture only.
-  - Fallback boundary: adapters/extensions/UDFs must not delegate compute to external engines or
-    services.
-  - Dependencies/blockers: sandbox/security review, manifest schema, credential/effect policy,
-    fixture data, dependency/license review.
-  - Ledger rule: ledger entry must separate admitted local behaviors from denied effects.
 
 - [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families
   - Source: RFC 0021, SQL/Python local runtime smokes, expression/operator semantics,

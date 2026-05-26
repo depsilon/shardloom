@@ -204,3 +204,47 @@ fn extension_and_udf_commands_expose_plugin_abi_udf_sandbox_blocker() {
         }
     }
 }
+
+#[test]
+fn udf_fixture_plan_and_smoke_expose_admitted_deterministic_scalar_fixture() {
+    let plan = run_json(&["udf-runtime-plan", "fixture", "--format", "json"]);
+    assert!(plan.contains(&field("udf_runtime_kind", "builtin_deterministic_fixture")));
+    assert!(plan.contains(&field("udf_runtime_available_initially", "true")));
+    assert!(plan.contains(&field(
+        "udf_runtime_fixture_command",
+        "udf-local-scalar-fixture-smoke"
+    )));
+    assert!(plan.contains(&field(
+        "effectful_operation_admission_row_deterministic_scalar_udf_fixture_support_status",
+        "fixture_smoke_supported"
+    )));
+
+    let smoke = run_json(&[
+        "udf-local-scalar-fixture-smoke",
+        "3,null,-4",
+        "--format",
+        "json",
+    ]);
+    assert!(smoke.contains("\"command\":\"udf-local-scalar-fixture-smoke\""));
+    assert!(smoke.contains(&field(
+        "schema_version",
+        "shardloom.deterministic_scalar_udf_fixture.v1"
+    )));
+    assert!(smoke.contains(&field("udf_id", "sl_fixture_double_i64")));
+    assert!(smoke.contains(&field("output_values", "6,null,-8")));
+    assert!(smoke.contains(&field("determinism", "pure_deterministic")));
+    assert!(smoke.contains(&field("null_policy", "null_propagating")));
+    assert!(smoke.contains(&field("sandbox_required", "false")));
+    assert!(smoke.contains(&field("network_allowed", "false")));
+    assert!(smoke.contains(&field("credential_resolution_performed", "false")));
+    assert!(smoke.contains(&field("dynamic_loading_performed", "false")));
+    assert!(smoke.contains(&field("extension_code_executed", "false")));
+    assert!(smoke.contains(&field("external_effect_executed", "false")));
+    assert!(smoke.contains(&field("fallback_attempted", "false")));
+    assert!(smoke.contains(&field("external_engine_invoked", "false")));
+    assert!(smoke.contains(&field("claim_gate_status", "fixture_smoke_only")));
+    assert!(smoke.contains(&field(
+        "plugin_abi_udf_sandbox_blocker_row_python_udf_support_status",
+        "blocked"
+    )));
+}

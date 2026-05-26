@@ -453,6 +453,347 @@ impl ExternalEffectBlockerMatrix {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EffectfulOperationAdmissionRow {
+    pub row_id: &'static str,
+    pub family: &'static str,
+    pub operation: &'static str,
+    pub support_status: &'static str,
+    pub admission_scope: &'static str,
+    pub permission_status: &'static str,
+    pub effect_status: &'static str,
+    pub blocker_id: &'static str,
+    pub diagnostic_code: &'static str,
+    pub required_evidence: &'static str,
+    pub credential_required: bool,
+    pub network_required: bool,
+    pub sandbox_required: bool,
+    pub local_filesystem_io_allowed: bool,
+    pub runtime_fixture_available: bool,
+    pub extension_code_executed: bool,
+    pub dynamic_loading_performed: bool,
+    pub external_effect_executed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+    pub claim_boundary: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct EffectfulBlockedRequirements {
+    credential_required: bool,
+    network_required: bool,
+    sandbox_required: bool,
+    local_filesystem_io_allowed: bool,
+}
+
+impl EffectfulBlockedRequirements {
+    const CREDENTIAL_NETWORK: Self = Self {
+        credential_required: true,
+        network_required: true,
+        sandbox_required: false,
+        local_filesystem_io_allowed: false,
+    };
+
+    const SANDBOX: Self = Self {
+        credential_required: false,
+        network_required: false,
+        sandbox_required: true,
+        local_filesystem_io_allowed: false,
+    };
+}
+
+impl EffectfulOperationAdmissionRow {
+    #[allow(clippy::too_many_arguments)]
+    const fn admitted_local(
+        row_id: &'static str,
+        family: &'static str,
+        operation: &'static str,
+        admission_scope: &'static str,
+        required_evidence: &'static str,
+        local_filesystem_io_allowed: bool,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            row_id,
+            family,
+            operation,
+            support_status: "fixture_smoke_supported",
+            admission_scope,
+            permission_status: "local_policy_enforced",
+            effect_status: "local_effect_only",
+            blocker_id: "none",
+            diagnostic_code: "none",
+            required_evidence,
+            credential_required: false,
+            network_required: false,
+            sandbox_required: false,
+            local_filesystem_io_allowed,
+            runtime_fixture_available: true,
+            extension_code_executed: false,
+            dynamic_loading_performed: false,
+            external_effect_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary,
+        }
+    }
+
+    const fn metadata_only(
+        row_id: &'static str,
+        family: &'static str,
+        operation: &'static str,
+        required_evidence: &'static str,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            row_id,
+            family,
+            operation,
+            support_status: "metadata_only_supported",
+            admission_scope: "typed_manifest_or_registry_inspection",
+            permission_status: "not_required",
+            effect_status: "no_effect",
+            blocker_id: "none",
+            diagnostic_code: "none",
+            required_evidence,
+            credential_required: false,
+            network_required: false,
+            sandbox_required: false,
+            local_filesystem_io_allowed: false,
+            runtime_fixture_available: false,
+            extension_code_executed: false,
+            dynamic_loading_performed: false,
+            external_effect_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    const fn blocked(
+        row_id: &'static str,
+        family: &'static str,
+        operation: &'static str,
+        blocker_id: &'static str,
+        required_evidence: &'static str,
+        requirements: EffectfulBlockedRequirements,
+        claim_boundary: &'static str,
+    ) -> Self {
+        Self {
+            row_id,
+            family,
+            operation,
+            support_status: "blocked",
+            admission_scope: "blocked_by_default",
+            permission_status: "policy_required",
+            effect_status: "denied_by_default",
+            blocker_id,
+            diagnostic_code: "SL_BLOCKED_EFFECTFUL_OPERATION",
+            required_evidence,
+            credential_required: requirements.credential_required,
+            network_required: requirements.network_required,
+            sandbox_required: requirements.sandbox_required,
+            local_filesystem_io_allowed: requirements.local_filesystem_io_allowed,
+            runtime_fixture_available: false,
+            extension_code_executed: false,
+            dynamic_loading_performed: false,
+            external_effect_executed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+            claim_boundary,
+        }
+    }
+
+    #[must_use]
+    pub fn is_admitted_local_fixture(&self) -> bool {
+        matches!(self.support_status, "fixture_smoke_supported")
+    }
+
+    #[must_use]
+    pub fn is_blocked_external_or_sandboxed(&self) -> bool {
+        self.support_status == "blocked"
+            && (self.credential_required || self.network_required || self.sandbox_required)
+            && !self.runtime_fixture_available
+            && !self.extension_code_executed
+            && !self.dynamic_loading_performed
+            && !self.external_effect_executed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EffectfulOperationAdmissionMatrix {
+    pub schema_version: &'static str,
+    pub matrix_id: &'static str,
+    pub docs_ref: &'static str,
+    pub claim_gate_status: &'static str,
+    pub rows: Vec<EffectfulOperationAdmissionRow>,
+    pub credential_resolution_performed: bool,
+    pub network_probe_performed: bool,
+    pub dynamic_loading_performed: bool,
+    pub extension_code_executed: bool,
+    pub external_effect_executed: bool,
+    pub dependency_expansion_allowed: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl EffectfulOperationAdmissionMatrix {
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn current() -> Self {
+        Self {
+            schema_version: "shardloom.effectful_operation_admission_matrix.v1",
+            matrix_id: "gar-runtime-impl-4r-5o.effectful_operation_admission",
+            docs_ref: "docs/architecture/effectful-operation-admission-matrix.md",
+            claim_gate_status: "fixture_smoke_only",
+            rows: vec![
+                EffectfulOperationAdmissionRow::admitted_local(
+                    "local_sqlite_import_export",
+                    "database_file_adapter",
+                    "local SQLite table export plus roundtrip import fixture",
+                    "local_sqlite_file_table_scan_to_jsonl_and_roundtrip_sqlite",
+                    "sqlite_file_digest,table_schema,column_order,row_count,workspace_safe_export,roundtrip_sqlite_row_count,no_fallback_evidence",
+                    true,
+                    "A local SQLite file may be table-scanned for fixture import/export smoke evidence only; no arbitrary SQL pushdown, network database, warehouse, production connector, or performance claim is added.",
+                ),
+                EffectfulOperationAdmissionRow::metadata_only(
+                    "typed_extension_manifest_inspection",
+                    "extension_manifest",
+                    "typed extension/adapter manifest inspection",
+                    "extension_id,version,category,license,capability_rows,permission_rows,effect_rows,sandbox_policy,no_fallback_evidence",
+                    "Typed extension metadata can be inspected without dynamic loading, code execution, dependency expansion, credential resolution, network probes, or runtime enablement.",
+                ),
+                EffectfulOperationAdmissionRow::admitted_local(
+                    "deterministic_scalar_udf_fixture",
+                    "udf",
+                    "built-in deterministic scalar UDF fixture",
+                    "builtin_int64_null_propagating_scalar_fixture",
+                    "udf_id,udf_version,input_dtype,output_dtype,determinism,null_policy,input_digest,output_digest,no_fallback_evidence",
+                    false,
+                    "Only the built-in deterministic scalar fixture is admitted; arbitrary Rust, WASM, Python, SQL-defined, table-function, and external-service UDFs remain blocked.",
+                ),
+                EffectfulOperationAdmissionRow::blocked(
+                    "network_database_connectors",
+                    "database_service",
+                    "Postgres/MySQL/JDBC/ODBC/Snowflake/BigQuery/Databricks connectors",
+                    "gar-runtime-impl-4r.database_service_network_connector_blocked",
+                    "credential_policy,network_policy,connector_manifest,query_pushdown_contract,source_sink_certificates,audit_trail,no_fallback_evidence",
+                    EffectfulBlockedRequirements::CREDENTIAL_NETWORK,
+                    "Networked database and warehouse connectors remain blocked; no credentials, sockets, query pushdown, external execution, or fallback path is enabled.",
+                ),
+                EffectfulOperationAdmissionRow::blocked(
+                    "rest_flight_adbc_connectors",
+                    "external_adapter",
+                    "REST/Flight/ADBC connector execution",
+                    "gar-runtime-impl-4r.rest_flight_adbc_connector_blocked",
+                    "protocol_contract,credential_policy,network_policy,request_budget,redaction_policy,audit_trail,no_fallback_evidence",
+                    EffectfulBlockedRequirements::CREDENTIAL_NETWORK,
+                    "REST, Flight, and ADBC adapter execution remains blocked; discovery metadata does not authorize network IO or external-engine use.",
+                ),
+                EffectfulOperationAdmissionRow::blocked(
+                    "python_udf",
+                    "udf",
+                    "Python UDF execution",
+                    "gar-runtime-impl-4r.python_udf_sandbox_blocked",
+                    "python_boundary,sandbox_policy,materialization_policy,redaction_policy,execution_certificate,effect_budget,no_fallback_evidence",
+                    EffectfulBlockedRequirements::SANDBOX,
+                    "Python UDF execution remains blocked; no interpreter bridge, Python callable execution, materialization egress, or fallback path is added.",
+                ),
+                EffectfulOperationAdmissionRow::blocked(
+                    "wasm_or_dynamic_plugin_udf",
+                    "extension_udf",
+                    "WASM/Rust dynamic plugin or UDF execution",
+                    "gar-runtime-impl-4r.dynamic_plugin_udf_blocked",
+                    "abi_contract,signature,provenance,sandbox_policy,fuel_budget,permission_policy,execution_certificate,no_fallback_evidence",
+                    EffectfulBlockedRequirements::SANDBOX,
+                    "WASM, Rust-native, and dynamic plugin UDF execution remain blocked; no dynamic loading or extension code execution is performed.",
+                ),
+                EffectfulOperationAdmissionRow::blocked(
+                    "llm_api_embedding_vector_effects",
+                    "external_effect",
+                    "LLM/API/embedding/vector external effects",
+                    "gar-runtime-impl-4r.external_model_api_effect_blocked",
+                    "model_policy,credential_policy,network_policy,cost_budget,redaction_policy,vector_schema,audit_trail,no_fallback_evidence",
+                    EffectfulBlockedRequirements::CREDENTIAL_NETWORK,
+                    "LLM, API, embedding, and vector effects remain blocked; no model call, prompt/data egress, credential resolution, network probe, or service invocation is enabled.",
+                ),
+            ],
+            credential_resolution_performed: false,
+            network_probe_performed: false,
+            dynamic_loading_performed: false,
+            extension_code_executed: false,
+            external_effect_executed: false,
+            dependency_expansion_allowed: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    #[must_use]
+    pub fn row_order(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.row_id).collect()
+    }
+
+    #[must_use]
+    pub fn admitted_local_fixture_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.is_admitted_local_fixture())
+            .count()
+    }
+
+    #[must_use]
+    pub fn metadata_only_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.support_status == "metadata_only_supported")
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocked_count(&self) -> usize {
+        self.rows
+            .iter()
+            .filter(|row| row.support_status == "blocked")
+            .count()
+    }
+
+    #[must_use]
+    pub fn blocker_ids(&self) -> Vec<&'static str> {
+        self.rows
+            .iter()
+            .filter_map(|row| (row.blocker_id != "none").then_some(row.blocker_id))
+            .collect()
+    }
+
+    #[must_use]
+    pub fn required_evidence(&self) -> Vec<&'static str> {
+        self.rows.iter().map(|row| row.required_evidence).collect()
+    }
+
+    #[must_use]
+    pub fn all_external_and_sandboxed_paths_blocked(&self) -> bool {
+        !self.credential_resolution_performed
+            && !self.network_probe_performed
+            && !self.dynamic_loading_performed
+            && !self.extension_code_executed
+            && !self.external_effect_executed
+            && !self.dependency_expansion_allowed
+            && !self.fallback_attempted
+            && !self.external_engine_invoked
+            && self
+                .rows
+                .iter()
+                .filter(|row| {
+                    row.credential_required || row.network_required || row.sandbox_required
+                })
+                .all(EffectfulOperationAdmissionRow::is_blocked_external_or_sandboxed)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EffectBudgetEntry {
     pub scope: EffectBudgetScope,
     pub status: EffectBudgetStatus,
@@ -780,6 +1121,38 @@ mod tests {
         );
         assert!(matrix.rows.iter().all(|row| !row.runtime_execution));
         assert!(matrix.rows.iter().all(|row| !row.effect_executed));
+    }
+
+    #[test]
+    fn effectful_operation_admission_matrix_admits_only_local_fixtures() {
+        let matrix = EffectfulOperationAdmissionMatrix::current();
+        assert_eq!(
+            matrix.schema_version,
+            "shardloom.effectful_operation_admission_matrix.v1"
+        );
+        assert_eq!(matrix.claim_gate_status, "fixture_smoke_only");
+        assert_eq!(matrix.admitted_local_fixture_count(), 2);
+        assert_eq!(matrix.metadata_only_count(), 1);
+        assert!(matrix.blocked_count() >= 4);
+        assert!(matrix.row_order().contains(&"local_sqlite_import_export"));
+        assert!(
+            matrix
+                .row_order()
+                .contains(&"deterministic_scalar_udf_fixture")
+        );
+        assert!(
+            matrix
+                .row_order()
+                .contains(&"typed_extension_manifest_inspection")
+        );
+        assert!(matrix.all_external_and_sandboxed_paths_blocked());
+        assert!(!matrix.credential_resolution_performed);
+        assert!(!matrix.network_probe_performed);
+        assert!(!matrix.dynamic_loading_performed);
+        assert!(!matrix.extension_code_executed);
+        assert!(!matrix.external_effect_executed);
+        assert!(!matrix.fallback_attempted);
+        assert!(!matrix.external_engine_invoked);
     }
 
     #[test]

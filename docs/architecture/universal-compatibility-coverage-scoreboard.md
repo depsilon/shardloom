@@ -71,7 +71,7 @@ fallback execution.
 | Avro | Local compatibility file | `runtime-supported` | Feature-gated flat scalar local Avro now routes through columnar SourceState, direct-transient runtime, `vortex_ingest`, and local sink evidence. | Avro remains a compatibility preparation/runtime surface. | Native I/O evidence is scoped to the admitted path and cannot imply native Avro execution. | Schema evolution, logical type completeness, object-store/table, and production evidence. | Feature-gated flat scalar local Avro runtime only. |
 | ORC | Local compatibility file | `runtime-supported` | Feature-gated flat scalar local ORC now routes through columnar SourceState, direct-transient runtime, `vortex_ingest`, and local sink evidence. | ORC remains a compatibility preparation/runtime surface. | Native I/O evidence is scoped to the admitted path and cannot imply native ORC execution. | Stripe/statistics, nested type, object-store/table, and production evidence. | Feature-gated flat scalar local ORC runtime only. |
 | Excel | Local desktop/document file | `blocked` | No first-class Excel runtime source or sink is supported. | Future report rows may classify workbook, sheet, range, type inference, and formula policy. | No Native I/O certificate may be claimed. | Parser/dependency approval, license review, deterministic schema policy, formula/effect policy. | Not supported. |
-| SQLite | Database file | `report-only` | No first-class SQLite import/export runtime path is supported. | Future rows must separate file import/export from query pushdown. | No database Native I/O certificate may be claimed. | Connector policy, SQL dialect boundary, transaction snapshot evidence, no-fallback diagnostics. | Database endpoint support is not claimed. |
+| SQLite | Database file | `smoke-supported` | `sqlite-local-import-export-smoke` table-scans a named local SQLite table, writes a workspace-safe JSONL export, and creates a roundtrip local SQLite artifact with replay evidence. | SQLite query pushdown, arbitrary SQL, and Vortex ingest remain separately blocked. | Native I/O evidence is fixture-scoped to the local import/export smoke. | Vortex ingest route, transaction snapshot contract, query-pushdown blockers, and production connector evidence. | Local SQLite file import/export fixture smoke only; no arbitrary SQL, query pushdown, Vortex ingest, network database, warehouse, production connector, performance, or fallback claim. |
 | Postgres / MySQL | Database service | `report-only` | No first-class runtime connector is supported. | Future rows must separate import/export from remote query pushdown and baseline/oracle usage. | No network or credential I/O is performed. | Credential policy, network policy, snapshot semantics, import/export evidence. | External databases are not fallback engines. |
 | JDBC / ODBC | Connector bridge | `report-only` | No JDBC or ODBC runtime bridge is supported. | Future rows must classify bridge maturity, driver dependency, credentials, and query pushdown boundaries. | No bridge certificate may be claimed. | Dependency/license policy, driver loading, credentials, diagnostics, imported schema evidence. | Connector availability is not claimed. |
 | S3 / GCS / ADLS | Object store | `smoke-supported` | The public no-credential fixture profile parses provider URIs and reads explicit local fixture bytes only. Live provider runtime remains blocked. | GAR-COMPAT-1C owns the runtime admission ladder and separates fixture admission from live provider gates. | Native I/O evidence is fixture-scoped; credential resolution, network probes, provider probes, cache writes, cloud writes, and commits remain disabled. | Credential policy, authenticated reads, live byte-range/full-file provider reads, cache, write staging, commit protocol. | Public fixture object-store read smoke only; no live provider, table/lakehouse, production, performance, or Spark-replacement claim. |
@@ -335,13 +335,13 @@ execution.
 
 The JSON projection includes
 `database_warehouse_boundary_matrix.schema_version=shardloom.universal_compatibility.database_warehouse_boundary_matrix.v1`
-for the GAR-COMPAT-1E database and warehouse import/export boundary. The matrix keeps file
-databases, network databases, driver bridges, and cloud warehouses visible without treating any of
-them as ShardLoom runtime connectors or fallback engines.
+for the GAR-COMPAT-1E database and warehouse import/export boundary. The matrix now admits only the
+local SQLite file fixture import/export smoke. It keeps network databases, driver bridges, and cloud
+warehouses visible without treating them as ShardLoom runtime connectors or fallback engines.
 
 | Row | Status | Connector type | Credentials/network | Runtime posture | Boundary |
 | --- | --- | --- | --- | --- | --- |
-| `sqlite_file` | `report-only` | embedded file database | no credentials/network | no import/export/query pushdown | SQLite import/export is report-only; no driver is loaded and no database file is read or written. |
+| `sqlite_file` | `smoke-supported` | embedded file database | no credentials/network | local named-table import/export smoke only; no query pushdown | SQLite import/export is smoke-supported only through `sqlite-local-import-export-smoke`: a named local table scan to workspace-safe JSONL plus roundtrip SQLite replay. |
 | `postgres` | `blocked` | network database | credentials and network required | no import/export/query pushdown | Postgres is not a fallback engine or query-pushdown runtime. |
 | `mysql` | `blocked` | network database | credentials and network required | no import/export/query pushdown | MySQL is not a fallback engine or query-pushdown runtime. |
 | `jdbc_odbc` | `blocked` | driver bridge | credentials, network, and driver policy required | no bridge runtime | JDBC/ODBC drivers are not loaded and bridge availability is not claimed. |
@@ -355,18 +355,24 @@ Every database/warehouse matrix row preserves:
 credential_resolution_performed=false
 network_probe_performed=false
 driver_loaded=false
-import_runtime_supported=false
-export_runtime_supported=false
 query_pushdown_supported=false
 fallback_attempted=false
 external_engine_invoked=false
-claim_gate_status=not_claim_grade
 ```
 
-The matrix is a boundary/status surface only. It does not authorize SQLite, Postgres, MySQL,
-JDBC/ODBC, Snowflake, BigQuery, Databricks SQL, credential resolution, network probes, driver
-loading, connector import/export, query pushdown, production connector claims, performance claims,
-Spark replacement claims, or external fallback execution.
+SQLite import/export is the only fixture-smoke exception and keeps
+`claim_gate_status=fixture_smoke_only`. Matrix summary fields therefore report:
+
+```text
+import_runtime_supported=true
+export_runtime_supported=true
+query_pushdown_supported=false
+```
+
+The matrix does not authorize Postgres, MySQL, JDBC/ODBC, Snowflake, BigQuery, Databricks SQL,
+credential resolution, network probes, driver loading, network connector import/export, query
+pushdown, production connector claims, performance claims, Spark replacement claims, or external
+fallback execution.
 
 ## Acceptance
 

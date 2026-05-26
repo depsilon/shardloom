@@ -1,0 +1,31 @@
+{
+  "capability": "Local SQLite file",
+  "status": "smoke_supported",
+  "inputs": [
+    "local_sqlite_file",
+    "sqlite_table_name"
+  ],
+  "outputs": [
+    "jsonl",
+    "roundtrip_sqlite",
+    "evidence"
+  ],
+  "route": "sqlite_local_import_export_smoke universal_ingress",
+  "platform": "local_database_file",
+  "evidence": [
+    "source_adapter_id=sqlite_input_adapter",
+    "sqlite_sql_execution_scope=single_table_scan_only",
+    "sqlite_query_pushdown_allowed=false",
+    "roundtrip_replay_verified",
+    "effectful_operation_admission_claim_gate_status",
+    "fallback_attempted=false",
+    "external_engine_invoked=false"
+  ],
+  "works": "A local SQLite file can be table-scanned by name into workspace-safe JSONL and roundtripped into a local SQLite artifact with replay evidence.",
+  "blocked": "No arbitrary SQL, query pushdown, SQLite Vortex ingest, BLOB export, network database, warehouse, credentials, production connector, or performance claim is made.",
+  "references": [
+    "docs/architecture/effectful-operation-admission-matrix.md",
+    "docs/architecture/universal-ingress-route-taxonomy.md",
+    "python/README.md"
+  ]
+}
