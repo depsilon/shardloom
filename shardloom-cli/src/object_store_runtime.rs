@@ -1559,10 +1559,8 @@ fn perform_local_emulator_write_commit(
             backups.restore(target_path, commit_manifest_path);
             return Err(error);
         }
-    } else if let Err(error) =
-        create_target_exclusively_from_staging(staging_path, target_path, payload)
-    {
-        return Err(error);
+    } else {
+        create_target_exclusively_from_staging(staging_path, target_path, payload)?;
     }
     let target_bytes = match fs::read(target_path) {
         Ok(bytes) => bytes,
