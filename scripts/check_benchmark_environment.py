@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # SPDX-License-Identifier: Apache-2.0
-"""Check benchmark lane availability for a declared ShardLoom profile."""
+"""Check benchmark lane availability for a declared ShardLoom profile.
+
+The default profile is the current published comparative profile. Use
+``--profile smoke`` only for quick ShardLoom-lane bring-up checks.
+"""
 
 from __future__ import annotations
 
@@ -32,7 +36,11 @@ from benchmarks.traditional_analytics.benchmark_registry import (  # noqa: E402
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--profile", choices=tuple(PROFILES), default="smoke")
+    parser.add_argument(
+        "--profile",
+        choices=tuple(PROFILES),
+        default="full_local_plus_spark",
+    )
     parser.add_argument("--json-output", type=Path, default=None)
     parser.add_argument(
         "--allow-missing-required",

@@ -604,8 +604,17 @@ plan before coding.
   hidden columns from user result rows, emit `having_aggregate_*` evidence, expose Python typed
   report accessors, and keep unsupported DISTINCT aggregate shapes or non-output source columns
   deterministic blockers with no fallback/external engine invocation.
-- [ ] Broad expression execution, full function/kernel coverage, and UDF/effectful expression
-  runtime remain incomplete.
+- [x] GAR-RUNTIME-IMPL-4D/5G expression/operator closeout admits core bytewise binary equality/
+  inequality, keeps binary ordering deterministic-blocked, promotes UTC timestamp/Date32/binary
+  semantic conformance rows to executed fixtures, and expands the admitted semantics matrix to
+  release-gate composed string functions, temporal arithmetic/difference, CASE projections,
+  IN-list NULL semantics, scalar IN subqueries, grouped COUNT(DISTINCT), hidden aggregate HAVING,
+  mixed window, and multi-key join fixtures without fallback or external runtime engines.
+- [x] Parent `GAR-RUNTIME-IMPL-4D`/`GAR-RUNTIME-IMPL-5G` is complete for admitted local expression/
+  operator scope; residual decimal precision/scale, timezone database and non-UTC timestamp policy,
+  nested/list/struct/variant/union semantics, advanced subqueries/predicate completeness, and broad
+  encoded-kernel/operator coverage are split into explicit follow-up runtime items in the phased
+  plan rather than hidden in the parent item.
 
 ### RFC 0022 - Plan IR and Substrait-Compatible Interoperability
 

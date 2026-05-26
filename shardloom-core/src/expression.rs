@@ -1922,6 +1922,11 @@ fn eval_compare(left: &EvalValue, op: ComparisonOp, right: &EvalValue) -> EvalRe
         (ScalarValue::Utf8(left), ScalarValue::Utf8(right)) => {
             compare_ordering(left.cmp(right), op, "")?
         }
+        (ScalarValue::Binary(left), ScalarValue::Binary(right)) => compare_ordering(
+            left.cmp(right),
+            op,
+            "binary comparison admits equality and inequality only",
+        )?,
         (ScalarValue::Date32(left), ScalarValue::Date32(right)) => {
             compare_ordering(left.cmp(right), op, "")?
         }
@@ -3370,6 +3375,71 @@ mod tests {
         assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
         assert_eq!(report.value, Some(ScalarValue::Null));
         assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+    }
+
+    #[test]
+    fn expression_semantics_evaluates_binary_equality_without_fallback() {
+        for (op, right, expected) in [
+            (ComparisonOp::Eq, vec![1, 2, 3], true),
+            (ComparisonOp::Eq, vec![1, 2, 4], false),
+            (ComparisonOp::NotEq, vec![1, 2, 3], false),
+            (ComparisonOp::NotEq, vec![1, 2, 4], true),
+        ] {
+            let expression = Expression::new(
+                expr_id("binary-cmp"),
+                ExpressionKind::Compare {
+                    left: Box::new(Expression::literal(
+                        expr_id("left"),
+                        ScalarValue::Binary(vec![1, 2, 3]),
+                    )),
+                    op,
+                    right: Box::new(Expression::literal(
+                        expr_id("right"),
+                        ScalarValue::Binary(right),
+                    )),
+                },
+            );
+            let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+            assert_eq!(report.status, ExpressionEvaluationStatus::Evaluated);
+            assert_eq!(report.operator_family, "comparison");
+            assert_eq!(report.value, Some(ScalarValue::Boolean(expected)));
+            assert_eq!(report.output_dtype, Some(LogicalDType::Boolean));
+            assert!(!report.fallback_attempted);
+            assert!(!report.external_engine_invoked);
+        }
+    }
+
+    #[test]
+    fn expression_semantics_blocks_binary_ordering_without_fallback() {
+        let expression = Expression::new(
+            expr_id("binary-lt"),
+            ExpressionKind::Compare {
+                left: Box::new(Expression::literal(
+                    expr_id("left"),
+                    ScalarValue::Binary(vec![1, 2, 3]),
+                )),
+                op: ComparisonOp::Lt,
+                right: Box::new(Expression::literal(
+                    expr_id("right"),
+                    ScalarValue::Binary(vec![1, 2, 4]),
+                )),
+            },
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert_eq!(report.operator_family, "comparison");
+        assert!(report.has_errors());
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.reason.as_deref()
+                    == Some("binary comparison admits equality and inequality only"))
+        );
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
     }
 
     #[test]

@@ -4,6 +4,8 @@ use std::path::PathBuf;
 #[test]
 fn traditional_benchmark_harness_lists_all_required_engines() {
     let script = read_workspace_file("benchmarks/traditional_analytics/run.py");
+    let registry = read_workspace_file("benchmarks/traditional_analytics/benchmark_registry.py");
+    let environment_check = read_workspace_file("scripts/check_benchmark_environment.py");
 
     assert!(script.contains("\"spark-default\""));
     assert!(script.contains("\"spark-local-tuned\""));
@@ -16,6 +18,12 @@ fn traditional_benchmark_harness_lists_all_required_engines() {
     assert!(script.contains("\"fallback_execution_allowed\": False"));
     assert!(script.contains("\"external_engines_are_fallback\": False"));
     assert!(script.contains("\"performance_claim_allowed\": False"));
+    assert!(registry.contains("\"spark-default\": Lane("));
+    assert!(registry.contains("\"spark-local-tuned\": Lane("));
+    assert!(registry.contains("module=\"pyspark\""));
+    assert!(registry.contains("name=\"full_local_plus_spark\""));
+    assert!(registry.contains("optional_lanes=(),"));
+    assert!(environment_check.contains("default=\"full_local_plus_spark\""));
     assert!(script.contains("def render_markdown_report("));
     assert!(script.contains("def render_fairness_parameters("));
     assert!(script.contains("def render_read_this_first("));

@@ -857,7 +857,7 @@ execution-certificate, Native I/O, materialization/decode, and no-fallback evide
 that evidence must remain `fixture_smoke_only`, `not_claim_grade`, `unsupported`, `blocked`, or
 `external_baseline_only` as appropriate.
 
-Suggested first local smoke:
+Suggested first full local preflight:
 
 ```powershell
 python scripts\check_benchmark_environment.py --profile full_local_plus_spark

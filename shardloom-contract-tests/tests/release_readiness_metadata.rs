@@ -2377,6 +2377,15 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "temporal_extract_utc_date32_timestamp",
         "null_coalesce_nullif",
         "predicate_projection_three_valued",
+        "string_function_composition_utf8",
+        "temporal_arithmetic_difference_utc",
+        "conditional_projection_case_when",
+        "in_predicate_literal_null_semantics",
+        "in_subquery_scalar_semantics",
+        "distinct_count_grouped",
+        "having_hidden_aggregate_expression",
+        "window_rank_offset_distribution",
+        "join_multi_key_expression_condition",
         "unsupported_numeric_division_by_zero",
         "unsupported_cast_decimal128",
         "decoded_reference_only",
@@ -2394,8 +2403,8 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
     for required in [
         "shardloom.admitted_semantics_matrix_report.v1",
         "python scripts\\check_admitted_semantics_matrix.py",
-        "matrix_row_count=9",
-        "executable_fixture_count=7",
+        "matrix_row_count=18",
+        "executable_fixture_count=16",
         "unsupported_diagnostic_count=2",
         "property_execution_performed=true",
         "decoded_reference_differential_execution_performed=true",
@@ -5885,9 +5894,12 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5N"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4R"));
     assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5O"));
-    assert!(plan.contains(
-        "`GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout are complete"
-    ));
+    assert!(
+        plan.contains(
+            "`GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout"
+        )
+    );
+    assert!(plan.contains("`GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout are complete"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains(
@@ -5904,8 +5916,20 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     assert!(completed.contains("sqlite-local-import-export-smoke"));
     assert!(completed.contains("udf-local-scalar-fixture-smoke"));
 
-    plan.find("- [ ] GAR-RUNTIME-IMPL-4D")
-        .expect("4D expression/operator closeout must remain planned after 4R/5O");
+    assert!(!plan.contains(
+        "- [ ] GAR-RUNTIME-IMPL-4D expression, cast, null, string, date, and timestamp runtime families"
+    ));
+    for follow_up in [
+        "- [ ] GAR-RUNTIME-IMPL-4D-F1",
+        "- [ ] GAR-RUNTIME-IMPL-4D-F2",
+        "- [ ] GAR-RUNTIME-IMPL-4D-F3",
+        "- [ ] GAR-RUNTIME-IMPL-5G-F1",
+    ] {
+        assert!(
+            plan.contains(follow_up),
+            "missing split 4D/5G follow-up {follow_up}"
+        );
+    }
 
     let terminology = read_repo_file("docs/architecture/canonical-terminology.md");
     for required in [

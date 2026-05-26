@@ -696,9 +696,11 @@ The website also commits a benchmark publishing manifest under
 profile, expected lanes, available lanes, missing lanes, lane versions/reasons, environment
 fingerprint, artifact paths, and `performance_claim_allowed=false`. Website rendering consumes this
 committed artifact; it must not rediscover competitor availability from the environment that builds
-or deploys the static site. Use `scripts/check_benchmark_environment.py` before producing a full
-artifact and `scripts/check_benchmark_artifact_completeness.py` before publishing it. The runbook is
-`docs/benchmarks/static-benchmark-publishing-runbook.md`.
+or deploys the static site. `scripts/check_benchmark_environment.py` defaults to the current
+`full_local_plus_spark` publishing profile, including required PySpark `spark-default` and
+`spark-local-tuned` baselines; pass `--profile smoke` only for quick ShardLoom-lane bring-up.
+Use `scripts/check_benchmark_artifact_completeness.py` before publishing an artifact. The runbook
+is `docs/benchmarks/static-benchmark-publishing-runbook.md`.
 
 The harness now splits the legacy `polars` alias into `polars-eager` and `polars-lazy`. The eager
 lane uses direct `read_*` DataFrame APIs; the lazy lane uses Polars `scan_*` LazyFrame APIs for
