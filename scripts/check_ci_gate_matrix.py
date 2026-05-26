@@ -23,6 +23,7 @@ class CiLane:
     commands: tuple[str, ...]
     artifact_refs: tuple[str, ...]
     release_blocker_refs: tuple[str, ...]
+    workflow_markers: tuple[str, ...] = ()
     no_fallback_required: bool = True
 
 
@@ -130,6 +131,7 @@ REQUIRED_LANES: tuple[CiLane, ...] = (
             "admitted semantics matrix",
             "final rehearsal",
         ),
+        workflow_markers=("continue-on-error: true",),
     ),
     CiLane(
         lane_id="website_docs_validation",
@@ -211,6 +213,11 @@ def lane_status(lane: CiLane, workflow: str, doc: str) -> dict[str, Any]:
     for blocker_ref in lane.release_blocker_refs:
         if blocker_ref not in doc:
             blockers.append(f"doc missing release blocker ref: {blocker_ref}")
+    for marker in lane.workflow_markers:
+        if marker not in job_section:
+            blockers.append(f"workflow job {lane.job_id} missing marker: {marker}")
+        if marker not in doc:
+            blockers.append(f"doc missing marker: {marker}")
     if lane.lane_id not in doc:
         blockers.append(f"doc missing lane id {lane.lane_id}")
     return {
@@ -219,6 +226,7 @@ def lane_status(lane: CiLane, workflow: str, doc: str) -> dict[str, Any]:
         "commands": list(lane.commands),
         "artifact_refs": list(lane.artifact_refs),
         "release_blocker_refs": list(lane.release_blocker_refs),
+        "workflow_markers": list(lane.workflow_markers),
         "status": "passed" if not blockers else "failed",
         "blockers": blockers,
         "release_blocking": bool(blockers),

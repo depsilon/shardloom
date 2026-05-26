@@ -157,6 +157,7 @@ jobs:
             "python scripts/check_release_readiness.py --allow-blocked",
             release_lane.commands,
         )
+        self.assertIn("continue-on-error: true", release_lane.workflow_markers)
 
     def test_benchmark_constitution_rejects_null_stage_timings(self) -> None:
         module = self._load_script_module(

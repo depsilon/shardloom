@@ -39,8 +39,12 @@ skipped_gate=real_publication
 
 ## Failure Policy
 
-Every lane above is release-blocking for the PR. The gate intentionally accepts the current
-blocked package/release posture when the scripts report a coherent blocked state with
+Every lane above is release-blocking for the PR, except that the `release-readiness` job treats
+`python scripts/check_release_readiness.py` as evidence collection while release blockers remain.
+That step must run without `--allow-blocked`, emit `target/hard-release-readiness-gate.json`, and
+use `continue-on-error: true` in CI so ordinary PRs can merge while public-release claims stay
+blocked. The gate intentionally accepts the current blocked package/release posture when the
+scripts report a coherent blocked state with
 `publication_attempted=false`, `tag_created=false`, `secrets_required=false`,
 `fallback_attempted=false`, and `external_engine_invoked=false`.
 
