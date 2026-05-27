@@ -107,18 +107,27 @@ fn traditional_claim_evidence_keeps_external_engines_comparison_only() {
             "polars",
             "duckdb",
             "spark",
+            "pyspark",
             "datafusion",
             "dask"
         ]
     );
     assert_eq!(
         report.external_baseline_engine_order,
-        vec!["pandas", "polars", "duckdb", "spark", "datafusion", "dask"]
+        vec![
+            "pandas",
+            "polars",
+            "duckdb",
+            "spark",
+            "pyspark",
+            "datafusion",
+            "dask"
+        ]
     );
-    assert_eq!(report.external_baseline_count, 6);
-    assert_eq!(report.expected_result_count, 35);
-    assert_eq!(report.missing_result_count, 35);
-    assert_eq!(report.missing_external_result_count, 30);
+    assert_eq!(report.external_baseline_count, 7);
+    assert_eq!(report.expected_result_count, 40);
+    assert_eq!(report.missing_result_count, 40);
+    assert_eq!(report.missing_external_result_count, 35);
     assert!(report.baselines_fallback_free);
     assert!(!report.external_engine_execution);
     assert!(!report.fallback_attempted);

@@ -11,10 +11,11 @@ external comparison engines:
 - Polars eager
 - Polars lazy
 - DuckDB
-- Spark/PySpark default local profile
-- Spark/PySpark tuned local profile
 - DataFusion Python
 - Dask
+- PySpark baseline module
+- Spark default local profile
+- Spark tuned local profile
 - optional extended local lanes: pyarrow dataset, pyarrow Acero, clickhouse-local, Daft, Ray Data,
   Ibis adapters, and cuDF GPU
 
@@ -697,7 +698,7 @@ profile, expected lanes, available lanes, missing lanes, lane versions/reasons, 
 fingerprint, artifact paths, and `performance_claim_allowed=false`. Website rendering consumes this
 committed artifact; it must not rediscover competitor availability from the environment that builds
 or deploys the static site. `scripts/check_benchmark_environment.py` defaults to the current
-`full_local_plus_spark` publishing profile, including required PySpark `spark-default` and
+`full_local_plus_spark` publishing profile, including required `pyspark`, `spark-default`, and
 `spark-local-tuned` baselines; pass `--profile smoke` only for quick ShardLoom-lane bring-up.
 Use `scripts/check_benchmark_artifact_completeness.py` before publishing an artifact. The runbook
 is `docs/benchmarks/static-benchmark-publishing-runbook.md`.
@@ -927,15 +928,17 @@ Spark/PySpark also requires a local JDK. Install JDK 17 or newer, set
 `JAVA_HOME`, and ensure `java` is on `PATH` before expecting Spark rows to run.
 Without Java, the harness records Spark profiles as missing dependencies while
 still running the other engines. Missing Spark/PySpark dependencies fail the
-`full_local_plus_spark` profile because `spark-default` and `spark-local-tuned`
-are required baselines there, not optional lanes.
+`full_local_plus_spark` profile because `pyspark`, `spark-default`, and
+`spark-local-tuned` are required baselines there, not optional lanes.
 
-Spark rows are split into `spark-default` and `spark-local-tuned`. The default
-profile uses `local[*]` plus Spark defaults, while the tuned profile caps
-shuffle/default parallelism to the local CPU count and enables AQE. The `spark`
-engine alias expands to both profiles. Each Spark profile starts and warms its
-own Spark session immediately before its scenario rows, and the harness records
-that startup/warmup time separately from per-scenario timings.
+Spark rows are split into `pyspark`, `spark-default`, and `spark-local-tuned`.
+The `pyspark` lane is the baseline PySpark module lane using local defaults,
+`spark-default` records the named default Spark profile, and `spark-local-tuned`
+caps shuffle/default parallelism to the local CPU count and enables AQE. The
+`spark` engine alias expands to the two named Spark profiles. Each Spark/PySpark
+lane starts and warms its own Spark session immediately before its scenario
+rows, and the harness records that startup/warmup time separately from
+per-scenario timings.
 
 On Windows the harness also checks common Temurin/Eclipse Adoptium install
 paths and will set `JAVA_HOME` for the benchmark process when it finds a local
@@ -951,7 +954,7 @@ Run the current full local plus PySpark profile before promoting website artifac
 
 ```powershell
 benchmarks\traditional_analytics\.venv\Scripts\python scripts\check_benchmark_environment.py --profile full_local_plus_spark
-benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 100000 --iterations 3 --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,spark-default,spark-local-tuned --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --shardloom-result-sink --require-all-engines
+benchmarks\traditional_analytics\.venv\Scripts\python benchmarks\traditional_analytics\run.py --rows 100000 --iterations 3 --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,pyspark,spark-default,spark-local-tuned --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --shardloom-result-sink --require-all-engines
 ```
 
 `--require-all-engines` is strict for automation: it still writes JSON and

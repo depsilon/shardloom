@@ -207,6 +207,7 @@ for (const required of [
   "Prepared warm query route",
   "Artifact lane availability",
   "full_local_plus_spark",
+  "pyspark",
   "spark-default",
   "Format coverage",
   "Claim-gate distribution",

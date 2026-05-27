@@ -458,11 +458,12 @@ fn traditional_analytics_plan_covers_dataframe_sql_baselines() {
             "polars",
             "duckdb",
             "spark",
+            "pyspark",
             "datafusion",
             "dask"
         ]
     );
-    assert_eq!(plan.external_baseline_count(), 6);
+    assert_eq!(plan.external_baseline_count(), 7);
     assert!(plan.baselines_are_fallback_free());
     assert!(plan.covers_metric(BenchmarkMetric::PeakMemoryBytes));
     assert!(plan.covers_metric(BenchmarkMetric::RowsScanned));

@@ -56,7 +56,7 @@ fn assert_matrix_summary_fields(output: &str) {
     )));
     assert!(output.contains(&field("matrix_status", "report_only")));
     assert!(output.contains(&field("claim_grade_status", "evidence_incomplete")));
-    assert!(output.contains(&field("compute_row_count", "13")));
+    assert!(output.contains(&field("compute_row_count", "15")));
     assert!(output.contains(&field("operator_family_count", "14")));
     assert!(output.contains(&field(
         "support_status_vocabulary",
@@ -68,13 +68,13 @@ fn assert_matrix_summary_fields(output: &str) {
     )));
     assert!(output.contains(&field(
         "compute_row_order",
-        "local_vortex_count,local_vortex_filtered_count,local_vortex_projection,local_vortex_filter_project,prepared_encoded_filter,reader_backed_dictionary_filter,compatibility_csv_import,direct_compatibility_transient,vortex_sink_write,grouped_aggregate,join,window_row_number,sql_frontend"
+        "local_vortex_count,local_vortex_filtered_count,local_vortex_projection,local_vortex_filter_project,scalar_expression_functions,prepared_encoded_filter,reader_backed_dictionary_filter,compatibility_csv_import,direct_compatibility_transient,sort_topn_limit,vortex_sink_write,grouped_aggregate,join,window_row_number,sql_frontend"
     )));
     assert!(output.contains("\"artifact_kind\":\"compute_capability_matrix_report\""));
 }
 
 fn assert_matrix_claim_counts(output: &str) {
-    assert!(output.contains(&field("fixture_certified_count", "6")));
+    assert!(output.contains(&field("fixture_certified_count", "8")));
     assert!(output.contains(&field("executable_uncertified_count", "5")));
     assert!(output.contains(&field("report_only_count", "1")));
     assert!(output.contains(&field("planned_count", "0")));
@@ -486,8 +486,8 @@ fn assert_native_unsupported_row_fields(output: &str) {
         "not_claim_grade"
     )));
     assert!(output.contains(&field(
-        "native_unsupported_coverage_row_native_operator_joins_blocker_id",
-        "cg21.workflow.join.operator_unsupported"
+        "native_unsupported_coverage_row_native_operator_encoded_or_spillable_general_join_blocker_id",
+        "gar-flow-2e.encoded_or_spillable_general_join_blocked"
     )));
     assert!(output.contains(&field(
         "native_unsupported_coverage_row_native_workload_sql_dataframe_support_status",
@@ -549,6 +549,18 @@ fn compute_capability_matrix_rows_distinguish_provider_and_support_status() {
         "false"
     )));
     assert!(output.contains(&field(
+        "compute_row_scalar_expression_functions_support_status",
+        "fixture_certified"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_scalar_expression_functions_operator_admission_status",
+        "residual_native_fixture_admitted"
+    )));
+    assert!(output.contains(&field(
+        "compute_row_sort_topn_limit_operator_admission_status",
+        "residual_native_fixture_admitted"
+    )));
+    assert!(output.contains(&field(
         "compute_row_join_operator_execution_class",
         "residual_native"
     )));
@@ -561,7 +573,7 @@ fn compute_capability_matrix_rows_distinguish_provider_and_support_status() {
     assert_prepared_vortex_scan_pushdown_row_fields(&output);
     assert!(output.contains(&field(
         "operator_family_joins_next_evidence",
-        "join_null_semantics,build_probe_memory,benchmarks"
+        "encoded_or_spillable_join_certificate,join_null_semantics,claim_grade_benchmarks"
     )));
     assert!(output.contains(&field(
         "operator_family_sink_write_operators_support_status",

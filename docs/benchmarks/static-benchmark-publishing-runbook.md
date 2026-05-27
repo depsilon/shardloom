@@ -21,7 +21,8 @@ package-publication claims.
 - `smoke`: quick checks for the ready ShardLoom lanes (`shardloom`,
   `shardloom-prepared-vortex`, `shardloom-prepare-batch`, and `shardloom-vortex`).
 - `full_local`: ShardLoom plus pandas, Polars eager/lazy, DuckDB, DataFusion, and Dask.
-- `full_local_plus_spark`: `full_local` plus `spark-default` and `spark-local-tuned`.
+- `full_local_plus_spark`: `full_local` plus `pyspark`, `spark-default`, and
+  `spark-local-tuned`.
 - `extended_local`: optional local ecosystem lanes such as pyarrow, clickhouse-local, Daft, Ray
   Data, and Ibis adapters.
 - `gpu_optional`: GPU/CUDA-specific lanes such as cuDF/RAPIDS.
@@ -29,8 +30,8 @@ package-publication claims.
   separately admitted.
 - `io_reuse_and_fanout`: source/prepared/output reuse and cross-format fanout benchmark family.
 
-Missing required lanes fail the selected full profile. `full_local_plus_spark` treats PySpark
-`spark-default` and `spark-local-tuned` as required baselines, so `pyspark` and a local JDK must be
+Missing required lanes fail the selected full profile. `full_local_plus_spark` treats `pyspark`,
+`spark-default`, and `spark-local-tuned` as required baselines, so PySpark and a local JDK must be
 available before publishing that profile. Missing optional extended/GPU/object-store lanes remain
 visible with a reason. External engines are baseline context only and never ShardLoom fallback
 execution.
@@ -55,7 +56,7 @@ python benchmarks\traditional_analytics\run.py `
   --rows 100000 `
   --iterations 3 `
   --include-taxonomy-extra `
-  --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,spark-default,spark-local-tuned `
+  --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,pyspark,spark-default,spark-local-tuned `
   --formats csv,parquet `
   --shardloom-result-sink `
   --require-all-engines `
@@ -66,7 +67,8 @@ python benchmarks\traditional_analytics\run.py `
 The legacy `polars` CLI alias expands to `polars-eager` and `polars-lazy`, but full-local publishing
 commands should name the split lanes explicitly so the manifest and raw rows remain easy to audit.
 The legacy `spark` CLI alias expands to `spark-default` and `spark-local-tuned`, but publishing
-commands should name the PySpark split lanes explicitly for the same reason.
+commands should name `pyspark`, `spark-default`, and `spark-local-tuned` explicitly for the same
+reason.
 Optional extended lanes such as `pyarrow-dataset`, `pyarrow-acero`, `clickhouse-local`, `daft`,
 `ray-data`, `ibis-*`, and `cudf-gpu` are selected only by extended/GPU profiles or explicit
 `--engines` requests. Missing optional dependencies and unimplemented adapters must remain visible

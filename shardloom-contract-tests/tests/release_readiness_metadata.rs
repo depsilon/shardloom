@@ -5962,8 +5962,14 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     );
     let follow_up = "- [ ] GAR-RUNTIME-IMPL-5G-F1";
     assert!(
-        plan.contains(follow_up),
-        "missing split 4D/5G follow-up {follow_up}"
+        !plan.contains(follow_up),
+        "completed split 4D/5G follow-up should not remain planned: {follow_up}"
+    );
+    assert!(
+        completed.contains(
+            "GAR-RUNTIME-IMPL-5G-F1 broad physical operator, function, and encoded-kernel"
+        ),
+        "missing completed split 4D/5G follow-up ledger entry"
     );
 
     let terminology = read_repo_file("docs/architecture/canonical-terminology.md");

@@ -1071,6 +1071,32 @@ impl OperatorCoverageEntry {
             diagnostics: Vec::new(),
         }
     }
+
+    #[must_use]
+    pub fn current_runtime(
+        family: OperatorFamily,
+        status: OperatorCertificationStatus,
+        memory: OperatorMemoryCertification,
+    ) -> Self {
+        let mut entry = Self {
+            family,
+            status,
+            memory,
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        };
+        if matches!(
+            status,
+            OperatorCertificationStatus::Unsupported | OperatorCertificationStatus::PlannedNative
+        ) {
+            entry.diagnostics.push(Diagnostic::not_implemented(
+                format!("operator family {}", family.as_str()),
+                "Current runtime coverage does not yet support this operator family for a native claim.",
+                "Keep the family blocked until scoped ShardLoom-native execution, correctness evidence, memory policy, benchmark rows, and no-fallback proof exist.",
+            ));
+        }
+        entry
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1093,6 +1119,28 @@ impl OperatorCoverageMatrix {
                 .collect(),
             fallback_attempted: false,
             diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
+    pub fn current_runtime() -> Self {
+        let entries = OperatorFamily::all()
+            .iter()
+            .copied()
+            .map(|family| {
+                let (status, memory) = current_operator_family_status(family);
+                OperatorCoverageEntry::current_runtime(family, status, memory)
+            })
+            .collect::<Vec<_>>();
+        let diagnostics = entries
+            .iter()
+            .flat_map(|entry| entry.diagnostics.clone())
+            .collect::<Vec<_>>();
+        Self {
+            schema_version: "shardloom.operator_coverage.v1",
+            entries,
+            fallback_attempted: false,
+            diagnostics,
         }
     }
 }
@@ -1242,6 +1290,63 @@ impl FunctionCoverageEntry {
             diagnostics: Vec::new(),
         }
     }
+
+    #[must_use]
+    pub fn current_runtime(group: FunctionCoverageGroup) -> Self {
+        let status = current_function_group_status(group);
+        let encoded_capable = matches!(
+            group,
+            FunctionCoverageGroup::Comparison
+                | FunctionCoverageGroup::Boolean
+                | FunctionCoverageGroup::NullHandling
+                | FunctionCoverageGroup::EncodingAwarePredicates
+                | FunctionCoverageGroup::Aggregates
+        );
+        let selection_vector_supported = matches!(
+            group,
+            FunctionCoverageGroup::Comparison
+                | FunctionCoverageGroup::Boolean
+                | FunctionCoverageGroup::EncodingAwarePredicates
+        );
+        let materialization_required = matches!(
+            group,
+            FunctionCoverageGroup::Regex
+                | FunctionCoverageGroup::ArrayListFunctions
+                | FunctionCoverageGroup::StructFunctions
+                | FunctionCoverageGroup::MapFunctions
+                | FunctionCoverageGroup::JsonFunctions
+                | FunctionCoverageGroup::VectorFunctions
+                | FunctionCoverageGroup::EffectfulFunctions
+        );
+        let mut entry = Self {
+            group,
+            status,
+            encoded_capable,
+            selection_vector_supported,
+            streaming_supported: matches!(
+                status,
+                CapabilityCertificationStatus::Native | CapabilityCertificationStatus::Certified
+            ),
+            spill_supported: false,
+            materialization_required,
+            semantic_profile: SemanticProfileName::ShardLoomNative,
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        };
+        if matches!(
+            status,
+            CapabilityCertificationStatus::Unsupported
+                | CapabilityCertificationStatus::Blocked
+                | CapabilityCertificationStatus::Partial
+        ) {
+            entry.diagnostics.push(Diagnostic::not_implemented(
+                format!("function group {}", group.as_str()),
+                "Current runtime coverage is incomplete for this function group.",
+                "Promote the group only after scoped native execution, type/null semantics, correctness evidence, benchmark rows where surfaced, and no-fallback proof exist.",
+            ));
+        }
+        entry
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1265,6 +1370,134 @@ impl FunctionCoverageMatrix {
             fallback_attempted: false,
             diagnostics: Vec::new(),
         }
+    }
+
+    #[must_use]
+    pub fn current_runtime() -> Self {
+        let entries = FunctionCoverageGroup::all()
+            .iter()
+            .copied()
+            .map(FunctionCoverageEntry::current_runtime)
+            .collect::<Vec<_>>();
+        let diagnostics = entries
+            .iter()
+            .flat_map(|entry| entry.diagnostics.clone())
+            .collect::<Vec<_>>();
+        Self {
+            schema_version: "shardloom.function_coverage.v1",
+            entries,
+            fallback_attempted: false,
+            diagnostics,
+        }
+    }
+}
+
+#[must_use]
+const fn current_operator_family_status(
+    family: OperatorFamily,
+) -> (OperatorCertificationStatus, OperatorMemoryCertification) {
+    match family {
+        OperatorFamily::Scan | OperatorFamily::Filter | OperatorFamily::Project => (
+            OperatorCertificationStatus::EncodedCapable,
+            streaming_operator_memory(),
+        ),
+        OperatorFamily::Limit
+        | OperatorFamily::TopK
+        | OperatorFamily::Sort
+        | OperatorFamily::Aggregate
+        | OperatorFamily::HashAggregate
+        | OperatorFamily::Window
+        | OperatorFamily::Join
+        | OperatorFamily::HashJoin
+        | OperatorFamily::SemiJoin
+        | OperatorFamily::AntiJoin => (
+            OperatorCertificationStatus::NativeDecoded,
+            residual_operator_memory(),
+        ),
+        OperatorFamily::SortAggregate | OperatorFamily::SortMergeJoin | OperatorFamily::Write => (
+            OperatorCertificationStatus::PlannedNative,
+            OperatorMemoryCertification::unsupported(),
+        ),
+        OperatorFamily::BroadcastJoin
+        | OperatorFamily::RangeJoin
+        | OperatorFamily::SetUnion
+        | OperatorFamily::SetIntersect
+        | OperatorFamily::SetExcept
+        | OperatorFamily::Repartition
+        | OperatorFamily::ShuffleExchange
+        | OperatorFamily::Commit
+        | OperatorFamily::Compact
+        | OperatorFamily::Merge
+        | OperatorFamily::Delete => (
+            OperatorCertificationStatus::Unsupported,
+            OperatorMemoryCertification::unsupported(),
+        ),
+    }
+}
+
+#[must_use]
+const fn streaming_operator_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: true,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: true,
+    }
+}
+
+#[must_use]
+const fn residual_operator_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: false,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: false,
+    }
+}
+
+#[must_use]
+const fn current_function_group_status(
+    group: FunctionCoverageGroup,
+) -> CapabilityCertificationStatus {
+    match group {
+        FunctionCoverageGroup::Comparison
+        | FunctionCoverageGroup::Boolean
+        | FunctionCoverageGroup::Math
+        | FunctionCoverageGroup::Numeric
+        | FunctionCoverageGroup::String
+        | FunctionCoverageGroup::Binary
+        | FunctionCoverageGroup::Date
+        | FunctionCoverageGroup::Time
+        | FunctionCoverageGroup::Timestamp
+        | FunctionCoverageGroup::Conditional
+        | FunctionCoverageGroup::NullHandling
+        | FunctionCoverageGroup::Casts
+        | FunctionCoverageGroup::Hashing
+        | FunctionCoverageGroup::EncodingAwarePredicates
+        | FunctionCoverageGroup::Aggregates
+        | FunctionCoverageGroup::WindowFunctions => CapabilityCertificationStatus::Native,
+        FunctionCoverageGroup::Decimal
+        | FunctionCoverageGroup::Regex
+        | FunctionCoverageGroup::Interval
+        | FunctionCoverageGroup::Timezone
+        | FunctionCoverageGroup::StatisticalAggregates
+        | FunctionCoverageGroup::ArrayListFunctions
+        | FunctionCoverageGroup::StructFunctions
+        | FunctionCoverageGroup::MapFunctions
+        | FunctionCoverageGroup::JsonFunctions
+        | FunctionCoverageGroup::MetadataFunctions
+        | FunctionCoverageGroup::SystemIntrospectionFunctions => {
+            CapabilityCertificationStatus::Partial
+        }
+        FunctionCoverageGroup::ApproximateAggregates
+        | FunctionCoverageGroup::UuidIdFunctions
+        | FunctionCoverageGroup::TableFunctions
+        | FunctionCoverageGroup::VectorFunctions
+        | FunctionCoverageGroup::EffectfulFunctions => CapabilityCertificationStatus::Unsupported,
     }
 }
 
@@ -2704,6 +2937,33 @@ impl CapabilityCertificationReport {
     }
 
     #[must_use]
+    pub fn current_runtime() -> Self {
+        let operator_coverage = OperatorCoverageMatrix::current_runtime();
+        let function_coverage = FunctionCoverageMatrix::current_runtime();
+        Self {
+            schema_version: "shardloom.capability_certification.v1",
+            engine_version: env!("CARGO_PKG_VERSION").to_string(),
+            sql_coverage: SqlCoverageMatrix::planned_foundation(),
+            operator_coverage,
+            function_coverage,
+            adapter_certification: AdapterCertificationMatrix::planned_foundation(),
+            semantic_profiles: SemanticProfileName::all()
+                .iter()
+                .copied()
+                .map(SemanticProfileEntry::planned)
+                .collect(),
+            migration_reports: MigrationReportKind::all()
+                .iter()
+                .copied()
+                .map(MigrationCompatibilityEntry::planned)
+                .collect(),
+            best_choice_scorecard: BestChoiceScorecard::not_certified(),
+            fallback_attempted: false,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    #[must_use]
     pub const fn fallback_attempted(&self) -> bool {
         self.fallback_attempted
     }
@@ -2874,6 +3134,73 @@ mod tests {
     }
 
     #[test]
+    fn current_runtime_operator_matrix_promotes_admitted_families_and_keeps_gaps_blocked() {
+        let matrix = OperatorCoverageMatrix::current_runtime();
+
+        assert_eq!(matrix.schema_version, "shardloom.operator_coverage.v1");
+        assert_eq!(matrix.entries.len(), OperatorFamily::all().len());
+        assert!(matrix.entries.iter().all(|entry| !entry.fallback_attempted));
+        assert!(matrix.entries.iter().any(|entry| {
+            entry.family == OperatorFamily::Filter
+                && entry.status == OperatorCertificationStatus::EncodedCapable
+                && entry.memory.streaming
+        }));
+        assert!(matrix.entries.iter().any(|entry| {
+            entry.family == OperatorFamily::Join
+                && entry.status == OperatorCertificationStatus::NativeDecoded
+                && !entry.memory.oom_safe
+        }));
+        assert!(matrix.entries.iter().any(|entry| {
+            entry.family == OperatorFamily::TopK
+                && entry.status == OperatorCertificationStatus::NativeDecoded
+        }));
+        assert!(matrix.entries.iter().any(|entry| {
+            entry.family == OperatorFamily::Write
+                && entry.status == OperatorCertificationStatus::PlannedNative
+                && !entry.diagnostics.is_empty()
+        }));
+        assert!(matrix.entries.iter().any(|entry| {
+            entry.family == OperatorFamily::ShuffleExchange
+                && entry.status == OperatorCertificationStatus::Unsupported
+                && !entry.diagnostics.is_empty()
+        }));
+        assert!(!matrix.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn current_runtime_function_matrix_tracks_native_partial_and_unsupported_groups() {
+        let matrix = FunctionCoverageMatrix::current_runtime();
+
+        assert_eq!(matrix.schema_version, "shardloom.function_coverage.v1");
+        assert_eq!(matrix.entries.len(), FunctionCoverageGroup::all().len());
+        assert!(matrix.entries.iter().all(|entry| !entry.fallback_attempted));
+        assert!(matrix.entries.iter().any(|entry| {
+            entry.group == FunctionCoverageGroup::Comparison
+                && entry.status == CapabilityCertificationStatus::Native
+                && entry.encoded_capable
+                && entry.selection_vector_supported
+        }));
+        assert!(matrix.entries.iter().any(|entry| {
+            entry.group == FunctionCoverageGroup::Aggregates
+                && entry.status == CapabilityCertificationStatus::Native
+                && entry.encoded_capable
+        }));
+        assert!(matrix.entries.iter().any(|entry| {
+            entry.group == FunctionCoverageGroup::JsonFunctions
+                && entry.status == CapabilityCertificationStatus::Partial
+                && entry.materialization_required
+                && !entry.diagnostics.is_empty()
+        }));
+        assert!(matrix.entries.iter().any(|entry| {
+            entry.group == FunctionCoverageGroup::EffectfulFunctions
+                && entry.status == CapabilityCertificationStatus::Unsupported
+                && entry.materialization_required
+                && !entry.diagnostics.is_empty()
+        }));
+        assert!(!matrix.diagnostics.is_empty());
+    }
+
+    #[test]
     fn adapter_declared_only_does_not_imply_read_support() {
         let adapter =
             AdapterCertificationEntry::planned("native_vortex", "native_vortex").expect("valid");
@@ -2906,6 +3233,25 @@ mod tests {
                 .iter()
                 .any(|entry| entry.adapter_id == "native_vortex")
         );
+    }
+
+    #[test]
+    fn current_runtime_report_keeps_claims_blocked_while_exposing_operator_function_coverage() {
+        let report = CapabilityCertificationReport::current_runtime();
+
+        assert!(!report.fallback_attempted());
+        assert!(!report.can_publish_best_choice_claim());
+        assert!(report.operator_coverage.entries.iter().any(|entry| {
+            entry.family == OperatorFamily::Filter
+                && entry.status == OperatorCertificationStatus::EncodedCapable
+        }));
+        assert!(report.function_coverage.entries.iter().any(|entry| {
+            entry.group == FunctionCoverageGroup::WindowFunctions
+                && entry.status == CapabilityCertificationStatus::Native
+        }));
+        assert!(report.diagnostics.is_empty());
+        assert!(!report.operator_coverage.diagnostics.is_empty());
+        assert!(!report.function_coverage.diagnostics.is_empty());
     }
 
     #[test]

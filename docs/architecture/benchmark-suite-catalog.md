@@ -183,11 +183,12 @@ and they must never run unsupported ShardLoom work as fallback.
 
 `shardloom-prepare-batch` is now a required ShardLoom lane for `full_local`,
 `full_local_plus_spark`, and `extended_local` published profiles. The `full_local_plus_spark`
-profile also requires the split PySpark baselines `spark-default` and `spark-local-tuned`; missing
-PySpark/JDK setup fails that profile instead of being treated as an optional lane. The completeness
-validator checks that the promoted artifact covers every profile-required format and scenario and
-that the single-process prepare/batch route appears as row evidence instead of being omitted from
-the public benchmark bundle.
+profile also requires the baseline PySpark module lane `pyspark` plus the split Spark-profile
+baselines `spark-default` and `spark-local-tuned`; missing PySpark/JDK setup fails that profile
+instead of being treated as an optional lane. The completeness validator checks that the promoted
+artifact covers every profile-required format, scenario, and baseline lane and that the
+single-process prepare/batch route appears as row evidence instead of being omitted from the public
+benchmark bundle.
 ```
 
 Required row fields include requested/selected execution mode, mode-selection reason, preparation
@@ -794,8 +795,8 @@ it does not run benchmarks, invoke external engines, or upgrade `performance_cla
 ## Baseline Policy
 
 Local baseline lanes are comparison contracts, not runtime dependencies. The `full_local_plus_spark`
-profile requires the local CPU baselines plus the two PySpark profiles; extended/GPU lanes remain
-explicit opt-ins:
+profile requires the local CPU baselines, the baseline PySpark module lane, and the two Spark
+profile lanes; extended/GPU lanes remain explicit opt-ins:
 
 ```text
 pandas
@@ -804,8 +805,9 @@ Polars lazy
 DuckDB
 DataFusion
 Dask
-local Spark default
-local Spark tuned
+pyspark
+spark-default
+spark-local-tuned
 pyarrow dataset / Acero, clickhouse-local, Daft, Ray Data, Ibis adapters, and cuDF GPU as explicit
 extended/GPU optional lanes
 Vortex + DataFusion integration
@@ -842,14 +844,15 @@ Vortex layout/write advisor fields derived from workload, benchmark, runtime, an
 evidence. It does not execute comparative benchmarks, apply layout rewrites, or publish performance
 claims.
 
-The current promoted website artifact is `full_local_plus_spark`: ShardLoom cold/import,
-ShardLoom native Vortex, ShardLoom prepared Vortex, `shardloom-prepare-batch`, pandas, Polars
-eager/lazy, DuckDB, DataFusion, Dask, `spark-default`, and `spark-local-tuned` are all required and
-available for the selected CSV/Parquet local scenarios. The artifact keeps PulseWeave evidence in
-the prepared/native batch route and no longer publishes an alias-only `native-vortex` profile lane;
-native Vortex evidence is represented by `shardloom-vortex` rows with
-`selected_execution_mode=native_vortex`. This is still local pre-release benchmark evidence, not a
-performance, superiority, Spark-displacement, or production claim.
+The current benchmark suite profile for publication is `full_local_plus_spark`: ShardLoom
+cold/import, ShardLoom native Vortex, ShardLoom prepared Vortex, `shardloom-prepare-batch`, pandas,
+Polars eager/lazy, DuckDB, DataFusion, Dask, `pyspark`, `spark-default`, and
+`spark-local-tuned` are required lanes for selected CSV/Parquet local scenarios. The suite catalog
+also includes a first-class `runtime_control` suite and `pulseweave_runtime_control` scenario
+category so PulseWeave evidence is not hidden inside an optional lane. Promoted website artifacts
+must include row evidence for every required baseline lane before they can remain marked complete;
+rows still remain local pre-release benchmark evidence, not performance, superiority,
+Spark-displacement, or production claims.
 
 The `compute-capability-matrix` now carries a GAR-0006-A predicate/DType coverage table for
 predicate, DType, null-semantics, nested-shape, and statistics families. Those rows are benchmark
@@ -870,7 +873,7 @@ Suggested first full local preflight:
 
 ```powershell
 python scripts\check_benchmark_environment.py --profile full_local_plus_spark
-python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,spark-default,spark-local-tuned --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 100000 --iterations 3 --shardloom-result-sink --require-all-engines
+python benchmarks\traditional_analytics\run.py --engines shardloom,shardloom-vortex,shardloom-prepared-vortex,shardloom-prepare-batch,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,pyspark,spark-default,spark-local-tuned --formats csv,parquet --include-taxonomy-extra --dataset-profile narrow_fact_dim --rows 100000 --iterations 3 --shardloom-result-sink --require-all-engines
 ```
 
 Then run profile-specific checks:
