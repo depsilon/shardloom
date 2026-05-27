@@ -30,6 +30,14 @@ min/max pruning, FSST/dictionary string equality, sparse traversal, TurboQuant/v
 generalized operator/function coverage remain deterministic blockers or future candidates until
 correctness, materialization/decode, certificate, and claim-gate evidence land.
 
+`runtime.5g-f1` now projects the registry into the current runtime plan and capability surfaces
+instead of treating encoded-kernel work as a side lane. The current physical plan marks scan,
+filter, project, limit, count aggregate, aggregate, join, top-k, sort, and window as supported
+runtime families, while repartition and write remain explicit blockers. Operator and function
+coverage reports separate encoded-capable, native-decoded/residual, planned-native, partial, and
+unsupported families so the CLI, compute matrix, benchmark suite, and website status can surface the
+same support boundary.
+
 ## Initial Registry Rows
 
 `GAR-PERF-2D` classifies these initial encoding/operator pairs:

@@ -142,14 +142,14 @@ fn traditional_analytics_benchmark_plan_lists_external_dataframe_baselines() {
     assert!(output.contains(&field("workload_class_order", "traditional_analytics")));
     assert!(output.contains(&field(
         "baseline_engine_order",
-        "shardloom,pandas,polars,duckdb,spark,datafusion,dask"
+        "shardloom,pandas,polars,duckdb,spark,pyspark,datafusion,dask"
     )));
     assert!(output.contains(&field(
         "external_baseline_engine_order",
-        "pandas,polars,duckdb,spark,datafusion,dask"
+        "pandas,polars,duckdb,spark,pyspark,datafusion,dask"
     )));
-    assert!(output.contains(&field("external_baseline_count", "6")));
-    assert!(output.contains(&field("expected_result_count", "35")));
+    assert!(output.contains(&field("external_baseline_count", "7")));
+    assert!(output.contains(&field("expected_result_count", "40")));
     assert!(output.contains(&field("benchmark_execution_implemented", "false")));
     assert!(output.contains(&field("fallback_execution_allowed", "false")));
 }

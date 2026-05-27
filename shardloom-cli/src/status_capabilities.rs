@@ -12,9 +12,9 @@ use shardloom_core::{
     GeneratedSourceApiAdmissionMatrix, GeneratedSourceCertificateContractReport,
     GeneratedSourceEvidenceAlignmentReport, LiveHybridFabricFreshnessGateReport,
     MaterializationPolicyReport, OpenLineageFacetMappingReport,
-    OpenTelemetryTraceExportContractReport, OutputFormat, PhysicalOperatorExecutionLevel,
-    PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan, ShardLoomError,
-    SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
+    OpenTelemetryTraceExportContractReport, OperatorCertificationStatus, OutputFormat,
+    PhysicalOperatorExecutionLevel, PhysicalOperatorExecutionProfileMatrix, PhysicalOperatorPlan,
+    ShardLoomError, SqlDataFramePlannerReadinessMatrix, WorldClassSufficiencyDimensionKind,
     WorldClassSufficiencyReport, WrapperConnectorImplementationRegistryReport,
     boundedness_vocabulary, engine_mode_vocabulary, output_mode_vocabulary,
     plan_best_default_certification_gate, plan_global_architecture_runtime_claim_gate,
@@ -1945,6 +1945,25 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         required_future_evidence: "benchmark_row,execution_certificate,native_io_certificate",
     },
     ComputeCapabilityRow {
+        id: "scalar_expression_functions",
+        surface: "scalar_predicate_projection_functions",
+        family: "scalar_expressions",
+        support_status: "fixture_certified",
+        engine_mode: "batch",
+        provider_kind: "shardloom_kernel",
+        operator_execution_class: "residual_native",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "typed_expression_evaluation_after_projection_pushdown_no_external_engine",
+        memory_spill_requirement: "bounded_expression_batch_no_spill_claim",
+        correctness_refs: "sql_local_source.expression_semantics,semantic_conformance_suite",
+        benchmark_refs: "traditional_analytics.prepared_native_fixture_rows",
+        execution_certificate_refs: "sql_local_source.runtime_execution_certificate",
+        native_io_refs: "traditional_analytics.native_vortex_source_to_native_runtime_result",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar-runtime-impl-5g-f1.scalar_expression_claim_boundary",
+        required_future_evidence: "claim_grade_expression_benchmarks,broad_type_surface_evidence",
+    },
+    ComputeCapabilityRow {
         id: "prepared_encoded_filter",
         surface: "prepared_encoded_filter",
         family: "predicates",
@@ -2019,6 +2038,25 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
         unsupported_diagnostic_code: "none",
         blocker_id: "p75.direct_transient.not_vortex_native_claim",
         required_future_evidence: "broader_operator_coverage,result_sink_replay,claim_grade_benchmark_rows",
+    },
+    ComputeCapabilityRow {
+        id: "sort_topn_limit",
+        surface: "sort_topn_limit",
+        family: "sort_topn_limit",
+        support_status: "fixture_certified",
+        engine_mode: "batch",
+        provider_kind: "shardloom_kernel",
+        operator_execution_class: "residual_native",
+        semantic_profile: "ShardLoomNative",
+        materialization_decode_requirement: "projected_vortex_scan_with_shardloom_residual_order_heap_no_full_fact_table_materialization",
+        memory_spill_requirement: "sort_heap_spill_required_before_broad_claim",
+        correctness_refs: "traditional_analytics.sort_and_top_k,traditional_analytics.top_n_per_group,sql_local_source.order_by_topn",
+        benchmark_refs: "traditional_analytics.prepared_native_fixture_rows",
+        execution_certificate_refs: "traditional_analytics.runtime_execution_certificate",
+        native_io_refs: "traditional_analytics.native_vortex_source_to_native_runtime_result",
+        unsupported_diagnostic_code: "none",
+        blocker_id: "gar-flow-2e.residual_sort_topn_not_encoded_native",
+        required_future_evidence: "encoded_or_spillable_topk_certificate,sort_null_ordering,claim_grade_benchmarks",
     },
     ComputeCapabilityRow {
         id: "vortex_sink_write",
@@ -2120,8 +2158,8 @@ const COMPUTE_ROWS: &[ComputeCapabilityRow] = &[
 const OPERATOR_FAMILY_ROWS: &[OperatorFamilyCoverageRow] = &[
     OperatorFamilyCoverageRow {
         id: "scalar_expressions",
-        support_status: "planned",
-        next_evidence: "expression_registry,semantic_fixtures",
+        support_status: "fixture_certified",
+        next_evidence: "claim_grade_expression_benchmarks,broad_type_surface_evidence",
     },
     OperatorFamilyCoverageRow {
         id: "predicates",
@@ -2145,8 +2183,8 @@ const OPERATOR_FAMILY_ROWS: &[OperatorFamilyCoverageRow] = &[
     },
     OperatorFamilyCoverageRow {
         id: "grouped_aggregates",
-        support_status: "planned",
-        next_evidence: "hash_group_state,memory_spill,semantic_fixtures",
+        support_status: "fixture_certified",
+        next_evidence: "encoded_native_aggregate_certificate,spill_policy_evidence,claim_grade_benchmarks",
     },
     OperatorFamilyCoverageRow {
         id: "approx_sketch_aggregates",
@@ -2155,23 +2193,23 @@ const OPERATOR_FAMILY_ROWS: &[OperatorFamilyCoverageRow] = &[
     },
     OperatorFamilyCoverageRow {
         id: "sort_topn_limit",
-        support_status: "planned",
-        next_evidence: "ordering_semantics,memory_spill,benchmarks",
+        support_status: "fixture_certified",
+        next_evidence: "encoded_or_spillable_topk_certificate,sort_null_ordering,claim_grade_benchmarks",
     },
     OperatorFamilyCoverageRow {
         id: "joins",
-        support_status: "planned",
-        next_evidence: "join_null_semantics,build_probe_memory,benchmarks",
+        support_status: "fixture_certified",
+        next_evidence: "encoded_or_spillable_join_certificate,join_null_semantics,claim_grade_benchmarks",
     },
     OperatorFamilyCoverageRow {
         id: "semi_anti_joins",
-        support_status: "planned",
-        next_evidence: "join_operator_capability,semantic_fixtures",
+        support_status: "fixture_certified",
+        next_evidence: "broad_join_operator_capability,semantic_fixtures,claim_grade_benchmarks",
     },
     OperatorFamilyCoverageRow {
         id: "window_functions",
-        support_status: "planned",
-        next_evidence: "window_frame_semantics,sort_spill,benchmarks",
+        support_status: "fixture_certified",
+        next_evidence: "broad_window_frame_semantics,sort_spill,claim_grade_benchmarks",
     },
     OperatorFamilyCoverageRow {
         id: "set_operations",
@@ -2796,43 +2834,43 @@ const NATIVE_UNSUPPORTED_COVERAGE_ROWS: &[NativeUnsupportedCoverageRow] = &[
         source_refs: "docs/architecture/capability-certification-sequencing.md,docs/architecture/global-architecture-review.md",
     },
     NativeUnsupportedCoverageRow {
-        id: "native_operator_grouped_aggregates",
+        id: "native_operator_grouped_aggregate_encoded_native_broad",
         category: "operator",
-        surface: "grouped_aggregate",
+        surface: "encoded_native_grouped_aggregate_broad_claim",
         support_status: "unsupported",
-        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_GROUPED_AGGREGATE",
-        blocker_id: "cg21.workflow.aggregate.operator_unsupported",
-        required_future_evidence: "group_state_memory_policy,semantic_fixture,benchmark_row",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_ENCODED_NATIVE_GROUPED_AGGREGATE_BROAD_CLAIM",
+        blocker_id: "gar-flow-2e.encoded_native_grouped_aggregate_broad_claim_blocked",
+        required_future_evidence: "encoded_native_aggregate_certificate,spill_policy_evidence,claim_grade_benchmark_row",
         source_refs: "docs/architecture/compute-engine-flow-reference.md,docs/architecture/capability-certification-sequencing.md",
     },
     NativeUnsupportedCoverageRow {
-        id: "native_operator_sort_topn_limit",
+        id: "native_operator_spillable_global_sort_topn",
         category: "operator",
-        surface: "sort_topn_limit",
+        surface: "spillable_global_sort_topn_limit",
         support_status: "unsupported",
-        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_SORT_TOPN_LIMIT",
-        blocker_id: "gar0002.native.operator.sort_topn_limit",
-        required_future_evidence: "ordering_semantics,spill_policy,benchmark_row",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_SPILLABLE_GLOBAL_SORT_TOPN",
+        blocker_id: "gar-flow-2e.spillable_global_sort_topn_blocked",
+        required_future_evidence: "spill_policy,global_ordering_semantics,claim_grade_benchmark_row",
         source_refs: "docs/architecture/compute-engine-flow-reference.md,docs/architecture/dynamic-work-shaping.md",
     },
     NativeUnsupportedCoverageRow {
-        id: "native_operator_joins",
+        id: "native_operator_encoded_or_spillable_general_join",
         category: "operator",
-        surface: "join",
+        surface: "encoded_or_spillable_general_join",
         support_status: "unsupported",
-        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_JOIN",
-        blocker_id: "cg21.workflow.join.operator_unsupported",
-        required_future_evidence: "join_null_semantics,build_probe_memory_policy,benchmark_row",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_ENCODED_OR_SPILLABLE_GENERAL_JOIN",
+        blocker_id: "gar-flow-2e.encoded_or_spillable_general_join_blocked",
+        required_future_evidence: "encoded_or_spillable_join_certificate,join_null_semantics,claim_grade_benchmark_row",
         source_refs: "docs/architecture/compute-engine-flow-reference.md,docs/architecture/correctness-differential-harness.md",
     },
     NativeUnsupportedCoverageRow {
-        id: "native_operator_window_functions",
+        id: "native_operator_broad_window_frames_spillable",
         category: "operator",
-        surface: "window_functions",
+        surface: "broad_window_frames_spillable",
         support_status: "unsupported",
-        unsupported_diagnostic_code: "SL_UNSUPPORTED_NATIVE_WINDOW",
-        blocker_id: "cg21.workflow.window.operator_unsupported",
-        required_future_evidence: "window_frame_semantics,sort_spill_policy,benchmark_row",
+        unsupported_diagnostic_code: "SL_UNSUPPORTED_BROAD_WINDOW_FRAMES_SPILLABLE",
+        blocker_id: "gar-flow-2e.broad_window_frames_spillable_blocked",
+        required_future_evidence: "window_frame_semantics,sort_spill_policy,claim_grade_benchmark_row",
         source_refs: "docs/architecture/compute-engine-flow-reference.md,docs/architecture/correctness-differential-harness.md",
     },
     NativeUnsupportedCoverageRow {
@@ -3303,7 +3341,7 @@ pub(crate) fn handle_capabilities(mut args: IntoIter<String>, format: OutputForm
         return ExitCode::SUCCESS;
     }
     if scope != CapabilityDiscoveryScope::Engine {
-        let report = CapabilityCertificationReport::contract_only();
+        let report = CapabilityCertificationReport::current_runtime();
         emit_capability_certification(scope, format, &report);
         return ExitCode::SUCCESS;
     }
@@ -3894,7 +3932,7 @@ fn compute_capability_matrix_fields() -> Vec<(String, String)> {
     push_field(
         &mut fields,
         "next_required_slice",
-        "P7.4.2 semantic conformance and unsupported API parity",
+        "GAR-RUNTIME-IMPL-5G-F1 encoded-native broad-claim blockers and claim-grade benchmark evidence",
     );
     append_native_vortex_admission_fields(&mut fields);
     append_prepared_vortex_scan_pushdown_fields(&mut fields);
@@ -4761,8 +4799,10 @@ fn append_compute_claim_and_operator_fields(
 fn compute_row_execution_mode(row: &ComputeCapabilityRow) -> &'static str {
     match row.id {
         "compatibility_csv_import" | "vortex_sink_write" => "compatibility_import_certified",
-        "prepared_encoded_filter"
+        "scalar_expression_functions"
+        | "prepared_encoded_filter"
         | "reader_backed_dictionary_filter"
+        | "sort_topn_limit"
         | "grouped_aggregate"
         | "join"
         | "window_row_number" => "prepared_vortex",
@@ -7965,6 +8005,7 @@ fn append_function_certification_fields(
     report: &CapabilityCertificationReport,
     fields: &mut Vec<(String, String)>,
 ) {
+    push_field(fields, "function_coverage_report_id", "runtime.5g-f1");
     push_count_field(
         fields,
         "function_group_count",
@@ -7982,18 +8023,135 @@ fn append_function_certification_fields(
             CapabilityCertificationStatus::Planned,
         ),
     );
+    push_count_field(
+        fields,
+        "native_count",
+        count_certification_status(
+            report
+                .function_coverage
+                .entries
+                .iter()
+                .map(|entry| entry.status),
+            CapabilityCertificationStatus::Native,
+        ),
+    );
+    push_count_field(
+        fields,
+        "partial_count",
+        count_certification_status(
+            report
+                .function_coverage
+                .entries
+                .iter()
+                .map(|entry| entry.status),
+            CapabilityCertificationStatus::Partial,
+        ),
+    );
+    push_count_field(
+        fields,
+        "unsupported_count",
+        count_certification_status(
+            report
+                .function_coverage
+                .entries
+                .iter()
+                .map(|entry| entry.status),
+            CapabilityCertificationStatus::Unsupported,
+        ),
+    );
+    push_count_field(
+        fields,
+        "encoded_capable_count",
+        report
+            .function_coverage
+            .entries
+            .iter()
+            .filter(|entry| entry.encoded_capable)
+            .count(),
+    );
+    push_count_field(
+        fields,
+        "selection_vector_supported_count",
+        report
+            .function_coverage
+            .entries
+            .iter()
+            .filter(|entry| entry.selection_vector_supported)
+            .count(),
+    );
+    push_count_field(
+        fields,
+        "materialization_required_count",
+        report
+            .function_coverage
+            .entries
+            .iter()
+            .filter(|entry| entry.materialization_required)
+            .count(),
+    );
 }
 
 fn append_operator_certification_fields(
     report: &CapabilityCertificationReport,
     fields: &mut Vec<(String, String)>,
 ) {
-    let physical_plan = PhysicalOperatorPlan::cg7_foundation();
-    let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+    let physical_plan = PhysicalOperatorPlan::current_runtime();
+    let execution_profiles = PhysicalOperatorExecutionProfileMatrix::current_runtime();
+    append_operator_coverage_summary_fields(report, fields);
+    append_physical_operator_plan_fields(fields, &physical_plan);
+    append_physical_operator_execution_profile_fields(fields, &execution_profiles);
+    append_physical_kernel_discovery_fields(fields);
+}
+
+fn append_operator_coverage_summary_fields(
+    report: &CapabilityCertificationReport,
+    fields: &mut Vec<(String, String)>,
+) {
+    push_field(fields, "operator_coverage_report_id", "runtime.5g-f1");
     push_count_field(
         fields,
         "operator_family_count",
         report.operator_coverage.entries.len(),
+    );
+    push_count_field(
+        fields,
+        "operator_encoded_capable_count",
+        report
+            .operator_coverage
+            .entries
+            .iter()
+            .filter(|entry| entry.status == OperatorCertificationStatus::EncodedCapable)
+            .count(),
+    );
+    push_count_field(
+        fields,
+        "operator_native_decoded_count",
+        report
+            .operator_coverage
+            .entries
+            .iter()
+            .filter(|entry| entry.status == OperatorCertificationStatus::NativeDecoded)
+            .count(),
+    );
+    push_count_field(
+        fields,
+        "operator_planned_native_count",
+        report
+            .operator_coverage
+            .entries
+            .iter()
+            .filter(|entry| entry.status == OperatorCertificationStatus::PlannedNative)
+            .count(),
+    );
+    push_count_field(
+        fields,
+        "operator_unsupported_count",
+        report
+            .operator_coverage
+            .entries
+            .iter()
+            .filter(|entry| entry.status == OperatorCertificationStatus::Unsupported)
+            .count(),
     );
     push_count_field(
         fields,
@@ -8005,6 +8163,12 @@ fn append_operator_certification_fields(
             .filter(|entry| entry.status.can_satisfy_production_claim())
             .count(),
     );
+}
+
+fn append_physical_operator_plan_fields(
+    fields: &mut Vec<(String, String)>,
+    physical_plan: &PhysicalOperatorPlan,
+) {
     push_field(
         fields,
         "physical_operator_schema_version",
@@ -8041,6 +8205,12 @@ fn append_operator_certification_fields(
         },
     );
     push_field(fields, "physical_operator_runtime_execution", "false");
+}
+
+fn append_physical_operator_execution_profile_fields(
+    fields: &mut Vec<(String, String)>,
+    execution_profiles: &PhysicalOperatorExecutionProfileMatrix,
+) {
     push_field(
         fields,
         "physical_operator_execution_profile_schema_version",
@@ -8051,7 +8221,7 @@ fn append_operator_certification_fields(
         "physical_operator_execution_profile_count",
         execution_profiles.profile_count(),
     );
-    append_physical_operator_execution_level_fields(fields, &execution_profiles);
+    append_physical_operator_execution_level_fields(fields, execution_profiles);
     push_count_field(
         fields,
         "physical_operator_reference_only_level_count",
@@ -8072,6 +8242,9 @@ fn append_operator_certification_fields(
         "physical_operator_fallback_level_count",
         execution_profiles.fallback_allowed_count(),
     );
+}
+
+fn append_physical_kernel_discovery_fields(fields: &mut Vec<(String, String)>) {
     append_metadata_physical_kernel_discovery_fields(fields);
     append_metadata_count_kernel_admission_discovery_fields(fields);
     append_metadata_filter_kernel_admission_discovery_fields(fields);
@@ -10186,8 +10359,8 @@ fn operator_certification_text(
     report: &CapabilityCertificationReport,
     scope: CapabilityDiscoveryScope,
 ) -> String {
-    let physical_plan = PhysicalOperatorPlan::cg7_foundation();
-    let execution_profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
+    let physical_plan = PhysicalOperatorPlan::current_runtime();
+    let execution_profiles = PhysicalOperatorExecutionProfileMatrix::current_runtime();
     let encoded_count_local_guard = vortex_encoded_count_local_guard_discovery_report();
     format!(
         "{}\noperator coverage families:\n{}\n{}\n{}\n{}\nlocal Vortex primitive execution: feature-gated count/filter/project/filter-and-project surface; count_all avoids decode, filter/project report materialization boundaries; fallback disabled",

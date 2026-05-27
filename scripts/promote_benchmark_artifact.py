@@ -162,6 +162,8 @@ PUBLISHED_METRIC_KEYS = (
     "runtime_execution_validation_blocker_count",
     "runtime_execution_validation_missing_fields",
     "runtime_execution_validation_invalid_fields",
+    "claim_grade_requirements_met",
+    "claim_grade_missing_evidence",
 )
 
 
@@ -660,6 +662,8 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "selected_execution_mode": row.get("selected_execution_mode"),
             "requested_execution_mode": row.get("requested_execution_mode"),
             "claim_gate_status": row.get("claim_gate_status"),
+            "claim_grade_requirements_met": row.get("claim_grade_requirements_met"),
+            "claim_grade_missing_evidence": row.get("claim_grade_missing_evidence"),
             "external_baseline_only": row.get("external_baseline_only"),
             "fallback_attempted": row.get("fallback_attempted", False),
             "external_engine_invoked": row.get("external_engine_invoked", False),

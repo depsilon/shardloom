@@ -44,6 +44,7 @@ ENGINE_ORDER = (
     "polars-eager",
     "polars-lazy",
     "duckdb",
+    "pyspark",
     "spark-default",
     "spark-local-tuned",
     "datafusion",
@@ -5828,7 +5829,7 @@ def spark_runner(profile: str) -> EngineRunner:
                 "spark.sql.adaptive.coalescePartitions.enabled=true",
             ]
         )
-    elif profile != "default":
+    elif profile not in {"default", "pyspark"}:
         raise BenchmarkUnsupported(f"unknown Spark benchmark profile: {profile}")
 
     spark_session: Any | None = None
@@ -6018,7 +6019,11 @@ def spark_runner(profile: str) -> EngineRunner:
         return normalize_complex_etl_rows(rows)
 
     return EngineRunner(
-        "spark-default" if profile == "default" else "spark-local-tuned",
+        {
+            "default": "spark-default",
+            "local-tuned": "spark-local-tuned",
+            "pyspark": "pyspark",
+        }[profile],
         f"{module_version('pyspark')} ({'; '.join(profile_notes)})",
         {
             "csv/file ingest": ingest,
@@ -6044,6 +6049,10 @@ def spark_runner(profile: str) -> EngineRunner:
 
 def spark_default_runner() -> EngineRunner:
     return spark_runner("default")
+
+
+def pyspark_runner() -> EngineRunner:
+    return spark_runner("pyspark")
 
 
 def spark_local_tuned_runner() -> EngineRunner:
@@ -6501,6 +6510,7 @@ ENGINE_FACTORIES: dict[str, Callable[[], EngineRunner]] = {
     "polars-eager": polars_eager_runner,
     "polars-lazy": polars_lazy_runner,
     "duckdb": duckdb_runner,
+    "pyspark": pyspark_runner,
     "spark-default": spark_default_runner,
     "spark-local-tuned": spark_local_tuned_runner,
     "datafusion": datafusion_runner,
@@ -9870,6 +9880,12 @@ def annotate_result(
     if isinstance(metrics, dict):
         metrics["dataset_profile"] = dataset_profile
         metrics["claim_gate_status"] = result["claim_gate_status"]
+        metrics["claim_grade_requirements_met"] = result[
+            "claim_grade_requirements_met"
+        ]
+        metrics["claim_grade_missing_evidence"] = result[
+            "claim_grade_missing_evidence"
+        ]
         metrics.update(
             scale_claim_contract_metadata(
                 str(result["engine"]),

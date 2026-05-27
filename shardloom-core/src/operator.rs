@@ -19,6 +19,7 @@ pub enum PhysicalOperatorKind {
     CountAggregate,
     Aggregate,
     Join,
+    TopK,
     Sort,
     Window,
     Repartition,
@@ -37,6 +38,7 @@ impl PhysicalOperatorKind {
             Self::CountAggregate => "count_aggregate",
             Self::Aggregate => "aggregate",
             Self::Join => "join",
+            Self::TopK => "top_k",
             Self::Sort => "sort",
             Self::Window => "window",
             Self::Repartition => "repartition",
@@ -54,6 +56,7 @@ impl PhysicalOperatorKind {
             Self::Limit => Some(OperatorFamily::Limit),
             Self::CountAggregate | Self::Aggregate => Some(OperatorFamily::Aggregate),
             Self::Join => Some(OperatorFamily::Join),
+            Self::TopK => Some(OperatorFamily::TopK),
             Self::Sort => Some(OperatorFamily::Sort),
             Self::Window => Some(OperatorFamily::Window),
             Self::Repartition => Some(OperatorFamily::Repartition),
@@ -242,6 +245,44 @@ impl PhysicalOperatorContract {
         contract
     }
 
+    #[must_use]
+    pub fn current_runtime_supported(
+        kind: PhysicalOperatorKind,
+        execution_level: PhysicalOperatorExecutionLevel,
+        kernel_requirements: Vec<PhysicalKernelRequirement>,
+        memory: OperatorMemoryCertification,
+        certification_status: OperatorCertificationStatus,
+    ) -> Self {
+        let mut contract = Self {
+            operator_id: format!("runtime.5g-f1.{}", kind.as_str()),
+            kind,
+            execution_level,
+            kernel_requirements,
+            memory,
+            certification_status,
+            readiness_status: PhysicalOperatorReadinessStatus::Unsupported,
+            diagnostics: Vec::new(),
+        };
+        contract.refresh_readiness();
+        contract
+    }
+
+    #[must_use]
+    pub fn current_runtime_blocked(kind: PhysicalOperatorKind) -> Self {
+        let mut contract = Self {
+            operator_id: format!("runtime.5g-f1.{}", kind.as_str()),
+            kind,
+            execution_level: PhysicalOperatorExecutionLevel::Unsupported,
+            kernel_requirements: vec![PhysicalKernelRequirement::missing(KernelKind::Unsupported)],
+            memory: OperatorMemoryCertification::unsupported(),
+            certification_status: OperatorCertificationStatus::Unsupported,
+            readiness_status: PhysicalOperatorReadinessStatus::Unsupported,
+            diagnostics: Vec::new(),
+        };
+        contract.refresh_readiness();
+        contract
+    }
+
     pub fn refresh_readiness(&mut self) {
         self.diagnostics.clear();
         self.readiness_status = if !self.execution_level.can_satisfy_native_execution()
@@ -341,6 +382,18 @@ impl PhysicalOperatorPlan {
         plan
     }
 
+    #[must_use]
+    pub fn current_runtime() -> Self {
+        let mut plan = Self {
+            schema_version: "shardloom.physical_operator_plan.v1",
+            plan_id: "runtime.5g-f1-physical-operator-kernel-coverage".to_string(),
+            operators: current_runtime_operator_contracts(),
+            diagnostics: Vec::new(),
+        };
+        plan.refresh_diagnostics();
+        plan
+    }
+
     pub fn refresh_diagnostics(&mut self) {
         self.diagnostics = self
             .operators
@@ -403,6 +456,150 @@ impl PhysicalOperatorPlan {
             self.unsupported_count(),
             self.all_ready_for_native_planning(),
         )
+    }
+}
+
+fn current_runtime_operator_contracts() -> Vec<PhysicalOperatorContract> {
+    let mut operators = current_runtime_encoded_operator_contracts();
+    operators.extend(current_runtime_residual_operator_contracts());
+    operators.extend([
+        PhysicalOperatorContract::current_runtime_blocked(PhysicalOperatorKind::Repartition),
+        PhysicalOperatorContract::current_runtime_blocked(PhysicalOperatorKind::Write),
+    ]);
+    operators
+}
+
+fn current_runtime_encoded_operator_contracts() -> Vec<PhysicalOperatorContract> {
+    vec![
+        PhysicalOperatorContract::current_runtime_supported(
+            PhysicalOperatorKind::Scan,
+            PhysicalOperatorExecutionLevel::MetadataOnly,
+            metadata_kernel_requirements(),
+            streaming_memory(),
+            OperatorCertificationStatus::EncodedCapable,
+        ),
+        PhysicalOperatorContract::current_runtime_supported(
+            PhysicalOperatorKind::Filter,
+            PhysicalOperatorExecutionLevel::EncodedNative,
+            encoded_kernel_requirements(),
+            streaming_memory(),
+            OperatorCertificationStatus::EncodedCapable,
+        ),
+        PhysicalOperatorContract::current_runtime_supported(
+            PhysicalOperatorKind::Project,
+            PhysicalOperatorExecutionLevel::EncodedNative,
+            encoded_kernel_requirements(),
+            streaming_memory(),
+            OperatorCertificationStatus::EncodedCapable,
+        ),
+        PhysicalOperatorContract::current_runtime_supported(
+            PhysicalOperatorKind::CountAggregate,
+            PhysicalOperatorExecutionLevel::EncodedNative,
+            encoded_kernel_requirements(),
+            streaming_memory(),
+            OperatorCertificationStatus::EncodedCapable,
+        ),
+    ]
+}
+
+fn current_runtime_residual_operator_contracts() -> Vec<PhysicalOperatorContract> {
+    vec![
+        PhysicalOperatorContract::current_runtime_supported(
+            PhysicalOperatorKind::Limit,
+            PhysicalOperatorExecutionLevel::NativeDecoded,
+            partial_decode_kernel_requirements(),
+            bounded_residual_memory(),
+            OperatorCertificationStatus::NativeDecoded,
+        ),
+        PhysicalOperatorContract::current_runtime_supported(
+            PhysicalOperatorKind::Aggregate,
+            PhysicalOperatorExecutionLevel::HybridNative,
+            partial_decode_kernel_requirements(),
+            residual_state_memory(),
+            OperatorCertificationStatus::NativeDecoded,
+        ),
+        PhysicalOperatorContract::current_runtime_supported(
+            PhysicalOperatorKind::Join,
+            PhysicalOperatorExecutionLevel::HybridNative,
+            partial_decode_kernel_requirements(),
+            residual_state_memory(),
+            OperatorCertificationStatus::NativeDecoded,
+        ),
+        PhysicalOperatorContract::current_runtime_supported(
+            PhysicalOperatorKind::TopK,
+            PhysicalOperatorExecutionLevel::NativeDecoded,
+            partial_decode_kernel_requirements(),
+            residual_state_memory(),
+            OperatorCertificationStatus::NativeDecoded,
+        ),
+        PhysicalOperatorContract::current_runtime_supported(
+            PhysicalOperatorKind::Sort,
+            PhysicalOperatorExecutionLevel::NativeDecoded,
+            partial_decode_kernel_requirements(),
+            residual_state_memory(),
+            OperatorCertificationStatus::NativeDecoded,
+        ),
+        PhysicalOperatorContract::current_runtime_supported(
+            PhysicalOperatorKind::Window,
+            PhysicalOperatorExecutionLevel::HybridNative,
+            partial_decode_kernel_requirements(),
+            residual_state_memory(),
+            OperatorCertificationStatus::NativeDecoded,
+        ),
+    ]
+}
+
+fn metadata_kernel_requirements() -> Vec<PhysicalKernelRequirement> {
+    vec![PhysicalKernelRequirement::present(KernelKind::Metadata)]
+}
+
+fn encoded_kernel_requirements() -> Vec<PhysicalKernelRequirement> {
+    vec![
+        PhysicalKernelRequirement::present(KernelKind::Metadata),
+        PhysicalKernelRequirement::present(KernelKind::Encoded),
+    ]
+}
+
+fn partial_decode_kernel_requirements() -> Vec<PhysicalKernelRequirement> {
+    vec![
+        PhysicalKernelRequirement::present(KernelKind::Metadata),
+        PhysicalKernelRequirement::present(KernelKind::PartialDecode),
+    ]
+}
+
+#[must_use]
+const fn streaming_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: true,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: true,
+    }
+}
+
+#[must_use]
+const fn bounded_residual_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: true,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: true,
+    }
+}
+
+#[must_use]
+const fn residual_state_memory() -> OperatorMemoryCertification {
+    OperatorMemoryCertification {
+        streaming: false,
+        bounded_memory: true,
+        spillable: false,
+        requires_full_materialization: false,
+        requires_shuffle: false,
+        oom_safe: false,
     }
 }
 
@@ -796,6 +993,73 @@ impl PhysicalOperatorExecutionProfile {
     }
 
     #[must_use]
+    pub fn current_runtime(operator_kind: PhysicalOperatorKind) -> Self {
+        let (preferred_level, allowed_levels, required_kernel_kinds) = match operator_kind {
+            PhysicalOperatorKind::Scan => (
+                PhysicalOperatorExecutionLevel::MetadataOnly,
+                vec![PhysicalOperatorExecutionLevel::MetadataOnly],
+                vec![KernelKind::Metadata],
+            ),
+            PhysicalOperatorKind::Filter | PhysicalOperatorKind::Project => (
+                PhysicalOperatorExecutionLevel::EncodedNative,
+                vec![
+                    PhysicalOperatorExecutionLevel::MetadataOnly,
+                    PhysicalOperatorExecutionLevel::EncodedNative,
+                    PhysicalOperatorExecutionLevel::HybridNative,
+                    PhysicalOperatorExecutionLevel::NativeDecoded,
+                ],
+                vec![
+                    KernelKind::Metadata,
+                    KernelKind::Encoded,
+                    KernelKind::PartialDecode,
+                ],
+            ),
+            PhysicalOperatorKind::CountAggregate => (
+                PhysicalOperatorExecutionLevel::EncodedNative,
+                vec![
+                    PhysicalOperatorExecutionLevel::MetadataOnly,
+                    PhysicalOperatorExecutionLevel::EncodedNative,
+                ],
+                vec![KernelKind::Metadata, KernelKind::Encoded],
+            ),
+            PhysicalOperatorKind::Aggregate
+            | PhysicalOperatorKind::Join
+            | PhysicalOperatorKind::Window => (
+                PhysicalOperatorExecutionLevel::HybridNative,
+                vec![
+                    PhysicalOperatorExecutionLevel::HybridNative,
+                    PhysicalOperatorExecutionLevel::NativeDecoded,
+                ],
+                vec![KernelKind::Metadata, KernelKind::PartialDecode],
+            ),
+            PhysicalOperatorKind::Limit
+            | PhysicalOperatorKind::TopK
+            | PhysicalOperatorKind::Sort => (
+                PhysicalOperatorExecutionLevel::NativeDecoded,
+                vec![PhysicalOperatorExecutionLevel::NativeDecoded],
+                vec![KernelKind::Metadata, KernelKind::PartialDecode],
+            ),
+            PhysicalOperatorKind::Repartition
+            | PhysicalOperatorKind::Write
+            | PhysicalOperatorKind::Unsupported => (
+                PhysicalOperatorExecutionLevel::Unsupported,
+                vec![PhysicalOperatorExecutionLevel::Unsupported],
+                vec![KernelKind::Unsupported],
+            ),
+        };
+        Self {
+            profile_id: format!("runtime.5g-f1.execution.{}", operator_kind.as_str()),
+            operator_kind,
+            preferred_level,
+            allowed_levels,
+            required_kernel_kinds,
+            row_materialization_allowed: false,
+            arrow_conversion_allowed: false,
+            fallback_execution_allowed: false,
+        }
+    }
+
+    #[must_use]
     pub fn allows_level(&self, level: PhysicalOperatorExecutionLevel) -> bool {
         self.allowed_levels.contains(&level)
     }
@@ -813,13 +1077,7 @@ impl PhysicalOperatorExecutionProfile {
             PhysicalOperatorExecutionLevel::EncodedNative => {
                 vec![KernelKind::Metadata, KernelKind::Encoded]
             }
-            PhysicalOperatorExecutionLevel::HybridNative => {
-                vec![
-                    KernelKind::Metadata,
-                    KernelKind::Encoded,
-                    KernelKind::PartialDecode,
-                ]
-            }
+            PhysicalOperatorExecutionLevel::HybridNative => self.required_kernel_kinds.clone(),
             PhysicalOperatorExecutionLevel::NativeDecoded => {
                 vec![KernelKind::Metadata, KernelKind::PartialDecode]
             }
@@ -872,6 +1130,32 @@ impl PhysicalOperatorExecutionProfileMatrix {
                 PhysicalOperatorExecutionProfile::cg7_foundation(
                     PhysicalOperatorKind::CountAggregate,
                 ),
+            ],
+        }
+    }
+
+    #[must_use]
+    pub fn current_runtime() -> Self {
+        Self {
+            schema_version: "shardloom.physical_operator_execution_profiles.v1",
+            matrix_id: "runtime-5g-f1-execution-profile-matrix".to_string(),
+            profiles: vec![
+                PhysicalOperatorExecutionProfile::current_runtime(PhysicalOperatorKind::Scan),
+                PhysicalOperatorExecutionProfile::current_runtime(PhysicalOperatorKind::Filter),
+                PhysicalOperatorExecutionProfile::current_runtime(PhysicalOperatorKind::Project),
+                PhysicalOperatorExecutionProfile::current_runtime(PhysicalOperatorKind::Limit),
+                PhysicalOperatorExecutionProfile::current_runtime(
+                    PhysicalOperatorKind::CountAggregate,
+                ),
+                PhysicalOperatorExecutionProfile::current_runtime(PhysicalOperatorKind::Aggregate),
+                PhysicalOperatorExecutionProfile::current_runtime(PhysicalOperatorKind::Join),
+                PhysicalOperatorExecutionProfile::current_runtime(PhysicalOperatorKind::TopK),
+                PhysicalOperatorExecutionProfile::current_runtime(PhysicalOperatorKind::Sort),
+                PhysicalOperatorExecutionProfile::current_runtime(PhysicalOperatorKind::Window),
+                PhysicalOperatorExecutionProfile::current_runtime(
+                    PhysicalOperatorKind::Repartition,
+                ),
+                PhysicalOperatorExecutionProfile::current_runtime(PhysicalOperatorKind::Write),
             ],
         }
     }

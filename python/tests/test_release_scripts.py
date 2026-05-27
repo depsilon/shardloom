@@ -95,6 +95,39 @@ class ReleaseScriptTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "failed runtime validation"):
             module.runtime_validation_for_row(row)
 
+    def test_benchmark_promoter_preserves_claim_grade_readiness(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py", "promote_benchmark_claim_grade_for_test"
+        )
+
+        row = {
+            "engine": "shardloom",
+            "storage_format": "csv",
+            "scenario_name": "claim grade row",
+            "status": "success",
+            "source_state_id": "source-state://claim-grade-row",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.claim-grade-row",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "claim_gate_status": "claim_grade",
+                "claim_grade_requirements_met": False,
+                "claim_grade_missing_evidence": ["stale metrics value"],
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertIs(published["claim_grade_requirements_met"], True)
+        self.assertEqual(published["claim_grade_missing_evidence"], [])
+        self.assertEqual(published["runtime_execution_validation_status"], "passed")
+
     def test_golden_workflow_gate_requires_external_engine_marker(self) -> None:
         module = self._load_script_module(
             "check_golden_workflows.py", "check_golden_workflows_for_test"

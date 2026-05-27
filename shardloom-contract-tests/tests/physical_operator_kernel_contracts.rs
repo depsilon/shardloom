@@ -81,6 +81,90 @@ fn cg7_foundation_plan_declares_initial_operator_kernel_blockers() {
 }
 
 #[test]
+fn current_runtime_plan_promotes_supported_operator_families_and_keeps_blockers_explicit() {
+    let plan = PhysicalOperatorPlan::current_runtime();
+
+    assert_eq!(plan.schema_version, "shardloom.physical_operator_plan.v1");
+    assert_eq!(
+        plan.plan_id,
+        "runtime.5g-f1-physical-operator-kernel-coverage"
+    );
+    for kind in [
+        PhysicalOperatorKind::Scan,
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorKind::Project,
+        PhysicalOperatorKind::Limit,
+        PhysicalOperatorKind::CountAggregate,
+        PhysicalOperatorKind::Aggregate,
+        PhysicalOperatorKind::Join,
+        PhysicalOperatorKind::TopK,
+        PhysicalOperatorKind::Sort,
+        PhysicalOperatorKind::Window,
+    ] {
+        assert!(plan.has_operator_kind(kind), "missing {}", kind.as_str());
+    }
+    assert_eq!(plan.operators.len(), 12);
+    assert_eq!(plan.ready_for_native_planning_count(), 10);
+    assert_eq!(plan.missing_kernel_count(), 0);
+    assert_eq!(plan.unsupported_count(), 2);
+    assert!(!plan.all_ready_for_native_planning());
+    assert!(!plan.fallback_execution_allowed());
+
+    let filter = plan
+        .operators
+        .iter()
+        .find(|operator| operator.kind == PhysicalOperatorKind::Filter)
+        .expect("filter operator");
+    assert_eq!(
+        filter.readiness_status,
+        PhysicalOperatorReadinessStatus::ReadyForNativePlanning
+    );
+    assert_eq!(
+        filter.certification_status,
+        OperatorCertificationStatus::EncodedCapable
+    );
+    assert!(filter.can_plan_native());
+    assert_eq!(filter.kernel_requirements.len(), 2);
+
+    let join = plan
+        .operators
+        .iter()
+        .find(|operator| operator.kind == PhysicalOperatorKind::Join)
+        .expect("join operator");
+    assert_eq!(
+        join.execution_level,
+        PhysicalOperatorExecutionLevel::HybridNative
+    );
+    assert_eq!(
+        join.certification_status,
+        OperatorCertificationStatus::NativeDecoded
+    );
+    assert!(!join.memory.oom_safe);
+    assert!(join.can_plan_native());
+
+    for kind in [
+        PhysicalOperatorKind::Repartition,
+        PhysicalOperatorKind::Write,
+    ] {
+        let blocked = plan
+            .operators
+            .iter()
+            .find(|operator| operator.kind == kind)
+            .expect("blocked operator");
+        assert_eq!(
+            blocked.readiness_status,
+            PhysicalOperatorReadinessStatus::Unsupported
+        );
+        assert_eq!(
+            blocked.certification_status,
+            OperatorCertificationStatus::Unsupported
+        );
+        assert!(!blocked.can_plan_native());
+        assert!(!blocked.diagnostics.is_empty());
+    }
+}
+
+#[test]
 fn reference_only_kernel_requirement_cannot_satisfy_native_operator() {
     let requirement = PhysicalKernelRequirement::present(KernelKind::DecodedReference);
 
@@ -137,6 +221,30 @@ fn cg7_kernel_registry_plan_names_required_missing_kernel_slots() {
             .to_human_text()
             .contains("runtime execution: disabled")
     );
+}
+
+#[test]
+fn current_runtime_registry_tracks_present_slots_and_unsupported_blocker_slots() {
+    let plan = PhysicalOperatorPlan::current_runtime();
+    let registry = PhysicalKernelRegistryPlan::from_operator_plan(&plan);
+
+    assert_eq!(
+        registry.registry_id,
+        "runtime.5g-f1-physical-operator-kernel-coverage.kernel-registry"
+    );
+    assert_eq!(registry.required_slot_count(), 21);
+    assert_eq!(registry.present_slot_count(), 19);
+    assert_eq!(registry.missing_slot_count(), 2);
+    assert_eq!(registry.reference_only_rejected_count(), 0);
+    assert!(!registry.all_required_slots_satisfied());
+    assert!(registry.required_slots.iter().any(|slot| {
+        slot.slot_id == "runtime.5g-f1.filter.kernel.encoded"
+            && slot.status == PhysicalKernelRequirementStatus::Present
+    }));
+    assert!(registry.required_slots.iter().any(|slot| {
+        slot.slot_id == "runtime.5g-f1.write.kernel.unsupported"
+            && slot.status == PhysicalKernelRequirementStatus::Missing
+    }));
 }
 
 #[test]
@@ -324,6 +432,54 @@ fn physical_operator_execution_profiles_declare_native_levels_without_materializ
 }
 
 #[test]
+fn current_runtime_profile_matrix_declares_supported_and_blocked_levels() {
+    let matrix = PhysicalOperatorExecutionProfileMatrix::current_runtime();
+
+    assert_eq!(
+        matrix.schema_version,
+        "shardloom.physical_operator_execution_profiles.v1"
+    );
+    assert_eq!(matrix.matrix_id, "runtime-5g-f1-execution-profile-matrix");
+    assert_eq!(matrix.profile_count(), 12);
+    assert_eq!(matrix.native_execution_level_count(), 4);
+    assert_eq!(
+        matrix.allowed_level_count(PhysicalOperatorExecutionLevel::MetadataOnly),
+        4
+    );
+    assert_eq!(
+        matrix.allowed_level_count(PhysicalOperatorExecutionLevel::EncodedNative),
+        3
+    );
+    assert_eq!(
+        matrix.allowed_level_count(PhysicalOperatorExecutionLevel::HybridNative),
+        5
+    );
+    assert_eq!(
+        matrix.allowed_level_count(PhysicalOperatorExecutionLevel::NativeDecoded),
+        8
+    );
+    assert_eq!(matrix.reference_only_allowed_count(), 0);
+    assert_eq!(matrix.unsupported_allowed_count(), 2);
+    assert_eq!(matrix.fallback_allowed_count(), 0);
+
+    let top_k = matrix
+        .profile_for(PhysicalOperatorKind::TopK)
+        .expect("top-k profile");
+    assert_eq!(
+        top_k.preferred_level,
+        PhysicalOperatorExecutionLevel::NativeDecoded
+    );
+    assert!(top_k.allows_level(PhysicalOperatorExecutionLevel::NativeDecoded));
+    assert!(!top_k.allows_level(PhysicalOperatorExecutionLevel::EncodedNative));
+
+    let write = matrix
+        .profile_for(PhysicalOperatorKind::Write)
+        .expect("write profile");
+    assert!(write.allows_unsupported());
+    assert!(!write.allows_reference_only());
+}
+
+#[test]
 fn physical_kernel_selection_blocks_missing_slots_and_rejected_levels() {
     let profiles = PhysicalOperatorExecutionProfileMatrix::cg7_foundation();
     let registry = PhysicalKernelRegistryPlan::cg7_foundation();
@@ -393,6 +549,66 @@ fn physical_kernel_selection_blocks_missing_slots_and_rejected_levels() {
     assert_eq!(
         missing_profile.status,
         PhysicalKernelSelectionStatus::OperatorProfileMissing
+    );
+}
+
+#[test]
+fn current_runtime_kernel_selection_selects_ready_families_and_blocks_unsupported_slots() {
+    let plan = PhysicalOperatorPlan::current_runtime();
+    let registry = PhysicalKernelRegistryPlan::from_operator_plan(&plan);
+    let profiles = PhysicalOperatorExecutionProfileMatrix::current_runtime();
+
+    let filter_selection = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Filter,
+        PhysicalOperatorExecutionLevel::EncodedNative,
+        &profiles,
+        &registry,
+    );
+    assert_eq!(
+        filter_selection.status,
+        PhysicalKernelSelectionStatus::ReadyForAdmissionReview
+    );
+    assert!(filter_selection.can_select_kernel());
+    assert!(filter_selection.missing_slot_ids.is_empty());
+
+    let join_selection = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Join,
+        PhysicalOperatorExecutionLevel::HybridNative,
+        &profiles,
+        &registry,
+    );
+    assert_eq!(
+        join_selection.status,
+        PhysicalKernelSelectionStatus::ReadyForAdmissionReview
+    );
+    assert!(join_selection.can_select_kernel());
+
+    let top_k_selection = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::TopK,
+        PhysicalOperatorExecutionLevel::NativeDecoded,
+        &profiles,
+        &registry,
+    );
+    assert_eq!(
+        top_k_selection.status,
+        PhysicalKernelSelectionStatus::ReadyForAdmissionReview
+    );
+    assert!(top_k_selection.can_select_kernel());
+
+    let write_selection = PhysicalKernelSelectionReport::evaluate(
+        PhysicalOperatorKind::Write,
+        PhysicalOperatorExecutionLevel::Unsupported,
+        &profiles,
+        &registry,
+    );
+    assert_eq!(
+        write_selection.status,
+        PhysicalKernelSelectionStatus::RequiredKernelMissing
+    );
+    assert!(!write_selection.can_select_kernel());
+    assert_eq!(
+        write_selection.missing_slot_ids,
+        vec!["runtime.5g-f1.write.kernel.unsupported".to_string()]
     );
 }
 

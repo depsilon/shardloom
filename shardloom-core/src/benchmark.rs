@@ -14,6 +14,7 @@ use crate::{Diagnostic, Result, ShardLoomError};
 pub enum BaselineEngine {
     ShardLoom,
     Spark,
+    PySpark,
     DataFusion,
     DuckDb,
     Polars,
@@ -30,6 +31,7 @@ impl BaselineEngine {
         match self {
             Self::ShardLoom => "shardloom",
             Self::Spark => "spark",
+            Self::PySpark => "pyspark",
             Self::DataFusion => "datafusion",
             Self::DuckDb => "duckdb",
             Self::Polars => "polars",
@@ -1552,7 +1554,7 @@ fn spark_displacement_benchmark_evidence_rows() -> Vec<SparkDisplacementBenchmar
             workload_family: "compatibility_import_certified",
             workload_ref: "local CSV/Parquet/JSONL/Arrow/Avro/ORC compatibility import rows",
             shardloom_lane: "compatibility_import_certified",
-            baseline_oracle_lanes: "pandas,polars,duckdb,spark,datafusion,dask",
+            baseline_oracle_lanes: "pandas,polars,duckdb,spark,pyspark,datafusion,dask",
             correctness_ref: "coverage_table correctness digest refs required",
             timing_ref: "source_read,compatibility_parse,vortex_import,write,reopen,scan,result_sink,evidence timing",
             environment_ref: "benchmark manifest with versions, hardware, OS, cache state, reproduction steps",
@@ -1570,7 +1572,7 @@ fn spark_displacement_benchmark_evidence_rows() -> Vec<SparkDisplacementBenchmar
             workload_family: "prepared_vortex_runtime",
             workload_ref: "selective filter, filter+projection+limit, group-by, hash join, top-N batch smoke",
             shardloom_lane: "prepared_vortex,native_vortex",
-            baseline_oracle_lanes: "pandas,polars,duckdb,spark,datafusion,dask",
+            baseline_oracle_lanes: "pandas,polars,duckdb,spark,pyspark,datafusion,dask",
             correctness_ref: "operator correctness digest and execution certificate refs required",
             timing_ref: "prepared/native batch total, operator_compute, scan, materialization/decode timings",
             environment_ref: "profiled benchmark artifact with lane versions and source-state reuse fields",
@@ -1588,7 +1590,7 @@ fn spark_displacement_benchmark_evidence_rows() -> Vec<SparkDisplacementBenchmar
             workload_family: "messy_data_workflow",
             workload_ref: "dirty CSV cleanup, nested JSON scan, CDC overlay, result-sink replay",
             shardloom_lane: "compatibility_import_certified,prepared_vortex",
-            baseline_oracle_lanes: "pandas,polars,duckdb,spark,datafusion,dask",
+            baseline_oracle_lanes: "pandas,polars,duckdb,spark,pyspark,datafusion,dask",
             correctness_ref: "workflow recipe refs, expected output refs, replay proof refs required",
             timing_ref: "workflow stage timing and output write/replay timing",
             environment_ref: "local taxonomy artifact profile metadata",
@@ -2454,6 +2456,7 @@ fn traditional_analytics_scenario(name: &str) -> BenchmarkScenario {
         BaselineEngine::Polars,
         BaselineEngine::DuckDb,
         BaselineEngine::Spark,
+        BaselineEngine::PySpark,
         BaselineEngine::DataFusion,
         BaselineEngine::Dask,
     ] {
@@ -3233,6 +3236,7 @@ mod tests {
                 "polars",
                 "duckdb",
                 "spark",
+                "pyspark",
                 "datafusion",
                 "dask"
             ]
@@ -3460,13 +3464,21 @@ mod tests {
 
         assert_eq!(report.scope, "traditional-analytics");
         assert_eq!(report.scenario_count, 5);
-        assert_eq!(report.expected_result_count, 35);
-        assert_eq!(report.missing_result_count, 35);
-        assert_eq!(report.missing_external_result_count, 30);
-        assert_eq!(report.external_baseline_count, 6);
+        assert_eq!(report.expected_result_count, 40);
+        assert_eq!(report.missing_result_count, 40);
+        assert_eq!(report.missing_external_result_count, 35);
+        assert_eq!(report.external_baseline_count, 7);
         assert_eq!(
             report.external_baseline_engine_order,
-            vec!["pandas", "polars", "duckdb", "spark", "datafusion", "dask"]
+            vec![
+                "pandas",
+                "polars",
+                "duckdb",
+                "spark",
+                "pyspark",
+                "datafusion",
+                "dask"
+            ]
         );
         assert!(report.side_effect_free());
         assert!(!report.performance_claim_allowed);

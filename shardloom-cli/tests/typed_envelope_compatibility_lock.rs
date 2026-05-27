@@ -738,7 +738,7 @@ fn representative_cli_json_paths_keep_typed_envelope_contract() {
             fields: &[
                 ("schema_version", "shardloom.compute_capability_matrix.v1"),
                 ("matrix_status", "report_only"),
-                ("compute_row_count", "13"),
+                ("compute_row_count", "15"),
                 ("operator_family_count", "14"),
                 (
                     "native_unsupported_coverage_status",

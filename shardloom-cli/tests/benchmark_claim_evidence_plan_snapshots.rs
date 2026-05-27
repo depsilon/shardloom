@@ -163,16 +163,16 @@ fn traditional_claim_evidence_lists_dataframe_baseline_gaps() {
     )));
     assert!(output.contains(&field(
         "baseline_engine_order",
-        "shardloom,pandas,polars,duckdb,spark,datafusion,dask"
+        "shardloom,pandas,polars,duckdb,spark,pyspark,datafusion,dask"
     )));
     assert!(output.contains(&field(
         "external_baseline_engine_order",
-        "pandas,polars,duckdb,spark,datafusion,dask"
+        "pandas,polars,duckdb,spark,pyspark,datafusion,dask"
     )));
-    assert!(output.contains(&field("external_baseline_count", "6")));
-    assert!(output.contains(&field("expected_result_count", "35")));
-    assert!(output.contains(&field("missing_result_count", "35")));
-    assert!(output.contains(&field("missing_external_result_count", "30")));
+    assert!(output.contains(&field("external_baseline_count", "7")));
+    assert!(output.contains(&field("expected_result_count", "40")));
+    assert!(output.contains(&field("missing_result_count", "40")));
+    assert!(output.contains(&field("missing_external_result_count", "35")));
     assert!(output.contains(&field("performance_claim_allowed", "false")));
     assert!(output.contains(&field(
         "spark_displacement_matrix_schema_version",

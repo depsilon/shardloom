@@ -13,6 +13,7 @@ pub enum BenchmarkSuiteKind {
     EtlWorkflows,
     SourceBackedEncoded,
     LayoutAndPruning,
+    RuntimeControl,
     IncrementalState,
     Stress,
 }
@@ -27,6 +28,7 @@ impl BenchmarkSuiteKind {
             Self::EtlWorkflows => "etl_workflows",
             Self::SourceBackedEncoded => "source_backed_encoded",
             Self::LayoutAndPruning => "layout_and_pruning",
+            Self::RuntimeControl => "runtime_control",
             Self::IncrementalState => "incremental_state",
             Self::Stress => "stress",
         }
@@ -43,6 +45,7 @@ pub enum BenchmarkScenarioCategory {
     EtlWrite,
     MessyLakehouseData,
     IncrementalState,
+    PulseWeaveRuntimeControl,
     OperationalCacheConcurrency,
 }
 
@@ -58,6 +61,7 @@ impl BenchmarkScenarioCategory {
             Self::EtlWrite => "etl_write",
             Self::MessyLakehouseData => "messy_lakehouse_data",
             Self::IncrementalState => "incremental_state",
+            Self::PulseWeaveRuntimeControl => "pulseweave_runtime_control",
             Self::OperationalCacheConcurrency => "operational_cache_concurrency",
         }
     }
@@ -227,6 +231,42 @@ pub struct BenchmarkCoverageTableRow {
 }
 
 impl BenchmarkCoverageTableRow {
+    #[must_use]
+    pub const fn fixture_smoke(
+        scenario_category: BenchmarkScenarioCategory,
+        engine_id: &'static str,
+    ) -> Self {
+        Self {
+            scenario_category,
+            engine_id,
+            status: BenchmarkCoverageStatus::FixtureSmokeOnly,
+            timing_required: true,
+            support_coverage_required: true,
+            certificate_status_required: true,
+            native_io_status_required: true,
+            materialization_decode_status_required: true,
+            fallback_attempted: false,
+        }
+    }
+
+    #[must_use]
+    pub const fn supported(
+        scenario_category: BenchmarkScenarioCategory,
+        engine_id: &'static str,
+    ) -> Self {
+        Self {
+            scenario_category,
+            engine_id,
+            status: BenchmarkCoverageStatus::Supported,
+            timing_required: true,
+            support_coverage_required: true,
+            certificate_status_required: false,
+            native_io_status_required: false,
+            materialization_decode_status_required: true,
+            fallback_attempted: false,
+        }
+    }
+
     #[must_use]
     pub const fn blocked(
         scenario_category: BenchmarkScenarioCategory,
@@ -433,7 +473,7 @@ impl BenchmarkSuiteCatalogReport {
             result_schema_v2: BenchmarkResultSchemaV2Report::required(),
             platform_specific_managed_engines_excluded: true,
             external_engines_benchmark_only: true,
-            plugin_based_optional_engines_required: true,
+            plugin_based_optional_engines_required: false,
             timing_and_coverage_separated: true,
             benchmark_execution_performed: false,
             managed_platform_dependency_added: false,
@@ -493,6 +533,7 @@ fn all_suite_kinds() -> Vec<BenchmarkSuiteKind> {
         BenchmarkSuiteKind::EtlWorkflows,
         BenchmarkSuiteKind::SourceBackedEncoded,
         BenchmarkSuiteKind::LayoutAndPruning,
+        BenchmarkSuiteKind::RuntimeControl,
         BenchmarkSuiteKind::IncrementalState,
         BenchmarkSuiteKind::Stress,
     ]
@@ -508,6 +549,7 @@ fn all_scenario_categories() -> Vec<BenchmarkScenarioCategory> {
         BenchmarkScenarioCategory::EtlWrite,
         BenchmarkScenarioCategory::MessyLakehouseData,
         BenchmarkScenarioCategory::IncrementalState,
+        BenchmarkScenarioCategory::PulseWeaveRuntimeControl,
         BenchmarkScenarioCategory::OperationalCacheConcurrency,
     ]
 }
@@ -545,6 +587,7 @@ fn local_engine_plugins() -> Vec<BenchmarkEnginePluginContract> {
         BenchmarkEnginePluginContract::local("duckdb", BenchmarkEngineRole::LocalBaseline),
         BenchmarkEnginePluginContract::local("datafusion", BenchmarkEngineRole::LocalBaseline),
         BenchmarkEnginePluginContract::local("dask", BenchmarkEngineRole::LocalBaseline),
+        BenchmarkEnginePluginContract::local("pyspark", BenchmarkEngineRole::LocalBaseline),
         BenchmarkEnginePluginContract::local("spark_default", BenchmarkEngineRole::LocalBaseline),
         BenchmarkEnginePluginContract::local(
             "spark_local_tuned",
@@ -563,15 +606,35 @@ fn local_engine_plugins() -> Vec<BenchmarkEnginePluginContract> {
 
 fn seed_coverage_rows() -> Vec<BenchmarkCoverageTableRow> {
     vec![
-        BenchmarkCoverageTableRow::blocked(BenchmarkScenarioCategory::ScanAndPruning, "shardloom"),
-        BenchmarkCoverageTableRow::blocked(
+        BenchmarkCoverageTableRow::fixture_smoke(
+            BenchmarkScenarioCategory::ScanAndPruning,
+            "shardloom",
+        ),
+        BenchmarkCoverageTableRow::fixture_smoke(
             BenchmarkScenarioCategory::ProjectionAndLayout,
+            "shardloom",
+        ),
+        BenchmarkCoverageTableRow::fixture_smoke(
+            BenchmarkScenarioCategory::Aggregation,
+            "shardloom",
+        ),
+        BenchmarkCoverageTableRow::fixture_smoke(BenchmarkScenarioCategory::Joins, "shardloom"),
+        BenchmarkCoverageTableRow::fixture_smoke(
+            BenchmarkScenarioCategory::SortAndWindow,
+            "shardloom",
+        ),
+        BenchmarkCoverageTableRow::supported(
+            BenchmarkScenarioCategory::PulseWeaveRuntimeControl,
             "shardloom",
         ),
         BenchmarkCoverageTableRow::blocked(BenchmarkScenarioCategory::EtlWrite, "shardloom"),
         BenchmarkCoverageTableRow::external_baseline(
             BenchmarkScenarioCategory::ScanAndPruning,
             "duckdb",
+        ),
+        BenchmarkCoverageTableRow::external_baseline(
+            BenchmarkScenarioCategory::ScanAndPruning,
+            "pyspark",
         ),
         BenchmarkCoverageTableRow::external_baseline(
             BenchmarkScenarioCategory::ScanAndPruning,
@@ -615,10 +678,14 @@ mod tests {
     }
 
     #[test]
-    fn engine_plugins_are_optional_and_never_fallback() {
+    fn engine_plugins_are_baseline_modules_and_never_fallback() {
         let report = plan_benchmark_suite_catalog();
 
         assert!(report.all_engine_plugins_fallback_free());
+        assert!(!report.plugin_based_optional_engines_required);
+        assert!(report.engine_plugin_contracts.iter().any(|plugin| {
+            plugin.engine_id == "pyspark" && plugin.role == BenchmarkEngineRole::LocalBaseline
+        }));
         assert!(report.engine_plugin_contracts.iter().any(|plugin| {
             plugin.engine_id == "vortex_datafusion_integration"
                 && plugin.role == BenchmarkEngineRole::VortexIntegrationBaseline
@@ -648,11 +715,24 @@ mod tests {
     }
 
     #[test]
-    fn coverage_rows_separate_external_baselines_from_shardloom_claims() {
+    fn coverage_rows_separate_runtime_coverage_external_baselines_and_blockers() {
         let report = plan_benchmark_suite_catalog();
 
         assert!(report.coverage_rows.iter().any(|row| {
-            row.engine_id == "shardloom" && row.status == BenchmarkCoverageStatus::Blocked
+            row.engine_id == "shardloom"
+                && row.scenario_category == BenchmarkScenarioCategory::Aggregation
+                && row.status == BenchmarkCoverageStatus::FixtureSmokeOnly
+                && !row.status.permits_shardloom_claim()
+        }));
+        assert!(report.coverage_rows.iter().any(|row| {
+            row.engine_id == "shardloom"
+                && row.scenario_category == BenchmarkScenarioCategory::PulseWeaveRuntimeControl
+                && row.status == BenchmarkCoverageStatus::Supported
+        }));
+        assert!(report.coverage_rows.iter().any(|row| {
+            row.engine_id == "shardloom"
+                && row.scenario_category == BenchmarkScenarioCategory::EtlWrite
+                && row.status == BenchmarkCoverageStatus::Blocked
         }));
         assert!(report.coverage_rows.iter().any(|row| {
             row.engine_id == "vortex_datafusion_integration"

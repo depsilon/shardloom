@@ -1422,7 +1422,7 @@ fn with_external_effect_and_unstructured_adapter_fields(base_keys: &[&'static st
     keys
 }
 
-const FUNCTION_FIELD_KEYS: [&str; 13] = [
+const FUNCTION_FIELD_KEYS: [&str; 20] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -1434,8 +1434,15 @@ const FUNCTION_FIELD_KEYS: [&str; 13] = [
     "adapter_probe",
     "parser_executed",
     "runtime_execution",
+    "function_coverage_report_id",
     "function_group_count",
     "planned_count",
+    "native_count",
+    "partial_count",
+    "unsupported_count",
+    "encoded_capable_count",
+    "selection_vector_supported_count",
+    "materialization_required_count",
 ];
 
 const ENGINE_FIELD_KEYS: [&str; 107] = [
@@ -1691,7 +1698,7 @@ const CROSS_CG_FIELD_KEYS: [&str; 54] = [
     "cg23_remote_api_no_effects",
 ];
 
-const OPERATOR_FIELD_KEYS: [&str; 180] = [
+const OPERATOR_FIELD_KEYS: [&str; 185] = [
     "scope",
     "schema_version",
     "fallback_execution_allowed",
@@ -1703,7 +1710,12 @@ const OPERATOR_FIELD_KEYS: [&str; 180] = [
     "adapter_probe",
     "parser_executed",
     "runtime_execution",
+    "operator_coverage_report_id",
     "operator_family_count",
+    "operator_encoded_capable_count",
+    "operator_native_decoded_count",
+    "operator_planned_native_count",
+    "operator_unsupported_count",
     "production_certified_count",
     "physical_operator_schema_version",
     "physical_operator_plan_id",
@@ -4089,13 +4101,21 @@ fn assert_operator_discovery_physical_plan(output: &str) {
         "{\"key\":\"physical_operator_schema_version\",\"value\":\"shardloom.physical_operator_plan.v1\"}"
     ));
     assert!(output.contains(
-        "{\"key\":\"physical_operator_plan_id\",\"value\":\"cg7.1-physical-operator-foundation\"}"
+        "{\"key\":\"physical_operator_plan_id\",\"value\":\"runtime.5g-f1-physical-operator-kernel-coverage\"}"
     ));
-    assert!(output.contains("{\"key\":\"physical_operator_count\",\"value\":\"3\"}"));
-    assert!(output.contains("{\"key\":\"physical_operator_ready_count\",\"value\":\"0\"}"));
     assert!(
-        output.contains("{\"key\":\"physical_operator_missing_kernel_count\",\"value\":\"3\"}")
+        output.contains("{\"key\":\"operator_coverage_report_id\",\"value\":\"runtime.5g-f1\"}")
     );
+    assert!(output.contains("{\"key\":\"operator_encoded_capable_count\",\"value\":\"3\"}"));
+    assert!(output.contains("{\"key\":\"operator_native_decoded_count\",\"value\":\"10\"}"));
+    assert!(output.contains("{\"key\":\"operator_planned_native_count\",\"value\":\"3\"}"));
+    assert!(output.contains("{\"key\":\"operator_unsupported_count\",\"value\":\"11\"}"));
+    assert!(output.contains("{\"key\":\"physical_operator_count\",\"value\":\"12\"}"));
+    assert!(output.contains("{\"key\":\"physical_operator_ready_count\",\"value\":\"10\"}"));
+    assert!(
+        output.contains("{\"key\":\"physical_operator_missing_kernel_count\",\"value\":\"0\"}")
+    );
+    assert!(output.contains("{\"key\":\"physical_operator_unsupported_count\",\"value\":\"2\"}"));
     assert!(output.contains(
         "{\"key\":\"physical_operator_fallback_execution_allowed\",\"value\":\"false\"}"
     ));
@@ -4106,7 +4126,7 @@ fn assert_operator_discovery_physical_plan(output: &str) {
         "{\"key\":\"physical_operator_execution_profile_schema_version\",\"value\":\"shardloom.physical_operator_execution_profiles.v1\"}"
     ));
     assert!(
-        output.contains("{\"key\":\"physical_operator_execution_profile_count\",\"value\":\"3\"}")
+        output.contains("{\"key\":\"physical_operator_execution_profile_count\",\"value\":\"12\"}")
     );
     assert!(
         output.contains(
@@ -4115,7 +4135,7 @@ fn assert_operator_discovery_physical_plan(output: &str) {
     );
     assert!(
         output
-            .contains("{\"key\":\"physical_operator_metadata_only_level_count\",\"value\":\"3\"}")
+            .contains("{\"key\":\"physical_operator_metadata_only_level_count\",\"value\":\"4\"}")
     );
     assert!(
         output
@@ -4123,11 +4143,11 @@ fn assert_operator_discovery_physical_plan(output: &str) {
     );
     assert!(
         output
-            .contains("{\"key\":\"physical_operator_hybrid_native_level_count\",\"value\":\"3\"}")
+            .contains("{\"key\":\"physical_operator_hybrid_native_level_count\",\"value\":\"5\"}")
     );
     assert!(
         output
-            .contains("{\"key\":\"physical_operator_native_decoded_level_count\",\"value\":\"3\"}")
+            .contains("{\"key\":\"physical_operator_native_decoded_level_count\",\"value\":\"8\"}")
     );
     assert!(
         output

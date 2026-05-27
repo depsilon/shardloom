@@ -134,11 +134,11 @@ fn traditional_constitution_keeps_external_baselines_baseline_only() {
     let output = run_benchmark_constitution_json(Some("traditional-analytics"));
 
     assert!(output.contains(&field("scope", "traditional-analytics")));
-    assert!(output.contains(&field("benchmark_constitution_row_count", "35")));
+    assert!(output.contains(&field("benchmark_constitution_row_count", "40")));
     assert!(output.contains(&field("benchmark_constitution_shardloom_row_count", "5")));
     assert!(output.contains(&field(
         "benchmark_constitution_external_baseline_row_count",
-        "30"
+        "35"
     )));
     assert!(output.contains(&field(
         "benchmark_constitution_external_baselines_comparison_only",

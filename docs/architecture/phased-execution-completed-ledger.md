@@ -16,6 +16,94 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5G-F1 broad physical operator, function, and encoded-kernel
+  coverage
+  - Date: 2026-05-27
+  - Branch/PR: `runtime-5g-f1-operator-kernel-coverage` / #969.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5G-F1 broad physical operator, function, and encoded-kernel coverage`.
+    - RFC 0015 correctness/semantics, RFC 0016 optimizer/runtime filters, RFC 0021
+      expression/kernel registry, compressed encoded-kernel registry, compute capability matrix,
+      and benchmark suite catalog.
+  - Scope:
+    - Added the current-runtime physical operator plan
+      `runtime.5g-f1-physical-operator-kernel-coverage` with supported scan, filter, project,
+      limit, count aggregate, aggregate, join, top-k, sort, and window families. Repartition and
+      write remain explicit unsupported blockers.
+    - Added runtime-backed physical operator execution profiles and kernel-selection tests so
+      supported families select deterministic metadata/encoded/hybrid/native-decoded levels while
+      unsupported slots stay blocked instead of becoming side lanes.
+    - Added operator and function coverage matrices to the capability certification report and CLI
+      capability fields. Operator coverage separates encoded-capable scan/filter/project,
+      native-decoded/residual limit/top-k/sort/aggregate/hash aggregate/window/join/hash/semi/anti,
+      planned-native sort aggregate/sort-merge/write, and unsupported broadcast/range/set/
+      repartition/shuffle/commit/compact/merge/delete families. Function coverage separates native
+      comparison/boolean/math/numeric/string/binary/date/time/timestamp/conditional/null/cast/
+      hashing/encoding-aware predicate/aggregate/window families, partial decimal/regex/interval/
+      timezone/statistical/nested/json/metadata/system families, and unsupported approximate
+      aggregate/uuid/table/vector/effectful families.
+    - Promoted `scalar_expression_functions` and `sort_topn_limit` compute capability rows to
+      fixture-certified current-runtime evidence and replaced stale current-operator unsupported
+      rows with broad encoded-native/spill/claim-grade blockers.
+    - Expanded the benchmark suite catalog with `runtime_control` /
+      `pulseweave_runtime_control`, made ready ShardLoom coverage rows fixture-smoke or supported
+      instead of blocked, added `pyspark` as a required local baseline module for
+      `full_local_plus_spark`, and kept Spark/DataFusion/DuckDB/Polars/pandas/Dask/PySpark as
+      comparison baselines only.
+    - Moved `GAR-RUNTIME-IMPL-5G-F1` out of the live Planned queue and reordered remaining work so
+      internal cold-lane/layout/copy-budget engine items stay ahead of SQL/Python user-surface
+      closeouts.
+  - Claim boundary:
+    - This closes current-runtime operator/function/kernel coverage reporting and scoped
+      residual-native fixture admission. It does not claim blanket encoded-native execution,
+      arbitrary SQL/DataFrame parity, production writer support, spillable general operators,
+      object-store/table runtime, performance, superiority, or Spark displacement.
+    - External engines, including PySpark/Spark, remain baselines/oracles only and never satisfy
+      ShardLoom runtime behavior.
+  - No-standalone-lane audit:
+    - New coverage flows through the existing physical operator plan, capability certification,
+      compute capability matrix, benchmark suite catalog, and website/status data. The work does
+      not add CSV-specific execution, a separate operator executor, external query-engine fallback,
+      or standalone PulseWeave/benchmark lanes.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test physical_operator_kernel_contracts`
+    - `cargo +1.91.1 test -p shardloom-core --lib benchmark_suite`
+    - `cargo +1.91.1 test -p shardloom-core --lib current_runtime`
+    - `cargo +1.91.1 test -p shardloom-core --lib traditional_analytics_plan_includes_dask_and_common_operations`
+    - `cargo +1.91.1 test -p shardloom-core --lib benchmark_claim_evidence_report_includes_traditional_baselines`
+    - `cargo +1.91.1 test -p shardloom-cli --test compute_capability_matrix_snapshots`
+    - `cargo +1.91.1 test -p shardloom-cli --test capability_discovery_snapshots`
+    - `cargo +1.91.1 test -p shardloom-cli --test benchmark_plan_snapshots`
+    - `cargo +1.91.1 test -p shardloom-cli --test benchmark_claim_evidence_plan_snapshots`
+    - `cargo +1.91.1 test -p shardloom-cli --test benchmark_constitution_snapshots`
+    - `cargo +1.91.1 test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test benchmark_claim_evidence`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test benchmark_evidence_manifest`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `git diff --check`
+    - `python -m unittest python.tests.test_release_scripts`
+    - `python -m compileall -q benchmarks\traditional_analytics scripts python\tests`
+    - `python scripts\check_benchmark_environment.py --profile full_local_plus_spark`
+    - `python benchmarks\traditional_analytics\run.py --profile full_local_plus_spark --rows 100000 --iterations 3 --engines shardloom,shardloom-prepare-batch,shardloom-prepared-vortex,shardloom-native-vortex,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,pyspark,spark-default,spark-local-tuned --formats csv,parquet --scenario-profile narrow_fact_dim --result-sink --require-all-engines --output target\benchmark-artifacts\traditional-full-local-plus-spark.json --markdown-output target\benchmark-artifacts\traditional-full-local-plus-spark.md`
+    - `python scripts\promote_benchmark_artifact.py --profile full_local_plus_spark --input target\benchmark-artifacts\traditional-full-local-plus-spark.json`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website-public\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_benchmark_constitution.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_ci_gate_matrix.py`
+    - `node scripts\sync-content.mjs` from `website-src`
+    - `node node_modules\astro\bin\astro.mjs build` from `website-src`
+    - `node scripts\postbuild-static.mjs` from `website-src`
+    - `node website\validate_static_assets.js`
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D-F3 advanced predicate, HAVING, and subquery semantics
   closeout
   - Date: 2026-05-27
