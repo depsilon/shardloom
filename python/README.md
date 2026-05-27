@@ -1069,7 +1069,7 @@ print(join_grouped_topn.top_n_limit)
 
 That path is still fixture-smoke evidence only. Broader grouped aggregate generality,
 null ordering, collation parity,
-broader correlated/multi-column/nested subquery semantics, arbitrary predicate-tree completeness
+broad ANSI subquery parity beyond admitted bounded local scalar IN-subqueries, arbitrary predicate-tree completeness
 beyond the admitted parenthesized leaves, Python/DataFrame joins beyond
 the scoped local-source query-builder bridge, broad expression-backed input-backed `with_column`,
 arbitrary expression/non-equi join predicates beyond the admitted expression ON families, broad

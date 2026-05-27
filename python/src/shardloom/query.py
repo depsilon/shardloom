@@ -362,13 +362,28 @@ class ColumnExpression:
         joined = ",".join(_sql_in_literal(value) for value in normalized)
         return PredicateExpression(f"{self.sql} IN ({joined})")
 
-    def isin_source(self, source: object, column: object) -> PredicateExpression:
-        """Return a scoped `IN (SELECT column FROM local-source)` predicate."""
+    def isin_source(
+        self,
+        source: object,
+        column: object,
+        *,
+        where: object | None = None,
+        order_by: object | None = None,
+        descending: bool = False,
+        limit: int | None = None,
+    ) -> PredicateExpression:
+        """Return a scoped bounded local-source IN-subquery predicate."""
 
         source_column = _normalize_output_column_name(column)
         source_ref = _sql_in_subquery_source(source)
+        tail = _sql_in_subquery_tail(
+            where=where,
+            order_by=order_by,
+            descending=descending,
+            limit=limit,
+        )
         return PredicateExpression(
-            f"{self.sql} IN (SELECT {source_column} FROM {source_ref})"
+            f"{self.sql} IN (SELECT {source_column} FROM {source_ref}{tail})"
         )
 
     def not_in(self, *values: object) -> PredicateExpression:
@@ -378,13 +393,28 @@ class ColumnExpression:
         joined = ",".join(_sql_in_literal(value) for value in normalized)
         return PredicateExpression(f"{self.sql} NOT IN ({joined})")
 
-    def not_in_source(self, source: object, column: object) -> PredicateExpression:
-        """Return a scoped `NOT IN (SELECT column FROM local-source)` predicate."""
+    def not_in_source(
+        self,
+        source: object,
+        column: object,
+        *,
+        where: object | None = None,
+        order_by: object | None = None,
+        descending: bool = False,
+        limit: int | None = None,
+    ) -> PredicateExpression:
+        """Return a scoped bounded local-source NOT IN-subquery predicate."""
 
         source_column = _normalize_output_column_name(column)
         source_ref = _sql_in_subquery_source(source)
+        tail = _sql_in_subquery_tail(
+            where=where,
+            order_by=order_by,
+            descending=descending,
+            limit=limit,
+        )
         return PredicateExpression(
-            f"{self.sql} NOT IN (SELECT {source_column} FROM {source_ref})"
+            f"{self.sql} NOT IN (SELECT {source_column} FROM {source_ref}{tail})"
         )
 
     def between(self, lower: object, upper: object) -> PredicateExpression:
@@ -3901,6 +3931,14 @@ def _normalize_non_negative_int(name: str, value: object) -> int:
     return value
 
 
+def _normalize_positive_int(name: str, value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{name} must be an integer")
+    if value <= 0:
+        raise ValueError(f"{name} must be positive")
+    return value
+
+
 def _range_row_count(start: int, end: int, step: int) -> int:
     if step == 0:
         raise ValueError("range step must not be zero")
@@ -4980,6 +5018,38 @@ def _sql_in_subquery_source(source: object) -> str:
     if isinstance(source, LazyFrame):
         return _quote_sql_local_source_path(source.source.uri)
     return _quote_sql_local_source_path(_require_non_empty("IN subquery source", source))
+
+
+def _sql_in_subquery_tail(
+    *,
+    where: object | None,
+    order_by: object | None,
+    descending: bool,
+    limit: int | None,
+) -> str:
+    tail = ""
+    if where is not None:
+        tail = f"{tail} WHERE {_predicate_sql(where)}"
+    order_columns = _normalize_in_subquery_order_by(order_by)
+    if order_columns:
+        direction = "desc" if descending else "asc"
+        tail = f"{tail}{_format_order_by_clause(order_columns, direction)}"
+    if limit is not None:
+        normalized_limit = _normalize_positive_int("IN subquery limit", limit)
+        if normalized_limit > 32:
+            raise ValueError("IN subquery limit admits at most 32 rows")
+        tail = f"{tail} LIMIT {normalized_limit}"
+    return tail
+
+
+def _normalize_in_subquery_order_by(value: object | None) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, ColumnExpression):
+        return (_normalize_output_column_name(value.sql),)
+    if _is_non_string_sequence(value):
+        return tuple(_normalize_output_column_name(item) for item in value)
+    return (_normalize_output_column_name(value),)
 
 
 def _is_source_free_sql_statement(statement: str) -> bool:

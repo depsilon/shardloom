@@ -6266,6 +6266,124 @@ fn sql_local_source_smoke_executes_in_subquery_predicates_without_fallback() {
     fs::remove_file(oversized_path).expect("remove oversized csv");
 }
 
+#[test]
+fn sql_local_source_smoke_executes_filtered_ordered_limited_in_subquery_without_fallback() {
+    let source_path = unique_path("sql-local-source-filtered-in-subquery-source", "csv");
+    let allowed_path = unique_path("sql-local-source-filtered-in-subquery-allowed", "csv");
+    fs::write(
+        &source_path,
+        "id,label\n1,alpha\n2,beta\n3,gamma\n4,delta\n",
+    )
+    .expect("write source csv");
+    fs::write(
+        &allowed_path,
+        "id,active,score\n1,true,10\n2,false,100\n3,true,30\n4,true,20\n",
+    )
+    .expect("write allowed csv");
+
+    let statement = format!(
+        "SELECT id,label FROM '{}' WHERE id IN (SELECT id FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) LIMIT 10",
+        source_path.display(),
+        allowed_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("predicate_operator_family", "in_subquery")));
+    assert!(stdout.contains(&field("in_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_limit_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_source_column", "id")));
+    assert!(stdout.contains(&field("in_subquery_input_row_count", "4")));
+    assert!(stdout.contains(&field("in_subquery_filtered_row_count", "3")));
+    assert!(stdout.contains(&field("in_subquery_materialized_value_count", "2")));
+    assert!(stdout.contains(&field("in_subquery_materialized_null_value_count", "0")));
+    assert!(stdout.contains(&field("in_subquery_materialization_bound", "32")));
+    assert!(stdout.contains(&field("selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"id\\\":3,\\\"label\\\":\\\"gamma\\\"}\\n{\\\"id\\\":4,\\\"label\\\":\\\"delta\\\"}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(allowed_path).expect("remove allowed csv");
+}
+
+#[test]
+fn sql_local_source_smoke_executes_having_in_subquery_without_fallback() {
+    let source_path = unique_path("sql-local-source-having-in-subquery-source", "csv");
+    let allowed_path = unique_path("sql-local-source-having-in-subquery-allowed", "csv");
+    fs::write(
+        &source_path,
+        "region,id,amount\n\
+         east,1,10\n\
+         east,2,13\n\
+         west,3,20\n\
+         north,4,12\n\
+         north,5,15\n\
+         north,6,18\n",
+    )
+    .expect("write source csv");
+    fs::write(
+        &allowed_path,
+        "rows,active,score\n2,true,10\n3,true,20\n1,false,30\n",
+    )
+    .expect("write allowed csv");
+
+    let statement = format!(
+        "SELECT region,count(*) AS rows,sum(amount) AS total FROM '{}' GROUP BY region HAVING rows IN (SELECT rows FROM '{}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) ORDER BY total DESC LIMIT 10",
+        source_path.display(),
+        allowed_path.display()
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args(["sql-local-source-smoke", &statement, "--format", "json"])
+        .output()
+        .expect("sql-local-source-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field("having_runtime_execution", "true")));
+    assert!(stdout.contains(&field("having_operator_family", "in_subquery")));
+    assert!(stdout.contains(&field("having_source_column", "rows")));
+    assert!(stdout.contains(&field("having_in_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_filter_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_order_by_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_limit_runtime_execution", "true")));
+    assert!(stdout.contains(&field("in_subquery_source_column", "rows")));
+    assert!(stdout.contains(&field("in_subquery_input_row_count", "3")));
+    assert!(stdout.contains(&field("in_subquery_filtered_row_count", "2")));
+    assert!(stdout.contains(&field("in_subquery_materialized_value_count", "2")));
+    assert!(stdout.contains(&field("having_input_row_count", "3")));
+    assert!(stdout.contains(&field("having_selected_row_count", "2")));
+    assert!(stdout.contains(
+        "\"result_jsonl\",\"value\":\"{\\\"region\\\":\\\"north\\\",\\\"rows\\\":3,\\\"total\\\":45}\\n{\\\"region\\\":\\\"east\\\",\\\"rows\\\":2,\\\"total\\\":23}\\n\""
+    ));
+    assert!(stdout.contains(&field("fallback_attempted", "false")));
+    assert!(stdout.contains(&field("external_engine_invoked", "false")));
+
+    fs::remove_file(source_path).expect("remove source csv");
+    fs::remove_file(allowed_path).expect("remove allowed csv");
+}
+
 fn assert_in_subquery_missing_column_blocks(source_path: &Path, allowed_path: &Path) {
     let statement = format!(
         "SELECT id FROM '{}' WHERE id IN (SELECT missing_id FROM '{}') LIMIT 10",

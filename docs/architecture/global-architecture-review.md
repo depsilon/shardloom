@@ -559,8 +559,13 @@ plan before coding.
 - [x] GAR-RUNTIME-IMPL-4D scoped local IN-subquery predicates add
   `column [NOT] IN (SELECT <column> FROM '<local-source>')` over bounded local scalar sources,
   materialize the subquery set through ShardLoom-owned local readers, emit `in_subquery_*`
-  evidence, preserve SQL three-valued `WHERE` null-filter semantics, and keep missing-column,
-  oversized, correlated, joined, filtered, grouped, ordered, limited, nested, or multi-column
+  evidence, preserve SQL three-valued `WHERE` null-filter semantics, and keep missing-column or
+  oversized materialized sets deterministic blockers with no fallback/external engine invocation.
+- [x] GAR-RUNTIME-IMPL-4D-F3 advanced predicate/subquery closeout extends bounded local scalar
+  IN-subqueries with admitted subquery `WHERE`, `ORDER BY`, and `LIMIT` clauses, executes HAVING
+  IN-subquery predicates over aggregate output rows, exposes subquery filter/order/limit and
+  input/filtered/materialization-bound evidence through SQL/Python reports, and keeps row-value,
+  multi-column, nested, joined, grouped/HAVING-internal, correlated, and `EXISTS` / `ANY` / `ALL`
   subquery shapes deterministic blockers with no fallback/external engine invocation.
 - [x] GAR-RUNTIME-IMPL-4D scoped UTF-8 string functions add native `CONCAT`, `SUBSTR` /
   `SUBSTRING`, and `REPLACE` predicate/projection execution for admitted local-source SQL/Python
@@ -623,9 +628,9 @@ plan before coding.
   execution while preserving admitted bytewise binary scalar equality and no fallback/external
   engine invocation.
 - [x] Parent `GAR-RUNTIME-IMPL-4D`/`GAR-RUNTIME-IMPL-5G` is complete for admitted local expression/
-  operator scope; residual advanced subqueries/predicate completeness and broad
-  encoded-kernel/operator coverage are split into explicit follow-up runtime items in the phased
-  plan rather than hidden in the parent item.
+  operator scope, including bounded local scalar IN-subquery/HAVING subquery closeout; residual
+  broad encoded-kernel/operator coverage and non-IN-subquery families are split into explicit
+  follow-up runtime items in the phased plan rather than hidden in the parent item.
 
 ### RFC 0022 - Plan IR and Substrait-Compatible Interoperability
 
@@ -935,8 +940,13 @@ plan before coding.
   OutputPlan digests, per-output certificates, replay/fidelity evidence, and no-fallback fields;
   Python `ShardLoomSession` reuses matching local output/fanout reports only when fingerprints
   still match. Remaining `GAR-IOREUSE-1` work is broader sink artifact proof, benchmark-family
-  fanout promotion, persistent cache/session promotion, and claim-grade gates so reuse cannot
-  silently become production, cache-hit, or performance proof.
+  fanout promotion, persistent cache/session promotion, cold-lane attribution
+  (`GAR-IOREUSE-1H`), Vortex-native source/sink/split preparation (`GAR-IOREUSE-1I`),
+  differential preparation (`GAR-IOREUSE-1J`), capillary I/O with PulseWeave control
+  (`GAR-IOREUSE-1K`), scout ingress/triage (`GAR-IOREUSE-1L`), and claim-grade gates so reuse
+  cannot silently become production, cache-hit, or performance proof. Adjacent performance
+  follow-through is tracked as cold-lane layout/write advice (`GAR-PERF-2J`) and copy-budget/
+  buffer-lifecycle evidence (`GAR-PERF-2K`).
 - [ ] `GAR-SCALE-1` adds the Spark-level scale contract and any-volume readiness follow-through.
   ShardLoom must not claim literal "any volume" support; future scale work must classify rows as
   `local_smoke`, `local_claim_grade`, `larger_than_memory_local`, `split_parallel_local`,
@@ -1543,8 +1553,11 @@ plan before coding.
   output concepts before inventing parallel abstractions; any wrapper must preserve Native I/O,
   materialization/decode, no-fallback, output metadata, and claim-gate evidence. Scoped local
   SQL/Python and generated-output fanout has landed; remaining follow-through is persistent
-  session/cache reuse, benchmark-family fanout promotion, broader sink metadata proof, and
-  object-store/table/Foundry sink boundaries.
+  session/cache reuse, benchmark-family fanout promotion, broader sink metadata proof, cold-lane
+  attribution, Vortex-native preparation, differential preparation, capillary I/O, scout ingress/
+  triage, and object-store/table/Foundry sink boundaries. The adjacent cold-lane performance
+  follow-through is layout/write advice and copy-budget/buffer-lifecycle evidence, both blocked
+  from performance claims until benchmark evidence exists.
 - [ ] Generalized Source/Split runtime paths, field-mask/predicate-ordering proof, layout/write
   runtime evidence, object-store runtime I/O, GPU/device execution, and managed-platform benchmark
   lanes remain incomplete.
@@ -1761,9 +1774,13 @@ plan before coding.
   output-format separation, invalidation reasons, `claim_grade_requirements_met=false`,
   no-fallback fields, and claim boundaries in benchmark artifacts. Scoped local SQL/Python and
   generated-output fanout now adds local runtime sink evidence outside the benchmark matrix. The
-  remaining flow must add broader sink evidence while preserving distinct direct-transient,
-  compatibility-import-certified, prepared-vortex, and native-vortex lanes without adding
-  persistent cache, object-store/lakehouse, performance, or fallback claims.
+  remaining flow must add broader sink evidence and the cold-lane follow-through from
+  `docs/architecture/cold-ingestion-preparation-research-carryforward.md` while preserving distinct
+  direct-transient, compatibility-import-certified, prepared-vortex, and native-vortex lanes
+  without adding persistent cache, object-store/lakehouse, performance, or fallback claims. The
+  phase plan now splits that cold work into attribution, Vortex-native preparation, differential
+  preparation, capillary I/O, scout ingress/triage, layout/write advice, and copy-budget/buffer
+  evidence slices.
 - [ ] `GAR-NOVEL-1` adds the evidence-native generated execution, lineage, observability, and
   confidence follow-up. OpenLineage facets are now mapped as opt-in/report-only placeholders;
   OpenTelemetry spans remain opt-in/report-only, and Bayesian confidence can block claims but

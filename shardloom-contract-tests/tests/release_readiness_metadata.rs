@@ -2387,6 +2387,8 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "conditional_projection_case_when",
         "in_predicate_literal_null_semantics",
         "in_subquery_scalar_semantics",
+        "in_subquery_filtered_ordered_limited_semantics",
+        "having_in_subquery_semantics",
         "distinct_count_grouped",
         "having_hidden_aggregate_expression",
         "window_rank_offset_distribution",
@@ -2403,6 +2405,13 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
         "unsupported_variant_access",
         "unsupported_union_construct",
         "unsupported_binary_literal_source",
+        "unsupported_row_value_in_predicate",
+        "unsupported_multi_column_in_subquery",
+        "unsupported_nested_in_subquery",
+        "unsupported_joined_in_subquery",
+        "unsupported_grouped_having_in_subquery",
+        "unsupported_correlated_in_subquery",
+        "unsupported_exists_any_all_subquery",
         "decoded_reference_only",
         "deterministic_unsupported_diagnostic",
         "\"fallback_attempted\": false",
@@ -2418,9 +2427,9 @@ fn admitted_semantics_matrix_validator_is_wired_into_release_readiness() {
     for required in [
         "shardloom.admitted_semantics_matrix_report.v1",
         "python scripts\\check_admitted_semantics_matrix.py",
-        "matrix_row_count=28",
-        "executable_fixture_count=16",
-        "unsupported_diagnostic_count=12",
+        "matrix_row_count=37",
+        "executable_fixture_count=18",
+        "unsupported_diagnostic_count=19",
         "property_execution_performed=true",
         "decoded_reference_differential_execution_performed=true",
         "semantic_conformance_suite_status=passed",
@@ -5918,6 +5927,7 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
         "`GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout plus `GAR-RUNTIME-IMPL-4D-F1`"
     ));
     assert!(plan.contains("`GAR-RUNTIME-IMPL-4D-F2` complex dtype"));
+    assert!(plan.contains("`GAR-RUNTIME-IMPL-4D-F3` advanced predicate/subquery"));
 
     let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
     assert!(completed.contains(
@@ -5946,15 +5956,15 @@ fn pulseweave_runtime_control_plan_is_traceable_before_4d() {
     assert!(
         completed.contains("GAR-RUNTIME-IMPL-4D-F2 complex dtype deterministic blocker closeout")
     );
-    for follow_up in [
-        "- [ ] GAR-RUNTIME-IMPL-4D-F3",
-        "- [ ] GAR-RUNTIME-IMPL-5G-F1",
-    ] {
-        assert!(
-            plan.contains(follow_up),
-            "missing split 4D/5G follow-up {follow_up}"
-        );
-    }
+    assert!(
+        completed
+            .contains("GAR-RUNTIME-IMPL-4D-F3 advanced predicate, HAVING, and subquery semantics")
+    );
+    let follow_up = "- [ ] GAR-RUNTIME-IMPL-5G-F1";
+    assert!(
+        plan.contains(follow_up),
+        "missing split 4D/5G follow-up {follow_up}"
+    );
 
     let terminology = read_repo_file("docs/architecture/canonical-terminology.md");
     for required in [
