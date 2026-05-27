@@ -443,6 +443,106 @@ def in_subquery_scalar_case() -> SqlFixtureCase:
     )
 
 
+def in_subquery_filtered_ordered_limited_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="in_subquery_filtered_ordered_limited_semantics",
+        source_name="in-subquery-filtered-source.csv",
+        source_text="id,label,amount\n1,alpha,8\n2,beta,15\n3,gamma,21\n4,delta,13\n",
+        statement_template=(
+            "SELECT id,label FROM '{source}' WHERE id IN ("
+            "SELECT id FROM '{allowed}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2"
+            ") LIMIT 10"
+        ),
+        expected_jsonl='{"id":3,"label":"gamma"}\n{"id":4,"label":"delta"}\n',
+        expected_fields={
+            "predicate_operator_family": "in_subquery",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "2",
+            "in_list_null_value_count": "0",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_order_by_runtime_execution": "true",
+            "in_subquery_limit_runtime_execution": "true",
+            "in_subquery_source_column": "id",
+            "in_subquery_source_format": "csv",
+            "in_subquery_input_row_count": "4",
+            "in_subquery_filtered_row_count": "3",
+            "in_subquery_materialization_bound": "32",
+            "in_subquery_materialized_value_count": "2",
+            "in_subquery_materialized_null_value_count": "0",
+            "in_predicate_null_semantics": "not_applicable",
+            "selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "in-subquery-filtered-allowed.csv",
+                "id,active,score\n1,true,10\n2,false,30\n3,true,20\n4,true,40\n",
+            ),
+        ),
+    )
+
+
+def having_in_subquery_case() -> SqlFixtureCase:
+    return SqlFixtureCase(
+        case_id="having_in_subquery_semantics",
+        source_name="having-in-subquery-source.csv",
+        source_text=(
+            "region,id,amount\n"
+            "east,1,10\n"
+            "east,2,13\n"
+            "west,3,20\n"
+            "north,4,12\n"
+            "north,5,15\n"
+            "north,6,18\n"
+        ),
+        statement_template=(
+            "SELECT region,count(*) AS rows,sum(amount) AS total FROM '{source}' "
+            "GROUP BY region HAVING rows IN ("
+            "SELECT rows FROM '{allowed}' WHERE active IS TRUE ORDER BY score DESC LIMIT 2"
+            ") ORDER BY total DESC LIMIT 10"
+        ),
+        expected_jsonl=(
+            '{"region":"north","rows":3,"total":45}\n'
+            '{"region":"east","rows":2,"total":23}\n'
+        ),
+        expected_fields={
+            "aggregate_runtime_execution": "true",
+            "aggregate_operator_family": "grouped_aggregate",
+            "group_by_runtime_execution": "true",
+            "having_runtime_execution": "true",
+            "having_operator_family": "in_subquery",
+            "having_source_column": "rows",
+            "having_in_subquery_runtime_execution": "true",
+            "in_predicate_runtime_execution": "true",
+            "in_list_value_count": "2",
+            "in_list_null_value_count": "0",
+            "in_subquery_runtime_execution": "true",
+            "in_subquery_filter_runtime_execution": "true",
+            "in_subquery_order_by_runtime_execution": "true",
+            "in_subquery_limit_runtime_execution": "true",
+            "in_subquery_source_column": "rows",
+            "in_subquery_source_format": "csv",
+            "in_subquery_input_row_count": "3",
+            "in_subquery_filtered_row_count": "2",
+            "in_subquery_materialization_bound": "32",
+            "in_subquery_materialized_value_count": "2",
+            "in_subquery_materialized_null_value_count": "0",
+            "having_input_row_count": "3",
+            "having_selected_row_count": "2",
+            "claim_gate_status": "fixture_smoke_only",
+        },
+        auxiliary_sources=(
+            (
+                "allowed",
+                "having-in-subquery-allowed.csv",
+                "rows,active,score\n2,true,10\n3,true,20\n1,false,30\n",
+            ),
+        ),
+    )
+
+
 def distinct_count_grouped_case() -> SqlFixtureCase:
     return SqlFixtureCase(
         case_id="distinct_count_grouped",
@@ -771,6 +871,8 @@ def executable_cases() -> list[SqlFixtureCase]:
         conditional_projection_case(),
         in_predicate_literal_null_case(),
         in_subquery_scalar_case(),
+        in_subquery_filtered_ordered_limited_case(),
+        having_in_subquery_case(),
         distinct_count_grouped_case(),
         having_hidden_aggregate_case(),
         window_mixed_case(),
@@ -890,6 +992,84 @@ def unsupported_cases() -> list[UnsupportedCase]:
             statement_template="SELECT id,X'00ff' AS payload FROM '{source}' LIMIT 10",
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="binary source literals and binary input decoding are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_row_value_in_predicate",
+            source_name="row-value-in-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE (id,label) IN "
+                "(SELECT id,label FROM '{source}') LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="multi-column and row-value IN predicates are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_multi_column_in_subquery",
+            source_name="multi-column-subquery-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE id IN "
+                "(SELECT id,label FROM '{source}') LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="multi-column IN subqueries are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_nested_in_subquery",
+            source_name="nested-subquery-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE id IN "
+                "(SELECT id FROM '{source}' WHERE id IN "
+                "(SELECT id FROM 'target/nested-in-subquery.csv')) LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="nested IN subqueries are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_joined_in_subquery",
+            source_name="joined-subquery-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE id IN "
+                "(SELECT id FROM '{source}' JOIN '{source}' ON id = id) LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="joined IN subqueries are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_grouped_having_in_subquery",
+            source_name="grouped-subquery-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE id IN "
+                "(SELECT id FROM '{source}' GROUP BY id HAVING count(*) >= 1) LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="grouped and HAVING subqueries are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_correlated_in_subquery",
+            source_name="correlated-subquery-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE id IN "
+                "(SELECT id FROM '{source}' WHERE outer.id = 1) LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="correlated or qualified IN subquery predicates are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_exists_any_all_subquery",
+            source_name="exists-subquery-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' WHERE EXISTS "
+                "(SELECT id FROM '{source}') LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="EXISTS, ANY, and ALL subquery predicates are not admitted",
         ),
     ]
 

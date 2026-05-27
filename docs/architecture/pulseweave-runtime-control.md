@@ -47,6 +47,12 @@ artifacts. Live object-store provider runtime, live/hybrid runtime, distributed 
 effectful adapters, real query-data spill, production readiness, and performance claims remain
 non-goals here.
 
+Cold ingestion/preparation application is planned separately under `GAR-IOREUSE-1K`. That slice
+must first expose source/sink capillary tasks, byte/row ranges, writer/reopen verification, memory
+and sink-pressure evidence, and ProofBound admission before PulseWeave can change cold-lane task
+shape. Until then, PulseWeave evidence must not be read as optimizing source read, parse, Vortex
+write, reopen, or evidence-rendering cost.
+
 ## Invention-Disclosure Names
 
 These names are technical handles for implementation and invention-disclosure notes. They are not

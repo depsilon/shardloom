@@ -1666,6 +1666,60 @@ class SqlLocalSourceSmokeReport:
         )
 
     @property
+    def in_subquery_filter_runtime_execution(self) -> bool:
+        """Whether an admitted IN-subquery evaluated its own WHERE predicate."""
+
+        return (
+            self.envelope.field_bool("in_subquery_filter_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def in_subquery_order_by_runtime_execution(self) -> bool:
+        """Whether an admitted IN-subquery applied ORDER BY before materialization."""
+
+        return (
+            self.envelope.field_bool("in_subquery_order_by_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def in_subquery_limit_runtime_execution(self) -> bool:
+        """Whether an admitted IN-subquery applied LIMIT before materialization."""
+
+        return (
+            self.envelope.field_bool("in_subquery_limit_runtime_execution", False)
+            is True
+        )
+
+    @property
+    def in_subquery_input_row_count(self) -> int:
+        """Return the number of source rows read by admitted IN-subqueries."""
+
+        return self.envelope.field_int("in_subquery_input_row_count", 0) or 0
+
+    @property
+    def in_subquery_filtered_row_count(self) -> int:
+        """Return the number of IN-subquery rows selected before ORDER BY/LIMIT."""
+
+        return self.envelope.field_int("in_subquery_filtered_row_count", 0) or 0
+
+    @property
+    def in_subquery_materialization_bound(self) -> int:
+        """Return the deterministic materialization bound for IN-subquery values."""
+
+        return self.envelope.field_int("in_subquery_materialization_bound", 0) or 0
+
+    @property
+    def having_in_subquery_runtime_execution(self) -> bool:
+        """Whether HAVING used an admitted IN-subquery predicate."""
+
+        return (
+            self.envelope.field_bool("having_in_subquery_runtime_execution", False)
+            is True
+        )
+
+    @property
     def in_predicate_null_semantics(self) -> str | None:
         """Return the null-semantics contract for admitted IN predicates."""
 

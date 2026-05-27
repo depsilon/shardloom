@@ -117,6 +117,9 @@ not by compiling every reader by default. Active implementation status for input
     `source_state_reuse_allowed`, `source_state_reuse_hit`, and `source_state_reuse_reason`.
   - SourceState reuse is preparation evidence only. It does not imply Vortex-native execution,
     output support, performance, object-store runtime, or table/lakehouse support.
+  - Planned cold-lane follow-through extends SourceState with scout ingress/triage, Vortex
+    source/split refs, capillary task refs, differential delta manifests, and copy-budget evidence
+    only when those surfaces have deterministic blockers and no-fallback fields.
 - Reusable VortexPreparedState bridge
   - `GAR-IOREUSE-1B` defines the first benchmark/report `VortexPreparedState` contract as the
     prepared Vortex bridge between admitted source state and future execution/output plans.
@@ -130,6 +133,9 @@ not by compiling every reader by default. Active implementation status for input
     preparation timing separation, source-state linkage, and reuse posture. It does not imply
     output support, encoded-native coverage, performance, object-store runtime, or table/lakehouse
     support.
+  - Planned differential preparation may update or overlay a prepared state only from a complete
+    base/delta manifest, schema compatibility proof, changed-range evidence, Native I/O replay, and
+    deterministic invalidation policy.
 - Benchmark-only local compatibility-to-Vortex smoke bridge
   - `vortex-traditional-analytics-benchmark` enables a narrow local benchmark path that parses
     deterministic traditional analytics fixtures in CSV, JSONL/NDJSON, Parquet, Arrow IPC, Avro, or

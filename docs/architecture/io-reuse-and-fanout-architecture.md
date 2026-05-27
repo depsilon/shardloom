@@ -1,7 +1,8 @@
 # I/O Reuse And Cross-Format Fanout Architecture
 
-Status: implemented for scoped local output/fanout runtime; broader cache, object-store/table,
-Foundry, production, and claim-grade fanout remain gated by later `GAR-IOREUSE-1` follow-through.
+Status: implemented for scoped local output/fanout runtime; broader cold-lane preparation,
+cache, object-store/table, Foundry, production, and claim-grade fanout remain gated by later
+`GAR-IOREUSE-1` follow-through.
 
 ## Summary
 
@@ -35,6 +36,10 @@ runtime now exists for local-source SQL/Python and generated-output workflows, a
 `ShardLoomSession` can reuse matching local query-builder output/fanout reports. Persistent
 cross-process caches, object-store I/O, table/lakehouse commits, Foundry production support,
 performance claims, broad output-fidelity claims, and hidden fast modes remain out of scope.
+`GAR-IOREUSE-1H` through `GAR-IOREUSE-1L` are planned follow-through for cold-lane attribution,
+Vortex-native source/sink/split preparation, differential preparation, capillary I/O with
+PulseWeave control, and scout ingress/triage. `GAR-PERF-2J` and `GAR-PERF-2K` cover the adjacent
+cold-lane layout/write advisor and copy-budget/buffer-lifecycle evidence.
 
 ## Goals
 
@@ -168,6 +173,59 @@ Prepared state reuse does not weaken no-fallback policy and does not authorize o
 object-store Vortex artifact runtime, encoded-native operator coverage, or performance claims unless
 those runtimes are separately admitted.
 
+### Cold Ingestion/Preparation Carry-Forward
+
+The cold ingestion/preparation lane is the planned extension point for the benchmark-outlier
+research captured in
+`docs/architecture/cold-ingestion-preparation-research-carryforward.md`. The purpose is to make
+cold preparation evidence-bearing, Vortex-native where admitted, and separable from warm query
+timing.
+
+Planned `GAR-IOREUSE-1H` adds a cold-lane attribution gate. A row must expose whether it measured
+full certified cold ingest, preparation-only work, warm prepared query work, result-sink/replay
+overhead, evidence-render overhead, or process/harness overhead before any publication or claim gate
+can interpret it.
+
+Planned `GAR-IOREUSE-1I` adds the Vortex-native preparation spine. Each implementation must check
+upstream Vortex array/file I/O/Scan/Source/Sink/Split/layout concepts first and then classify the
+decision as a native provider, wrapper, ShardLoom kernel, baseline/oracle, or blocked. The
+preparation path must report provider kind/version/API surface, source split refs, write/reopen
+verification, materialization/decode boundaries, Native I/O certificates, and no-fallback fields.
+
+Planned `GAR-IOREUSE-1J` adds differential preparation. A future delta-only path must carry:
+
+```text
+differential_prepare_schema_version
+differential_prepare_status
+base_source_state_id
+base_prepared_state_id
+delta_source_state_id
+delta_manifest_digest
+changed_byte_ranges
+changed_row_ranges
+changed_segment_ranges
+update_mode
+schema_compatibility_status
+prepared_state_delta_ref
+delta_native_io_certificate_status
+differential_prepare_claim_gate_status=not_claim_grade
+differential_prepare_fallback_attempted=false
+differential_prepare_external_engine_invoked=false
+```
+
+Planned `GAR-IOREUSE-1K` adds capillary I/O. Cold preparation work units should become typed
+capillaries with source refs, byte/row ranges, projection/filter masks, Vortex segment refs,
+materialization/decode posture, retry/idempotency status, memory/sink pressure evidence, and
+no-fallback fields. PulseWeave may apply only when ProofBound can certify the capillary task graph.
+
+Planned `GAR-IOREUSE-1L` adds scout ingress and triage. A scout pass may inspect metadata, schema
+samples, parse anomalies, and layout/pathology signals before full preparation. It must fail closed
+or plan an explicit quarantine output; it must not silently repair or drop rows.
+
+The adjacent planned `GAR-PERF-2J` and `GAR-PERF-2K` slices keep layout/write advice, copy budget,
+allocation posture, buffer reuse, and unsafe-lifetime blockers visible before the cold lane is
+optimized. These are evidence and admission surfaces first, not performance claims.
+
 ### ExecutionPlan
 
 `ExecutionPlan` is the workload/operator plan. It consumes SourceState and/or VortexPreparedState
@@ -254,6 +312,13 @@ prepared_state_reuse
 output_plan_reuse
 cross_format_output
 generated_source_output
+cold_lane_attribution
+vortex_native_preparation
+differential_preparation
+capillary_io
+ingress_triage
+cold_layout_advisor
+cold_copy_budget
 ```
 
 Implemented `GAR-IOREUSE-1D` report-only fanout cases:
@@ -332,6 +397,9 @@ The bundle requires these evidence groups before any runtime support claim:
 - Output plan refs, target schema mapping refs, metadata preservation/degradation refs, local write
   refs, output replay refs when requested, and output Native I/O certificate refs.
 - Invalidation refs for stale source, stale prepared state, stale output plan, or policy mismatch.
+- Cold-lane refs for stage attribution, Vortex provider admission, source/sink/split tasks,
+  differential manifests, scout/triage findings, layout/write advice, copy budget, buffer lifecycle,
+  and PulseWeave application or blockers.
 
 ## Evidence-Safe Reuse Levels
 
@@ -529,6 +597,9 @@ external_engine_invoked=false
 - Compute-flow docs show the decoupled path:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`.
 - The global architecture review mirrors unchecked follow-up items.
+- Cold-lane follow-through remains represented in the phase plan as `GAR-IOREUSE-1H` through
+  `GAR-IOREUSE-1L` plus adjacent `GAR-PERF-2J` and `GAR-PERF-2K` slices before implementation
+  begins.
 - Scoped local SQL/Python and generated-output writes/fanout emit OutputPlan, sink artifact,
   replay/fidelity, certificate, no-fallback, and no-external-engine evidence.
 - No package publication, object-store runtime, table commit, performance claim, production claim,

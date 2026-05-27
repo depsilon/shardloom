@@ -31,9 +31,9 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=28
-executable_fixture_count=16
-unsupported_diagnostic_count=12
+matrix_row_count=37
+executable_fixture_count=18
+unsupported_diagnostic_count=19
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
@@ -61,6 +61,8 @@ Covered fixture rows:
 - `conditional_projection_case_when`
 - `in_predicate_literal_null_semantics`
 - `in_subquery_scalar_semantics`
+- `in_subquery_filtered_ordered_limited_semantics`
+- `having_in_subquery_semantics`
 - `distinct_count_grouped`
 - `having_hidden_aggregate_expression`
 - `window_rank_offset_distribution`
@@ -77,12 +79,19 @@ Covered fixture rows:
 - `unsupported_variant_access`
 - `unsupported_union_construct`
 - `unsupported_binary_literal_source`
+- `unsupported_row_value_in_predicate`
+- `unsupported_multi_column_in_subquery`
+- `unsupported_nested_in_subquery`
+- `unsupported_joined_in_subquery`
+- `unsupported_grouped_having_in_subquery`
+- `unsupported_correlated_in_subquery`
+- `unsupported_exists_any_all_subquery`
 
-Current remaining gaps are correlated multi-column and nested subquery semantics,
-external-oracle result artifact population, and fuzz execution beyond the deterministic seeded
-property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics, interval
-arithmetic, regex, locale/collation, and complex dtype families now have deterministic unsupported
-diagnostics with no fallback.
+Current remaining gaps are broad ANSI subquery parity beyond bounded local scalar IN-subquery
+fixtures, external-oracle result artifact population, and fuzz execution beyond the deterministic
+seeded property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics,
+interval arithmetic, regex, locale/collation, complex dtype families, and unsupported advanced
+subquery shapes now have deterministic unsupported diagnostics with no fallback.
 
 Claim boundary: admitted SQL local-source expression/operator correctness evidence only. This does
 not authorize ANSI SQL parity, production semantic parity, broad SQL/DataFrame support, performance

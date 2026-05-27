@@ -624,6 +624,19 @@ Native microbenchmark rows answer "which subsystem needs optimization?" They do 
 ShardLoom faster end to end?" and they do not authorize performance, superiority, Spark-displacement,
 SQL/DataFrame, object-store/lakehouse, Foundry, or production claims.
 
+## Cold-Lane Research Carry-Forward
+
+The cold ingestion/preparation outlier is now tracked as explicit follow-through rather than a
+benchmark interpretation shortcut. `GAR-IOREUSE-1H` owns cold-lane attribution and constitution
+checks; `GAR-IOREUSE-1I` owns Vortex-native source/sink/split preparation; `GAR-IOREUSE-1J` owns
+differential preparation; `GAR-IOREUSE-1K` owns capillary I/O plus PulseWeave cold-lane control;
+`GAR-IOREUSE-1L` owns scout ingress and quarantine triage. The adjacent `GAR-PERF-2J` and
+`GAR-PERF-2K` slices own layout/write advice and copy/allocation/buffer evidence.
+
+These slices may reduce cold-lane work only after they provide runtime evidence. Until then,
+compatibility-import-certified rows must keep source read, parse, Vortex preparation, write/reopen,
+scan, output/replay, evidence rendering, and process/harness overhead visible in stage timing.
+
 ## Stage Timing Fields
 
 Benchmark JSON and Markdown should preserve these fields where available:

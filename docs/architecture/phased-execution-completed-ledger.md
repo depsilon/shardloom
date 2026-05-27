@@ -16,6 +16,75 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D-F3 advanced predicate, HAVING, and subquery semantics
+  closeout
+  - Date: 2026-05-27
+  - Branch/PR: `runtime-4d-f3-advanced-predicates` / #968.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D-F3 advanced predicate, HAVING, and subquery semantics`.
+    - RFC 0021 expression/kernel architecture, SQL/Python local-source runtime smokes, and the
+      admitted semantics matrix residual gaps.
+  - Scope:
+    - Extended scoped local scalar `IN (SELECT ...)` from projection-only auxiliary sources to
+      bounded ShardLoom-native subquery materialization with admitted subquery `WHERE`, `ORDER BY`,
+      and `LIMIT` clauses over real local source bytes.
+    - Routed subquery predicates through the existing local-source read plan, predicate evaluator,
+      ordering, limit, type coercion, result materialization, and SQL three-valued `WHERE` null
+      semantics instead of a standalone side lane or external engine.
+    - Added HAVING-time scalar IN-subquery execution over aggregate output rows, including bounded
+      subquery materialization evidence and HAVING input/selected row counts.
+    - Added Python query-builder support for `isin_source(...)` / `not_in_source(...)` with
+      `where=`, `order_by=`, `descending=`, and `limit=` while keeping SQL smoke reports typed.
+    - Expanded the admitted semantics matrix from 28 rows / 16 executable / 12 unsupported to
+      37 rows / 18 executable / 19 unsupported. New executable rows cover filtered/ordered/limited
+      scalar IN-subquery predicates and HAVING IN-subquery predicates. New unsupported rows cover
+      row-value IN predicates, multi-column, nested, joined, grouped/HAVING-internal, correlated,
+      and `EXISTS` / `ANY` / `ALL` subquery shapes.
+    - Moved `GAR-RUNTIME-IMPL-4D-F3` out of the live Planned queue; the next internal-engine item
+      is `GAR-RUNTIME-IMPL-5G-F1` broad physical operator/function/encoded-kernel coverage.
+  - Field schema:
+    - SQL/Python reports now expose `in_subquery_filter_runtime_execution`,
+      `in_subquery_order_by_runtime_execution`, `in_subquery_limit_runtime_execution`,
+      `in_subquery_input_row_count`, `in_subquery_filtered_row_count`,
+      `in_subquery_materialization_bound`, and `having_in_subquery_runtime_execution`.
+    - Existing `in_subquery_runtime_execution`, source column/format, materialized value/null
+      counts, `in_predicate_null_semantics`, correctness digest, `fallback_attempted=false`, and
+      `external_engine_invoked=false` evidence remains in the same runtime report path.
+  - Claim boundary:
+    - This admits only bounded local scalar IN subqueries with optional admitted WHERE, ORDER BY,
+      and LIMIT clauses, plus HAVING predicates over aggregate output rows. It does not claim ANSI
+      subquery parity, broad SQL optimizer behavior, correlated subqueries, joined/grouped/nested
+      subqueries, row-value semantics, EXISTS/ANY/ALL, production SQL/DataFrame support, or
+      performance.
+    - External engines remain comparison baselines/oracles only and never satisfy runtime behavior.
+  - No-standalone-lane audit:
+    - Subquery materialization flows through the same local-source runtime, source reader,
+      predicate evaluator, ordering, materialization, CLI/Python report, matrix validator, and
+      release-readiness gates. No Spark, DataFusion, DuckDB, Polars, pandas, standalone CSV-only
+      process, external query-engine fallback, or separate subquery executor was introduced.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli in_subquery`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test release_readiness_metadata`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest python.tests.test_query_builder`
+    - `python -m compileall -q scripts website`
+    - `python scripts/check_admitted_semantics_matrix.py`
+    - `python scripts/check_release_readiness.py --allow-blocked`
+    - `python scripts/check_golden_workflows.py`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_use_case_glossary.py`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_ci_gate_matrix.py`
+    - `python scripts/check_benchmark_constitution.py`
+    - `python scripts/check_benchmark_environment.py`
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `git diff --check`
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D-F2 complex dtype deterministic blocker closeout
   - Date: 2026-05-26
   - Branch/PR: `runtime-4d-f2-complex-dtypes` / #967.

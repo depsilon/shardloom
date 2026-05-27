@@ -971,6 +971,19 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
             "id IN (SELECT id FROM 'target/allowed.csv')",
         )
         self.assertEqual(
+            str(
+                sl.col("id").isin_source(
+                    "target/allowed.csv",
+                    "id",
+                    where=sl.col("active").is_true(),
+                    order_by="score",
+                    descending=True,
+                    limit=2,
+                )
+            ),
+            "id IN (SELECT id FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2)",
+        )
+        self.assertEqual(
             str(sl.col("id").not_in_source("target/blocked.csv", "id")),
             "id NOT IN (SELECT id FROM 'target/blocked.csv')",
         )
@@ -2088,7 +2101,7 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
 
                 assert sys.argv[1:] == [
                     "sql-local-source-smoke",
-                    "SELECT id,label FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv') LIMIT 10",
+                    "SELECT id,label FROM 'target/input.csv' WHERE id IN (SELECT id FROM 'target/allowed.csv' WHERE active IS TRUE ORDER BY score DESC LIMIT 2) LIMIT 10",
                     "--output-format",
                     "inline-jsonl",
                     "--format",
@@ -2106,14 +2119,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
                         {"key": "result_jsonl", "value": "{\\"id\\":1,\\"label\\":\\"alpha\\"}\\n{\\"id\\":3,\\"label\\":\\"gamma\\"}\\n"},
                         {"key": "predicate_operator_family", "value": "in_subquery"},
                         {"key": "in_predicate_runtime_execution", "value": "true"},
-                        {"key": "in_list_value_count", "value": "3"},
-                        {"key": "in_list_null_value_count", "value": "1"},
+                        {"key": "in_list_value_count", "value": "2"},
+                        {"key": "in_list_null_value_count", "value": "0"},
                         {"key": "in_subquery_runtime_execution", "value": "true"},
                         {"key": "in_subquery_source_column", "value": "id"},
                         {"key": "in_subquery_source_format", "value": "csv"},
-                        {"key": "in_subquery_materialized_value_count", "value": "3"},
-                        {"key": "in_subquery_materialized_null_value_count", "value": "1"},
-                        {"key": "in_predicate_null_semantics", "value": "sql_three_valued_where_filter"},
+                        {"key": "in_subquery_filter_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_order_by_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_limit_runtime_execution", "value": "true"},
+                        {"key": "in_subquery_input_row_count", "value": "4"},
+                        {"key": "in_subquery_filtered_row_count", "value": "3"},
+                        {"key": "in_subquery_materialization_bound", "value": "32"},
+                        {"key": "in_subquery_materialized_value_count", "value": "2"},
+                        {"key": "in_subquery_materialized_null_value_count", "value": "0"},
+                        {"key": "in_predicate_null_semantics", "value": "not_applicable"},
                         {"key": "output_row_count", "value": "2"},
                         {"key": "selected_row_count", "value": "2"},
                         {"key": "output_io_performed", "value": "false"},
@@ -2132,7 +2151,16 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         report = (
             ctx.read_csv("target/input.csv")
             .select("id", "label")
-            .filter(sl.col("id").isin_source(allowed, "id"))
+            .filter(
+                sl.col("id").isin_source(
+                    allowed,
+                    "id",
+                    where=sl.col("active").is_true(),
+                    order_by="score",
+                    descending=True,
+                    limit=2,
+                )
+            )
             .limit(10)
             .collect()
         )
@@ -2140,16 +2168,20 @@ class LazyWorkflowBuilderTests(unittest.TestCase):
         self.assertEqual(report.envelope.command, "sql-local-source-smoke")
         self.assertEqual(report.predicate_operator_family, "in_subquery")
         self.assertTrue(report.in_predicate_runtime_execution)
-        self.assertEqual(report.in_list_value_count, 3)
-        self.assertEqual(report.in_list_null_value_count, 1)
+        self.assertEqual(report.in_list_value_count, 2)
+        self.assertEqual(report.in_list_null_value_count, 0)
         self.assertTrue(report.in_subquery_runtime_execution)
         self.assertEqual(report.in_subquery_source_columns, ("id",))
         self.assertEqual(report.in_subquery_source_formats, ("csv",))
-        self.assertEqual(report.in_subquery_materialized_value_count, 3)
-        self.assertEqual(report.in_subquery_materialized_null_value_count, 1)
-        self.assertEqual(
-            report.in_predicate_null_semantics, "sql_three_valued_where_filter"
-        )
+        self.assertTrue(report.in_subquery_filter_runtime_execution)
+        self.assertTrue(report.in_subquery_order_by_runtime_execution)
+        self.assertTrue(report.in_subquery_limit_runtime_execution)
+        self.assertEqual(report.in_subquery_input_row_count, 4)
+        self.assertEqual(report.in_subquery_filtered_row_count, 3)
+        self.assertEqual(report.in_subquery_materialization_bound, 32)
+        self.assertEqual(report.in_subquery_materialized_value_count, 2)
+        self.assertEqual(report.in_subquery_materialized_null_value_count, 0)
+        self.assertEqual(report.in_predicate_null_semantics, "not_applicable")
         self.assertEqual(
             report.result_jsonl,
             '{"id":1,"label":"alpha"}\n{"id":3,"label":"gamma"}\n',

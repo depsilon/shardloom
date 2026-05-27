@@ -34,7 +34,8 @@ Concept groups:
   `compatibility_output`, `foreign_encoded`, `universal native I/O envelope`, `native work
   envelope`, `native I/O certificate`, `universal compatibility coverage scoreboard`,
   `UniversalIngress`, `vortex_ingest`, `VortexPreparedState`, `source-free generated output`,
-  `GeneratedSourceCertificate`.
+  `GeneratedSourceCertificate`, `cold ingestion/preparation lane`, `differential preparation`,
+  `capillary I/O`, `scout ingress`.
 - **Materialization and fidelity**: `MaterializationPolicy`, `MaterializationRequirement`,
   `MaterializationBoundary`, `FidelityLevel`, `VortexOutputFidelity`, `metadata_loss`,
   `fidelity_loss`.
@@ -569,6 +570,24 @@ candidates.
   replay/certificates, and evidence are included in timing.
 - **prepared warm route**: user-facing label for `prepared_vortex`, where query/runtime timing starts
   after `VortexPreparedState` exists.
+- **cold ingestion/preparation lane**: the source admission, parse/decode planning, Vortex
+  preparation, write/reopen/scan verification, optional result-sink/replay, and evidence-rendering
+  portion before warm `prepared_vortex` query timing. It is valid workflow work, but it must not be
+  reported as pure operator/query compute.
+- **differential preparation**: planned delta-only `vortex_ingest` update or overlay from a
+  declared base SourceState, base VortexPreparedState, and delta manifest. It requires schema,
+  update-mode, changed-range, replay, Native I/O, and no-fallback evidence before support can be
+  claimed.
+- **capillary I/O**: planned cold-lane source/sink task model where preparation work is represented
+  as typed split/read/columnarize/write/reopen/evidence units with byte/row ranges, pressure,
+  retry, materialization, and no-fallback evidence. It is not distributed runtime or a performance
+  claim by itself.
+- **scout ingress**: planned preflight SourceState-adjacent pass that inspects metadata, schema
+  samples, parse anomalies, and layout/pathology signals before full preparation. It may block or
+  plan explicit quarantine output; it must not silently repair or drop rows.
+- **cold layout/write advisor**: planned advisory surface for choosing or blocking Vortex
+  layout/write strategy before preparation, based on workload constitution, SourceState statistics,
+  pushdown/output requirements, and evidence. It cannot upgrade a performance claim by itself.
 
 ## CG-21 user workflow terms
 - **user data workflow surface**: the end-to-end user journey from install/import through capability
