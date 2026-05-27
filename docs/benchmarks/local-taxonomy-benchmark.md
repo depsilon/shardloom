@@ -235,6 +235,14 @@ artifact identity, digest, preparation timing separation, source-state linkage, 
 it is not output support, encoded-native operator coverage, object-store/lakehouse support,
 SQL/DataFrame runtime, or performance evidence.
 
+`GAR-IOREUSE-1I` extends the harness schema with
+`vortex_preparation_spine_schema_version=shardloom.traditional_analytics.vortex_preparation_spine.v1`.
+The next full data refresh will carry Vortex-first provider decisions, source split refs, byte/row
+range refs, Vortex sink refs, prepared-artifact segment evidence, Native I/O posture,
+no-standalone-lane status, and no-fallback fields. The refresh is intentionally tabled until the
+remaining cold-lane preparation work lands so published data does not churn between directly
+related items.
+
 `GAR-IOREUSE-1C` adds a companion OutputPlan row contract to the benchmark artifact. Rows now carry
 `output_plan_contract_schema_version=shardloom.traditional_analytics.output_plan.v1`,
 `output_plan_status`, `output_plan_id`, `output_plan_digest`, `output_format`, `output_location`,

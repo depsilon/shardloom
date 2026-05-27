@@ -557,17 +557,27 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "reopen_verification_status": "reopen_row_count_verified",
                 "upstream_vortex_write_called": "true",
                 "upstream_vortex_scan_called": "true",
+                "vortex_preparation_spine_status": "admitted_local_preparation_spine",
+                "vortex_preparation_spine_vortex_first_decision": (
+                    "implement_shardloom_kernel"
+                ),
+                "vortex_preparation_spine_source_split_count": "1",
+                "vortex_preparation_spine_no_standalone_lane_status": (
+                    "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+                ),
                 "claim_gate_status": "fixture_smoke_only",
             },
             prefix_fields={
                 "prepared_state_digest": "fnv64:",
                 "vortex_artifact_digest": "fnv64:",
+                "vortex_preparation_spine_source_split_refs": "local-csv-",
             },
             artifact_paths=(target_vortex,),
             selected_field_keys=(
                 "prepared_state_id",
                 "target_vortex_path",
                 "certification_status",
+                "vortex_preparation_spine_native_io_certificate_status",
             ),
         ),
         run_cli_stage(

@@ -25,6 +25,11 @@ use shardloom_core::{Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWrit
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use crate::universal_format_io::FlatLocalColumnarSource;
 
+/// Evidence schema emitted by the local Vortex preparation spine.
+pub const VORTEX_PREPARATION_SPINE_SCHEMA_VERSION: &str = "shardloom.vortex_preparation_spine.v1";
+/// Pinned upstream Vortex crate line used by the scoped local preparation spine.
+pub const VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION: &str = "0.72";
+
 /// Request to write one flat scalar local source into a local Vortex artifact.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VortexPreparedStateWriteRequest {
@@ -150,6 +155,194 @@ impl VortexIngestCertificationLevel {
     }
 }
 
+/// Source/sink/split evidence for the scoped local Vortex preparation spine.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexPreparationSpineReport {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub vortex_first_decision: String,
+    pub provider_kind: String,
+    pub provider_crate: String,
+    pub provider_version: String,
+    pub feature_gate: String,
+    pub provider_api_surface: String,
+    pub shardloom_admission_policy: String,
+    pub source_surface: String,
+    pub sink_surface: String,
+    pub split_surface: String,
+    pub split_ref_status: String,
+    pub split_count: usize,
+    pub projection_mask_status: String,
+    pub filter_mask_status: String,
+    pub write_provider_surface: String,
+    pub reopen_provider_surface: String,
+    pub materialization_boundary_status: String,
+    pub decode_boundary_status: String,
+    pub native_io_certificate_status: String,
+    pub native_io_certificate_refs: String,
+    pub claim_gate_status: String,
+    pub claim_boundary: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl VortexPreparationSpineReport {
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        let mut fields = Vec::with_capacity(26);
+        self.append_provider_evidence_fields(&mut fields);
+        self.append_surface_evidence_fields(&mut fields);
+        self.append_boundary_evidence_fields(&mut fields);
+        fields.push((
+            "vortex_preparation_spine_fallback_attempted".to_string(),
+            self.fallback_attempted.to_string(),
+        ));
+        fields.push((
+            "vortex_preparation_spine_external_engine_invoked".to_string(),
+            self.external_engine_invoked.to_string(),
+        ));
+        fields
+    }
+
+    fn push_evidence_field(
+        fields: &mut Vec<(String, String)>,
+        key: &'static str,
+        value: impl Into<String>,
+    ) {
+        fields.push((key.to_string(), value.into()));
+    }
+
+    fn append_provider_evidence_fields(&self, fields: &mut Vec<(String, String)>) {
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_schema_version",
+            self.schema_version,
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_status",
+            self.status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_vortex_first_decision",
+            self.vortex_first_decision.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_provider_kind",
+            self.provider_kind.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_provider_crate",
+            self.provider_crate.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_provider_version",
+            self.provider_version.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_feature_gate",
+            self.feature_gate.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_provider_api_surface",
+            self.provider_api_surface.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_shardloom_admission_policy",
+            self.shardloom_admission_policy.as_str(),
+        );
+    }
+
+    fn append_surface_evidence_fields(&self, fields: &mut Vec<(String, String)>) {
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_source_surface",
+            self.source_surface.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_sink_surface",
+            self.sink_surface.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_split_surface",
+            self.split_surface.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_split_ref_status",
+            self.split_ref_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_split_count",
+            self.split_count.to_string(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_projection_mask_status",
+            self.projection_mask_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_filter_mask_status",
+            self.filter_mask_status.as_str(),
+        );
+    }
+
+    fn append_boundary_evidence_fields(&self, fields: &mut Vec<(String, String)>) {
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_write_provider_surface",
+            self.write_provider_surface.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_reopen_provider_surface",
+            self.reopen_provider_surface.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_materialization_boundary_status",
+            self.materialization_boundary_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_decode_boundary_status",
+            self.decode_boundary_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_native_io_certificate_status",
+            self.native_io_certificate_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_native_io_certificate_refs",
+            self.native_io_certificate_refs.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_claim_gate_status",
+            self.claim_gate_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_preparation_spine_claim_boundary",
+            self.claim_boundary.as_str(),
+        );
+    }
+}
+
 /// Evidence returned by the scoped local `vortex_ingest` helper.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)]
@@ -179,6 +372,7 @@ pub struct VortexPreparedStateWriteReport {
     pub array_build_input_layout: String,
     pub array_build_record_batch_count: usize,
     pub manual_scalar_copy_avoided: bool,
+    pub preparation_spine: VortexPreparationSpineReport,
     pub workspace_write_report: WorkspaceSafeLocalWriteReport,
 }
 
@@ -285,6 +479,17 @@ pub fn write_flat_scalar_vortex_prepared_state(
         array_build_input_layout: "materialized_rows",
         array_build_record_batch_count: 0,
         manual_scalar_copy_avoided: false,
+        preparation_spine: VortexPreparationSpineFinalizeInput {
+            vortex_first_decision: "implement_shardloom_kernel",
+            feature_gate: "vortex-write",
+            source_surface: "local_text_source_state_scalar_rows",
+            split_surface: "single_materialized_scalar_row_split",
+            split_count: usize::from(row_count > 0),
+            projection_mask_status: "full_projection_materialized",
+            filter_mask_status: "not_requested",
+            materialization_boundary_status: "materialized_scalar_rows_before_vortex_write",
+            decode_boundary_status: "text_source_decoded_by_shardloom_adapter",
+        },
     })
 }
 
@@ -312,6 +517,26 @@ pub fn write_flat_columnar_vortex_prepared_state(
     let array_build = flat_columnar_source_to_vortex_struct(&request.source, &source_shape)?;
     let array_build_micros = array_build_start.elapsed().as_micros();
     let row_count = usize_to_u64(request.source.row_count)?;
+    let projection_mask_status =
+        if request.source.materialized_columns.len() < request.source.header.len() {
+            "columnar_projection_mask_applied"
+        } else {
+            "full_projection"
+        };
+    let (vortex_first_decision, materialization_boundary_status, decode_boundary_status) =
+        if array_build.manual_scalar_copy_avoided {
+            (
+                "use_vortex_native_provider",
+                "columnar_source_state_preserved_to_vortex_array_provider",
+                "no_scalar_row_decode_for_non_empty_batches",
+            )
+        } else {
+            (
+                "implement_shardloom_kernel",
+                "empty_columnar_schema_materialized_by_shardloom_kernel",
+                "empty_source_no_data_decode",
+            )
+        };
     finalize_vortex_prepared_state_write(VortexPreparedStateFinalizeInput {
         target_path: request.target_path,
         column_count: request.source.materialized_columns.len(),
@@ -327,6 +552,17 @@ pub fn write_flat_columnar_vortex_prepared_state(
         array_build_input_layout: "arrow_record_batch_columnar_source_state",
         array_build_record_batch_count: request.source.batches.len(),
         manual_scalar_copy_avoided: array_build.manual_scalar_copy_avoided,
+        preparation_spine: VortexPreparationSpineFinalizeInput {
+            vortex_first_decision,
+            feature_gate: "vortex-write,universal-format-io",
+            source_surface: "local_columnar_source_state_arrow_record_batches",
+            split_surface: "arrow_record_batch_source_splits",
+            split_count: request.source.batches.len(),
+            projection_mask_status,
+            filter_mask_status: "not_requested",
+            materialization_boundary_status,
+            decode_boundary_status,
+        },
     })
 }
 
@@ -445,6 +681,21 @@ struct VortexPreparedStateFinalizeInput<'a> {
     array_build_input_layout: &'static str,
     array_build_record_batch_count: usize,
     manual_scalar_copy_avoided: bool,
+    preparation_spine: VortexPreparationSpineFinalizeInput,
+}
+
+#[cfg(feature = "vortex-write")]
+#[derive(Debug, Clone, Copy)]
+struct VortexPreparationSpineFinalizeInput {
+    vortex_first_decision: &'static str,
+    feature_gate: &'static str,
+    source_surface: &'static str,
+    split_surface: &'static str,
+    split_count: usize,
+    projection_mask_status: &'static str,
+    filter_mask_status: &'static str,
+    materialization_boundary_status: &'static str,
+    decode_boundary_status: &'static str,
 }
 
 #[cfg(feature = "vortex-write")]
@@ -483,6 +734,11 @@ fn finalize_vortex_prepared_state_write(
         }
         (0, 0, "not_performed_ingest_minimal".to_string(), false)
     };
+    let preparation_spine = preparation_spine_report(
+        &input,
+        upstream_vortex_scan_called,
+        &reopen_verification_status,
+    );
 
     Ok(VortexPreparedStateWriteReport {
         target_path: input.target_path,
@@ -510,8 +766,87 @@ fn finalize_vortex_prepared_state_write(
         array_build_input_layout: input.array_build_input_layout.to_string(),
         array_build_record_batch_count: input.array_build_record_batch_count,
         manual_scalar_copy_avoided: input.manual_scalar_copy_avoided,
+        preparation_spine,
         workspace_write_report: write_result.workspace_write_report,
     })
+}
+
+#[cfg(feature = "vortex-write")]
+fn preparation_spine_report(
+    input: &VortexPreparedStateFinalizeInput<'_>,
+    upstream_vortex_scan_called: bool,
+    reopen_verification_status: &str,
+) -> VortexPreparationSpineReport {
+    let provider_is_vortex = input.array_build_provider_kind == "vortex_array_kernel";
+    let provider_crate = if provider_is_vortex {
+        "vortex".to_string()
+    } else {
+        "shardloom-vortex,vortex".to_string()
+    };
+    let provider_version = if provider_is_vortex {
+        VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION.to_string()
+    } else {
+        format!(
+            "shardloom-vortex={};vortex={}",
+            env!("CARGO_PKG_VERSION"),
+            VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION
+        )
+    };
+    let reopen_provider_surface = if upstream_vortex_scan_called {
+        "VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"
+    } else {
+        "not_invoked_ingest_minimal"
+    };
+    let native_io_certificate_status = if upstream_vortex_scan_called {
+        "certified_local_vortex_preparation_spine"
+    } else {
+        "minimal_local_vortex_preparation_spine_digest_only"
+    };
+    let native_io_certificate_refs = if upstream_vortex_scan_called {
+        "source_split_refs,prepared_artifact_ref,reopen_row_count_scan"
+    } else {
+        "source_split_refs,prepared_artifact_ref,artifact_digest"
+    };
+
+    VortexPreparationSpineReport {
+        schema_version: VORTEX_PREPARATION_SPINE_SCHEMA_VERSION,
+        status: "admitted_local_preparation_spine".to_string(),
+        vortex_first_decision: input.preparation_spine.vortex_first_decision.to_string(),
+        provider_kind: input.array_build_provider_kind.to_string(),
+        provider_crate,
+        provider_version,
+        feature_gate: input.preparation_spine.feature_gate.to_string(),
+        provider_api_surface: format!(
+            "{};{};{}",
+            input.array_build_provider_surface,
+            "VortexSession::write_options().write(ArrayStream)",
+            reopen_provider_surface
+        ),
+        shardloom_admission_policy: "scoped_local_vortex_ingest_source_sink_split_prepare_once"
+            .to_string(),
+        source_surface: input.preparation_spine.source_surface.to_string(),
+        sink_surface: "workspace_safe_local_vortex_file_sink".to_string(),
+        split_surface: input.preparation_spine.split_surface.to_string(),
+        split_ref_status: "reported_by_cli_source_state_boundary".to_string(),
+        split_count: input.preparation_spine.split_count,
+        projection_mask_status: input.preparation_spine.projection_mask_status.to_string(),
+        filter_mask_status: input.preparation_spine.filter_mask_status.to_string(),
+        write_provider_surface: "VortexSession::write_options().write(ArrayStream)".to_string(),
+        reopen_provider_surface: reopen_provider_surface.to_string(),
+        materialization_boundary_status: input
+            .preparation_spine
+            .materialization_boundary_status
+            .to_string(),
+        decode_boundary_status: input.preparation_spine.decode_boundary_status.to_string(),
+        native_io_certificate_status: native_io_certificate_status.to_string(),
+        native_io_certificate_refs: native_io_certificate_refs.to_string(),
+        claim_gate_status: "not_claim_grade".to_string(),
+        claim_boundary: format!(
+            "Scoped local Vortex preparation spine only: provider/admission/split/write/reopen evidence for flat local SourceState to VortexPreparedState; reopen_verification_status={reopen_verification_status}; no object-store, table, distributed, broad writer, encoded-operator, performance, production, or Spark-replacement claim"
+        ),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    }
 }
 
 #[cfg(feature = "vortex-write")]
@@ -1342,6 +1677,30 @@ mod tests {
         assert_eq!(report.array_build_input_layout, "materialized_rows");
         assert_eq!(report.array_build_record_batch_count, 0);
         assert!(!report.manual_scalar_copy_avoided);
+        assert_eq!(
+            report.preparation_spine.schema_version,
+            VORTEX_PREPARATION_SPINE_SCHEMA_VERSION
+        );
+        assert_eq!(
+            report.preparation_spine.status,
+            "admitted_local_preparation_spine"
+        );
+        assert_eq!(
+            report.preparation_spine.vortex_first_decision,
+            "implement_shardloom_kernel"
+        );
+        assert_eq!(report.preparation_spine.provider_kind, "shardloom_kernel");
+        assert_eq!(
+            report.preparation_spine.source_surface,
+            "local_text_source_state_scalar_rows"
+        );
+        assert_eq!(report.preparation_spine.split_count, 1);
+        assert_eq!(
+            report.preparation_spine.native_io_certificate_status,
+            "certified_local_vortex_preparation_spine"
+        );
+        assert!(!report.preparation_spine.fallback_attempted);
+        assert!(!report.preparation_spine.external_engine_invoked);
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }
@@ -1376,6 +1735,14 @@ mod tests {
         assert_eq!(report.certification_level, "ingest_minimal");
         assert!(report.upstream_vortex_write_called);
         assert!(!report.upstream_vortex_scan_called);
+        assert_eq!(
+            report.preparation_spine.native_io_certificate_status,
+            "minimal_local_vortex_preparation_spine_digest_only"
+        );
+        assert_eq!(
+            report.preparation_spine.reopen_provider_surface,
+            "not_invoked_ingest_minimal"
+        );
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }
@@ -1454,6 +1821,32 @@ mod tests {
         );
         assert_eq!(report.array_build_record_batch_count, 1);
         assert!(report.manual_scalar_copy_avoided);
+        assert_eq!(
+            report.preparation_spine.vortex_first_decision,
+            "use_vortex_native_provider"
+        );
+        assert_eq!(
+            report.preparation_spine.provider_kind,
+            "vortex_array_kernel"
+        );
+        assert_eq!(report.preparation_spine.provider_crate, "vortex");
+        assert_eq!(
+            report.preparation_spine.provider_version,
+            VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION
+        );
+        assert_eq!(
+            report.preparation_spine.source_surface,
+            "local_columnar_source_state_arrow_record_batches"
+        );
+        assert_eq!(report.preparation_spine.split_count, 1);
+        assert_eq!(
+            report.preparation_spine.materialization_boundary_status,
+            "columnar_source_state_preserved_to_vortex_array_provider"
+        );
+        assert_eq!(
+            report.preparation_spine.decode_boundary_status,
+            "no_scalar_row_decode_for_non_empty_batches"
+        );
         assert!(path.exists());
         std::fs::remove_file(path).expect("remove artifact");
     }

@@ -331,6 +331,73 @@ class PreparedVortexArtifacts:
         )
 
     @property
+    def vortex_preparation_spine_status(self) -> str | None:
+        """Return the local Vortex preparation-spine status, when emitted."""
+
+        return self.prepare.field("vortex_preparation_spine_status") or self.prepare.field(
+            "prepare_batch_vortex_preparation_spine_status"
+        )
+
+    @property
+    def vortex_preparation_spine_vortex_first_decision(self) -> str | None:
+        """Return the Vortex-first provider decision for preparation."""
+
+        return self.prepare.field(
+            "vortex_preparation_spine_vortex_first_decision"
+        ) or self.prepare.field(
+            "prepare_batch_vortex_preparation_spine_vortex_first_decision"
+        )
+
+    @property
+    def vortex_preparation_spine_provider_kind(self) -> str | None:
+        """Return the admitted preparation-spine provider kind."""
+
+        return self.prepare.field(
+            "vortex_preparation_spine_provider_kind"
+        ) or self.prepare.field("prepare_batch_vortex_preparation_spine_provider_kind")
+
+    @property
+    def vortex_preparation_spine_provider_api_surface(self) -> str | None:
+        """Return the provider API surface checked for preparation."""
+
+        return self.prepare.field(
+            "vortex_preparation_spine_provider_api_surface"
+        ) or self.prepare.field(
+            "prepare_batch_vortex_preparation_spine_provider_api_surface"
+        )
+
+    @property
+    def vortex_preparation_spine_source_split_count(self) -> int:
+        """Return the number of source splits recorded by the preparation spine."""
+
+        return (
+            self.prepare.field_int("vortex_preparation_spine_source_split_count")
+            or self.prepare.field_int(
+                "prepare_batch_vortex_preparation_spine_source_split_count"
+            )
+            or 0
+        )
+
+    @property
+    def vortex_preparation_spine_source_split_refs(self) -> tuple[str, ...]:
+        """Return source split refs recorded by the preparation spine."""
+
+        value = self.prepare.field(
+            "vortex_preparation_spine_source_split_refs"
+        ) or self.prepare.field("prepare_batch_vortex_preparation_spine_source_split_refs")
+        return () if value in {None, "", "none"} else tuple(value.split(";"))
+
+    @property
+    def vortex_preparation_spine_native_io_certificate_status(self) -> str | None:
+        """Return the Native I/O certificate posture for the preparation spine."""
+
+        return self.prepare.field(
+            "vortex_preparation_spine_native_io_certificate_status"
+        ) or self.prepare.field(
+            "prepare_batch_vortex_preparation_spine_native_io_certificate_status"
+        )
+
+    @property
     def cleanup_policy(self) -> str:
         """Return the caller-visible cleanup policy for prepared artifacts."""
 
@@ -694,6 +761,67 @@ class VortexIngestSmokeReport:
                 "vortex_array_build_manual_scalar_copy_avoided", False
             )
             is True
+        )
+
+    @property
+    def vortex_preparation_spine_status(self) -> str | None:
+        """Return the local Vortex preparation-spine status."""
+
+        return self.envelope.field("vortex_preparation_spine_status")
+
+    @property
+    def vortex_preparation_spine_vortex_first_decision(self) -> str | None:
+        """Return the Vortex-first provider decision for preparation."""
+
+        return self.envelope.field("vortex_preparation_spine_vortex_first_decision")
+
+    @property
+    def vortex_preparation_spine_provider_kind(self) -> str | None:
+        """Return the admitted preparation-spine provider kind."""
+
+        return self.envelope.field("vortex_preparation_spine_provider_kind")
+
+    @property
+    def vortex_preparation_spine_provider_api_surface(self) -> str | None:
+        """Return the provider API surface checked for preparation."""
+
+        return self.envelope.field("vortex_preparation_spine_provider_api_surface")
+
+    @property
+    def vortex_preparation_spine_source_split_count(self) -> int:
+        """Return the number of source splits recorded by the preparation spine."""
+
+        return self.envelope.field_int(
+            "vortex_preparation_spine_source_split_count", 0
+        ) or 0
+
+    @property
+    def vortex_preparation_spine_source_split_refs(self) -> tuple[str, ...]:
+        """Return source split refs recorded by the preparation spine."""
+
+        value = self.envelope.field("vortex_preparation_spine_source_split_refs")
+        return () if value in {None, "", "none"} else tuple(value.split(";"))
+
+    @property
+    def vortex_preparation_spine_source_byte_range_refs(self) -> tuple[str, ...]:
+        """Return source byte-range refs recorded by the preparation spine."""
+
+        value = self.envelope.field("vortex_preparation_spine_source_byte_range_refs")
+        return () if value in {None, "", "none"} else tuple(value.split(";"))
+
+    @property
+    def vortex_preparation_spine_source_row_range_refs(self) -> tuple[str, ...]:
+        """Return source row-range refs recorded by the preparation spine."""
+
+        value = self.envelope.field("vortex_preparation_spine_source_row_range_refs")
+        return () if value in {None, "", "none"} else tuple(value.split(";"))
+
+    @property
+    def vortex_preparation_spine_native_io_certificate_status(self) -> str | None:
+        """Return the Native I/O certificate posture for the preparation spine."""
+
+        return self.envelope.field(
+            "vortex_preparation_spine_native_io_certificate_status"
         )
 
     @property

@@ -9,6 +9,8 @@ const dataRoot = path.join(root, "src", "data");
 const docsRoot = path.join(root, "src", "content", "docs");
 const useCaseRoot = path.join(root, "src", "content", "use-cases");
 const statusRoot = path.join(root, "src", "content", "status");
+const legacyWebsiteDataRoot = path.join(repoRoot, "website", "assets", "data");
+const legacyWebsiteBenchmarkRoot = path.join(repoRoot, "website", "assets", "benchmarks", "latest");
 const publicDataRoot = path.join(repoRoot, "website-public", "assets", "data");
 const publicBenchmarkRoot = path.join(repoRoot, "website-public", "assets", "benchmarks", "latest");
 
@@ -38,6 +40,7 @@ function syncSourceOfTruthData() {
     path.join(repoRoot, "docs", "architecture", "compute-engine-flow-reference.md"),
     "utf8",
   );
+  write(path.join(legacyWebsiteDataRoot, "compute-engine-flow-reference.md"), canonicalFlow);
   write(path.join(publicDataRoot, "compute-engine-flow-reference.md"), canonicalFlow);
 
   const runsTodayMatrix = fs.readFileSync(
@@ -45,6 +48,7 @@ function syncSourceOfTruthData() {
     "utf8",
   );
   write(path.join(dataRoot, "runs-today-support-matrix.json"), runsTodayMatrix);
+  write(path.join(legacyWebsiteDataRoot, "runs-today-support-matrix.json"), runsTodayMatrix);
   write(path.join(publicDataRoot, "runs-today-support-matrix.json"), runsTodayMatrix);
 
   const useCaseYaml = fs.readFileSync(
@@ -54,6 +58,7 @@ function syncSourceOfTruthData() {
   const useCaseIndex = parseYaml(useCaseYaml);
   const useCaseJson = JSON.stringify(useCaseIndex, null, 2) + "\n";
   write(path.join(dataRoot, "use-case-index.json"), useCaseJson);
+  write(path.join(legacyWebsiteDataRoot, "use-case-index.json"), useCaseJson);
   write(path.join(publicDataRoot, "use-case-index.json"), useCaseJson);
 
   const benchmarkEvidence = fs.readFileSync(
@@ -61,6 +66,8 @@ function syncSourceOfTruthData() {
     "utf8",
   );
   write(path.join(dataRoot, "benchmark-evidence.json"), benchmarkEvidence);
+  write(path.join(legacyWebsiteDataRoot, "benchmark-evidence.json"), benchmarkEvidence);
+  write(path.join(legacyWebsiteBenchmarkRoot, "benchmark-results.json"), benchmarkEvidence);
   write(path.join(publicDataRoot, "benchmark-evidence.json"), benchmarkEvidence);
 
   const benchmarkManifest = fs.readFileSync(
@@ -68,6 +75,7 @@ function syncSourceOfTruthData() {
     "utf8",
   );
   write(path.join(dataRoot, "benchmark-manifest.json"), benchmarkManifest);
+  write(path.join(legacyWebsiteBenchmarkRoot, "manifest.json"), benchmarkManifest);
 }
 
 function yamlStringList(values) {

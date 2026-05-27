@@ -186,11 +186,18 @@ full certified cold ingest, preparation-only work, warm prepared query work, res
 overhead, evidence-render overhead, or process/harness overhead before any publication or claim gate
 can interpret it.
 
-Planned `GAR-IOREUSE-1I` adds the Vortex-native preparation spine. Each implementation must check
-upstream Vortex array/file I/O/Scan/Source/Sink/Split/layout concepts first and then classify the
-decision as a native provider, wrapper, ShardLoom kernel, baseline/oracle, or blocked. The
-preparation path must report provider kind/version/API surface, source split refs, write/reopen
-verification, materialization/decode boundaries, Native I/O certificates, and no-fallback fields.
+`GAR-IOREUSE-1I` adds the first local Vortex-native preparation spine. The existing
+`vortex_ingest` route now emits `vortex_preparation_spine_*` evidence through the same
+SourceState -> VortexPreparedState path instead of a standalone lane. Each row records the
+Vortex-first decision (`use_vortex_native_provider`, `implement_shardloom_kernel`, or blocked),
+provider crate/version/API surface, feature gate, admission policy, source/sink/split surfaces,
+source split refs, whole-local-file byte ranges, row ranges, Vortex write/reopen provider surfaces,
+prepared-artifact segment refs, materialization/decode posture, Native I/O certificate status,
+claim boundary, and no-fallback fields. Non-empty Parquet/Arrow IPC/Avro/ORC SourceState batches
+use upstream Vortex `ArrayRef::from_arrow(RecordBatch)` as the admitted array provider before the
+Vortex writer/reopen boundary. Local CSV/JSON/JSONL rows use the ShardLoom scalar struct builder
+for array construction and then the same Vortex write/reopen spine. Unsupported source/sink/split
+shapes still fail closed before any external engine or Vortex query-engine integration is invoked.
 
 Planned `GAR-IOREUSE-1J` adds differential preparation. A future delta-only path must carry:
 

@@ -91,6 +91,7 @@
     "sql_parser_tests",
     "python_query_builder_tests",
     "vortex_ingest_evidence_fields",
+    "vortex_preparation_spine_evidence_fields",
     "generated_source_runtime_tests",
     "generated_source_certificate_contract",
     "sqlite_local_runtime_snapshots",
@@ -206,7 +207,8 @@
       "feature_gate": "vortex-write",
       "evidence_refs": [
         "sql_local_source_runtime_smoke",
-        "vortex_ingest_evidence_fields"
+        "vortex_ingest_evidence_fields",
+        "vortex_preparation_spine_evidence_fields"
       ],
       "blocker_id": "feature.vortex_write_required_for_default_build",
       "claim_gate_status": "fixture_smoke_only",
@@ -540,6 +542,7 @@
       "evidence_refs": [
         "feature_gated_sql_local_source_tests",
         "vortex_ingest_smoke_structured_adapter_tests",
+        "vortex_preparation_spine_evidence_fields",
         "traditional_direct_transient_structured_tests",
         "universal_ingress_route_taxonomy"
       ],
