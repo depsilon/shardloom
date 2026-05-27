@@ -541,11 +541,13 @@ pub use universal_format_io::{
     read_flat_parquet_source_with_projection,
 };
 pub use vortex_ingest::{
-    VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION, VORTEX_PREPARATION_SPINE_SCHEMA_VERSION,
-    VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION, VortexDifferentialPreparationInput,
-    VortexDifferentialPreparationReport, VortexDifferentialUpdateMode,
-    VortexIngestCertificationLevel, VortexPreparationSpineReport, VortexPreparedStateWriteReport,
-    VortexPreparedStateWriteRequest, evaluate_vortex_differential_preparation,
+    VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION, VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION,
+    VORTEX_PREPARATION_SPINE_SCHEMA_VERSION, VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION,
+    VortexCapillaryPreparationInput, VortexCapillaryPreparationReport,
+    VortexDifferentialPreparationInput, VortexDifferentialPreparationReport,
+    VortexDifferentialUpdateMode, VortexIngestCertificationLevel, VortexPreparationSpineReport,
+    VortexPreparedStateWriteReport, VortexPreparedStateWriteRequest,
+    evaluate_vortex_capillary_preparation, evaluate_vortex_differential_preparation,
     vortex_ingest_write_feature_enabled, write_flat_scalar_vortex_prepared_state,
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]

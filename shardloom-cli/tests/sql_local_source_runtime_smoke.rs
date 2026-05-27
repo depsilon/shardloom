@@ -351,6 +351,34 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
         "vortex_preparation_spine_no_standalone_lane_status",
         "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
     )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_schema_version",
+        "shardloom.vortex_capillary_preparation.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_status",
+        "applied_capillary_pulseweave_control"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_task_roles",
+        "source_split_discovery,read_chunk,columnarize_encode,vortex_segment_write,reopen_verify,sink_evidence"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_native_io_certificate_status",
+        "certified"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_pulseweave_status",
+        "applied"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_pulseweave_runtime_decision_applied",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_no_standalone_lane_status",
+        "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+    )));
     assert!(stdout.contains(&field("input_row_count", "2")));
     assert!(stdout.contains(&field("source_columns", "id,label,amount,active")));
     assert!(stdout.contains(&field(
@@ -709,6 +737,18 @@ fn vortex_ingest_smoke_minimal_certification_skips_reopen_scan() {
     assert!(stdout.contains(&field(
         "native_io_certificate_status",
         "minimal_local_vortex_ingest_digest_only"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_status",
+        "report_only_blocked_missing_native_io_certificate"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_pulseweave_status",
+        "blocked"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_capillary_preparation_pulseweave_runtime_decision_applied",
+        "false"
     )));
     assert!(stdout.contains(&field("claim_gate_status", "not_claim_grade")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));

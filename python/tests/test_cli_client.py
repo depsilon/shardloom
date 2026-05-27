@@ -2059,6 +2059,15 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "vortex_preparation_spine_source_byte_range_refs", "value": "source-state://abc:split=1:bytes=0..64"},
                         {"key": "vortex_preparation_spine_source_row_range_refs", "value": "source-state://abc:split=1:rows=0..2"},
                         {"key": "vortex_preparation_spine_native_io_certificate_status", "value": "certified_local_vortex_preparation_spine"},
+                        {"key": "vortex_capillary_preparation_status", "value": "applied_capillary_pulseweave_control"},
+                        {"key": "vortex_capillary_preparation_task_count", "value": "6"},
+                        {"key": "vortex_capillary_preparation_task_roles", "value": "source_split_discovery,read_chunk,columnarize_encode,vortex_segment_write,reopen_verify,sink_evidence"},
+                        {"key": "vortex_capillary_preparation_native_io_certificate_status", "value": "certified"},
+                        {"key": "vortex_capillary_preparation_pulseweave_status", "value": "applied"},
+                        {"key": "vortex_capillary_preparation_pulseweave_runtime_decision_applied", "value": "true"},
+                        {"key": "vortex_capillary_preparation_pulseweave_decision_digest", "value": "fnv64:pulse"},
+                        {"key": "vortex_capillary_preparation_proofbound_claim_allowed", "value": "true"},
+                        {"key": "vortex_capillary_preparation_no_standalone_lane_status", "value": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"},
                         {"key": "source_io_performed", "value": "true"},
                         {"key": "prepared_state_created", "value": "true"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
@@ -2161,6 +2170,42 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertEqual(
             result.vortex_preparation_spine_native_io_certificate_status,
             "certified_local_vortex_preparation_spine",
+        )
+        self.assertEqual(
+            result.vortex_capillary_preparation_status,
+            "applied_capillary_pulseweave_control",
+        )
+        self.assertEqual(result.vortex_capillary_preparation_task_count, 6)
+        self.assertEqual(
+            result.vortex_capillary_preparation_task_roles,
+            (
+                "source_split_discovery",
+                "read_chunk",
+                "columnarize_encode",
+                "vortex_segment_write",
+                "reopen_verify",
+                "sink_evidence",
+            ),
+        )
+        self.assertEqual(
+            result.vortex_capillary_preparation_native_io_certificate_status,
+            "certified",
+        )
+        self.assertEqual(
+            result.vortex_capillary_preparation_pulseweave_status,
+            "applied",
+        )
+        self.assertTrue(
+            result.vortex_capillary_preparation_pulseweave_runtime_decision_applied
+        )
+        self.assertEqual(
+            result.vortex_capillary_preparation_pulseweave_decision_digest,
+            "fnv64:pulse",
+        )
+        self.assertTrue(result.vortex_capillary_preparation_proofbound_claim_allowed)
+        self.assertEqual(
+            result.vortex_capillary_preparation_no_standalone_lane_status,
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state",
         )
         self.assertTrue(result.source_io_performed)
         self.assertTrue(result.prepared_state_created)

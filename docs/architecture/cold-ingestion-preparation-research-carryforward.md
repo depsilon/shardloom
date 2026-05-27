@@ -136,6 +136,10 @@ The detailed execution queue is intentionally split:
 - `GAR-PERF-2J`: cold-lane Vortex layout/write advisor.
 - `GAR-PERF-2K`: cold-lane allocation, copy-budget, and buffer lifecycle.
 
+`GAR-IOREUSE-1H` through `GAR-IOREUSE-1K` now have implemented evidence surfaces in the local
+`vortex_ingest` path. `GAR-IOREUSE-1L`, `GAR-PERF-2J`, and `GAR-PERF-2K` remain the next
+cold-lane follow-ups before refreshing benchmark measurements for the whole section.
+
 ## Claim Boundary
 
 These concepts are architecture and implementation direction only. They cannot support public

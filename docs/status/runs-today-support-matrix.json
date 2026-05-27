@@ -93,6 +93,7 @@
     "vortex_ingest_evidence_fields",
     "vortex_preparation_spine_evidence_fields",
     "vortex_differential_preparation_evidence_fields",
+    "vortex_capillary_preparation_evidence_fields",
     "generated_source_runtime_tests",
     "generated_source_certificate_contract",
     "sqlite_local_runtime_snapshots",
@@ -210,11 +211,12 @@
         "sql_local_source_runtime_smoke",
         "vortex_ingest_evidence_fields",
         "vortex_preparation_spine_evidence_fields",
-        "vortex_differential_preparation_evidence_fields"
+        "vortex_differential_preparation_evidence_fields",
+        "vortex_capillary_preparation_evidence_fields"
       ],
       "blocker_id": "feature.vortex_write_required_for_default_build",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "local compatibility ingest to Vortex artifact and scoped append-only differential overlay only when feature enabled; no table/object-store/CDC transaction claim",
+      "claim_boundary": "local compatibility ingest to Vortex artifact, scoped append-only differential overlay, and capillary cold-preparation evidence only when feature enabled; no standalone capillary lane, table/object-store/CDC transaction, or performance claim",
       "runtime_execution": true,
       "data_read": true,
       "write_io": true,
@@ -546,6 +548,7 @@
         "vortex_ingest_smoke_structured_adapter_tests",
         "vortex_preparation_spine_evidence_fields",
         "vortex_differential_preparation_evidence_fields",
+        "vortex_capillary_preparation_evidence_fields",
         "traditional_direct_transient_structured_tests",
         "universal_ingress_route_taxonomy"
       ],

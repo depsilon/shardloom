@@ -16,6 +16,65 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-IOREUSE-1K capillary I/O and PulseWeave cold-lane control
+  - Date: 2026-05-27
+  - Branch/PR: `ioreuse-1k-capillary-pulseweave` / PR pending.
+  - Source:
+    - `GAR-IOREUSE-1K capillary I/O and PulseWeave cold-lane control`.
+    - Novel cold-lane research carry-forward,
+      `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
+      `docs/architecture/io-reuse-and-fanout-architecture.md`,
+      `docs/architecture/pulseweave-runtime-control.md`, and RFC 0042.
+  - Scope:
+    - Added `shardloom.vortex_capillary_preparation.v1` evidence to the existing
+      `vortex_ingest` / `vortex-ingest-smoke` SourceState -> VortexPreparedState route instead of
+      adding a standalone capillary lane.
+    - Broke local cold preparation into replay-stable capillary task evidence for
+      `source_split_discovery`, `read_chunk`, `columnarize_encode`, `vortex_segment_write`,
+      `reopen_verify`, and `sink_evidence`.
+    - Wired the capillary task graph into PulseWeave as route
+      `vortex_ingest_cold_preparation` with application scope
+      `vortex_cold_preparation_local_capillary_io`, so FlowInventory, ScarcityLedger, EndoPulse,
+      and ProofBound can apply only when task, correctness, output, execution-certificate,
+      Native I/O, and no-fallback evidence are complete.
+    - Emitted task manifest ID/digest, task roles/IDs, source split refs, read byte ranges, row
+      ranges, projection/filter posture, Vortex segment refs, writer sink refs, memory budget,
+      peak memory, memory/sink pressure, retry/idempotency, materialization/decode posture,
+      execution and Native I/O certificates, correctness refs, prefixed PulseWeave fields,
+      no-standalone-lane status, and no-fallback fields.
+    - Added CLI report wiring, Python typed accessors, focused Rust/Python tests, benchmark
+      harness schema/rendering/promotion support, source-of-truth docs, support matrix, and
+      use-case index coverage for capillary preparation evidence fields.
+    - Kept public benchmark measurement refresh deferred until the remaining cold/preparation
+      items that can affect benchmark data are complete; this PR updates the contract and
+      publication schema, not the promoted benchmark result data.
+  - Applied/report-only policy status:
+    - Applied: `applied_capillary_pulseweave_control` when ProofBound admits the certified local
+      capillary task graph and Native I/O certificate status is `certified`.
+    - Report-only blocked: `report_only_blocked_missing_native_io_certificate` when the local task
+      graph is visible but Native I/O proof is incomplete.
+    - Blocked/report-only: `blocked_missing_capillary_task_manifest` for missing task/split
+      evidence and `report_only_blocked_pulseweave_control` when PulseWeave policy does not apply.
+  - Blocked source/sink classes:
+    - Feature-gated/default-build Vortex writer gaps block before capillary execution.
+    - Missing source split refs or empty capillary manifests block with no fallback.
+    - Missing Native I/O certificates keep the capillary graph report-only.
+    - Object-store sources/sinks, distributed task scheduling, background daemons, broad parallel
+      performance claims, production SQL/DataFrame runtime, and real query-data spill remain out of
+      scope.
+  - Claim boundary:
+    - This is scoped local capillary cold-preparation evidence only. It does not claim
+      object-store runtime, distributed execution, production readiness, broad parallel speedup,
+      SQL/DataFrame parity, Spark displacement, or claim-grade benchmark superiority.
+    - All capillary work remains inside the Vortex preparation path; no external engine may read,
+      repair, schedule, or write capillary tasks as ShardLoom runtime work.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-exec pulseweave --lib`
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-write,universal-format-io vortex_ingest --lib`
+    - `cargo +1.91.1 test -p shardloom-cli --features vortex-write,universal-format-io --test sql_local_source_runtime_smoke vortex_ingest_smoke`
+    - `python -m unittest python.tests.test_cli_client.ShardLoomClientTests.test_vortex_ingest_smoke_helper_dispatches_prepare_once_route`
+    - `python -m compileall -q benchmarks\traditional_analytics scripts python\src python\tests`
+
 - [x] Session label: GAR-IOREUSE-1J differential preparation and prepared-state delta overlays
   - Date: 2026-05-27
   - Branch/PR: `ioreuse-1j-differential-prep` / PR #972.

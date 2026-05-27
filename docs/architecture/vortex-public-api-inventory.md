@@ -67,6 +67,14 @@ phase note. They are not active queue state and do not override `phased-executio
   correctness digest, replay verification, Native I/O certificate refs, and no-fallback fields.
   Update/delete/upsert and schema-mismatch overlays remain blocked before prepared-state reuse; no
   Vortex query-engine integration or external engine is used to repair or merge deltas.
+- Capillary cold-preparation admission: the same `vortex_ingest` route now emits
+  `vortex_capillary_preparation_*` evidence for source split discovery, read chunk,
+  columnarize/encode, Vortex segment write, reopen verification, and sink evidence tasks. The
+  report links task manifests, source split/byte/row ranges, Vortex segment refs, writer sink refs,
+  execution and Native I/O certificates, correctness refs, no-fallback fields, and prefixed
+  PulseWeave FlowInventory/ScarcityLedger/EndoPulse/ProofBound decisions. This wraps the existing
+  local Vortex writer/reopen provider surfaces; it does not admit a standalone capillary lane,
+  object-store source/sink runtime, distributed scheduling, or performance claim.
 - Segment extraction admission framing: `vortex-api-inventory` now exposes
   `shardloom.vortex_segment_extraction_admission.v1` for the `sparse_patch_fill` layout family.
   The report records the Vortex sparse layout concepts checked and keeps sparse segment extraction

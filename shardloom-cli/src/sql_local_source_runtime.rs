@@ -1960,6 +1960,7 @@ struct VortexIngestReport {
     prepare_once_total_millis: u128,
     evidence_render_millis: u128,
     vortex_report: shardloom_vortex::VortexPreparedStateWriteReport,
+    capillary_preparation: shardloom_vortex::VortexCapillaryPreparationReport,
     differential_preparation: Option<shardloom_vortex::VortexDifferentialPreparationReport>,
 }
 
@@ -2441,6 +2442,99 @@ fn differential_preparation_report(
     )
 }
 
+fn capillary_preparation_report(
+    source: &VortexIngestSourceData,
+    vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
+    source_state_id: &str,
+    source_state_digest: &str,
+    prepared_state_id: &str,
+    prepared_state_digest: &str,
+) -> Result<shardloom_vortex::VortexCapillaryPreparationReport, ShardLoomError> {
+    let native_io_certificate_status =
+        if vortex_report.preparation_spine.native_io_certificate_status
+            == "certified_local_vortex_preparation_spine"
+        {
+            "certified"
+        } else {
+            "missing"
+        };
+    let prepared_artifact_segment_refs = prepared_artifact_segment_refs_for(
+        prepared_state_id,
+        vortex_report.row_count,
+        &vortex_report.artifact_digest,
+    );
+    let correctness_digest = fnv64_digest(&format!(
+        "vortex_capillary_preparation|{}|{}|{}|{}|{}",
+        source_state_digest,
+        prepared_state_digest,
+        vortex_report.writer_row_count,
+        vortex_report.reopen_row_count,
+        vortex_report.reopen_verification_status
+    ));
+    shardloom_vortex::evaluate_vortex_capillary_preparation(
+        shardloom_vortex::VortexCapillaryPreparationInput {
+            source_state_id: source_state_id.to_string(),
+            source_state_digest: source_state_digest.to_string(),
+            prepared_state_id: prepared_state_id.to_string(),
+            prepared_state_digest: prepared_state_digest.to_string(),
+            source_surface: vortex_report.preparation_spine.source_surface.clone(),
+            sink_surface: vortex_report.preparation_spine.sink_surface.clone(),
+            row_count: vortex_report.row_count,
+            source_byte_count: source.source_bytes,
+            column_count: source.header.len(),
+            source_split_refs: source.preparation_spine_source_split_refs(source_state_id),
+            source_byte_range_refs: source
+                .preparation_spine_source_byte_range_refs(source_state_id),
+            source_row_range_refs: source.preparation_spine_source_row_range_refs(source_state_id),
+            projection_mask: source.materialized_columns_field(),
+            filter_mask_status: "none".to_string(),
+            prepared_artifact_ref: vortex_report.target_path.display().to_string(),
+            prepared_artifact_digest: vortex_report.artifact_digest.clone(),
+            prepared_artifact_segment_refs,
+            writer_sink_refs: vortex_report.target_path.display().to_string(),
+            materialization_boundary_status: vortex_report
+                .preparation_spine
+                .materialization_boundary_status
+                .clone(),
+            decode_boundary_status: vortex_report
+                .preparation_spine
+                .decode_boundary_status
+                .clone(),
+            native_io_certificate_status: native_io_certificate_status.to_string(),
+            native_io_certificate_refs: vortex_report
+                .preparation_spine
+                .native_io_certificate_refs
+                .clone(),
+            correctness_digest,
+            memory_budget_bytes: capillary_memory_budget_bytes(source, vortex_report),
+            max_parallelism: 2,
+            result_sink_requested: false,
+            result_sink_replay_verified: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+    )
+}
+
+fn capillary_memory_budget_bytes(
+    source: &VortexIngestSourceData,
+    vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
+) -> u64 {
+    let observed_bytes = source
+        .source_bytes
+        .saturating_add(vortex_report.bytes_written)
+        .max(1);
+    observed_bytes.saturating_mul(4).max(16 * 1024 * 1024)
+}
+
+fn prepared_artifact_segment_refs_for(
+    prepared_state_id: &str,
+    row_count: u64,
+    artifact_digest: &str,
+) -> String {
+    format!("{prepared_state_id}:rows=0..{row_count}:digest={artifact_digest}")
+}
+
 fn run_scalar_vortex_ingest_smoke(
     request: VortexIngestRequest,
 ) -> Result<VortexIngestReport, ShardLoomError> {
@@ -2473,6 +2567,14 @@ fn run_scalar_vortex_ingest_smoke(
         "vortex-prepared-state-{}",
         prepared_state_digest.replace(':', "-")
     );
+    let capillary_preparation = capillary_preparation_report(
+        &source,
+        &vortex_report,
+        &source_state_id,
+        &source_state_digest,
+        &prepared_state_id,
+        &prepared_state_digest,
+    )?;
     let evidence_render_millis = evidence_start.elapsed().as_millis();
 
     Ok(VortexIngestReport {
@@ -2486,6 +2588,7 @@ fn run_scalar_vortex_ingest_smoke(
         prepare_once_total_millis,
         evidence_render_millis,
         vortex_report,
+        capillary_preparation,
         differential_preparation: None,
     })
 }
@@ -2555,6 +2658,14 @@ fn run_columnar_vortex_ingest_smoke(
         "vortex-prepared-state-{}",
         prepared_state_digest.replace(':', "-")
     );
+    let capillary_preparation = capillary_preparation_report(
+        &source,
+        &vortex_report,
+        &source_state_id,
+        &source_state_digest,
+        &prepared_state_id,
+        &prepared_state_digest,
+    )?;
     let evidence_render_millis = evidence_start.elapsed().as_millis();
 
     Ok(VortexIngestReport {
@@ -2568,6 +2679,7 @@ fn run_columnar_vortex_ingest_smoke(
         prepare_once_total_millis,
         evidence_render_millis,
         vortex_report,
+        capillary_preparation,
         differential_preparation: None,
     })
 }
@@ -3135,6 +3247,7 @@ impl VortexIngestReport {
                 .workspace_write_report
                 .evidence_fields("vortex_ingest_output"),
         );
+        fields.extend(self.capillary_preparation.evidence_fields());
         if let Some(report) = &self.differential_preparation {
             fields.extend(report.evidence_fields());
         }
@@ -3144,16 +3257,18 @@ impl VortexIngestReport {
     fn summary(&self) -> String {
         if let Some(report) = &self.differential_preparation {
             return format!(
-                "vortex_ingest prepared {} base row(s) into {} and differential overlay status is {}",
+                "vortex_ingest prepared {} base row(s) into {} with capillary status {} and differential overlay status {}",
                 self.vortex_report.row_count,
                 self.request.target_path.display(),
+                self.capillary_preparation.status,
                 report.status
             );
         }
         format!(
-            "vortex_ingest prepared {} local row(s) into {}",
+            "vortex_ingest prepared {} local row(s) into {} with capillary status {}",
             self.vortex_report.row_count,
-            self.request.target_path.display()
+            self.request.target_path.display(),
+            self.capillary_preparation.status
         )
     }
 
@@ -3164,11 +3279,10 @@ impl VortexIngestReport {
     }
 
     fn prepared_artifact_segment_refs(&self) -> String {
-        format!(
-            "{}:rows=0..{}:digest={}",
-            self.prepared_state_id,
+        prepared_artifact_segment_refs_for(
+            &self.prepared_state_id,
             self.vortex_report.row_count,
-            self.vortex_report.artifact_digest
+            &self.vortex_report.artifact_digest,
         )
     }
 
@@ -3257,7 +3371,7 @@ impl VortexIngestReport {
 
     fn to_text(&self) -> String {
         let mut text = format!(
-            "ShardLoom vortex_ingest smoke\nsource: {}\ntarget: {}\nsource format: {}\nrows prepared: {}\ncolumns: {}\ncertification level: {}\nreopen verification: {}\nprepared state: {}\nfallback execution: disabled",
+            "ShardLoom vortex_ingest smoke\nsource: {}\ntarget: {}\nsource format: {}\nrows prepared: {}\ncolumns: {}\ncertification level: {}\nreopen verification: {}\nprepared state: {}\ncapillary preparation: {}\npulseweave: {}\nfallback execution: disabled",
             self.request.source_path.display(),
             self.request.target_path.display(),
             self.source.source_format.as_str(),
@@ -3265,7 +3379,9 @@ impl VortexIngestReport {
             self.source.header.join(","),
             self.vortex_report.certification_level,
             self.vortex_report.reopen_verification_status,
-            self.prepared_state_id
+            self.prepared_state_id,
+            self.capillary_preparation.status,
+            self.capillary_preparation.pulseweave_report.status
         );
         if let Some(report) = &self.differential_preparation {
             write!(
@@ -3283,7 +3399,7 @@ impl VortexIngestReport {
 }
 
 fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(String, String)> {
-    vec![
+    let mut fields = vec![
         (
             "schema_version".to_string(),
             VORTEX_INGEST_SCHEMA_VERSION.to_string(),
@@ -3327,6 +3443,33 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
             "vortex_ingest_blocker_id".to_string(),
             "vortex_ingest.requires_vortex_write_feature".to_string(),
         ),
+    ];
+    fields.extend(vortex_ingest_feature_blocked_spine_fields());
+    fields.extend(vortex_ingest_feature_blocked_capillary_fields());
+    fields.extend([
+        ("prepared_state_created".to_string(), "false".to_string()),
+        ("prepared_state_reused".to_string(), "false".to_string()),
+        ("prepared_state_reuse_hit".to_string(), "false".to_string()),
+        ("timing_scope".to_string(), "ingest_only".to_string()),
+        (
+            "claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+        ("fallback_attempted".to_string(), "false".to_string()),
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("external_engine_invoked".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("performance_claim_allowed".to_string(), "false".to_string()),
+        ("production_claim_allowed".to_string(), "false".to_string()),
+    ]);
+    fields
+}
+
+fn vortex_ingest_feature_blocked_spine_fields() -> Vec<(String, String)> {
+    vec![
         (
             "vortex_preparation_spine_schema_version".to_string(),
             shardloom_vortex::VORTEX_PREPARATION_SPINE_SCHEMA_VERSION.to_string(),
@@ -3363,23 +3506,31 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
             "vortex_preparation_spine_external_engine_invoked".to_string(),
             "false".to_string(),
         ),
-        ("prepared_state_created".to_string(), "false".to_string()),
-        ("prepared_state_reused".to_string(), "false".to_string()),
-        ("prepared_state_reuse_hit".to_string(), "false".to_string()),
-        ("timing_scope".to_string(), "ingest_only".to_string()),
+    ]
+}
+
+fn vortex_ingest_feature_blocked_capillary_fields() -> Vec<(String, String)> {
+    vec![
         (
-            "claim_gate_status".to_string(),
-            "not_claim_grade".to_string(),
+            "vortex_capillary_preparation_schema_version".to_string(),
+            shardloom_vortex::VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION.to_string(),
         ),
-        ("fallback_attempted".to_string(), "false".to_string()),
         (
-            "fallback_execution_allowed".to_string(),
+            "vortex_capillary_preparation_status".to_string(),
+            "blocked_feature_gate".to_string(),
+        ),
+        (
+            "vortex_capillary_preparation_no_standalone_lane_status".to_string(),
+            "blocked_before_vortex_ingest_source_state_to_vortex_prepared_state".to_string(),
+        ),
+        (
+            "vortex_capillary_preparation_fallback_attempted".to_string(),
             "false".to_string(),
         ),
-        ("external_engine_invoked".to_string(), "false".to_string()),
-        ("object_store_io".to_string(), "false".to_string()),
-        ("performance_claim_allowed".to_string(), "false".to_string()),
-        ("production_claim_allowed".to_string(), "false".to_string()),
+        (
+            "vortex_capillary_preparation_external_engine_invoked".to_string(),
+            "false".to_string(),
+        ),
     ]
 }
 

@@ -47,10 +47,14 @@ artifacts. Live object-store provider runtime, live/hybrid runtime, distributed 
 effectful adapters, real query-data spill, production readiness, and performance claims remain
 non-goals here.
 
-Cold ingestion/preparation application is planned separately under `GAR-IOREUSE-1K`. That slice
-must first expose source/sink capillary tasks, byte/row ranges, writer/reopen verification, memory
-and sink-pressure evidence, and ProofBound admission before PulseWeave can change cold-lane task
-shape. Until then, PulseWeave evidence must not be read as optimizing source read, parse, Vortex
+`GAR-IOREUSE-1K` extends PulseWeave to the local cold-preparation route, but only through the
+existing `vortex_ingest` SourceState -> VortexPreparedState path. The route now emits typed
+capillary task evidence for source split discovery, read chunks, columnarize/encode, Vortex segment
+write, reopen verification, and sink evidence. PulseWeave sees this task graph as
+`vortex_ingest_cold_preparation` / `vortex_cold_preparation_local_capillary_io` and applies only
+when ProofBound sees complete task, correctness, output, execution-certificate, Native I/O, and
+no-fallback evidence. Missing Native I/O proof leaves the route in report-only blocked status.
+This evidence still must not be read as a benchmark-backed speedup for source read, parse, Vortex
 write, reopen, or evidence-rendering cost.
 
 ## Invention-Disclosure Names

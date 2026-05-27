@@ -334,6 +334,14 @@ correctness digests, Native I/O certificate posture,
 `vortex_differential_preparation_claim_gate_status=not_claim_grade`. This distinguishes full cold
 prepare from scoped append-only differential overlay evidence without rerunning benchmark data yet
 or claiming broad CDC/table transaction support.
+`GAR-IOREUSE-1K` adds the VortexCapillaryPreparation contract to the benchmark harness. Future
+refreshed rows carry
+`vortex_capillary_preparation_schema_version=shardloom.traditional_analytics.vortex_capillary_preparation.v1`,
+task manifest IDs/digests, source split refs, read byte ranges, row ranges, Vortex segment refs,
+writer sink refs, memory/sink pressure posture, execution and Native I/O certificate status,
+prefixed PulseWeave/FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields, no-standalone-lane
+status, and no-fallback fields. This keeps cold-preparation capillaries inside `vortex_ingest` and
+does not rerun or republish benchmark measurements until the remaining cold-lane work lands.
 `GAR-IOREUSE-1C` adds a separate OutputPlan contract to the benchmark JSON/Markdown artifact with
 `output_plan_contract_schema_version=shardloom.traditional_analytics.output_plan.v1`,
 `output_plan_status_vocabulary`, `output_plan_status`, `output_plan_id`, `output_plan_digest`,

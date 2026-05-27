@@ -1094,6 +1094,84 @@ PULSEWEAVE_RUNTIME_INTEGER_FIELDS = (
     "endopulse_previous_wip_limit",
     "endopulse_next_wip_limit",
 )
+VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.vortex_capillary_preparation.v1"
+)
+VORTEX_CAPILLARY_PREPARATION_STATUS_VOCABULARY = (
+    "applied_capillary_pulseweave_control",
+    "report_only_blocked_missing_native_io_certificate",
+    "blocked_missing_capillary_task_manifest",
+    "report_only_blocked_pulseweave_control",
+    "not_requested",
+    "blocked",
+    "unsupported",
+    "report_only",
+    "external_baseline_only",
+)
+VORTEX_CAPILLARY_PREPARATION_PULSEWEAVE_FIELDS = tuple(
+    f"vortex_capillary_preparation_{field}"
+    for field in PULSEWEAVE_RUNTIME_EVIDENCE_FIELDS
+)
+VORTEX_CAPILLARY_PREPARATION_FIELDS = (
+    "vortex_capillary_preparation_schema_version",
+    "vortex_capillary_preparation_status",
+    "vortex_capillary_preparation_route",
+    "vortex_capillary_preparation_source_surface",
+    "vortex_capillary_preparation_sink_surface",
+    "vortex_capillary_preparation_source_state_id",
+    "vortex_capillary_preparation_source_state_digest",
+    "vortex_capillary_preparation_prepared_state_id",
+    "vortex_capillary_preparation_prepared_state_digest",
+    "vortex_capillary_preparation_task_manifest_id",
+    "vortex_capillary_preparation_task_manifest_digest",
+    "vortex_capillary_preparation_task_count",
+    "vortex_capillary_preparation_task_roles",
+    "vortex_capillary_preparation_task_ids",
+    "vortex_capillary_preparation_source_split_refs",
+    "vortex_capillary_preparation_read_chunk_byte_range_refs",
+    "vortex_capillary_preparation_row_range_refs",
+    "vortex_capillary_preparation_projection_mask",
+    "vortex_capillary_preparation_filter_mask_status",
+    "vortex_capillary_preparation_vortex_segment_refs",
+    "vortex_capillary_preparation_writer_sink_refs",
+    "vortex_capillary_preparation_memory_budget_bytes",
+    "vortex_capillary_preparation_max_parallelism",
+    "vortex_capillary_preparation_peak_memory_bytes",
+    "vortex_capillary_preparation_memory_pressure_status",
+    "vortex_capillary_preparation_sink_pressure_status",
+    "vortex_capillary_preparation_retry_idempotency_status",
+    "vortex_capillary_preparation_materialization_boundary_status",
+    "vortex_capillary_preparation_decode_boundary_status",
+    "vortex_capillary_preparation_native_io_certificate_status",
+    "vortex_capillary_preparation_native_io_certificate_refs",
+    "vortex_capillary_preparation_execution_certificate_id",
+    "vortex_capillary_preparation_execution_certificate_status",
+    "vortex_capillary_preparation_correctness_refs",
+    "vortex_capillary_preparation_no_standalone_lane_status",
+    "vortex_capillary_preparation_claim_gate_status",
+    "vortex_capillary_preparation_claim_boundary",
+    "vortex_capillary_preparation_fallback_attempted",
+    "vortex_capillary_preparation_external_engine_invoked",
+    *VORTEX_CAPILLARY_PREPARATION_PULSEWEAVE_FIELDS,
+)
+VORTEX_CAPILLARY_PREPARATION_BOOLEAN_FIELDS = (
+    "vortex_capillary_preparation_fallback_attempted",
+    "vortex_capillary_preparation_external_engine_invoked",
+    *(
+        f"vortex_capillary_preparation_{field}"
+        for field in PULSEWEAVE_RUNTIME_BOOLEAN_FIELDS
+    ),
+)
+VORTEX_CAPILLARY_PREPARATION_INTEGER_FIELDS = (
+    "vortex_capillary_preparation_task_count",
+    "vortex_capillary_preparation_memory_budget_bytes",
+    "vortex_capillary_preparation_max_parallelism",
+    "vortex_capillary_preparation_peak_memory_bytes",
+    *(
+        f"vortex_capillary_preparation_{field}"
+        for field in PULSEWEAVE_RUNTIME_INTEGER_FIELDS
+    ),
+)
 OPTIMIZER_TRACE_SCHEMA_VERSION = "shardloom.evidence_aware_optimizer_trace.v1"
 OPTIMIZER_TRACE_FIELDS = (
     "optimizer_trace_schema_version",
@@ -7669,6 +7747,231 @@ def vortex_differential_preparation_metadata(
     }
 
 
+def vortex_capillary_preparation_metadata(
+    engine: str,
+    status: str,
+    *,
+    metrics: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    observed_status = first_meaningful_field(
+        evidence.get("vortex_capillary_preparation_status"),
+        metrics.get("vortex_capillary_preparation_status"),
+    )
+    prepared_state_id = first_meaningful_field(
+        evidence.get("vortex_capillary_preparation_prepared_state_id"),
+        metrics.get("vortex_preparation_spine_prepared_state_id"),
+        metrics.get("prepared_state_id"),
+        "none",
+    )
+    prepared_state_digest = first_meaningful_field(
+        evidence.get("vortex_capillary_preparation_prepared_state_digest"),
+        metrics.get("vortex_preparation_spine_prepared_state_digest"),
+        metrics.get("prepared_state_digest"),
+        "none",
+    )
+    if not is_shardloom:
+        capillary_status = "external_baseline_only"
+    elif observed_status is not None:
+        capillary_status = str(observed_status)
+    elif status in UNSUPPORTED_ROW_STATUSES:
+        capillary_status = "unsupported"
+    elif shardloom_blocked_non_execution_status(status):
+        capillary_status = "blocked"
+    elif prepared_state_id != "none":
+        capillary_status = "report_only"
+    else:
+        capillary_status = "not_requested"
+
+    metadata: dict[str, Any] = {
+        "vortex_capillary_preparation_schema_version": (
+            VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION
+        ),
+        "vortex_capillary_preparation_status": capillary_status,
+        "vortex_capillary_preparation_route": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_route"),
+            "vortex_ingest_source_state_to_prepared_state"
+            if is_shardloom
+            else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_source_surface": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_source_surface"),
+            metrics.get("vortex_preparation_spine_source_surface"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_sink_surface": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_sink_surface"),
+            metrics.get("vortex_preparation_spine_sink_surface"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_source_state_id": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_source_state_id"),
+            metrics.get("source_state_id"),
+            "none",
+        ),
+        "vortex_capillary_preparation_source_state_digest": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_source_state_digest"),
+            metrics.get("source_state_digest"),
+            "none",
+        ),
+        "vortex_capillary_preparation_prepared_state_id": prepared_state_id,
+        "vortex_capillary_preparation_prepared_state_digest": prepared_state_digest,
+        "vortex_capillary_preparation_task_manifest_id": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_task_manifest_id"),
+            "none",
+        ),
+        "vortex_capillary_preparation_task_manifest_digest": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_task_manifest_digest"),
+            "none",
+        ),
+        "vortex_capillary_preparation_task_count": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_task_count")
+        )
+        or 0,
+        "vortex_capillary_preparation_task_roles": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_task_roles"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_task_ids": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_task_ids"),
+            "none",
+        ),
+        "vortex_capillary_preparation_source_split_refs": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_source_split_refs"),
+            metrics.get("vortex_preparation_spine_source_split_refs"),
+            "none",
+        ),
+        "vortex_capillary_preparation_read_chunk_byte_range_refs": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_read_chunk_byte_range_refs"),
+            metrics.get("vortex_preparation_spine_source_byte_range_refs"),
+            "none",
+        ),
+        "vortex_capillary_preparation_row_range_refs": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_row_range_refs"),
+            metrics.get("vortex_preparation_spine_source_row_range_refs"),
+            "none",
+        ),
+        "vortex_capillary_preparation_projection_mask": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_projection_mask"),
+            metrics.get("vortex_preparation_spine_projection_mask_status"),
+            "not_reported",
+        ),
+        "vortex_capillary_preparation_filter_mask_status": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_filter_mask_status"),
+            metrics.get("vortex_preparation_spine_filter_mask_status"),
+            "not_reported",
+        ),
+        "vortex_capillary_preparation_vortex_segment_refs": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_vortex_segment_refs"),
+            metrics.get("vortex_preparation_spine_prepared_artifact_segment_refs"),
+            "none",
+        ),
+        "vortex_capillary_preparation_writer_sink_refs": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_writer_sink_refs"),
+            metrics.get("vortex_preparation_spine_sink_ref"),
+            "none",
+        ),
+        "vortex_capillary_preparation_memory_budget_bytes": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_memory_budget_bytes")
+        )
+        or 0,
+        "vortex_capillary_preparation_max_parallelism": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_max_parallelism")
+        )
+        or 0,
+        "vortex_capillary_preparation_peak_memory_bytes": parse_optional_int(
+            evidence.get("vortex_capillary_preparation_peak_memory_bytes")
+        )
+        or 0,
+        "vortex_capillary_preparation_memory_pressure_status": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_memory_pressure_status"),
+            "not_reported",
+        ),
+        "vortex_capillary_preparation_sink_pressure_status": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_sink_pressure_status"),
+            "not_reported",
+        ),
+        "vortex_capillary_preparation_retry_idempotency_status": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_retry_idempotency_status"),
+            "not_reported",
+        ),
+        "vortex_capillary_preparation_materialization_boundary_status": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_materialization_boundary_status"),
+            metrics.get("vortex_preparation_spine_materialization_boundary_status"),
+            "not_reported",
+        ),
+        "vortex_capillary_preparation_decode_boundary_status": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_decode_boundary_status"),
+            metrics.get("vortex_preparation_spine_decode_boundary_status"),
+            "not_reported",
+        ),
+        "vortex_capillary_preparation_native_io_certificate_status": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_native_io_certificate_status"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_native_io_certificate_refs": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_native_io_certificate_refs"),
+            "none",
+        ),
+        "vortex_capillary_preparation_execution_certificate_id": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_execution_certificate_id"),
+            "none",
+        ),
+        "vortex_capillary_preparation_execution_certificate_status": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_execution_certificate_status"),
+            "not_reported" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_correctness_refs": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_correctness_refs"),
+            "none",
+        ),
+        "vortex_capillary_preparation_no_standalone_lane_status": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_no_standalone_lane_status"),
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+            if is_shardloom
+            else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_claim_gate_status": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_claim_gate_status"),
+            "not_claim_grade" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_capillary_preparation_claim_boundary": first_meaningful_field(
+            evidence.get("vortex_capillary_preparation_claim_boundary"),
+            "VortexCapillaryPreparation evidence covers scoped local source split, "
+            "read chunk, columnarize/encode, Vortex segment write, reopen verification, "
+            "sink evidence, and PulseWeave cold-lane control inside vortex_ingest only; "
+            "it is not object-store, distributed, broad parallel performance, production, "
+            "SQL/DataFrame, or Spark-replacement evidence"
+            if is_shardloom
+            else "external baselines provide comparison timing only and cannot satisfy "
+            "ShardLoom capillary-preparation evidence",
+        ),
+        "vortex_capillary_preparation_fallback_attempted": (
+            parse_optional_bool(
+                evidence.get("vortex_capillary_preparation_fallback_attempted")
+            )
+            is True
+        ),
+        "vortex_capillary_preparation_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get("vortex_capillary_preparation_external_engine_invoked")
+            )
+            is True
+        ),
+    }
+    for field in VORTEX_CAPILLARY_PREPARATION_PULSEWEAVE_FIELDS:
+        value = evidence.get(field, metrics.get(field))
+        if field in VORTEX_CAPILLARY_PREPARATION_BOOLEAN_FIELDS:
+            metadata[field] = parse_optional_bool(value) is True
+        elif field in VORTEX_CAPILLARY_PREPARATION_INTEGER_FIELDS:
+            metadata[field] = parse_optional_int(value) or 0
+        else:
+            metadata[field] = first_meaningful_field(value, "not_reported")
+    return metadata
+
+
 def output_plan_reuse_reason(
     engine: str,
     status: str,
@@ -11380,6 +11683,46 @@ def vortex_differential_preparation_contract() -> dict[str, Any]:
     }
 
 
+def vortex_capillary_preparation_contract() -> dict[str, Any]:
+    return {
+        "contract_id": VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": (
+            "docs/architecture/cold-ingestion-preparation-research-carryforward.md"
+        ),
+        "status_vocabulary": list(VORTEX_CAPILLARY_PREPARATION_STATUS_VOCABULARY),
+        "row_fields": list(VORTEX_CAPILLARY_PREPARATION_FIELDS),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexCapillaryPreparation -> "
+            "VortexPreparedState"
+        ),
+        "current_scope": (
+            "scoped local source split, read chunk, columnarize/encode, "
+            "Vortex segment write, reopen verification, sink evidence, "
+            "bounded memory/sink pressure posture, and PulseWeave cold-lane control"
+        ),
+        "non_goals": [
+            "standalone capillary benchmark lane",
+            "object-store split runtime",
+            "distributed task scheduling",
+            "background daemon or persistent cache",
+            "broad parallel performance claim",
+            "production SQL/DataFrame runtime",
+        ],
+        "no_fallback_rule": (
+            "Capillary-preparation rows must preserve "
+            "vortex_capillary_preparation_fallback_attempted=false and "
+            "vortex_capillary_preparation_external_engine_invoked=false for ShardLoom rows."
+        ),
+        "claim_boundary": (
+            "VortexCapillaryPreparation evidence is scoped local cold-preparation evidence only. "
+            "It links SourceState split/read tasks, local Vortex write/reopen proof, and "
+            "PulseWeave admission inside vortex_ingest without proving object-store, "
+            "distributed, production, performance, SQL/DataFrame, or Spark-replacement readiness."
+        ),
+    }
+
+
 def output_plan_contract() -> dict[str, Any]:
     return {
         "contract_id": OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION,
@@ -12019,6 +12362,83 @@ def vortex_differential_preparation_matrix(
                 ),
                 "vortex_differential_preparation_claim_boundary": metrics.get(
                     "vortex_differential_preparation_claim_boundary"
+                ),
+            }
+        )
+    return rows
+
+
+def vortex_capillary_preparation_matrix(
+    results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "vortex_capillary_preparation_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "vortex_capillary_preparation_status": metrics.get(
+                    "vortex_capillary_preparation_status"
+                ),
+                "vortex_capillary_preparation_task_count": metrics.get(
+                    "vortex_capillary_preparation_task_count"
+                ),
+                "vortex_capillary_preparation_task_roles": metrics.get(
+                    "vortex_capillary_preparation_task_roles"
+                ),
+                "vortex_capillary_preparation_source_split_refs": metrics.get(
+                    "vortex_capillary_preparation_source_split_refs"
+                ),
+                "vortex_capillary_preparation_read_chunk_byte_range_refs": metrics.get(
+                    "vortex_capillary_preparation_read_chunk_byte_range_refs"
+                ),
+                "vortex_capillary_preparation_row_range_refs": metrics.get(
+                    "vortex_capillary_preparation_row_range_refs"
+                ),
+                "vortex_capillary_preparation_vortex_segment_refs": metrics.get(
+                    "vortex_capillary_preparation_vortex_segment_refs"
+                ),
+                "vortex_capillary_preparation_memory_budget_bytes": metrics.get(
+                    "vortex_capillary_preparation_memory_budget_bytes"
+                ),
+                "vortex_capillary_preparation_peak_memory_bytes": metrics.get(
+                    "vortex_capillary_preparation_peak_memory_bytes"
+                ),
+                "vortex_capillary_preparation_native_io_certificate_status": metrics.get(
+                    "vortex_capillary_preparation_native_io_certificate_status"
+                ),
+                "vortex_capillary_preparation_execution_certificate_status": metrics.get(
+                    "vortex_capillary_preparation_execution_certificate_status"
+                ),
+                "vortex_capillary_preparation_pulseweave_status": metrics.get(
+                    "vortex_capillary_preparation_pulseweave_status"
+                ),
+                "vortex_capillary_preparation_pulseweave_runtime_decision_applied": metrics.get(
+                    "vortex_capillary_preparation_pulseweave_runtime_decision_applied"
+                ),
+                "vortex_capillary_preparation_proofbound_claim_allowed": metrics.get(
+                    "vortex_capillary_preparation_proofbound_claim_allowed"
+                ),
+                "vortex_capillary_preparation_no_standalone_lane_status": metrics.get(
+                    "vortex_capillary_preparation_no_standalone_lane_status"
+                ),
+                "vortex_capillary_preparation_claim_gate_status": metrics.get(
+                    "vortex_capillary_preparation_claim_gate_status"
+                ),
+                "vortex_capillary_preparation_fallback_attempted": metrics.get(
+                    "vortex_capillary_preparation_fallback_attempted"
+                ),
+                "vortex_capillary_preparation_external_engine_invoked": metrics.get(
+                    "vortex_capillary_preparation_external_engine_invoked"
+                ),
+                "vortex_capillary_preparation_claim_boundary": metrics.get(
+                    "vortex_capillary_preparation_claim_boundary"
                 ),
             }
         )
@@ -13406,6 +13826,13 @@ def failed_result(
         )
     )
     metrics.update(
+        vortex_capillary_preparation_metadata(
+            engine,
+            status=status,
+            metrics=metrics,
+        )
+    )
+    metrics.update(
         output_plan_contract_metadata(
             engine,
             scenario,
@@ -14152,6 +14579,14 @@ def successful_result_from_iterations(
     )
     metrics.update(
         vortex_differential_preparation_metadata(
+            runner.name,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            evidence=evidence,
+        )
+    )
+    metrics.update(
+        vortex_capillary_preparation_metadata(
             runner.name,
             status="success" if stable else "unstable_output",
             metrics=metrics,
@@ -16297,6 +16732,27 @@ def render_vortex_differential_preparation_contract(artifact: dict[str, Any]) ->
     )
 
 
+def render_vortex_capillary_preparation_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["vortex_capillary_preparation_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
 def render_split_manifest_contract(artifact: dict[str, Any]) -> str:
     contract = artifact["split_manifest_contract"]
     rows = [
@@ -18005,6 +18461,102 @@ def render_vortex_differential_preparation_matrix(artifact: dict[str, Any]) -> s
     )
 
 
+def render_vortex_capillary_preparation_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["vortex_capillary_preparation_matrix"]:
+        rows.append(
+            [
+                row.get("scenario_name", "unknown"),
+                row.get("engine", "unknown"),
+                row.get("status", "unknown"),
+                str(row.get("execution_mode", "unknown")),
+                str(row.get("vortex_capillary_preparation_status", "unknown")),
+                str(row.get("vortex_capillary_preparation_task_count", 0)),
+                str(row.get("vortex_capillary_preparation_task_roles", "none")).replace("|", "\\|"),
+                str(row.get("vortex_capillary_preparation_source_split_refs", "none")).replace("|", "\\|"),
+                str(row.get("vortex_capillary_preparation_read_chunk_byte_range_refs", "none")).replace("|", "\\|"),
+                str(row.get("vortex_capillary_preparation_row_range_refs", "none")).replace("|", "\\|"),
+                str(row.get("vortex_capillary_preparation_vortex_segment_refs", "none")).replace("|", "\\|"),
+                format_metric(
+                    row.get("vortex_capillary_preparation_memory_budget_bytes"),
+                    " B",
+                ),
+                format_metric(
+                    row.get("vortex_capillary_preparation_peak_memory_bytes"),
+                    " B",
+                ),
+                str(row.get("vortex_capillary_preparation_native_io_certificate_status", "none")),
+                str(row.get("vortex_capillary_preparation_execution_certificate_status", "none")),
+                str(row.get("vortex_capillary_preparation_pulseweave_status", "not_reported")),
+                str(
+                    row.get(
+                        "vortex_capillary_preparation_pulseweave_runtime_decision_applied",
+                        False,
+                    )
+                ),
+                str(row.get("vortex_capillary_preparation_proofbound_claim_allowed", False)),
+                str(row.get("vortex_capillary_preparation_no_standalone_lane_status", "unknown")),
+                str(row.get("vortex_capillary_preparation_claim_gate_status", "not_claim_grade")),
+                str(row.get("vortex_capillary_preparation_fallback_attempted", False)),
+                str(row.get("vortex_capillary_preparation_external_engine_invoked", False)),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "report_only",
+                "0",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "n/a",
+                "n/a",
+                "none",
+                "none",
+                "not_reported",
+                "false",
+                "false",
+                "not_reported",
+                "not_claim_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Capillary status",
+            "Tasks",
+            "Roles",
+            "Source splits",
+            "Byte ranges",
+            "Row ranges",
+            "Vortex segments",
+            "Memory budget",
+            "Peak memory",
+            "Native I/O",
+            "Execution certificate",
+            "PulseWeave",
+            "PulseWeave applied",
+            "ProofBound allowed",
+            "Lane status",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
 def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
     rows = []
     for row in artifact["output_plan_matrix"]:
@@ -19021,6 +19573,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_vortex_differential_preparation_contract(artifact),
         "",
+        "## VortexCapillaryPreparation Contract",
+        "",
+        "This contract makes cold-preparation capillary task boundaries and PulseWeave control visible inside vortex_ingest without creating a standalone benchmark lane.",
+        "",
+        render_vortex_capillary_preparation_contract(artifact),
+        "",
         "## OutputPlan Contract",
         "",
         "This contract makes local output-plan posture, target format/schema, metadata preservation, write/replay refs, and sink artifact identity visible without implying fanout, object-store, table commit, or production sink support.",
@@ -19150,6 +19708,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "VortexDifferentialPreparation rows show whether a scoped append-only delta overlay was requested, admitted, blocked, or not requested. They stay inside the vortex_ingest route and do not upgrade claim status.",
         "",
         render_vortex_differential_preparation_matrix(artifact),
+        "",
+        "## ShardLoom VortexCapillaryPreparation Evidence Matrix",
+        "",
+        "VortexCapillaryPreparation rows show capillary source/sink task evidence and PulseWeave cold-lane control posture. They stay inside vortex_ingest and do not upgrade claim status.",
+        "",
+        render_vortex_capillary_preparation_matrix(artifact),
         "",
         "## ShardLoom OutputPlan Evidence Matrix",
         "",
@@ -19481,6 +20045,9 @@ def main() -> int:
         "vortex_differential_preparation_contract": (
             vortex_differential_preparation_contract()
         ),
+        "vortex_capillary_preparation_contract": (
+            vortex_capillary_preparation_contract()
+        ),
         "output_plan_contract": output_plan_contract(),
         "fanout_benchmark_contract": fanout_benchmark_contract(),
         "cache_invalidation_contract": cache_invalidation_contract(),
@@ -19510,6 +20077,9 @@ def main() -> int:
         "vortex_preparation_spine_matrix": vortex_preparation_spine_matrix(results),
         "vortex_differential_preparation_matrix": (
             vortex_differential_preparation_matrix(results)
+        ),
+        "vortex_capillary_preparation_matrix": (
+            vortex_capillary_preparation_matrix(results)
         ),
         "split_manifest_matrix": split_manifest_matrix(results),
         "memory_spill_matrix": memory_spill_matrix(results),
