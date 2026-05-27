@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-IOREUSE-1K capillary I/O and PulseWeave cold-lane control
   - Date: 2026-05-27
-  - Branch/PR: `ioreuse-1k-capillary-pulseweave` / PR pending.
+  - Branch/PR: `ioreuse-1k-capillary-pulseweave` / PR #973.
   - Source:
     - `GAR-IOREUSE-1K capillary I/O and PulseWeave cold-lane control`.
     - Novel cold-lane research carry-forward,
