@@ -308,47 +308,6 @@ item only after the matching 4-series runtime item has landed or when the 4-seri
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
 
-- [ ] GAR-IOREUSE-1K capillary I/O and PulseWeave cold-lane control
-  - Source: novel cold-lane research carry-forward,
-    `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-    `docs/architecture/pulseweave-runtime-control.md`,
-    `docs/architecture/dynamic-work-shaping.md`,
-    `docs/architecture/io-reuse-and-fanout-architecture.md`, and RFC 0042.
-  - Current state: PulseWeave is scoped to prepared/native local batch execution after prepared
-    state exists. Cold ingestion/preparation still behaves mostly as a monolithic source read,
-    parse/columnarize, Vortex write, reopen, and evidence sequence rather than an evidence-bearing
-    source/sink task graph.
-  - Next slice outcome: introduce capillary I/O task evidence for cold preparation: source split
-    discovery, read chunk, columnarize/encode, Vortex segment write, reopen verify, sink/evidence
-    tasks, plus PulseWeave report-only or applied control where ProofBound admits it.
-  - Runtime enablement: admitted local cold preparation can split or coalesce source and writer
-    work under bounded WIP, memory, decode, and sink-pressure policy; incomplete task evidence must
-    fall back to deterministic blocked/report-only status, not hidden behavior changes.
-  - User-visible surface: benchmark rows, prepare reports, PulseWeave evidence fields,
-    Native I/O certificates, capability matrix, docs.
-  - Implementation scope: capillary task manifest, source/sink split refs, PulseWeave input mapping
-    for cold preparation, FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields, CLI/Python
-    reports, benchmark validators.
-  - Evidence required: capillary task IDs, task role, byte/row ranges, projection/filter masks,
-    Vortex segment refs, writer/sink refs, memory and sink pressure, retry/idempotency status,
-    materialization/decode posture, PulseWeave decision digest, correctness refs, certificates,
-    no-fallback fields.
-  - Acceptance: cold-lane task boundaries are visible and replayable; PulseWeave application is
-    explicit, certificate-gated, and blocked when evidence is incomplete; source/sink pressure does
-    not disappear into total runtime.
-  - Verification: task-manifest unit tests, PulseWeave validator tests, traditional benchmark
-    harness tests, runtime envelope validation, release readiness metadata, `git diff --check`.
-  - Non-goals: no object-store/distributed runtime, broad parallel performance claim, background
-    scheduler, AI/learned policy, or real query-data spill implementation.
-  - Claim boundary: capillary and PulseWeave cold-lane evidence only until workload-scoped
-    correctness and benchmark rows prove an applied runtime benefit.
-  - Fallback boundary: capillary blockers must preserve `fallback_attempted=false` and
-    `external_engine_invoked=false`.
-  - Dependencies/blockers: split manifest coverage, memory/backpressure evidence, PulseWeave
-    ProofBound gates, Native I/O replay.
-  - Ledger rule: ledger entry must include task roles, applied/report-only policy status, and
-    blocked source/sink classes.
-
 - [ ] GAR-IOREUSE-1L scout ingress, anomaly quarantine, and schema-drift triage
   - Source: novel cold-lane research carry-forward,
     `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,

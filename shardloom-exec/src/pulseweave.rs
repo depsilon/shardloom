@@ -1122,14 +1122,18 @@ fn invalid_operation(message: impl Into<String>) -> ShardLoomError {
 }
 
 fn is_prepared_local_scope(input: &PulseWeaveInput) -> bool {
-    matches!(
+    let route_admitted = matches!(
         input.route.as_str(),
         "compatibility_import_certified_to_prepared_vortex_batch"
             | "prepared_vortex"
             | "prepared_vortex_batch"
             | "native_vortex"
             | "native_vortex_batch"
-    ) && input.application_scope.contains("prepared_vortex_local")
+            | "vortex_ingest_cold_preparation"
+    );
+    let scope_admitted = input.application_scope.contains("prepared_vortex_local")
+        || input.application_scope.contains("vortex_cold_preparation");
+    route_admitted && scope_admitted
 }
 
 fn memory_pressure_for(memory_budget_bytes: u64, peak_memory_bytes: u64) -> MemoryPressureLevel {
@@ -1297,6 +1301,21 @@ mod tests {
             assert_eq!(report.proofbound.missing_evidence, "none");
             assert!(report.proofbound.claim_allowed);
         }
+    }
+
+    #[test]
+    fn proofbound_admits_vortex_ingest_cold_preparation_scope() {
+        let input = PulseWeaveInput {
+            route: "vortex_ingest_cold_preparation".to_string(),
+            application_scope: "vortex_cold_preparation_local_capillary_io".to_string(),
+            ..admitted_input()
+        };
+        let report = plan_pulseweave(input).expect("pulseweave report");
+
+        assert_eq!(report.status, "applied");
+        assert!(report.runtime_decision_applied);
+        assert_eq!(report.proofbound.pre_application_status, "admitted");
+        assert!(report.proofbound.claim_allowed);
     }
 
     #[test]

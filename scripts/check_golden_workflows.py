@@ -565,12 +565,23 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "vortex_preparation_spine_no_standalone_lane_status": (
                     "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
                 ),
+                "vortex_capillary_preparation_status": (
+                    "applied_capillary_pulseweave_control"
+                ),
+                "vortex_capillary_preparation_task_count": "6",
+                "vortex_capillary_preparation_native_io_certificate_status": "certified",
+                "vortex_capillary_preparation_pulseweave_status": "applied",
+                "vortex_capillary_preparation_pulseweave_runtime_decision_applied": "true",
+                "vortex_capillary_preparation_no_standalone_lane_status": (
+                    "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+                ),
                 "claim_gate_status": "fixture_smoke_only",
             },
             prefix_fields={
                 "prepared_state_digest": "fnv64:",
                 "vortex_artifact_digest": "fnv64:",
                 "vortex_preparation_spine_source_split_refs": "local-csv-",
+                "vortex_capillary_preparation_pulseweave_decision_digest": "fnv1a64:",
             },
             artifact_paths=(target_vortex,),
             selected_field_keys=(

@@ -252,6 +252,15 @@ digests, Native I/O posture, no-standalone-lane status, and no-fallback fields. 
 append-only differential-preparation evidence only; it does not claim broad CDC/table transaction
 support.
 
+`GAR-IOREUSE-1K` extends the harness schema with
+`vortex_capillary_preparation_schema_version=shardloom.traditional_analytics.vortex_capillary_preparation.v1`.
+The next full data refresh will expose source split discovery, read chunk, columnarize/encode,
+Vortex segment write, reopen verification, and sink evidence capillary tasks through the existing
+`vortex_ingest` route. Rows carry task manifest IDs/digests, byte/row range refs, Vortex segment
+refs, writer sink refs, memory/sink pressure posture, Native I/O and execution certificates,
+prefixed PulseWeave evidence, no-standalone-lane status, and no-fallback fields. Benchmark
+measurement refresh remains tabled until the remaining cold-lane plan items are complete.
+
 `GAR-IOREUSE-1C` adds a companion OutputPlan row contract to the benchmark artifact. Rows now carry
 `output_plan_contract_schema_version=shardloom.traditional_analytics.output_plan.v1`,
 `output_plan_status`, `output_plan_id`, `output_plan_digest`, `output_format`, `output_location`,

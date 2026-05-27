@@ -47,6 +47,7 @@ EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "prepared_state",
     "vortex_preparation_spine",
     "vortex_differential_preparation",
+    "vortex_capillary_preparation",
     "reuse",
     "native_io",
     "coverage",

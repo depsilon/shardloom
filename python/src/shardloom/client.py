@@ -825,6 +825,87 @@ class VortexIngestSmokeReport:
         )
 
     @property
+    def vortex_capillary_preparation_status(self) -> str | None:
+        """Return scoped capillary cold-preparation status."""
+
+        return self.envelope.field("vortex_capillary_preparation_status")
+
+    @property
+    def vortex_capillary_preparation_task_count(self) -> int:
+        """Return the number of cold-preparation capillary tasks."""
+
+        return self.envelope.field_int("vortex_capillary_preparation_task_count", 0) or 0
+
+    @property
+    def vortex_capillary_preparation_task_roles(self) -> tuple[str, ...]:
+        """Return the reported capillary task role sequence."""
+
+        value = self.envelope.field("vortex_capillary_preparation_task_roles")
+        return () if value in {None, "", "none"} else tuple(value.split(","))
+
+    @property
+    def vortex_capillary_preparation_native_io_certificate_status(
+        self,
+    ) -> str | None:
+        """Return the Native I/O certificate posture for capillary preparation."""
+
+        return self.envelope.field(
+            "vortex_capillary_preparation_native_io_certificate_status"
+        )
+
+    @property
+    def vortex_capillary_preparation_pulseweave_status(self) -> str | None:
+        """Return PulseWeave status for capillary cold-preparation control."""
+
+        return self.envelope.field("vortex_capillary_preparation_pulseweave_status")
+
+    @property
+    def vortex_capillary_preparation_pulseweave_runtime_decision_applied(
+        self,
+    ) -> bool:
+        """Whether PulseWeave applied to capillary cold-preparation tasks."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_capillary_preparation_pulseweave_runtime_decision_applied",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def vortex_capillary_preparation_pulseweave_decision_digest(
+        self,
+    ) -> str | None:
+        """Return the PulseWeave decision digest for capillary preparation."""
+
+        return self.envelope.field(
+            "vortex_capillary_preparation_pulseweave_decision_digest"
+        )
+
+    @property
+    def vortex_capillary_preparation_proofbound_claim_allowed(self) -> bool:
+        """Whether ProofBound admitted automatic capillary PulseWeave control."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_capillary_preparation_proofbound_claim_allowed",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def vortex_capillary_preparation_no_standalone_lane_status(
+        self,
+    ) -> str | None:
+        """Return whether capillary evidence stayed in the vortex_ingest route."""
+
+        return self.envelope.field(
+            "vortex_capillary_preparation_no_standalone_lane_status"
+        )
+
+    @property
     def vortex_differential_preparation_status(self) -> str | None:
         """Return scoped differential-preparation overlay status when requested."""
 

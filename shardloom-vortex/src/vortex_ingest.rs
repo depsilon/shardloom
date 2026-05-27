@@ -21,6 +21,9 @@ use arrow_array::{
     TimestampMicrosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
 };
 use shardloom_core::{Result, ScalarValue, ShardLoomError, WorkspaceSafeLocalWriteReport};
+use shardloom_exec::{
+    OperatorMemoryClass, PulseWeaveInput, PulseWeaveReport, PulseWeaveTaskShape, plan_pulseweave,
+};
 
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 use crate::universal_format_io::FlatLocalColumnarSource;
@@ -30,6 +33,9 @@ pub const VORTEX_PREPARATION_SPINE_SCHEMA_VERSION: &str = "shardloom.vortex_prep
 /// Evidence schema emitted by scoped local differential Vortex preparation overlays.
 pub const VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION: &str =
     "shardloom.vortex_differential_preparation.v1";
+/// Evidence schema emitted by scoped local capillary cold-preparation task control.
+pub const VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION: &str =
+    "shardloom.vortex_capillary_preparation.v1";
 /// Pinned upstream Vortex crate line used by the scoped local preparation spine.
 pub const VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION: &str = "0.72";
 
@@ -851,6 +857,584 @@ pub fn evaluate_vortex_differential_preparation(
         fallback_attempted: false,
         external_engine_invoked: false,
     }
+}
+
+/// Inputs used to expose capillary cold-preparation task evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexCapillaryPreparationInput {
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub prepared_state_id: String,
+    pub prepared_state_digest: String,
+    pub source_surface: String,
+    pub sink_surface: String,
+    pub row_count: u64,
+    pub source_byte_count: u64,
+    pub column_count: usize,
+    pub source_split_refs: String,
+    pub source_byte_range_refs: String,
+    pub source_row_range_refs: String,
+    pub projection_mask: String,
+    pub filter_mask_status: String,
+    pub prepared_artifact_ref: String,
+    pub prepared_artifact_digest: String,
+    pub prepared_artifact_segment_refs: String,
+    pub writer_sink_refs: String,
+    pub materialization_boundary_status: String,
+    pub decode_boundary_status: String,
+    pub native_io_certificate_status: String,
+    pub native_io_certificate_refs: String,
+    pub correctness_digest: String,
+    pub memory_budget_bytes: u64,
+    pub max_parallelism: usize,
+    pub result_sink_requested: bool,
+    pub result_sink_replay_verified: bool,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct VortexCapillaryPreparationTask {
+    task_id: String,
+    role: &'static str,
+    operator_memory_class: OperatorMemoryClass,
+    byte_range_ref: String,
+    row_range_ref: String,
+    vortex_segment_ref: String,
+    writer_sink_ref: String,
+    estimated_memory_bytes: u64,
+}
+
+impl VortexCapillaryPreparationTask {
+    fn to_pulseweave_shape(&self) -> Result<PulseWeaveTaskShape> {
+        PulseWeaveTaskShape::new(
+            self.task_id.as_str(),
+            self.role,
+            self.operator_memory_class,
+            self.estimated_memory_bytes,
+        )
+        .map(|shape| {
+            shape
+                .with_estimated_rows(1)
+                .with_refs(
+                    self.writer_sink_ref.clone(),
+                    format!("capillary-task://{}", self.task_id),
+                )
+                .with_shape_permissions(true, true, true)
+                .with_materialization_and_sink(
+                    matches!(self.operator_memory_class, OperatorMemoryClass::Translation),
+                    if matches!(self.operator_memory_class, OperatorMemoryClass::Sink) {
+                        "workspace_safe_local_vortex_file_sink"
+                    } else {
+                        "none"
+                    },
+                )
+        })
+    }
+}
+
+/// Evidence for capillary cold-preparation task control.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexCapillaryPreparationReport {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub route: String,
+    pub source_surface: String,
+    pub sink_surface: String,
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub prepared_state_id: String,
+    pub prepared_state_digest: String,
+    pub task_manifest_id: String,
+    pub task_manifest_digest: String,
+    pub task_count: usize,
+    pub task_roles: String,
+    pub task_ids: String,
+    pub source_split_refs: String,
+    pub read_chunk_byte_range_refs: String,
+    pub row_range_refs: String,
+    pub projection_mask: String,
+    pub filter_mask_status: String,
+    pub vortex_segment_refs: String,
+    pub writer_sink_refs: String,
+    pub memory_budget_bytes: u64,
+    pub max_parallelism: usize,
+    pub peak_memory_bytes: u64,
+    pub memory_pressure_status: String,
+    pub sink_pressure_status: String,
+    pub retry_idempotency_status: String,
+    pub materialization_boundary_status: String,
+    pub decode_boundary_status: String,
+    pub native_io_certificate_status: String,
+    pub native_io_certificate_refs: String,
+    pub execution_certificate_id: String,
+    pub execution_certificate_status: String,
+    pub pulseweave_report: PulseWeaveReport,
+    pub correctness_refs: String,
+    pub no_standalone_lane_status: String,
+    pub claim_gate_status: String,
+    pub claim_boundary: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl VortexCapillaryPreparationReport {
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        let mut fields = Vec::with_capacity(84);
+        self.append_identity_fields(&mut fields);
+        self.append_task_fields(&mut fields);
+        self.append_policy_fields(&mut fields);
+        fields.extend(
+            self.pulseweave_report
+                .fields()
+                .into_iter()
+                .map(|(key, value)| (format!("vortex_capillary_preparation_{key}"), value)),
+        );
+        fields
+    }
+
+    fn push_field(fields: &mut Vec<(String, String)>, key: &'static str, value: impl Into<String>) {
+        fields.push((key.to_string(), value.into()));
+    }
+
+    fn append_identity_fields(&self, fields: &mut Vec<(String, String)>) {
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_schema_version",
+            self.schema_version,
+        );
+        Self::push_field(fields, "vortex_capillary_preparation_status", &self.status);
+        Self::push_field(fields, "vortex_capillary_preparation_route", &self.route);
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_source_surface",
+            &self.source_surface,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_sink_surface",
+            &self.sink_surface,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_source_state_id",
+            &self.source_state_id,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_source_state_digest",
+            &self.source_state_digest,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_prepared_state_id",
+            &self.prepared_state_id,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_prepared_state_digest",
+            &self.prepared_state_digest,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_task_manifest_id",
+            &self.task_manifest_id,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_task_manifest_digest",
+            &self.task_manifest_digest,
+        );
+    }
+
+    fn append_task_fields(&self, fields: &mut Vec<(String, String)>) {
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_task_count",
+            self.task_count.to_string(),
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_task_roles",
+            &self.task_roles,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_task_ids",
+            &self.task_ids,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_source_split_refs",
+            &self.source_split_refs,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_read_chunk_byte_range_refs",
+            &self.read_chunk_byte_range_refs,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_row_range_refs",
+            &self.row_range_refs,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_projection_mask",
+            &self.projection_mask,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_filter_mask_status",
+            &self.filter_mask_status,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_vortex_segment_refs",
+            &self.vortex_segment_refs,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_writer_sink_refs",
+            &self.writer_sink_refs,
+        );
+    }
+
+    fn append_policy_fields(&self, fields: &mut Vec<(String, String)>) {
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_memory_budget_bytes",
+            self.memory_budget_bytes.to_string(),
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_max_parallelism",
+            self.max_parallelism.to_string(),
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_peak_memory_bytes",
+            self.peak_memory_bytes.to_string(),
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_memory_pressure_status",
+            &self.memory_pressure_status,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_sink_pressure_status",
+            &self.sink_pressure_status,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_retry_idempotency_status",
+            &self.retry_idempotency_status,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_materialization_boundary_status",
+            &self.materialization_boundary_status,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_decode_boundary_status",
+            &self.decode_boundary_status,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_native_io_certificate_status",
+            &self.native_io_certificate_status,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_native_io_certificate_refs",
+            &self.native_io_certificate_refs,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_execution_certificate_id",
+            &self.execution_certificate_id,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_execution_certificate_status",
+            &self.execution_certificate_status,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_correctness_refs",
+            &self.correctness_refs,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_no_standalone_lane_status",
+            &self.no_standalone_lane_status,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_claim_gate_status",
+            &self.claim_gate_status,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_claim_boundary",
+            &self.claim_boundary,
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_fallback_attempted",
+            self.fallback_attempted.to_string(),
+        );
+        Self::push_field(
+            fields,
+            "vortex_capillary_preparation_external_engine_invoked",
+            self.external_engine_invoked.to_string(),
+        );
+    }
+}
+
+/// Plan capillary cold-preparation task evidence and `PulseWeave` control.
+///
+/// # Errors
+/// Returns an error when the `PulseWeave` task input is structurally invalid.
+pub fn evaluate_vortex_capillary_preparation(
+    input: VortexCapillaryPreparationInput,
+) -> Result<VortexCapillaryPreparationReport> {
+    let tasks = capillary_preparation_tasks(&input);
+    let task_roles = join_task_values(&tasks, |task| task.role.to_string());
+    let task_ids = join_task_values(&tasks, |task| task.task_id.clone());
+    let vortex_segment_refs = join_task_values(&tasks, |task| task.vortex_segment_ref.clone());
+    let task_byte_range_refs = join_task_values(&tasks, |task| {
+        format!("{}={}", task.role, task.byte_range_ref)
+    });
+    let task_row_range_refs = join_task_values(&tasks, |task| {
+        format!("{}={}", task.role, task.row_range_ref)
+    });
+    let peak_memory_bytes = tasks
+        .iter()
+        .map(|task| task.estimated_memory_bytes)
+        .sum::<u64>()
+        .min(input.memory_budget_bytes);
+    let execution_certificate_status = if input.source_split_refs.trim().is_empty() {
+        "missing_capillary_task_manifest"
+    } else {
+        "certified"
+    };
+    let task_manifest_digest = fnv64_digest_text(&format!(
+        "{}|{}|{}|{}|{}|{}",
+        input.source_state_digest,
+        input.prepared_state_digest,
+        task_ids,
+        task_roles,
+        input.prepared_artifact_digest,
+        input.correctness_digest
+    ));
+    let execution_certificate_id = format!(
+        "vortex-capillary-preparation-{}",
+        task_manifest_digest.replace(':', "-")
+    );
+    let pulseweave_report = capillary_pulseweave_report(
+        &input,
+        &tasks,
+        peak_memory_bytes,
+        &execution_certificate_id,
+        execution_certificate_status,
+    )?;
+    let status = capillary_status(&input, &tasks, &pulseweave_report);
+
+    Ok(VortexCapillaryPreparationReport {
+        schema_version: VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION,
+        status: status.to_string(),
+        route: "vortex_ingest_source_state_to_prepared_state".to_string(),
+        source_surface: input.source_surface,
+        sink_surface: input.sink_surface,
+        source_state_id: input.source_state_id,
+        source_state_digest: input.source_state_digest,
+        prepared_state_id: input.prepared_state_id,
+        prepared_state_digest: input.prepared_state_digest,
+        task_manifest_id: format!(
+            "vortex-capillary-task-manifest-{}",
+            task_manifest_digest.replace(':', "-")
+        ),
+        task_manifest_digest,
+        task_count: tasks.len(),
+        task_roles,
+        task_ids,
+        source_split_refs: input.source_split_refs,
+        read_chunk_byte_range_refs: task_byte_range_refs,
+        row_range_refs: task_row_range_refs,
+        projection_mask: input.projection_mask,
+        filter_mask_status: input.filter_mask_status,
+        vortex_segment_refs,
+        writer_sink_refs: input.writer_sink_refs,
+        memory_budget_bytes: input.memory_budget_bytes,
+        max_parallelism: input.max_parallelism,
+        peak_memory_bytes,
+        memory_pressure_status: "bounded_by_local_cold_preparation_memory_budget".to_string(),
+        sink_pressure_status: if input.result_sink_requested {
+            "bounded_by_result_sink_replay_requirement".to_string()
+        } else {
+            "workspace_safe_local_vortex_sink_only".to_string()
+        },
+        retry_idempotency_status: "task_ids_and_manifest_digest_are_replay_stable".to_string(),
+        materialization_boundary_status: input.materialization_boundary_status,
+        decode_boundary_status: input.decode_boundary_status,
+        native_io_certificate_status: input.native_io_certificate_status,
+        native_io_certificate_refs: input.native_io_certificate_refs,
+        execution_certificate_id,
+        execution_certificate_status: execution_certificate_status.to_string(),
+        pulseweave_report,
+        correctness_refs: input.correctness_digest,
+        no_standalone_lane_status:
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state".to_string(),
+        claim_gate_status: "not_claim_grade".to_string(),
+        claim_boundary: "Scoped local capillary cold-preparation evidence only: task boundaries and PulseWeave control are tied to vortex_ingest writer/reopen certificates; no object-store, distributed, broad parallel performance, production, SQL/DataFrame, or Spark-replacement claim".to_string(),
+        fallback_attempted: input.fallback_attempted,
+        external_engine_invoked: input.external_engine_invoked,
+    })
+}
+
+fn capillary_preparation_tasks(
+    input: &VortexCapillaryPreparationInput,
+) -> Vec<VortexCapillaryPreparationTask> {
+    let source_bytes = input.source_byte_count.max(1);
+    let write_bytes = input.prepared_artifact_digest.len() as u64 + source_bytes.min(64 * 1024);
+    vec![
+        capillary_task(
+            "source-split-discovery",
+            "source_split_discovery",
+            OperatorMemoryClass::Scan,
+            4 * 1024,
+            input,
+        ),
+        capillary_task(
+            "read-chunk",
+            "read_chunk",
+            OperatorMemoryClass::Scan,
+            source_bytes,
+            input,
+        ),
+        capillary_task(
+            "columnarize-encode",
+            "columnarize_encode",
+            OperatorMemoryClass::Translation,
+            source_bytes.saturating_add(input.row_count.saturating_mul(8)),
+            input,
+        ),
+        capillary_task(
+            "vortex-segment-write",
+            "vortex_segment_write",
+            OperatorMemoryClass::Sink,
+            write_bytes,
+            input,
+        ),
+        capillary_task(
+            "reopen-verify",
+            "reopen_verify",
+            OperatorMemoryClass::Scan,
+            write_bytes.saturating_div(2).max(1),
+            input,
+        ),
+        capillary_task(
+            "sink-evidence",
+            "sink_evidence",
+            OperatorMemoryClass::Sink,
+            4 * 1024,
+            input,
+        ),
+    ]
+}
+
+fn capillary_task(
+    suffix: &str,
+    role: &'static str,
+    operator_memory_class: OperatorMemoryClass,
+    estimated_memory_bytes: u64,
+    input: &VortexCapillaryPreparationInput,
+) -> VortexCapillaryPreparationTask {
+    VortexCapillaryPreparationTask {
+        task_id: format!("vortex-capillary-{suffix}"),
+        role,
+        operator_memory_class,
+        byte_range_ref: input.source_byte_range_refs.clone(),
+        row_range_ref: input.source_row_range_refs.clone(),
+        vortex_segment_ref: input.prepared_artifact_segment_refs.clone(),
+        writer_sink_ref: input.writer_sink_refs.clone(),
+        estimated_memory_bytes: estimated_memory_bytes.max(1),
+    }
+}
+
+fn capillary_pulseweave_report(
+    input: &VortexCapillaryPreparationInput,
+    tasks: &[VortexCapillaryPreparationTask],
+    peak_memory_bytes: u64,
+    execution_certificate_id: &str,
+    execution_certificate_status: &str,
+) -> Result<PulseWeaveReport> {
+    let task_shapes = tasks
+        .iter()
+        .map(VortexCapillaryPreparationTask::to_pulseweave_shape)
+        .collect::<Result<Vec<_>>>()?;
+    let target_task_bytes = input.source_byte_count.max(
+        input
+            .row_count
+            .saturating_mul(input.column_count as u64)
+            .max(1),
+    );
+    let pulseweave_input = PulseWeaveInput::new(
+        "vortex_ingest_cold_preparation",
+        "vortex_cold_preparation_local_capillary_io",
+        format!("vortex_ingest:{}", input.source_state_digest),
+        task_shapes,
+        input.memory_budget_bytes.max(1),
+        input.max_parallelism.max(1),
+        target_task_bytes,
+    )?
+    .with_task_byte_limits(4 * 1024, target_task_bytes.saturating_mul(4).max(4 * 1024))
+    .with_boundaries(true, true)
+    .with_result_sink(
+        input.result_sink_requested,
+        input.result_sink_replay_verified,
+    )
+    .with_correctness_and_output(&input.correctness_digest, &input.prepared_artifact_digest)
+    .with_execution_certificate(execution_certificate_id, execution_certificate_status)
+    .with_native_io_certificate_status(input.native_io_certificate_status.clone())
+    .with_memory_observations(tasks.len(), tasks.len(), 0, peak_memory_bytes)
+    .with_spill(false, false)
+    .with_no_fallback_policy(
+        false,
+        input.fallback_attempted,
+        input.external_engine_invoked,
+    );
+    plan_pulseweave(pulseweave_input)
+}
+
+fn capillary_status(
+    input: &VortexCapillaryPreparationInput,
+    tasks: &[VortexCapillaryPreparationTask],
+    pulseweave_report: &PulseWeaveReport,
+) -> &'static str {
+    if tasks.is_empty() || input.source_split_refs.trim().is_empty() {
+        "blocked_missing_capillary_task_manifest"
+    } else if input.native_io_certificate_status != "certified" {
+        "report_only_blocked_missing_native_io_certificate"
+    } else if pulseweave_report.runtime_decision_applied {
+        "applied_capillary_pulseweave_control"
+    } else {
+        "report_only_blocked_pulseweave_control"
+    }
+}
+
+fn join_task_values(
+    tasks: &[VortexCapillaryPreparationTask],
+    mut value: impl FnMut(&VortexCapillaryPreparationTask) -> String,
+) -> String {
+    tasks.iter().map(&mut value).collect::<Vec<_>>().join(",")
 }
 
 /// Evidence returned by the scoped local `vortex_ingest` helper.
@@ -2580,6 +3164,60 @@ mod tests {
     }
 
     #[test]
+    fn capillary_preparation_applies_pulseweave_when_certified() {
+        let input = capillary_input("certified");
+
+        let report = evaluate_vortex_capillary_preparation(input).expect("capillary report");
+        let fields = report.evidence_fields();
+
+        assert_eq!(report.status, "applied_capillary_pulseweave_control");
+        assert_eq!(report.task_count, 6);
+        assert!(report.task_manifest_digest.starts_with("fnv64:"));
+        assert_eq!(report.native_io_certificate_status, "certified");
+        assert_eq!(report.pulseweave_report.status, "applied");
+        assert!(report.pulseweave_report.runtime_decision_applied);
+        assert_eq!(
+            report.pulseweave_report.application_scope,
+            "vortex_cold_preparation_local_capillary_io"
+        );
+        assert!(fields.contains(&(
+            "vortex_capillary_preparation_task_roles".to_string(),
+            "source_split_discovery,read_chunk,columnarize_encode,vortex_segment_write,reopen_verify,sink_evidence".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_capillary_preparation_pulseweave_runtime_decision_applied".to_string(),
+            "true".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_capillary_preparation_fallback_attempted".to_string(),
+            "false".to_string()
+        )));
+    }
+
+    #[test]
+    fn capillary_preparation_blocks_pulseweave_without_native_io_certificate() {
+        let input = capillary_input("missing");
+
+        let report = evaluate_vortex_capillary_preparation(input).expect("capillary report");
+
+        assert_eq!(
+            report.status,
+            "report_only_blocked_missing_native_io_certificate"
+        );
+        assert_eq!(report.execution_certificate_status, "certified");
+        assert_eq!(report.pulseweave_report.status, "blocked");
+        assert!(!report.pulseweave_report.runtime_decision_applied);
+        assert!(
+            report
+                .pulseweave_report
+                .blocker
+                .contains("native_io_certificate")
+        );
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
     fn differential_preparation_blocks_update_mode_without_overlay() {
         let input = differential_input(VortexDifferentialUpdateMode::Update);
 
@@ -2647,6 +3285,43 @@ mod tests {
             delta_artifact_digest: "fnv64:delta-artifact".to_string(),
             native_io_certificate_refs: "base_prepared_state,delta_artifact,reopen_row_count_scan"
                 .to_string(),
+        }
+    }
+
+    fn capillary_input(native_io_certificate_status: &str) -> VortexCapillaryPreparationInput {
+        VortexCapillaryPreparationInput {
+            source_state_id: "local-csv-source".to_string(),
+            source_state_digest: "fnv64:source".to_string(),
+            prepared_state_id: "vortex-prepared-state-source".to_string(),
+            prepared_state_digest: "fnv64:prepared".to_string(),
+            source_surface: "local_text_source_state_scalar_rows".to_string(),
+            sink_surface: "workspace_safe_local_vortex_file_sink".to_string(),
+            row_count: 4,
+            source_byte_count: 128,
+            column_count: 2,
+            source_split_refs: "local-csv-source:split=0".to_string(),
+            source_byte_range_refs: "local-csv-source:split=0:bytes=0..128".to_string(),
+            source_row_range_refs: "local-csv-source:split=0:rows=0..4".to_string(),
+            projection_mask: "id,label".to_string(),
+            filter_mask_status: "none".to_string(),
+            prepared_artifact_ref: "target/source.vortex".to_string(),
+            prepared_artifact_digest: "fnv64:artifact".to_string(),
+            prepared_artifact_segment_refs:
+                "vortex-prepared-state-source:rows=0..4:digest=fnv64:artifact".to_string(),
+            writer_sink_refs: "target/source.vortex".to_string(),
+            materialization_boundary_status: "scalar_rows_materialized_before_vortex_array_build"
+                .to_string(),
+            decode_boundary_status: "local_text_parse_to_scalar_values".to_string(),
+            native_io_certificate_status: native_io_certificate_status.to_string(),
+            native_io_certificate_refs:
+                "source_split_refs,prepared_artifact_ref,reopen_row_count_scan".to_string(),
+            correctness_digest: "fnv64:correct".to_string(),
+            memory_budget_bytes: 16 * 1024 * 1024,
+            max_parallelism: 2,
+            result_sink_requested: false,
+            result_sink_replay_verified: false,
+            fallback_attempted: false,
+            external_engine_invoked: false,
         }
     }
 }

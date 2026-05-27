@@ -230,10 +230,41 @@ vortex_differential_preparation_fallback_attempted=false
 vortex_differential_preparation_external_engine_invoked=false
 ```
 
-Planned `GAR-IOREUSE-1K` adds capillary I/O. Cold preparation work units should become typed
-capillaries with source refs, byte/row ranges, projection/filter masks, Vortex segment refs,
-materialization/decode posture, retry/idempotency status, memory/sink pressure evidence, and
-no-fallback fields. PulseWeave may apply only when ProofBound can certify the capillary task graph.
+`GAR-IOREUSE-1K` adds capillary I/O on the same `vortex_ingest` route. Cold preparation emits
+`vortex_capillary_preparation_*` evidence for typed task roles:
+`source_split_discovery`, `read_chunk`, `columnarize_encode`, `vortex_segment_write`,
+`reopen_verify`, and `sink_evidence`. Each report links source split refs, read byte ranges, row
+ranges, projection/filter posture, Vortex segment refs, writer sink refs, memory budget, peak
+memory, memory/sink pressure, retry/idempotency status, materialization/decode posture, execution
+and Native I/O certificates, correctness refs, no-fallback fields, and prefixed PulseWeave
+FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields. PulseWeave applies only when ProofBound
+certifies the capillary task graph; missing Native I/O evidence leaves the graph in report-only
+blocked status. This is not a standalone capillary lane and does not claim object-store,
+distributed, production, or performance readiness.
+
+```text
+vortex_capillary_preparation_schema_version
+vortex_capillary_preparation_status
+vortex_capillary_preparation_task_manifest_id
+vortex_capillary_preparation_task_manifest_digest
+vortex_capillary_preparation_task_count
+vortex_capillary_preparation_task_roles
+vortex_capillary_preparation_source_split_refs
+vortex_capillary_preparation_read_chunk_byte_range_refs
+vortex_capillary_preparation_row_range_refs
+vortex_capillary_preparation_vortex_segment_refs
+vortex_capillary_preparation_writer_sink_refs
+vortex_capillary_preparation_memory_budget_bytes
+vortex_capillary_preparation_peak_memory_bytes
+vortex_capillary_preparation_native_io_certificate_status
+vortex_capillary_preparation_execution_certificate_status
+vortex_capillary_preparation_pulseweave_status
+vortex_capillary_preparation_pulseweave_runtime_decision_applied
+vortex_capillary_preparation_proofbound_claim_allowed
+vortex_capillary_preparation_no_standalone_lane_status
+vortex_capillary_preparation_fallback_attempted=false
+vortex_capillary_preparation_external_engine_invoked=false
+```
 
 Planned `GAR-IOREUSE-1L` adds scout ingress and triage. A scout pass may inspect metadata, schema
 samples, parse anomalies, and layout/pathology signals before full preparation. It must fail closed
