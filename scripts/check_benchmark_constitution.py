@@ -28,6 +28,7 @@ REQUIRED_FIELD_ORDER = (
     "build_profile",
     "cold_warm_state",
     "stage_timings",
+    "cold_lane_attribution",
     "cost_unit_fields",
     "no_fallback_proof",
     "external_baseline_boundary",
@@ -117,6 +118,17 @@ def first_present(row: dict[str, Any], keys: tuple[str, ...]) -> bool:
     return any(non_empty(row.get(key)) for key in keys)
 
 
+def merged_row_fields(row: dict[str, Any]) -> dict[str, Any]:
+    fields = dict(row)
+    evidence = row.get("shardloom_evidence")
+    if isinstance(evidence, dict):
+        fields.update(evidence)
+    metrics = row.get("metrics")
+    if isinstance(metrics, dict):
+        fields.update(metrics)
+    return fields
+
+
 def row_label(row: dict[str, Any], index: int) -> str:
     scenario = row.get("scenario_name") or row.get("scenario") or row.get("scenario_id") or index
     engine = row.get("engine", "unknown")
@@ -140,6 +152,17 @@ def is_claim_bearing(row: dict[str, Any], manifest_claims_allowed: bool = False)
     return (
         manifest_claims_allowed
         and str(row.get("row_claim_level", "")).strip().lower() in CLAIM_READY_STATUSES
+    )
+
+
+def row_reports_claim_grade(fields: dict[str, Any]) -> bool:
+    return (
+        boolish(fields.get("performance_claim_allowed")) is True
+        or boolish(fields.get("claim_grade_requirements_met")) is True
+        or str(fields.get("claim_gate_status", "")).strip().lower()
+        in CLAIM_READY_STATUSES
+        or str(fields.get("row_claim_level", "")).strip().lower()
+        in CLAIM_READY_STATUSES
     )
 
 
@@ -182,16 +205,18 @@ def row_missing_fields(
     build_profile: dict[str, Any],
     claim_bearing: bool,
 ) -> list[str]:
-    fallback = boolish(row.get("fallback_attempted"))
-    external = boolish(row.get("external_engine_invoked"))
-    external_baseline = boolish(row.get("external_baseline_only"))
-    is_shardloom = is_shardloom_row(row)
+    fields = merged_row_fields(row)
+    fallback = boolish(fields.get("fallback_attempted"))
+    external = boolish(fields.get("external_engine_invoked"))
+    external_baseline = boolish(fields.get("external_baseline_only"))
+    is_shardloom = is_shardloom_row(fields)
+    cold_lane_status = str(fields.get("cold_lane_timing_split_status", "")).strip()
     field_present = {
         "benchmark_result_row": first_present(
-            row, ("engine", "scenario", "scenario_name", "scenario_id")
+            fields, ("engine", "scenario", "scenario_name", "scenario_id")
         ),
         "dataset_source_admission": first_present(
-            row,
+            fields,
             (
                 "source_kind",
                 "source_format",
@@ -201,7 +226,7 @@ def row_missing_fields(
             ),
         ),
         "preparation_route": first_present(
-            row,
+            fields,
             (
                 "ingress_route",
                 "vortex_ingest_status",
@@ -211,7 +236,7 @@ def row_missing_fields(
             ),
         ),
         "execution_route": first_present(
-            row,
+            fields,
             (
                 "execution_route_label",
                 "selected_execution_mode",
@@ -220,7 +245,7 @@ def row_missing_fields(
             ),
         ),
         "output_route": first_present(
-            row,
+            fields,
             (
                 "output_route",
                 "output_format",
@@ -230,7 +255,7 @@ def row_missing_fields(
             ),
         ),
         "correctness_proof": first_present(
-            row,
+            fields,
             (
                 "correctness_digest",
                 "correctness_digest_stable",
@@ -248,10 +273,15 @@ def row_missing_fields(
                 "shardloom_build_profile_kind",
             ),
         ),
-        "cold_warm_state": first_present(row, ("cache_mode", "cache_state")),
-        "stage_timings": first_present(row, STAGE_TIMING_FIELDS),
+        "cold_warm_state": first_present(fields, ("cache_mode", "cache_state")),
+        "stage_timings": first_present(fields, STAGE_TIMING_FIELDS),
+        "cold_lane_attribution": (
+            cold_lane_status == "external_baseline_only"
+            if not is_shardloom
+            else cold_lane_status == "complete"
+        ),
         "cost_unit_fields": first_present(
-            row,
+            fields,
             (
                 "cost_proxy",
                 "cost_unit",
@@ -314,11 +344,20 @@ def validate_artifact(
                 f"claim-bearing row {row_label(row, index)} missing {','.join(missing)}"
             )
         if is_shardloom_row(row):
-            if boolish(row.get("fallback_attempted")) is not False:
+            fields = merged_row_fields(row)
+            if boolish(fields.get("fallback_attempted")) is not False:
                 blockers.append(f"ShardLoom row {row_label(row, index)} lacks fallback_attempted=false")
-            if boolish(row.get("external_engine_invoked")) is not False:
+            if boolish(fields.get("external_engine_invoked")) is not False:
                 blockers.append(
                     f"ShardLoom row {row_label(row, index)} lacks external_engine_invoked=false"
+                )
+            if (
+                str(row.get("status", "success")) == "success"
+                and fields.get("cold_lane_timing_split_status") != "complete"
+                and row_reports_claim_grade(fields)
+            ):
+                blockers.append(
+                    f"claim-grade ShardLoom row {row_label(row, index)} lacks complete cold-lane timing split"
                 )
         row_reports.append(
             {
@@ -344,6 +383,8 @@ def self_test() -> list[str]:
         return ["self-test did not reject missing claim-bearing benchmark row"]
     if "dataset_source_admission" not in missing or "stage_timings" not in missing:
         return [f"self-test rejected wrong missing fields: {missing}"]
+    if "cold_lane_attribution" not in missing:
+        return [f"self-test did not require cold-lane attribution: {missing}"]
     return []
 
 

@@ -55,7 +55,7 @@ def main() -> int:
         "fallback_attempted=false",
         "external_engine_invoked=false",
         "Surface count: 8",
-        "Field count: 277",
+        "Field count: 278",
     ]:
         if required not in docs:
             blockers.append(f"docs missing {required}")

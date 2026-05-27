@@ -14,6 +14,8 @@ const formatCoverage = dashboard.format_coverage ?? {};
 const formatRows = Array.isArray(formatCoverage.rows) ? formatCoverage.rows : [];
 const closeoutTable = dashboard.claim_grade_closeout ?? {};
 const closeoutRows = Array.isArray(closeoutTable.rows) ? closeoutTable.rows : [];
+const coldLaneTable = dashboard.cold_lane_attribution ?? {};
+const coldLaneRows = Array.isArray(coldLaneTable.rows) ? coldLaneTable.rows : [];
 const publishedRows = Array.isArray((benchmark as any).published_benchmark_rows) ? (benchmark as any).published_benchmark_rows : [];
 const shardloomRows = publishedRows.filter((row: any) => String(row.engine ?? "").startsWith("shardloom"));
 const batchRows = Array.isArray((benchmark as any).batch_rows) ? (benchmark as any).batch_rows : [];
@@ -119,6 +121,27 @@ const supportDocsRef = (runsTodayMatrix as any).docs_ref ?? "docs/status/runs-to
         ? manifestAny.benchmark_constitution_required_field_order.join(", ")
         : "not reported"}.
     </p>
+  </div>
+</section>
+
+<section class="section-grid">
+  <div>
+    <p class="eyebrow">Cold-lane attribution</p>
+    <h2>Cold ingest, warm query, sink, evidence, and harness timing stay separate.</h2>
+    <p class="narrow">The promoter classifies each row before publication. Missing stage splits block claim-grade interpretation instead of letting cold preparation or harness overhead hide inside a single timing number.</p>
+  </div>
+  <div class="artifact-panel">
+    <div class="table-wrap compact-table">
+      <table>
+        <thead><tr><th>Classification</th><th>Timing split</th><th>Rows</th></tr></thead>
+        <tbody>
+          {coldLaneRows.map((row: unknown[]) => (
+            <tr>{row.map((cell) => <td>{String(cell)}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Schema: {coldLaneTable.schema_version ?? "not reported"}. Status: <strong>{coldLaneTable.status ?? "not reported"}</strong>.</p>
   </div>
 </section>
 

@@ -308,47 +308,6 @@ item only after the matching 4-series runtime item has landed or when the 4-seri
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
 
-
-- [ ] GAR-IOREUSE-1H cold-lane attribution and benchmark constitution split
-  - Source: benchmark-outlier research carry-forward,
-    `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-    `docs/architecture/performance-attribution-and-execution-structure.md`,
-    `docs/architecture/benchmark-suite-catalog.md`, and
-    `docs/architecture/compute-engine-flow-reference.md`.
-  - Current state: benchmark rows expose the canonical stage timing fields and distinguish
-    `compatibility_import_certified`, `prepared_vortex`, `native_vortex`, and
-    `direct_compatibility_transient`, but the cold ingestion/preparation lane is still interpreted
-    from broad row timing rather than a dedicated cold-lane constitution gate.
-  - Next slice outcome: add a runtime-claim validator and benchmark/report contract that classifies
-    cold-lane rows as full certified cold ingest, preparation-only, warm prepared query,
-    sink/replay-heavy, evidence-heavy, or process/harness-heavy, with deterministic blockers when
-    the timing split is incomplete.
-  - Runtime enablement: runtime-claim publishing and benchmark promotion must block any row whose
-    cold preparation, warm query, result-sink/replay, evidence rendering, or process overhead cannot
-    be separated according to the declared execution mode.
-  - User-visible surface: benchmark JSON/Markdown, website benchmark interpretation, release
-    readiness, CLI/Python typed evidence envelopes.
-  - Implementation scope: traditional analytics benchmark row schema, attribution validator,
-    benchmark constitution checker, website benchmark renderer, release/readiness gates, docs.
-  - Evidence required: execution mode, cold-lane classification, stage timing refs, preparation
-    included/excluded flags, sink/replay flags, evidence-render timing, process/harness overhead,
-    correctness refs, certificate refs, no-fallback fields, claim gate.
-  - Acceptance: the outlier portion of a benchmark row is machine-classified before publication;
-    rows missing required stage evidence remain `not_claim_grade`; warm prepared timing cannot be
-    confused with cold certified ingest timing.
-  - Verification: `cargo test -p shardloom-contract-tests --test traditional_benchmark_harness`,
-    benchmark artifact completeness checks, website readiness if rendering changes, release
-    readiness metadata, `git diff --check`.
-  - Non-goals: no performance claim, benchmark rerun requirement, process-hiding fast mode, or
-    runtime optimization by itself.
-  - Claim boundary: stage-attribution and claim-blocking evidence only.
-  - Fallback boundary: external engines remain baseline rows only and cannot satisfy ShardLoom
-    stage evidence.
-  - Dependencies/blockers: existing stage timing fields, benchmark constitution validation, website
-    benchmark data model, release claim gates.
-  - Ledger rule: ledger entry must include the cold-lane classification schema, blocked examples,
-    and affected benchmark/publication gates.
-
 - [ ] GAR-IOREUSE-1I Vortex-native source/sink/split preparation spine
   - Source: Vortex-first provider check, benchmark-outlier research carry-forward,
     `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
@@ -667,16 +626,20 @@ validators, docs/website parity, and a completed-ledger entry.
     benchmark artifact is `full_local_plus_spark`. That profile requires
     `pyspark`, `spark-default`, and `spark-local-tuned` baseline lanes alongside ShardLoom,
     ShardLoom prepared Vortex, ShardLoom native Vortex, `shardloom-prepare-batch`, pandas, Polars
-    eager/lazy, DuckDB, DataFusion, and Dask. The latest promoted CSV/Parquet artifact has all required lanes
-    available, preserves PulseWeave and result-sink evidence fields, removes the alias-only
-    `native-vortex` lane from profile accounting, and keeps external lanes baseline-only. Remaining
-    gaps are broader JSONL/Arrow IPC/Avro/ORC comparative coverage, claim-grade row promotion, and
-    any future public benchmark claim gates.
-  - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
-    promoted runtime path and block stale or incomplete public claims. The next public comparative
-    refresh should preserve `full_local_plus_spark` required PySpark/Spark lane enforcement, publish
-    broad-format coverage for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC, and move the main
-    ShardLoom comparative roster toward `claim_grade` rows only for admitted runtime paths.
+    eager/lazy, DuckDB, DataFusion, and Dask. The latest promoted CSV/Parquet artifact has all
+    required lanes available, preserves PulseWeave and result-sink evidence fields, removes the
+    alias-only `native-vortex` lane from profile accounting, adds cold-lane attribution blocking,
+    and keeps external lanes baseline-only. The benchmark runner now has smoke-proven support for
+    CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC across the required local/Spark baselines, but
+    the public broad-format data refresh remains intentionally deferred until the remaining
+    internal cold-lane/preparation items land so the benchmark suite is not rerun twice.
+  - Next slice outcome: after `GAR-IOREUSE-1I` through `GAR-IOREUSE-1L` and the related cold-lane
+    layout/copy-budget items have landed, require a current benchmark/correctness/evidence artifact
+    for every promoted runtime path and block stale or incomplete public claims. The next public
+    comparative refresh should preserve `full_local_plus_spark` required PySpark/Spark lane
+    enforcement, publish broad-format coverage for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC,
+    and move the main ShardLoom comparative roster toward `claim_grade` rows only for admitted
+    runtime paths.
   - Runtime enablement: runtime-claim publishing validator that keeps public support status tied to
     fresh evidence.
   - User-visible surface: website benchmarks, docs/benchmarks, status page, release readiness.
@@ -689,7 +652,7 @@ validators, docs/website parity, and a completed-ledger entry.
   - Acceptance: promoted paths are not presented publicly without current evidence; missing
     required lanes/scenarios/formats are visible and block claim-grade status; Spark lanes are
     required and available for `full_local_plus_spark` artifacts; broad formats are visible as
-    available or missing; prepared/native
+    supported by the runner until the deferred public refresh promotes their data; prepared/native
     source-state coverage is rendered from batch evidence instead of a misleading scalar count; the
     raw comparative roster renders all promoted rows, not a sample; the main ShardLoom comparative
     roster has no `blocked`, `unsupported`, `not_claim_grade`, or `fixture_smoke_only` rows before

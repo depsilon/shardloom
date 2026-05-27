@@ -21,6 +21,7 @@ claim-bearing rows carry the evidence needed to interpret a timing row safely:
 - build profile
 - cold/warm cache state
 - stage timings
+- cold-lane attribution
 - cost/unit fields where available
 - no-fallback proof
 - external-baseline boundary
@@ -46,4 +47,25 @@ the constitution schema and required field order, and that benchmark artifacts k
 
 Current remaining gaps are measured result rows, complete source/preparation/execution/output route
 metadata for every claim-bearing row, correctness proof attachment, reproducible hardware/build
-metadata, cold/warm rerun attribution, stage timing completeness, and per-row no-fallback proof.
+metadata, cold/warm rerun attribution, stage timing completeness, cold-lane attribution, and
+per-row no-fallback proof.
+
+## Cold-Lane Attribution
+
+Schema: `shardloom.traditional_analytics.cold_lane_attribution.v1`
+
+The cold-lane attribution layer classifies ShardLoom benchmark rows before publication:
+
+- `full_certified_cold_ingest`
+- `preparation_only`
+- `warm_prepared_query`
+- `sink_replay_heavy`
+- `evidence_heavy`
+- `process_harness_heavy`
+- `external_baseline_only`
+
+Rows must expose the stage fields required by their classification. Missing preparation, warm
+query, sink/replay, evidence-render, or process/harness timings keep
+`cold_lane_timing_split_status=blocked_incomplete_timing_split` and block claim-grade
+interpretation. External baselines stay `external_baseline_only` and cannot satisfy ShardLoom
+cold-lane evidence.

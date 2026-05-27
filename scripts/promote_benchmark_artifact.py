@@ -57,6 +57,7 @@ EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "claim_boundary",
     "runtime_execution_validation",
     "runtime_execution",
+    "cold_lane",
     "materialization",
     "decode",
     "artifact",
@@ -66,6 +67,65 @@ EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "endopulse",
     "proofbound",
 )
+COLD_LANE_ATTRIBUTION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.cold_lane_attribution.v1"
+)
+COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION = {
+    "full_certified_cold_ingest": (
+        "source_read_millis",
+        "compatibility_to_vortex_import_millis",
+        "vortex_array_build_millis",
+        "vortex_write_millis",
+        "vortex_reopen_verify_millis",
+        "operator_compute_millis",
+        "evidence_render_millis",
+        "total_runtime_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+    "preparation_only": (
+        "prepare_batch_preparation_millis",
+        "prepare_batch_source_to_columnar_millis",
+        "prepare_batch_vortex_array_build_millis",
+        "prepare_batch_vortex_write_millis",
+        "prepare_batch_vortex_reopen_verify_millis",
+        "operator_compute_millis",
+        "evidence_render_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+    "warm_prepared_query": (
+        "vortex_scan_millis",
+        "operator_compute_millis",
+        "query_runtime_millis",
+        "evidence_render_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+    "sink_replay_heavy": (
+        "operator_compute_millis",
+        "query_runtime_millis",
+        "result_sink_write_millis",
+        "evidence_render_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+    "evidence_heavy": (
+        "operator_compute_millis",
+        "query_runtime_millis",
+        "evidence_render_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+    "process_harness_heavy": (
+        "source_read_millis",
+        "operator_compute_millis",
+        "query_runtime_millis",
+        "evidence_render_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+}
 PUBLISHED_METRIC_KEYS = (
     "source_state_id",
     "source_state_digest",
@@ -562,6 +622,190 @@ def vortex_lane_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def numeric_value(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def cold_lane_field_present(fields: dict[str, Any], field: str) -> bool:
+    value = fields.get(field)
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip()) and value.strip().lower() not in {
+            "missing",
+            "n/a",
+            "not_applicable",
+            "not_measured",
+            "not_reported",
+            "unknown",
+        }
+    return True
+
+
+def cold_lane_primary_classification(row: dict[str, Any], fields: dict[str, Any]) -> str:
+    engine = str(row.get("engine", ""))
+    selected_mode = str(row.get("selected_execution_mode") or "")
+    if not engine.startswith("shardloom"):
+        return "external_baseline_only"
+    if row.get("status") != "success":
+        return "blocked_incomplete_timing_split"
+    if engine == "shardloom-prepare-batch":
+        return "preparation_only"
+    if selected_mode == "compatibility_import_certified":
+        return "full_certified_cold_ingest"
+    if selected_mode in {"prepared_vortex", "native_vortex"}:
+        return "warm_prepared_query"
+    if cold_lane_field_present(fields, "result_sink_write_millis") and (
+        numeric_value(fields.get("result_sink_write_millis")) or 0.0
+    ) > 0.0:
+        return "sink_replay_heavy"
+    if cold_lane_field_present(fields, "evidence_render_millis"):
+        return "evidence_heavy"
+    return "process_harness_heavy"
+
+
+def cold_lane_secondary_classifications(
+    row: dict[str, Any], fields: dict[str, Any]
+) -> list[str]:
+    if not str(row.get("engine", "")).startswith("shardloom"):
+        return ["external_baseline_only"]
+    classifications: list[str] = []
+    if cold_lane_field_present(fields, "result_sink_write_millis") and (
+        numeric_value(fields.get("result_sink_write_millis")) or 0.0
+    ) > 0.0:
+        classifications.append("sink_replay_heavy")
+    if cold_lane_field_present(fields, "evidence_render_millis"):
+        classifications.append("evidence_heavy")
+    if cold_lane_field_present(fields, "cli_process_wall_millis") and cold_lane_field_present(
+        fields, "python_harness_overhead_millis"
+    ):
+        classifications.append("process_harness_heavy")
+    return classifications or ["none"]
+
+
+def cold_lane_attribution_for_row(row: dict[str, Any]) -> dict[str, Any]:
+    fields = runtime_validation_field_map(row)
+    classification = cold_lane_primary_classification(row, fields)
+    secondary = cold_lane_secondary_classifications(row, fields)
+    if classification == "external_baseline_only":
+        return {
+            "cold_lane_attribution_schema_version": COLD_LANE_ATTRIBUTION_SCHEMA_VERSION,
+            "cold_lane_classification": classification,
+            "cold_lane_secondary_classifications": ",".join(secondary),
+            "cold_lane_timing_split_status": "external_baseline_only",
+            "cold_lane_required_stage_fields": "external_baseline_only",
+            "cold_lane_missing_stage_fields": "none",
+            "cold_lane_preparation_timing_present": False,
+            "cold_lane_warm_query_timing_present": False,
+            "cold_lane_sink_replay_timing_present": False,
+            "cold_lane_evidence_render_timing_present": False,
+            "cold_lane_process_harness_timing_present": False,
+            "cold_lane_claim_gate_status": "external_baseline_only",
+            "cold_lane_claim_blocker_id": "external_baseline_only",
+            "cold_lane_fallback_attempted": False,
+            "cold_lane_external_engine_invoked": False,
+            "cold_lane_claim_boundary": "external baselines provide comparison timing only and cannot satisfy ShardLoom cold-lane evidence",
+        }
+    required = list(COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION.get(classification, ()))
+    if "sink_replay_heavy" in secondary and "result_sink_write_millis" not in required:
+        required.append("result_sink_write_millis")
+    missing = [field for field in required if not cold_lane_field_present(fields, field)]
+    status = "complete" if row.get("status") == "success" and not missing else "blocked"
+    if missing:
+        status = "blocked_incomplete_timing_split"
+    if row.get("status") != "success":
+        status = "blocked_row_not_executed"
+    return {
+        "cold_lane_attribution_schema_version": COLD_LANE_ATTRIBUTION_SCHEMA_VERSION,
+        "cold_lane_classification": classification,
+        "cold_lane_secondary_classifications": ",".join(secondary),
+        "cold_lane_timing_split_status": status,
+        "cold_lane_required_stage_fields": ",".join(required) if required else "none",
+        "cold_lane_missing_stage_fields": ",".join(missing) if missing else "none",
+        "cold_lane_preparation_timing_present": any(
+            cold_lane_field_present(fields, field)
+            for field in (
+                "preparation_millis",
+                "prepare_batch_preparation_millis",
+                "compatibility_to_vortex_import_millis",
+                "vortex_write_millis",
+                "vortex_reopen_verify_millis",
+            )
+        ),
+        "cold_lane_warm_query_timing_present": cold_lane_field_present(
+            fields, "query_runtime_millis"
+        )
+        and cold_lane_field_present(fields, "operator_compute_millis"),
+        "cold_lane_sink_replay_timing_present": cold_lane_field_present(
+            fields, "result_sink_write_millis"
+        ),
+        "cold_lane_evidence_render_timing_present": cold_lane_field_present(
+            fields, "evidence_render_millis"
+        ),
+        "cold_lane_process_harness_timing_present": cold_lane_field_present(
+            fields, "cli_process_wall_millis"
+        )
+        and cold_lane_field_present(fields, "python_harness_overhead_millis"),
+        "cold_lane_claim_gate_status": "not_claim_grade",
+        "cold_lane_claim_blocker_id": (
+            "none" if status == "complete" else "gar-ioreuse-1h.incomplete_timing_split"
+        ),
+        "cold_lane_fallback_attempted": False,
+        "cold_lane_external_engine_invoked": False,
+        "cold_lane_claim_boundary": "cold-lane attribution separates preparation, warm query, sink/replay, evidence rendering, and process harness timing; it is not a performance or Spark-displacement claim",
+    }
+
+
+def cold_lane_missing_evidence_message(cold_lane: dict[str, Any]) -> str:
+    status = str(cold_lane.get("cold_lane_timing_split_status", "missing"))
+    classification = str(cold_lane.get("cold_lane_classification", "missing"))
+    missing = str(cold_lane.get("cold_lane_missing_stage_fields", "missing"))
+    return (
+        "cold_lane_timing_split_status!=complete "
+        f"(actual={status}; classification={classification}; "
+        f"missing_stage_fields={missing})"
+    )
+
+
+def claim_grade_missing_evidence_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return list(value)
+    if value in (None, "", "none"):
+        return []
+    return [value]
+
+
+def cold_lane_adjusted_claim_fields(
+    row: dict[str, Any], cold_lane: dict[str, Any]
+) -> tuple[Any, Any, list[Any]]:
+    current_status = row.get("claim_gate_status")
+    current_requirements = row.get("claim_grade_requirements_met")
+    current_missing = claim_grade_missing_evidence_list(
+        row.get("claim_grade_missing_evidence")
+    )
+    if not str(row.get("engine", "")).startswith("shardloom"):
+        return current_status, current_requirements, current_missing
+    if row.get("status") != "success":
+        return current_status, current_requirements, current_missing
+    if cold_lane.get("cold_lane_timing_split_status") == "complete":
+        return current_status, current_requirements, current_missing
+    if current_status != "claim_grade" and current_requirements is not True:
+        return current_status, current_requirements, current_missing
+    message = cold_lane_missing_evidence_message(cold_lane)
+    if message not in current_missing:
+        current_missing.append(message)
+    return "not_claim_grade", False, current_missing
+
+
 def runtime_validation_field_map(row: dict[str, Any]) -> dict[str, Any]:
     fields: dict[str, Any] = {}
     evidence = row.get("shardloom_evidence")
@@ -647,11 +891,50 @@ def runtime_validation_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def cold_lane_attribution_table(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    counts: Counter[tuple[str, str]] = Counter()
+    blockers: Counter[str] = Counter()
+    for row in rows:
+        published = cold_lane_attribution_for_row(row)
+        classification = str(published["cold_lane_classification"])
+        status = str(published["cold_lane_timing_split_status"])
+        counts[(classification, status)] += 1
+        missing = str(published["cold_lane_missing_stage_fields"])
+        if missing != "none":
+            blockers[missing] += 1
+    return {
+        "heading": "Cold-Lane Attribution",
+        "headers": ["Classification", "Timing split", "Rows"],
+        "rows": [
+            [classification, status, count]
+            for (classification, status), count in sorted(counts.items())
+        ],
+        "schema_version": COLD_LANE_ATTRIBUTION_SCHEMA_VERSION,
+        "status": "passed" if not blockers else "blocked",
+        "blockers": [
+            {"missing_stage_fields": fields, "row_count": count}
+            for fields, count in sorted(blockers.items())
+        ],
+        "claim_boundary": (
+            "cold-lane attribution explains timing composition; it does not authorize "
+            "performance, superiority, Spark-displacement, package, or production claims"
+        ),
+    }
+
+
 def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rendered = []
     for row in rows:
         metrics = row.get("metrics") if isinstance(row.get("metrics"), dict) else {}
         runtime_fields = runtime_validation_field_map(row)
+        cold_lane_fields = cold_lane_attribution_for_row(row)
+        claim_gate_status, claim_grade_requirements_met, claim_grade_missing_evidence = (
+            cold_lane_adjusted_claim_fields(row, cold_lane_fields)
+        )
+        runtime_fields.update(cold_lane_fields)
+        runtime_fields["claim_gate_status"] = claim_gate_status
+        runtime_fields["claim_grade_requirements_met"] = claim_grade_requirements_met
+        runtime_fields["claim_grade_missing_evidence"] = claim_grade_missing_evidence
         runtime_validation = runtime_validation_for_row(row)
         rendered_row = {
             "engine": row.get("engine"),
@@ -661,9 +944,9 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "storage_format": row.get("storage_format"),
             "selected_execution_mode": row.get("selected_execution_mode"),
             "requested_execution_mode": row.get("requested_execution_mode"),
-            "claim_gate_status": row.get("claim_gate_status"),
-            "claim_grade_requirements_met": row.get("claim_grade_requirements_met"),
-            "claim_grade_missing_evidence": row.get("claim_grade_missing_evidence"),
+            "claim_gate_status": claim_gate_status,
+            "claim_grade_requirements_met": claim_grade_requirements_met,
+            "claim_grade_missing_evidence": claim_grade_missing_evidence,
             "external_baseline_only": row.get("external_baseline_only"),
             "fallback_attempted": row.get("fallback_attempted", False),
             "external_engine_invoked": row.get("external_engine_invoked", False),
@@ -682,6 +965,7 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "result_sink_write_millis": metrics.get("result_sink_write_millis"),
             "evidence_render_millis": metrics.get("evidence_render_millis"),
         }
+        rendered_row.update(cold_lane_fields)
         if runtime_validation is not None:
             rendered_row["runtime_execution_validation"] = runtime_validation
             rendered_row["runtime_execution_validation_status"] = (
@@ -710,6 +994,21 @@ def published_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rendered
 
 
+def cold_lane_claim_adjusted_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    adjusted: list[dict[str, Any]] = []
+    for row in rows:
+        cold_lane_fields = cold_lane_attribution_for_row(row)
+        claim_gate_status, claim_grade_requirements_met, claim_grade_missing_evidence = (
+            cold_lane_adjusted_claim_fields(row, cold_lane_fields)
+        )
+        adjusted_row = dict(row)
+        adjusted_row["claim_gate_status"] = claim_gate_status
+        adjusted_row["claim_grade_requirements_met"] = claim_grade_requirements_met
+        adjusted_row["claim_grade_missing_evidence"] = claim_grade_missing_evidence
+        adjusted.append(adjusted_row)
+    return adjusted
+
+
 def comparative_summary(
     artifact: dict[str, Any],
     rows: list[dict[str, Any]],
@@ -718,6 +1017,7 @@ def comparative_summary(
 ) -> dict[str, Any]:
     dataset = artifact.get("dataset") if isinstance(artifact.get("dataset"), dict) else {}
     generated = artifact.get("generated_at_utc") or datetime.now(timezone.utc).isoformat()
+    claim_adjusted_rows = cold_lane_claim_adjusted_rows(rows)
     return {
         "source": repo_relative(source_path),
         "generated": f"{generated} from promoted local benchmark artifact.",
@@ -732,15 +1032,16 @@ def comparative_summary(
         ],
         "engine_timing_overview": engine_timing_table(rows),
         "vortex_oriented_lanes": vortex_lane_table(rows),
-        "claim_gate_distribution": claim_gate_table(rows),
+        "claim_gate_distribution": claim_gate_table(claim_adjusted_rows),
         "runtime_envelope_validation": runtime_validation_table(rows),
+        "cold_lane_attribution": cold_lane_attribution_table(rows),
         "profile_lane_availability": profile_lane_availability_table(
             artifact, rows, profile
         ),
         "format_coverage": format_coverage_table(
             artifact, rows, profile
         ),
-        "claim_grade_closeout": claim_grade_closeout_table(rows),
+        "claim_grade_closeout": claim_grade_closeout_table(claim_adjusted_rows),
         "missing_baselines": [],
         "dataset_rows": dataset.get("rows"),
         "claim_boundary": (
@@ -815,6 +1116,7 @@ def manifest_for_artifact(
             "build_profile",
             "cold_warm_state",
             "stage_timings",
+            "cold_lane_attribution",
             "cost_unit_fields",
             "no_fallback_proof",
             "external_baseline_boundary",

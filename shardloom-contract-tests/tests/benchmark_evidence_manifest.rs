@@ -368,6 +368,7 @@ fn benchmark_constitution_validator_rejects_missing_claim_grade_fields() {
         "build_profile",
         "cold_warm_state",
         "stage_timings",
+        "cold_lane_attribution",
     ] {
         assert!(
             report.missing_field_order.contains(&required.to_string()),

@@ -16,6 +16,60 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-IOREUSE-1H cold-lane attribution and benchmark constitution split
+  - Date: 2026-05-27
+  - Branch/PR: `ioreuse-1h-cold-lane-attribution` / PR #970.
+  - Source:
+    - `GAR-IOREUSE-1H cold-lane attribution and benchmark constitution split`.
+    - Benchmark-outlier research carry-forward, performance attribution architecture, benchmark
+      suite catalog, benchmark constitution, and compute-flow reference.
+  - Scope:
+    - Added the `shardloom.traditional_analytics.cold_lane_attribution.v1` row contract and
+      publication fields for `cold_lane_classification`, `cold_lane_timing_split_status`,
+      `cold_lane_claim_blocker`, and required timing evidence.
+    - Classified ShardLoom benchmark rows as `full_certified_cold_ingest`, `preparation_only`,
+      `warm_prepared_query`, `sink_replay_heavy`, `evidence_heavy`,
+      `process_harness_heavy`, or blocked when the declared execution mode lacks the needed
+      preparation, warm-query, sink/replay, evidence-render, or process/harness split.
+    - Kept external engines as `external_baseline_only` rows; they remain comparison baselines and
+      cannot satisfy ShardLoom stage evidence or runtime claims.
+    - Hardened benchmark promotion and constitution validation so any ShardLoom row with
+      incomplete cold-lane attribution is demoted from `claim_grade` to `not_claim_grade` before
+      publication.
+    - Surfaced cold-lane attribution status in the CLI typed benchmark constitution envelope,
+      benchmark manifest schema, website benchmark dashboard, and benchmark constitution docs.
+    - Added broad-format runner support for CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC across
+      ShardLoom, pandas, Polars eager/lazy, DuckDB, DataFusion, Dask, PySpark, and Spark local
+      baseline lanes; the all-format smoke passes with all 78 rows successful. The full public
+      broad-format benchmark-data refresh remains deferred until the remaining internal
+      cold-lane/preparation items land, so the current promoted artifact stays the existing
+      CSV/Parquet `full_local_plus_spark` data with cold-lane attribution added.
+    - Moved `GAR-IOREUSE-1H` out of the live Planned queue and trimmed `GAR-RUNTIME-IMPL-5J` so
+      its remaining work is the deferred public benchmark refresh, claim-grade roster closeout, and
+      freshness/public-claim gates.
+  - Claim boundary:
+    - This closes stage attribution and claim blocking for benchmark interpretation. It does not
+      claim performance, superiority, Spark displacement, production readiness, broad SQL/DataFrame
+      parity, object-store/table runtime, Foundry runtime, or a claim-grade benchmark roster.
+    - The broad-format runner adapters are support plumbing and smoke evidence only until the
+      deferred full benchmark refresh is promoted through `GAR-RUNTIME-IMPL-5J`.
+  - No-standalone-lane audit:
+    - Cold-lane attribution flows through the existing benchmark row schema, runtime envelope,
+      benchmark promotion, constitution validator, CLI typed envelope, website benchmark renderer,
+      and release checks. It does not introduce CSV-specific execution, a separate benchmark lane,
+      external query-engine fallback, or a side-channel around the Vortex preparation/query path.
+  - Verification:
+    - `python -m unittest python.tests.test_release_scripts`
+    - `python -m compileall -q benchmarks\traditional_analytics scripts python\tests`
+    - `python benchmarks\traditional_analytics\run.py --rows 1000 --iterations 1 --engines shardloom,shardloom-prepare-batch,shardloom-prepared-vortex,shardloom-vortex,pandas,polars-eager,polars-lazy,duckdb,datafusion,dask,pyspark,spark-default,spark-local-tuned --formats csv,jsonl,parquet,arrow-ipc,avro,orc --scenario "selective filter" --dataset-profile narrow_fact_dim --shardloom-result-sink --require-all-engines --output target\benchmark-artifacts\traditional-all-format-smoke.json --markdown-output target\benchmark-artifacts\traditional-all-format-smoke.md`
+    - `cargo +1.91.1 test -p shardloom-core --lib benchmark_constitution`
+    - `cargo +1.91.1 test -p shardloom-cli --test benchmark_constitution_snapshots --test evidence_schema_registry_snapshots`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test benchmark_evidence_manifest`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test traditional_benchmark_harness`
+    - Benchmark artifact completeness checks for `website` and `website-public`
+    - `python scripts\check_benchmark_constitution.py --manifest website\assets\benchmarks\latest\manifest.json --artifact website\assets\benchmarks\latest\benchmark-results.json --output target\benchmark-constitution-report.json --self-test`
+    - Website/release readiness checks and `git diff --check`
+
 - [x] Session label: GAR-RUNTIME-IMPL-5G-F1 broad physical operator, function, and encoded-kernel
   coverage
   - Date: 2026-05-27

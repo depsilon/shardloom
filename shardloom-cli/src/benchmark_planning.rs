@@ -309,6 +309,10 @@ fn append_benchmark_constitution_boolean_fields(
             report.stage_timings_present,
         ),
         (
+            "benchmark_constitution_cold_lane_attribution_present",
+            report.cold_lane_attribution_present,
+        ),
+        (
             "benchmark_constitution_cost_unit_fields_present",
             report.cost_unit_fields_present,
         ),
@@ -387,6 +391,10 @@ fn append_benchmark_constitution_row_fields(
         ),
         ("cold_warm_state_declared", row.cold_warm_state_declared),
         ("stage_timings_present", row.stage_timings_present),
+        (
+            "cold_lane_attribution_present",
+            row.cold_lane_attribution_present,
+        ),
         ("cost_unit_fields_present", row.cost_unit_fields_present),
         ("no_fallback_proof_present", row.no_fallback_proof_present),
         (
@@ -398,6 +406,11 @@ fn append_benchmark_constitution_row_fields(
     ] {
         push_bool_field(fields, &format!("{prefix}_{suffix}"), value);
     }
+    push_field(
+        fields,
+        &format!("{prefix}_cold_lane_classification"),
+        row.cold_lane_classification,
+    );
 }
 
 #[allow(clippy::too_many_lines)]

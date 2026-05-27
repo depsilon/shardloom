@@ -1064,6 +1064,8 @@ pub struct BenchmarkConstitutionValidationRow {
     pub hardware_build_metadata_present: bool,
     pub cold_warm_state_declared: bool,
     pub stage_timings_present: bool,
+    pub cold_lane_attribution_present: bool,
+    pub cold_lane_classification: &'static str,
     pub cost_unit_fields_present: bool,
     pub no_fallback_proof_present: bool,
     pub external_baseline_boundary_present: bool,
@@ -1114,6 +1116,7 @@ pub struct BenchmarkConstitutionValidationReport {
     pub hardware_build_metadata_present: bool,
     pub cold_warm_state_declared: bool,
     pub stage_timings_present: bool,
+    pub cold_lane_attribution_present: bool,
     pub cost_unit_fields_present: bool,
     pub no_fallback_proof_present: bool,
     pub external_baselines_comparison_only: bool,
@@ -1141,6 +1144,7 @@ impl BenchmarkConstitutionValidationReport {
             "build_profile",
             "cold_warm_state",
             "stage_timings",
+            "cold_lane_attribution",
             "cost_unit_fields",
             "no_fallback_proof",
             "external_baseline_boundary",
@@ -1238,6 +1242,7 @@ impl BenchmarkConstitutionValidationReport {
                 .all(|row| row.hardware_build_metadata_present),
             cold_warm_state_declared: rows.iter().all(|row| row.cold_warm_state_declared),
             stage_timings_present: rows.iter().all(|row| row.stage_timings_present),
+            cold_lane_attribution_present: rows.iter().all(|row| row.cold_lane_attribution_present),
             cost_unit_fields_present: rows.iter().all(|row| row.cost_unit_fields_present),
             no_fallback_proof_present,
             external_baselines_comparison_only,
@@ -2185,6 +2190,10 @@ fn benchmark_constitution_row(
             && run_manifest.has_engine_version(engine);
     let cold_warm_state_declared = run_manifest.cache_state.is_declared();
     let stage_timings_present = result.is_some_and(benchmark_result_has_stage_timing_metric);
+    let cold_lane_classification =
+        benchmark_result_cold_lane_classification(engine, result, stage_timings_present);
+    let cold_lane_attribution_present =
+        cold_lane_classification != "blocked_incomplete_timing_split";
     let cost_unit_fields_present = !scenario.requires_metric(BenchmarkMetric::CostProxy)
         || result.is_some_and(|result| result.has_known_metric(BenchmarkMetric::CostProxy));
     let fallback_attempted = run_manifest.fallback.attempted()
@@ -2203,6 +2212,7 @@ fn benchmark_constitution_row(
         hardware_build_metadata_present,
         cold_warm_state_declared,
         stage_timings_present,
+        cold_lane_attribution_present,
         cost_unit_fields_present,
         no_fallback_proof_present,
         external_baseline_boundary_present,
@@ -2234,6 +2244,8 @@ fn benchmark_constitution_row(
         hardware_build_metadata_present,
         cold_warm_state_declared,
         stage_timings_present,
+        cold_lane_attribution_present,
+        cold_lane_classification,
         cost_unit_fields_present,
         no_fallback_proof_present,
         external_baseline_boundary_present,
@@ -2254,6 +2266,7 @@ fn benchmark_constitution_missing_fields(
     hardware_build_metadata_present: bool,
     cold_warm_state_declared: bool,
     stage_timings_present: bool,
+    cold_lane_attribution_present: bool,
     cost_unit_fields_present: bool,
     no_fallback_proof_present: bool,
     external_baseline_boundary_present: bool,
@@ -2270,6 +2283,7 @@ fn benchmark_constitution_missing_fields(
         ("build_profile", hardware_build_metadata_present),
         ("cold_warm_state", cold_warm_state_declared),
         ("stage_timings", stage_timings_present),
+        ("cold_lane_attribution", cold_lane_attribution_present),
         ("cost_unit_fields", cost_unit_fields_present),
         ("no_fallback_proof", no_fallback_proof_present),
         (
@@ -2298,6 +2312,27 @@ fn aggregate_benchmark_constitution_missing_fields(
         }
     }
     missing
+}
+
+fn benchmark_result_cold_lane_classification(
+    engine: BaselineEngine,
+    result: Option<&BenchmarkResult>,
+    stage_timings_present: bool,
+) -> &'static str {
+    if engine != BaselineEngine::ShardLoom {
+        return "external_baseline_only";
+    }
+    if !stage_timings_present || result.is_none() {
+        return "blocked_incomplete_timing_split";
+    }
+    let result = result.expect("checked result exists");
+    if result.has_known_metric(BenchmarkMetric::WriteCommitLatencyMillis) {
+        "full_certified_cold_ingest"
+    } else if result.has_known_metric(BenchmarkMetric::QueryRuntimeMillis) {
+        "warm_prepared_query"
+    } else {
+        "process_harness_heavy"
+    }
 }
 
 fn benchmark_result_has_stage_timing_metric(result: &BenchmarkResult) -> bool {
@@ -3421,6 +3456,7 @@ mod tests {
         assert!(report.hardware_build_metadata_present);
         assert!(report.cold_warm_state_declared);
         assert!(report.stage_timings_present);
+        assert!(report.cold_lane_attribution_present);
         assert!(report.cost_unit_fields_present);
         assert!(report.no_fallback_proof_present);
         assert!(report.performance_claim_allowed);

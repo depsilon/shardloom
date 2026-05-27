@@ -424,6 +424,7 @@ const BENCHMARK_CONSTITUTION_REPORT_PAYLOAD_KEYS: &[&str] = &[
     "benchmark_constitution_correctness_proof_present",
     "benchmark_constitution_hardware_build_metadata_present",
     "benchmark_constitution_stage_timings_present",
+    "benchmark_constitution_cold_lane_attribution_present",
     "benchmark_constitution_cost_unit_fields_present",
     "benchmark_constitution_no_fallback_proof_present",
     "benchmark_constitution_external_baselines_comparison_only",
