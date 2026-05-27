@@ -405,7 +405,7 @@ fn aggregate_semantic_rows() -> Vec<SemanticFixtureRow> {
 }
 
 fn complex_operator_semantic_rows() -> Vec<SemanticFixtureRow> {
-    vec![
+    let mut rows = vec![
         SemanticFixtureRow::blocked(
             "join_null_semantics",
             "join null semantics",
@@ -427,19 +427,96 @@ fn complex_operator_semantic_rows() -> Vec<SemanticFixtureRow> {
             "p74.semantic.duplicate_column_policy_missing",
             "projection_name_resolution_policy,duplicate_column_fixture",
         ),
-        SemanticFixtureRow::planned(
+    ];
+    rows.extend(complex_dtype_blocker_rows());
+    rows
+}
+
+fn complex_dtype_blocker_rows() -> Vec<SemanticFixtureRow> {
+    vec![
+        SemanticFixtureRow::executed_blocker(
             "nested_list_equality",
             "nested/list equality",
             "nested_extension_type_operations",
-            "p74.semantic.nested_list_equality.profile_missing",
-            "nested_dtype_policy,parent_child_null_fixture",
+            "unsupported_diagnostic_certified",
+            "list value representation and list equality fail deterministically until a native list dtype policy lands",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f2.list_equality_unsupported",
+                required_future_evidence: "list_value_representation,parent_child_null_fixture,list_equality_fixture",
+            },
+            list_equality_policy_fixture(),
         ),
-        SemanticFixtureRow::planned(
+        SemanticFixtureRow::executed_blocker(
+            "struct_equality_policy",
+            "struct equality",
+            "nested_extension_type_operations",
+            "unsupported_diagnostic_certified",
+            "struct value representation and struct equality fail deterministically until schema identity and field null policy land",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f2.struct_equality_unsupported",
+                required_future_evidence: "struct_value_representation,field_identity_policy,struct_equality_fixture",
+            },
+            struct_equality_policy_fixture(),
+        ),
+        SemanticFixtureRow::executed_blocker(
+            "variant_access_policy",
+            "variant access",
+            "nested_extension_type_operations",
+            "unsupported_diagnostic_certified",
+            "variant access fails deterministically until tag/value policy and projection fixtures land",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f2.variant_access_unsupported",
+                required_future_evidence: "variant_tag_policy,variant_projection_fixture,unsupported_tag_diagnostic",
+            },
+            variant_access_policy_fixture(),
+        ),
+        SemanticFixtureRow::executed_blocker(
+            "union_semantics_policy",
+            "union semantics",
+            "nested_extension_type_operations",
+            "unsupported_diagnostic_certified",
+            "union dtype semantics fail deterministically until tagged-union coercion and equality policy land",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f2.union_semantics_unsupported",
+                required_future_evidence: "union_tag_policy,union_coercion_fixture,union_equality_fixture",
+            },
+            union_semantics_policy_fixture(),
+        ),
+        SemanticFixtureRow::executed_blocker(
+            "parent_child_null_policy",
+            "parent/child null behavior",
+            "nested_extension_type_operations",
+            "unsupported_diagnostic_certified",
+            "nested parent/child null propagation fails deterministically until list and struct value representations land",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f2.parent_child_null_policy_missing",
+                required_future_evidence: "nested_parent_validity_fixture,child_validity_fixture,null_propagation_policy",
+            },
+            parent_child_null_policy_fixture(),
+        ),
+        SemanticFixtureRow::executed_blocker(
             "schema_field_identity",
             "schema field identity",
             "projection",
-            "p74.semantic.schema_field_identity.profile_missing",
-            "schema_field_id_policy,rename_projection_fixture",
+            "unsupported_diagnostic_certified",
+            "schema field identity and rename semantics fail deterministically until field-id metadata policy lands",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f2.schema_field_identity_unsupported",
+                required_future_evidence: "schema_field_id_policy,rename_projection_fixture,field_collision_diagnostic",
+            },
+            schema_field_identity_fixture(),
+        ),
+        SemanticFixtureRow::executed_blocker(
+            "binary_source_runtime_policy",
+            "binary source runtime",
+            "nested_extension_type_operations",
+            "unsupported_diagnostic_certified",
+            "binary scalar equality is admitted, but binary source decoding and SQL binary literals fail deterministically",
+            SemanticBlockerEvidence {
+                blocker_id: "gar-runtime-impl-4d-f2.binary_source_runtime_unsupported",
+                required_future_evidence: "binary_source_fixture,binary_literal_policy,compatibility_output_encoding",
+            },
+            binary_source_runtime_policy_fixture(),
         ),
     ]
 }
@@ -478,7 +555,7 @@ fn semantic_fields(rows: &[SemanticFixtureRow]) -> Vec<(String, String)> {
         field("fixture_status_vocabulary", "passed,failed,planned,blocked"),
         field(
             "required_semantic_dimensions",
-            "null_comparison,three_valued_logic,null_sort_ordering,nan_equality_order,signed_zero,integer_overflow,decimal_precision_scale,timestamp_timezone,timezone_database_policy,interval_arithmetic_policy,date_parsing,string_case_sensitivity,regex_pattern_policy,locale_collation_policy,binary_equality,empty_aggregate_behavior,count_null_behavior,join_null_semantics,window_frame_defaults,duplicate_column_behavior,nested_list_equality,schema_field_identity",
+            "null_comparison,three_valued_logic,null_sort_ordering,nan_equality_order,signed_zero,integer_overflow,decimal_precision_scale,timestamp_timezone,timezone_database_policy,interval_arithmetic_policy,date_parsing,string_case_sensitivity,regex_pattern_policy,locale_collation_policy,binary_equality,empty_aggregate_behavior,count_null_behavior,join_null_semantics,window_frame_defaults,duplicate_column_behavior,nested_list_equality,struct_equality_policy,variant_access_policy,union_semantics_policy,parent_child_null_policy,schema_field_identity,binary_source_runtime_policy",
         ),
         field(
             "certification_blocker_ids",
@@ -732,6 +809,21 @@ fn unsupported_function_fixture(name: &'static str) -> bool {
     ))
 }
 
+fn unsupported_cast_dtype_fixture(target_dtype: LogicalDType) -> bool {
+    let expression = Expression::cast(
+        ExprId::new("complex-cast").expect("fixture expression id"),
+        Expression::literal(
+            ExprId::new("complex-source").expect("fixture expression id"),
+            ScalarValue::Utf8("alpha".to_string()),
+        ),
+        target_dtype,
+    );
+    unsupported_report_certified(&evaluate_expression(
+        &expression,
+        &ExpressionInputRow::new(),
+    ))
+}
+
 fn unsupported_report_certified(report: &shardloom_core::ExpressionEvaluationReport) -> bool {
     report.status == ExpressionEvaluationStatus::Unsupported
         && report.has_errors()
@@ -742,6 +834,39 @@ fn unsupported_report_certified(report: &shardloom_core::ExpressionEvaluationRep
             .diagnostics
             .iter()
             .all(|diagnostic| !diagnostic.fallback.attempted)
+}
+
+fn list_equality_policy_fixture() -> bool {
+    unsupported_cast_dtype_fixture(LogicalDType::List) && unsupported_function_fixture("list_eq")
+}
+
+fn struct_equality_policy_fixture() -> bool {
+    unsupported_cast_dtype_fixture(LogicalDType::Struct)
+        && unsupported_function_fixture("struct_eq")
+}
+
+fn variant_access_policy_fixture() -> bool {
+    unsupported_cast_dtype_fixture(LogicalDType::Extension("variant".to_string()))
+        && unsupported_function_fixture("variant_get")
+}
+
+fn union_semantics_policy_fixture() -> bool {
+    unsupported_cast_dtype_fixture(LogicalDType::Extension("union".to_string()))
+        && unsupported_function_fixture("union_tag")
+}
+
+fn parent_child_null_policy_fixture() -> bool {
+    unsupported_function_fixture("list_parent_child_null_policy")
+        && unsupported_function_fixture("struct_parent_child_null_policy")
+}
+
+fn schema_field_identity_fixture() -> bool {
+    unsupported_function_fixture("struct_field_identity")
+}
+
+fn binary_source_runtime_policy_fixture() -> bool {
+    ScalarValue::Binary(vec![0, 1, 255]).dtype() == LogicalDType::Binary
+        && unsupported_function_fixture("binary_source_decode")
 }
 
 fn binary_equality_fixture() -> bool {

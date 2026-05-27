@@ -15918,6 +15918,7 @@ fn parsed_sql_local_source_from_parts(parts: ParsedSqlLocalSourceParts) -> Parse
 fn normalize_and_validate_sql_statement(raw: &str) -> Result<String, ShardLoomError> {
     let statement = normalize_sql_statement(raw)?;
     validate_advanced_scalar_policy_boundaries(&statement)?;
+    validate_complex_dtype_policy_boundaries(&statement)?;
     Ok(statement)
 }
 
@@ -15975,16 +15976,21 @@ fn validate_advanced_scalar_policy_boundaries(statement: &str) -> Result<(), Sha
 
 fn contains_advanced_decimal_cast_target(statement: &str) -> Result<bool, ShardLoomError> {
     for function_name in ["cast", "try_cast"] {
-        if contains_cast_target_with_decimal_dtype(statement, function_name)? {
+        if contains_cast_target_matching(
+            statement,
+            function_name,
+            target_is_advanced_decimal_dtype,
+        )? {
             return Ok(true);
         }
     }
     Ok(false)
 }
 
-fn contains_cast_target_with_decimal_dtype(
+fn contains_cast_target_matching(
     statement: &str,
     function_name: &str,
+    target_matches: fn(&str) -> bool,
 ) -> Result<bool, ShardLoomError> {
     let mut search_start = 0;
     while search_start < statement.len() {
@@ -16010,7 +16016,7 @@ fn contains_cast_target_with_decimal_dtype(
         let inner = statement[open_index + 1..close_index].trim();
         if let Some(as_index) = find_keyword_outside_quotes_and_parentheses(inner, "as")? {
             let target_dtype = inner[as_index + "as".len()..].trim();
-            if target_is_advanced_decimal_dtype(target_dtype) {
+            if target_matches(target_dtype) {
                 return Ok(true);
             }
         }
@@ -16020,12 +16026,151 @@ fn contains_cast_target_with_decimal_dtype(
 }
 
 fn target_is_advanced_decimal_dtype(target_dtype: &str) -> bool {
-    ["decimal128", "decimal", "numeric"].iter().any(|dtype| {
+    target_dtype_matches_any(target_dtype, &["decimal128", "decimal", "numeric"])
+}
+
+fn target_dtype_matches_any(target_dtype: &str, dtypes: &[&str]) -> bool {
+    dtypes.iter().any(|dtype| {
         target_dtype
             .get(..dtype.len())
             .is_some_and(|prefix| prefix.eq_ignore_ascii_case(dtype))
             && keyword_boundary(target_dtype, 0, dtype.len())
     })
+}
+
+fn validate_complex_dtype_policy_boundaries(statement: &str) -> Result<(), ShardLoomError> {
+    if contains_keyword_followed_by_char_outside_quotes(statement, "array", '[')
+        || contains_function_call_outside_quotes(statement, "array")
+        || contains_function_call_outside_quotes(statement, "list_value")
+        || contains_function_call_outside_quotes(statement, "list_extract")
+        || contains_cast_target_matching(statement, "cast", target_is_list_dtype)?
+        || contains_cast_target_matching(statement, "try_cast", target_is_list_dtype)?
+    {
+        return Err(unsupported_sql_error(
+            "list and array literals, accessors, and equality semantics are not admitted by the current complex dtype profile",
+        ));
+    }
+    if contains_function_call_outside_quotes(statement, "struct")
+        || contains_function_call_outside_quotes(statement, "row")
+        || contains_cast_target_matching(statement, "cast", target_is_struct_dtype)?
+        || contains_cast_target_matching(statement, "try_cast", target_is_struct_dtype)?
+    {
+        return Err(unsupported_sql_error(
+            "struct and row constructor equality/access semantics are not admitted by the current complex dtype profile",
+        ));
+    }
+    if contains_function_call_outside_quotes(statement, "variant")
+        || contains_function_call_outside_quotes(statement, "variant_get")
+        || contains_cast_target_matching(statement, "cast", target_is_variant_dtype)?
+        || contains_cast_target_matching(statement, "try_cast", target_is_variant_dtype)?
+    {
+        return Err(unsupported_sql_error(
+            "variant access semantics are not admitted by the current complex dtype profile",
+        ));
+    }
+    if contains_keyword_outside_quotes(statement, "union") {
+        return Err(unsupported_sql_error(
+            "SQL UNION and union dtype semantics are not admitted by the current complex dtype profile",
+        ));
+    }
+    if contains_keyword_followed_by_char_outside_quotes(statement, "binary", '\'')
+        || contains_keyword_followed_by_char_outside_quotes(statement, "blob", '\'')
+        || contains_function_call_outside_quotes(statement, "from_base64")
+        || contains_function_call_outside_quotes(statement, "unhex")
+        || contains_cast_target_matching(statement, "cast", target_is_binary_dtype)?
+        || contains_cast_target_matching(statement, "try_cast", target_is_binary_dtype)?
+        || contains_hex_blob_literal_outside_quotes(statement)
+    {
+        return Err(unsupported_sql_error(
+            "binary source literals and binary input decoding are not admitted through the SQL local-source runtime",
+        ));
+    }
+    Ok(())
+}
+
+fn target_is_list_dtype(target_dtype: &str) -> bool {
+    target_dtype_matches_any(target_dtype, &["list", "array"])
+}
+
+fn target_is_struct_dtype(target_dtype: &str) -> bool {
+    target_dtype_matches_any(target_dtype, &["struct", "row"])
+}
+
+fn target_is_variant_dtype(target_dtype: &str) -> bool {
+    target_dtype_matches_any(target_dtype, &["variant"])
+}
+
+fn target_is_binary_dtype(target_dtype: &str) -> bool {
+    target_dtype_matches_any(target_dtype, &["binary", "blob", "varbinary"])
+}
+
+fn contains_function_call_outside_quotes(raw: &str, function_name: &str) -> bool {
+    let mut search_start = 0;
+    while search_start < raw.len() {
+        let Some(relative_index) = find_keyword_outside_quotes(&raw[search_start..], function_name)
+        else {
+            return false;
+        };
+        let name_index = search_start + relative_index;
+        let after_name = &raw[name_index + function_name.len()..];
+        let leading_whitespace = after_name.len() - after_name.trim_start().len();
+        let open_index = name_index + function_name.len() + leading_whitespace;
+        if raw.as_bytes().get(open_index) == Some(&b'(') {
+            return true;
+        }
+        search_start = name_index + function_name.len();
+    }
+    false
+}
+
+fn contains_keyword_followed_by_char_outside_quotes(
+    raw: &str,
+    keyword: &str,
+    expected: char,
+) -> bool {
+    let mut search_start = 0;
+    while search_start < raw.len() {
+        let Some(relative_index) = find_keyword_outside_quotes(&raw[search_start..], keyword)
+        else {
+            return false;
+        };
+        let keyword_index = search_start + relative_index;
+        let after_keyword = &raw[keyword_index + keyword.len()..];
+        let leading_whitespace = after_keyword.len() - after_keyword.trim_start().len();
+        if after_keyword[leading_whitespace..].starts_with(expected) {
+            return true;
+        }
+        search_start = keyword_index + keyword.len();
+    }
+    false
+}
+
+fn contains_hex_blob_literal_outside_quotes(raw: &str) -> bool {
+    let mut chars = raw.char_indices().peekable();
+    let mut in_quote = false;
+    while let Some((index, ch)) = chars.next() {
+        if ch == '\'' {
+            if in_quote && chars.peek().is_some_and(|(_, next)| *next == '\'') {
+                let _ = chars.next();
+            } else {
+                in_quote = !in_quote;
+            }
+            continue;
+        }
+        if in_quote {
+            continue;
+        }
+        if matches!(ch, 'x' | 'X')
+            && !raw[..index]
+                .chars()
+                .next_back()
+                .is_some_and(is_identifier_char)
+            && raw[index + ch.len_utf8()..].starts_with('\'')
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn rewrite_having_aggregate_predicate(
@@ -23555,6 +23700,41 @@ mod tests {
             parsed.cast_projections[0].target_dtype,
             LogicalDType::Float64
         );
+    }
+
+    #[test]
+    fn parser_blocks_complex_dtype_policy_constructs_without_fallback() {
+        for (statement, expected) in [
+            (
+                "SELECT id,ARRAY[1,2] AS values FROM 'target/input.csv' LIMIT 5",
+                "list and array literals, accessors, and equality semantics are not admitted",
+            ),
+            (
+                "SELECT id,STRUCT(label, amount) AS payload FROM 'target/input.csv' LIMIT 5",
+                "struct and row constructor equality/access semantics are not admitted",
+            ),
+            (
+                "SELECT id,VARIANT_GET(payload, 'field') AS field FROM 'target/input.csv' LIMIT 5",
+                "variant access semantics are not admitted",
+            ),
+            (
+                "SELECT id FROM 'target/input.csv' UNION SELECT id FROM 'target/other.csv' LIMIT 5",
+                "SQL UNION and union dtype semantics are not admitted",
+            ),
+            (
+                "SELECT id,X'00ff' AS payload FROM 'target/input.csv' LIMIT 5",
+                "binary source literals and binary input decoding are not admitted",
+            ),
+        ] {
+            let error = parse_sql_local_source_statement(statement)
+                .expect_err("complex dtype policy construct remains blocked");
+
+            assert!(
+                error.to_string().contains(expected),
+                "expected {expected:?}, got {error}"
+            );
+            assert!(error.to_string().contains("external_engine_invoked=false"));
+        }
     }
 
     #[test]
