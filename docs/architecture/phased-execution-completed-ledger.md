@@ -16,6 +16,77 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-IOREUSE-1J differential preparation and prepared-state delta overlays
+  - Date: 2026-05-27
+  - Branch/PR: `ioreuse-1j-differential-prep` / PR #972.
+  - Source:
+    - `GAR-IOREUSE-1J differential preparation and prepared-state delta overlays`.
+    - Novel cold-lane research carry-forward,
+      `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
+      `docs/architecture/io-reuse-and-fanout-architecture.md`, RFC 0004, RFC 0017, and RFC 0034.
+  - Scope:
+    - Added `shardloom.vortex_differential_preparation.v1` evidence to the existing
+      `vortex_ingest` / `vortex-ingest-smoke` SourceState -> VortexPreparedState route, with
+      optional `--delta-source`, `--delta-target`, and `--delta-update-mode` inputs instead of a
+      standalone delta lane.
+    - Admitted scoped local append-only delta overlays only when the base SourceState,
+      VortexPreparedState, and delta SourceState evidence is complete, schema-compatible, locally
+      certified through the Vortex writer/reopen path, and replay/correctness digests are present.
+    - Emitted base/delta source IDs and digests, prepared-state IDs and digests, base/delta row
+      counts, delta manifest digest, changed byte/row/segment refs, overlay manifest digest,
+      schema/update/tombstone/delete policy fields, materialization/decode posture, Native I/O
+      certificate refs, replay/correctness digest, and no-standalone-lane/no-fallback fields.
+    - Added CLI report plumbing, Python typed accessors, focused Rust/Python tests, benchmark
+      harness schema/rendering/promotion support, source-of-truth docs, support matrix, and
+      use-case index coverage for the differential-preparation evidence fields.
+    - Kept public benchmark measurement refresh deferred until the remaining cold-lane/preparation
+      items are complete; this PR updates the contract and publication schema, not the promoted
+      benchmark result data.
+  - Admitted/blocked delta semantics:
+    - Admitted: append-only local delta overlays that write and reopen a delta `.vortex` artifact,
+      preserve the base prepared artifact without full reprepare, and report
+      `base_reprepare_performed=false`, `delta_artifact_written=true`, and `overlay_applied=true`.
+    - Blocked: update, delete, and upsert overlays; schema mismatches; missing base
+      SourceState/VortexPreparedState identity; empty delta manifests; feature-gated/default-build
+      writer gaps; and any unsupported source/sink/split shape.
+    - Blocked cases emit stable diagnostics such as `blocked_missing_base_identity`,
+      `blocked_update_mode_policy`, `blocked_schema_mismatch`, or
+      `blocked_empty_delta_manifest`, with `fallback_attempted=false` and
+      `external_engine_invoked=false`.
+  - Replay/correctness evidence:
+    - Delta artifacts reuse the same Native I/O writer/reopen certificate route as base Vortex
+      preparation and carry `vortex_differential_preparation_native_io_*` refs.
+    - Overlay reports include delta writer/reopen row counts, changed range refs, overlay manifest
+      digest, correctness digest, and materialization/decode boundaries so benchmark and release
+      gates can distinguish full cold prepare from differential prepare.
+  - Claim boundary:
+    - This is scoped local append-only differential-preparation evidence only. It does not claim
+      broad CDC/table transaction support, update/delete/upsert semantics, object-store/table
+      commits, background cache maintenance, persistent cross-process cache, performance,
+      production readiness, SQL/DataFrame parity, Spark displacement, or benchmark claim-grade
+      superiority.
+    - All differential-preparation work remains inside the Vortex preparation path; no external
+      engine may repair, merge, or evaluate deltas as ShardLoom runtime work.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-write,universal-format-io vortex_ingest --lib`
+    - `cargo +1.91.1 test -p shardloom-cli --features vortex-write,universal-format-io --test sql_local_source_runtime_smoke vortex_ingest_smoke`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q benchmarks\traditional_analytics scripts python\src python\tests`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_website_readiness.py`
+    - Benchmark artifact completeness checks for `website` and `website-public` against the
+      existing published artifact.
+    - `python scripts\check_benchmark_constitution.py --manifest website-public\assets\benchmarks\latest\manifest.json --artifact website-public\assets\benchmarks\latest\benchmark-results.json --output target\benchmark-constitution-report.json --self-test`
+    - `python scripts\check_evidence_schema_registry.py`
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `git diff --check`
+
 - [x] Session label: GAR-IOREUSE-1I Vortex-native source/sink/split preparation spine
   - Date: 2026-05-27
   - Branch/PR: `ioreuse-1i-vortex-prep-spine` / PR #971.

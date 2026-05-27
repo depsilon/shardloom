@@ -377,6 +377,182 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
 
 #[cfg(feature = "vortex-write")]
 #[test]
+fn vortex_ingest_smoke_applies_append_only_differential_overlay() {
+    let source_path = unique_path("vortex-ingest-delta-base", "csv");
+    let delta_source_path = unique_path("vortex-ingest-delta-change", "csv");
+    let target_path = unique_path("vortex-ingest-delta-base-target", "vortex");
+    let delta_target_path = unique_path("vortex-ingest-delta-change-target", "vortex");
+    fs::write(&source_path, "id,label,amount\n1,alpha,8\n2,beta,15\n")
+        .expect("write base source csv");
+    fs::write(&delta_source_path, "id,label,amount\n3,gamma,21\n").expect("write delta source csv");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--delta-source",
+            &delta_source_path.display().to_string(),
+            "--delta-target",
+            &delta_target_path.display().to_string(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-ingest-smoke command runs");
+
+    assert!(
+        output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"success\""));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_schema_version",
+        "shardloom.vortex_differential_preparation.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_status",
+        "admitted_append_only_delta_overlay"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_update_mode",
+        "append_only"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_delta_row_count",
+        "1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_schema_compatibility_status",
+        "compatible_source_schema_and_column_families"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_prepared_state_reuse_status",
+        "base_prepared_state_reused_for_delta_overlay"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_base_reprepare_performed",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_delta_artifact_written",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_overlay_applied",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_native_io_certificate_status",
+        "certified_local_vortex_differential_preparation_overlay"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_no_standalone_lane_status",
+        "funnelled_through_vortex_ingest_source_state_to_prepared_state_delta_overlay"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_fallback_attempted",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_external_engine_invoked",
+        "false"
+    )));
+    assert!(target_path.exists());
+    assert!(delta_target_path.exists());
+
+    fs::remove_file(source_path).expect("remove base source csv");
+    fs::remove_file(delta_source_path).expect("remove delta source csv");
+    fs::remove_file(target_path).expect("remove base vortex");
+    fs::remove_file(delta_target_path).expect("remove delta vortex");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn vortex_ingest_smoke_blocks_update_mode_differential_overlay() {
+    let source_path = unique_path("vortex-ingest-delta-update-base", "csv");
+    let delta_source_path = unique_path("vortex-ingest-delta-update-change", "csv");
+    let target_path = unique_path("vortex-ingest-delta-update-base-target", "vortex");
+    let delta_target_path = unique_path("vortex-ingest-delta-update-change-target", "vortex");
+    fs::write(&source_path, "id,label,amount\n1,alpha,8\n").expect("write base source csv");
+    fs::write(&delta_source_path, "id,label,amount\n1,alpha-prime,9\n")
+        .expect("write delta source csv");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--delta-source",
+            &delta_source_path.display().to_string(),
+            "--delta-target",
+            &delta_target_path.display().to_string(),
+            "--delta-update-mode",
+            "update",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-ingest-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_status",
+        "blocked_update_mode_policy"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_update_mode",
+        "update"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_overlay_applied",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_fallback_attempted",
+        "false"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_differential_preparation_external_engine_invoked",
+        "false"
+    )));
+
+    fs::remove_file(source_path).expect("remove base source csv");
+    fs::remove_file(delta_source_path).expect("remove delta source csv");
+    if target_path.exists() {
+        fs::remove_file(target_path).expect("remove base vortex");
+    }
+    if delta_target_path.exists() {
+        fs::remove_file(delta_target_path).expect("remove delta vortex");
+    }
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
 #[allow(clippy::too_many_lines)]
 fn vortex_ingest_smoke_prepares_json_jsonl_and_ndjson_through_text_adapter_registry() {
     let cases = [

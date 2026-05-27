@@ -825,6 +825,79 @@ class VortexIngestSmokeReport:
         )
 
     @property
+    def vortex_differential_preparation_status(self) -> str | None:
+        """Return scoped differential-preparation overlay status when requested."""
+
+        return self.envelope.field("vortex_differential_preparation_status")
+
+    @property
+    def vortex_differential_preparation_update_mode(self) -> str | None:
+        """Return the requested differential-preparation update mode."""
+
+        return self.envelope.field("vortex_differential_preparation_update_mode")
+
+    @property
+    def vortex_differential_preparation_delta_row_count(self) -> int:
+        """Return the number of delta rows admitted into the overlay manifest."""
+
+        return self.envelope.field_int(
+            "vortex_differential_preparation_delta_row_count", 0
+        ) or 0
+
+    @property
+    def vortex_differential_preparation_overlay_applied(self) -> bool:
+        """Whether the differential-preparation overlay was applied."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_differential_preparation_overlay_applied", False
+            )
+            is True
+        )
+
+    @property
+    def vortex_differential_preparation_base_reprepare_performed(self) -> bool:
+        """Whether the differential path rewrote the base prepared artifact."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_differential_preparation_base_reprepare_performed", False
+            )
+            is True
+        )
+
+    @property
+    def vortex_differential_preparation_delta_artifact_written(self) -> bool:
+        """Whether the differential path wrote a delta-only Vortex artifact."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_differential_preparation_delta_artifact_written", False
+            )
+            is True
+        )
+
+    @property
+    def vortex_differential_preparation_native_io_certificate_status(
+        self,
+    ) -> str | None:
+        """Return the Native I/O certificate posture for differential preparation."""
+
+        return self.envelope.field(
+            "vortex_differential_preparation_native_io_certificate_status"
+        )
+
+    @property
+    def vortex_differential_preparation_no_standalone_lane_status(
+        self,
+    ) -> str | None:
+        """Return whether differential evidence stayed in the vortex_ingest route."""
+
+        return self.envelope.field(
+            "vortex_differential_preparation_no_standalone_lane_status"
+        )
+
+    @property
     def source_io_performed(self) -> bool:
         """Whether source I/O was performed by the smoke."""
 
@@ -7989,6 +8062,9 @@ class ShardLoomClient:
         *,
         allow_overwrite: bool = False,
         certification_level: str = "ingest_certified",
+        delta_source_path: str | os.PathLike[str] | None = None,
+        delta_target_vortex_path: str | os.PathLike[str] | None = None,
+        delta_update_mode: str = "append-only",
         check: bool = True,
     ) -> VortexIngestSmokeReport:
         """Run the scoped local `vortex_ingest` prepare-once smoke command."""
@@ -8002,6 +8078,12 @@ class ShardLoomClient:
             command.append("--allow-overwrite")
         if certification_level != "ingest_certified":
             command.extend(["--certification-level", certification_level])
+        if delta_source_path is not None:
+            command.extend(["--delta-source", str(delta_source_path)])
+        if delta_target_vortex_path is not None:
+            command.extend(["--delta-target", str(delta_target_vortex_path)])
+        if delta_update_mode != "append-only":
+            command.extend(["--delta-update-mode", delta_update_mode])
         return VortexIngestSmokeReport(self.run(command, check=check))
 
     def execution_certificate_plan(self, *, check: bool = True) -> OutputEnvelope:

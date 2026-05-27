@@ -674,6 +674,61 @@ VORTEX_PREPARATION_SPINE_FIELDS = (
     "vortex_preparation_spine_claim_gate_status",
     "vortex_preparation_spine_claim_boundary",
 )
+VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.vortex_differential_preparation.v1"
+)
+VORTEX_DIFFERENTIAL_PREPARATION_STATUS_VOCABULARY = (
+    "admitted_append_only_delta_overlay",
+    "not_requested",
+    "blocked_missing_base_identity",
+    "blocked_update_mode_policy",
+    "blocked_schema_mismatch",
+    "blocked_empty_delta_manifest",
+    "blocked",
+    "unsupported",
+    "report_only",
+    "external_baseline_only",
+)
+VORTEX_DIFFERENTIAL_PREPARATION_FIELDS = (
+    "vortex_differential_preparation_schema_version",
+    "vortex_differential_preparation_status",
+    "vortex_differential_preparation_update_mode",
+    "vortex_differential_preparation_base_source_state_id",
+    "vortex_differential_preparation_base_source_state_digest",
+    "vortex_differential_preparation_base_prepared_state_id",
+    "vortex_differential_preparation_base_prepared_state_digest",
+    "vortex_differential_preparation_base_row_count",
+    "vortex_differential_preparation_delta_source_state_id",
+    "vortex_differential_preparation_delta_source_state_digest",
+    "vortex_differential_preparation_delta_row_count",
+    "vortex_differential_preparation_delta_manifest_digest",
+    "vortex_differential_preparation_overlay_manifest_digest",
+    "vortex_differential_preparation_changed_byte_range_refs",
+    "vortex_differential_preparation_changed_row_range_refs",
+    "vortex_differential_preparation_changed_segment_refs",
+    "vortex_differential_preparation_schema_compatibility_status",
+    "vortex_differential_preparation_update_mode_policy",
+    "vortex_differential_preparation_tombstone_policy",
+    "vortex_differential_preparation_delete_policy",
+    "vortex_differential_preparation_update_policy",
+    "vortex_differential_preparation_prepared_state_reuse_status",
+    "vortex_differential_preparation_base_reprepare_performed",
+    "vortex_differential_preparation_delta_artifact_written",
+    "vortex_differential_preparation_delta_artifact_ref",
+    "vortex_differential_preparation_delta_artifact_digest",
+    "vortex_differential_preparation_overlay_applied",
+    "vortex_differential_preparation_replay_verification_status",
+    "vortex_differential_preparation_correctness_digest",
+    "vortex_differential_preparation_materialization_boundary_status",
+    "vortex_differential_preparation_decode_boundary_status",
+    "vortex_differential_preparation_native_io_certificate_status",
+    "vortex_differential_preparation_native_io_certificate_refs",
+    "vortex_differential_preparation_no_standalone_lane_status",
+    "vortex_differential_preparation_fallback_attempted",
+    "vortex_differential_preparation_external_engine_invoked",
+    "vortex_differential_preparation_claim_gate_status",
+    "vortex_differential_preparation_claim_boundary",
+)
 OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION = "shardloom.traditional_analytics.output_plan.v1"
 OUTPUT_PLAN_CONTRACT_STATUS_VOCABULARY = (
     "output_plan_supported",
@@ -7420,6 +7475,200 @@ def vortex_preparation_spine_metadata(
     }
 
 
+def vortex_differential_preparation_metadata(
+    engine: str,
+    status: str,
+    *,
+    metrics: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    observed_status = first_meaningful_field(
+        evidence.get("vortex_differential_preparation_status"),
+        metrics.get("vortex_differential_preparation_status"),
+    )
+    if not is_shardloom:
+        differential_status = "external_baseline_only"
+    elif observed_status is not None:
+        differential_status = str(observed_status)
+    elif status in UNSUPPORTED_ROW_STATUSES:
+        differential_status = "unsupported"
+    elif shardloom_blocked_non_execution_status(status):
+        differential_status = "blocked"
+    elif metrics.get("vortex_preparation_spine_status") == "local_preparation_spine_reported":
+        differential_status = "not_requested"
+    else:
+        differential_status = "report_only"
+    overlay_applied = (
+        parse_optional_bool(evidence.get("vortex_differential_preparation_overlay_applied"))
+        is True
+    )
+    delta_artifact_written = (
+        parse_optional_bool(
+            evidence.get("vortex_differential_preparation_delta_artifact_written")
+        )
+        is True
+    )
+    if differential_status == "admitted_append_only_delta_overlay":
+        overlay_applied = True
+        delta_artifact_written = True
+    return {
+        "vortex_differential_preparation_schema_version": (
+            VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION
+        ),
+        "vortex_differential_preparation_status": differential_status,
+        "vortex_differential_preparation_update_mode": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_update_mode"),
+            "append_only" if overlay_applied else "not_requested",
+        ),
+        "vortex_differential_preparation_base_source_state_id": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_base_source_state_id"),
+            metrics.get("source_state_id"),
+            "none",
+        ),
+        "vortex_differential_preparation_base_source_state_digest": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_base_source_state_digest"),
+            metrics.get("source_state_digest"),
+            "none",
+        ),
+        "vortex_differential_preparation_base_prepared_state_id": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_base_prepared_state_id"),
+            metrics.get("prepared_state_id"),
+            "none",
+        ),
+        "vortex_differential_preparation_base_prepared_state_digest": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_base_prepared_state_digest"),
+            metrics.get("prepared_state_digest"),
+            "none",
+        ),
+        "vortex_differential_preparation_base_row_count": parse_optional_int(
+            evidence.get("vortex_differential_preparation_base_row_count")
+        )
+        or parse_optional_int(metrics.get("input_row_count"))
+        or 0,
+        "vortex_differential_preparation_delta_source_state_id": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_delta_source_state_id"),
+            "none",
+        ),
+        "vortex_differential_preparation_delta_source_state_digest": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_delta_source_state_digest"),
+            "none",
+        ),
+        "vortex_differential_preparation_delta_row_count": parse_optional_int(
+            evidence.get("vortex_differential_preparation_delta_row_count")
+        )
+        or 0,
+        "vortex_differential_preparation_delta_manifest_digest": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_delta_manifest_digest"),
+            "none",
+        ),
+        "vortex_differential_preparation_overlay_manifest_digest": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_overlay_manifest_digest"),
+            "none",
+        ),
+        "vortex_differential_preparation_changed_byte_range_refs": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_changed_byte_range_refs"),
+            "none",
+        ),
+        "vortex_differential_preparation_changed_row_range_refs": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_changed_row_range_refs"),
+            "none",
+        ),
+        "vortex_differential_preparation_changed_segment_refs": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_changed_segment_refs"),
+            "none",
+        ),
+        "vortex_differential_preparation_schema_compatibility_status": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_schema_compatibility_status"),
+            "not_evaluated",
+        ),
+        "vortex_differential_preparation_update_mode_policy": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_update_mode_policy"),
+            "append_only_overlay_requires_matching_fingerprints_and_replay",
+        ),
+        "vortex_differential_preparation_tombstone_policy": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_tombstone_policy"),
+            "tombstones_blocked_for_scoped_append_only_overlay",
+        ),
+        "vortex_differential_preparation_delete_policy": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_delete_policy"),
+            "deletes_blocked_for_scoped_append_only_overlay",
+        ),
+        "vortex_differential_preparation_update_policy": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_update_policy"),
+            "updates_blocked_for_scoped_append_only_overlay",
+        ),
+        "vortex_differential_preparation_prepared_state_reuse_status": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_prepared_state_reuse_status"),
+            "not_requested",
+        ),
+        "vortex_differential_preparation_base_reprepare_performed": (
+            parse_optional_bool(
+                evidence.get("vortex_differential_preparation_base_reprepare_performed")
+            )
+            is True
+        ),
+        "vortex_differential_preparation_delta_artifact_written": delta_artifact_written,
+        "vortex_differential_preparation_delta_artifact_ref": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_delta_artifact_ref"),
+            "none",
+        ),
+        "vortex_differential_preparation_delta_artifact_digest": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_delta_artifact_digest"),
+            "none",
+        ),
+        "vortex_differential_preparation_overlay_applied": overlay_applied,
+        "vortex_differential_preparation_replay_verification_status": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_replay_verification_status"),
+            "not_requested",
+        ),
+        "vortex_differential_preparation_correctness_digest": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_correctness_digest"),
+            "none",
+        ),
+        "vortex_differential_preparation_materialization_boundary_status": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_materialization_boundary_status"),
+            "not_requested",
+        ),
+        "vortex_differential_preparation_decode_boundary_status": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_decode_boundary_status"),
+            "not_requested",
+        ),
+        "vortex_differential_preparation_native_io_certificate_status": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_native_io_certificate_status"),
+            "not_requested",
+        ),
+        "vortex_differential_preparation_native_io_certificate_refs": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_native_io_certificate_refs"),
+            "none",
+        ),
+        "vortex_differential_preparation_no_standalone_lane_status": first_meaningful_field(
+            evidence.get("vortex_differential_preparation_no_standalone_lane_status"),
+            "funnelled_through_vortex_ingest_when_requested",
+        ),
+        "vortex_differential_preparation_fallback_attempted": (
+            parse_optional_bool(
+                evidence.get("vortex_differential_preparation_fallback_attempted")
+            )
+            is True
+        ),
+        "vortex_differential_preparation_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get("vortex_differential_preparation_external_engine_invoked")
+            )
+            is True
+        ),
+        "vortex_differential_preparation_claim_gate_status": "not_claim_grade",
+        "vortex_differential_preparation_claim_boundary": (
+            "VortexDifferentialPreparation evidence covers scoped local append-only "
+            "delta overlays linked to existing SourceState and VortexPreparedState "
+            "fingerprints only; it is not broad CDC, table transaction, update/delete/upsert, "
+            "object-store, performance, production, SQL/DataFrame, or Spark-replacement evidence"
+        ),
+    }
+
+
 def output_plan_reuse_reason(
     engine: str,
     status: str,
@@ -11092,6 +11341,45 @@ def vortex_preparation_spine_contract() -> dict[str, Any]:
     }
 
 
+def vortex_differential_preparation_contract() -> dict[str, Any]:
+    return {
+        "contract_id": VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": (
+            "docs/architecture/cold-ingestion-preparation-research-carryforward.md"
+        ),
+        "status_vocabulary": list(VORTEX_DIFFERENTIAL_PREPARATION_STATUS_VOCABULARY),
+        "row_fields": list(VORTEX_DIFFERENTIAL_PREPARATION_FIELDS),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexPreparedState -> "
+            "VortexDifferentialPreparation -> VortexPreparedState overlay"
+        ),
+        "current_scope": (
+            "scoped local append-only delta artifact overlays with base/delta fingerprints, "
+            "schema compatibility, replay proof, Native I/O posture, and no-fallback evidence"
+        ),
+        "non_goals": [
+            "broad CDC or table transactions",
+            "update/delete/upsert rewrite semantics",
+            "object-store or table commits",
+            "background cache or daemon",
+            "cross-process persistent prepared-state cache",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Differential-preparation rows must preserve "
+            "vortex_differential_preparation_fallback_attempted=false and "
+            "vortex_differential_preparation_external_engine_invoked=false for ShardLoom rows."
+        ),
+        "claim_boundary": (
+            "VortexDifferentialPreparation evidence is scoped local append-only overlay evidence "
+            "only. It links base and delta SourceState/VortexPreparedState fingerprints without "
+            "proving broad CDC, table transactions, update/delete/upsert, object-store/lakehouse, "
+            "production, performance, SQL/DataFrame, or Spark-replacement readiness."
+        ),
+    }
+
+
 def output_plan_contract() -> dict[str, Any]:
     return {
         "contract_id": OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION,
@@ -11657,6 +11945,80 @@ def vortex_preparation_spine_matrix(results: list[dict[str, Any]]) -> list[dict[
                 ),
                 "vortex_preparation_spine_claim_boundary": metrics.get(
                     "vortex_preparation_spine_claim_boundary"
+                ),
+            }
+        )
+    return rows
+
+
+def vortex_differential_preparation_matrix(
+    results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "vortex_differential_preparation_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "vortex_differential_preparation_status": metrics.get(
+                    "vortex_differential_preparation_status"
+                ),
+                "vortex_differential_preparation_update_mode": metrics.get(
+                    "vortex_differential_preparation_update_mode"
+                ),
+                "vortex_differential_preparation_base_prepared_state_id": metrics.get(
+                    "vortex_differential_preparation_base_prepared_state_id"
+                ),
+                "vortex_differential_preparation_delta_row_count": metrics.get(
+                    "vortex_differential_preparation_delta_row_count"
+                ),
+                "vortex_differential_preparation_delta_manifest_digest": metrics.get(
+                    "vortex_differential_preparation_delta_manifest_digest"
+                ),
+                "vortex_differential_preparation_overlay_manifest_digest": metrics.get(
+                    "vortex_differential_preparation_overlay_manifest_digest"
+                ),
+                "vortex_differential_preparation_changed_row_range_refs": metrics.get(
+                    "vortex_differential_preparation_changed_row_range_refs"
+                ),
+                "vortex_differential_preparation_schema_compatibility_status": metrics.get(
+                    "vortex_differential_preparation_schema_compatibility_status"
+                ),
+                "vortex_differential_preparation_prepared_state_reuse_status": metrics.get(
+                    "vortex_differential_preparation_prepared_state_reuse_status"
+                ),
+                "vortex_differential_preparation_base_reprepare_performed": metrics.get(
+                    "vortex_differential_preparation_base_reprepare_performed"
+                ),
+                "vortex_differential_preparation_delta_artifact_written": metrics.get(
+                    "vortex_differential_preparation_delta_artifact_written"
+                ),
+                "vortex_differential_preparation_overlay_applied": metrics.get(
+                    "vortex_differential_preparation_overlay_applied"
+                ),
+                "vortex_differential_preparation_native_io_certificate_status": metrics.get(
+                    "vortex_differential_preparation_native_io_certificate_status"
+                ),
+                "vortex_differential_preparation_no_standalone_lane_status": metrics.get(
+                    "vortex_differential_preparation_no_standalone_lane_status"
+                ),
+                "vortex_differential_preparation_claim_gate_status": metrics.get(
+                    "vortex_differential_preparation_claim_gate_status"
+                ),
+                "vortex_differential_preparation_fallback_attempted": metrics.get(
+                    "vortex_differential_preparation_fallback_attempted"
+                ),
+                "vortex_differential_preparation_external_engine_invoked": metrics.get(
+                    "vortex_differential_preparation_external_engine_invoked"
+                ),
+                "vortex_differential_preparation_claim_boundary": metrics.get(
+                    "vortex_differential_preparation_claim_boundary"
                 ),
             }
         )
@@ -13037,6 +13399,13 @@ def failed_result(
         )
     )
     metrics.update(
+        vortex_differential_preparation_metadata(
+            engine,
+            status=status,
+            metrics=metrics,
+        )
+    )
+    metrics.update(
         output_plan_contract_metadata(
             engine,
             scenario,
@@ -13779,6 +14148,14 @@ def successful_result_from_iterations(
             metrics=metrics,
             evidence=evidence,
             selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
+    metrics.update(
+        vortex_differential_preparation_metadata(
+            runner.name,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            evidence=evidence,
         )
     )
     metrics.update(
@@ -15899,6 +16276,27 @@ def render_vortex_preparation_spine_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_vortex_differential_preparation_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["vortex_differential_preparation_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
 def render_split_manifest_contract(artifact: dict[str, Any]) -> str:
     contract = artifact["split_manifest_contract"]
     rows = [
@@ -17525,6 +17923,88 @@ def render_vortex_preparation_spine_matrix(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_vortex_differential_preparation_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["vortex_differential_preparation_matrix"]:
+        rows.append(
+            [
+                row.get("scenario_name", "unknown"),
+                row.get("engine", "unknown"),
+                row.get("status", "unknown"),
+                str(row.get("execution_mode", "unknown")),
+                str(row.get("vortex_differential_preparation_status", "unknown")),
+                str(row.get("vortex_differential_preparation_update_mode", "unknown")),
+                str(row.get("vortex_differential_preparation_base_prepared_state_id", "none")),
+                str(row.get("vortex_differential_preparation_delta_row_count", 0)),
+                str(row.get("vortex_differential_preparation_delta_manifest_digest", "none")),
+                str(row.get("vortex_differential_preparation_overlay_manifest_digest", "none")),
+                str(row.get("vortex_differential_preparation_changed_row_range_refs", "none")).replace("|", "\\|"),
+                str(row.get("vortex_differential_preparation_schema_compatibility_status", "unknown")),
+                str(row.get("vortex_differential_preparation_prepared_state_reuse_status", "unknown")),
+                str(row.get("vortex_differential_preparation_base_reprepare_performed", False)),
+                str(row.get("vortex_differential_preparation_delta_artifact_written", False)),
+                str(row.get("vortex_differential_preparation_overlay_applied", False)),
+                str(row.get("vortex_differential_preparation_native_io_certificate_status", "none")),
+                str(row.get("vortex_differential_preparation_no_standalone_lane_status", "unknown")),
+                str(row.get("vortex_differential_preparation_claim_gate_status", "not_claim_grade")),
+                str(row.get("vortex_differential_preparation_fallback_attempted", False)),
+                str(row.get("vortex_differential_preparation_external_engine_invoked", False)),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "report_only",
+                "not_requested",
+                "none",
+                "0",
+                "none",
+                "none",
+                "none",
+                "not_evaluated",
+                "not_requested",
+                "false",
+                "false",
+                "false",
+                "none",
+                "not_reported",
+                "not_claim_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Differential status",
+            "Update mode",
+            "Base prepared state",
+            "Delta rows",
+            "Delta manifest",
+            "Overlay manifest",
+            "Changed rows",
+            "Schema compatibility",
+            "Reuse status",
+            "Base reprepare",
+            "Delta artifact",
+            "Overlay applied",
+            "Native I/O",
+            "Lane status",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
 def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
     rows = []
     for row in artifact["output_plan_matrix"]:
@@ -18535,6 +19015,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_vortex_preparation_spine_contract(artifact),
         "",
+        "## VortexDifferentialPreparation Contract",
+        "",
+        "This contract makes scoped append-only delta overlay posture visible without implying broad CDC, table transaction, update/delete/upsert, or performance support.",
+        "",
+        render_vortex_differential_preparation_contract(artifact),
+        "",
         "## OutputPlan Contract",
         "",
         "This contract makes local output-plan posture, target format/schema, metadata preservation, write/replay refs, and sink artifact identity visible without implying fanout, object-store, table commit, or production sink support.",
@@ -18658,6 +19144,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "VortexPreparationSpine rows show how local SourceState splits flow into VortexPreparedState writes through admitted provider surfaces. They are internal preparation evidence only, not a separate runtime lane or performance claim.",
         "",
         render_vortex_preparation_spine_matrix(artifact),
+        "",
+        "## ShardLoom VortexDifferentialPreparation Evidence Matrix",
+        "",
+        "VortexDifferentialPreparation rows show whether a scoped append-only delta overlay was requested, admitted, blocked, or not requested. They stay inside the vortex_ingest route and do not upgrade claim status.",
+        "",
+        render_vortex_differential_preparation_matrix(artifact),
         "",
         "## ShardLoom OutputPlan Evidence Matrix",
         "",
@@ -18986,6 +19478,9 @@ def main() -> int:
         "source_state_contract": source_state_contract(),
         "prepared_state_contract": prepared_state_contract(),
         "vortex_preparation_spine_contract": vortex_preparation_spine_contract(),
+        "vortex_differential_preparation_contract": (
+            vortex_differential_preparation_contract()
+        ),
         "output_plan_contract": output_plan_contract(),
         "fanout_benchmark_contract": fanout_benchmark_contract(),
         "cache_invalidation_contract": cache_invalidation_contract(),
@@ -19013,6 +19508,9 @@ def main() -> int:
         "scan_pushdown_matrix": scan_pushdown_matrix(results),
         "prepared_state_matrix": prepared_state_matrix(results),
         "vortex_preparation_spine_matrix": vortex_preparation_spine_matrix(results),
+        "vortex_differential_preparation_matrix": (
+            vortex_differential_preparation_matrix(results)
+        ),
         "split_manifest_matrix": split_manifest_matrix(results),
         "memory_spill_matrix": memory_spill_matrix(results),
         "shuffle_scale_matrix": shuffle_scale_matrix(results),

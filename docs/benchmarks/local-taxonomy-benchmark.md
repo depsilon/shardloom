@@ -243,6 +243,15 @@ no-standalone-lane status, and no-fallback fields. The refresh is intentionally 
 remaining cold-lane preparation work lands so published data does not churn between directly
 related items.
 
+`GAR-IOREUSE-1J` extends the harness schema with
+`vortex_differential_preparation_schema_version=shardloom.traditional_analytics.vortex_differential_preparation.v1`.
+The next full data refresh will distinguish full cold prepare rows from scoped append-only delta
+overlay rows using base/delta SourceState and VortexPreparedState IDs, delta manifest digest,
+changed byte/row/segment refs, schema compatibility, update-mode policy, overlay/correctness
+digests, Native I/O posture, no-standalone-lane status, and no-fallback fields. This is local
+append-only differential-preparation evidence only; it does not claim broad CDC/table transaction
+support.
+
 `GAR-IOREUSE-1C` adds a companion OutputPlan row contract to the benchmark artifact. Rows now carry
 `output_plan_contract_schema_version=shardloom.traditional_analytics.output_plan.v1`,
 `output_plan_status`, `output_plan_id`, `output_plan_digest`, `output_format`, `output_location`,

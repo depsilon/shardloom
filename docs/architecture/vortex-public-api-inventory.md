@@ -60,6 +60,13 @@ phase note. They are not active queue state and do not override `phased-executio
   ranges, Vortex write/reopen surfaces, prepared-artifact segment evidence, Native I/O certificate
   posture, and no-fallback fields. This is scoped prepare-once artifact creation only; it is not
   Arrow-default execution, broad structured-format support, or a performance claim.
+- Differential preparation overlay admission: the same `vortex_ingest` route can now prepare a
+  declared append-only delta source into a separate local Vortex artifact and emit
+  `vortex_differential_preparation_*` evidence linking base SourceState/VortexPreparedState
+  fingerprints, delta SourceState fingerprints, changed ranges, overlay manifest digest,
+  correctness digest, replay verification, Native I/O certificate refs, and no-fallback fields.
+  Update/delete/upsert and schema-mismatch overlays remain blocked before prepared-state reuse; no
+  Vortex query-engine integration or external engine is used to repair or merge deltas.
 - Segment extraction admission framing: `vortex-api-inventory` now exposes
   `shardloom.vortex_segment_extraction_admission.v1` for the `sparse_patch_fill` layout family.
   The report records the Vortex sparse layout concepts checked and keeps sparse segment extraction

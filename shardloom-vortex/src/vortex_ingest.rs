@@ -27,6 +27,9 @@ use crate::universal_format_io::FlatLocalColumnarSource;
 
 /// Evidence schema emitted by the local Vortex preparation spine.
 pub const VORTEX_PREPARATION_SPINE_SCHEMA_VERSION: &str = "shardloom.vortex_preparation_spine.v1";
+/// Evidence schema emitted by scoped local differential Vortex preparation overlays.
+pub const VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION: &str =
+    "shardloom.vortex_differential_preparation.v1";
 /// Pinned upstream Vortex crate line used by the scoped local preparation spine.
 pub const VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION: &str = "0.72";
 
@@ -340,6 +343,513 @@ impl VortexPreparationSpineReport {
             "vortex_preparation_spine_claim_boundary",
             self.claim_boundary.as_str(),
         );
+    }
+}
+
+/// Delta update modes accepted or blocked by scoped differential preparation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VortexDifferentialUpdateMode {
+    /// Append-only delta rows may be overlaid when base and delta schemas match.
+    AppendOnly,
+    /// In-place updates remain blocked until row identity and rewrite semantics are certified.
+    Update,
+    /// Deletes remain blocked until tombstone semantics and replay are certified.
+    Delete,
+    /// Mixed insert/update semantics remain blocked until conflict handling is certified.
+    Upsert,
+}
+
+impl VortexDifferentialUpdateMode {
+    /// Parse a differential-preparation update-mode token.
+    ///
+    /// # Errors
+    /// Returns an error when the token is not one of the deterministic update-mode values.
+    pub fn parse(value: &str) -> Result<Self> {
+        match value.trim() {
+            "append-only" | "append_only" => Ok(Self::AppendOnly),
+            "update" => Ok(Self::Update),
+            "delete" => Ok(Self::Delete),
+            "upsert" => Ok(Self::Upsert),
+            other => Err(ShardLoomError::InvalidOperation(format!(
+                "unknown vortex_ingest differential update mode '{other}'; expected append-only, update, delete, or upsert; no fallback execution was attempted"
+            ))),
+        }
+    }
+
+    /// Return the canonical evidence token for this update mode.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::AppendOnly => "append_only",
+            Self::Update => "update",
+            Self::Delete => "delete",
+            Self::Upsert => "upsert",
+        }
+    }
+
+    const fn is_append_only(self) -> bool {
+        matches!(self, Self::AppendOnly)
+    }
+}
+
+/// Inputs used to validate a scoped local differential Vortex preparation overlay.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VortexDifferentialPreparationInput {
+    pub update_mode: VortexDifferentialUpdateMode,
+    pub base_source_state_id: String,
+    pub base_source_state_digest: String,
+    pub base_prepared_state_id: String,
+    pub base_prepared_state_digest: String,
+    pub base_row_count: u64,
+    pub base_schema_digest: String,
+    pub base_column_family_summary: String,
+    pub delta_source_state_id: String,
+    pub delta_source_state_digest: String,
+    pub delta_row_count: u64,
+    pub delta_schema_digest: String,
+    pub delta_column_family_summary: String,
+    pub delta_manifest_digest: String,
+    pub changed_byte_range_refs: String,
+    pub changed_row_range_refs: String,
+    pub changed_segment_refs: String,
+    pub delta_artifact_ref: String,
+    pub delta_artifact_digest: String,
+    pub native_io_certificate_refs: String,
+}
+
+/// Evidence for a scoped local differential Vortex preparation overlay.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexDifferentialPreparationReport {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub update_mode: VortexDifferentialUpdateMode,
+    pub base_source_state_id: String,
+    pub base_source_state_digest: String,
+    pub base_prepared_state_id: String,
+    pub base_prepared_state_digest: String,
+    pub base_row_count: u64,
+    pub delta_source_state_id: String,
+    pub delta_source_state_digest: String,
+    pub delta_row_count: u64,
+    pub delta_manifest_digest: String,
+    pub overlay_manifest_digest: String,
+    pub changed_byte_range_refs: String,
+    pub changed_row_range_refs: String,
+    pub changed_segment_refs: String,
+    pub schema_compatibility_status: String,
+    pub update_mode_policy: String,
+    pub tombstone_policy: String,
+    pub delete_policy: String,
+    pub update_policy: String,
+    pub prepared_state_reuse_status: String,
+    pub base_reprepare_performed: bool,
+    pub delta_artifact_written: bool,
+    pub delta_artifact_ref: String,
+    pub delta_artifact_digest: String,
+    pub overlay_applied: bool,
+    pub replay_verification_status: String,
+    pub correctness_digest: String,
+    pub materialization_boundary_status: String,
+    pub decode_boundary_status: String,
+    pub native_io_certificate_status: String,
+    pub native_io_certificate_refs: String,
+    pub no_standalone_lane_status: String,
+    pub claim_gate_status: String,
+    pub claim_boundary: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl VortexDifferentialPreparationReport {
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        let mut fields = Vec::with_capacity(38);
+        self.append_identity_evidence_fields(&mut fields);
+        self.append_delta_manifest_evidence_fields(&mut fields);
+        self.append_policy_evidence_fields(&mut fields);
+        self.append_boundary_evidence_fields(&mut fields);
+        Self::push_evidence_field(
+            &mut fields,
+            "vortex_differential_preparation_fallback_attempted",
+            self.fallback_attempted.to_string(),
+        );
+        Self::push_evidence_field(
+            &mut fields,
+            "vortex_differential_preparation_external_engine_invoked",
+            self.external_engine_invoked.to_string(),
+        );
+        fields
+    }
+
+    /// Whether this report admitted and applied the delta overlay.
+    #[must_use]
+    pub const fn is_admitted(&self) -> bool {
+        self.overlay_applied
+    }
+
+    fn push_evidence_field(
+        fields: &mut Vec<(String, String)>,
+        key: &'static str,
+        value: impl Into<String>,
+    ) {
+        fields.push((key.to_string(), value.into()));
+    }
+
+    fn append_identity_evidence_fields(&self, fields: &mut Vec<(String, String)>) {
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_schema_version",
+            self.schema_version,
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_status",
+            self.status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_update_mode",
+            self.update_mode.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_base_source_state_id",
+            self.base_source_state_id.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_base_source_state_digest",
+            self.base_source_state_digest.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_base_prepared_state_id",
+            self.base_prepared_state_id.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_base_prepared_state_digest",
+            self.base_prepared_state_digest.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_base_row_count",
+            self.base_row_count.to_string(),
+        );
+    }
+
+    fn append_delta_manifest_evidence_fields(&self, fields: &mut Vec<(String, String)>) {
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_delta_source_state_id",
+            self.delta_source_state_id.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_delta_source_state_digest",
+            self.delta_source_state_digest.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_delta_row_count",
+            self.delta_row_count.to_string(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_delta_manifest_digest",
+            self.delta_manifest_digest.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_overlay_manifest_digest",
+            self.overlay_manifest_digest.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_changed_byte_range_refs",
+            self.changed_byte_range_refs.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_changed_row_range_refs",
+            self.changed_row_range_refs.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_changed_segment_refs",
+            self.changed_segment_refs.as_str(),
+        );
+    }
+
+    fn append_policy_evidence_fields(&self, fields: &mut Vec<(String, String)>) {
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_schema_compatibility_status",
+            self.schema_compatibility_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_update_mode_policy",
+            self.update_mode_policy.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_tombstone_policy",
+            self.tombstone_policy.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_delete_policy",
+            self.delete_policy.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_update_policy",
+            self.update_policy.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_prepared_state_reuse_status",
+            self.prepared_state_reuse_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_base_reprepare_performed",
+            self.base_reprepare_performed.to_string(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_delta_artifact_written",
+            self.delta_artifact_written.to_string(),
+        );
+    }
+
+    fn append_boundary_evidence_fields(&self, fields: &mut Vec<(String, String)>) {
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_delta_artifact_ref",
+            self.delta_artifact_ref.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_delta_artifact_digest",
+            self.delta_artifact_digest.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_overlay_applied",
+            self.overlay_applied.to_string(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_replay_verification_status",
+            self.replay_verification_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_correctness_digest",
+            self.correctness_digest.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_materialization_boundary_status",
+            self.materialization_boundary_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_decode_boundary_status",
+            self.decode_boundary_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_native_io_certificate_status",
+            self.native_io_certificate_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_native_io_certificate_refs",
+            self.native_io_certificate_refs.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_no_standalone_lane_status",
+            self.no_standalone_lane_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_claim_gate_status",
+            self.claim_gate_status.as_str(),
+        );
+        Self::push_evidence_field(
+            fields,
+            "vortex_differential_preparation_claim_boundary",
+            self.claim_boundary.as_str(),
+        );
+    }
+}
+
+struct DifferentialPreparationEvaluation {
+    status: &'static str,
+    schema_compatibility_status: &'static str,
+    update_mode_policy: &'static str,
+    prepared_state_reuse_status: &'static str,
+    replay_verification_status: &'static str,
+    native_io_certificate_status: &'static str,
+    delta_artifact_written: bool,
+    overlay_applied: bool,
+}
+
+fn evaluate_differential_preparation_state(
+    input: &VortexDifferentialPreparationInput,
+) -> DifferentialPreparationEvaluation {
+    let base_identity_complete = !input.base_source_state_id.is_empty()
+        && !input.base_source_state_digest.is_empty()
+        && !input.base_prepared_state_id.is_empty()
+        && !input.base_prepared_state_digest.is_empty();
+    let schema_compatible = input.base_schema_digest == input.delta_schema_digest
+        && input.base_column_family_summary == input.delta_column_family_summary;
+    let delta_artifact_written =
+        input.delta_row_count > 0 && input.delta_artifact_digest.starts_with("fnv64:");
+    let overlay_applied = base_identity_complete
+        && input.update_mode.is_append_only()
+        && schema_compatible
+        && delta_artifact_written;
+    let status = if !base_identity_complete {
+        "blocked_missing_base_identity"
+    } else if !input.update_mode.is_append_only() {
+        "blocked_update_mode_policy"
+    } else if !schema_compatible {
+        "blocked_schema_mismatch"
+    } else if !delta_artifact_written {
+        "blocked_empty_delta_manifest"
+    } else {
+        "admitted_append_only_delta_overlay"
+    };
+
+    DifferentialPreparationEvaluation {
+        status,
+        schema_compatibility_status: if schema_compatible {
+            "compatible_source_schema_and_column_families"
+        } else {
+            "blocked_source_schema_or_column_family_mismatch"
+        },
+        update_mode_policy: if input.update_mode.is_append_only() {
+            "append_only_overlay_admitted_when_fingerprints_match"
+        } else {
+            "update_delete_upsert_blocked_until_row_identity_and_rewrite_semantics_are_certified"
+        },
+        prepared_state_reuse_status: if overlay_applied {
+            "base_prepared_state_reused_for_delta_overlay"
+        } else {
+            "blocked_before_prepared_state_reuse"
+        },
+        replay_verification_status: if overlay_applied {
+            "delta_writer_and_reopen_row_count_verified"
+        } else {
+            "blocked_before_overlay_replay"
+        },
+        native_io_certificate_status: if overlay_applied {
+            "certified_local_vortex_differential_preparation_overlay"
+        } else {
+            "blocked_before_differential_native_io_certificate"
+        },
+        delta_artifact_written,
+        overlay_applied,
+    }
+}
+
+fn differential_overlay_manifest_digest(
+    input: &VortexDifferentialPreparationInput,
+    status: &str,
+) -> String {
+    fnv64_digest_text(&format!(
+        "{}|{}|{}|{}|{}|{}",
+        input.base_prepared_state_digest,
+        input.delta_manifest_digest,
+        input.delta_artifact_digest,
+        input.changed_row_range_refs,
+        input.changed_segment_refs,
+        status
+    ))
+}
+
+fn differential_correctness_digest(
+    input: &VortexDifferentialPreparationInput,
+    overlay_manifest_digest: &str,
+    replay_verification_status: &str,
+) -> String {
+    fnv64_digest_text(&format!(
+        "{}|{}|{}|{}|{}|{}",
+        input.base_source_state_digest,
+        input.base_prepared_state_digest,
+        input.delta_source_state_digest,
+        input.delta_manifest_digest,
+        overlay_manifest_digest,
+        replay_verification_status
+    ))
+}
+
+/// Validate and report a scoped local differential Vortex preparation overlay.
+#[must_use]
+pub fn evaluate_vortex_differential_preparation(
+    input: VortexDifferentialPreparationInput,
+) -> VortexDifferentialPreparationReport {
+    let evaluation = evaluate_differential_preparation_state(&input);
+    let overlay_manifest_digest = differential_overlay_manifest_digest(&input, evaluation.status);
+    let correctness_digest = differential_correctness_digest(
+        &input,
+        &overlay_manifest_digest,
+        evaluation.replay_verification_status,
+    );
+
+    VortexDifferentialPreparationReport {
+        schema_version: VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION,
+        status: evaluation.status.to_string(),
+        update_mode: input.update_mode,
+        base_source_state_id: input.base_source_state_id,
+        base_source_state_digest: input.base_source_state_digest,
+        base_prepared_state_id: input.base_prepared_state_id,
+        base_prepared_state_digest: input.base_prepared_state_digest,
+        base_row_count: input.base_row_count,
+        delta_source_state_id: input.delta_source_state_id,
+        delta_source_state_digest: input.delta_source_state_digest,
+        delta_row_count: input.delta_row_count,
+        delta_manifest_digest: input.delta_manifest_digest,
+        overlay_manifest_digest,
+        changed_byte_range_refs: input.changed_byte_range_refs,
+        changed_row_range_refs: input.changed_row_range_refs,
+        changed_segment_refs: input.changed_segment_refs,
+        schema_compatibility_status: evaluation.schema_compatibility_status.to_string(),
+        update_mode_policy: evaluation.update_mode_policy.to_string(),
+        tombstone_policy: "tombstones_blocked_for_scoped_append_only_overlay".to_string(),
+        delete_policy: "deletes_blocked_for_scoped_append_only_overlay".to_string(),
+        update_policy: "updates_blocked_for_scoped_append_only_overlay".to_string(),
+        prepared_state_reuse_status: evaluation.prepared_state_reuse_status.to_string(),
+        base_reprepare_performed: false,
+        delta_artifact_written: evaluation.delta_artifact_written,
+        delta_artifact_ref: input.delta_artifact_ref,
+        delta_artifact_digest: input.delta_artifact_digest,
+        overlay_applied: evaluation.overlay_applied,
+        replay_verification_status: evaluation.replay_verification_status.to_string(),
+        correctness_digest,
+        materialization_boundary_status: "delta_only_artifact_overlay_no_base_reprepare"
+            .to_string(),
+        decode_boundary_status: "delta_source_uses_existing_vortex_ingest_decode_boundary"
+            .to_string(),
+        native_io_certificate_status: evaluation.native_io_certificate_status.to_string(),
+        native_io_certificate_refs: input.native_io_certificate_refs,
+        no_standalone_lane_status:
+            "funnelled_through_vortex_ingest_source_state_to_prepared_state_delta_overlay"
+                .to_string(),
+        claim_gate_status: "not_claim_grade".to_string(),
+        claim_boundary: format!(
+            "Scoped local differential preparation overlay only: status={}; append-only deltas may overlay an existing VortexPreparedState when source/prepared fingerprints and schemas match; no broad CDC, table transaction, object-store, update/delete/upsert, performance, production, or Spark-replacement claim",
+            evaluation.status
+        ),
+        fallback_attempted: false,
+        external_engine_invoked: false,
     }
 }
 
@@ -1596,6 +2106,15 @@ fn vortex_error(error: impl std::fmt::Display) -> ShardLoomError {
     ))
 }
 
+fn fnv64_digest_text(value: &str) -> String {
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+    for byte in value.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("fnv64:{hash:016x}")
+}
+
 #[cfg(feature = "vortex-write")]
 fn fnv64_digest_bytes(value: &[u8]) -> String {
     let mut hash = 0xcbf2_9ce4_8422_2325_u64;
@@ -2025,5 +2544,109 @@ mod tests {
                 .contains("ingest_full_replay requires downstream result replay/output evidence")
         );
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn differential_preparation_admits_append_only_delta_overlay() {
+        let input = differential_input(VortexDifferentialUpdateMode::AppendOnly);
+
+        let report = evaluate_vortex_differential_preparation(input);
+        let fields = report.evidence_fields();
+
+        assert!(report.is_admitted());
+        assert_eq!(report.status, "admitted_append_only_delta_overlay");
+        assert_eq!(
+            report.schema_compatibility_status,
+            "compatible_source_schema_and_column_families"
+        );
+        assert_eq!(
+            report.prepared_state_reuse_status,
+            "base_prepared_state_reused_for_delta_overlay"
+        );
+        assert_eq!(
+            report.native_io_certificate_status,
+            "certified_local_vortex_differential_preparation_overlay"
+        );
+        assert!(report.overlay_manifest_digest.starts_with("fnv64:"));
+        assert!(report.correctness_digest.starts_with("fnv64:"));
+        assert!(fields.contains(&(
+            "vortex_differential_preparation_overlay_applied".to_string(),
+            "true".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_differential_preparation_fallback_attempted".to_string(),
+            "false".to_string()
+        )));
+    }
+
+    #[test]
+    fn differential_preparation_blocks_update_mode_without_overlay() {
+        let input = differential_input(VortexDifferentialUpdateMode::Update);
+
+        let report = evaluate_vortex_differential_preparation(input);
+
+        assert!(!report.is_admitted());
+        assert_eq!(report.status, "blocked_update_mode_policy");
+        assert_eq!(
+            report.update_mode_policy,
+            "update_delete_upsert_blocked_until_row_identity_and_rewrite_semantics_are_certified"
+        );
+        assert_eq!(
+            report.replay_verification_status,
+            "blocked_before_overlay_replay"
+        );
+        assert!(!report.base_reprepare_performed);
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn differential_preparation_blocks_schema_mismatch_without_overlay() {
+        let mut input = differential_input(VortexDifferentialUpdateMode::AppendOnly);
+        input.delta_schema_digest = "fnv64:other".to_string();
+
+        let report = evaluate_vortex_differential_preparation(input);
+
+        assert!(!report.is_admitted());
+        assert_eq!(report.status, "blocked_schema_mismatch");
+        assert_eq!(
+            report.schema_compatibility_status,
+            "blocked_source_schema_or_column_family_mismatch"
+        );
+        assert_eq!(
+            report.prepared_state_reuse_status,
+            "blocked_before_prepared_state_reuse"
+        );
+        assert!(report.delta_artifact_written);
+        assert!(!report.overlay_applied);
+    }
+
+    fn differential_input(
+        update_mode: VortexDifferentialUpdateMode,
+    ) -> VortexDifferentialPreparationInput {
+        VortexDifferentialPreparationInput {
+            update_mode,
+            base_source_state_id: "local-csv-base".to_string(),
+            base_source_state_digest: "fnv64:base-source".to_string(),
+            base_prepared_state_id: "vortex-prepared-state-base".to_string(),
+            base_prepared_state_digest: "fnv64:base-prepared".to_string(),
+            base_row_count: 2,
+            base_schema_digest: "fnv64:schema".to_string(),
+            base_column_family_summary: "id:int64,label:utf8".to_string(),
+            delta_source_state_id: "local-csv-delta".to_string(),
+            delta_source_state_digest: "fnv64:delta-source".to_string(),
+            delta_row_count: 1,
+            delta_schema_digest: "fnv64:schema".to_string(),
+            delta_column_family_summary: "id:int64,label:utf8".to_string(),
+            delta_manifest_digest: "fnv64:delta-manifest".to_string(),
+            changed_byte_range_refs: "local-csv-delta:split=1:bytes=0..32".to_string(),
+            changed_row_range_refs: "local-csv-delta:split=1:rows=0..1".to_string(),
+            changed_segment_refs: "vortex-prepared-state-delta:rows=0..1:digest=fnv64:delta"
+                .to_string(),
+            delta_artifact_ref: "target/delta.vortex".to_string(),
+            delta_artifact_digest: "fnv64:delta-artifact".to_string(),
+            native_io_certificate_refs: "base_prepared_state,delta_artifact,reopen_row_count_scan"
+                .to_string(),
+        }
     }
 }

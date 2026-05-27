@@ -1899,6 +1899,16 @@ no-standalone-lane status, and no-fallback fields. This spine is internal prepar
 between SourceState and VortexPreparedState; it is not a side lane, performance claim, object-store
 runtime, table runtime, or broad Vortex writer claim.
 
+The current `GAR-IOREUSE-1J` slice adds scoped local VortexDifferentialPreparation evidence to the
+same route. `vortex-ingest-smoke --delta-source <local-source> --delta-target <delta.vortex>` writes
+only the delta Vortex artifact after the base prepared state exists, then emits
+`vortex_differential_preparation_*` fields for base/delta SourceState and VortexPreparedState IDs,
+delta manifest digest, changed byte/row/segment refs, schema compatibility, update-mode policy,
+overlay/correctness digests, replay status, Native I/O posture, no-standalone-lane status, and
+no-fallback fields. Append-only overlays are admitted when fingerprints and schemas match; update,
+delete, upsert, schema mismatch, missing-base, and empty-delta shapes block before prepared-state
+reuse.
+
 The current `GAR-IOREUSE-1B` slice implements the companion VortexPreparedState artifact contract in
 the traditional analytics benchmark JSON/Markdown report. It covers local prepared Vortex artifact
 posture with `prepared_state_contract_schema_version`, `prepared_state_status`,
