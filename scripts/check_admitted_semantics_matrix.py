@@ -847,6 +847,50 @@ def unsupported_cases() -> list[UnsupportedCase]:
             diagnostic_code="SL_INVALID_INPUT",
             diagnostic_fragment="SQL COLLATE and locale-aware collation semantics are not admitted",
         ),
+        UnsupportedCase(
+            case_id="unsupported_list_literal",
+            source_name="list-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template="SELECT id,ARRAY[1,2] AS values FROM '{source}' LIMIT 10",
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="list and array literals, accessors, and equality semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_struct_literal",
+            source_name="struct-unsupported.csv",
+            source_text="id,label,amount\n1,alpha,8\n",
+            statement_template="SELECT id,STRUCT(label, amount) AS payload FROM '{source}' LIMIT 10",
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="struct and row constructor equality/access semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_variant_access",
+            source_name="variant-unsupported.csv",
+            source_text="id,payload\n1,alpha\n",
+            statement_template=(
+                "SELECT id,VARIANT_GET(payload, 'field') AS field FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="variant access semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_union_construct",
+            source_name="union-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template=(
+                "SELECT id FROM '{source}' UNION SELECT id FROM '{source}' LIMIT 10"
+            ),
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="SQL UNION and union dtype semantics are not admitted",
+        ),
+        UnsupportedCase(
+            case_id="unsupported_binary_literal_source",
+            source_name="binary-literal-unsupported.csv",
+            source_text="id,label\n1,alpha\n",
+            statement_template="SELECT id,X'00ff' AS payload FROM '{source}' LIMIT 10",
+            diagnostic_code="SL_INVALID_INPUT",
+            diagnostic_fragment="binary source literals and binary input decoding are not admitted",
+        ),
     ]
 
 

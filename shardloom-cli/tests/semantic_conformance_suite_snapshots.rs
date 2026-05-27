@@ -42,11 +42,11 @@ fn semantic_conformance_suite_executes_current_fixtures_without_fallback() {
         "suite_status",
         "partial_fixture_passed_planned_remaining"
     )));
-    assert!(output.contains(&field("semantic_dimension_count", "22")));
-    assert!(output.contains(&field("executed_fixture_count", "16")));
-    assert!(output.contains(&field("passed_fixture_count", "16")));
+    assert!(output.contains(&field("semantic_dimension_count", "27")));
+    assert!(output.contains(&field("executed_fixture_count", "23")));
+    assert!(output.contains(&field("passed_fixture_count", "23")));
     assert!(output.contains(&field("failed_fixture_count", "0")));
-    assert!(output.contains(&field("planned_fixture_count", "3")));
+    assert!(output.contains(&field("planned_fixture_count", "1")));
     assert!(output.contains(&field("blocked_fixture_count", "3")));
     assert!(output.contains(&field("in_memory_fixture_execution", "true")));
     assert!(output.contains(&field("external_oracle_used", "false")));
@@ -69,12 +69,13 @@ fn semantic_conformance_suite_executes_current_fixtures_without_fallback() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
     let output = run_semantic_suite_json(&["semantic-conformance-suite", "--format", "json"], true);
 
     assert!(output.contains(&field(
         "row_order",
-        "null_comparison,three_valued_logic,null_sort_ordering,nan_equality_order,signed_zero,integer_overflow,decimal_precision_scale,timestamp_timezone,timezone_database_policy,interval_arithmetic_policy,date_parsing,string_case_sensitivity,regex_pattern_policy,locale_collation_policy,binary_equality,empty_aggregate_behavior,count_null_behavior,join_null_semantics,window_frame_defaults,duplicate_column_behavior,nested_list_equality,schema_field_identity"
+        "null_comparison,three_valued_logic,null_sort_ordering,nan_equality_order,signed_zero,integer_overflow,decimal_precision_scale,timestamp_timezone,timezone_database_policy,interval_arithmetic_policy,date_parsing,string_case_sensitivity,regex_pattern_policy,locale_collation_policy,binary_equality,empty_aggregate_behavior,count_null_behavior,join_null_semantics,window_frame_defaults,duplicate_column_behavior,nested_list_equality,struct_equality_policy,variant_access_policy,union_semantics_policy,parent_child_null_policy,schema_field_identity,binary_source_runtime_policy"
     )));
     assert!(output.contains(&field(
         "semantic_row_null_comparison_fixture_status",
@@ -130,6 +131,48 @@ fn semantic_conformance_suite_rows_cover_required_dimensions_and_blockers() {
         "bytewise_equality_fixture_certified_ordering_blocked"
     )));
     assert!(output.contains(&field("semantic_row_binary_equality_passed", "true")));
+    assert!(output.contains(&field(
+        "semantic_row_nested_list_equality_current_support",
+        "unsupported_diagnostic_certified"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_nested_list_equality_blocker_id",
+        "gar-runtime-impl-4d-f2.list_equality_unsupported"
+    )));
+    assert!(output.contains(&field("semantic_row_struct_equality_policy_passed", "true")));
+    assert!(output.contains(&field(
+        "semantic_row_struct_equality_policy_blocker_id",
+        "gar-runtime-impl-4d-f2.struct_equality_unsupported"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_variant_access_policy_current_support",
+        "unsupported_diagnostic_certified"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_variant_access_policy_blocker_id",
+        "gar-runtime-impl-4d-f2.variant_access_unsupported"
+    )));
+    assert!(output.contains(&field("semantic_row_union_semantics_policy_passed", "true")));
+    assert!(output.contains(&field(
+        "semantic_row_union_semantics_policy_blocker_id",
+        "gar-runtime-impl-4d-f2.union_semantics_unsupported"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_parent_child_null_policy_blocker_id",
+        "gar-runtime-impl-4d-f2.parent_child_null_policy_missing"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_schema_field_identity_blocker_id",
+        "gar-runtime-impl-4d-f2.schema_field_identity_unsupported"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_binary_source_runtime_policy_blocker_id",
+        "gar-runtime-impl-4d-f2.binary_source_runtime_unsupported"
+    )));
+    assert!(output.contains(&field(
+        "semantic_row_binary_source_runtime_policy_passed",
+        "true"
+    )));
     assert!(output.contains(&field(
         "semantic_row_null_sort_ordering_blocker_id",
         "cg21.workflow.sort.operator_unsupported"

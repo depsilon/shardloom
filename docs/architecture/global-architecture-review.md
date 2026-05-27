@@ -616,10 +616,16 @@ plan before coding.
   locale-aware collation. SQL local-source parsing now fails those constructs through a shared
   advanced-scalar policy guard before execution, always with no fallback/external engine
   invocation.
+- [x] GAR-RUNTIME-IMPL-4D-F2 complex dtype closeout adds executed conformance blockers and
+  admitted-matrix unsupported rows for list/array literals and accessors, struct/row constructors,
+  variant access, SQL UNION/union dtype semantics, parent/child null policy, schema field identity,
+  and binary source/runtime decoding. SQL local-source parsing fails those constructs before
+  execution while preserving admitted bytewise binary scalar equality and no fallback/external
+  engine invocation.
 - [x] Parent `GAR-RUNTIME-IMPL-4D`/`GAR-RUNTIME-IMPL-5G` is complete for admitted local expression/
-  operator scope; residual nested/list/struct/variant/union semantics, advanced subqueries/
-  predicate completeness, and broad encoded-kernel/operator coverage are split into explicit
-  follow-up runtime items in the phased plan rather than hidden in the parent item.
+  operator scope; residual advanced subqueries/predicate completeness and broad
+  encoded-kernel/operator coverage are split into explicit follow-up runtime items in the phased
+  plan rather than hidden in the parent item.
 
 ### RFC 0022 - Plan IR and Substrait-Compatible Interoperability
 

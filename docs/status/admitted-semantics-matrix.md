@@ -31,9 +31,9 @@ Current required evidence:
 ```text
 admitted_semantics_validator_status=passed
 matrix_status=passed
-matrix_row_count=23
+matrix_row_count=28
 executable_fixture_count=16
-unsupported_diagnostic_count=7
+unsupported_diagnostic_count=12
 property_lane_count=1
 property_seed_order=20260521
 property_execution_performed=true
@@ -72,12 +72,17 @@ Covered fixture rows:
 - `unsupported_interval_literal`
 - `unsupported_regex_predicate`
 - `unsupported_locale_collation`
+- `unsupported_list_literal`
+- `unsupported_struct_literal`
+- `unsupported_variant_access`
+- `unsupported_union_construct`
+- `unsupported_binary_literal_source`
 
-Current remaining gaps are nested/list/struct equality semantics, correlated multi-column and
-nested subquery semantics, external-oracle result artifact population, and fuzz execution beyond
-the deterministic seeded property lane. Decimal precision/scale, non-UTC timestamp/timezone
-database semantics, interval arithmetic, regex, and locale/collation now have deterministic
-unsupported diagnostics with no fallback.
+Current remaining gaps are correlated multi-column and nested subquery semantics,
+external-oracle result artifact population, and fuzz execution beyond the deterministic seeded
+property lane. Decimal precision/scale, non-UTC timestamp/timezone database semantics, interval
+arithmetic, regex, locale/collation, and complex dtype families now have deterministic unsupported
+diagnostics with no fallback.
 
 Claim boundary: admitted SQL local-source expression/operator correctness evidence only. This does
 not authorize ANSI SQL parity, production semantic parity, broad SQL/DataFrame support, performance

@@ -16,6 +16,73 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4D-F2 complex dtype deterministic blocker closeout
+  - Date: 2026-05-26
+  - Branch/PR: `runtime-4d-f2-complex-dtypes` / #967.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4D-F2 nested, list, struct, variant, union, and binary-source semantics`.
+    - RFC 0021 expression/kernel architecture, Vortex dtype opportunities, and admitted semantics
+      matrix residual gaps.
+  - Scope:
+    - Added SQL local-source complex dtype policy guards so list/array literals and accessors,
+      struct/row constructors, variant access, SQL `UNION` / union dtype semantics, and binary
+      source literals/input decoding fail before execution with deterministic no-fallback
+      diagnostics.
+    - Promoted complex semantic conformance coverage from planned placeholders to executed blocker
+      fixtures for list equality, struct equality, variant access, union semantics, parent/child
+      null policy, schema field identity, and binary source/runtime policy.
+    - Preserved admitted bytewise binary scalar equality while keeping binary ordering, binary SQL
+      source decoding, nested values, and structured dtype access deterministic blockers.
+    - Expanded the admitted semantics matrix from 23 rows / 7 unsupported diagnostics to 28 rows /
+      12 unsupported diagnostics. The new rows cover list/array literals, struct/row constructors,
+      variant access, SQL UNION/union dtype semantics, and binary source literals.
+    - Moved `GAR-RUNTIME-IMPL-4D-F2` out of the live Planned queue; the next live internal-engine
+      items start at advanced predicate/subquery semantics and broad encoded-kernel/operator
+      coverage.
+  - Field schema:
+    - Semantic conformance now reports `semantic_dimension_count=27`,
+      `executed_fixture_count=23`, `passed_fixture_count=23`, `planned_fixture_count=1`, and
+      `blocked_fixture_count=3`.
+    - Admitted semantics now reports `matrix_row_count=28`, `executable_fixture_count=16`, and
+      `unsupported_diagnostic_count=12`.
+    - All new blocked families keep `fallback_attempted=false`, `external_engine_invoked=false`,
+      and deterministic `SL_INVALID_INPUT` or expression unsupported diagnostics.
+  - Claim boundary:
+    - This closes the complex dtype residual by making unsupported policy explicit. It does not
+      admit list/struct/variant/union values, parent/child validity semantics, schema field-ID
+      policy, binary SQL source decoding, broad Vortex/Arrow nested parity, production SQL/DataFrame
+      support, or performance claims.
+    - External engines remain comparison baselines/oracles only and never satisfy runtime behavior.
+  - No-standalone-lane audit:
+    - Unsupported complex dtype cases are checked through the existing SQL local-source runtime,
+      admitted semantics matrix validator, and side-effect-free semantic conformance suite. No
+      separate complex dtype execution lane, fallback evaluator, Spark path, DataFusion path,
+      external oracle runtime, or CSV-specific process was introduced.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-cli parser_blocks_complex_dtype_policy_constructs_without_fallback`
+    - `cargo +1.91.1 test -p shardloom-cli --test semantic_conformance_suite_snapshots`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test expression_operator_semantics complex_dtype`
+    - `cargo +1.91.1 test -p shardloom-contract-tests --test release_readiness_metadata admitted_semantics_matrix_validator_is_wired_into_release_readiness`
+    - `cargo +1.91.1 test -p shardloom-cli --test typed_envelope_compatibility_lock`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m compileall -q scripts website`
+    - `python scripts/check_admitted_semantics_matrix.py`
+    - `python scripts/check_release_readiness.py --allow-blocked`
+    - `python scripts/check_website_readiness.py`
+    - `node website/validate_static_assets.js`
+    - `python scripts/check_golden_workflows.py`
+    - `python scripts/check_use_case_index.py`
+    - `python scripts/check_use_case_backlinks.py`
+    - `python scripts/check_use_case_coverage.py`
+    - `python scripts/check_use_case_glossary.py`
+    - `python scripts/check_ci_gate_matrix.py`
+    - `python scripts/check_benchmark_constitution.py`
+    - `python scripts/check_benchmark_artifact_completeness.py --manifest website/assets/benchmarks/latest/manifest.json`
+    - `python scripts/check_benchmark_environment.py`
+    - `git diff --check`
+
 - [x] Session label: GAR-RUNTIME-IMPL-4D-F1 advanced scalar deterministic semantics closeout
   - Date: 2026-05-26
   - Branch/PR: `runtime-4d-f1-advanced-scalars` / #966.

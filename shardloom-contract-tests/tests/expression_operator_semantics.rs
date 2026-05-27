@@ -147,6 +147,76 @@ fn expression_semantics_advanced_scalar_blockers_are_deterministic() {
 }
 
 #[test]
+fn expression_semantics_complex_dtype_blockers_are_deterministic() {
+    for (target_name, target_dtype) in [
+        ("list", LogicalDType::List),
+        ("struct", LogicalDType::Struct),
+        ("variant", LogicalDType::Extension("variant".to_string())),
+        ("union", LogicalDType::Extension("union".to_string())),
+    ] {
+        let expression = Expression::cast(
+            expr_id(&format!("{target_name}-cast")),
+            Expression::literal(
+                expr_id(&format!("{target_name}-source")),
+                ScalarValue::Utf8("alpha".to_string()),
+            ),
+            target_dtype.clone(),
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert_eq!(report.output_dtype, Some(target_dtype));
+        assert!(report.has_errors());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.fallback.attempted)
+        );
+    }
+
+    for function_name in [
+        "list_eq",
+        "struct_eq",
+        "variant_get",
+        "union_tag",
+        "list_parent_child_null_policy",
+        "struct_field_identity",
+        "binary_source_decode",
+    ] {
+        let expression = Expression::new(
+            expr_id(function_name),
+            ExpressionKind::FunctionCall {
+                name: function_name.to_string(),
+                args: vec![Expression::literal(
+                    expr_id(&format!("{function_name}-arg")),
+                    ScalarValue::Utf8("alpha".to_string()),
+                )],
+            },
+        );
+        let report = evaluate_expression(&expression, &ExpressionInputRow::new());
+
+        assert_eq!(report.status, ExpressionEvaluationStatus::Unsupported);
+        assert!(report.has_errors());
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.fallback.attempted)
+        );
+    }
+
+    assert_eq!(
+        ScalarValue::Binary(vec![0, 1, 255]).dtype(),
+        LogicalDType::Binary
+    );
+}
+
+#[test]
 fn expression_semantics_binary_equality_is_bytewise_and_null_propagating() {
     let equal = Expression::new(
         expr_id("binary-eq"),

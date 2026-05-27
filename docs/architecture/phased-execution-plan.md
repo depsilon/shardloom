@@ -286,7 +286,8 @@ closeout, `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout, and
 `GAR-RUNTIME-IMPL-4Q/5N` live/hybrid loopback control-plane and distributed-blocker admission,
 `GAR-RUNTIME-IMPL-4R/5O` effectful-operation local fixture/admission closeout, and the parent
 `GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout plus `GAR-RUNTIME-IMPL-4D-F1`
-advanced scalar deterministic semantics closeout are complete and recorded in the ledger.
+advanced scalar deterministic semantics closeout and `GAR-RUNTIME-IMPL-4D-F2` complex dtype
+deterministic blocker closeout are complete and recorded in the ledger.
 Continue with the split internal-engine follow-ups below before SQL/Python surface backstops,
 benchmark and Foundry gates, and release usability.
 Completed queue blocks have moved to
@@ -304,31 +305,6 @@ below. They are coverage-assurance backstops, not a second parallel runtime queu
 item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-RUNTIME-IMPL-4D-F2 nested, list, struct, variant, union, and binary-source semantics
-  - Source: RFC 0021, Vortex dtype opportunities, admitted semantics matrix residual gaps.
-  - Current state: core bytewise binary equality is admitted for `ScalarValue::Binary`, and binary
-    ordering remains a deterministic blocker. SQL/local source binary-input coverage, nested/list/
-    struct equality, variant access, union semantics, parent/child null behavior, and schema-field
-    identity are not yet admitted.
-  - Next slice outcome: implement the next meaty complex-dtype semantics section end to end, or
-    record deterministic blockers and required evidence for each non-admitted dtype family.
-  - Runtime enablement: ShardLoom-native equality/access semantics for admitted complex dtypes or
-    stable unsupported diagnostics.
-  - User-visible surface: capability matrix, typed diagnostics, and docs only after runtime
-    evidence exists.
-  - Implementation scope: expression value model, dtype metadata, parser/binder lowering where
-    exposed, encoded/native kernel admission, diagnostics.
-  - Evidence required: dtype family, parent/child null policy, schema identity policy,
-    decoded-reference rows, correctness digest, no-fallback fields.
-  - Acceptance: admitted complex dtype semantics have unit, contract, and matrix evidence; unsupported
-    complex dtypes block deterministically.
-  - Verification: expression tests, contract tests, admitted semantics matrix, release readiness.
-  - Non-goals: no blanket nested/Arrow/Vortex parity without fixture-backed semantics.
-  - Claim boundary: dtype/operator pairs explicitly admitted by fixtures.
-  - Fallback boundary: no decoded external-engine evaluator.
-  - Dependencies/blockers: value representation policy, Vortex dtype metadata, decoded references.
-  - Ledger rule: ledger entry must list each complex dtype family and blocker/status.
 
 - [ ] GAR-RUNTIME-IMPL-4D-F3 advanced predicate, HAVING, and subquery semantics
   - Source: RFC 0021, SQL/Python local runtime smokes, admitted semantics matrix residual gaps.
