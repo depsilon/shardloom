@@ -1890,6 +1890,15 @@ preparation when both `vortex-write` and `universal-format-io` are enabled. That
 columnar-preservation, record-batch count, source-to-columnar timing, and Vortex array-build timing;
 CSV/JSON/JSONL remain scalar-row compatibility paths.
 
+The current `GAR-IOREUSE-1I` slice adds the VortexPreparationSpine evidence contract on that same
+path. `vortex-ingest-smoke`, Python `ctx.prepare_vortex(...)`, and the benchmark harness schema now
+carry `vortex_preparation_spine_*` fields for the Vortex-first decision, provider crate/version/API
+surface, SourceState split refs, whole-local-file byte ranges, row ranges, local Vortex sink refs,
+write/reopen surfaces, prepared-artifact segment evidence, Native I/O certificate posture,
+no-standalone-lane status, and no-fallback fields. This spine is internal preparation plumbing
+between SourceState and VortexPreparedState; it is not a side lane, performance claim, object-store
+runtime, table runtime, or broad Vortex writer claim.
+
 The current `GAR-IOREUSE-1B` slice implements the companion VortexPreparedState artifact contract in
 the traditional analytics benchmark JSON/Markdown report. It covers local prepared Vortex artifact
 posture with `prepared_state_contract_schema_version`, `prepared_state_status`,

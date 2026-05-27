@@ -621,6 +621,59 @@ PREPARED_STATE_CONTRACT_FIELDS = (
     "prepared_state_claim_gate_status",
     "prepared_state_claim_boundary",
 )
+VORTEX_PREPARATION_SPINE_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.vortex_preparation_spine.v1"
+)
+VORTEX_PREPARATION_SPINE_STATUS_VOCABULARY = (
+    "local_preparation_spine_reported",
+    "not_needed",
+    "blocked",
+    "unsupported",
+    "report_only",
+    "external_baseline_only",
+)
+VORTEX_PREPARATION_SPINE_FIELDS = (
+    "vortex_preparation_spine_schema_version",
+    "vortex_preparation_spine_status",
+    "vortex_preparation_spine_vortex_first_decision",
+    "vortex_preparation_spine_provider_kind",
+    "vortex_preparation_spine_provider_crate",
+    "vortex_preparation_spine_provider_version",
+    "vortex_preparation_spine_feature_gate",
+    "vortex_preparation_spine_provider_api_surface",
+    "vortex_preparation_spine_shardloom_admission_policy",
+    "vortex_preparation_spine_source_surface",
+    "vortex_preparation_spine_sink_surface",
+    "vortex_preparation_spine_split_surface",
+    "vortex_preparation_spine_split_ref_status",
+    "vortex_preparation_spine_split_count",
+    "vortex_preparation_spine_source_state_id",
+    "vortex_preparation_spine_source_state_digest",
+    "vortex_preparation_spine_source_split_count",
+    "vortex_preparation_spine_source_split_refs",
+    "vortex_preparation_spine_source_byte_range_refs",
+    "vortex_preparation_spine_source_row_range_refs",
+    "vortex_preparation_spine_source_byte_range_status",
+    "vortex_preparation_spine_source_row_range_status",
+    "vortex_preparation_spine_projection_mask_status",
+    "vortex_preparation_spine_filter_mask_status",
+    "vortex_preparation_spine_write_provider_surface",
+    "vortex_preparation_spine_reopen_provider_surface",
+    "vortex_preparation_spine_materialization_boundary_status",
+    "vortex_preparation_spine_decode_boundary_status",
+    "vortex_preparation_spine_sink_ref",
+    "vortex_preparation_spine_prepared_state_id",
+    "vortex_preparation_spine_prepared_state_digest",
+    "vortex_preparation_spine_prepared_artifact_segment_refs",
+    "vortex_preparation_spine_prepared_artifact_segment_evidence_status",
+    "vortex_preparation_spine_native_io_certificate_status",
+    "vortex_preparation_spine_native_io_certificate_refs",
+    "vortex_preparation_spine_no_standalone_lane_status",
+    "vortex_preparation_spine_fallback_attempted",
+    "vortex_preparation_spine_external_engine_invoked",
+    "vortex_preparation_spine_claim_gate_status",
+    "vortex_preparation_spine_claim_boundary",
+)
 OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION = "shardloom.traditional_analytics.output_plan.v1"
 OUTPUT_PLAN_CONTRACT_STATUS_VOCABULARY = (
     "output_plan_supported",
@@ -7094,6 +7147,279 @@ def prepared_state_contract_metadata(
     }
 
 
+def vortex_preparation_spine_metadata(
+    engine: str,
+    paths: DatasetPaths,
+    scenario: str,
+    data_format: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+    selected_mode: str | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    selected_mode = selected_mode or str(evidence.get("selected_execution_mode") or "unknown")
+    prepared_mode = selected_mode in {
+        "prepared_vortex",
+        "native_vortex",
+        "compatibility_import_certified",
+    }
+    source_state_id = str(metrics.get("source_state_id", "none"))
+    source_state_digest = str(metrics.get("source_state_digest", "none"))
+    prepared_state_id = str(metrics.get("prepared_state_id", "none"))
+    prepared_state_digest = str(metrics.get("prepared_state_digest", "none"))
+    artifact_ref = first_meaningful_field(
+        evidence.get("vortex_preparation_spine_sink_ref"),
+        metrics.get("vortex_artifact_ref"),
+        metrics.get("prepared_artifact_ref"),
+        "none",
+    )
+    if artifact_ref is None:
+        artifact_ref = "none"
+    source_paths = source_state_paths(paths, scenario, data_format) if data_format in FORMAT_ORDER else ()
+    source_locations = [source_state_path_text(path) for path in source_paths]
+    source_sizes = [path.stat().st_size for path in source_paths if path.exists()]
+    source_split_count = parse_optional_int(
+        evidence.get("vortex_preparation_spine_source_split_count")
+    )
+    if source_split_count is None:
+        source_split_count = len(source_locations) if source_locations else 0
+    source_split_refs = first_meaningful_field(
+        evidence.get("vortex_preparation_spine_source_split_refs"),
+        ";".join(
+            f"{source_state_id}:split={index + 1}:source={location}:"
+            f"bytes=0..{source_sizes[index] if index < len(source_sizes) else 'unknown'}:"
+            "rows=unknown"
+            for index, location in enumerate(source_locations)
+        ),
+        "none",
+    )
+    if source_split_refs is None:
+        source_split_refs = "none"
+    source_byte_range_refs = first_meaningful_field(
+        evidence.get("vortex_preparation_spine_source_byte_range_refs"),
+        ";".join(
+            f"{source_state_id}:split={index + 1}:bytes=0.."
+            f"{source_sizes[index] if index < len(source_sizes) else 'unknown'}"
+            for index, _location in enumerate(source_locations)
+        ),
+        "none",
+    )
+    if source_byte_range_refs is None:
+        source_byte_range_refs = "none"
+    source_row_range_refs = first_meaningful_field(
+        evidence.get("vortex_preparation_spine_source_row_range_refs"),
+        ";".join(
+            f"{source_state_id}:split={index + 1}:rows=unknown"
+            for index, _location in enumerate(source_locations)
+        ),
+        "none",
+    )
+    if source_row_range_refs is None:
+        source_row_range_refs = "none"
+    if not is_shardloom:
+        spine_status = "external_baseline_only"
+    elif status in UNSUPPORTED_ROW_STATUSES:
+        spine_status = "unsupported"
+    elif shardloom_blocked_non_execution_status(status):
+        spine_status = "blocked"
+    elif engine == "shardloom-direct-transient" or data_format == SHARDLOOM_VORTEX_FORMAT:
+        spine_status = "not_needed"
+    elif prepared_mode and artifact_ref != "none":
+        spine_status = "local_preparation_spine_reported"
+    else:
+        spine_status = "report_only"
+    if spine_status == "external_baseline_only":
+        vortex_first_decision = "baseline_or_oracle_only"
+    elif spine_status in {"blocked", "unsupported"}:
+        vortex_first_decision = "blocked_until_vortex_or_shardloom_evidence"
+    elif data_format in {"parquet", "arrow-ipc", "avro", "orc"}:
+        vortex_first_decision = "use_vortex_native_provider"
+    elif spine_status == "local_preparation_spine_reported":
+        vortex_first_decision = "implement_shardloom_kernel"
+    else:
+        vortex_first_decision = "wrap_vortex_concept"
+    vortex_first_decision = first_meaningful_field(
+        evidence.get("vortex_preparation_spine_vortex_first_decision"),
+        vortex_first_decision,
+    )
+    provider_kind = first_meaningful_field(
+        evidence.get("vortex_preparation_spine_provider_kind"),
+        metrics.get("vortex_array_build_provider_kind"),
+        "vortex_array_kernel"
+        if vortex_first_decision == "use_vortex_native_provider"
+        else "shardloom_kernel"
+        if vortex_first_decision == "implement_shardloom_kernel"
+        else "none",
+    )
+    provider_surface = first_meaningful_field(
+        evidence.get("vortex_preparation_spine_provider_api_surface"),
+        metrics.get("vortex_array_build_provider_surface"),
+        "not_applicable",
+    )
+    if provider_surface != "not_applicable" and "VortexSession::write_options()" not in provider_surface:
+        provider_surface = (
+            f"{provider_surface};VortexSession::write_options().write(ArrayStream);"
+            "VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"
+        )
+    provider_crate = first_meaningful_field(
+        evidence.get("vortex_preparation_spine_provider_crate"),
+        "vortex" if provider_kind == "vortex_array_kernel" else "shardloom-vortex,vortex",
+    )
+    return {
+        "vortex_preparation_spine_schema_version": VORTEX_PREPARATION_SPINE_SCHEMA_VERSION,
+        "vortex_preparation_spine_status": spine_status,
+        "vortex_preparation_spine_vortex_first_decision": vortex_first_decision,
+        "vortex_preparation_spine_provider_kind": provider_kind,
+        "vortex_preparation_spine_provider_crate": provider_crate,
+        "vortex_preparation_spine_provider_version": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_provider_version"),
+            "0.72" if provider_crate == "vortex" else "shardloom-vortex=0.1.0;vortex=0.72",
+        ),
+        "vortex_preparation_spine_feature_gate": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_feature_gate"),
+            "vortex-write,universal-format-io"
+            if data_format in {"parquet", "arrow-ipc", "avro", "orc"}
+            else "vortex-write"
+            if spine_status == "local_preparation_spine_reported"
+            else "not_applicable",
+        ),
+        "vortex_preparation_spine_provider_api_surface": provider_surface,
+        "vortex_preparation_spine_shardloom_admission_policy": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_shardloom_admission_policy"),
+            "scoped_local_vortex_ingest_source_sink_split_prepare_once"
+            if spine_status == "local_preparation_spine_reported"
+            else "not_applicable",
+        ),
+        "vortex_preparation_spine_source_surface": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_source_surface"),
+            "benchmark_columnar_source_state_arrow_record_batches"
+            if data_format in {"parquet", "arrow-ipc", "avro", "orc"}
+            else "benchmark_text_source_state_scalar_rows"
+            if spine_status == "local_preparation_spine_reported"
+            else "not_applicable",
+        ),
+        "vortex_preparation_spine_sink_surface": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_sink_surface"),
+            "workspace_safe_local_vortex_file_sink"
+            if artifact_ref != "none"
+            else "not_applicable",
+        ),
+        "vortex_preparation_spine_split_surface": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_split_surface"),
+            "benchmark_local_source_file_splits"
+            if source_split_count
+            else "not_applicable",
+        ),
+        "vortex_preparation_spine_split_ref_status": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_split_ref_status"),
+            "reported_by_benchmark_source_state_contract"
+            if source_split_count
+            else "not_reported",
+        ),
+        "vortex_preparation_spine_split_count": parse_optional_int(
+            evidence.get("vortex_preparation_spine_split_count")
+        )
+        or source_split_count,
+        "vortex_preparation_spine_source_state_id": source_state_id,
+        "vortex_preparation_spine_source_state_digest": source_state_digest,
+        "vortex_preparation_spine_source_split_count": source_split_count,
+        "vortex_preparation_spine_source_split_refs": source_split_refs,
+        "vortex_preparation_spine_source_byte_range_refs": source_byte_range_refs,
+        "vortex_preparation_spine_source_row_range_refs": source_row_range_refs,
+        "vortex_preparation_spine_source_byte_range_status": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_source_byte_range_status"),
+            "local_file_byte_ranges_reported" if source_split_count else "not_applicable",
+        ),
+        "vortex_preparation_spine_source_row_range_status": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_source_row_range_status"),
+            "unknown_until_runtime_source_split_evidence"
+            if source_split_count
+            else "not_applicable",
+        ),
+        "vortex_preparation_spine_projection_mask_status": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_projection_mask_status"),
+            "benchmark_projection_mask_not_materialized",
+        ),
+        "vortex_preparation_spine_filter_mask_status": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_filter_mask_status"),
+            "not_requested",
+        ),
+        "vortex_preparation_spine_write_provider_surface": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_write_provider_surface"),
+            "VortexSession::write_options().write(ArrayStream)"
+            if artifact_ref != "none"
+            else "not_applicable",
+        ),
+        "vortex_preparation_spine_reopen_provider_surface": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_reopen_provider_surface"),
+            "VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"
+            if artifact_ref != "none"
+            else "not_applicable",
+        ),
+        "vortex_preparation_spine_materialization_boundary_status": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_materialization_boundary_status"),
+            metrics.get("source_state_materialization_layout"),
+            "not_applicable",
+        ),
+        "vortex_preparation_spine_decode_boundary_status": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_decode_boundary_status"),
+            metrics.get("source_state_parse_normalization"),
+            "not_applicable",
+        ),
+        "vortex_preparation_spine_sink_ref": artifact_ref,
+        "vortex_preparation_spine_prepared_state_id": prepared_state_id,
+        "vortex_preparation_spine_prepared_state_digest": prepared_state_digest,
+        "vortex_preparation_spine_prepared_artifact_segment_refs": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_prepared_artifact_segment_refs"),
+            f"{prepared_state_id}:artifact={artifact_ref}"
+            if prepared_state_id != "none" and artifact_ref != "none"
+            else "not_applicable",
+        ),
+        "vortex_preparation_spine_prepared_artifact_segment_evidence_status": first_meaningful_field(
+            evidence.get(
+                "vortex_preparation_spine_prepared_artifact_segment_evidence_status"
+            ),
+            "prepared_artifact_digest_reported" if artifact_ref != "none" else "not_applicable",
+        ),
+        "vortex_preparation_spine_native_io_certificate_status": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_native_io_certificate_status"),
+            metrics.get("prepared_state_native_io_certificate_status"),
+            "not_applicable",
+        ),
+        "vortex_preparation_spine_native_io_certificate_refs": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_native_io_certificate_refs"),
+            "source_split_refs,prepared_artifact_ref,reopen_row_count_scan"
+            if artifact_ref != "none"
+            else "none",
+        ),
+        "vortex_preparation_spine_no_standalone_lane_status": first_meaningful_field(
+            evidence.get("vortex_preparation_spine_no_standalone_lane_status"),
+            "funnelled_through_source_state_to_vortex_prepared_state_contracts",
+        ),
+        "vortex_preparation_spine_fallback_attempted": (
+            parse_optional_bool(evidence.get("vortex_preparation_spine_fallback_attempted"))
+            is True
+        ),
+        "vortex_preparation_spine_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get("vortex_preparation_spine_external_engine_invoked")
+            )
+            is True
+        ),
+        "vortex_preparation_spine_claim_gate_status": "not_claim_grade",
+        "vortex_preparation_spine_claim_boundary": (
+            "VortexPreparationSpine evidence covers scoped local SourceState split refs, "
+            "provider admission, local Vortex write/reopen surfaces, and VortexPreparedState "
+            "linkage only; it is not differential preparation, capillary I/O, scout ingress, "
+            "object-store/table/distributed runtime, broad writer support, performance, "
+            "production, SQL/DataFrame, or Spark-replacement evidence"
+        ),
+    }
+
+
 def output_plan_reuse_reason(
     engine: str,
     status: str,
@@ -7832,6 +8158,7 @@ def bayesian_advisor_contract_metadata(
         "execution_mode_attribution_contract",
         "source_state_contract",
         "prepared_state_contract",
+        "vortex_preparation_spine_contract",
         "output_plan_contract",
         "cache_invalidation_contract",
         "reuse_level_contract",
@@ -10726,6 +11053,45 @@ def prepared_state_contract() -> dict[str, Any]:
     }
 
 
+def vortex_preparation_spine_contract() -> dict[str, Any]:
+    return {
+        "contract_id": VORTEX_PREPARATION_SPINE_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": "docs/architecture/vortex-public-api-inventory.md",
+        "status_vocabulary": list(VORTEX_PREPARATION_SPINE_STATUS_VOCABULARY),
+        "row_fields": list(VORTEX_PREPARATION_SPINE_FIELDS),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexPreparationSpine -> "
+            "VortexPreparedState -> ExecutionPlan -> OutputPlan"
+        ),
+        "current_scope": (
+            "scoped local source/split refs, Vortex-first provider admission, "
+            "workspace-safe Vortex sink, reopen scan proof, Native I/O posture, "
+            "and no-standalone-lane evidence"
+        ),
+        "non_goals": [
+            "differential preparation",
+            "capillary I/O scheduling",
+            "scout ingress/triage",
+            "object-store or table runtime",
+            "distributed split execution",
+            "broad writer or nested-type support",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Preparation-spine rows must preserve "
+            "vortex_preparation_spine_fallback_attempted=false and "
+            "vortex_preparation_spine_external_engine_invoked=false for ShardLoom rows."
+        ),
+        "claim_boundary": (
+            "VortexPreparationSpine evidence is scoped local preparation plumbing only. "
+            "It links SourceState, split refs, Vortex writer/reopen provider surfaces, and "
+            "VortexPreparedState identity without proving object-store/table, distributed, "
+            "encoded-operator, performance, production, SQL/DataFrame, or Spark-replacement readiness."
+        ),
+    }
+
+
 def output_plan_contract() -> dict[str, Any]:
     return {
         "contract_id": OUTPUT_PLAN_CONTRACT_SCHEMA_VERSION,
@@ -11213,6 +11579,84 @@ def prepared_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]
                 ),
                 "prepared_state_claim_boundary": metrics.get(
                     "prepared_state_claim_boundary"
+                ),
+            }
+        )
+    return rows
+
+
+def vortex_preparation_spine_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "vortex_preparation_spine_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "vortex_preparation_spine_status": metrics.get(
+                    "vortex_preparation_spine_status"
+                ),
+                "vortex_preparation_spine_vortex_first_decision": metrics.get(
+                    "vortex_preparation_spine_vortex_first_decision"
+                ),
+                "vortex_preparation_spine_provider_kind": metrics.get(
+                    "vortex_preparation_spine_provider_kind"
+                ),
+                "vortex_preparation_spine_provider_crate": metrics.get(
+                    "vortex_preparation_spine_provider_crate"
+                ),
+                "vortex_preparation_spine_feature_gate": metrics.get(
+                    "vortex_preparation_spine_feature_gate"
+                ),
+                "vortex_preparation_spine_source_surface": metrics.get(
+                    "vortex_preparation_spine_source_surface"
+                ),
+                "vortex_preparation_spine_sink_surface": metrics.get(
+                    "vortex_preparation_spine_sink_surface"
+                ),
+                "vortex_preparation_spine_split_surface": metrics.get(
+                    "vortex_preparation_spine_split_surface"
+                ),
+                "vortex_preparation_spine_source_split_count": metrics.get(
+                    "vortex_preparation_spine_source_split_count"
+                ),
+                "vortex_preparation_spine_source_split_refs": metrics.get(
+                    "vortex_preparation_spine_source_split_refs"
+                ),
+                "vortex_preparation_spine_source_byte_range_refs": metrics.get(
+                    "vortex_preparation_spine_source_byte_range_refs"
+                ),
+                "vortex_preparation_spine_source_row_range_refs": metrics.get(
+                    "vortex_preparation_spine_source_row_range_refs"
+                ),
+                "vortex_preparation_spine_sink_ref": metrics.get(
+                    "vortex_preparation_spine_sink_ref"
+                ),
+                "vortex_preparation_spine_prepared_state_id": metrics.get(
+                    "vortex_preparation_spine_prepared_state_id"
+                ),
+                "vortex_preparation_spine_native_io_certificate_status": metrics.get(
+                    "vortex_preparation_spine_native_io_certificate_status"
+                ),
+                "vortex_preparation_spine_no_standalone_lane_status": metrics.get(
+                    "vortex_preparation_spine_no_standalone_lane_status"
+                ),
+                "vortex_preparation_spine_claim_gate_status": metrics.get(
+                    "vortex_preparation_spine_claim_gate_status"
+                ),
+                "vortex_preparation_spine_fallback_attempted": metrics.get(
+                    "vortex_preparation_spine_fallback_attempted"
+                ),
+                "vortex_preparation_spine_external_engine_invoked": metrics.get(
+                    "vortex_preparation_spine_external_engine_invoked"
+                ),
+                "vortex_preparation_spine_claim_boundary": metrics.get(
+                    "vortex_preparation_spine_claim_boundary"
                 ),
             }
         )
@@ -12582,6 +13026,17 @@ def failed_result(
         )
     )
     metrics.update(
+        vortex_preparation_spine_metadata(
+            engine,
+            paths,
+            scenario,
+            data_format,
+            status=status,
+            metrics=metrics,
+            selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
+    metrics.update(
         output_plan_contract_metadata(
             engine,
             scenario,
@@ -13306,6 +13761,18 @@ def successful_result_from_iterations(
     metrics.update(
         prepared_state_contract_metadata(
             runner.name,
+            scenario,
+            data_format,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            evidence=evidence,
+            selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
+    metrics.update(
+        vortex_preparation_spine_metadata(
+            runner.name,
+            paths,
             scenario,
             data_format,
             status="success" if stable else "unstable_output",
@@ -15411,6 +15878,27 @@ def render_prepared_state_contract(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_vortex_preparation_spine_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["vortex_preparation_spine_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
 def render_split_manifest_contract(artifact: dict[str, Any]) -> str:
     contract = artifact["split_manifest_contract"]
     rows = [
@@ -16949,6 +17437,94 @@ def render_scale_benchmark_profile_matrix(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_vortex_preparation_spine_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["vortex_preparation_spine_matrix"]:
+        rows.append(
+            [
+                row.get("scenario_name", "unknown"),
+                row.get("engine", "unknown"),
+                row.get("status", "unknown"),
+                str(row.get("execution_mode", "unknown")),
+                str(row.get("vortex_preparation_spine_status", "unknown")),
+                str(row.get("vortex_preparation_spine_vortex_first_decision", "unknown")),
+                str(row.get("vortex_preparation_spine_provider_kind", "unknown")),
+                str(row.get("vortex_preparation_spine_provider_crate", "unknown")),
+                str(row.get("vortex_preparation_spine_feature_gate", "unknown")),
+                str(row.get("vortex_preparation_spine_source_surface", "unknown")),
+                str(row.get("vortex_preparation_spine_sink_surface", "unknown")),
+                str(row.get("vortex_preparation_spine_split_surface", "unknown")),
+                str(row.get("vortex_preparation_spine_source_split_count", 0)),
+                str(row.get("vortex_preparation_spine_source_split_refs", "none")).replace("|", "\\|"),
+                str(row.get("vortex_preparation_spine_source_byte_range_refs", "none")).replace("|", "\\|"),
+                str(row.get("vortex_preparation_spine_source_row_range_refs", "none")).replace("|", "\\|"),
+                str(row.get("vortex_preparation_spine_sink_ref", "none")).replace("|", "\\|"),
+                str(row.get("vortex_preparation_spine_prepared_state_id", "none")),
+                str(row.get("vortex_preparation_spine_native_io_certificate_status", "none")),
+                str(row.get("vortex_preparation_spine_no_standalone_lane_status", "unknown")),
+                str(row.get("vortex_preparation_spine_claim_gate_status", "not_claim_grade")),
+                str(row.get("vortex_preparation_spine_fallback_attempted", False)),
+                str(row.get("vortex_preparation_spine_external_engine_invoked", False)),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "blocked",
+                "blocked_until_vortex_or_shardloom_evidence",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "0",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "not_reported",
+                "not_claim_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Spine status",
+            "Decision",
+            "Provider",
+            "Provider crate",
+            "Feature gate",
+            "Source surface",
+            "Sink surface",
+            "Split surface",
+            "Source splits",
+            "Split refs",
+            "Byte ranges",
+            "Row ranges",
+            "Sink ref",
+            "Prepared state",
+            "Native I/O",
+            "Lane status",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
 def render_output_plan_matrix(artifact: dict[str, Any]) -> str:
     rows = []
     for row in artifact["output_plan_matrix"]:
@@ -17953,6 +18529,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_prepared_state_contract(artifact),
         "",
+        "## VortexPreparationSpine Contract",
+        "",
+        "This contract makes local source/split refs, Vortex-first provider decisions, Vortex write/reopen surfaces, and no-standalone-lane posture visible without implying broader runtime support.",
+        "",
+        render_vortex_preparation_spine_contract(artifact),
+        "",
         "## OutputPlan Contract",
         "",
         "This contract makes local output-plan posture, target format/schema, metadata preservation, write/replay refs, and sink artifact identity visible without implying fanout, object-store, table commit, or production sink support.",
@@ -18070,6 +18652,12 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "VortexPreparedState is prepared-artifact evidence. Reuse fields show whether prepared Vortex artifacts were eligible for reuse or reused; they do not upgrade claim_gate_status or create output/object-store/lakehouse/SQL/DataFrame support.",
         "",
         render_prepared_state_matrix(artifact),
+        "",
+        "## ShardLoom VortexPreparationSpine Evidence Matrix",
+        "",
+        "VortexPreparationSpine rows show how local SourceState splits flow into VortexPreparedState writes through admitted provider surfaces. They are internal preparation evidence only, not a separate runtime lane or performance claim.",
+        "",
+        render_vortex_preparation_spine_matrix(artifact),
         "",
         "## ShardLoom OutputPlan Evidence Matrix",
         "",
@@ -18397,6 +18985,7 @@ def main() -> int:
         "persistent_runner_admission_gate": persistent_runner_admission_gate(),
         "source_state_contract": source_state_contract(),
         "prepared_state_contract": prepared_state_contract(),
+        "vortex_preparation_spine_contract": vortex_preparation_spine_contract(),
         "output_plan_contract": output_plan_contract(),
         "fanout_benchmark_contract": fanout_benchmark_contract(),
         "cache_invalidation_contract": cache_invalidation_contract(),
@@ -18423,6 +19012,7 @@ def main() -> int:
         "source_state_matrix": source_state_matrix(results),
         "scan_pushdown_matrix": scan_pushdown_matrix(results),
         "prepared_state_matrix": prepared_state_matrix(results),
+        "vortex_preparation_spine_matrix": vortex_preparation_spine_matrix(results),
         "split_manifest_matrix": split_manifest_matrix(results),
         "memory_spill_matrix": memory_spill_matrix(results),
         "shuffle_scale_matrix": shuffle_scale_matrix(results),

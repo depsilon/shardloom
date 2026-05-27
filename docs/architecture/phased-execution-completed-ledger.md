@@ -16,6 +16,71 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-IOREUSE-1I Vortex-native source/sink/split preparation spine
+  - Date: 2026-05-27
+  - Branch/PR: `ioreuse-1i-vortex-prep-spine` / PR #971.
+  - Source:
+    - `GAR-IOREUSE-1I Vortex-native source/sink/split preparation spine`.
+    - Vortex-first provider check, `docs/architecture/io-reuse-and-fanout-architecture.md`,
+      `docs/architecture/vortex-public-api-inventory.md`, and the cold ingestion/preparation
+      carry-forward.
+  - Scope:
+    - Added `shardloom.vortex_preparation_spine.v1` evidence to the existing
+      `vortex_ingest` SourceState -> VortexPreparedState flow, with no standalone side lane.
+    - Emitted `vortex_preparation_spine_*` provider/version/API surface, feature-gate,
+      admission-policy, source/sink/split, projection/filter-mask, write/reopen, materialization,
+      decode, Native I/O, claim-boundary, and no-fallback fields from `vortex-ingest-smoke`.
+    - Added CLI source-specific split refs, whole-local-file byte ranges, row ranges, Vortex sink
+      refs, prepared-state refs/digests, prepared-artifact segment evidence, and
+      `vortex_preparation_spine_no_standalone_lane_status`.
+    - Added Python typed accessors for `VortexIngestSmokeReport` and `PreparedVortexArtifacts`.
+    - Extended the traditional benchmark harness schema, Markdown renderer, promotion filters, and
+      docs with `shardloom.traditional_analytics.vortex_preparation_spine.v1`. The public
+      benchmark data refresh remains deferred until the related cold-lane preparation items land.
+    - Synced use-case/status/website data so the Vortex ingest use case and support matrix expose
+      the new preparation-spine evidence fields.
+  - Vortex-first provider decision:
+    - Non-empty Parquet, Arrow IPC, Avro, and ORC columnar SourceState batches are classified as
+      `use_vortex_native_provider` through upstream Vortex
+      `ArrayRef::from_arrow(RecordBatch)`, then the Vortex writer/reopen surfaces.
+    - Local CSV/JSON/JSONL scalar SourceState rows are classified as
+      `implement_shardloom_kernel` for scalar-row-to-struct array construction, then the same
+      Vortex writer/reopen surfaces.
+    - Feature-gated/default-build and unsupported source/sink/split shapes remain blocked with
+      `blocked_until_vortex_or_shardloom_evidence`, `fallback_attempted=false`, and
+      `external_engine_invoked=false`.
+  - Admitted/blocked surfaces:
+    - Admitted source surfaces: `local_text_source_state_scalar_rows` and
+      `local_columnar_source_state_arrow_record_batches`.
+    - Admitted sink surface: `workspace_safe_local_vortex_file_sink`.
+    - Admitted split surfaces: `single_materialized_scalar_row_split` and
+      `arrow_record_batch_source_splits`, with local source split refs and row/byte ranges.
+    - Blocked surfaces: object-store runtime, table/catalog source/sink, split serialization,
+      residual external execution, broad nested/writer support, and Vortex query-engine
+      integrations.
+  - Claim boundary:
+    - This is scoped local preparation plumbing only. It does not claim differential preparation,
+      capillary I/O, scout ingress, object-store/table/distributed runtime, broad writer support,
+      encoded-operator coverage, production readiness, performance, SQL/DataFrame parity, or Spark
+      replacement.
+  - Verification:
+    - `cargo +1.91.1 test -p shardloom-vortex --features vortex-write,universal-format-io vortex_ingest --lib`
+    - `cargo +1.91.1 test -p shardloom-cli --features vortex-write,universal-format-io --test sql_local_source_runtime_smoke vortex_ingest_smoke`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `python -m unittest python.tests.test_cli_client`
+    - `python -m compileall -q benchmarks\traditional_analytics scripts python\src python\tests`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_website_readiness.py`
+    - Benchmark artifact completeness and benchmark constitution checks against the existing
+      `website-public` artifact.
+    - `python scripts\check_release_readiness.py --allow-blocked`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `git diff --check`
+
 - [x] Session label: GAR-IOREUSE-1H cold-lane attribution and benchmark constitution split
   - Date: 2026-05-27
   - Branch/PR: `ioreuse-1h-cold-lane-attribution` / PR #970.

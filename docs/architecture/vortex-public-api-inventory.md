@@ -54,7 +54,11 @@ phase note. They are not active queue state and do not override `phased-executio
   Parquet/Arrow IPC/Avro/ORC batches. The traditional benchmark compatibility-import writer uses
   the same provider surface for scoped local fact/dimension/CDC table artifact creation. The CLI
   and benchmark reports expose provider kind/surface/strategy, input layout, record-batch count,
-  and scalar-copy-avoidance evidence. This is scoped prepare-once artifact creation only; it is not
+  scalar-copy-avoidance evidence, and `vortex_preparation_spine_*` provider/source/sink/split
+  evidence. The preparation spine classifies each route with the Vortex-first decision, feature
+  gate, provider crate/version/API surface, source split refs, whole-local-file byte ranges, row
+  ranges, Vortex write/reopen surfaces, prepared-artifact segment evidence, Native I/O certificate
+  posture, and no-fallback fields. This is scoped prepare-once artifact creation only; it is not
   Arrow-default execution, broad structured-format support, or a performance claim.
 - Segment extraction admission framing: `vortex-api-inventory` now exposes
   `shardloom.vortex_segment_extraction_admission.v1` for the `sparse_patch_fill` layout family.
@@ -334,8 +338,9 @@ Required blockers before any 0.71 item becomes executable:
 - Stability: acceptable only for this narrow provider path under Vortex `0.72`; revalidate before
   broadening to nested, nullable, object-store, table/catalog, or execution surfaces.
 - Adapter support: scoped local prepare-once artifact creation for flat Parquet/Arrow IPC/Avro/ORC
-  SourceState batches. Default builds and unsupported structured shapes remain blocked or scalar
-  paths with explicit diagnostics.
+  SourceState batches. The local preparation spine reports source/sink/split refs and admits
+  non-empty flat RecordBatch input through Vortex `ArrayRef::from_arrow(RecordBatch)`. Default
+  builds and unsupported structured shapes remain blocked or scalar paths with explicit diagnostics.
 - Risks: Arrow conversion must stay an admitted provider for artifact preparation only. It must not
   become a hidden default execution model, decoded row fallback, or substitute for encoded-native
   execution evidence.

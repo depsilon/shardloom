@@ -308,46 +308,6 @@ item only after the matching 4-series runtime item has landed or when the 4-seri
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
 
-- [ ] GAR-IOREUSE-1I Vortex-native source/sink/split preparation spine
-  - Source: Vortex-first provider check, benchmark-outlier research carry-forward,
-    `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-    `docs/architecture/io-reuse-and-fanout-architecture.md`,
-    `docs/architecture/vortex-runtime-utilization-audit.md`, and RFC 0042.
-  - Current state: local `vortex_ingest` can prepare scoped flat local sources into Vortex artifacts
-    with SourceState and VortexPreparedState evidence, and columnar SourceState preservation exists
-    for selected structured formats. The cold preparation path is not yet a general Vortex
-    Source/Sink/Split-aligned spine with split refs, write-provider refs, and prepared-artifact
-    segment evidence.
-  - Next slice outcome: promote a local Vortex-native preparation spine that checks upstream
-    Vortex array/file I/O/Scan/Source/Sink/Split/layout concepts before adding ShardLoom wrappers,
-    emits provider/version/admission evidence, and blocks unsupported source/sink/split shapes.
-  - Runtime enablement: admitted local non-Vortex SourceState rows can enter `vortex_ingest`
-    through a Vortex-native provider boundary with split/write/reopen certificate evidence; all
-    unsupported Vortex provider gaps produce deterministic blockers.
-  - User-visible surface: `vortex-ingest-smoke`, `ctx.prepare_vortex(...)`, benchmark rows,
-    compute-capability matrix, Native I/O certificates, docs.
-  - Implementation scope: Vortex adapter boundary, SourceState and VortexPreparedState reports,
-    split/source/sink capability rows, provider admission policy, CLI/Python typed envelopes,
-    benchmark row schema, tests.
-  - Evidence required: provider kind/crate/version/API surface, feature gate, source split refs,
-    byte/row ranges, projection/filter masks, Vortex artifact refs/digests, write/reopen/scan
-    verification, materialization/decode status, Native I/O certificate refs, no-fallback fields.
-  - Acceptance: the cold preparation route records whether it used a Vortex-native provider,
-    wrapped a Vortex concept, or blocked pending evidence; no row silently decodes to Arrow or uses
-    a Vortex query-engine integration to complete unsupported work.
-  - Verification: focused Vortex ingest tests, traditional benchmark harness tests, capability
-    matrix snapshots, Python typed-envelope tests if touched, release readiness metadata,
-    `git diff --check`.
-  - Non-goals: no object-store runtime, distributed split runtime, table commit, broad Vortex writer
-    support, or performance claim.
-  - Claim boundary: scoped local Vortex-native preparation evidence only.
-  - Fallback boundary: Vortex query-engine integrations and external engines are prohibited as
-    execution backends.
-  - Dependencies/blockers: upstream Vortex API stability, feature gates, Native I/O certificate
-    coverage, SourceState/VortexPreparedState identity stability.
-  - Ledger rule: ledger entry must include the Vortex-first provider decision and admitted/blocked
-    source/sink/split surfaces.
-
 - [ ] GAR-IOREUSE-1J differential preparation and prepared-state delta overlays
   - Source: novel cold-lane research carry-forward,
     `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,

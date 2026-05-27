@@ -311,6 +311,17 @@ and `prepared_state_claim_boundary`. This prepared-state contract records scoped
 artifact identity, digest, source-state linkage, preparation timing separation, and reuse posture
 only; it is not output support, encoded-native coverage, object-store/lakehouse support, or a
 performance claim.
+`GAR-IOREUSE-1I` adds a companion VortexPreparationSpine contract to the benchmark harness. Future
+refreshed rows carry
+`vortex_preparation_spine_schema_version=shardloom.traditional_analytics.vortex_preparation_spine.v1`,
+the Vortex-first provider decision, provider crate/version/API surface, SourceState split refs,
+byte/row range refs, Vortex sink refs, prepared-artifact segment evidence, Native I/O certificate
+posture, `vortex_preparation_spine_no_standalone_lane_status`,
+`vortex_preparation_spine_fallback_attempted=false`,
+`vortex_preparation_spine_external_engine_invoked=false`, and
+`vortex_preparation_spine_claim_gate_status=not_claim_grade`. This is internal local preparation
+plumbing only; the public benchmark data refresh is deferred until the remaining cold-lane
+preparation items have landed.
 `GAR-IOREUSE-1C` adds a separate OutputPlan contract to the benchmark JSON/Markdown artifact with
 `output_plan_contract_schema_version=shardloom.traditional_analytics.output_plan.v1`,
 `output_plan_status_vocabulary`, `output_plan_status`, `output_plan_id`, `output_plan_digest`,

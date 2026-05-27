@@ -1597,6 +1597,7 @@ struct VortexIngestSourceData {
     source_bytes: u64,
     source_digest: String,
     row_count: usize,
+    source_split_row_ranges: Vec<(usize, usize)>,
     read_millis: u128,
     compatibility_parse_millis: u128,
     source_to_columnar_millis: u128,
@@ -1608,9 +1609,11 @@ struct VortexIngestSourceData {
 
 impl VortexIngestSourceData {
     fn from_scalar_source(source: CsvSourceData) -> Self {
+        let row_count = source.rows.len();
         Self {
             source_adapter: source.source_adapter.clone(),
-            row_count: source.rows.len(),
+            row_count,
+            source_split_row_ranges: single_source_split_row_ranges(row_count),
             compatibility_parse_millis: source.parse_millis,
             source_to_columnar_millis: source.source_to_columnar_millis,
             record_batch_count: source.record_batch_count,
@@ -1638,6 +1641,7 @@ impl VortexIngestSourceData {
         read_millis: u128,
         source_to_columnar_millis: u128,
     ) -> Self {
+        let source_split_row_ranges = columnar_source_split_row_ranges(columnar_source);
         Self {
             source_format: source_adapter.source_format,
             source_adapter,
@@ -1649,6 +1653,7 @@ impl VortexIngestSourceData {
             source_bytes,
             source_digest,
             row_count: columnar_source.row_count,
+            source_split_row_ranges,
             read_millis,
             compatibility_parse_millis: 0,
             source_to_columnar_millis,
@@ -1731,6 +1736,103 @@ impl VortexIngestSourceData {
             self.columnar_source_preserved
         ))
     }
+
+    fn preparation_spine_row_ranges(&self) -> Vec<(usize, usize)> {
+        if self.source_split_row_ranges.is_empty() && self.row_count > 0 {
+            single_source_split_row_ranges(self.row_count)
+        } else {
+            self.source_split_row_ranges.clone()
+        }
+    }
+
+    fn preparation_spine_source_split_count(&self) -> usize {
+        self.preparation_spine_row_ranges().len()
+    }
+
+    fn preparation_spine_source_split_refs(&self, source_state_id: &str) -> String {
+        let ranges = self.preparation_spine_row_ranges();
+        if ranges.is_empty() {
+            return "none".to_string();
+        }
+        ranges
+            .iter()
+            .enumerate()
+            .map(|(index, (start, end))| {
+                format!(
+                    "{source_state_id}:split={}:bytes=0..{}:rows={}..{}",
+                    index + 1,
+                    self.source_bytes,
+                    start,
+                    end
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(";")
+    }
+
+    fn preparation_spine_source_byte_range_refs(&self, source_state_id: &str) -> String {
+        let ranges = self.preparation_spine_row_ranges();
+        if ranges.is_empty() {
+            return "none".to_string();
+        }
+        ranges
+            .iter()
+            .enumerate()
+            .map(|(index, _)| {
+                format!(
+                    "{source_state_id}:split={}:bytes=0..{}",
+                    index + 1,
+                    self.source_bytes
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(";")
+    }
+
+    fn preparation_spine_source_row_range_refs(&self, source_state_id: &str) -> String {
+        let ranges = self.preparation_spine_row_ranges();
+        if ranges.is_empty() {
+            return "none".to_string();
+        }
+        ranges
+            .iter()
+            .enumerate()
+            .map(|(index, (start, end))| {
+                format!(
+                    "{source_state_id}:split={}:rows={}..{}",
+                    index + 1,
+                    start,
+                    end
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(";")
+    }
+}
+
+fn single_source_split_row_ranges(row_count: usize) -> Vec<(usize, usize)> {
+    if row_count == 0 {
+        Vec::new()
+    } else {
+        vec![(0, row_count)]
+    }
+}
+
+#[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
+fn columnar_source_split_row_ranges(
+    source: &shardloom_vortex::FlatLocalColumnarSource,
+) -> Vec<(usize, usize)> {
+    let mut start = 0usize;
+    source
+        .batches
+        .iter()
+        .map(|batch| {
+            let end = start + batch.num_rows();
+            let range = (start, end);
+            start = end;
+            range
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2828,12 +2930,102 @@ impl VortexIngestReport {
                 "false".to_string(),
             ),
         ];
+        fields.extend(self.vortex_report.preparation_spine.evidence_fields());
+        fields.extend(self.preparation_spine_source_fields(certified_reopen));
         fields.extend(
             self.vortex_report
                 .workspace_write_report
                 .evidence_fields("vortex_ingest_output"),
         );
         fields
+    }
+
+    fn preparation_spine_source_fields(&self, certified_reopen: bool) -> Vec<(String, String)> {
+        let prepared_artifact_segment_evidence_status = if certified_reopen {
+            "writer_and_reopen_row_count_verified"
+        } else {
+            "writer_row_count_and_digest_recorded_ingest_minimal"
+        };
+        vec![
+            (
+                "vortex_preparation_spine_source_state_id".to_string(),
+                self.source_state_id.clone(),
+            ),
+            (
+                "vortex_preparation_spine_source_state_digest".to_string(),
+                self.source_state_digest.clone(),
+            ),
+            (
+                "vortex_preparation_spine_source_format".to_string(),
+                self.source.source_format.as_str().to_string(),
+            ),
+            (
+                "vortex_preparation_spine_source_split_count".to_string(),
+                self.source
+                    .preparation_spine_source_split_count()
+                    .to_string(),
+            ),
+            (
+                "vortex_preparation_spine_source_split_refs".to_string(),
+                self.source
+                    .preparation_spine_source_split_refs(&self.source_state_id),
+            ),
+            (
+                "vortex_preparation_spine_source_byte_range_refs".to_string(),
+                self.source
+                    .preparation_spine_source_byte_range_refs(&self.source_state_id),
+            ),
+            (
+                "vortex_preparation_spine_source_row_range_refs".to_string(),
+                self.source
+                    .preparation_spine_source_row_range_refs(&self.source_state_id),
+            ),
+            (
+                "vortex_preparation_spine_source_byte_range_status".to_string(),
+                "whole_local_file_range_reported".to_string(),
+            ),
+            (
+                "vortex_preparation_spine_source_row_range_status".to_string(),
+                "source_state_row_ranges_reported".to_string(),
+            ),
+            (
+                "vortex_preparation_spine_source_projection_mask".to_string(),
+                self.source.materialized_columns_field(),
+            ),
+            (
+                "vortex_preparation_spine_source_filter_mask".to_string(),
+                "none".to_string(),
+            ),
+            (
+                "vortex_preparation_spine_sink_ref".to_string(),
+                self.vortex_report.target_path.display().to_string(),
+            ),
+            (
+                "vortex_preparation_spine_prepared_state_id".to_string(),
+                self.prepared_state_id.clone(),
+            ),
+            (
+                "vortex_preparation_spine_prepared_state_digest".to_string(),
+                self.prepared_state_digest.clone(),
+            ),
+            (
+                "vortex_preparation_spine_prepared_artifact_segment_refs".to_string(),
+                format!(
+                    "{}:rows=0..{}:digest={}",
+                    self.prepared_state_id,
+                    self.vortex_report.row_count,
+                    self.vortex_report.artifact_digest
+                ),
+            ),
+            (
+                "vortex_preparation_spine_prepared_artifact_segment_evidence_status".to_string(),
+                prepared_artifact_segment_evidence_status.to_string(),
+            ),
+            (
+                "vortex_preparation_spine_no_standalone_lane_status".to_string(),
+                "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state".to_string(),
+            ),
+        ]
     }
 
     fn to_text(&self) -> String {
@@ -2895,6 +3087,42 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
         (
             "vortex_ingest_blocker_id".to_string(),
             "vortex_ingest.requires_vortex_write_feature".to_string(),
+        ),
+        (
+            "vortex_preparation_spine_schema_version".to_string(),
+            shardloom_vortex::VORTEX_PREPARATION_SPINE_SCHEMA_VERSION.to_string(),
+        ),
+        (
+            "vortex_preparation_spine_status".to_string(),
+            "blocked_feature_gate".to_string(),
+        ),
+        (
+            "vortex_preparation_spine_vortex_first_decision".to_string(),
+            "blocked_until_vortex_or_shardloom_evidence".to_string(),
+        ),
+        (
+            "vortex_preparation_spine_feature_gate".to_string(),
+            "vortex-write".to_string(),
+        ),
+        (
+            "vortex_preparation_spine_shardloom_admission_policy".to_string(),
+            "blocked_before_local_vortex_ingest_source_sink_split_prepare_once".to_string(),
+        ),
+        (
+            "vortex_preparation_spine_split_ref_status".to_string(),
+            "not_reported_feature_gate_blocked".to_string(),
+        ),
+        (
+            "vortex_preparation_spine_claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+        (
+            "vortex_preparation_spine_fallback_attempted".to_string(),
+            "false".to_string(),
+        ),
+        (
+            "vortex_preparation_spine_external_engine_invoked".to_string(),
+            "false".to_string(),
         ),
         ("prepared_state_created".to_string(), "false".to_string()),
         ("prepared_state_reused".to_string(), "false".to_string()),

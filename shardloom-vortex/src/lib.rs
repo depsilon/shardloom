@@ -541,7 +541,8 @@ pub use universal_format_io::{
     read_flat_parquet_source_with_projection,
 };
 pub use vortex_ingest::{
-    VortexIngestCertificationLevel, VortexPreparedStateWriteReport,
+    VORTEX_PREPARATION_SPINE_SCHEMA_VERSION, VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION,
+    VortexIngestCertificationLevel, VortexPreparationSpineReport, VortexPreparedStateWriteReport,
     VortexPreparedStateWriteRequest, vortex_ingest_write_feature_enabled,
     write_flat_scalar_vortex_prepared_state,
 };

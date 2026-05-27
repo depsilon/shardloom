@@ -2050,6 +2050,15 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "vortex_array_build_input_layout", "value": "arrow_record_batch_columnar_source_state"},
                         {"key": "vortex_array_build_record_batch_count", "value": "1"},
                         {"key": "vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
+                        {"key": "vortex_preparation_spine_status", "value": "admitted_local_preparation_spine"},
+                        {"key": "vortex_preparation_spine_vortex_first_decision", "value": "use_vortex_native_provider"},
+                        {"key": "vortex_preparation_spine_provider_kind", "value": "vortex_array_kernel"},
+                        {"key": "vortex_preparation_spine_provider_api_surface", "value": "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream);VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"},
+                        {"key": "vortex_preparation_spine_source_split_count", "value": "1"},
+                        {"key": "vortex_preparation_spine_source_split_refs", "value": "source-state://abc:split=1:bytes=0..64:rows=0..2"},
+                        {"key": "vortex_preparation_spine_source_byte_range_refs", "value": "source-state://abc:split=1:bytes=0..64"},
+                        {"key": "vortex_preparation_spine_source_row_range_refs", "value": "source-state://abc:split=1:rows=0..2"},
+                        {"key": "vortex_preparation_spine_native_io_certificate_status", "value": "certified_local_vortex_preparation_spine"},
                         {"key": "source_io_performed", "value": "true"},
                         {"key": "prepared_state_created", "value": "true"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
@@ -2120,6 +2129,39 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(result.vortex_array_build_record_batch_count, 1)
         self.assertTrue(result.vortex_array_build_manual_scalar_copy_avoided)
+        self.assertEqual(
+            result.vortex_preparation_spine_status,
+            "admitted_local_preparation_spine",
+        )
+        self.assertEqual(
+            result.vortex_preparation_spine_vortex_first_decision,
+            "use_vortex_native_provider",
+        )
+        self.assertEqual(
+            result.vortex_preparation_spine_provider_kind,
+            "vortex_array_kernel",
+        )
+        self.assertIn(
+            "ArrayRef::from_arrow(RecordBatch)",
+            result.vortex_preparation_spine_provider_api_surface or "",
+        )
+        self.assertEqual(result.vortex_preparation_spine_source_split_count, 1)
+        self.assertEqual(
+            result.vortex_preparation_spine_source_split_refs,
+            ("source-state://abc:split=1:bytes=0..64:rows=0..2",),
+        )
+        self.assertEqual(
+            result.vortex_preparation_spine_source_byte_range_refs,
+            ("source-state://abc:split=1:bytes=0..64",),
+        )
+        self.assertEqual(
+            result.vortex_preparation_spine_source_row_range_refs,
+            ("source-state://abc:split=1:rows=0..2",),
+        )
+        self.assertEqual(
+            result.vortex_preparation_spine_native_io_certificate_status,
+            "certified_local_vortex_preparation_spine",
+        )
         self.assertTrue(result.source_io_performed)
         self.assertTrue(result.prepared_state_created)
         self.assertFalse(result.fallback_attempted)
@@ -6795,6 +6837,13 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "vortex_array_build_input_layout", "value": "traditional_arrow_record_batch"},
                         {"key": "vortex_array_build_record_batch_count", "value": "2"},
                         {"key": "vortex_array_build_manual_scalar_copy_avoided", "value": "true"},
+                        {"key": "vortex_preparation_spine_status", "value": "admitted_local_preparation_spine"},
+                        {"key": "vortex_preparation_spine_vortex_first_decision", "value": "use_vortex_native_provider"},
+                        {"key": "vortex_preparation_spine_provider_kind", "value": "vortex_array_kernel"},
+                        {"key": "vortex_preparation_spine_provider_api_surface", "value": "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream);VortexSession::open_options().open_buffer(...).scan().into_array_stream().read_all()"},
+                        {"key": "vortex_preparation_spine_source_split_count", "value": "2"},
+                        {"key": "vortex_preparation_spine_source_split_refs", "value": "source-state://abc:split=1:bytes=0..128:rows=0..2;source-state://abc:split=2:bytes=0..128:rows=2..4"},
+                        {"key": "vortex_preparation_spine_native_io_certificate_status", "value": "certified_local_vortex_preparation_spine"},
                         {"key": "prepared_artifact_cleanup_policy", "value": "caller_owned_workspace_cleanup"},
                         {"key": "prepared_artifact_reuse_eligible", "value": "true"}
                     ],
@@ -6833,6 +6882,30 @@ class ShardLoomClientTests(unittest.TestCase):
         )
         self.assertEqual(artifacts.vortex_array_build_record_batch_count, 2)
         self.assertTrue(artifacts.vortex_array_build_manual_scalar_copy_avoided)
+        self.assertEqual(
+            artifacts.vortex_preparation_spine_status,
+            "admitted_local_preparation_spine",
+        )
+        self.assertEqual(
+            artifacts.vortex_preparation_spine_vortex_first_decision,
+            "use_vortex_native_provider",
+        )
+        self.assertEqual(
+            artifacts.vortex_preparation_spine_provider_kind,
+            "vortex_array_kernel",
+        )
+        self.assertEqual(artifacts.vortex_preparation_spine_source_split_count, 2)
+        self.assertEqual(
+            artifacts.vortex_preparation_spine_source_split_refs,
+            (
+                "source-state://abc:split=1:bytes=0..128:rows=0..2",
+                "source-state://abc:split=2:bytes=0..128:rows=2..4",
+            ),
+        )
+        self.assertEqual(
+            artifacts.vortex_preparation_spine_native_io_certificate_status,
+            "certified_local_vortex_preparation_spine",
+        )
         self.assertEqual(artifacts.cleanup_policy, "caller_owned_workspace_cleanup")
         self.assertTrue(artifacts.reuse_eligible)
 

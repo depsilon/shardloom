@@ -198,6 +198,18 @@ fn vortex_ingest_smoke_blocks_without_vortex_write_feature() {
         "vortex_ingest_blocker_id",
         "vortex_ingest.requires_vortex_write_feature"
     )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_status",
+        "blocked_feature_gate"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_vortex_first_decision",
+        "blocked_until_vortex_or_shardloom_evidence"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_fallback_attempted",
+        "false"
+    )));
     assert!(stdout.contains(&field("prepared_state_created", "false")));
     assert!(stdout.contains(&field("fallback_attempted", "false")));
     assert!(stdout.contains(&field("external_engine_invoked", "false")));
@@ -297,6 +309,47 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
     assert!(stdout.contains(&field(
         "vortex_array_build_manual_scalar_copy_avoided",
         "false"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_schema_version",
+        "shardloom.vortex_preparation_spine.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_status",
+        "admitted_local_preparation_spine"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_vortex_first_decision",
+        "implement_shardloom_kernel"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_provider_kind",
+        "shardloom_kernel"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_source_surface",
+        "local_text_source_state_scalar_rows"
+    )));
+    assert!(stdout.contains(&field("vortex_preparation_spine_split_count", "1")));
+    assert!(stdout.contains(&field("vortex_preparation_spine_source_split_count", "1")));
+    assert!(
+        stdout.contains(
+            "\"key\":\"vortex_preparation_spine_source_split_refs\",\"value\":\"local-csv-"
+        )
+    );
+    assert!(stdout.contains(":split=1:bytes=0.."));
+    assert!(stdout.contains(":rows=0..2"));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_native_io_certificate_status",
+        "certified_local_vortex_preparation_spine"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_prepared_artifact_segment_evidence_status",
+        "writer_and_reopen_row_count_verified"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_no_standalone_lane_status",
+        "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
     )));
     assert!(stdout.contains(&field("input_row_count", "2")));
     assert!(stdout.contains(&field("source_columns", "id,label,amount,active")));
@@ -627,6 +680,33 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_parquet() {
         "vortex_array_build_manual_scalar_copy_avoided",
         "true"
     )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_status",
+        "admitted_local_preparation_spine"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_vortex_first_decision",
+        "use_vortex_native_provider"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_provider_kind",
+        "vortex_array_kernel"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_source_surface",
+        "local_columnar_source_state_arrow_record_batches"
+    )));
+    assert!(stdout.contains(&field("vortex_preparation_spine_split_count", "1")));
+    assert!(stdout.contains(&field("vortex_preparation_spine_source_split_count", "1")));
+    assert!(stdout.contains(
+        "\"key\":\"vortex_preparation_spine_source_split_refs\",\"value\":\"local-parquet-"
+    ));
+    assert!(stdout.contains(":split=1:bytes=0.."));
+    assert!(stdout.contains(":rows=0..3"));
+    assert!(stdout.contains(&field(
+        "vortex_preparation_spine_native_io_certificate_status",
+        "certified_local_vortex_preparation_spine"
+    )));
     assert!(stdout.contains(&field("input_row_count", "3")));
     assert!(stdout.contains(&field("writer_row_count", "3")));
     assert!(stdout.contains(&field("reopen_row_count", "3")));
@@ -778,6 +858,23 @@ fn vortex_ingest_smoke_preserves_columnar_source_state_for_all_structured_format
         assert!(stdout.contains(&field(
             "vortex_array_build_manual_scalar_copy_avoided",
             "true"
+        )));
+        assert!(stdout.contains(&field(
+            "vortex_preparation_spine_vortex_first_decision",
+            "use_vortex_native_provider"
+        )));
+        assert!(stdout.contains(&field(
+            "vortex_preparation_spine_provider_kind",
+            "vortex_array_kernel"
+        )));
+        assert!(stdout.contains(&field(
+            "vortex_preparation_spine_source_surface",
+            "local_columnar_source_state_arrow_record_batches"
+        )));
+        assert!(stdout.contains(&field("vortex_preparation_spine_split_count", "1")));
+        assert!(stdout.contains(&field("vortex_preparation_spine_source_split_count", "1")));
+        assert!(stdout.contains(&format!(
+            "\"key\":\"vortex_preparation_spine_source_split_refs\",\"value\":\"local-{source_format}-"
         )));
         assert!(stdout.contains(&field("input_row_count", "4")));
         assert!(stdout.contains(&field(
