@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-4D-F2 complex dtype deterministic blocker closeout
   - Date: 2026-05-26
-  - Branch/PR: `runtime-4d-f2-complex-dtypes` / pending.
+  - Branch/PR: `runtime-4d-f2-complex-dtypes` / #967.
   - Source:
     - `GAR-RUNTIME-IMPL-4D-F2 nested, list, struct, variant, union, and binary-source semantics`.
     - RFC 0021 expression/kernel architecture, Vortex dtype opportunities, and admitted semantics
