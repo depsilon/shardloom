@@ -308,45 +308,6 @@ item only after the matching 4-series runtime item has landed or when the 4-seri
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
 
-- [ ] GAR-IOREUSE-1J differential preparation and prepared-state delta overlays
-  - Source: novel cold-lane research carry-forward,
-    `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-    `docs/architecture/io-reuse-and-fanout-architecture.md`, RFC 0004, RFC 0017, and RFC 0034.
-  - Current state: CDC-overlay fixture evidence, cache invalidation rows, SourceState identity, and
-    VortexPreparedState identity exist. There is no admitted delta-only `vortex_ingest` path that
-    updates or overlays a prepared artifact from a declared change set.
-  - Next slice outcome: add a report/runtime admission contract for differential preparation over
-    admitted local sources and prepared artifacts, including base/delta manifests, changed ranges,
-    schema compatibility, update-mode policy, and fail-closed invalidation.
-  - Runtime enablement: a scoped local differential `vortex_ingest` path may apply only when base
-    SourceState and VortexPreparedState fingerprints match, the delta manifest is complete, update
-    semantics are admitted, and replay/correctness checks pass; otherwise it blocks before reuse.
-  - User-visible surface: prepare reports, benchmark rows, session/cache reuse reports, capability
-    matrix, Python typed envelopes, docs.
-  - Implementation scope: SourceState/VortexPreparedState delta manifest fields, cache
-    invalidation matrix, Native I/O replay, correctness fixtures, benchmark schema, CLI/Python
-    reporting, validators.
-  - Evidence required: base source/prepared IDs and digests, delta SourceState ID and digest, delta
-    manifest digest, changed byte/row/segment ranges, update mode, schema compatibility status,
-    tombstone/delete/update policy, materialization/decode boundary, correctness digest, Native I/O
-    certificate refs, no-fallback fields.
-  - Acceptance: unchanged base data can reuse the prepared state; an admitted delta can update or
-    overlay without full reprepare; ambiguous, unsupported, or unsafe deltas block with stable
-    diagnostics; benchmark rows distinguish full cold prepare from differential prepare.
-  - Verification: focused delta manifest/unit tests, CDC fixture correctness tests, traditional
-    benchmark harness tests, release readiness metadata, Python tests if touched,
-    `git diff --check`.
-  - Non-goals: no broad CDC/table transaction support, object-store/table commits, background
-    daemon, persistent cross-process cache, or performance claim.
-  - Claim boundary: scoped local differential-preparation evidence only; rows remain
-    `claim_gate_status=not_claim_grade` until benchmark and correctness gates prove a workload.
-  - Fallback boundary: no external engine may repair, merge, or evaluate deltas as ShardLoom
-    runtime work.
-  - Dependencies/blockers: stable prepared-state IDs, cache invalidation rules, delta semantics,
-    replay verifier, Native I/O evidence.
-  - Ledger rule: ledger entry must include admitted delta semantics, blocked delta semantics, and
-    replay/correctness evidence refs.
-
 - [ ] GAR-IOREUSE-1K capillary I/O and PulseWeave cold-lane control
   - Source: novel cold-lane research carry-forward,
     `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,

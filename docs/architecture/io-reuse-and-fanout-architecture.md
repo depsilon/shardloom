@@ -199,25 +199,35 @@ Vortex writer/reopen boundary. Local CSV/JSON/JSONL rows use the ShardLoom scala
 for array construction and then the same Vortex write/reopen spine. Unsupported source/sink/split
 shapes still fail closed before any external engine or Vortex query-engine integration is invoked.
 
-Planned `GAR-IOREUSE-1J` adds differential preparation. A future delta-only path must carry:
+`GAR-IOREUSE-1J` adds scoped local differential preparation on the same `vortex_ingest` route. The
+CLI accepts `--delta-source`/`--delta-target` and emits `vortex_differential_preparation_*` evidence
+after preparing only the declared delta artifact. Append-only deltas can overlay an existing
+base SourceState/VortexPreparedState when fingerprints, schemas, column families, update mode, and
+reopen/correctness evidence match. Update, delete, upsert, schema-mismatch, missing-base, and empty
+delta cases block before prepared-state reuse. This is not a standalone CDC lane: the evidence is
+funnelled through SourceState -> VortexPreparedState -> differential overlay refs and preserves
+`fallback_attempted=false` and `external_engine_invoked=false`.
 
 ```text
-differential_prepare_schema_version
-differential_prepare_status
-base_source_state_id
-base_prepared_state_id
-delta_source_state_id
-delta_manifest_digest
-changed_byte_ranges
-changed_row_ranges
-changed_segment_ranges
-update_mode
-schema_compatibility_status
-prepared_state_delta_ref
-delta_native_io_certificate_status
-differential_prepare_claim_gate_status=not_claim_grade
-differential_prepare_fallback_attempted=false
-differential_prepare_external_engine_invoked=false
+vortex_differential_preparation_schema_version
+vortex_differential_preparation_status
+vortex_differential_preparation_update_mode
+vortex_differential_preparation_base_source_state_id
+vortex_differential_preparation_base_prepared_state_id
+vortex_differential_preparation_delta_source_state_id
+vortex_differential_preparation_delta_manifest_digest
+vortex_differential_preparation_changed_byte_range_refs
+vortex_differential_preparation_changed_row_range_refs
+vortex_differential_preparation_changed_segment_refs
+vortex_differential_preparation_schema_compatibility_status
+vortex_differential_preparation_prepared_state_reuse_status
+vortex_differential_preparation_overlay_manifest_digest
+vortex_differential_preparation_replay_verification_status
+vortex_differential_preparation_correctness_digest
+vortex_differential_preparation_native_io_certificate_status
+vortex_differential_preparation_claim_gate_status=not_claim_grade
+vortex_differential_preparation_fallback_attempted=false
+vortex_differential_preparation_external_engine_invoked=false
 ```
 
 Planned `GAR-IOREUSE-1K` adds capillary I/O. Cold preparation work units should become typed

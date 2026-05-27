@@ -322,6 +322,18 @@ posture, `vortex_preparation_spine_no_standalone_lane_status`,
 `vortex_preparation_spine_claim_gate_status=not_claim_grade`. This is internal local preparation
 plumbing only; the public benchmark data refresh is deferred until the remaining cold-lane
 preparation items have landed.
+`GAR-IOREUSE-1J` adds the VortexDifferentialPreparation contract to the benchmark harness. Future
+refreshed rows carry
+`vortex_differential_preparation_schema_version=shardloom.traditional_analytics.vortex_differential_preparation.v1`,
+base SourceState/VortexPreparedState IDs and digests, delta SourceState and manifest digests,
+changed byte/row/segment refs, update-mode policy, schema compatibility, overlay manifest and
+correctness digests, Native I/O certificate posture,
+`vortex_differential_preparation_no_standalone_lane_status`,
+`vortex_differential_preparation_fallback_attempted=false`,
+`vortex_differential_preparation_external_engine_invoked=false`, and
+`vortex_differential_preparation_claim_gate_status=not_claim_grade`. This distinguishes full cold
+prepare from scoped append-only differential overlay evidence without rerunning benchmark data yet
+or claiming broad CDC/table transaction support.
 `GAR-IOREUSE-1C` adds a separate OutputPlan contract to the benchmark JSON/Markdown artifact with
 `output_plan_contract_schema_version=shardloom.traditional_analytics.output_plan.v1`,
 `output_plan_status_vocabulary`, `output_plan_status`, `output_plan_id`, `output_plan_digest`,

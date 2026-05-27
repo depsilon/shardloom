@@ -1938,6 +1938,14 @@ struct VortexIngestRequest {
     target_path: PathBuf,
     allow_overwrite: bool,
     certification_level: shardloom_vortex::VortexIngestCertificationLevel,
+    delta: Option<VortexIngestDeltaRequest>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct VortexIngestDeltaRequest {
+    source_path: PathBuf,
+    target_path: PathBuf,
+    update_mode: shardloom_vortex::VortexDifferentialUpdateMode,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1952,6 +1960,7 @@ struct VortexIngestReport {
     prepare_once_total_millis: u128,
     evidence_render_millis: u128,
     vortex_report: shardloom_vortex::VortexPreparedStateWriteReport,
+    differential_preparation: Option<shardloom_vortex::VortexDifferentialPreparationReport>,
 }
 
 pub(crate) fn handle_sql_local_source_smoke(
@@ -2056,18 +2065,21 @@ pub(crate) fn handle_vortex_ingest_smoke(
 ) -> ExitCode {
     let Some(source_path_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--format text|json]"
+            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
         );
         return ExitCode::from(2);
     };
     let Some(target_path_raw) = args.next() else {
         eprintln!(
-            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--format text|json]"
+            "usage: shardloom {VORTEX_INGEST_COMMAND} <local-source-path> <target.vortex> [--allow-overwrite] [--certification-level ingest_minimal|ingest_certified|ingest_full_replay] [--delta-source <local-source-path> --delta-target <delta.vortex> [--delta-update-mode append-only|update|delete|upsert]] [--format text|json]"
         );
         return ExitCode::from(2);
     };
     let mut allow_overwrite = false;
     let mut certification_level = shardloom_vortex::VortexIngestCertificationLevel::IngestCertified;
+    let mut delta_source_path = None;
+    let mut delta_target_path = None;
+    let mut delta_update_mode = shardloom_vortex::VortexDifferentialUpdateMode::AppendOnly;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--allow-overwrite" => allow_overwrite = true,
@@ -2085,6 +2097,67 @@ pub(crate) fn handle_vortex_ingest_smoke(
                 certification_level =
                     match shardloom_vortex::VortexIngestCertificationLevel::parse(&value) {
                         Ok(level) => level,
+                        Err(error) => {
+                            return emit_error(
+                                VORTEX_INGEST_COMMAND,
+                                format,
+                                "vortex_ingest smoke failed",
+                                &error,
+                            );
+                        }
+                    };
+            }
+            "--delta-source" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        VORTEX_INGEST_COMMAND,
+                        format,
+                        "vortex_ingest smoke failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--delta-source requires a local source path".to_string(),
+                        ),
+                    );
+                };
+                delta_source_path = Some(Path::new(value.trim()).to_path_buf());
+            }
+            "--delta-target" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        VORTEX_INGEST_COMMAND,
+                        format,
+                        "vortex_ingest smoke failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--delta-target requires a local .vortex path".to_string(),
+                        ),
+                    );
+                };
+                match normalize_local_vortex_ingest_target_path(&value) {
+                    Ok(path) => delta_target_path = Some(path),
+                    Err(error) => {
+                        return emit_error(
+                            VORTEX_INGEST_COMMAND,
+                            format,
+                            "vortex_ingest smoke failed",
+                            &error,
+                        );
+                    }
+                }
+            }
+            "--delta-update-mode" => {
+                let Some(value) = args.next() else {
+                    return emit_error(
+                        VORTEX_INGEST_COMMAND,
+                        format,
+                        "vortex_ingest smoke failed",
+                        &ShardLoomError::InvalidOperation(
+                            "--delta-update-mode requires append-only, update, delete, or upsert"
+                                .to_string(),
+                        ),
+                    );
+                };
+                delta_update_mode =
+                    match shardloom_vortex::VortexDifferentialUpdateMode::parse(&value) {
+                        Ok(mode) => mode,
                         Err(error) => {
                             return emit_error(
                                 VORTEX_INGEST_COMMAND,
@@ -2118,11 +2191,42 @@ pub(crate) fn handle_vortex_ingest_smoke(
             );
         }
     };
+    let delta = match (delta_source_path, delta_target_path) {
+        (Some(source_path), Some(target_path)) => Some(VortexIngestDeltaRequest {
+            source_path,
+            target_path,
+            update_mode: delta_update_mode,
+        }),
+        (None, None) => None,
+        (Some(_), None) => {
+            return emit_error(
+                VORTEX_INGEST_COMMAND,
+                format,
+                "vortex_ingest smoke failed",
+                &ShardLoomError::InvalidOperation(
+                    "vortex_ingest differential preparation requires --delta-target when --delta-source is provided; no fallback execution was attempted"
+                        .to_string(),
+                ),
+            );
+        }
+        (None, Some(_)) => {
+            return emit_error(
+                VORTEX_INGEST_COMMAND,
+                format,
+                "vortex_ingest smoke failed",
+                &ShardLoomError::InvalidOperation(
+                    "vortex_ingest differential preparation requires --delta-source when --delta-target is provided; no fallback execution was attempted"
+                        .to_string(),
+                ),
+            );
+        }
+    };
     let request = VortexIngestRequest {
         source_path,
         target_path,
         allow_overwrite,
         certification_level,
+        delta,
     };
 
     if !shardloom_vortex::vortex_ingest_write_feature_enabled() {
@@ -2151,20 +2255,25 @@ pub(crate) fn handle_vortex_ingest_smoke(
         }
     };
 
+    let differential_blocked = report.differential_preparation_blocked();
     emit(
         VORTEX_INGEST_COMMAND,
         format,
-        CommandStatus::Success,
-        format!(
-            "vortex_ingest prepared {} local row(s) into {}",
-            report.vortex_report.row_count,
-            report.request.target_path.display()
-        ),
+        if differential_blocked {
+            CommandStatus::Unsupported
+        } else {
+            CommandStatus::Success
+        },
+        report.summary(),
         report.to_text(),
         Vec::new(),
         report.fields(),
     );
-    ExitCode::SUCCESS
+    if differential_blocked {
+        ExitCode::from(1)
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 fn validate_sql_local_source_output_request(
@@ -2232,6 +2341,39 @@ fn canonical_output_path_key(path: &Path) -> Result<String, ShardLoomError> {
 fn run_vortex_ingest_smoke(
     request: VortexIngestRequest,
 ) -> Result<VortexIngestReport, ShardLoomError> {
+    let delta = request.delta.clone();
+    let mut base_report = run_vortex_ingest_prepare_once(VortexIngestRequest {
+        delta: None,
+        ..request
+    })?;
+    if let Some(delta) = delta {
+        if base_report.request.certification_level
+            != shardloom_vortex::VortexIngestCertificationLevel::IngestCertified
+        {
+            return Err(ShardLoomError::InvalidOperation(
+                "vortex_ingest differential preparation requires ingest_certified replay evidence; no fallback execution was attempted"
+                    .to_string(),
+            ));
+        }
+        let delta_report = run_vortex_ingest_prepare_once(VortexIngestRequest {
+            source_path: delta.source_path,
+            target_path: delta.target_path,
+            allow_overwrite: base_report.request.allow_overwrite,
+            certification_level: base_report.request.certification_level,
+            delta: None,
+        })?;
+        base_report.differential_preparation = Some(differential_preparation_report(
+            &base_report,
+            &delta_report,
+            delta.update_mode,
+        ));
+    }
+    Ok(base_report)
+}
+
+fn run_vortex_ingest_prepare_once(
+    request: VortexIngestRequest,
+) -> Result<VortexIngestReport, ShardLoomError> {
     #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
     {
         let source_adapter = LocalInputAdapterSelection::infer_from_path(&request.source_path)?;
@@ -2243,6 +2385,60 @@ fn run_vortex_ingest_smoke(
         }
     }
     run_scalar_vortex_ingest_smoke(request)
+}
+
+fn differential_preparation_report(
+    base: &VortexIngestReport,
+    delta: &VortexIngestReport,
+    update_mode: shardloom_vortex::VortexDifferentialUpdateMode,
+) -> shardloom_vortex::VortexDifferentialPreparationReport {
+    let delta_byte_ranges = delta
+        .source
+        .preparation_spine_source_byte_range_refs(&delta.source_state_id);
+    let delta_row_ranges = delta
+        .source
+        .preparation_spine_source_row_range_refs(&delta.source_state_id);
+    let delta_segment_refs = delta.prepared_artifact_segment_refs();
+    let delta_manifest_digest = fnv64_digest(&format!(
+        "{}|{}|{}|{}|{}|{}",
+        delta.source_state_digest,
+        delta.prepared_state_digest,
+        delta.vortex_report.artifact_digest,
+        delta_byte_ranges,
+        delta_row_ranges,
+        update_mode.as_str()
+    ));
+    let native_io_certificate_refs = format!(
+        "base_prepared_state={};delta_prepared_state={};delta_artifact={};reopen_row_count_scan",
+        base.prepared_state_id,
+        delta.prepared_state_id,
+        delta.request.target_path.display()
+    );
+
+    shardloom_vortex::evaluate_vortex_differential_preparation(
+        shardloom_vortex::VortexDifferentialPreparationInput {
+            update_mode,
+            base_source_state_id: base.source_state_id.clone(),
+            base_source_state_digest: base.source_state_digest.clone(),
+            base_prepared_state_id: base.prepared_state_id.clone(),
+            base_prepared_state_digest: base.prepared_state_digest.clone(),
+            base_row_count: base.vortex_report.row_count,
+            base_schema_digest: base.source_schema_digest.clone(),
+            base_column_family_summary: base.vortex_report.column_family_summary(),
+            delta_source_state_id: delta.source_state_id.clone(),
+            delta_source_state_digest: delta.source_state_digest.clone(),
+            delta_row_count: delta.vortex_report.row_count,
+            delta_schema_digest: delta.source_schema_digest.clone(),
+            delta_column_family_summary: delta.vortex_report.column_family_summary(),
+            delta_manifest_digest,
+            changed_byte_range_refs: delta_byte_ranges,
+            changed_row_range_refs: delta_row_ranges,
+            changed_segment_refs: delta_segment_refs,
+            delta_artifact_ref: delta.request.target_path.display().to_string(),
+            delta_artifact_digest: delta.vortex_report.artifact_digest.clone(),
+            native_io_certificate_refs,
+        },
+    )
 }
 
 fn run_scalar_vortex_ingest_smoke(
@@ -2290,6 +2486,7 @@ fn run_scalar_vortex_ingest_smoke(
         prepare_once_total_millis,
         evidence_render_millis,
         vortex_report,
+        differential_preparation: None,
     })
 }
 
@@ -2371,6 +2568,7 @@ fn run_columnar_vortex_ingest_smoke(
         prepare_once_total_millis,
         evidence_render_millis,
         vortex_report,
+        differential_preparation: None,
     })
 }
 
@@ -2937,7 +3135,41 @@ impl VortexIngestReport {
                 .workspace_write_report
                 .evidence_fields("vortex_ingest_output"),
         );
+        if let Some(report) = &self.differential_preparation {
+            fields.extend(report.evidence_fields());
+        }
         fields
+    }
+
+    fn summary(&self) -> String {
+        if let Some(report) = &self.differential_preparation {
+            return format!(
+                "vortex_ingest prepared {} base row(s) into {} and differential overlay status is {}",
+                self.vortex_report.row_count,
+                self.request.target_path.display(),
+                report.status
+            );
+        }
+        format!(
+            "vortex_ingest prepared {} local row(s) into {}",
+            self.vortex_report.row_count,
+            self.request.target_path.display()
+        )
+    }
+
+    fn differential_preparation_blocked(&self) -> bool {
+        self.differential_preparation
+            .as_ref()
+            .is_some_and(|report| !report.is_admitted())
+    }
+
+    fn prepared_artifact_segment_refs(&self) -> String {
+        format!(
+            "{}:rows=0..{}:digest={}",
+            self.prepared_state_id,
+            self.vortex_report.row_count,
+            self.vortex_report.artifact_digest
+        )
     }
 
     fn preparation_spine_source_fields(&self, certified_reopen: bool) -> Vec<(String, String)> {
@@ -3010,12 +3242,7 @@ impl VortexIngestReport {
             ),
             (
                 "vortex_preparation_spine_prepared_artifact_segment_refs".to_string(),
-                format!(
-                    "{}:rows=0..{}:digest={}",
-                    self.prepared_state_id,
-                    self.vortex_report.row_count,
-                    self.vortex_report.artifact_digest
-                ),
+                self.prepared_artifact_segment_refs(),
             ),
             (
                 "vortex_preparation_spine_prepared_artifact_segment_evidence_status".to_string(),
@@ -3029,7 +3256,7 @@ impl VortexIngestReport {
     }
 
     fn to_text(&self) -> String {
-        format!(
+        let mut text = format!(
             "ShardLoom vortex_ingest smoke\nsource: {}\ntarget: {}\nsource format: {}\nrows prepared: {}\ncolumns: {}\ncertification level: {}\nreopen verification: {}\nprepared state: {}\nfallback execution: disabled",
             self.request.source_path.display(),
             self.request.target_path.display(),
@@ -3039,7 +3266,19 @@ impl VortexIngestReport {
             self.vortex_report.certification_level,
             self.vortex_report.reopen_verification_status,
             self.prepared_state_id
-        )
+        );
+        if let Some(report) = &self.differential_preparation {
+            write!(
+                text,
+                "\ndifferential preparation: {}\nupdate mode: {}\ndelta rows: {}\noverlay applied: {}",
+                report.status,
+                report.update_mode.as_str(),
+                report.delta_row_count,
+                report.overlay_applied
+            )
+            .expect("write to string");
+        }
+        text
     }
 }
 

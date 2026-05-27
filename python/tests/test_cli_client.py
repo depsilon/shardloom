@@ -2168,6 +2168,90 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertFalse(result.external_engine_invoked)
         self.assertEqual(result.claim_gate_status, "fixture_smoke_only")
 
+    def test_vortex_ingest_smoke_helper_dispatches_delta_overlay_route(self) -> None:
+        binary = self.fake_cli(
+            textwrap.dedent(
+                """
+                import json, sys
+                assert sys.argv[1:] == [
+                    "vortex-ingest-smoke",
+                    "target/base.csv",
+                    "target/base.vortex",
+                    "--delta-source",
+                    "target/delta.csv",
+                    "--delta-target",
+                    "target/delta.vortex",
+                    "--format",
+                    "json",
+                ], sys.argv
+                print(json.dumps({
+                    "schema_version": "shardloom.output.v2",
+                    "command": "vortex-ingest-smoke",
+                    "status": "success",
+                    "summary": "ok",
+                    "human_text": "ok",
+                    "fallback": {"attempted": False, "allowed": False, "engine": None, "reason": "disabled"},
+                    "diagnostics": [],
+                    "fields": [
+                        {"key": "source_path", "value": "target/base.csv"},
+                        {"key": "target_vortex_path", "value": "target/base.vortex"},
+                        {"key": "source_format", "value": "csv"},
+                        {"key": "vortex_ingest_status", "value": "prepared_state_created"},
+                        {"key": "prepared_state_id", "value": "vortex-prepared-state-base"},
+                        {"key": "prepared_state_digest", "value": "fnv64:base"},
+                        {"key": "vortex_artifact_digest", "value": "fnv64:artifact"},
+                        {"key": "input_row_count", "value": "2"},
+                        {"key": "writer_row_count", "value": "2"},
+                        {"key": "reopen_row_count", "value": "2"},
+                        {"key": "claim_gate_status", "value": "fixture_smoke_only"},
+                        {"key": "vortex_differential_preparation_status", "value": "admitted_append_only_delta_overlay"},
+                        {"key": "vortex_differential_preparation_update_mode", "value": "append_only"},
+                        {"key": "vortex_differential_preparation_delta_row_count", "value": "1"},
+                        {"key": "vortex_differential_preparation_overlay_applied", "value": "true"},
+                        {"key": "vortex_differential_preparation_base_reprepare_performed", "value": "false"},
+                        {"key": "vortex_differential_preparation_delta_artifact_written", "value": "true"},
+                        {"key": "vortex_differential_preparation_native_io_certificate_status", "value": "certified_local_vortex_differential_preparation_overlay"},
+                        {"key": "vortex_differential_preparation_no_standalone_lane_status", "value": "funnelled_through_vortex_ingest_source_state_to_prepared_state_delta_overlay"},
+                        {"key": "fallback_attempted", "value": "false"},
+                        {"key": "external_engine_invoked", "value": "false"}
+                    ],
+                }))
+                """
+            )
+        )
+
+        result = ShardLoomClient(binary=binary).vortex_ingest_smoke(
+            "target/base.csv",
+            "target/base.vortex",
+            delta_source_path="target/delta.csv",
+            delta_target_vortex_path="target/delta.vortex",
+        )
+
+        self.assertEqual(
+            result.vortex_differential_preparation_status,
+            "admitted_append_only_delta_overlay",
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_update_mode,
+            "append_only",
+        )
+        self.assertEqual(result.vortex_differential_preparation_delta_row_count, 1)
+        self.assertTrue(result.vortex_differential_preparation_overlay_applied)
+        self.assertFalse(
+            result.vortex_differential_preparation_base_reprepare_performed
+        )
+        self.assertTrue(
+            result.vortex_differential_preparation_delta_artifact_written
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_native_io_certificate_status,
+            "certified_local_vortex_differential_preparation_overlay",
+        )
+        self.assertEqual(
+            result.vortex_differential_preparation_no_standalone_lane_status,
+            "funnelled_through_vortex_ingest_source_state_to_prepared_state_delta_overlay",
+        )
+
     def test_context_prepare_vortex_dispatches_vortex_ingest_smoke(self) -> None:
         binary = self.fake_cli(
             textwrap.dedent(
