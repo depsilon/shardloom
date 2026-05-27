@@ -54,13 +54,13 @@ fn foundation_constitution_lists_fail_closed_requirements() {
     )));
     assert!(output.contains(&field(
         "benchmark_constitution_required_field_order",
-        "benchmark_result_row,dataset_source_admission,preparation_route,execution_route,output_route,correctness_proof,hardware_profile,build_profile,cold_warm_state,stage_timings,cost_unit_fields,no_fallback_proof,external_baseline_boundary"
+        "benchmark_result_row,dataset_source_admission,preparation_route,execution_route,output_route,correctness_proof,hardware_profile,build_profile,cold_warm_state,stage_timings,cold_lane_attribution,cost_unit_fields,no_fallback_proof,external_baseline_boundary"
     )));
     assert!(output.contains(&field(
         "benchmark_constitution_missing_field_order",
-        "benchmark_result_row,dataset_source_admission,preparation_route,execution_route,output_route,correctness_proof,hardware_profile,build_profile,cold_warm_state,stage_timings,cost_unit_fields"
+        "benchmark_result_row,dataset_source_admission,preparation_route,execution_route,output_route,correctness_proof,hardware_profile,build_profile,cold_warm_state,stage_timings,cold_lane_attribution,cost_unit_fields"
     )));
-    assert!(output.contains(&field("benchmark_constitution_required_field_count", "13")));
+    assert!(output.contains(&field("benchmark_constitution_required_field_count", "14")));
     assert!(output.contains(&field("benchmark_constitution_row_count", "14")));
     assert!(output.contains(&field("benchmark_constitution_shardloom_row_count", "7")));
     assert!(output.contains(&field(
@@ -95,6 +95,10 @@ fn foundation_constitution_preserves_no_execution_and_no_claims() {
     )));
     assert!(output.contains(&field(
         "benchmark_constitution_hardware_build_metadata_present",
+        "false"
+    )));
+    assert!(output.contains(&field(
+        "benchmark_constitution_cold_lane_attribution_present",
         "false"
     )));
     assert!(output.contains(&field(

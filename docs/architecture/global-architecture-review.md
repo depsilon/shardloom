@@ -939,12 +939,14 @@ plan before coding.
   gate. Scoped local-source and generated-output runtime fanout now write admitted local sinks with
   OutputPlan digests, per-output certificates, replay/fidelity evidence, and no-fallback fields;
   Python `ShardLoomSession` reuses matching local output/fanout reports only when fingerprints
-  still match. Remaining `GAR-IOREUSE-1` work is broader sink artifact proof, benchmark-family
-  fanout promotion, persistent cache/session promotion, cold-lane attribution
-  (`GAR-IOREUSE-1H`), Vortex-native source/sink/split preparation (`GAR-IOREUSE-1I`),
-  differential preparation (`GAR-IOREUSE-1J`), capillary I/O with PulseWeave control
-  (`GAR-IOREUSE-1K`), scout ingress/triage (`GAR-IOREUSE-1L`), and claim-grade gates so reuse
-  cannot silently become production, cache-hit, or performance proof. Adjacent performance
+  still match. `GAR-IOREUSE-1H` now adds cold-lane attribution with dedicated benchmark
+  constitution blocking for full certified cold ingest, preparation-only, warm prepared query,
+  sink/replay-heavy, evidence-heavy, process/harness-heavy, and external-baseline-only rows.
+  Remaining `GAR-IOREUSE-1` work is broader sink artifact proof, benchmark-family fanout
+  promotion, persistent cache/session promotion, Vortex-native source/sink/split preparation
+  (`GAR-IOREUSE-1I`), differential preparation (`GAR-IOREUSE-1J`), capillary I/O with PulseWeave
+  control (`GAR-IOREUSE-1K`), scout ingress/triage (`GAR-IOREUSE-1L`), and claim-grade gates so
+  reuse cannot silently become production, cache-hit, or performance proof. Adjacent performance
   follow-through is tracked as cold-lane layout/write advice (`GAR-PERF-2J`) and copy-budget/
   buffer-lifecycle evidence (`GAR-PERF-2K`).
 - [ ] `GAR-SCALE-1` adds the Spark-level scale contract and any-volume readiness follow-through.

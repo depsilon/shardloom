@@ -254,6 +254,83 @@ STAGE_TIMING_CONTRACT_FIELDS = (
     "evidence_render_timing_status",
     "total_runtime_millis",
 )
+COLD_LANE_ATTRIBUTION_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.cold_lane_attribution.v1"
+)
+COLD_LANE_ATTRIBUTION_FIELDS = (
+    "cold_lane_attribution_schema_version",
+    "cold_lane_classification",
+    "cold_lane_secondary_classifications",
+    "cold_lane_timing_split_status",
+    "cold_lane_required_stage_fields",
+    "cold_lane_missing_stage_fields",
+    "cold_lane_preparation_timing_present",
+    "cold_lane_warm_query_timing_present",
+    "cold_lane_sink_replay_timing_present",
+    "cold_lane_evidence_render_timing_present",
+    "cold_lane_process_harness_timing_present",
+    "cold_lane_claim_gate_status",
+    "cold_lane_claim_blocker_id",
+    "cold_lane_fallback_attempted",
+    "cold_lane_external_engine_invoked",
+    "cold_lane_claim_boundary",
+)
+COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION = {
+    "full_certified_cold_ingest": (
+        "source_read_millis",
+        "compatibility_to_vortex_import_millis",
+        "vortex_array_build_millis",
+        "vortex_write_millis",
+        "vortex_reopen_verify_millis",
+        "operator_compute_millis",
+        "evidence_render_millis",
+        "total_runtime_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+    "preparation_only": (
+        "prepare_batch_preparation_millis",
+        "prepare_batch_source_to_columnar_millis",
+        "prepare_batch_vortex_array_build_millis",
+        "prepare_batch_vortex_write_millis",
+        "prepare_batch_vortex_reopen_verify_millis",
+        "operator_compute_millis",
+        "evidence_render_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+    "warm_prepared_query": (
+        "vortex_scan_millis",
+        "operator_compute_millis",
+        "query_runtime_millis",
+        "evidence_render_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+    "sink_replay_heavy": (
+        "operator_compute_millis",
+        "query_runtime_millis",
+        "result_sink_write_millis",
+        "evidence_render_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+    "evidence_heavy": (
+        "operator_compute_millis",
+        "query_runtime_millis",
+        "evidence_render_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+    "process_harness_heavy": (
+        "source_read_millis",
+        "operator_compute_millis",
+        "query_runtime_millis",
+        "evidence_render_millis",
+        "cli_process_wall_millis",
+        "python_harness_overhead_millis",
+    ),
+}
 OPERATOR_BLOCKER_MATRIX_FIELDS = (
     "operator_execution_class",
     "operator_admission_status",
@@ -4871,6 +4948,52 @@ def pyarrow_rows(batches: list[Any]) -> list[dict[str, Any]]:
     return pa.Table.from_batches(batches).to_pylist()
 
 
+def pyarrow_table_for_format(path: Path, data_format: str) -> Any:
+    import pyarrow as pa  # type: ignore
+    import pyarrow.csv as arrow_csv  # type: ignore
+    import pyarrow.ipc as ipc  # type: ignore
+    import pyarrow.json as arrow_json  # type: ignore
+    import pyarrow.orc as orc  # type: ignore
+    import pyarrow.parquet as pq  # type: ignore
+
+    if data_format == "csv":
+        return arrow_csv.read_csv(path)
+    if data_format == "jsonl":
+        return arrow_json.read_json(path)
+    if data_format == "parquet":
+        return pq.read_table(path)
+    if data_format == "arrow-ipc":
+        with path.open("rb") as handle:
+            return ipc.open_file(handle).read_all()
+    if data_format == "avro":
+        try:
+            import fastavro  # type: ignore
+        except ImportError as exc:
+            raise BenchmarkUnsupported(
+                "fastavro is required to read Avro benchmark inputs"
+            ) from exc
+        with path.open("rb") as handle:
+            records = list(fastavro.reader(handle))
+        return pa.Table.from_pylist(records)
+    if data_format == "orc":
+        return orc.read_table(path)
+    raise BenchmarkUnsupported(f"unsupported storage format for Arrow read: {data_format}")
+
+
+def pandas_frame_for_format(path: Path, data_format: str) -> Any:
+    import pandas as pd  # type: ignore
+
+    if data_format == "csv":
+        return pd.read_csv(path)
+    if data_format == "jsonl":
+        return pd.read_json(path, lines=True)
+    if data_format == "parquet":
+        return pd.read_parquet(path)
+    if data_format == "orc":
+        return pd.read_orc(path)
+    return pyarrow_table_for_format(path, data_format).to_pandas()
+
+
 def configure_java_home() -> None:
     if shutil.which("java") is not None and os.environ.get("JAVA_HOME"):
         return
@@ -4897,28 +5020,10 @@ def pandas_runner() -> EngineRunner:
     import pandas as pd  # type: ignore
 
     def read_fact(paths: DatasetPaths, data_format: str) -> Any:
-        path = fact_path(paths, data_format)
-        if data_format == "parquet":
-            return pd.read_parquet(path)
-        if data_format == "jsonl":
-            return pd.read_json(path, lines=True)
-        if data_format == "arrow-ipc":
-            return pd.read_feather(path)
-        if data_format == "orc":
-            return pd.read_orc(path)
-        return pd.read_csv(path)
+        return pandas_frame_for_format(fact_path(paths, data_format), data_format)
 
     def read_dim(paths: DatasetPaths, data_format: str) -> Any:
-        path = dim_path(paths, data_format)
-        if data_format == "parquet":
-            return pd.read_parquet(path)
-        if data_format == "jsonl":
-            return pd.read_json(path, lines=True)
-        if data_format == "arrow-ipc":
-            return pd.read_feather(path)
-        if data_format == "orc":
-            return pd.read_orc(path)
-        return pd.read_csv(path)
+        return pandas_frame_for_format(dim_path(paths, data_format), data_format)
 
     def read_fact_parts(paths: DatasetPaths, data_format: str) -> Any:
         parts = fact_part_paths(paths, data_format)
@@ -5191,7 +5296,7 @@ def pandas_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=("csv", "jsonl", "parquet", "arrow-ipc", "orc"),
+        formats=FORMAT_ORDER,
     )
 
 
@@ -5208,6 +5313,8 @@ def polars_eager_runner() -> EngineRunner:
             return pl.read_ipc(path)
         if data_format == "avro":
             return pl.read_avro(path)
+        if data_format == "orc":
+            return pl.from_arrow(pyarrow_table_for_format(path, data_format))
         return pl.read_csv(path)
 
     def read_dim(paths: DatasetPaths, data_format: str) -> Any:
@@ -5220,6 +5327,8 @@ def polars_eager_runner() -> EngineRunner:
             return pl.read_ipc(path)
         if data_format == "avro":
             return pl.read_avro(path)
+        if data_format == "orc":
+            return pl.from_arrow(pyarrow_table_for_format(path, data_format))
         return pl.read_csv(path)
 
     def ingest(paths: DatasetPaths, data_format: str) -> Any:
@@ -5405,7 +5514,7 @@ def polars_eager_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=("csv", "jsonl", "parquet", "arrow-ipc", "avro"),
+        formats=FORMAT_ORDER,
     )
 
 
@@ -5418,6 +5527,12 @@ def polars_lazy_runner() -> EngineRunner:
             return pl.scan_parquet(path)
         if data_format == "jsonl":
             return pl.scan_ndjson(path)
+        if data_format == "arrow-ipc":
+            return pl.scan_ipc(path)
+        if data_format == "avro":
+            return pl.read_avro(path).lazy()
+        if data_format == "orc":
+            return pl.from_arrow(pyarrow_table_for_format(path, data_format)).lazy()
         if data_format == "csv":
             return pl.scan_csv(path)
         raise BenchmarkUnsupported(f"polars-lazy does not support {data_format} in this harness")
@@ -5428,6 +5543,12 @@ def polars_lazy_runner() -> EngineRunner:
             return pl.scan_parquet(path)
         if data_format == "jsonl":
             return pl.scan_ndjson(path)
+        if data_format == "arrow-ipc":
+            return pl.scan_ipc(path)
+        if data_format == "avro":
+            return pl.read_avro(path).lazy()
+        if data_format == "orc":
+            return pl.from_arrow(pyarrow_table_for_format(path, data_format)).lazy()
         if data_format == "csv":
             return pl.scan_csv(path)
         raise BenchmarkUnsupported(f"polars-lazy does not support {data_format} in this harness")
@@ -5593,7 +5714,7 @@ def polars_lazy_runner() -> EngineRunner:
             "join + aggregate": join_aggregate,
             "top-N per group": top_n_per_group,
         },
-        formats=("csv", "jsonl", "parquet"),
+        formats=FORMAT_ORDER,
     )
 
 
@@ -5605,6 +5726,7 @@ def duckdb_runner() -> EngineRunner:
     import duckdb  # type: ignore
 
     con = duckdb.connect(database=":memory:")
+    arrow_backed_formats = {"arrow-ipc", "avro", "orc"}
 
     def table_expr(paths: DatasetPaths, table: str, data_format: str) -> str:
         path = fact_path(paths, data_format) if table == "fact" else dim_path(paths, data_format)
@@ -5612,11 +5734,26 @@ def duckdb_runner() -> EngineRunner:
             function = "read_parquet"
         elif data_format == "jsonl":
             function = "read_json_auto"
+        elif data_format in arrow_backed_formats:
+            return table
         else:
             function = "read_csv_auto"
         return f"{function}({sql_literal(path)})"
 
+    def register_arrow_backed_tables(paths: DatasetPaths, data_format: str) -> None:
+        for name, path in (
+            ("fact", fact_path(paths, data_format)),
+            ("dim", dim_path(paths, data_format)),
+        ):
+            try:
+                con.unregister(name)
+            except Exception:
+                pass
+            con.register(name, pyarrow_table_for_format(path, data_format))
+
     def query(paths: DatasetPaths, data_format: str, sql: str) -> list[dict[str, Any]]:
+        if data_format in arrow_backed_formats:
+            register_arrow_backed_tables(paths, data_format)
         sql = sql.replace("{fact}", table_expr(paths, "fact", data_format)).replace(
             "{dim}", table_expr(paths, "dim", data_format)
         )
@@ -5792,7 +5929,7 @@ def duckdb_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=("csv", "jsonl", "parquet"),
+        formats=FORMAT_ORDER,
         close=con.close,
     )
 
@@ -5803,6 +5940,8 @@ def spark_runner(profile: str) -> EngineRunner:
             "Spark/PySpark requires a local JDK. Install JDK 17 or newer, set JAVA_HOME, "
             "and ensure java is on PATH before running Spark benchmark rows."
         )
+    os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
+    os.environ.setdefault("PYSPARK_DRIVER_PYTHON", sys.executable)
     import pyspark  # type: ignore
     from pyspark.sql import SparkSession, functions as F  # type: ignore
     from pyspark.sql.window import Window  # type: ignore
@@ -5811,7 +5950,14 @@ def spark_runner(profile: str) -> EngineRunner:
         f"shardloom-traditional-analytics-benchmark-{profile}"
     )
     builder = builder.config("spark.ui.enabled", "false")
-    profile_notes = ["master=local[*]", "spark.ui.enabled=false"]
+    builder = builder.config("spark.pyspark.python", sys.executable).config(
+        "spark.pyspark.driver.python", sys.executable
+    )
+    profile_notes = [
+        "master=local[*]",
+        "spark.ui.enabled=false",
+        f"spark.pyspark.python={sys.executable}",
+    ]
     if profile == "local-tuned":
         local_threads = os.cpu_count() or 1
         shuffle_partitions = max(1, min(local_threads, 8))
@@ -5857,6 +6003,10 @@ def spark_runner(profile: str) -> EngineRunner:
             return spark_instance().read.json(str(paths.fact_jsonl))
         if data_format == "orc":
             return spark_instance().read.orc(str(paths.fact_orc))
+        if data_format in {"arrow-ipc", "avro"}:
+            return spark_instance().createDataFrame(
+                pandas_frame_for_format(fact_path(paths, data_format), data_format)
+            )
         return spark_instance().read.option("header", True).option("inferSchema", True).csv(
             str(paths.fact_csv)
         )
@@ -5868,6 +6018,10 @@ def spark_runner(profile: str) -> EngineRunner:
             return spark_instance().read.json(str(paths.dim_jsonl))
         if data_format == "orc":
             return spark_instance().read.orc(str(paths.dim_orc))
+        if data_format in {"arrow-ipc", "avro"}:
+            return spark_instance().createDataFrame(
+                pandas_frame_for_format(dim_path(paths, data_format), data_format)
+            )
         return spark_instance().read.option("header", True).option("inferSchema", True).csv(
             str(paths.dim_csv)
         )
@@ -6024,7 +6178,10 @@ def spark_runner(profile: str) -> EngineRunner:
             "local-tuned": "spark-local-tuned",
             "pyspark": "pyspark",
         }[profile],
-        f"{module_version('pyspark')} ({'; '.join(profile_notes)})",
+        (
+            f"{module_version('pyspark')} ({'; '.join(profile_notes)}; "
+            "arrow-ipc/avro local DataFrame adapter)"
+        ),
         {
             "csv/file ingest": ingest,
             "selective filter": selective_filter,
@@ -6041,7 +6198,7 @@ def spark_runner(profile: str) -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=("csv", "jsonl", "parquet", "orc"),
+        formats=FORMAT_ORDER,
         warmup=warmup_spark,
         close=close_spark,
     )
@@ -6067,6 +6224,20 @@ def datafusion_runner() -> EngineRunner:
         if data_format == "parquet":
             ctx.register_parquet("fact", paths.fact_parquet)
             ctx.register_parquet("dim", paths.dim_parquet)
+        elif data_format == "jsonl":
+            ctx.register_json("fact", paths.fact_jsonl, file_extension=".jsonl")
+            ctx.register_json("dim", paths.dim_jsonl, file_extension=".jsonl")
+        elif data_format == "arrow-ipc":
+            ctx.register_arrow("fact", paths.fact_arrow_ipc, file_extension=".arrow")
+            ctx.register_arrow("dim", paths.dim_arrow_ipc, file_extension=".arrow")
+        elif data_format == "avro":
+            ctx.register_avro("fact", paths.fact_avro)
+            ctx.register_avro("dim", paths.dim_avro)
+        elif data_format == "orc":
+            fact_table = pyarrow_table_for_format(paths.fact_orc, data_format)
+            dim_table = pyarrow_table_for_format(paths.dim_orc, data_format)
+            ctx.register_record_batches("fact", [fact_table.to_batches()])
+            ctx.register_record_batches("dim", [dim_table.to_batches()])
         else:
             ctx.register_csv("fact", paths.fact_csv, has_header=True)
             ctx.register_csv("dim", paths.dim_csv, has_header=True)
@@ -6225,7 +6396,7 @@ def datafusion_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=("csv", "parquet"),
+        formats=FORMAT_ORDER,
     )
 
 
@@ -6240,6 +6411,11 @@ def dask_runner() -> EngineRunner:
             return dd.read_parquet(paths.fact_parquet)
         if data_format == "jsonl":
             return dd.read_json(paths.fact_jsonl, lines=True, blocksize=blocksize)
+        if data_format in {"arrow-ipc", "avro", "orc"}:
+            return dd.from_pandas(
+                pandas_frame_for_format(fact_path(paths, data_format), data_format),
+                npartitions=1,
+            )
         return dd.read_csv(paths.fact_csv, blocksize=blocksize)
 
     def read_dim(paths: DatasetPaths, data_format: str) -> Any:
@@ -6247,6 +6423,11 @@ def dask_runner() -> EngineRunner:
             return dd.read_parquet(paths.dim_parquet)
         if data_format == "jsonl":
             return dd.read_json(paths.dim_jsonl, lines=True, blocksize=blocksize)
+        if data_format in {"arrow-ipc", "avro", "orc"}:
+            return dd.from_pandas(
+                pandas_frame_for_format(dim_path(paths, data_format), data_format),
+                npartitions=1,
+            )
         return dd.read_csv(paths.dim_csv, blocksize=blocksize)
 
     def compute_one(*values: Any) -> tuple[Any, ...]:
@@ -6393,7 +6574,7 @@ def dask_runner() -> EngineRunner:
             "scale stress skewed join aggregation": scale_stress,
             "scale stress multi-stage etl": complex_etl,
         },
-        formats=("csv", "jsonl", "parquet"),
+        formats=FORMAT_ORDER,
     )
 
 
@@ -8605,6 +8786,181 @@ def native_vortex_or_compatibility_import(engine: str, data_format: str) -> str:
     return "compatibility_format_baseline"
 
 
+def cold_lane_field_present(metrics: dict[str, Any], field: str) -> bool:
+    value = metrics.get(field)
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip()) and value.strip().lower() not in {
+            "missing",
+            "n/a",
+            "not_applicable",
+            "not_measured",
+            "not_reported",
+            "unknown",
+        }
+    return True
+
+
+def cold_lane_primary_classification(
+    result: dict[str, Any], metrics: dict[str, Any]
+) -> str:
+    engine = str(result.get("engine", ""))
+    selected_mode = str(result.get("selected_execution_mode") or "")
+    if not is_shardloom_engine(engine):
+        return "external_baseline_only"
+    if result.get("status") != "success":
+        return "blocked_incomplete_timing_split"
+    if engine == "shardloom-prepare-batch":
+        return "preparation_only"
+    if selected_mode == "compatibility_import_certified":
+        return "full_certified_cold_ingest"
+    if selected_mode in {"prepared_vortex", "native_vortex"}:
+        return "warm_prepared_query"
+    if cold_lane_field_present(metrics, "result_sink_write_millis") and (
+        parse_optional_float(metrics.get("result_sink_write_millis")) or 0.0
+    ) > 0.0:
+        return "sink_replay_heavy"
+    if cold_lane_field_present(metrics, "evidence_render_millis"):
+        return "evidence_heavy"
+    return "process_harness_heavy"
+
+
+def cold_lane_secondary_classifications(
+    result: dict[str, Any], metrics: dict[str, Any]
+) -> list[str]:
+    if not is_shardloom_engine(str(result.get("engine", ""))):
+        return ["external_baseline_only"]
+    classifications: list[str] = []
+    if cold_lane_field_present(metrics, "result_sink_write_millis") and (
+        parse_optional_float(metrics.get("result_sink_write_millis")) or 0.0
+    ) > 0.0:
+        classifications.append("sink_replay_heavy")
+    if cold_lane_field_present(metrics, "evidence_render_millis"):
+        classifications.append("evidence_heavy")
+    if cold_lane_field_present(metrics, "cli_process_wall_millis") and cold_lane_field_present(
+        metrics, "python_harness_overhead_millis"
+    ):
+        classifications.append("process_harness_heavy")
+    return classifications or ["none"]
+
+
+def cold_lane_attribution_metadata(result: dict[str, Any]) -> dict[str, Any]:
+    metrics = result.get("metrics")
+    metrics = metrics if isinstance(metrics, dict) else {}
+    engine = str(result.get("engine", ""))
+    classification = cold_lane_primary_classification(result, metrics)
+    secondary = cold_lane_secondary_classifications(result, metrics)
+    if classification == "external_baseline_only":
+        return {
+            "cold_lane_attribution_schema_version": COLD_LANE_ATTRIBUTION_SCHEMA_VERSION,
+            "cold_lane_classification": classification,
+            "cold_lane_secondary_classifications": ",".join(secondary),
+            "cold_lane_timing_split_status": "external_baseline_only",
+            "cold_lane_required_stage_fields": "external_baseline_only",
+            "cold_lane_missing_stage_fields": "none",
+            "cold_lane_preparation_timing_present": False,
+            "cold_lane_warm_query_timing_present": False,
+            "cold_lane_sink_replay_timing_present": False,
+            "cold_lane_evidence_render_timing_present": False,
+            "cold_lane_process_harness_timing_present": False,
+            "cold_lane_claim_gate_status": "external_baseline_only",
+            "cold_lane_claim_blocker_id": "external_baseline_only",
+            "cold_lane_fallback_attempted": False,
+            "cold_lane_external_engine_invoked": False,
+            "cold_lane_claim_boundary": "external baselines provide comparison timing only and cannot satisfy ShardLoom cold-lane evidence",
+        }
+    required = list(COLD_LANE_REQUIRED_FIELDS_BY_CLASSIFICATION.get(classification, ()))
+    if "sink_replay_heavy" in secondary and "result_sink_write_millis" not in required:
+        required.append("result_sink_write_millis")
+    missing = [field for field in required if not cold_lane_field_present(metrics, field)]
+    selected_mode = str(result.get("selected_execution_mode") or "")
+    if (
+        selected_mode == "prepared_vortex"
+        and engine != "shardloom-prepare-batch"
+        and result.get("preparation_included_in_timing") is True
+    ):
+        missing.append("warm_prepared_query_preparation_excluded")
+    status = "complete" if result.get("status") == "success" and not missing else "blocked"
+    if missing:
+        status = "blocked_incomplete_timing_split"
+    if result.get("status") != "success":
+        status = "blocked_row_not_executed"
+    return {
+        "cold_lane_attribution_schema_version": COLD_LANE_ATTRIBUTION_SCHEMA_VERSION,
+        "cold_lane_classification": classification,
+        "cold_lane_secondary_classifications": ",".join(secondary),
+        "cold_lane_timing_split_status": status,
+        "cold_lane_required_stage_fields": ",".join(required) if required else "none",
+        "cold_lane_missing_stage_fields": ",".join(missing) if missing else "none",
+        "cold_lane_preparation_timing_present": any(
+            cold_lane_field_present(metrics, field)
+            for field in (
+                "preparation_millis",
+                "prepare_batch_preparation_millis",
+                "compatibility_to_vortex_import_millis",
+                "vortex_write_millis",
+                "vortex_reopen_verify_millis",
+            )
+        ),
+        "cold_lane_warm_query_timing_present": cold_lane_field_present(
+            metrics, "query_runtime_millis"
+        )
+        and cold_lane_field_present(metrics, "operator_compute_millis"),
+        "cold_lane_sink_replay_timing_present": cold_lane_field_present(
+            metrics, "result_sink_write_millis"
+        ),
+        "cold_lane_evidence_render_timing_present": cold_lane_field_present(
+            metrics, "evidence_render_millis"
+        ),
+        "cold_lane_process_harness_timing_present": cold_lane_field_present(
+            metrics, "cli_process_wall_millis"
+        )
+        and cold_lane_field_present(metrics, "python_harness_overhead_millis"),
+        "cold_lane_claim_gate_status": "not_claim_grade",
+        "cold_lane_claim_blocker_id": (
+            "none" if status == "complete" else "gar-ioreuse-1h.incomplete_timing_split"
+        ),
+        "cold_lane_fallback_attempted": False,
+        "cold_lane_external_engine_invoked": False,
+        "cold_lane_claim_boundary": "cold-lane attribution separates preparation, warm query, sink/replay, evidence rendering, and process harness timing; it is not a performance or Spark-displacement claim",
+    }
+
+
+def cold_lane_missing_evidence_message(cold_lane: dict[str, Any]) -> str:
+    status = str(cold_lane.get("cold_lane_timing_split_status", "missing"))
+    classification = str(cold_lane.get("cold_lane_classification", "missing"))
+    missing = str(cold_lane.get("cold_lane_missing_stage_fields", "missing"))
+    return (
+        "cold_lane_timing_split_status!=complete "
+        f"(actual={status}; classification={classification}; "
+        f"missing_stage_fields={missing})"
+    )
+
+
+def apply_cold_lane_claim_gate(result: dict[str, Any], cold_lane: dict[str, Any]) -> None:
+    if not is_shardloom_engine(str(result.get("engine", ""))):
+        return
+    if result.get("status") != "success":
+        return
+    if cold_lane.get("cold_lane_timing_split_status") == "complete":
+        return
+    if (
+        result.get("claim_gate_status") != "claim_grade"
+        and result.get("claim_grade_requirements_met") is not True
+    ):
+        return
+    missing = result.get("claim_grade_missing_evidence")
+    if not isinstance(missing, list):
+        missing = [] if missing in (None, "", "none") else [str(missing)]
+    message = cold_lane_missing_evidence_message(cold_lane)
+    if message not in missing:
+        missing.append(message)
+    result["claim_gate_status"] = "not_claim_grade"
+    result["claim_grade_requirements_met"] = False
+    result["claim_grade_missing_evidence"] = missing
+
+
 def shardloom_claim_grade_missing_evidence(result: dict[str, Any]) -> list[str]:
     evidence = result.get("shardloom_evidence", {})
     missing: list[str] = []
@@ -8732,6 +9088,15 @@ def benchmark_constitution(
         "vortex_prepare_included": result.get("vortex_prepare_included"),
         "vortex_write_reopen_included": result.get("vortex_write_reopen_included"),
         "direct_transient_execution": result.get("direct_transient_execution"),
+        "cold_lane_attribution_schema_version": result.get(
+            "cold_lane_attribution_schema_version"
+        ),
+        "cold_lane_classification": result.get("cold_lane_classification"),
+        "cold_lane_timing_split_status": result.get("cold_lane_timing_split_status"),
+        "cold_lane_required_stage_fields": result.get(
+            "cold_lane_required_stage_fields"
+        ),
+        "cold_lane_missing_stage_fields": result.get("cold_lane_missing_stage_fields"),
         "resource_policy": "engine defaults; ShardLoom auto sizing recorded in evidence",
         "claim_level": result.get("claim_gate_status", "not_claim_grade"),
     }
@@ -8880,6 +9245,15 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
             "benchmark row omitted stage timing fields: "
             + ", ".join(missing_stage_fields)
         )
+    missing_cold_lane_fields = [
+        field for field in COLD_LANE_ATTRIBUTION_FIELDS if field not in metrics
+    ]
+    if missing_cold_lane_fields:
+        raise RuntimeError(
+            f"{result.get('engine', 'unknown')} {result.get('scenario_name', 'unknown')} "
+            "benchmark row omitted cold-lane attribution fields: "
+            + ", ".join(missing_cold_lane_fields)
+        )
     missing_mode_fields = [
         field for field in EXECUTION_MODE_CONTRACT_FIELDS if field not in result
     ]
@@ -8985,6 +9359,28 @@ def validate_result_attribution_contract(result: dict[str, Any]) -> None:
         and result.get("external_engine_invoked") is not False
     ):
         raise RuntimeError("ShardLoom rows must report external_engine_invoked=false")
+    if is_shardloom_engine(str(result.get("engine"))) and result.get("status") == "success":
+        if (
+            metrics.get("cold_lane_timing_split_status") != "complete"
+            and (
+                result.get("claim_gate_status") == "claim_grade"
+                or result.get("claim_grade_requirements_met") is True
+            )
+        ):
+            raise RuntimeError(
+                "ShardLoom claim-grade rows must carry a complete cold-lane timing split"
+            )
+        if metrics.get("cold_lane_fallback_attempted") is not False:
+            raise RuntimeError("cold-lane attribution cannot report fallback attempts")
+        if metrics.get("cold_lane_external_engine_invoked") is not False:
+            raise RuntimeError(
+                "cold-lane attribution cannot report external engine execution"
+            )
+    if (
+        not is_shardloom_engine(str(result.get("engine")))
+        and metrics.get("cold_lane_timing_split_status") != "external_baseline_only"
+    ):
+        raise RuntimeError("external baseline rows must keep cold-lane attribution baseline-only")
     if selected_mode == "prepared_vortex":
         if result.get("timing_scope") != "warm_prepared_query":
             raise RuntimeError("prepared_vortex rows must report warm_prepared_query timing")
@@ -9902,6 +10298,17 @@ def annotate_result(
                 metrics=metrics,
             )
         )
+        cold_lane = cold_lane_attribution_metadata(result)
+        apply_cold_lane_claim_gate(result, cold_lane)
+        result.update(cold_lane)
+        metrics.update(cold_lane)
+        metrics["claim_gate_status"] = result["claim_gate_status"]
+        metrics["claim_grade_requirements_met"] = result[
+            "claim_grade_requirements_met"
+        ]
+        metrics["claim_grade_missing_evidence"] = result[
+            "claim_grade_missing_evidence"
+        ]
     result["benchmark_constitution"] = benchmark_constitution(
         result, cache_mode, dataset_profile
     )
@@ -14047,6 +14454,7 @@ def fairness_parameters(args: argparse.Namespace, paths: DatasetPaths) -> dict[s
             "separate cold-cache and warm-cache runs",
             "use larger-than-memory and object-store datasets where relevant",
             "record ShardLoom native and universal-I/O rows separately from external compatibility-file baselines",
+            "classify cold preparation, warm query, sink/replay, evidence-render, and process-harness timing before publication",
             "run multiple repetitions under the same process isolation policy",
         ],
     }
@@ -14062,6 +14470,8 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "mode_vocabulary": list(SHARDLOOM_EXECUTION_MODE_VOCABULARY),
         "execution_mode_fields": list(EXECUTION_MODE_CONTRACT_FIELDS),
         "stage_timing_fields": list(STAGE_TIMING_CONTRACT_FIELDS),
+        "cold_lane_attribution_schema_version": COLD_LANE_ATTRIBUTION_SCHEMA_VERSION,
+        "cold_lane_attribution_fields": list(COLD_LANE_ATTRIBUTION_FIELDS),
         "operator_blocker_matrix_fields": list(OPERATOR_BLOCKER_MATRIX_FIELDS),
         "fused_pipeline_fields": list(FUSED_PIPELINE_FIELDS),
         "compressed_kernel_registry_fields": list(COMPRESSED_KERNEL_REGISTRY_FIELDS),
@@ -14895,6 +15305,10 @@ def render_execution_mode_attribution_contract(artifact: dict[str, Any]) -> str:
         ["Mode vocabulary", ", ".join(contract["mode_vocabulary"])],
         ["Execution-mode fields", ", ".join(contract["execution_mode_fields"])],
         ["Stage timing fields", ", ".join(contract["stage_timing_fields"])],
+        [
+            "Cold-lane attribution fields",
+            ", ".join(contract["cold_lane_attribution_fields"]),
+        ],
         ["Operator blocker fields", ", ".join(contract["operator_blocker_matrix_fields"])],
         ["Fused pipeline fields", ", ".join(contract["fused_pipeline_fields"])],
         [

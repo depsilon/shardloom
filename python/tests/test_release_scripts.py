@@ -105,6 +105,9 @@ class ReleaseScriptTests(unittest.TestCase):
             "storage_format": "csv",
             "scenario_name": "claim grade row",
             "status": "success",
+            "selected_execution_mode": "prepared_vortex",
+            "prepared_state_id": "prepared-state://claim-grade-row",
+            "prepared_state_digest": "sha256:claim-grade-row",
             "source_state_id": "source-state://claim-grade-row",
             "data_decoded": False,
             "fallback_attempted": False,
@@ -116,6 +119,11 @@ class ReleaseScriptTests(unittest.TestCase):
             "claim_grade_missing_evidence": [],
             "metrics": {
                 "query_runtime_millis": 1.0,
+                "vortex_scan_millis": 0.2,
+                "operator_compute_millis": 0.5,
+                "evidence_render_millis": 0.1,
+                "cli_process_wall_millis": 1.4,
+                "python_harness_overhead_millis": 0.4,
                 "claim_gate_status": "claim_grade",
                 "claim_grade_requirements_met": False,
                 "claim_grade_missing_evidence": ["stale metrics value"],
@@ -127,6 +135,110 @@ class ReleaseScriptTests(unittest.TestCase):
         self.assertIs(published["claim_grade_requirements_met"], True)
         self.assertEqual(published["claim_grade_missing_evidence"], [])
         self.assertEqual(published["runtime_execution_validation_status"], "passed")
+
+    def test_benchmark_promoter_demotes_claim_grade_without_cold_lane_split(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py", "promote_benchmark_cold_lane_gate_for_test"
+        )
+
+        row = {
+            "engine": "shardloom",
+            "storage_format": "csv",
+            "scenario_name": "claim grade missing cold lane",
+            "status": "success",
+            "selected_execution_mode": "compatibility_import_certified",
+            "timing_scope": "cold_certified_end_to_end",
+            "preparation_included": True,
+            "compatibility_import_included": True,
+            "source_state_id": "source-state://claim-grade-missing-cold-lane",
+            "data_decoded": False,
+            "fallback_attempted": False,
+            "external_engine_invoked": False,
+            "runtime_execution_certificate_id": "execution.claim-grade-missing-cold-lane",
+            "runtime_execution_certificate_status": "certified",
+            "claim_gate_status": "claim_grade",
+            "claim_grade_requirements_met": True,
+            "claim_grade_missing_evidence": [],
+            "metrics": {
+                "query_runtime_millis": 1.0,
+                "source_read_millis": 0.1,
+                "compatibility_to_vortex_import_millis": 0.2,
+                "vortex_array_build_millis": 0.1,
+                "vortex_write_millis": 0.1,
+                "vortex_reopen_verify_millis": 0.1,
+                "operator_compute_millis": 0.2,
+                "total_runtime_millis": 1.0,
+                "cli_process_wall_millis": 1.2,
+                "python_harness_overhead_millis": 0.2,
+            },
+        }
+
+        [published] = module.published_rows([row])
+
+        self.assertEqual(published["claim_gate_status"], "not_claim_grade")
+        self.assertFalse(published["claim_grade_requirements_met"])
+        self.assertIn(
+            "cold_lane_timing_split_status!=complete",
+            published["claim_grade_missing_evidence"][0],
+        )
+        summary = module.comparative_summary(
+            {"dataset": {}, "generated_at_utc": "2026-01-01T00:00:00Z"},
+            [row],
+            REPO_ROOT / "target" / "claim-grade-missing-cold-lane.json",
+            "full_local_plus_spark",
+        )
+        self.assertEqual(
+            summary["claim_gate_distribution"]["rows"][0][0],
+            "not_claim_grade",
+        )
+
+    def test_full_local_plus_spark_keeps_broad_formats_supported_until_refresh(self) -> None:
+        from benchmarks.traditional_analytics import run as benchmark_run
+        from benchmarks.traditional_analytics.benchmark_registry import PROFILES
+
+        profile = PROFILES["full_local_plus_spark"]
+
+        self.assertEqual(
+            benchmark_run.FORMAT_ORDER,
+            ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc"),
+        )
+        self.assertEqual(
+            profile.required_formats,
+            ("csv", "parquet"),
+        )
+        self.assertEqual(profile.optional_formats, ("jsonl", "arrow-ipc", "avro", "orc"))
+
+    def test_benchmark_promoter_keeps_deferred_broad_formats_optional(self) -> None:
+        module = self._load_script_module(
+            "promote_benchmark_artifact.py", "promote_benchmark_formats_for_test"
+        )
+        rows = [
+            {"storage_format": data_format}
+            for data_format in ("csv", "jsonl", "parquet", "arrow-ipc", "avro", "orc")
+        ]
+
+        table = module.format_coverage_table(
+            {
+                "format_order": [
+                    "csv",
+                    "jsonl",
+                    "parquet",
+                    "arrow-ipc",
+                    "avro",
+                    "orc",
+                ]
+            },
+            rows,
+            "full_local_plus_spark",
+        )
+        by_format = {row[0]: row for row in table["rows"]}
+
+        for data_format in ("csv", "parquet"):
+            self.assertEqual(by_format[data_format][1], "required")
+            self.assertEqual(by_format[data_format][2], "available")
+        for data_format in ("jsonl", "arrow-ipc", "avro", "orc"):
+            self.assertEqual(by_format[data_format][1], "optional")
+            self.assertEqual(by_format[data_format][2], "available")
 
     def test_golden_workflow_gate_requires_external_engine_marker(self) -> None:
         module = self._load_script_module(
@@ -217,6 +329,41 @@ jobs:
         )
 
         self.assertIn("stage_timings", missing)
+        self.assertIn("cold_lane_attribution", missing)
+
+    def test_benchmark_constitution_accepts_complete_cold_lane_split(self) -> None:
+        module = self._load_script_module(
+            "check_benchmark_constitution.py",
+            "check_benchmark_constitution_cold_lane_for_test",
+        )
+
+        missing = module.row_missing_fields(
+            {
+                "engine": "shardloom-prepared-vortex",
+                "scenario_name": "warm prepared query",
+                "source_format": "vortex",
+                "selected_execution_mode": "prepared_vortex",
+                "output_format": "inline_jsonl",
+                "correctness_digest": "fnv1a64:abc",
+                "cache_mode": "warm",
+                "query_runtime_millis": 1.0,
+                "vortex_scan_millis": 0.2,
+                "operator_compute_millis": 0.5,
+                "evidence_render_millis": 0.1,
+                "cli_process_wall_millis": 2.0,
+                "python_harness_overhead_millis": 0.3,
+                "cold_lane_timing_split_status": "complete",
+                "cost_unit": "local_wall_time",
+                "fallback_attempted": False,
+                "external_engine_invoked": False,
+            },
+            environment={"cpu": "test"},
+            build_profile={"build_profile": "debug"},
+            claim_bearing=True,
+        )
+
+        self.assertNotIn("stage_timings", missing)
+        self.assertNotIn("cold_lane_attribution", missing)
 
     def test_admitted_semantics_missing_matrix_reports_remaining_gaps(self) -> None:
         module = self._load_script_module(
