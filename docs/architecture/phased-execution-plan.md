@@ -290,9 +290,10 @@ closeout, `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout, and
 `GAR-RUNTIME-IMPL-4D/5G` expression/operator closeout plus `GAR-RUNTIME-IMPL-4D-F1`
 advanced scalar deterministic semantics closeout and `GAR-RUNTIME-IMPL-4D-F2` complex dtype
 deterministic blocker closeout plus `GAR-RUNTIME-IMPL-4D-F3` advanced predicate/subquery
-semantics closeout are complete and recorded in the ledger.
+semantics closeout plus `GAR-RUNTIME-IMPL-5P` Foundry dev-stack generated-output and transform
+proof are complete and recorded in the ledger.
 The remaining internal-engine follow-ups below stay ahead of SQL/Python surface backstops,
-benchmark and Foundry gates, and release usability.
+benchmark gates, and release usability.
 Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
 work.
@@ -308,32 +309,6 @@ below. They are coverage-assurance backstops, not a second parallel runtime queu
 item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-RUNTIME-IMPL-5P Foundry dev-stack generated-output and transform proof
-  - Source: `GAR-COMMERCIAL-1E`, `GAR-IOREUSE-1G`, Foundry proof docs.
-  - Current state: Foundry proof remains local/style-only or report-only; no production Foundry
-    runtime/package/certified claim exists.
-  - Next slice outcome: implement a personal dev-stack proof that imports the local package,
-    resolves the CLI, runs source-free generated output and one staged-input transform, writes a
-    result dataset and evidence dataset through Foundry-style output APIs, and preserves blocked
-    flags.
-  - Runtime enablement: local/dev-stack Foundry-style transform proof that runs ShardLoom locally
-    and writes evidence datasets without Spark fallback.
-  - User-visible surface: Foundry proof docs, examples, capability/status pages, release readiness.
-  - Implementation scope: local Foundry-style transform wrapper, generated-source workflow,
-    staged-input workflow, evidence dataset writer, runtime flag reporting.
-  - Evidence required: input/output dataset counts, generated-source certificate, output Native I/O
-    certificate, Foundry runtime/compute/Spark invoked flags, staged bytes, no-fallback fields.
-  - Acceptance: Foundry can orchestrate a local proof without Spark fallback; evidence dataset
-    output is mandatory; direct S3/object-store writes are not used.
-  - Verification: local Foundry-style smoke, proof doc checks, release readiness metadata, website
-    status checks.
-  - Non-goals: no Foundry production support, package publication, marketplace listing, certified
-    Foundry claim, or direct object-store path.
-  - Claim boundary: local/dev-stack proof only.
-  - Fallback boundary: Foundry/Spark compute cannot be reported as ShardLoom execution.
-  - Dependencies/blockers: local package proof, generated-source runtime, output evidence writer.
-  - Ledger rule: ledger entry must include proof commands, output/evidence refs, and blocked claims.
 
 - [ ] GAR-RUNTIME-IMPL-4S clean install production usability and release rehearsal gate
   - Source: public preview readiness, package-channel matrix, website
@@ -413,7 +388,7 @@ validators, docs/website parity, and a completed-ledger entry.
     CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC across the required local/Spark baselines. The
     public broad-format timing-data refresh remains intentionally deferred until the remaining
     runtime/user-surface closeouts that can change benchmark interpretation are done, including
-    `GAR-RUNTIME-IMPL-5P`, `GAR-RUNTIME-IMPL-4S`, and `GAR-RUNTIME-IMPL-5Q`.
+    `GAR-RUNTIME-IMPL-4S` and `GAR-RUNTIME-IMPL-5Q`.
   - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
     promoted runtime path and block stale or incomplete public claims. The next public comparative
     refresh should preserve `full_local_plus_spark` required PySpark/Spark lane enforcement,

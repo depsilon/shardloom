@@ -2,13 +2,16 @@
   "schema_version": "shardloom.example.expected_certificates.v1",
   "example": "foundry-lightweight-transform",
   "certificate_output_written": true,
-  "execution_certificate_status": "not_emitted_no_dataset_smoke",
-  "native_io_certificate_status": "not_emitted_no_dataset_smoke",
-  "materialization_boundary_status": "staged_path_declared_only",
+  "execution_certificate_status": "certified",
+  "native_io_certificate_status": "scoped_compatibility_import_certificate",
+  "materialization_boundary_status": "local_csv_row_materialization_to_expression_semantics",
   "no_dataset_smoke_separate_from_generated_output": true,
-  "generated_source_certificate_status": "not_emitted_report_only",
-  "output_native_io_certificate_status": "not_emitted_report_only",
-  "claim_gate_status": "not_claim_grade",
+  "generated_output_execution_performed": true,
+  "generated_source_certificate_status": "present",
+  "output_native_io_certificate_status": "certified_local_file_sink",
+  "staged_input_transform_execution_performed": true,
+  "output_evidence_dataset_written": true,
+  "claim_gate_status": "fixture_smoke_only",
   "required_policy_fields": {
     "fallback_attempted": false,
     "external_compute_invoked": false,
@@ -17,6 +20,9 @@
     "foundry_spark_invoked": false,
     "foundry_output_api_invoked": false,
     "foundry_result_dataset_written": false,
-    "foundry_evidence_dataset_written": false
+    "foundry_evidence_dataset_written": false,
+    "foundry_style_output_api_invoked": true,
+    "foundry_style_result_dataset_written": true,
+    "foundry_style_evidence_dataset_written": true
   }
 }

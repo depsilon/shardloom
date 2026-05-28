@@ -16,6 +16,55 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5P Foundry dev-stack generated-output and transform proof
+  - Date: 2026-05-28
+  - Branch/PR: `runtime-5p-foundry-dev-proof` / PR pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5P Foundry dev-stack generated-output and transform proof`.
+    - RFC 0036 Foundry integration-pack availability surface.
+    - Foundry dev-stack starter, proof-of-use certification, package boundary matrix, generated
+      source-free output, staged local CSV transform, and output evidence dataset docs.
+  - Scope:
+    - Promoted the Foundry proof from report-only/local-style posture into a local/dev-stack runtime
+      proof that imports the local ShardLoom package, resolves the CLI, runs source-free generated
+      output fanout, runs one staged local CSV transform, and writes local Foundry-style result and
+      evidence dataset-shaped outputs.
+    - Added explicit `generated_output_execution_performed`,
+      `staged_input_transform_execution_performed`, `foundry_style_output_api_invoked`,
+      `foundry_style_result_dataset_written`, `foundry_style_evidence_dataset_written`, and
+      `output_evidence_dataset_written` evidence fields to the proof, example, docs, use-case atlas,
+      and website mirrors.
+    - Kept real Foundry production and runtime claims blocked: `foundry_output_api_invoked=false`,
+      `foundry_runtime_invoked=false`, `foundry_compute_invoked=false`,
+      `foundry_spark_invoked=false`, no direct S3/object-store writes, no credential/network use, no
+      fallback, and no external engine invocation.
+    - Updated the Foundry package proof boundary matrix so the local certificate path now requires
+      local Foundry-style result/evidence dataset outputs while real Foundry/package/Marketplace
+      claims remain non-goals.
+    - Trimmed the live phase plan: `GAR-RUNTIME-IMPL-5P` moved out of the active queue and
+      `GAR-RUNTIME-IMPL-5J` benchmark refresh deferral now depends only on the remaining 4S/5Q
+      runtime/user-surface closeouts.
+  - Claim boundary:
+    - Local/dev-stack Foundry-style generated-output and staged-transform proof only. This does not
+      certify Foundry production runtime, Foundry package publication, Foundry Marketplace support,
+      Foundry output APIs, direct object-store writes, Spark replacement, or external compute.
+  - Evidence:
+    - `examples/foundry-lightweight-transform/run.py` writes generated output JSONL/CSV, staged
+      transform JSONL, and local result/evidence dataset-shaped directories with metadata.
+    - `scripts/foundry_proof_of_use.py --rows 16 --iterations 1` records
+      `support_status=local_style_smoke_supported` for generated output fanout and scale proof
+      boundary while preserving blocked production Foundry flags.
+    - `docs/foundry/dev-stack-starter-kit.json`,
+      `docs/foundry/proof-of-use-certification.md`, `docs/foundry/integration-pack-readiness.md`,
+      `docs/foundry/package-proof-boundary-matrix.{json,md}`, the Foundry use case, and website data
+      mirrors describe the same proof boundary and no-fallback posture.
+  - Verification:
+    - `python -m compileall examples\foundry-lightweight-transform\run.py scripts\foundry_proof_of_use.py scripts\check_foundry_dev_stack_starter.py python\tests\test_release_scripts.py`
+    - `python -m unittest python.tests.test_release_scripts.ReleaseScriptTests.test_foundry_dev_stack_starter_accepts_local_runtime_proof python.tests.test_release_scripts.ReleaseScriptTests.test_foundry_proof_posture_promotes_local_style_generated_and_staged_proof`
+    - `python scripts\check_foundry_dev_stack_starter.py`
+    - `python scripts\check_foundry_package_proof_boundary.py`
+    - `python scripts\foundry_proof_of_use.py --rows 16 --iterations 1`
+
 - [x] Session label: GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity
   - Date: 2026-05-28
   - Branch/PR: `runtime-5c-python-workflow-parity` / PR #976.

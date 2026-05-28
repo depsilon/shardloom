@@ -2,8 +2,9 @@
 
 # Foundry Dev-Stack Starter Kit
 
-Status: local Foundry-style starter for `GAR-COMMERCIAL-1E`. This is not a real Foundry runtime
-proof, Foundry package proof, Foundry Marketplace proof, or Foundry production support claim.
+Status: local Foundry-style starter for `GAR-COMMERCIAL-1E` and
+`GAR-RUNTIME-IMPL-5P`. This is not a real Foundry runtime proof, Foundry package proof, Foundry
+Marketplace proof, or Foundry production support claim.
 
 The machine-readable source of truth is
 [`docs/foundry/dev-stack-starter-kit.json`](dev-stack-starter-kit.json) with schema
@@ -22,9 +23,11 @@ repository transform without invoking Foundry services:
 2. Import the local Python package/client from the checkout.
 3. Resolve the ShardLoom CLI.
 4. Run no-dataset smoke and capability checks.
-5. Declare a staged local input fixture.
-6. Write local certificate-style evidence.
-7. Run the existing local proof script that also runs a tiny local Vortex smoke.
+5. Execute a scoped source-free generated-output workflow through ShardLoom.
+6. Execute a scoped staged local CSV transform through ShardLoom.
+7. Write local result and evidence dataset-shaped artifacts through the dev-stack Foundry-style
+   output API.
+8. Run the existing local proof script that also runs a tiny local Vortex smoke.
 
 ## Commands
 
@@ -40,11 +43,22 @@ Expected local outputs:
 
 ```text
 target/foundry-lightweight-transform/certificate-output.json
+target/foundry-lightweight-transform/generated-output.jsonl
+target/foundry-lightweight-transform/generated-output.csv
+target/foundry-lightweight-transform/staged-transform-output.jsonl
+target/foundry-lightweight-transform/result-dataset
+target/foundry-lightweight-transform/evidence-dataset
 target/foundry-proof-of-use/report.json
+target/foundry-proof-of-use/generated-output.jsonl
+target/foundry-proof-of-use/generated-output.csv
+target/foundry-proof-of-use/staged-transform-output.jsonl
+target/foundry-proof-of-use/result-dataset
+target/foundry-proof-of-use/evidence-dataset
 target/foundry-proof-of-use/local-vortex-benchmark-smoke.json
 ```
 
-These are local files only. They are not Foundry output datasets.
+These are local files/directories only. The `result-dataset` and `evidence-dataset` directories use
+a local Foundry-style output API shape; they are not real Foundry output datasets.
 
 ## Source-Free Generated-Output Posture
 
@@ -52,17 +66,19 @@ No-dataset smoke remains separate from generated-output execution:
 
 ```text
 no_dataset_smoke_separate_from_generated_output=true
-generated_output_execution_performed=false
-generated_source_created=false
-generated_source_certificate_status=not_emitted_report_only
-output_native_io_certificate_status=not_emitted_report_only
+generated_output_execution_performed=true
+generated_source_created=true
+generated_source_certificate_status=present
+output_native_io_certificate_status=certified_local_file_sink
 foundry_output_api_required=true
-claim_gate_status=not_claim_grade
+foundry_style_output_api_invoked=true
+claim_gate_status=fixture_smoke_only
 ```
 
-The current starter does not create rows with a Foundry transform and does not write a Foundry
-result dataset. Future generated-output proof must write result and evidence datasets through
-Foundry output APIs, not direct S3/object-store paths.
+The starter now creates rows through ShardLoom's scoped generated-source local-output route and
+writes those rows into local Foundry-style result/evidence dataset artifacts. Real Foundry generated
+output still remains blocked until a real Foundry transform writes result and evidence datasets
+through Foundry output APIs, not direct S3/object-store paths.
 
 ## Staged Input Example
 
@@ -72,8 +88,12 @@ The starter declares:
 examples/foundry-lightweight-transform/fixtures/staged_input.csv
 ```
 
-That staged input is a local fixture for path and boundary evidence. It is not a Foundry input
-dataset, not a production dataset, and not an object-store read.
+That staged input is a local fixture for the scoped staged-transform proof. It is not a Foundry
+input dataset, not a production dataset, and not an object-store read.
+
+```text
+staged_input_transform_execution_performed=true
+```
 
 ## Evidence Dataset Boundary
 
@@ -84,8 +104,10 @@ evidence dataset output. Current posture:
 local_certificate_json_written=true
 foundry_evidence_dataset_written=false
 foundry_result_dataset_written=false
+foundry_style_evidence_dataset_written=true
+foundry_style_result_dataset_written=true
 deterministic_blocker=blocked_until_real_foundry_output_api_evidence
-output_evidence_dataset_written=false
+output_evidence_dataset_written=true
 ```
 
 ## Required Safety Fields
@@ -99,6 +121,9 @@ foundry_spark_invoked=false
 foundry_output_api_invoked=false
 foundry_result_dataset_written=false
 foundry_evidence_dataset_written=false
+foundry_style_output_api_invoked=true
+foundry_style_result_dataset_written=true
+foundry_style_evidence_dataset_written=true
 direct_s3_read_invoked=false
 direct_s3_write_invoked=false
 object_store_read_invoked=false
@@ -117,7 +142,9 @@ foundry_marketplace_claim_allowed=false
 
 - Local Python import/client wiring can resolve ShardLoom from a source checkout.
 - The local CLI can be resolved.
-- A Foundry-style transform shape can emit local certificate-style evidence.
+- A Foundry-style transform shape can execute source-free generated output through ShardLoom.
+- A staged local CSV fixture can execute through ShardLoom and write a local output.
+- The dev-stack output API can write local result/evidence dataset-shaped artifacts.
 - The proof can run a tiny local Vortex smoke through existing ShardLoom paths.
 - Foundry support remains explicit and claim-gated.
 
@@ -126,8 +153,8 @@ foundry_marketplace_claim_allowed=false
 - No real Foundry runtime invocation.
 - No Foundry compute invocation.
 - No Foundry Spark invocation.
-- No Foundry output API write.
-- No Foundry evidence dataset output.
+- No real Foundry output API write.
+- No real Foundry evidence dataset output.
 - No Foundry package or Marketplace availability.
 - No direct S3/object-store runtime.
 - No production SQL/DataFrame, object-store/lakehouse, or Foundry claim.
@@ -139,7 +166,7 @@ foundry_marketplace_claim_allowed=false
 The only allowed claim is local-style evaluation:
 
 ```text
-local_foundry_style_transform_and_local_vortex_execution_smoke_only
+local_foundry_style_generated_output_and_staged_transform_smoke_only
 ```
 
 This starter reduces evaluation friction. It does not certify ShardLoom for Foundry production use.

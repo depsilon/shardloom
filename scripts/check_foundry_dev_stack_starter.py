@@ -15,7 +15,6 @@ SCHEMA_VERSION = "shardloom.foundry_dev_stack_starter_kit.v1"
 REPORT_SCHEMA_VERSION = "shardloom.foundry_dev_stack_starter_kit_report.v1"
 
 REQUIRED_FALSE_FIELDS = [
-    "starter_runtime_supported",
     "real_foundry_runtime_supported",
     "foundry_runtime_invoked",
     "foundry_compute_invoked",
@@ -37,6 +36,14 @@ REQUIRED_FALSE_FIELDS = [
     "foundry_marketplace_claim_allowed",
 ]
 
+REQUIRED_TRUE_FIELDS = [
+    "starter_runtime_supported",
+    "foundry_style_output_api_invoked",
+    "foundry_style_result_dataset_written",
+    "foundry_style_evidence_dataset_written",
+    "output_evidence_dataset_written",
+]
+
 EXPECTED_COMMAND_IDS = [
     "build_cli",
     "run_foundry_style_transform",
@@ -50,13 +57,18 @@ REQUIRED_DOC_SNIPPETS = [
     "python examples\\foundry-lightweight-transform\\run.py --repo-root .",
     "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1",
     "no_dataset_smoke_separate_from_generated_output=true",
-    "generated_output_execution_performed=false",
+    "generated_output_execution_performed=true",
+    "staged_input_transform_execution_performed=true",
+    "foundry_style_output_api_invoked=true",
+    "foundry_style_result_dataset_written=true",
+    "foundry_style_evidence_dataset_written=true",
+    "output_evidence_dataset_written=true",
     "foundry_runtime_invoked=false",
     "foundry_compute_invoked=false",
     "foundry_spark_invoked=false",
     "fallback_attempted=false",
     "external_engine_invoked=false",
-    "local_foundry_style_transform_and_local_vortex_execution_smoke_only",
+    "local_foundry_style_generated_output_and_staged_transform_smoke_only",
 ]
 
 
@@ -104,13 +116,16 @@ def validate_manifest(manifest: dict[str, Any] | None) -> list[str]:
         blockers.append(f"schema_version={manifest.get('schema_version')}")
     if manifest.get("gar_id") != "GAR-COMMERCIAL-1E":
         blockers.append(f"gar_id={manifest.get('gar_id')}")
-    if manifest.get("status") != "local_style_report_only":
+    if manifest.get("status") != "local_style_runtime_proof":
         blockers.append(f"status={manifest.get('status')}")
     if manifest.get("claim_gate_status") != "not_claim_grade":
         blockers.append(f"claim_gate_status={manifest.get('claim_gate_status')}")
     for field in REQUIRED_FALSE_FIELDS:
         if manifest.get(field) is not False:
             blockers.append(f"{field} must be false")
+    for field in REQUIRED_TRUE_FIELDS:
+        if manifest.get(field) is not True:
+            blockers.append(f"{field} must be true")
     for field in ["claim_boundary", "fallback_boundary"]:
         if not _non_empty_string(manifest.get(field)):
             blockers.append(f"missing {field}")
@@ -136,7 +151,13 @@ def validate_manifest(manifest: dict[str, Any] | None) -> list[str]:
     else:
         for required in [
             "target/foundry-lightweight-transform/certificate-output.json",
+            "target/foundry-lightweight-transform/generated-output.jsonl",
+            "target/foundry-lightweight-transform/staged-transform-output.jsonl",
+            "target/foundry-lightweight-transform/result-dataset",
+            "target/foundry-lightweight-transform/evidence-dataset",
             "target/foundry-proof-of-use/report.json",
+            "target/foundry-proof-of-use/result-dataset",
+            "target/foundry-proof-of-use/evidence-dataset",
         ]:
             if required not in outputs:
                 blockers.append(f"missing local output {required}")
@@ -147,12 +168,13 @@ def validate_manifest(manifest: dict[str, Any] | None) -> list[str]:
     else:
         expected = {
             "no_dataset_smoke_separate_from_generated_output": True,
-            "generated_output_execution_performed": False,
-            "generated_source_created": False,
-            "generated_source_certificate_status": "not_emitted_report_only",
-            "output_native_io_certificate_status": "not_emitted_report_only",
+            "generated_output_execution_performed": True,
+            "generated_source_created": True,
+            "generated_source_certificate_status": "present",
+            "output_native_io_certificate_status": "certified_local_file_sink",
             "foundry_output_api_required": True,
-            "claim_gate_status": "not_claim_grade",
+            "foundry_style_output_api_invoked": True,
+            "claim_gate_status": "fixture_smoke_only",
         }
         for field, value in expected.items():
             if generated.get(field) != value:
@@ -166,8 +188,10 @@ def validate_manifest(manifest: dict[str, Any] | None) -> list[str]:
             blockers.append("staged input path mismatch")
         if staged.get("staged_dataset_path_explicit") is not True:
             blockers.append("staged_dataset_path_explicit must be true")
-        if staged.get("staged_input_execution_claimed") is not False:
-            blockers.append("staged_input_execution_claimed must be false")
+        if staged.get("staged_input_execution_claimed") is not True:
+            blockers.append("staged_input_execution_claimed must be true")
+        if staged.get("staged_input_transform_execution_performed") is not True:
+            blockers.append("staged_input_transform_execution_performed must be true")
 
     boundary = manifest.get("evidence_dataset_output_boundary")
     if not isinstance(boundary, dict):
@@ -176,9 +200,15 @@ def validate_manifest(manifest: dict[str, Any] | None) -> list[str]:
         if boundary.get("local_certificate_json_written") is not True:
             blockers.append("local_certificate_json_written must be true")
         for field in [
+            "foundry_style_evidence_dataset_written",
+            "foundry_style_result_dataset_written",
+            "output_evidence_dataset_written",
+        ]:
+            if boundary.get(field) is not True:
+                blockers.append(f"evidence_dataset_output_boundary.{field} must be true")
+        for field in [
             "foundry_evidence_dataset_written",
             "foundry_result_dataset_written",
-            "output_evidence_dataset_written",
         ]:
             if boundary.get(field) is not False:
                 blockers.append(f"evidence_dataset_output_boundary.{field} must be false")
@@ -230,6 +260,12 @@ def validate_example_files(repo_root: Path) -> list[str]:
         "foundry_output_api_invoked",
         "foundry_result_dataset_written",
         "foundry_evidence_dataset_written",
+        "foundry_style_output_api_invoked",
+        "foundry_style_result_dataset_written",
+        "foundry_style_evidence_dataset_written",
+        "generated_output_execution_performed",
+        "staged_input_transform_execution_performed",
+        "output_evidence_dataset_written",
         "no_dataset_smoke_separate_from_generated_output",
         "generated_source_certificate_status",
         "external_engine_invoked",
@@ -241,7 +277,7 @@ def validate_example_files(repo_root: Path) -> list[str]:
             blockers.append(f"expected outputs missing {field}")
     for required in [
         "does not run in Foundry",
-        "does not invoke Foundry output APIs",
+        "does not invoke real Foundry output APIs",
         "does not use Foundry Spark",
         "does not write direct S3/object-store outputs",
     ]:

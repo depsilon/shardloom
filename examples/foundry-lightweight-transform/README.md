@@ -13,9 +13,9 @@ cargo build -p shardloom-cli --bin shardloom
 python examples\foundry-lightweight-transform\run.py --repo-root .
 ```
 
-The script resolves the local ShardLoom CLI, runs no-dataset smoke and
-capability checks, records an explicit staged input path, and writes a local
-certificate-style JSON file under `target/`.
+The script resolves the local ShardLoom CLI, runs no-dataset smoke and capability checks, executes
+a scoped generated-output workflow and a scoped staged CSV transform through ShardLoom, and writes
+local result/evidence dataset-shaped artifacts under `target/`.
 
 For the fuller local dev-stack starter workflow, see
 `docs/foundry/dev-stack-starter-kit.md`.
@@ -30,5 +30,5 @@ Files in this example:
 
 Foundry Spark, Snowflake, Databricks, BigQuery, virtual tables, and external
 compute remain external boundaries or baselines, not ShardLoom-native execution.
-Foundry output APIs, result datasets, evidence datasets, direct S3/object-store writes, and
+Real Foundry output APIs, real Foundry result/evidence datasets, direct S3/object-store writes, and
 Marketplace/package availability are not claimed by this local example.

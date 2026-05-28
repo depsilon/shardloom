@@ -366,14 +366,14 @@ use_cases:
     capability_family: foundry_dev_stack_local_proof
     audience: "Foundry-adjacent user who wants to see the local transform shape"
     status: smoke_supported
-    execution_mode: no_dataset_smoke
+    execution_mode: local_foundry_style_generated_and_staged_transform_smoke
     engine_mode: batch_status
-    inputs: [none, local_style_fixture]
-    outputs: [local_foundry_style_report, certificate_metrics_dataset_output]
-    evidence_fields: [no_dataset_smoke_performed, transform_import_proven, cli_binary_resolved, foundry_runtime_invoked=false, foundry_compute_invoked=false, foundry_spark_invoked=false, fallback_attempted=false, external_engine_invoked=false, public_foundry_claim_allowed=false, claim_gate_status]
-    claim_boundary: "Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim."
+    inputs: [none, local_style_fixture, staged_local_csv_fixture]
+    outputs: [local_foundry_style_report, generated_output_artifact, staged_transform_output, local_foundry_style_result_dataset, local_foundry_style_evidence_dataset, certificate_metrics_dataset_output]
+    evidence_fields: [no_dataset_smoke_performed, transform_import_proven, cli_binary_resolved, generated_output_execution_performed, generated_source_created, generated_source_certificate_status, staged_input_transform_execution_performed, foundry_style_output_api_invoked=true, foundry_style_result_dataset_written=true, foundry_style_evidence_dataset_written=true, output_evidence_dataset_written=true, foundry_output_api_invoked=false, foundry_runtime_invoked=false, foundry_compute_invoked=false, foundry_spark_invoked=false, fallback_attempted=false, external_engine_invoked=false, public_foundry_claim_allowed=false, claim_gate_status]
+    claim_boundary: "Local Foundry-style generated-output and staged-transform proof only; no real Foundry runtime/output API, production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim."
     runnable_example: "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1"
-    expected_output_evidence: "A local proof report showing Foundry and external compute were not invoked."
+    expected_output_evidence: "A local proof report plus local result/evidence dataset-shaped artifacts showing ShardLoom generated/staged execution and no Foundry or external compute invocation."
     common_mistakes: [treating_local_style_as_real_foundry_runtime, expecting_foundry_package, writing_directly_to_s3]
     references: [docs/foundry/proof-of-use-certification.md, docs/foundry/integration-pack-readiness.md, examples/foundry-lightweight-transform/README.md, docs/architecture/compute-engine-flow-reference.md]
     related_use_cases: [source-free-generated-output-boundary, package-channel-readiness-boundary]

@@ -407,6 +407,70 @@ jobs:
             ],
         )
 
+    def test_foundry_dev_stack_starter_accepts_local_runtime_proof(self) -> None:
+        module = self._load_script_module(
+            "check_foundry_dev_stack_starter.py",
+            "check_foundry_dev_stack_starter_for_test",
+        )
+
+        manifest = json.loads(
+            (REPO_ROOT / "docs" / "foundry" / "dev-stack-starter-kit.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        doc_text = (
+            REPO_ROOT / "docs" / "foundry" / "dev-stack-starter-kit.md"
+        ).read_text(encoding="utf-8")
+
+        blockers = module.validate_manifest(manifest)
+        blockers.extend(module.validate_doc(doc_text))
+        blockers.extend(module.validate_example_files(REPO_ROOT))
+
+        self.assertEqual(blockers, [])
+
+    def test_foundry_proof_posture_promotes_local_style_generated_and_staged_proof(self) -> None:
+        module = self._load_script_module(
+            "foundry_proof_of_use.py",
+            "foundry_proof_of_use_for_test",
+        )
+        transform = {
+            "generated_output_execution_performed": True,
+            "generated_source_created": True,
+            "generated_source_kind": "user_rows",
+            "generated_source_row_count": 2,
+            "generated_source_certificate_status": "present",
+            "output_native_io_certificate_status": "certified_local_file_sink",
+            "generated_output_fanout_output_count": 1,
+            "generated_output_fanout_result_reuse_hit": True,
+            "foundry_style_output_api_invoked": True,
+            "foundry_style_result_dataset_written": True,
+            "foundry_style_evidence_dataset_written": True,
+            "staged_input_transform_execution_performed": True,
+            "staged_input_transform_output_row_count": 3,
+            "output_evidence_dataset_written": True,
+        }
+
+        fanout = module.foundry_generated_output_fanout_posture(transform)
+        boundary = module.foundry_generated_output_boundary(transform)
+        scale = module.foundry_scale_proof_boundary(27, transform)
+
+        self.assertEqual(fanout["support_status"], "local_style_smoke_supported")
+        self.assertEqual(fanout["claim_gate_status"], "fixture_smoke_only")
+        self.assertEqual(fanout["blockers"], [])
+        self.assertFalse(fanout["foundry_output_api_invoked"])
+        self.assertTrue(fanout["foundry_style_output_api_invoked"])
+        self.assertEqual(
+            boundary["boundary_status"],
+            "local_style_dataset_output_written_real_foundry_blocked",
+        )
+        self.assertFalse(boundary["public_foundry_generated_output_claim_allowed"])
+        self.assertEqual(
+            scale["proof_boundary_status"],
+            "local_style_staged_transform_and_evidence_dataset_written_real_foundry_blocked",
+        )
+        self.assertEqual(scale["foundry_style_input_dataset_count"], 1)
+        self.assertEqual(scale["foundry_style_output_dataset_count"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

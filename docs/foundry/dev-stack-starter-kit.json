@@ -1,9 +1,9 @@
 {
   "schema_version": "shardloom.foundry_dev_stack_starter_kit.v1",
   "gar_id": "GAR-COMMERCIAL-1E",
-  "status": "local_style_report_only",
+  "status": "local_style_runtime_proof",
   "claim_gate_status": "not_claim_grade",
-  "starter_runtime_supported": false,
+  "starter_runtime_supported": true,
   "real_foundry_runtime_supported": false,
   "foundry_runtime_invoked": false,
   "foundry_compute_invoked": false,
@@ -11,6 +11,10 @@
   "foundry_output_api_invoked": false,
   "foundry_result_dataset_written": false,
   "foundry_evidence_dataset_written": false,
+  "foundry_style_output_api_invoked": true,
+  "foundry_style_result_dataset_written": true,
+  "foundry_style_evidence_dataset_written": true,
+  "output_evidence_dataset_written": true,
   "direct_s3_read_invoked": false,
   "direct_s3_write_invoked": false,
   "object_store_read_invoked": false,
@@ -23,7 +27,7 @@
   "fallback_attempted": false,
   "public_foundry_claim_allowed": false,
   "foundry_marketplace_claim_allowed": false,
-  "claim_boundary": "The Foundry dev-stack starter kit is a local Foundry-style proof only. It does not invoke Foundry runtime, Foundry compute, Foundry Spark, Foundry output APIs, direct S3/object-store I/O, external compute, or fallback execution, and it does not create a Foundry production, Marketplace, package, or platform claim.",
+  "claim_boundary": "The Foundry dev-stack starter kit is a local Foundry-style generated-output and staged-transform proof only. It writes local result and evidence dataset-shaped artifacts through the dev-stack output API. It does not invoke real Foundry runtime, Foundry compute, Foundry Spark, real Foundry output APIs, direct S3/object-store I/O, external compute, or fallback execution, and it does not create a Foundry production, Marketplace, package, or platform claim.",
   "fallback_boundary": "Foundry, Spark, managed compute, object stores, and external engines cannot execute unsupported ShardLoom work as fallback.",
   "proof_commands": [
     {
@@ -34,7 +38,7 @@
     {
       "command_id": "run_foundry_style_transform",
       "command": "python examples\\foundry-lightweight-transform\\run.py --repo-root .",
-      "purpose": "Resolve the local package/client and CLI, run no-dataset smoke, declare staged input, and write local certificate-style evidence."
+      "purpose": "Resolve the local package/client and CLI, run no-dataset smoke, execute generated-output and staged-input ShardLoom workflows, and write local Foundry-style result/evidence datasets."
     },
     {
       "command_id": "run_foundry_proof_of_use",
@@ -44,30 +48,44 @@
   ],
   "local_outputs": [
     "target/foundry-lightweight-transform/certificate-output.json",
+    "target/foundry-lightweight-transform/generated-output.jsonl",
+    "target/foundry-lightweight-transform/generated-output.csv",
+    "target/foundry-lightweight-transform/staged-transform-output.jsonl",
+    "target/foundry-lightweight-transform/result-dataset",
+    "target/foundry-lightweight-transform/evidence-dataset",
     "target/foundry-proof-of-use/report.json",
+    "target/foundry-proof-of-use/generated-output.jsonl",
+    "target/foundry-proof-of-use/generated-output.csv",
+    "target/foundry-proof-of-use/staged-transform-output.jsonl",
+    "target/foundry-proof-of-use/result-dataset",
+    "target/foundry-proof-of-use/evidence-dataset",
     "target/foundry-proof-of-use/local-vortex-benchmark-smoke.json"
   ],
   "source_free_generated_output_posture": {
     "no_dataset_smoke_separate_from_generated_output": true,
-    "generated_output_execution_performed": false,
-    "generated_source_created": false,
-    "generated_source_certificate_status": "not_emitted_report_only",
-    "output_native_io_certificate_status": "not_emitted_report_only",
+    "generated_output_execution_performed": true,
+    "generated_source_created": true,
+    "generated_source_certificate_status": "present",
+    "output_native_io_certificate_status": "certified_local_file_sink",
     "foundry_output_api_required": true,
-    "claim_gate_status": "not_claim_grade"
+    "foundry_style_output_api_invoked": true,
+    "claim_gate_status": "fixture_smoke_only"
   },
   "staged_input_example": {
     "path": "examples/foundry-lightweight-transform/fixtures/staged_input.csv",
     "staged_dataset_path_explicit": true,
-    "staged_input_execution_claimed": false,
-    "native_io_certificate_status": "not_emitted_no_dataset_smoke"
+    "staged_input_execution_claimed": true,
+    "staged_input_transform_execution_performed": true,
+    "native_io_certificate_status": "scoped_compatibility_import_certificate"
   },
   "evidence_dataset_output_boundary": {
     "local_certificate_json_written": true,
     "foundry_evidence_dataset_written": false,
     "foundry_result_dataset_written": false,
+    "foundry_style_evidence_dataset_written": true,
+    "foundry_style_result_dataset_written": true,
     "deterministic_blocker": "blocked_until_real_foundry_output_api_evidence",
-    "output_evidence_dataset_written": false
+    "output_evidence_dataset_written": true
   },
   "reference_files": [
     "docs/foundry/dev-stack-starter-kit.md",
