@@ -308,53 +308,13 @@ item only after the matching 4-series runtime item has landed or when the 4-seri
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
 
-- [ ] GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder
-  - Source: `GAR-RUNTIME-IMPL-4B`, `GAR-RUNTIME-IMPL-4C`, `GAR-RUNTIME-IMPL-4D`, RFC 0032.
-  - Current state: scoped local CSV/flat JSONL SQL smoke paths exist for
-    projection/optional-filter/limit, preview/select-star, scalar and grouped aggregates with
-    optional filters and output aliases, multi-key scalar top-N over projection rows, aggregate
-    output aliases, and group keys, explicit single- or multi-key inner equi-join,
-    left/right/full outer equi-join, left semi/anti equi-join, cross join, scoped
-    column-comparison and generic numeric-expression ON joins, scoped UTF-8 string
-    predicate/projection expression trees, scoped computed join projections, multi-key scalar
-    joined top-N, and scalar/grouped join-aggregate ordering by aggregate output aliases or group
-    keys. Scalar/grouped aggregate and join-aggregate rows also admit scoped
-    post-aggregate `HAVING` predicates bound to emitted aggregate output aliases, selected group
-    keys, or admitted unprojected aggregate functions evaluated as hidden HAVING-only columns.
-    Scoped local-source `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`,
-    `NTILE()`, `PERCENT_RANK()`, and `CUME_DIST()` window projections now execute through the same
-    format-neutral SQL runtime with deterministic partitioned ranking, offset semantics,
-    distribution semantics, peer-group tie evidence, and typed report evidence;
-    richer expressions, casts, dates, broader string semantics, broad window functions/frames,
-    subqueries, catalogs, arbitrary join predicates, null/collation ordering, and broad planner
-    behavior remain incomplete or blocked.
-  - Next slice outcome: implement a staged SQL ladder that admits only supported syntax families
-    and emits stable blockers for unsupported syntax.
-  - Runtime enablement: ShardLoom-native SQL execution for admitted syntax families plus stable
-    runtime blockers for unsupported SQL.
-  - User-visible surface: CLI SQL command, SQL explain/capability output, docs/use-cases, website
-    status.
-  - Implementation scope: parser/binder/planner admission, local logical plan lowering, expression
-    type/null policy, join/order/aggregate blockers, explain snapshots, tests.
-  - Evidence required: parser/binder/planner flags, admitted syntax family, before/after plan
-    digests, source/output refs, correctness digest, unsupported diagnostic code, no-fallback
-    fields, claim gate.
-  - Acceptance: each admitted SQL shape executes through ShardLoom-native code only; every
-    unsupported SQL construct fails closed with actionable diagnostics.
-  - Verification: SQL parser/binder unit tests, CLI smoke per admitted family, unsupported
-    diagnostic snapshots, release readiness metadata, benchmark harness where applicable.
-  - Non-goals: no ANSI SQL parity, catalog runtime, production SQL claim, or external SQL engine.
-  - Claim boundary: syntax-family scoped local SQL runtime only.
-  - Fallback boundary: DataFusion, DuckDB, Spark, SQLite, Polars, pandas, and Vortex query-engine
-    integrations are prohibited as execution backends.
-  - Dependencies/blockers: operator semantics, local adapter registry, output writers, execution
-    envelope validators.
-  - Ledger rule: ledger entry must enumerate admitted SQL grammar families and blocked families.
-
 - [ ] GAR-RUNTIME-IMPL-5C Python DataFrame and query-builder workflow parity
   - Source: `GAR-RUNTIME-IMPL-4A`, `GAR-RUNTIME-IMPL-4B`, `GAR-RUNTIME-IMPL-4E`, Python README,
     Use Case Atlas.
-  - Current state: Python wrapper and selected query-builder methods exist. The local CSV/flat
+  - Current state: Python wrapper and selected query-builder methods exist. The SQL frontend
+    runtime ladder is complete and now exposes scoped local-source/source-free admitted families
+    plus deterministic blockers for broad SQL, catalog/CTE/set-op/recursive, correlated/broad
+    subquery, object-store/table SQL, and fallback-engine SQL families. The local CSV/flat
     JSONL query builder now covers projection/filter/limit, preview, scalar aggregate, multi-key
     group-by, multi-key scalar top-N, aggregate-output top-N, scoped local-source equi/cross and
     expression-condition joins, computed projections and multi-key scalar top-N over joined rows, scalar/grouped join
@@ -389,56 +349,6 @@ validators, docs/website parity, and a completed-ledger entry.
     source builders, Vortex lifecycle.
   - Ledger rule: ledger entry must include runnable Python snippets, admitted methods, and blocked
     methods.
-
-- [ ] GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate
-  - Source: `GAR-RUNTIME-IMPL-4M`, `GAR-BENCH-PUB-1`, benchmark publishing runbook.
-  - Current state: benchmark publishing has a structured artifact model and the current public
-    benchmark artifact is `full_local_plus_spark`. That profile requires
-    `pyspark`, `spark-default`, and `spark-local-tuned` baseline lanes alongside ShardLoom,
-    ShardLoom prepared Vortex, ShardLoom native Vortex, `shardloom-prepare-batch`, pandas, Polars
-    eager/lazy, DuckDB, DataFusion, and Dask. The latest promoted CSV/Parquet artifact has all
-    required lanes available, preserves PulseWeave and result-sink evidence fields, removes the
-    alias-only `native-vortex` lane from profile accounting, adds cold-lane attribution blocking,
-    and keeps external lanes baseline-only. The benchmark runner now has smoke-proven support for
-    CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC across the required local/Spark baselines, but
-    the public broad-format data refresh remains intentionally deferred until this cold-lane
-    bundle merges, so the benchmark suite is not rerun before scout-ingress, layout/write, and
-    copy-budget evidence exists end to end.
-  - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
-    promoted runtime path and block stale or incomplete public claims. The next
-    public comparative refresh should preserve `full_local_plus_spark` required PySpark/Spark lane
-    enforcement, publish broad-format coverage for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC,
-    carry the SourceState, VortexPreparedState, scout-ingress, preparation-spine, differential,
-    capillary, layout/write, and copy-budget fields, and move the main ShardLoom comparative roster
-    toward `claim_grade` rows only for admitted runtime paths.
-  - Runtime enablement: runtime-claim publishing validator that keeps public support status tied to
-    fresh evidence.
-  - User-visible surface: website benchmarks, docs/benchmarks, status page, release readiness.
-  - Implementation scope: artifact freshness checker, profile matrix, runtime claim matrix,
-    benchmark page ingestion from canonical generated artifacts, release validators, Spark/JVM
-    profile publishing checks, format coverage checks, and claim-gate closeout diagnostics.
-  - Evidence required: benchmark profile/environment, scenario coverage, lane status, correctness
-    refs, certificate refs, no-fallback fields, claim gate, Spark lane availability, format
-    coverage, and source-state/prepared-state coverage.
-  - Acceptance: promoted paths are not presented publicly without current evidence; missing
-    required lanes/scenarios/formats are visible and block claim-grade status; Spark lanes are
-    required and available for `full_local_plus_spark` artifacts; broad formats are visible as
-    supported by the runner until the deferred public refresh promotes their data; prepared/native
-    source-state coverage is rendered from batch evidence instead of a misleading scalar count; the
-    raw comparative roster renders all promoted rows, not a sample; the main ShardLoom comparative
-    roster has no `blocked`, `unsupported`, `not_claim_grade`, or `fixture_smoke_only` rows before
-    any broad claim-grade benchmark publication, while external lanes remain `external_baseline_only`
-    and never satisfy ShardLoom evidence; the benchmark page reuses the runs-today support matrix
-    for support posture and the promoted benchmark bundle for timing/coverage context.
-  - Verification: benchmark artifact completeness checker, website readiness, release readiness,
-    traditional benchmark harness tests, `full_local_plus_spark` preflight/runbook evidence.
-  - Non-goals: no performance/superiority/Spark-replacement claim.
-  - Claim boundary: workload-scoped local benchmark evidence only.
-  - Fallback boundary: external baseline lanes cannot satisfy ShardLoom-native evidence.
-  - Dependencies/blockers: benchmark manifest schema, runtime envelope validators, scenario
-    fixtures, website renderer support.
-  - Ledger rule: ledger entry must include artifact refs, profile, freshness, and public claim
-    status.
 
 - [ ] GAR-RUNTIME-IMPL-5P Foundry dev-stack generated-output and transform proof
   - Source: `GAR-COMMERCIAL-1E`, `GAR-IOREUSE-1G`, Foundry proof docs.
@@ -531,16 +441,69 @@ validators, docs/website parity, and a completed-ledger entry.
   - Ledger rule: ledger entry must include the exact usability matrix, website readiness evidence,
     release-gate evidence, and remaining unsupported paths.
 
+- [ ] GAR-RUNTIME-IMPL-5J benchmark publishing, profile, and claim-grade refresh gate
+  - Source: `GAR-RUNTIME-IMPL-4M`, `GAR-BENCH-PUB-1`, benchmark publishing runbook.
+  - Current state: benchmark publishing has a structured artifact model and the current public
+    benchmark artifact is `full_local_plus_spark`. That profile requires
+    `pyspark`, `spark-default`, and `spark-local-tuned` baseline lanes alongside ShardLoom,
+    ShardLoom prepared Vortex, ShardLoom native Vortex, `shardloom-prepare-batch`, pandas, Polars
+    eager/lazy, DuckDB, DataFusion, and Dask. The latest promoted CSV/Parquet artifact has all
+    required lanes available, preserves PulseWeave and result-sink evidence fields, removes the
+    alias-only `native-vortex` lane from profile accounting, adds cold-lane attribution blocking,
+    and keeps external lanes baseline-only. The benchmark runner now has smoke-proven support for
+    CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC across the required local/Spark baselines. The
+    public broad-format timing-data refresh remains intentionally deferred until the remaining
+    runtime/user-surface closeouts that can change benchmark interpretation are done, including
+    `GAR-RUNTIME-IMPL-5C`, `GAR-RUNTIME-IMPL-5P`, `GAR-RUNTIME-IMPL-4S`, and
+    `GAR-RUNTIME-IMPL-5Q`.
+  - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
+    promoted runtime path and block stale or incomplete public claims. The next public comparative
+    refresh should preserve `full_local_plus_spark` required PySpark/Spark lane enforcement,
+    publish broad-format coverage for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC, carry the
+    SourceState, VortexPreparedState, scout-ingress, preparation-spine, differential, capillary,
+    layout/write, copy-budget, SQL ladder, DataFrame workflow, Foundry/dev-stack, and
+    clean-install usability fields, and move the main ShardLoom comparative roster toward
+    `claim_grade` rows only for admitted runtime paths.
+  - Runtime enablement: runtime-claim publishing validator that keeps public support status tied to
+    fresh evidence.
+  - User-visible surface: website benchmarks, docs/benchmarks, status page, release readiness.
+  - Implementation scope: artifact freshness checker, profile matrix, runtime claim matrix,
+    benchmark page ingestion from canonical generated artifacts, release validators, Spark/JVM
+    profile publishing checks, format coverage checks, and claim-gate closeout diagnostics.
+  - Evidence required: benchmark profile/environment, scenario coverage, lane status, correctness
+    refs, certificate refs, no-fallback fields, claim gate, Spark lane availability, format
+    coverage, and source-state/prepared-state/runtime-workflow coverage.
+  - Acceptance: promoted paths are not presented publicly without current evidence; missing
+    required lanes/scenarios/formats are visible and block claim-grade status; Spark lanes are
+    required and available for `full_local_plus_spark` artifacts; broad formats are visible as
+    supported by the runner until the deferred public refresh promotes their data; prepared/native
+    source-state coverage is rendered from batch evidence instead of a misleading scalar count; the
+    raw comparative roster renders all promoted rows, not a sample; the main ShardLoom comparative
+    roster has no `blocked`, `unsupported`, `not_claim_grade`, or `fixture_smoke_only` rows before
+    any broad claim-grade benchmark publication, while external lanes remain
+    `external_baseline_only` and never satisfy ShardLoom evidence; the benchmark page reuses the
+    runs-today support matrix for support posture and the promoted benchmark bundle for
+    timing/coverage context.
+  - Verification: benchmark artifact completeness checker, website readiness, release readiness,
+    traditional benchmark harness tests, `full_local_plus_spark` preflight/runbook evidence.
+  - Non-goals: no performance/superiority/Spark-replacement claim.
+  - Claim boundary: workload-scoped local benchmark evidence only.
+  - Fallback boundary: external baseline lanes cannot satisfy ShardLoom-native evidence.
+  - Dependencies/blockers: remaining runtime/user-surface closeouts, benchmark manifest schema,
+    runtime envelope validators, scenario fixtures, website renderer support.
+  - Ledger rule: ledger entry must include artifact refs, profile, freshness, and public claim
+    status.
+
 #### GAR-USER-SURFACE-1 PySpark-like Python And SQL User Surface Completion Backstop
 
 This bundle is the explicit completion backstop for the desired end-user shape: ShardLoom should be
 as simple to enter from Python as PySpark is to Spark, while remaining honest that ShardLoom is not a
 Spark API clone, Spark replacement, distributed runtime claim, production SQL/DataFrame claim, or
-external-engine fallback. Existing runtime items (`GAR-RUNTIME-IMPL-5B`, `GAR-RUNTIME-IMPL-5C`,
-and `GAR-RUNTIME-IMPL-5Q`) own much of the remaining implementation; completed
-`GAR-RUNTIME-IMPL-5I` session/cache evidence supplies the scoped lifecycle footing. This section
-keeps the user-surface parity target visible until the full import/context/session/SQL/DataFrame
-path is runnable, documented, tested, and claim-safe.
+external-engine fallback. Completed `GAR-RUNTIME-IMPL-5B` SQL ladder evidence supplies the scoped
+SQL footing; existing runtime items (`GAR-RUNTIME-IMPL-5C` and `GAR-RUNTIME-IMPL-5Q`) own much of
+the remaining implementation; completed `GAR-RUNTIME-IMPL-5I` session/cache evidence supplies the
+scoped lifecycle footing. This section keeps the user-surface parity target visible until the full
+import/context/session/SQL/DataFrame path is runnable, documented, tested, and claim-safe.
 
 - [ ] GAR-USER-SURFACE-1C DataFrame/query-builder parity for ordinary local workflows
   - Source: PySpark DataFrame usability reference, `GAR-RUNTIME-IMPL-5C`, Use Case Atlas, Python

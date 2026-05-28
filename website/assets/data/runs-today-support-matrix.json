@@ -88,6 +88,7 @@
     "typed_envelope_compatibility_lock",
     "release_readiness_metadata",
     "sql_local_source_runtime_smoke",
+    "sql_frontend_runtime_ladder_fields",
     "sql_parser_tests",
     "python_query_builder_tests",
     "vortex_ingest_evidence_fields",
@@ -190,12 +191,13 @@
       "feature_gate": "default",
       "evidence_refs": [
         "sql_local_source_runtime_smoke",
+        "sql_frontend_runtime_ladder_fields",
         "sql_parser_tests",
         "python_query_builder_tests"
       ],
       "blocker_id": "none",
       "claim_gate_status": "fixture_smoke_only",
-      "claim_boundary": "scoped local flat-source SQL smoke execution only, not broad SQL/DataFrame support",
+      "claim_boundary": "scoped local-source SQL runtime ladder smoke execution only; not broad SQL/DataFrame, object-store/table SQL, external-engine, fallback, production, or performance support",
       "runtime_execution": true,
       "data_read": true,
       "write_io": false,

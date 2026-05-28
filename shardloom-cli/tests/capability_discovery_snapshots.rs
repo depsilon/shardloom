@@ -1028,6 +1028,72 @@ const SQL_FIELD_KEYS: [&str; 55] = [
     "sql_local_source_smoke_blocked_shapes",
 ];
 
+const SQL_FRONTEND_RUNTIME_LADDER_FIELD_KEYS: [&str; 24] = [
+    "sql_frontend_runtime_ladder_schema_version",
+    "sql_frontend_runtime_ladder_matrix_id",
+    "sql_frontend_runtime_ladder_support_status_vocabulary",
+    "sql_frontend_runtime_ladder_row_count",
+    "sql_frontend_runtime_ladder_row_order",
+    "sql_frontend_runtime_ladder_runtime_family_order",
+    "sql_frontend_runtime_ladder_blocked_family_order",
+    "sql_frontend_runtime_ladder_smoke_supported_count",
+    "sql_frontend_runtime_ladder_blocked_count",
+    "sql_frontend_runtime_ladder_blocker_ids",
+    "sql_frontend_runtime_ladder_required_evidence",
+    "sql_frontend_runtime_ladder_parser_executed",
+    "sql_frontend_runtime_ladder_binder_executed",
+    "sql_frontend_runtime_ladder_planner_executed",
+    "sql_frontend_runtime_ladder_runtime_execution",
+    "sql_frontend_runtime_ladder_dataframe_runtime",
+    "sql_frontend_runtime_ladder_source_io_performed",
+    "sql_frontend_runtime_ladder_output_io_performed",
+    "sql_frontend_runtime_ladder_deterministic_diagnostics_present",
+    "sql_frontend_runtime_ladder_fallback_attempted",
+    "sql_frontend_runtime_ladder_external_engine_invoked",
+    "sql_frontend_runtime_ladder_broad_sql_claim_allowed",
+    "sql_frontend_runtime_ladder_claim_gate_status",
+    "sql_frontend_runtime_ladder_claim_boundary",
+];
+
+const SQL_FRONTEND_RUNTIME_LADDER_ROW_IDS: [&str; 13] = [
+    "local_source_projection_filter_limit",
+    "local_source_predicate_expression_ladder",
+    "local_source_aggregate_group_having",
+    "local_source_order_topn",
+    "local_source_join_ladder",
+    "local_source_window_ladder",
+    "local_source_output_fanout",
+    "source_free_sql_generated_output",
+    "broad_sql_parse_bind_plan_execute",
+    "catalog_cte_setop_recursive_sql",
+    "correlated_and_broad_subquery_sql",
+    "object_store_table_sql",
+    "fallback_engine_sql",
+];
+
+const SQL_FRONTEND_RUNTIME_LADDER_ROW_SUFFIXES: [&str; 20] = [
+    "syntax_family",
+    "surface",
+    "support_status",
+    "parser_executed",
+    "binder_executed",
+    "planner_executed",
+    "runtime_execution",
+    "dataframe_runtime",
+    "source_io_performed",
+    "output_io_performed",
+    "materialization_required",
+    "deterministic_diagnostics",
+    "blocker_id",
+    "unsupported_diagnostic_code",
+    "required_evidence",
+    "evidence_command_refs",
+    "claim_gate_status",
+    "claim_boundary",
+    "fallback_attempted",
+    "external_engine_invoked",
+];
+
 fn with_generated_source_fields(base_keys: &[&'static str]) -> Vec<&'static str> {
     base_keys
         .iter()
@@ -1036,40 +1102,37 @@ fn with_generated_source_fields(base_keys: &[&'static str]) -> Vec<&'static str>
         .collect()
 }
 
-fn with_generated_source_api_admission_fields(base_keys: &[&'static str]) -> Vec<String> {
-    let mut keys: Vec<String> = with_generated_source_fields(base_keys)
-        .into_iter()
-        .map(str::to_string)
-        .collect();
+fn append_sql_frontend_runtime_ladder_keys(keys: &mut Vec<String>) {
     keys.extend(
-        GENERATED_SOURCE_API_ADMISSION_FIELD_KEYS
+        SQL_FRONTEND_RUNTIME_LADDER_FIELD_KEYS
             .into_iter()
             .map(str::to_string),
     );
-    for row_id in GENERATED_SOURCE_API_ADMISSION_ROW_IDS {
+    for row_id in SQL_FRONTEND_RUNTIME_LADDER_ROW_IDS {
         keys.extend(
-            GENERATED_SOURCE_API_ADMISSION_ROW_SUFFIXES
+            SQL_FRONTEND_RUNTIME_LADDER_ROW_SUFFIXES
                 .into_iter()
-                .map(|suffix| format!("{row_id}_{suffix}")),
+                .map(|suffix| format!("sql_frontend_runtime_ladder_row_{row_id}_{suffix}")),
         );
+    }
+}
+
+fn with_sql_frontend_runtime_ladder_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys = Vec::new();
+    for key in base_keys {
+        keys.push((*key).to_string());
+        if *key == "planner_readiness_deterministic_diagnostics_present" {
+            append_sql_frontend_runtime_ladder_keys(&mut keys);
+        }
     }
     keys
 }
 
-fn with_generated_source_alignment_fields(base_keys: &[&'static str]) -> Vec<String> {
-    let mut keys = with_generated_source_api_admission_fields(base_keys);
-    keys.extend(
-        GENERATED_SOURCE_EVIDENCE_ALIGNMENT_FIELD_KEYS
-            .into_iter()
-            .map(str::to_string),
-    );
-    for row_id in GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_IDS {
-        keys.extend(
-            GENERATED_SOURCE_EVIDENCE_ALIGNMENT_ROW_SUFFIXES
-                .into_iter()
-                .map(|suffix| format!("generated_source_evidence_alignment_row_{row_id}_{suffix}")),
-        );
-    }
+fn with_sql_generated_source_alignment_fields(base_keys: &[&'static str]) -> Vec<String> {
+    let mut keys = with_sql_frontend_runtime_ladder_fields(base_keys);
+    append_generated_source_contract_keys(&mut keys);
+    append_generated_source_api_admission_keys(&mut keys);
+    append_generated_source_alignment_keys(&mut keys);
     keys
 }
 
@@ -2100,7 +2163,7 @@ fn capability_discovery_json_field_keys_are_stable() {
     let keys: Vec<String> = keys.into_iter().map(str::to_string).collect();
     assert_eq!(
         keys.as_slice(),
-        with_generated_source_alignment_fields(SQL_FIELD_KEYS.as_slice()).as_slice(),
+        with_sql_generated_source_alignment_fields(SQL_FIELD_KEYS.as_slice()).as_slice(),
         "scope=sql"
     );
 
@@ -2930,6 +2993,13 @@ fn assert_universal_compatibility_unsupported_boundaries(output: &str) {
 fn runs_today_exposes_generated_current_support_matrix() {
     let output = run_runs_today();
 
+    assert_runs_today_summary_fields(&output);
+    assert_runs_today_effect_fields(&output);
+    assert_runs_today_row_states(&output);
+    assert_runs_today_evidence_refs(&output);
+}
+
+fn assert_runs_today_summary_fields(output: &str) {
     for (key, value) in [
         (
             "runs_today_schema_version",
@@ -2963,7 +3033,9 @@ fn runs_today_exposes_generated_current_support_matrix() {
             "missing runs-today field {key}={value}"
         );
     }
+}
 
+fn assert_runs_today_effect_fields(output: &str) {
     for key in [
         "fallback_execution_allowed",
         "fallback_attempted",
@@ -2989,6 +3061,9 @@ fn runs_today_exposes_generated_current_support_matrix() {
             "missing true {key}"
         );
     }
+}
+
+fn assert_runs_today_row_states(output: &str) {
     for (row, support_state) in [
         ("cli_sql_local_source_smoke", "executable"),
         ("cli_vortex_ingest_smoke", "feature_gated"),
@@ -3020,6 +3095,21 @@ fn runs_today_exposes_generated_current_support_matrix() {
             false
         )));
     }
+}
+
+fn assert_runs_today_evidence_refs(output: &str) {
+    assert!(output.contains(&string_field_pair(
+        "runs_today_row_cli_sql_local_source_smoke_evidence_refs",
+        "sql_local_source_runtime_smoke,sql_frontend_runtime_ladder_fields,sql_parser_tests,python_query_builder_tests"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "runs_today_row_cli_vortex_ingest_smoke_evidence_refs",
+        "sql_local_source_runtime_smoke,vortex_ingest_evidence_fields,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields"
+    )));
+    assert!(output.contains(&string_field_pair(
+        "runs_today_row_input_parquet_arrow_avro_orc_evidence_refs",
+        "feature_gated_sql_local_source_tests,vortex_ingest_smoke_structured_adapter_tests,vortex_preparation_spine_evidence_fields,vortex_scout_ingress_evidence_fields,vortex_layout_write_advisor_evidence_fields,vortex_copy_budget_evidence_fields,vortex_differential_preparation_evidence_fields,vortex_capillary_preparation_evidence_fields,traditional_direct_transient_structured_tests,universal_ingress_route_taxonomy"
+    )));
 }
 
 fn assert_generated_output_compatibility_fields(output: &str) {
@@ -3291,83 +3381,155 @@ fn assert_database_warehouse_matrix_fields(output: &str) {
 fn sql_and_dataframe_capabilities_expose_planner_readiness_matrix() {
     for scope in ["sql", "dataframe"] {
         let output = run_capabilities_scope(scope);
-        for key in PLANNER_READINESS_FIELD_KEYS {
-            assert!(
-                output.contains(&format!("{{\"key\":\"{key}\",\"value\":")),
-                "scope={scope} missing key={key}"
-            );
-        }
-        assert!(output.contains(&string_field_pair(
-            "planner_readiness_schema_version",
-            "shardloom.sql_dataframe_planner_readiness.v1"
-        )));
-        assert!(output.contains(&string_field_pair(
-            "planner_readiness_claim_gate_status",
-            "not_claim_grade"
-        )));
-        assert!(output.contains(&string_field_pair(
-            "planner_readiness_sql_row_order",
-            "sql_text_admission,sql_parse,sql_bind,sql_plan,sql_execute"
-        )));
-        assert!(output.contains(&string_field_pair(
-            "planner_readiness_dataframe_row_order",
-            "dataframe_lazy_plan,dataframe_expression_builder,dataframe_join,dataframe_aggregate,dataframe_window"
-        )));
-        assert!(output.contains(&string_field_pair(
-            "planner_readiness_unsupported_diagnostic_codes",
-            "SL_SQL_TEXT_ADMISSION_REPORT_ONLY,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_DATAFRAME_LAZY_PLAN_REPORT_ONLY,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_PLANNER_READINESS_DIAGNOSTICS_REPORT_ONLY,SL_UNSUPPORTED_PLANNER_EXECUTION_STATE"
-        )));
-        assert!(output.contains(&field_pair("planner_readiness_parser_executed", false)));
-        assert!(output.contains(&field_pair("planner_readiness_binder_executed", false)));
-        assert!(output.contains(&field_pair("planner_readiness_planner_executed", false)));
-        assert!(output.contains(&field_pair("planner_readiness_runtime_execution", false)));
-        assert!(output.contains(&field_pair("planner_readiness_dataframe_runtime", false)));
-        assert!(output.contains(&field_pair(
-            "planner_readiness_external_engine_invoked",
-            false
-        )));
-        assert!(output.contains(&field_pair("planner_readiness_fallback_attempted", false)));
-        assert!(output.contains(&field_pair(
-            "planner_readiness_deterministic_diagnostics_present",
-            true
-        )));
+        assert_planner_readiness_fields(&output, scope);
         if scope == "sql" {
-            assert!(output.contains(&string_field_pair(
-                "sql_local_source_smoke_schema_version",
-                "shardloom.sql_local_source_smoke.v1"
-            )));
-            assert!(output.contains(&string_field_pair(
-                "sql_local_source_smoke_command",
-                "sql-local-source-smoke"
-            )));
-            assert!(output.contains(&string_field_pair(
-                "sql_local_source_smoke_support_status",
-                "fixture_smoke_supported"
-            )));
-            assert!(output.contains(&string_field_pair(
-                "sql_local_source_smoke_execution_mode",
-                "direct_compatibility_transient"
-            )));
-            assert!(output.contains(&field_pair(
-                "sql_local_source_smoke_runtime_execution",
-                true
-            )));
-            assert!(output.contains(&field_pair(
-                "sql_local_source_smoke_external_engine_invoked",
-                false
-            )));
-            assert!(output.contains(&field_pair(
-                "sql_local_source_smoke_fallback_attempted",
-                false
-            )));
-            assert!(output.contains(&string_field_pair(
-                "sql_local_source_smoke_claim_gate_status",
-                "fixture_smoke_only"
-            )));
+            assert_sql_frontend_runtime_ladder_fields(&output);
+            assert_sql_local_source_smoke_fields(&output);
         } else {
+            assert!(!output.contains("sql_frontend_runtime_ladder_schema_version"));
             assert!(!output.contains("sql_local_source_smoke_schema_version"));
         }
     }
+}
+
+fn assert_planner_readiness_fields(output: &str, scope: &str) {
+    for key in PLANNER_READINESS_FIELD_KEYS {
+        assert!(
+            output.contains(&format!("{{\"key\":\"{key}\",\"value\":")),
+            "scope={scope} missing key={key}"
+        );
+    }
+    for (key, value) in [
+        (
+            "planner_readiness_schema_version",
+            "shardloom.sql_dataframe_planner_readiness.v1",
+        ),
+        ("planner_readiness_claim_gate_status", "not_claim_grade"),
+        (
+            "planner_readiness_sql_row_order",
+            "sql_text_admission,sql_parse,sql_bind,sql_plan,sql_execute",
+        ),
+        (
+            "planner_readiness_dataframe_row_order",
+            "dataframe_lazy_plan,dataframe_expression_builder,dataframe_join,dataframe_aggregate,dataframe_window",
+        ),
+        (
+            "planner_readiness_unsupported_diagnostic_codes",
+            "SL_SQL_TEXT_ADMISSION_REPORT_ONLY,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_DATAFRAME_LAZY_PLAN_REPORT_ONLY,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_UNSUPPORTED_SQL,SL_PLANNER_READINESS_DIAGNOSTICS_REPORT_ONLY,SL_UNSUPPORTED_PLANNER_EXECUTION_STATE",
+        ),
+    ] {
+        assert!(output.contains(&string_field_pair(key, value)));
+    }
+    assert_planner_readiness_boolean_fields(output);
+}
+
+fn assert_planner_readiness_boolean_fields(output: &str) {
+    for key in [
+        "planner_readiness_parser_executed",
+        "planner_readiness_binder_executed",
+        "planner_readiness_planner_executed",
+        "planner_readiness_runtime_execution",
+        "planner_readiness_dataframe_runtime",
+        "planner_readiness_external_engine_invoked",
+        "planner_readiness_fallback_attempted",
+    ] {
+        assert!(output.contains(&field_pair(key, false)));
+    }
+    assert!(output.contains(&field_pair(
+        "planner_readiness_deterministic_diagnostics_present",
+        true
+    )));
+}
+
+fn assert_sql_frontend_runtime_ladder_fields(output: &str) {
+    for key in SQL_FRONTEND_RUNTIME_LADDER_FIELD_KEYS {
+        assert!(
+            output.contains(&format!("{{\"key\":\"{key}\",\"value\":")),
+            "missing SQL frontend runtime ladder key={key}"
+        );
+    }
+    for (key, value) in [
+        (
+            "sql_frontend_runtime_ladder_schema_version",
+            "shardloom.sql_frontend_runtime_ladder.v1",
+        ),
+        (
+            "sql_frontend_runtime_ladder_runtime_family_order",
+            "local_source_projection_filter_limit,local_source_predicate_expression_ladder,local_source_aggregate_group_having,local_source_order_topn,local_source_join_ladder,local_source_window_ladder,local_source_output_fanout,source_free_sql_generated_output",
+        ),
+        (
+            "sql_frontend_runtime_ladder_blocked_family_order",
+            "broad_sql_parse_bind_plan_execute,catalog_cte_setop_recursive_sql,correlated_and_broad_subquery_sql,object_store_table_sql,fallback_engine_sql",
+        ),
+        (
+            "sql_frontend_runtime_ladder_row_local_source_join_ladder_support_status",
+            "smoke-supported",
+        ),
+        (
+            "sql_frontend_runtime_ladder_row_broad_sql_parse_bind_plan_execute_blocker_id",
+            "cg21.workflow.sql.execute_unsupported",
+        ),
+    ] {
+        assert!(output.contains(&string_field_pair(key, value)));
+    }
+    assert_sql_frontend_runtime_ladder_boolean_fields(output);
+}
+
+fn assert_sql_frontend_runtime_ladder_boolean_fields(output: &str) {
+    for (key, value) in [
+        ("sql_frontend_runtime_ladder_parser_executed", true),
+        ("sql_frontend_runtime_ladder_runtime_execution", true),
+        ("sql_frontend_runtime_ladder_dataframe_runtime", false),
+        ("sql_frontend_runtime_ladder_fallback_attempted", false),
+        ("sql_frontend_runtime_ladder_external_engine_invoked", false),
+        ("sql_frontend_runtime_ladder_broad_sql_claim_allowed", false),
+        (
+            "sql_frontend_runtime_ladder_row_local_source_window_ladder_runtime_execution",
+            true,
+        ),
+        (
+            "sql_frontend_runtime_ladder_row_fallback_engine_sql_external_engine_invoked",
+            false,
+        ),
+    ] {
+        assert!(output.contains(&field_pair(key, value)));
+    }
+}
+
+fn assert_sql_local_source_smoke_fields(output: &str) {
+    for (key, value) in [
+        (
+            "sql_local_source_smoke_schema_version",
+            "shardloom.sql_local_source_smoke.v1",
+        ),
+        ("sql_local_source_smoke_command", "sql-local-source-smoke"),
+        (
+            "sql_local_source_smoke_support_status",
+            "fixture_smoke_supported",
+        ),
+        (
+            "sql_local_source_smoke_execution_mode",
+            "direct_compatibility_transient",
+        ),
+        (
+            "sql_local_source_smoke_claim_gate_status",
+            "fixture_smoke_only",
+        ),
+    ] {
+        assert!(output.contains(&string_field_pair(key, value)));
+    }
+    assert!(output.contains(&field_pair(
+        "sql_local_source_smoke_runtime_execution",
+        true
+    )));
+    assert!(output.contains(&field_pair(
+        "sql_local_source_smoke_external_engine_invoked",
+        false
+    )));
+    assert!(output.contains(&field_pair(
+        "sql_local_source_smoke_fallback_attempted",
+        false
+    )));
 }
 
 #[test]

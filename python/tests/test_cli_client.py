@@ -225,7 +225,7 @@ class ShardLoomClientTests(unittest.TestCase):
                     ["runs_today_row_cli_sql_local_source_smoke_surface", "sql-local-source-smoke"],
                     ["runs_today_row_cli_sql_local_source_smoke_support_state", "executable"],
                     ["runs_today_row_cli_sql_local_source_smoke_feature_gate", "default"],
-                    ["runs_today_row_cli_sql_local_source_smoke_evidence_refs", "sql_local_source_runtime_smoke"],
+                    ["runs_today_row_cli_sql_local_source_smoke_evidence_refs", "sql_local_source_runtime_smoke,sql_frontend_runtime_ladder_fields"],
                     ["runs_today_row_cli_sql_local_source_smoke_blocker_id", "none"],
                     ["runs_today_row_cli_sql_local_source_smoke_claim_gate_status", "fixture_smoke_only"],
                     ["runs_today_row_cli_sql_local_source_smoke_claim_boundary", "scoped local SQL only"],
@@ -287,6 +287,7 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertIsInstance(row, RunsTodaySupportRow)
         self.assertEqual(row.support_state, "executable")
         self.assertEqual(row.surface, ("sql-local-source-smoke",))
+        self.assertIn("sql_frontend_runtime_ladder_fields", row.evidence_refs)
         self.assertTrue(row.runtime_execution)
         self.assertTrue(row.data_read)
         self.assertFalse(row.fallback_attempted)

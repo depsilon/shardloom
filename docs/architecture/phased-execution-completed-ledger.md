@@ -16,6 +16,54 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder
+  - Date: 2026-05-28
+  - Branch/PR: `runtime-5b-sql-ladder` / PR pending.
+  - Source:
+    - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
+    - `docs/architecture/sql-parser-binder-readiness.md`, RFC 0032, and the completed
+      `GAR-RUNTIME-IMPL-4D` expression/operator closeout.
+  - Scope:
+    - Added `shardloom.sql_frontend_runtime_ladder.v1` to SQL capability discovery so the SQL
+      surface exposes a stable support matrix instead of a broad "planned/report-only" statement
+      for every SQL question.
+    - Enumerates scoped `smoke-supported` runtime families for local/source-free SQL:
+      projection/filter/limit, predicate/expression, aggregate/GROUP BY/HAVING, ORDER BY/top-N,
+      joins, windows, local output/fanout, and source-free generated-output SQL.
+    - Enumerates blocked families with deterministic diagnostics and evidence requirements for
+      broad parse/bind/plan/execute SQL, catalog/CTE/set-operation/recursive SQL, correlated and
+      broad subqueries, object-store/table SQL, and fallback-engine SQL.
+    - Emits parser, binder, planner, runtime, source I/O, output I/O, materialization,
+      unsupported-diagnostic, required-evidence, claim-boundary, no-fallback, and
+      no-external-engine fields for every ladder row.
+    - Updated the SQL/DataFrame capability posture use case, website status content, generated use
+      case data, runs-today support matrix, and SQL parser/binder readiness doc so user-facing
+      surfaces report scoped SQL runtime accurately without claiming broad SQL/DataFrame support.
+    - Moved `GAR-RUNTIME-IMPL-5B` out of the live queue and reordered the benchmark refresh gate
+      behind remaining runtime/user-surface closeouts that can still affect public benchmark
+      interpretation.
+  - Admitted families:
+    - `local_source_projection_filter_limit`.
+    - `local_source_predicate_expression_ladder`.
+    - `local_source_aggregate_group_having`.
+    - `local_source_order_topn`.
+    - `local_source_join_ladder`.
+    - `local_source_window_ladder`.
+    - `local_source_output_fanout`.
+    - `source_free_sql_generated_output`.
+  - Blocked families:
+    - `broad_sql_parse_bind_plan_execute`.
+    - `catalog_cte_setop_recursive_sql`.
+    - `correlated_and_broad_subquery_sql`.
+    - `object_store_table_sql`.
+    - `fallback_engine_sql`.
+  - Claim boundary:
+    - Scoped local-source and source-free SQL fixture-smoke runtime families are admitted with
+      deterministic blockers for broad SQL; no production, broad SQL/DataFrame, object-store/table,
+      external-engine, fallback, performance, or Spark-replacement claim is created.
+  - Verification:
+    - Focused Rust/Python/status/docs verification recorded in the PR before merge.
+
 - [x] Session label: GAR-IOREUSE-1L / GAR-PERF-2J / GAR-PERF-2K cold-lane ingress, layout/write, and copy-budget bundle
   - Date: 2026-05-28
   - Branch/PR: `ioreuse-1l-scout-ingress` / PR #974.

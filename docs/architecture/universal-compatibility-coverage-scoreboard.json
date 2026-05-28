@@ -722,8 +722,8 @@
       "external_engine_invoked": false,
       "claim_gate_status": "fixture_smoke_only",
       "blocker_id": "none_scoped_local_sql_values_literals_jsonl_csv_smoke_only",
-      "required_future_evidence": "broader_sql_parser_binder_planner_local_source_operator_evidence",
-      "claim_boundary": "Only source-free SQL VALUES/literal/range-generator local JSONL/CSV fixture smokes are admitted; no broad SQL runtime claim.",
+      "required_future_evidence": "broad_sql_catalog_cte_setop_recursive_subquery_object_store_table_operator_evidence",
+      "claim_boundary": "Only source-free SQL VALUES/literal/range-generator local JSONL/CSV fixture smokes and explicitly admitted SQL runtime-ladder fixture smokes are admitted; no broad SQL runtime claim.",
       "source_aliases": [
         "sql_values",
         "sql_literal_select",

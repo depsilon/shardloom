@@ -156,11 +156,11 @@ use_cases:
     engine_mode: none
     inputs: [sql_text, dataframe_api_request]
     outputs: [capability_report, deterministic_unsupported_diagnostics]
-    evidence_fields: [support_status=report_only, runtime_execution=false, planner_readiness_non_executing, claim_gate_status=not_claim_grade, fallback_attempted=false, external_engine_invoked=false]
-    claim_boundary: "SQL/DataFrame readiness is inspectable but runtime execution is not broadly supported or production-claimable."
+    evidence_fields: [support_status=report_only, sql_frontend_runtime_ladder_schema_version=shardloom.sql_frontend_runtime_ladder.v1, planner_readiness_non_executing, scoped_sql_runtime_execution=true, broad_sql_claim_allowed=false, claim_gate_status=not_claim_grade, fallback_attempted=false, external_engine_invoked=false]
+    claim_boundary: "Scoped SQL runtime families are inspectable and fixture-smoke-supported through the SQL frontend runtime ladder, while broad SQL/DataFrame readiness remains report-only and not production-claimable."
     runnable_example: "target\\debug\\shardloom capabilities sql --format json"
-    blocked_explanation: "SQL parse/bind/plan/execute and broad DataFrame runtime support require future admitted runtime slices with correctness, evidence, and no-fallback proof."
-    expected_output_evidence: "A capability posture report showing report_only or unsupported rows rather than runtime execution."
+    blocked_explanation: "Broad SQL parse/bind/plan/execute, catalogs, CTEs, set operations, correlated/broad subqueries, object-store/table SQL, and broad DataFrame runtime support require future admitted runtime slices with correctness, evidence, and no-fallback proof."
+    expected_output_evidence: "A capability posture report showing the scoped SQL runtime ladder plus report_only or unsupported broad SQL/DataFrame rows."
     common_mistakes: [submitting_sql_and_expecting_execution, assuming_dataframe_lazy_api_exists, mistaking_report_only_for_supported]
     references: [python/README.md, docs/architecture/compute-engine-flow-reference.md, docs/architecture/canonical-terminology.md, README.md]
     related_use_cases: [python-wrapper-client-smoke, source-free-generated-output-boundary]
