@@ -16,6 +16,97 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-RUNTIME-IMPL-4S / GAR-RUNTIME-IMPL-5Q clean install production usability
+      and website learning gate
+  - Date: 2026-05-28
+  - Branch/PR: `runtime-4s-5q-usability-gate` / PR #978.
+  - Source:
+    - `GAR-RUNTIME-IMPL-4S clean install production usability and release rehearsal gate`.
+    - `GAR-RUNTIME-IMPL-5Q final production usability and website learning gate`.
+    - Public preview readiness, package-channel readiness matrix, release dry-run proof, website
+      readiness, Use Case Atlas, benchmark artifact completeness, and hard release-readiness gate.
+  - Scope:
+    - Added `scripts/check_production_usability_gate.py` with schema
+      `shardloom.production_usability_gate.v1` as the local no-publication aggregate over clean
+      venv install, installed-wheel Python/CLI smokes, generated-source output smokes, benchmark
+      smoke, package-channel strict evidence, release security, contribution governance, final
+      release rehearsal, website readiness, benchmark artifact completeness, runs-today status rows,
+      and security/legal/docs learning-path refs.
+    - Expanded `scripts/release_dry_run_proof.py` to emit explicit clean venv, installed-wheel
+      client, CLI status/capabilities, local Python example, generated-source, benchmark, provenance,
+      fallback, and external-engine evidence fields so local package proof is directly consumable by
+      package and usability gates.
+    - Wired the production-usability gate into release validation evidence, CI matrix docs/workflow,
+      hard release-readiness aggregation, and Python/Rust contract tests.
+    - Updated README, getting-started docs, release docs, website start page, Use Case Atlas, and
+      generated website/data mirrors so a non-expert can follow the local install/evidence path
+      without reading the phase plan.
+    - Trimmed `GAR-RUNTIME-IMPL-4S` and `GAR-RUNTIME-IMPL-5Q` from the live phase plan and moved
+      `GAR-RUNTIME-IMPL-5J` into the next logical benchmark-publication closeout position.
+  - Usability matrix:
+    - `clean_venv_local_wheel_install` -> `target/release-dry-run-proof/transcript.json`.
+    - `cli_python_generated_output_smokes` -> `target/release-dry-run-proof/transcript.json`.
+    - `package_channel_local_gate` -> `target/package-channel-readiness-report.json`.
+    - `website_learning_path` -> `target/website-readiness-report.json`.
+    - `benchmark_artifact_completeness` -> `website/assets/benchmarks/latest/manifest.json`.
+    - `public_production_and_package_claims` -> `docs/status/runs-today-support-matrix.json`.
+  - Claim boundary:
+    - Local no-publication production-usability rehearsal only. The gate can pass while hard public
+      release readiness remains blocked. It does not authorize package publication, release tags,
+      signing, artifact upload, production-readiness, performance/superiority, Spark replacement,
+      live object-store/lakehouse, or production Foundry claims.
+  - Required safety fields:
+    - `claim_gate_status=not_claim_grade`
+    - `production_claim_allowed=false`
+    - `performance_claim_allowed=false`
+    - `public_release_claim_allowed=false`
+    - `public_package_claim_allowed=false`
+    - `publication_attempted=false`
+    - `tag_created=false`
+    - `secrets_required=false`
+    - `package_upload_attempted=false`
+    - `fallback_attempted=false`
+    - `external_engine_invoked=false`
+  - Remaining unsupported paths:
+    - Public package publication and install-channel claims remain blocked on channel-specific proof
+      and human approval.
+    - Production-readiness, performance/superiority, and Spark-replacement claims remain blocked on
+      complete runtime/workload-scoped evidence.
+    - Live/authenticated object-store providers, production Foundry deployment, lakehouse/table
+      production commits, and public release signing/upload remain outside this gate.
+  - Verification:
+    - `python -m compileall scripts\check_production_usability_gate.py scripts\release_dry_run_proof.py scripts\check_package_channel_readiness.py scripts\check_release_readiness.py scripts\run_release_validation_evidence.py python\tests\test_release_scripts.py`
+    - `python -m unittest discover python/tests`
+    - `python scripts\release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda`
+    - `python scripts\check_release_security_gate.py`
+    - `python scripts\check_contribution_governance.py`
+    - `python scripts\check_package_channel_readiness.py --require-local-evidence`
+    - `python scripts\check_golden_workflows.py`
+    - `python scripts\check_admitted_semantics_matrix.py`
+    - `python scripts\check_release_architecture_tracker.py --allow-blocked`
+    - `python scripts\final_release_rehearsal.py --allow-blocked`
+    - `python scripts\check_website_readiness.py`
+    - `python scripts\check_benchmark_artifact_completeness.py --manifest website\assets\benchmarks\latest\manifest.json`
+    - `python scripts\check_production_usability_gate.py`
+    - `python scripts\check_release_readiness.py` wrote the expected blocked hard-release report
+      with `production_usability_gate` passed and public release/package claims false.
+    - `node website-src\scripts\sync-content.mjs`
+    - `node node_modules\astro\bin\astro.mjs build` from `website-src`
+    - `node website-src\scripts\postbuild-static.mjs`
+    - `node node_modules\astro\bin\astro.mjs check` from `website-src`
+    - `node website\validate_static_assets.js`
+    - `python scripts\check_use_case_index.py`
+    - `python scripts\check_use_case_coverage.py`
+    - `python scripts\check_use_case_backlinks.py`
+    - `python scripts\check_ci_gate_matrix.py`
+    - `python scripts\check_runtime_execution_envelopes.py`
+    - `python scripts\check_benchmark_constitution.py`
+    - `python scripts\check_evidence_schema_registry.py`
+    - `cargo +1.91.1 fmt --all -- --check`
+    - `cargo +1.91.1 clippy --workspace --all-targets -- -D warnings`
+    - `cargo +1.91.1 test --workspace --all-targets`
+    - `git diff --check`
+
 - [x] Session label: GAR-RUNTIME-IMPL-5P Foundry dev-stack generated-output and transform proof
   - Date: 2026-05-28
   - Branch/PR: `runtime-5p-foundry-dev-proof` / PR #977.

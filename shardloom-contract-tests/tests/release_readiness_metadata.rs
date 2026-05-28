@@ -760,6 +760,7 @@ fn release_package_docs_workflow_and_examples_are_present() {
         "docs/release/github-topic-recommendations.md",
         "docs/release/release-dry-run-proof.md",
         "docs/release/release-provenance-dry-run.md",
+        "docs/release/production-usability-gate.md",
         "docs/release/known-unsupported-paths.md",
         "docs/release/hard-release-readiness-gate.md",
         "docs/release/first-10-minutes-smoke-snapshot.md",
@@ -804,6 +805,11 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(proof.contains("publication_attempted"));
     assert!(proof.contains("fallback_engine_dependency_added"));
     assert!(proof.contains("release_provenance_dry_run"));
+    assert!(proof.contains("clean_venv_install_status=passed"));
+    assert!(proof.contains("wheel_import_and_client_smoke_performed=true"));
+    assert!(proof.contains("cli_status_smoke_performed=true"));
+    assert!(proof.contains("cli_capabilities_smoke_performed=true"));
+    assert!(proof.contains("local_python_example_smoke_performed=true"));
     assert!(proof.contains("provenance_dry_run_performed"));
     assert!(proof.contains("sbom_checksum_manifest_generated"));
     assert!(proof.contains("generated_source_user_rows_smoke_performed=true"));
@@ -842,6 +848,7 @@ fn release_dry_run_docs_describe_clean_venv_and_no_publication_proof() {
     assert!(first_ten.contains("ctx.range"));
     assert!(first_ten.contains("shardloom-prepared-vortex"));
     assert!(first_ten.contains("public package release"));
+    assert!(first_ten.contains("scripts\\check_production_usability_gate.py"));
 }
 
 #[test]
@@ -1303,6 +1310,9 @@ fn hard_release_readiness_gate_docs_are_present() {
         "shardloom.package_channel_readiness_matrix.v1",
         "python scripts\\check_package_channel_readiness.py",
         "target/package-channel-readiness-report.json",
+        "shardloom.production_usability_gate.v1",
+        "python scripts\\check_production_usability_gate.py",
+        "target/production-usability-gate.json",
         "shardloom-prepare-batch",
         "Trusted Publisher/OIDC",
         "Internal Rust crates remain unpublished",
@@ -2069,6 +2079,7 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
         "cargo check --workspace --all-features",
         "python scripts/check_dependency_audit.py --release-gate",
         "python scripts/release_dry_run_proof.py --rows 8 --iterations 1 --skip-clean-conda",
+        "python scripts/check_production_usability_gate.py",
         "python scripts/check_release_readiness.py",
         "npm run build",
         "node website/validate_static_assets.js",
@@ -2088,6 +2099,7 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
         "website_docs_validation",
         "ci_gate_matrix_contract",
         "target/ci-gate-matrix-report.json",
+        "target/production-usability-gate.json",
         "public_release_claim_allowed=false",
         "public_package_claim_allowed=false",
         "fallback_attempted=false",
@@ -2109,6 +2121,101 @@ fn gar_0043_b_final_release_rehearsal_remains_no_publication() {
     assert!(traceability.contains("GAR-0043-B"));
     assert!(traceability.contains("shardloom.final_release_rehearsal_report.v1"));
     assert!(traceability.contains("Actual public publication remains unauthorized"));
+}
+
+#[test]
+fn gar_runtime_4s_5q_production_usability_gate_is_local_and_claim_safe() {
+    let script = read_repo_file("scripts/check_production_usability_gate.py");
+    for required in [
+        "shardloom.production_usability_gate.v1",
+        "GAR-RUNTIME-IMPL-4S",
+        "GAR-RUNTIME-IMPL-5Q",
+        "release-dry-run-proof/transcript.json",
+        "package-channel-readiness-report.json",
+        "website-readiness-report.json",
+        "final-release-rehearsal-report.json",
+        "website/assets/benchmarks/latest/manifest.json",
+        "runs-today-support-matrix.json",
+        "production_usability_gate_status",
+        "local_no_publication_production_usability_rehearsal",
+        "production_claim_allowed",
+        "performance_claim_allowed",
+        "public_release_claim_allowed",
+        "public_package_claim_allowed",
+        "package_upload_attempted",
+        "fallback_attempted",
+        "external_engine_invoked",
+    ] {
+        assert!(
+            script.contains(required),
+            "missing production usability script marker {required}"
+        );
+    }
+
+    let readiness_script = read_repo_file("scripts/check_release_readiness.py");
+    for required in [
+        "--production-usability-report",
+        "target/production-usability-gate.json",
+        "production_usability_report_ref",
+        "shardloom.production_usability_gate.v1",
+        "python scripts/check_production_usability_gate.py",
+    ] {
+        assert!(
+            readiness_script.contains(required),
+            "missing production usability hard-gate marker {required}"
+        );
+    }
+
+    let validation_script = read_repo_file("scripts/run_release_validation_evidence.py");
+    assert!(validation_script.contains("production_usability_gate"));
+    assert!(validation_script.contains("scripts/check_production_usability_gate.py"));
+    assert!(validation_script.contains("scripts/check_website_readiness.py"));
+    assert!(validation_script.contains("scripts/check_benchmark_artifact_completeness.py"));
+
+    let doc = read_repo_file("docs/release/production-usability-gate.md");
+    for required in [
+        "shardloom.production_usability_gate.v1",
+        "python scripts\\check_production_usability_gate.py",
+        "target/production-usability-gate.json",
+        "target/release-dry-run-proof/transcript.json",
+        "target/package-channel-readiness-report.json",
+        "target/website-readiness-report.json",
+        "public_release_claim_allowed=false",
+        "public_package_claim_allowed=false",
+        "production_claim_allowed=false",
+        "performance_claim_allowed=false",
+        "fallback_attempted=false",
+        "external_engine_invoked=false",
+    ] {
+        assert!(
+            doc.contains(required),
+            "missing production usability doc marker {required}"
+        );
+    }
+
+    let start_page = read_repo_file("website-src/src/pages/start.astro");
+    assert!(start_page.contains("release_dry_run_proof.py"));
+    assert!(start_page.contains("check_production_usability_gate.py"));
+
+    let install = read_repo_file("docs/getting-started/install.md");
+    assert!(install.contains("target/production-usability-gate.json"));
+    assert!(install.contains("public_release_claim_allowed=false"));
+
+    let package_use_case = read_repo_file("docs/use-cases/use-case-index.yml");
+    assert!(package_use_case.contains("production_usability_gate_status"));
+    assert!(package_use_case.contains("docs/release/production-usability-gate.md"));
+
+    let plan = read_repo_file("docs/architecture/phased-execution-plan.md");
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-4S"));
+    assert!(!plan.contains("- [ ] GAR-RUNTIME-IMPL-5Q"));
+    assert!(plan.contains("GAR-RUNTIME-IMPL-5J benchmark publishing"));
+
+    let completed = read_repo_file("docs/architecture/phased-execution-completed-ledger.md");
+    assert!(completed.contains("GAR-RUNTIME-IMPL-4S / GAR-RUNTIME-IMPL-5Q"));
+    assert!(completed.contains("shardloom.production_usability_gate.v1"));
+    assert!(completed.contains("clean_venv_local_wheel_install"));
+    assert!(completed.contains("website_learning_path"));
+    assert!(completed.contains("public_production_and_package_claims"));
 }
 
 #[test]

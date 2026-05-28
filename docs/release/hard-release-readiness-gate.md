@@ -400,6 +400,24 @@ attestation or signature. Real artifact signing, public attestations, release ta
 package-channel submissions remain maintainer-approved release actions outside autonomous Codex
 execution.
 
+`GAR-RUNTIME-IMPL-4S` / `GAR-RUNTIME-IMPL-5Q` add the local production-usability aggregate with
+schema `shardloom.production_usability_gate.v1`. It consumes the release dry-run transcript,
+package-channel strict report, release security report, contribution-governance report, final
+release rehearsal, website readiness report, benchmark artifact completeness, runs-today status
+matrix, and docs/security/legal learning-path refs. The local usability gate can pass while this
+hard public-release gate remains blocked; it must keep `public_release_claim_allowed=false`,
+`public_package_claim_allowed=false`, `production_claim_allowed=false`,
+`performance_claim_allowed=false`, `publication_attempted=false`, `tag_created=false`,
+`fallback_attempted=false`, and `external_engine_invoked=false`.
+
+Run:
+
+```powershell
+python scripts\check_production_usability_gate.py
+```
+
+The report is written to `target/production-usability-gate.json` and is consumed by this hard gate.
+
 `GAR-PERF-2H` adds the optimized build-profile and PGO benchmark lane. Portable release artifacts
 remain the normal `release` profile artifacts unless a separate release gate explicitly admits a
 portable optimized profile. `release-lto` is portable ThinLTO benchmark evidence, `release-pgo` is
