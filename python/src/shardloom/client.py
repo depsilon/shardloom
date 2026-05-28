@@ -825,6 +825,131 @@ class VortexIngestSmokeReport:
         )
 
     @property
+    def vortex_scout_ingress_status(self) -> str | None:
+        """Return scoped scout ingress and triage status."""
+
+        return self.envelope.field("vortex_scout_ingress_status")
+
+    @property
+    def vortex_scout_ingress_anomaly_count(self) -> int:
+        """Return the number of source anomalies reported by scout ingress."""
+
+        return self.envelope.field_int("vortex_scout_ingress_anomaly_count", 0) or 0
+
+    @property
+    def vortex_scout_ingress_anomaly_families(self) -> tuple[str, ...]:
+        """Return anomaly families reported by scout ingress."""
+
+        value = self.envelope.field("vortex_scout_ingress_anomaly_families")
+        return () if value in {None, "", "none"} else tuple(value.split(","))
+
+    @property
+    def vortex_scout_ingress_schema_drift_status(self) -> str | None:
+        """Return schema-drift status reported by scout ingress."""
+
+        return self.envelope.field("vortex_scout_ingress_schema_drift_status")
+
+    @property
+    def vortex_scout_ingress_unsupported_shape_status(self) -> str | None:
+        """Return unsupported-shape status reported by scout ingress."""
+
+        return self.envelope.field("vortex_scout_ingress_unsupported_shape_status")
+
+    @property
+    def vortex_scout_ingress_quarantine_required(self) -> bool:
+        """Whether scout ingress requires quarantine planning."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_scout_ingress_quarantine_required",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def vortex_scout_ingress_quarantine_output_plan_status(self) -> str | None:
+        """Return quarantine-output planning status."""
+
+        return self.envelope.field("vortex_scout_ingress_quarantine_output_plan_status")
+
+    @property
+    def vortex_scout_ingress_unsupported_diagnostic_code(self) -> str | None:
+        """Return the scout diagnostic code for blocked source admission."""
+
+        return self.envelope.field("vortex_scout_ingress_unsupported_diagnostic_code")
+
+    @property
+    def vortex_scout_ingress_no_standalone_lane_status(self) -> str | None:
+        """Return whether scout ingress stayed in the vortex_ingest route."""
+
+        return self.envelope.field("vortex_scout_ingress_no_standalone_lane_status")
+
+    @property
+    def vortex_layout_write_advisor_status(self) -> str | None:
+        """Return scoped layout/write advisor status."""
+
+        return self.envelope.field("vortex_layout_write_advisor_status")
+
+    @property
+    def vortex_layout_write_advisor_strategy_admitted(self) -> bool:
+        """Whether the layout/write advisor admitted the local strategy."""
+
+        return (
+            self.envelope.field_bool(
+                "vortex_layout_write_advisor_strategy_admitted",
+                False,
+            )
+            is True
+        )
+
+    @property
+    def vortex_layout_write_advisor_layout_strategy(self) -> str | None:
+        """Return the admitted or blocked layout strategy."""
+
+        return self.envelope.field("vortex_layout_write_advisor_layout_strategy")
+
+    @property
+    def vortex_layout_write_advisor_no_standalone_lane_status(
+        self,
+    ) -> str | None:
+        """Return whether layout/write advisor evidence stayed in vortex_ingest."""
+
+        return self.envelope.field(
+            "vortex_layout_write_advisor_no_standalone_lane_status"
+        )
+
+    @property
+    def vortex_copy_budget_status(self) -> str | None:
+        """Return scoped copy-budget and buffer-lifecycle status."""
+
+        return self.envelope.field("vortex_copy_budget_status")
+
+    @property
+    def vortex_copy_budget_measurement_status(self) -> str | None:
+        """Return copy-budget measurement completeness status."""
+
+        return self.envelope.field("vortex_copy_budget_measurement_status")
+
+    @property
+    def vortex_copy_budget_buffer_reuse_status(self) -> str | None:
+        """Return buffer-reuse admission or blocker status."""
+
+        return self.envelope.field("vortex_copy_budget_buffer_reuse_status")
+
+    @property
+    def vortex_copy_budget_unsafe_lifetime_shortcut_status(self) -> str | None:
+        """Return unsafe-lifetime shortcut policy status."""
+
+        return self.envelope.field("vortex_copy_budget_unsafe_lifetime_shortcut_status")
+
+    @property
+    def vortex_copy_budget_no_standalone_lane_status(self) -> str | None:
+        """Return whether copy-budget evidence stayed in vortex_ingest."""
+
+        return self.envelope.field("vortex_copy_budget_no_standalone_lane_status")
+
+    @property
     def vortex_capillary_preparation_status(self) -> str | None:
         """Return scoped capillary cold-preparation status."""
 

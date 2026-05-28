@@ -45,6 +45,9 @@ BENCHMARK_PROFILE_ROSTER = ("full_local", "full_local_plus_spark")
 EXTRA_PUBLISHED_KEY_FRAGMENTS = (
     "source_state",
     "prepared_state",
+    "vortex_scout_ingress",
+    "vortex_layout_write_advisor",
+    "vortex_copy_budget",
     "vortex_preparation_spine",
     "vortex_differential_preparation",
     "vortex_capillary_preparation",

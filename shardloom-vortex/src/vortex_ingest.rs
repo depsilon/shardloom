@@ -36,6 +36,13 @@ pub const VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION: &str =
 /// Evidence schema emitted by scoped local capillary cold-preparation task control.
 pub const VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION: &str =
     "shardloom.vortex_capillary_preparation.v1";
+/// Evidence schema emitted by scoped local scout ingress and triage.
+pub const VORTEX_SCOUT_INGRESS_SCHEMA_VERSION: &str = "shardloom.vortex_scout_ingress.v1";
+/// Evidence schema emitted by scoped local layout/write advisor checks.
+pub const VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION: &str =
+    "shardloom.vortex_layout_write_advisor.v1";
+/// Evidence schema emitted by scoped local copy-budget and buffer-lifecycle checks.
+pub const VORTEX_COPY_BUDGET_SCHEMA_VERSION: &str = "shardloom.vortex_copy_budget.v1";
 /// Pinned upstream Vortex crate line used by the scoped local preparation spine.
 pub const VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION: &str = "0.72";
 
@@ -856,6 +863,991 @@ pub fn evaluate_vortex_differential_preparation(
         ),
         fallback_attempted: false,
         external_engine_invoked: false,
+    }
+}
+
+/// Inputs used to expose scout ingress and source triage evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexScoutIngressInput {
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub source_format: String,
+    pub source_path: String,
+    pub source_schema_digest: String,
+    pub row_count: u64,
+    pub source_byte_count: u64,
+    pub column_count: usize,
+    pub read_plan: String,
+    pub metadata_range_refs: String,
+    pub sampled_row_range_refs: String,
+    pub anomaly_count: u64,
+    pub anomaly_families: String,
+    pub malformed_row_refs: String,
+    pub schema_drift_status: String,
+    pub unsupported_shape_status: String,
+    pub nullability_status: String,
+    pub small_file_pathology_status: String,
+    pub quarantine_required: bool,
+    pub quarantine_output_plan_status: String,
+    pub quarantine_output_ref: String,
+    pub quarantine_output_digest: String,
+    pub redaction_status: String,
+    pub unsupported_diagnostic_code: String,
+    pub correctness_policy: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+/// Evidence for the scoped local scout ingress and triage pass.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexScoutIngressReport {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub route: String,
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub source_format: String,
+    pub source_path: String,
+    pub source_schema_digest_before: String,
+    pub source_schema_digest_after: String,
+    pub row_count: u64,
+    pub source_byte_count: u64,
+    pub column_count: usize,
+    pub read_plan: String,
+    pub metadata_range_refs: String,
+    pub sampled_row_range_refs: String,
+    pub anomaly_count: u64,
+    pub anomaly_families: String,
+    pub malformed_row_refs: String,
+    pub schema_drift_status: String,
+    pub unsupported_shape_status: String,
+    pub nullability_status: String,
+    pub small_file_pathology_status: String,
+    pub quarantine_required: bool,
+    pub quarantine_output_plan_status: String,
+    pub quarantine_output_ref: String,
+    pub quarantine_output_digest: String,
+    pub redaction_status: String,
+    pub unsupported_diagnostic_code: String,
+    pub correctness_policy: String,
+    pub no_standalone_lane_status: String,
+    pub claim_gate_status: String,
+    pub claim_boundary: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl VortexScoutIngressReport {
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        let mut fields = Vec::with_capacity(36);
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_schema_version",
+            self.schema_version,
+        );
+        Self::push_field(&mut fields, "vortex_scout_ingress_status", &self.status);
+        Self::push_field(&mut fields, "vortex_scout_ingress_route", &self.route);
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_source_state_id",
+            &self.source_state_id,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_source_state_digest",
+            &self.source_state_digest,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_source_format",
+            &self.source_format,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_source_path",
+            &self.source_path,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_source_schema_digest_before",
+            &self.source_schema_digest_before,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_source_schema_digest_after",
+            &self.source_schema_digest_after,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_row_count",
+            self.row_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_source_byte_count",
+            self.source_byte_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_column_count",
+            self.column_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_read_plan",
+            &self.read_plan,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_metadata_range_refs",
+            &self.metadata_range_refs,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_sampled_row_range_refs",
+            &self.sampled_row_range_refs,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_anomaly_count",
+            self.anomaly_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_anomaly_families",
+            &self.anomaly_families,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_malformed_row_refs",
+            &self.malformed_row_refs,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_schema_drift_status",
+            &self.schema_drift_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_unsupported_shape_status",
+            &self.unsupported_shape_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_nullability_status",
+            &self.nullability_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_small_file_pathology_status",
+            &self.small_file_pathology_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_quarantine_required",
+            self.quarantine_required.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_quarantine_output_plan_status",
+            &self.quarantine_output_plan_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_quarantine_output_ref",
+            &self.quarantine_output_ref,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_quarantine_output_digest",
+            &self.quarantine_output_digest,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_redaction_status",
+            &self.redaction_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_unsupported_diagnostic_code",
+            &self.unsupported_diagnostic_code,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_correctness_policy",
+            &self.correctness_policy,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_no_standalone_lane_status",
+            &self.no_standalone_lane_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_claim_gate_status",
+            &self.claim_gate_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_claim_boundary",
+            &self.claim_boundary,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_fallback_attempted",
+            self.fallback_attempted.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_scout_ingress_external_engine_invoked",
+            self.external_engine_invoked.to_string(),
+        );
+        fields
+    }
+
+    fn push_field(fields: &mut Vec<(String, String)>, key: &'static str, value: impl Into<String>) {
+        fields.push((key.to_string(), value.into()));
+    }
+}
+
+/// Evaluate scout ingress and source triage evidence for a local preparation route.
+#[must_use]
+pub fn evaluate_vortex_scout_ingress(input: VortexScoutIngressInput) -> VortexScoutIngressReport {
+    let status = scout_ingress_status(&input);
+    VortexScoutIngressReport {
+        schema_version: VORTEX_SCOUT_INGRESS_SCHEMA_VERSION,
+        status: status.to_string(),
+        route: "vortex_ingest_source_state_scout_triage".to_string(),
+        source_state_id: input.source_state_id,
+        source_state_digest: input.source_state_digest,
+        source_format: input.source_format,
+        source_path: input.source_path,
+        source_schema_digest_before: input.source_schema_digest.clone(),
+        source_schema_digest_after: input.source_schema_digest,
+        row_count: input.row_count,
+        source_byte_count: input.source_byte_count,
+        column_count: input.column_count,
+        read_plan: input.read_plan,
+        metadata_range_refs: input.metadata_range_refs,
+        sampled_row_range_refs: input.sampled_row_range_refs,
+        anomaly_count: input.anomaly_count,
+        anomaly_families: if input.anomaly_families.trim().is_empty() {
+            "none".to_string()
+        } else {
+            input.anomaly_families
+        },
+        malformed_row_refs: if input.malformed_row_refs.trim().is_empty() {
+            "none".to_string()
+        } else {
+            input.malformed_row_refs
+        },
+        schema_drift_status: input.schema_drift_status,
+        unsupported_shape_status: input.unsupported_shape_status,
+        nullability_status: input.nullability_status,
+        small_file_pathology_status: input.small_file_pathology_status,
+        quarantine_required: input.quarantine_required,
+        quarantine_output_plan_status: input.quarantine_output_plan_status,
+        quarantine_output_ref: input.quarantine_output_ref,
+        quarantine_output_digest: input.quarantine_output_digest,
+        redaction_status: input.redaction_status,
+        unsupported_diagnostic_code: input.unsupported_diagnostic_code,
+        correctness_policy: input.correctness_policy,
+        no_standalone_lane_status:
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state".to_string(),
+        claim_gate_status: "not_claim_grade".to_string(),
+        claim_boundary: "Scoped local scout ingress and triage evidence only: malformed input, schema drift, unsupported shapes, nullability risk, small-file pathology, and quarantine planning are visible before vortex_ingest preparation; no data-quality product, automatic repair, production, broad SQL/DataFrame, performance, object-store, or Spark-replacement claim".to_string(),
+        fallback_attempted: input.fallback_attempted,
+        external_engine_invoked: input.external_engine_invoked,
+    }
+}
+
+fn scout_ingress_status(input: &VortexScoutIngressInput) -> &'static str {
+    if input.unsupported_diagnostic_code == "vortex_ingest.requires_vortex_write_feature" {
+        "blocked_feature_gate"
+    } else if input.unsupported_shape_status != "not_detected" {
+        "blocked_unsupported_nested_shape"
+    } else if input.malformed_row_refs != "none" || input.anomaly_families.contains("malformed") {
+        "blocked_malformed_source"
+    } else if input.schema_drift_status.starts_with("blocked") {
+        "blocked_schema_drift"
+    } else if input.quarantine_required {
+        "quarantine_planned"
+    } else {
+        "admitted_scout_ingress_clean"
+    }
+}
+
+/// Inputs used to expose cold-lane Vortex layout/write advisor evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexLayoutWriteAdvisorInput {
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub source_format: String,
+    pub source_schema_digest: String,
+    pub row_count: u64,
+    pub source_byte_count: u64,
+    pub column_count: usize,
+    pub workload_constitution: String,
+    pub source_statistics_status: String,
+    pub requested_pushdown_requirements: String,
+    pub sink_requirements: String,
+    pub layout_strategy: String,
+    pub chunking_strategy: String,
+    pub segmentation_strategy: String,
+    pub dictionary_strategy: String,
+    pub statistics_policy: String,
+    pub writer_provider_kind: String,
+    pub writer_provider_surface: String,
+    pub writer_admission_policy: String,
+    pub write_reopen_verification_depth: String,
+    pub materialization_boundary_status: String,
+    pub decode_boundary_status: String,
+    pub expected_read_tradeoff: String,
+    pub expected_write_tradeoff: String,
+    pub strategy_admitted: bool,
+    pub unsupported_diagnostic_code: String,
+    pub correctness_refs: String,
+    pub benchmark_refs: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+/// Evidence for scoped local Vortex layout/write advisor checks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexLayoutWriteAdvisorReport {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub route: String,
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub source_format: String,
+    pub source_schema_digest: String,
+    pub row_count: u64,
+    pub source_byte_count: u64,
+    pub column_count: usize,
+    pub workload_constitution: String,
+    pub source_statistics_status: String,
+    pub requested_pushdown_requirements: String,
+    pub sink_requirements: String,
+    pub layout_strategy: String,
+    pub chunking_strategy: String,
+    pub segmentation_strategy: String,
+    pub dictionary_strategy: String,
+    pub statistics_policy: String,
+    pub writer_provider_kind: String,
+    pub writer_provider_version: &'static str,
+    pub writer_provider_surface: String,
+    pub writer_admission_policy: String,
+    pub write_reopen_verification_depth: String,
+    pub materialization_boundary_status: String,
+    pub decode_boundary_status: String,
+    pub expected_read_tradeoff: String,
+    pub expected_write_tradeoff: String,
+    pub strategy_admitted: bool,
+    pub unsupported_diagnostic_code: String,
+    pub correctness_refs: String,
+    pub benchmark_refs: String,
+    pub no_standalone_lane_status: String,
+    pub claim_gate_status: String,
+    pub claim_boundary: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl VortexLayoutWriteAdvisorReport {
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        let mut fields = Vec::with_capacity(38);
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_schema_version",
+            self.schema_version,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_status",
+            &self.status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_route",
+            &self.route,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_source_state_id",
+            &self.source_state_id,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_source_state_digest",
+            &self.source_state_digest,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_source_format",
+            &self.source_format,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_source_schema_digest",
+            &self.source_schema_digest,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_row_count",
+            self.row_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_source_byte_count",
+            self.source_byte_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_column_count",
+            self.column_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_workload_constitution",
+            &self.workload_constitution,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_source_statistics_status",
+            &self.source_statistics_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_requested_pushdown_requirements",
+            &self.requested_pushdown_requirements,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_sink_requirements",
+            &self.sink_requirements,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_layout_strategy",
+            &self.layout_strategy,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_chunking_strategy",
+            &self.chunking_strategy,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_segmentation_strategy",
+            &self.segmentation_strategy,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_dictionary_strategy",
+            &self.dictionary_strategy,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_statistics_policy",
+            &self.statistics_policy,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_writer_provider_kind",
+            &self.writer_provider_kind,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_writer_provider_version",
+            self.writer_provider_version,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_writer_provider_surface",
+            &self.writer_provider_surface,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_writer_admission_policy",
+            &self.writer_admission_policy,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_write_reopen_verification_depth",
+            &self.write_reopen_verification_depth,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_materialization_boundary_status",
+            &self.materialization_boundary_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_decode_boundary_status",
+            &self.decode_boundary_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_expected_read_tradeoff",
+            &self.expected_read_tradeoff,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_expected_write_tradeoff",
+            &self.expected_write_tradeoff,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_strategy_admitted",
+            self.strategy_admitted.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_unsupported_diagnostic_code",
+            &self.unsupported_diagnostic_code,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_correctness_refs",
+            &self.correctness_refs,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_benchmark_refs",
+            &self.benchmark_refs,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_no_standalone_lane_status",
+            &self.no_standalone_lane_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_claim_gate_status",
+            &self.claim_gate_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_claim_boundary",
+            &self.claim_boundary,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_fallback_attempted",
+            self.fallback_attempted.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_layout_write_advisor_external_engine_invoked",
+            self.external_engine_invoked.to_string(),
+        );
+        fields
+    }
+
+    fn push_field(fields: &mut Vec<(String, String)>, key: &'static str, value: impl Into<String>) {
+        fields.push((key.to_string(), value.into()));
+    }
+}
+
+/// Evaluate scoped local Vortex layout/write advisor evidence.
+#[must_use]
+pub fn evaluate_vortex_layout_write_advisor(
+    input: VortexLayoutWriteAdvisorInput,
+) -> VortexLayoutWriteAdvisorReport {
+    let status = layout_write_advisor_status(&input);
+    VortexLayoutWriteAdvisorReport {
+        schema_version: VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION,
+        status: status.to_string(),
+        route: "vortex_ingest_layout_write_advisor".to_string(),
+        source_state_id: input.source_state_id,
+        source_state_digest: input.source_state_digest,
+        source_format: input.source_format,
+        source_schema_digest: input.source_schema_digest,
+        row_count: input.row_count,
+        source_byte_count: input.source_byte_count,
+        column_count: input.column_count,
+        workload_constitution: input.workload_constitution,
+        source_statistics_status: input.source_statistics_status,
+        requested_pushdown_requirements: input.requested_pushdown_requirements,
+        sink_requirements: input.sink_requirements,
+        layout_strategy: input.layout_strategy,
+        chunking_strategy: input.chunking_strategy,
+        segmentation_strategy: input.segmentation_strategy,
+        dictionary_strategy: input.dictionary_strategy,
+        statistics_policy: input.statistics_policy,
+        writer_provider_kind: input.writer_provider_kind,
+        writer_provider_version: VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION,
+        writer_provider_surface: input.writer_provider_surface,
+        writer_admission_policy: input.writer_admission_policy,
+        write_reopen_verification_depth: input.write_reopen_verification_depth,
+        materialization_boundary_status: input.materialization_boundary_status,
+        decode_boundary_status: input.decode_boundary_status,
+        expected_read_tradeoff: input.expected_read_tradeoff,
+        expected_write_tradeoff: input.expected_write_tradeoff,
+        strategy_admitted: input.strategy_admitted,
+        unsupported_diagnostic_code: input.unsupported_diagnostic_code,
+        correctness_refs: input.correctness_refs,
+        benchmark_refs: input.benchmark_refs,
+        no_standalone_lane_status:
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state".to_string(),
+        claim_gate_status: "not_claim_grade".to_string(),
+        claim_boundary: "VortexLayoutWriteAdvisor evidence is scoped local cold-lane layout/write admission only: it records source statistics posture, pushdown/sink requirements, writer strategy, provider boundary, tradeoffs, verification depth, correctness refs, and benchmark-ref posture without proving performance, object-store/table layout, production, SQL/DataFrame, or Spark-replacement readiness".to_string(),
+        fallback_attempted: input.fallback_attempted,
+        external_engine_invoked: input.external_engine_invoked,
+    }
+}
+
+fn layout_write_advisor_status(input: &VortexLayoutWriteAdvisorInput) -> &'static str {
+    if input.unsupported_diagnostic_code == "vortex_ingest.requires_vortex_write_feature" {
+        "blocked_feature_gate"
+    } else if !input.strategy_admitted || input.unsupported_diagnostic_code != "none" {
+        "blocked_layout_write_strategy"
+    } else {
+        "admitted_local_layout_write_strategy"
+    }
+}
+
+/// Inputs used to expose cold-lane copy-budget and buffer-lifecycle evidence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexCopyBudgetInput {
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub prepared_state_id: String,
+    pub prepared_state_digest: String,
+    pub source_format: String,
+    pub row_count: u64,
+    pub source_byte_count: u64,
+    pub column_count: usize,
+    pub allocation_scope: String,
+    pub copy_scope: String,
+    pub measurement_status: String,
+    pub source_read_copy_bytes: String,
+    pub parse_normalization_copy_bytes: String,
+    pub columnar_handoff_copy_bytes: String,
+    pub vortex_array_build_copy_bytes: String,
+    pub writer_buffer_bytes: String,
+    pub reopen_verify_copy_bytes: String,
+    pub evidence_render_copy_bytes: String,
+    pub total_measured_copy_bytes: String,
+    pub buffer_family: String,
+    pub ownership_policy: String,
+    pub writer_buffering_status: String,
+    pub buffer_reuse_status: String,
+    pub buffer_reuse_count: u64,
+    pub unsafe_lifetime_shortcut_status: String,
+    pub correctness_parity_refs: String,
+    pub materialization_boundary_status: String,
+    pub decode_boundary_status: String,
+    pub unsupported_diagnostic_code: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+/// Evidence for scoped local copy-budget and buffer-lifecycle checks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct VortexCopyBudgetReport {
+    pub schema_version: &'static str,
+    pub status: String,
+    pub route: String,
+    pub source_state_id: String,
+    pub source_state_digest: String,
+    pub prepared_state_id: String,
+    pub prepared_state_digest: String,
+    pub source_format: String,
+    pub row_count: u64,
+    pub source_byte_count: u64,
+    pub column_count: usize,
+    pub allocation_scope: String,
+    pub copy_scope: String,
+    pub measurement_status: String,
+    pub source_read_copy_bytes: String,
+    pub parse_normalization_copy_bytes: String,
+    pub columnar_handoff_copy_bytes: String,
+    pub vortex_array_build_copy_bytes: String,
+    pub writer_buffer_bytes: String,
+    pub reopen_verify_copy_bytes: String,
+    pub evidence_render_copy_bytes: String,
+    pub total_measured_copy_bytes: String,
+    pub buffer_family: String,
+    pub ownership_policy: String,
+    pub writer_buffering_status: String,
+    pub buffer_reuse_status: String,
+    pub buffer_reuse_count: u64,
+    pub unsafe_lifetime_shortcut_status: String,
+    pub correctness_parity_refs: String,
+    pub materialization_boundary_status: String,
+    pub decode_boundary_status: String,
+    pub unsupported_diagnostic_code: String,
+    pub no_standalone_lane_status: String,
+    pub claim_gate_status: String,
+    pub claim_boundary: String,
+    pub fallback_attempted: bool,
+    pub external_engine_invoked: bool,
+}
+
+impl VortexCopyBudgetReport {
+    /// Return stable evidence fields for CLI/API surfaces.
+    #[must_use]
+    #[allow(clippy::too_many_lines)]
+    pub fn evidence_fields(&self) -> Vec<(String, String)> {
+        let mut fields = Vec::with_capacity(38);
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_schema_version",
+            self.schema_version,
+        );
+        Self::push_field(&mut fields, "vortex_copy_budget_status", &self.status);
+        Self::push_field(&mut fields, "vortex_copy_budget_route", &self.route);
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_source_state_id",
+            &self.source_state_id,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_source_state_digest",
+            &self.source_state_digest,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_prepared_state_id",
+            &self.prepared_state_id,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_prepared_state_digest",
+            &self.prepared_state_digest,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_source_format",
+            &self.source_format,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_row_count",
+            self.row_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_source_byte_count",
+            self.source_byte_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_column_count",
+            self.column_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_allocation_scope",
+            &self.allocation_scope,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_copy_scope",
+            &self.copy_scope,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_measurement_status",
+            &self.measurement_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_source_read_copy_bytes",
+            &self.source_read_copy_bytes,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_parse_normalization_copy_bytes",
+            &self.parse_normalization_copy_bytes,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_columnar_handoff_copy_bytes",
+            &self.columnar_handoff_copy_bytes,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_vortex_array_build_copy_bytes",
+            &self.vortex_array_build_copy_bytes,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_writer_buffer_bytes",
+            &self.writer_buffer_bytes,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_reopen_verify_copy_bytes",
+            &self.reopen_verify_copy_bytes,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_evidence_render_copy_bytes",
+            &self.evidence_render_copy_bytes,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_total_measured_copy_bytes",
+            &self.total_measured_copy_bytes,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_buffer_family",
+            &self.buffer_family,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_ownership_policy",
+            &self.ownership_policy,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_writer_buffering_status",
+            &self.writer_buffering_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_buffer_reuse_status",
+            &self.buffer_reuse_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_buffer_reuse_count",
+            self.buffer_reuse_count.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_unsafe_lifetime_shortcut_status",
+            &self.unsafe_lifetime_shortcut_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_correctness_parity_refs",
+            &self.correctness_parity_refs,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_materialization_boundary_status",
+            &self.materialization_boundary_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_decode_boundary_status",
+            &self.decode_boundary_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_unsupported_diagnostic_code",
+            &self.unsupported_diagnostic_code,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_no_standalone_lane_status",
+            &self.no_standalone_lane_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_claim_gate_status",
+            &self.claim_gate_status,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_claim_boundary",
+            &self.claim_boundary,
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_fallback_attempted",
+            self.fallback_attempted.to_string(),
+        );
+        Self::push_field(
+            &mut fields,
+            "vortex_copy_budget_external_engine_invoked",
+            self.external_engine_invoked.to_string(),
+        );
+        fields
+    }
+
+    fn push_field(fields: &mut Vec<(String, String)>, key: &'static str, value: impl Into<String>) {
+        fields.push((key.to_string(), value.into()));
+    }
+}
+
+/// Evaluate scoped local copy-budget and buffer-lifecycle evidence.
+#[must_use]
+pub fn evaluate_vortex_copy_budget(input: VortexCopyBudgetInput) -> VortexCopyBudgetReport {
+    let status = copy_budget_status(&input);
+    VortexCopyBudgetReport {
+        schema_version: VORTEX_COPY_BUDGET_SCHEMA_VERSION,
+        status: status.to_string(),
+        route: "vortex_ingest_copy_budget_buffer_lifecycle".to_string(),
+        source_state_id: input.source_state_id,
+        source_state_digest: input.source_state_digest,
+        prepared_state_id: input.prepared_state_id,
+        prepared_state_digest: input.prepared_state_digest,
+        source_format: input.source_format,
+        row_count: input.row_count,
+        source_byte_count: input.source_byte_count,
+        column_count: input.column_count,
+        allocation_scope: input.allocation_scope,
+        copy_scope: input.copy_scope,
+        measurement_status: input.measurement_status,
+        source_read_copy_bytes: input.source_read_copy_bytes,
+        parse_normalization_copy_bytes: input.parse_normalization_copy_bytes,
+        columnar_handoff_copy_bytes: input.columnar_handoff_copy_bytes,
+        vortex_array_build_copy_bytes: input.vortex_array_build_copy_bytes,
+        writer_buffer_bytes: input.writer_buffer_bytes,
+        reopen_verify_copy_bytes: input.reopen_verify_copy_bytes,
+        evidence_render_copy_bytes: input.evidence_render_copy_bytes,
+        total_measured_copy_bytes: input.total_measured_copy_bytes,
+        buffer_family: input.buffer_family,
+        ownership_policy: input.ownership_policy,
+        writer_buffering_status: input.writer_buffering_status,
+        buffer_reuse_status: input.buffer_reuse_status,
+        buffer_reuse_count: input.buffer_reuse_count,
+        unsafe_lifetime_shortcut_status: input.unsafe_lifetime_shortcut_status,
+        correctness_parity_refs: input.correctness_parity_refs,
+        materialization_boundary_status: input.materialization_boundary_status,
+        decode_boundary_status: input.decode_boundary_status,
+        unsupported_diagnostic_code: input.unsupported_diagnostic_code,
+        no_standalone_lane_status:
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state".to_string(),
+        claim_gate_status: "not_claim_grade".to_string(),
+        claim_boundary: "VortexCopyBudget evidence is scoped local cold-lane allocation/copy and buffer-lifecycle visibility only: it records measured or not-measured copy scopes, writer buffering, ownership policy, reuse blockers, unsafe-lifetime posture, correctness parity refs, and materialization/decode boundaries without proving memory efficiency, global buffer-pool behavior, performance, production, SQL/DataFrame, or Spark-replacement readiness".to_string(),
+        fallback_attempted: input.fallback_attempted,
+        external_engine_invoked: input.external_engine_invoked,
+    }
+}
+
+fn copy_budget_status(input: &VortexCopyBudgetInput) -> &'static str {
+    if input.unsupported_diagnostic_code == "vortex_ingest.requires_vortex_write_feature" {
+        "blocked_feature_gate"
+    } else if input.unsupported_diagnostic_code != "none" {
+        "blocked_copy_budget"
+    } else if input.unsafe_lifetime_shortcut_status != "blocked_no_unsafe_lifetime_shortcuts" {
+        "blocked_unsafe_lifetime_shortcut"
+    } else if input.buffer_reuse_status.starts_with("admitted") {
+        "admitted_scoped_buffer_reuse"
+    } else if input.measurement_status.contains("not_measured") {
+        "reported_copy_budget_with_unmeasured_segments"
+    } else {
+        "reported_copy_budget"
     }
 }
 
@@ -3195,6 +4187,110 @@ mod tests {
     }
 
     #[test]
+    fn scout_ingress_admits_clean_local_source() {
+        let input = scout_input(0, "none", "not_detected", false);
+
+        let report = evaluate_vortex_scout_ingress(input);
+        let fields = report.evidence_fields();
+
+        assert_eq!(report.status, "admitted_scout_ingress_clean");
+        assert_eq!(
+            report.no_standalone_lane_status,
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+        );
+        assert!(!report.quarantine_required);
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert!(fields.contains(&(
+            "vortex_scout_ingress_anomaly_count".to_string(),
+            "0".to_string()
+        )));
+        assert!(fields.contains(&(
+            "vortex_scout_ingress_fallback_attempted".to_string(),
+            "false".to_string()
+        )));
+    }
+
+    #[test]
+    fn scout_ingress_blocks_nested_shapes_with_quarantine_plan() {
+        let input = scout_input(
+            1,
+            "unsupported_nested_shape",
+            "blocked_unsupported_nested_shape",
+            true,
+        );
+
+        let report = evaluate_vortex_scout_ingress(input);
+
+        assert_eq!(report.status, "blocked_unsupported_nested_shape");
+        assert_eq!(report.anomaly_families, "unsupported_nested_shape");
+        assert_eq!(
+            report.unsupported_shape_status,
+            "blocked_unsupported_nested_shape"
+        );
+        assert!(report.quarantine_required);
+        assert_eq!(
+            report.quarantine_output_plan_status,
+            "planned_not_emitted_no_quarantine_sink_requested"
+        );
+        assert!(!report.fallback_attempted);
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn layout_write_advisor_admits_scoped_local_strategy() {
+        let report = evaluate_vortex_layout_write_advisor(layout_advisor_input(true, "none"));
+
+        assert_eq!(report.status, "admitted_local_layout_write_strategy");
+        assert!(report.strategy_admitted);
+        assert_eq!(
+            report.no_standalone_lane_status,
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+        );
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert!(!report.fallback_attempted);
+    }
+
+    #[test]
+    fn layout_write_advisor_blocks_unsupported_strategy() {
+        let report = evaluate_vortex_layout_write_advisor(layout_advisor_input(
+            false,
+            "vortex_layout_write_advisor.unsupported_layout_strategy",
+        ));
+
+        assert_eq!(report.status, "blocked_layout_write_strategy");
+        assert!(!report.strategy_admitted);
+        assert_eq!(
+            report.unsupported_diagnostic_code,
+            "vortex_layout_write_advisor.unsupported_layout_strategy"
+        );
+        assert!(!report.external_engine_invoked);
+    }
+
+    #[test]
+    fn copy_budget_reports_unmeasured_segments_and_blocks_unsafe_reuse() {
+        let report = evaluate_vortex_copy_budget(copy_budget_input(
+            "reported_with_not_measured_segments",
+            "blocked_no_unsafe_lifetime_shortcuts",
+            "blocked_until_correctness_parity",
+        ));
+
+        assert_eq!(
+            report.status,
+            "reported_copy_budget_with_unmeasured_segments"
+        );
+        assert_eq!(report.buffer_reuse_count, 0);
+        assert_eq!(report.claim_gate_status, "not_claim_grade");
+        assert!(!report.fallback_attempted);
+
+        let blocked = evaluate_vortex_copy_budget(copy_budget_input(
+            "reported_with_not_measured_segments",
+            "unsafe_lifetime_shortcut_requested",
+            "blocked_unsafe_lifetime_shortcut",
+        ));
+        assert_eq!(blocked.status, "blocked_unsafe_lifetime_shortcut");
+    }
+
+    #[test]
     fn capillary_preparation_blocks_pulseweave_without_native_io_certificate() {
         let input = capillary_input("missing");
 
@@ -3285,6 +4381,124 @@ mod tests {
             delta_artifact_digest: "fnv64:delta-artifact".to_string(),
             native_io_certificate_refs: "base_prepared_state,delta_artifact,reopen_row_count_scan"
                 .to_string(),
+        }
+    }
+
+    fn scout_input(
+        anomaly_count: u64,
+        anomaly_families: &str,
+        unsupported_shape_status: &str,
+        quarantine_required: bool,
+    ) -> VortexScoutIngressInput {
+        VortexScoutIngressInput {
+            source_state_id: "local-jsonl-source".to_string(),
+            source_state_digest: "fnv64:source".to_string(),
+            source_format: "jsonl".to_string(),
+            source_path: "target/source.jsonl".to_string(),
+            source_schema_digest: "fnv64:schema".to_string(),
+            row_count: 2,
+            source_byte_count: 128,
+            column_count: 2,
+            read_plan: "full_columns".to_string(),
+            metadata_range_refs: "local-jsonl-source:split=1:bytes=0..128".to_string(),
+            sampled_row_range_refs: "local-jsonl-source:split=1:rows=0..2".to_string(),
+            anomaly_count,
+            anomaly_families: anomaly_families.to_string(),
+            malformed_row_refs: "none".to_string(),
+            schema_drift_status: "not_detected_no_prior_schema_baseline".to_string(),
+            unsupported_shape_status: unsupported_shape_status.to_string(),
+            nullability_status: "nullable_fields_admitted_as_scalar_nulls".to_string(),
+            small_file_pathology_status: "observed_tiny_local_fixture_not_blocking".to_string(),
+            quarantine_required,
+            quarantine_output_plan_status: "planned_not_emitted_no_quarantine_sink_requested"
+                .to_string(),
+            quarantine_output_ref: "not_emitted".to_string(),
+            quarantine_output_digest: "not_emitted".to_string(),
+            redaction_status: "malformed_row_refs_are_row_numbers_only".to_string(),
+            unsupported_diagnostic_code: "none".to_string(),
+            correctness_policy: "fail_closed_no_silent_repair_or_row_drop".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    fn layout_advisor_input(
+        strategy_admitted: bool,
+        unsupported_diagnostic_code: &str,
+    ) -> VortexLayoutWriteAdvisorInput {
+        VortexLayoutWriteAdvisorInput {
+            source_state_id: "local-csv-source".to_string(),
+            source_state_digest: "fnv64:source".to_string(),
+            source_format: "csv".to_string(),
+            source_schema_digest: "fnv64:schema".to_string(),
+            row_count: 2,
+            source_byte_count: 128,
+            column_count: 2,
+            workload_constitution: "prepare_once_local_fixture".to_string(),
+            source_statistics_status: "local_source_file_stats_only".to_string(),
+            requested_pushdown_requirements: "none_prepare_once".to_string(),
+            sink_requirements: "workspace_safe_local_vortex_file_sink".to_string(),
+            layout_strategy: "single_local_vortex_artifact".to_string(),
+            chunking_strategy: "single_chunk_for_scoped_fixture".to_string(),
+            segmentation_strategy: "single_segment_fixture".to_string(),
+            dictionary_strategy: "writer_default_no_dictionary_claim".to_string(),
+            statistics_policy: "writer_default_statistics_no_pruning_claim".to_string(),
+            writer_provider_kind: "shardloom_kernel".to_string(),
+            writer_provider_surface: "VortexSession::write_options().write(ArrayStream)"
+                .to_string(),
+            writer_admission_policy: "scoped_local_vortex_ingest_prepare_once".to_string(),
+            write_reopen_verification_depth: "writer_and_reopen_row_count".to_string(),
+            materialization_boundary_status: "materialized_scalar_rows_before_write".to_string(),
+            decode_boundary_status: "compatibility_parse_to_scalar_values".to_string(),
+            expected_read_tradeoff: "not_claimed_fixture_layout".to_string(),
+            expected_write_tradeoff: "not_claimed_fixture_layout".to_string(),
+            strategy_admitted,
+            unsupported_diagnostic_code: unsupported_diagnostic_code.to_string(),
+            correctness_refs: "writer_reopen_row_count".to_string(),
+            benchmark_refs: "not_claim_grade_no_benchmark_refresh".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        }
+    }
+
+    fn copy_budget_input(
+        measurement_status: &str,
+        unsafe_lifetime_shortcut_status: &str,
+        buffer_reuse_status: &str,
+    ) -> VortexCopyBudgetInput {
+        VortexCopyBudgetInput {
+            source_state_id: "local-csv-source".to_string(),
+            source_state_digest: "fnv64:source".to_string(),
+            prepared_state_id: "vortex-prepared-state-fnv64-prepared".to_string(),
+            prepared_state_digest: "fnv64:prepared".to_string(),
+            source_format: "csv".to_string(),
+            row_count: 2,
+            source_byte_count: 128,
+            column_count: 2,
+            allocation_scope: "vortex_ingest_local_prepare_once".to_string(),
+            copy_scope: "source_read,parse_normalization,vortex_array_build,writer,reopen,evidence"
+                .to_string(),
+            measurement_status: measurement_status.to_string(),
+            source_read_copy_bytes: "128".to_string(),
+            parse_normalization_copy_bytes: "not_measured".to_string(),
+            columnar_handoff_copy_bytes: "not_applicable_scalar_rows".to_string(),
+            vortex_array_build_copy_bytes: "not_measured".to_string(),
+            writer_buffer_bytes: "256".to_string(),
+            reopen_verify_copy_bytes: "not_measured".to_string(),
+            evidence_render_copy_bytes: "not_measured".to_string(),
+            total_measured_copy_bytes: "384".to_string(),
+            buffer_family: "source_bytes,scalar_rows,vortex_writer_buffer".to_string(),
+            ownership_policy: "owned_buffers_no_borrowed_lifetime_reuse".to_string(),
+            writer_buffering_status: "writer_buffer_bytes_reported".to_string(),
+            buffer_reuse_status: buffer_reuse_status.to_string(),
+            buffer_reuse_count: 0,
+            unsafe_lifetime_shortcut_status: unsafe_lifetime_shortcut_status.to_string(),
+            correctness_parity_refs: "writer_reopen_row_count".to_string(),
+            materialization_boundary_status: "materialized_scalar_rows_before_write".to_string(),
+            decode_boundary_status: "compatibility_parse_to_scalar_values".to_string(),
+            unsupported_diagnostic_code: "none".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
         }
     }
 

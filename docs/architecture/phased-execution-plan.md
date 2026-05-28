@@ -290,7 +290,7 @@ closeout, `GAR-RUNTIME-IMPL-5H` runtime evidence/claim validator closeout, and
 advanced scalar deterministic semantics closeout and `GAR-RUNTIME-IMPL-4D-F2` complex dtype
 deterministic blocker closeout plus `GAR-RUNTIME-IMPL-4D-F3` advanced predicate/subquery
 semantics closeout are complete and recorded in the ledger.
-Continue with the split internal-engine follow-ups below before SQL/Python surface backstops,
+The remaining internal-engine follow-ups below stay ahead of SQL/Python surface backstops,
 benchmark and Foundry gates, and release usability.
 Completed queue blocks have moved to
 `docs/architecture/phased-execution-completed-ledger.md`; this live queue should show only remaining
@@ -307,116 +307,6 @@ below. They are coverage-assurance backstops, not a second parallel runtime queu
 item only after the matching 4-series runtime item has landed or when the 4-series item explicitly
 splits residual runtime gaps into this queue. Completing a 5-series item requires evidence,
 validators, docs/website parity, and a completed-ledger entry.
-
-- [ ] GAR-IOREUSE-1L scout ingress, anomaly quarantine, and schema-drift triage
-  - Source: novel cold-lane research carry-forward,
-    `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-    `docs/architecture/universal-input-contract.md`, RFC 0012, RFC 0015, and RFC 0033.
-  - Current state: SourceState records source identity, schema/fingerprint posture, parse/decode
-    plan identity, and reuse eligibility. It does not yet run an explicit scout ingress pass that
-    classifies source anomalies, schema drift, malformed rows, small-file pathologies, or quarantine
-    requirements before full preparation.
-  - Next slice outcome: add a scout ingress/triage report and optional local runtime preflight for
-    admitted sources, with deterministic blockers and explicit quarantine-output planning where
-    rows are rejected or isolated.
-  - Runtime enablement: cold preparation can fail early or plan a quarantine sink when scout
-    evidence proves malformed input, schema drift, unsupported nested shapes, unsafe nullability,
-    or unsupported encoding/layout conditions.
-  - User-visible surface: `prepare_vortex` diagnostics, SQL/Python read diagnostics, benchmark
-    rows, capability matrix, quarantine-output reports, docs.
-  - Implementation scope: SourceState scout fields, parse anomaly summaries, schema-drift
-    diagnostics, quarantine OutputPlan posture, CLI/Python typed envelopes, tests and validators.
-  - Evidence required: scout scope, sampled/metadata ranges, schema digest before/after, anomaly
-    counts, malformed row refs where safe, quarantine output refs/digests when emitted, redaction
-    status, unsupported diagnostic code, correctness policy, no-fallback fields.
-  - Acceptance: malformed or drifting sources do not reach preparation as ambiguous failures;
-    quarantine is explicit and evidence-bearing; unsupported shapes block with actionable
-    diagnostics and no hidden row loss.
-  - Verification: malformed/local source tests, schema-drift diagnostic snapshots, quarantine
-    output smoke if implemented, Python tests if touched, release readiness metadata,
-    `git diff --check`.
-  - Non-goals: no automatic data repair, data-quality product claim, broad nested-format support,
-    external validation service, or silent record dropping.
-  - Claim boundary: source-admission and triage evidence only.
-  - Fallback boundary: parsing/triage may not delegate to pandas, Polars, DuckDB, Spark, or other
-    external engines.
-  - Dependencies/blockers: SourceState schema model, diagnostics vocabulary, redaction policy,
-    OutputPlan quarantine support.
-  - Ledger rule: ledger entry must include scout report fields, anomaly families, and quarantine
-    evidence behavior.
-
-- [ ] GAR-PERF-2J cold-lane Vortex layout/write advisor
-  - Source: benchmark-outlier and novel cold-lane research carry-forward,
-    `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-    `docs/architecture/bayesian-performance-layout-advisor.md`,
-    `docs/architecture/vortex-public-api-inventory.md`, and Vortex-first provider checks.
-  - Current state: advisory benchmark/layout evidence exists, and prepared rows expose layout and
-    encoding summaries. Cold preparation does not yet choose or block Vortex layout/write strategy
-    from workload constitution, source statistics, pushdown needs, or sink requirements.
-  - Next slice outcome: add a cold-lane Vortex layout/write advisor that recommends or blocks
-    chunking, segmentation, dictionary/statistics policy, write/reopen verification depth, and
-    materialization/decode posture before `vortex_ingest` writes a prepared artifact.
-  - Runtime enablement: `vortex_ingest` can admit an explicit layout/write strategy only when the
-    advisor records inputs, provider boundary, expected tradeoffs, and verification obligations;
-    unsupported strategies block before writing.
-  - User-visible surface: prepare reports, benchmark rows, explain/capability output, Native I/O
-    certificates, docs.
-  - Implementation scope: layout advisor report fields, Vortex writer admission policy,
-    SourceState/VortexPreparedState layout summaries, benchmark schema, CLI/Python report accessors,
-    validators.
-  - Evidence required: workload constitution, source statistics, requested pushdown/output
-    requirements, layout/write strategy, Vortex provider/version, expected read/write tradeoff,
-    write/reopen verification, materialization/decode boundary, correctness refs, benchmark refs
-    before claims, no-fallback fields.
-  - Acceptance: layout/write decisions are visible and reproducible; unsupported strategies block;
-    no row claims layout-driven speed without benchmark evidence for the declared workload.
-  - Verification: advisor unit tests, report snapshot tests, traditional benchmark harness tests,
-    release readiness metadata, `git diff --check`.
-  - Non-goals: no AI/learned runtime policy, persistent tuning database, object-store compaction,
-    table layout management, or performance claim.
-  - Claim boundary: advisory or scoped local layout/write admission only.
-  - Fallback boundary: no external engine or Vortex query-engine integration may decide or execute
-    layout work as ShardLoom runtime.
-  - Dependencies/blockers: Vortex layout/write provider inventory, SourceState statistics, Native
-    I/O verification, benchmark constitution.
-  - Ledger rule: ledger entry must include advisor inputs, admitted/blocked strategies, and claim
-    boundaries.
-
-- [ ] GAR-PERF-2K cold-lane allocation, copy-budget, and buffer lifecycle
-  - Source: benchmark-outlier and novel cold-lane research carry-forward,
-    `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
-    `docs/architecture/allocation-buffer-pool-optimization.md`,
-    `docs/architecture/performance-attribution-and-execution-structure.md`, and RFC 0014.
-  - Current state: prepared/native execution rows expose allocation/resource-profile and
-    buffer-pool blocker evidence, but cold preparation does not yet expose copies, batch handoff,
-    writer buffering, allocation scope, or unsafe-lifetime blockers as a first-class cold-lane
-    budget.
-  - Next slice outcome: add cold-lane copy-budget and buffer-lifecycle evidence for source parse,
-    columnarization, Vortex array build, writer buffering, reopen verification, and sink/evidence
-    rendering, with reuse blocked unless ownership and correctness parity are proven.
-  - Runtime enablement: cold preparation can admit scoped buffer reuse or copy reduction only when
-    schema, dtype, nullability, ordering, ownership, and evidence parity are preserved; otherwise it
-    reports blockers and keeps current behavior.
-  - User-visible surface: benchmark/resource rows, prepare reports, release/readiness gates,
-    diagnostics, docs.
-  - Implementation scope: resource-profile schema, copy-budget counters/statuses, buffer lifecycle
-    policy, unsafe-lifetime blocker checks, benchmark validators, CLI/Python typed envelopes.
-  - Evidence required: allocation/copy scope, bytes copied or `not_measured`, buffer family,
-    ownership policy, reuse count, writer buffering status, unsafe-lifetime shortcut status,
-    correctness parity refs, materialization/decode status, no-fallback fields.
-  - Acceptance: cold-lane copy/allocation costs are visible or explicitly `not_measured`; any reuse
-    path preserves evidence and correctness parity; unsafe lifetime shortcuts remain blocked.
-  - Verification: resource-profile unit tests, benchmark harness tests, release readiness metadata,
-    focused CLI/Python report tests if touched, `git diff --check`.
-  - Non-goals: no memory-efficiency claim, global allocator replacement, unsafe lifetime shortcut,
-    hidden buffer pool, or performance claim.
-  - Claim boundary: resource attribution and scoped local reuse evidence only.
-  - Fallback boundary: no external library or engine may compute unsupported preparation work to
-    avoid copies.
-  - Dependencies/blockers: allocation measurement support, SourceState/VortexPreparedState batch
-    handoff identity, correctness/reference checks, materialization policy.
-  - Ledger rule: ledger entry must include copy-budget fields, admitted reuse scope, blocked reuse
-    causes, and verification evidence.
 
 - [ ] GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder
   - Source: `GAR-RUNTIME-IMPL-4B`, `GAR-RUNTIME-IMPL-4C`, `GAR-RUNTIME-IMPL-4D`, RFC 0032.
@@ -511,15 +401,16 @@ validators, docs/website parity, and a completed-ledger entry.
     alias-only `native-vortex` lane from profile accounting, adds cold-lane attribution blocking,
     and keeps external lanes baseline-only. The benchmark runner now has smoke-proven support for
     CSV, JSONL, Parquet, Arrow IPC, Avro, and ORC across the required local/Spark baselines, but
-    the public broad-format data refresh remains intentionally deferred until the remaining
-    internal cold-lane/preparation items land so the benchmark suite is not rerun twice.
-  - Next slice outcome: after `GAR-IOREUSE-1I` through `GAR-IOREUSE-1L` and the related cold-lane
-    layout/copy-budget items have landed, require a current benchmark/correctness/evidence artifact
-    for every promoted runtime path and block stale or incomplete public claims. The next public
-    comparative refresh should preserve `full_local_plus_spark` required PySpark/Spark lane
+    the public broad-format data refresh remains intentionally deferred until this cold-lane
+    bundle merges, so the benchmark suite is not rerun before scout-ingress, layout/write, and
+    copy-budget evidence exists end to end.
+  - Next slice outcome: require a current benchmark/correctness/evidence artifact for every
+    promoted runtime path and block stale or incomplete public claims. The next
+    public comparative refresh should preserve `full_local_plus_spark` required PySpark/Spark lane
     enforcement, publish broad-format coverage for CSV, Parquet, JSONL, Arrow IPC, Avro, and ORC,
-    and move the main ShardLoom comparative roster toward `claim_grade` rows only for admitted
-    runtime paths.
+    carry the SourceState, VortexPreparedState, scout-ingress, preparation-spine, differential,
+    capillary, layout/write, and copy-budget fields, and move the main ShardLoom comparative roster
+    toward `claim_grade` rows only for admitted runtime paths.
   - Runtime enablement: runtime-claim publishing validator that keeps public support status tied to
     fresh evidence.
   - User-visible surface: website benchmarks, docs/benchmarks, status page, release readiness.

@@ -1960,7 +1960,10 @@ struct VortexIngestReport {
     prepare_once_total_millis: u128,
     evidence_render_millis: u128,
     vortex_report: shardloom_vortex::VortexPreparedStateWriteReport,
+    scout_ingress: shardloom_vortex::VortexScoutIngressReport,
+    layout_write_advisor: shardloom_vortex::VortexLayoutWriteAdvisorReport,
     capillary_preparation: shardloom_vortex::VortexCapillaryPreparationReport,
+    copy_budget: shardloom_vortex::VortexCopyBudgetReport,
     differential_preparation: Option<shardloom_vortex::VortexDifferentialPreparationReport>,
 }
 
@@ -2244,9 +2247,24 @@ pub(crate) fn handle_vortex_ingest_smoke(
         return ExitCode::from(1);
     }
 
-    let report = match run_vortex_ingest_smoke(request) {
+    let report = match run_vortex_ingest_smoke(request.clone()) {
         Ok(report) => report,
         Err(error) => {
+            if let Some(fields) = vortex_ingest_scout_blocked_fields(&request, &error) {
+                emit(
+                    VORTEX_INGEST_COMMAND,
+                    format,
+                    CommandStatus::Unsupported,
+                    "vortex_ingest scout ingress blocked source before preparation".to_string(),
+                    format!(
+                        "local vortex_ingest scout ingress blocked source {} before Vortex write: {error}; fallback execution remains disabled",
+                        request.source_path.display()
+                    ),
+                    Vec::new(),
+                    fields,
+                );
+                return ExitCode::from(1);
+            }
             return emit_error(
                 VORTEX_INGEST_COMMAND,
                 format,
@@ -2442,6 +2460,144 @@ fn differential_preparation_report(
     )
 }
 
+fn scout_ingress_report(
+    source: &VortexIngestSourceData,
+    source_path: &Path,
+    source_state_id: &str,
+    source_state_digest: &str,
+    source_schema_digest: &str,
+) -> shardloom_vortex::VortexScoutIngressReport {
+    shardloom_vortex::evaluate_vortex_scout_ingress(shardloom_vortex::VortexScoutIngressInput {
+        source_state_id: source_state_id.to_string(),
+        source_state_digest: source_state_digest.to_string(),
+        source_format: source.source_format.as_str().to_string(),
+        source_path: source_path.display().to_string(),
+        source_schema_digest: source_schema_digest.to_string(),
+        row_count: u64::try_from(source.row_count).unwrap_or(u64::MAX),
+        source_byte_count: source.source_bytes,
+        column_count: source.header.len(),
+        read_plan: source.read_plan.status().to_string(),
+        metadata_range_refs: source.preparation_spine_source_byte_range_refs(source_state_id),
+        sampled_row_range_refs: source.preparation_spine_source_row_range_refs(source_state_id),
+        anomaly_count: 0,
+        anomaly_families: "none".to_string(),
+        malformed_row_refs: "none".to_string(),
+        schema_drift_status: "not_detected_no_prior_schema_baseline".to_string(),
+        unsupported_shape_status: "not_detected".to_string(),
+        nullability_status: "nullable_fields_admitted_as_scalar_nulls".to_string(),
+        small_file_pathology_status: scout_small_file_pathology_status(source),
+        quarantine_required: false,
+        quarantine_output_plan_status: "not_required".to_string(),
+        quarantine_output_ref: "not_requested".to_string(),
+        quarantine_output_digest: "not_requested".to_string(),
+        redaction_status: "malformed_row_refs_are_row_numbers_only".to_string(),
+        unsupported_diagnostic_code: "none".to_string(),
+        correctness_policy: "fail_closed_no_silent_repair_or_row_drop".to_string(),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    })
+}
+
+fn scout_small_file_pathology_status(source: &VortexIngestSourceData) -> String {
+    if source.source_bytes < 4096 {
+        "observed_tiny_local_fixture_not_blocking".to_string()
+    } else {
+        "not_detected".to_string()
+    }
+}
+
+fn layout_write_advisor_report(
+    source: &VortexIngestSourceData,
+    source_state_id: &str,
+    source_state_digest: &str,
+    source_schema_digest: &str,
+    certification_level: shardloom_vortex::VortexIngestCertificationLevel,
+) -> shardloom_vortex::VortexLayoutWriteAdvisorReport {
+    shardloom_vortex::evaluate_vortex_layout_write_advisor(
+        shardloom_vortex::VortexLayoutWriteAdvisorInput {
+            source_state_id: source_state_id.to_string(),
+            source_state_digest: source_state_digest.to_string(),
+            source_format: source.source_format.as_str().to_string(),
+            source_schema_digest: source_schema_digest.to_string(),
+            row_count: u64::try_from(source.row_count).unwrap_or(u64::MAX),
+            source_byte_count: source.source_bytes,
+            column_count: source.header.len(),
+            workload_constitution: "vortex_ingest_prepare_once_local_fixture".to_string(),
+            source_statistics_status: layout_source_statistics_status(source),
+            requested_pushdown_requirements: "none_prepare_once_full_source".to_string(),
+            sink_requirements: "workspace_safe_local_vortex_file_sink".to_string(),
+            layout_strategy: "single_local_vortex_artifact".to_string(),
+            chunking_strategy: layout_chunking_strategy(source),
+            segmentation_strategy: "single_segment_local_fixture".to_string(),
+            dictionary_strategy: "writer_default_no_dictionary_claim".to_string(),
+            statistics_policy: "writer_default_statistics_no_pruning_claim".to_string(),
+            writer_provider_kind: layout_writer_provider_kind(source).to_string(),
+            writer_provider_surface: layout_writer_provider_surface(source).to_string(),
+            writer_admission_policy: "scoped_local_vortex_ingest_prepare_once".to_string(),
+            write_reopen_verification_depth: layout_verification_depth(certification_level)
+                .to_string(),
+            materialization_boundary_status: source.materialization_layout.to_string(),
+            decode_boundary_status: source.parse_normalization.to_string(),
+            expected_read_tradeoff: "not_claimed_requires_benchmark_refresh".to_string(),
+            expected_write_tradeoff: "not_claimed_requires_benchmark_refresh".to_string(),
+            strategy_admitted: true,
+            unsupported_diagnostic_code: "none".to_string(),
+            correctness_refs: "writer_row_count,reopen_row_count,artifact_digest".to_string(),
+            benchmark_refs: "not_claim_grade_benchmark_refresh_deferred".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+    )
+}
+
+fn layout_source_statistics_status(source: &VortexIngestSourceData) -> String {
+    if source.source_bytes == 0 {
+        "empty_source_file_stats_only".to_string()
+    } else {
+        "local_file_byte_row_column_stats_only".to_string()
+    }
+}
+
+fn layout_chunking_strategy(source: &VortexIngestSourceData) -> String {
+    if source.row_count <= 4096 {
+        "single_chunk_for_scoped_local_fixture".to_string()
+    } else {
+        "writer_default_chunking_no_performance_claim".to_string()
+    }
+}
+
+fn layout_writer_provider_kind(source: &VortexIngestSourceData) -> &'static str {
+    if source.columnar_source_preserved {
+        "vortex_array_kernel"
+    } else {
+        "shardloom_kernel"
+    }
+}
+
+fn layout_writer_provider_surface(source: &VortexIngestSourceData) -> &'static str {
+    if source.columnar_source_preserved {
+        "ArrayRef::from_arrow(RecordBatch);VortexSession::write_options().write(ArrayStream)"
+    } else {
+        "shardloom_scalar_rows_to_vortex_struct;VortexSession::write_options().write(ArrayStream)"
+    }
+}
+
+fn layout_verification_depth(
+    certification_level: shardloom_vortex::VortexIngestCertificationLevel,
+) -> &'static str {
+    match certification_level {
+        shardloom_vortex::VortexIngestCertificationLevel::IngestMinimal => {
+            "write_digest_only_no_reopen"
+        }
+        shardloom_vortex::VortexIngestCertificationLevel::IngestCertified => {
+            "writer_and_reopen_row_count"
+        }
+        shardloom_vortex::VortexIngestCertificationLevel::IngestFullReplay => {
+            "blocked_until_downstream_replay"
+        }
+    }
+}
+
 fn capillary_preparation_report(
     source: &VortexIngestSourceData,
     vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
@@ -2535,11 +2691,130 @@ fn prepared_artifact_segment_refs_for(
     format!("{prepared_state_id}:rows=0..{row_count}:digest={artifact_digest}")
 }
 
+fn copy_budget_report(
+    source: &VortexIngestSourceData,
+    vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
+    source_state_id: &str,
+    source_state_digest: &str,
+    prepared_state_id: &str,
+    prepared_state_digest: &str,
+) -> shardloom_vortex::VortexCopyBudgetReport {
+    let source_read_copy_bytes = source.source_bytes;
+    let writer_buffer_bytes = vortex_report.bytes_written;
+    let total_measured_copy_bytes = source_read_copy_bytes.saturating_add(writer_buffer_bytes);
+    shardloom_vortex::evaluate_vortex_copy_budget(shardloom_vortex::VortexCopyBudgetInput {
+        source_state_id: source_state_id.to_string(),
+        source_state_digest: source_state_digest.to_string(),
+        prepared_state_id: prepared_state_id.to_string(),
+        prepared_state_digest: prepared_state_digest.to_string(),
+        source_format: source.source_format.as_str().to_string(),
+        row_count: vortex_report.row_count,
+        source_byte_count: source.source_bytes,
+        column_count: source.header.len(),
+        allocation_scope: "vortex_ingest_local_prepare_once".to_string(),
+        copy_scope:
+            "source_read,parse_normalization,columnar_handoff,vortex_array_build,writer,reopen,evidence"
+                .to_string(),
+        measurement_status: "reported_with_not_measured_segments".to_string(),
+        source_read_copy_bytes: source_read_copy_bytes.to_string(),
+        parse_normalization_copy_bytes: copy_parse_normalization_bytes(source),
+        columnar_handoff_copy_bytes: copy_columnar_handoff_bytes(source),
+        vortex_array_build_copy_bytes: copy_vortex_array_build_bytes(vortex_report),
+        writer_buffer_bytes: writer_buffer_bytes.to_string(),
+        reopen_verify_copy_bytes: copy_reopen_verify_bytes(vortex_report),
+        evidence_render_copy_bytes: "not_measured".to_string(),
+        total_measured_copy_bytes: total_measured_copy_bytes.to_string(),
+        buffer_family: copy_buffer_family(source).to_string(),
+        ownership_policy: "owned_buffers_no_borrowed_lifetime_reuse".to_string(),
+        writer_buffering_status: "writer_bytes_reported_from_local_vortex_artifact".to_string(),
+        buffer_reuse_status: "blocked_until_correctness_parity".to_string(),
+        buffer_reuse_count: 0,
+        unsafe_lifetime_shortcut_status: "blocked_no_unsafe_lifetime_shortcuts".to_string(),
+        correctness_parity_refs:
+            "source_state_digest,prepared_state_digest,writer_row_count,reopen_row_count"
+                .to_string(),
+        materialization_boundary_status: vortex_report
+            .preparation_spine
+            .materialization_boundary_status
+            .clone(),
+        decode_boundary_status: vortex_report
+            .preparation_spine
+            .decode_boundary_status
+            .clone(),
+        unsupported_diagnostic_code: "none".to_string(),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    })
+}
+
+fn copy_parse_normalization_bytes(source: &VortexIngestSourceData) -> String {
+    if source.columnar_source_preserved {
+        "not_measured_structured_reader".to_string()
+    } else {
+        "not_measured_scalar_row_parse".to_string()
+    }
+}
+
+fn copy_columnar_handoff_bytes(source: &VortexIngestSourceData) -> String {
+    if source.columnar_source_preserved {
+        "not_measured_arrow_record_batch_handoff".to_string()
+    } else {
+        "not_applicable_scalar_rows".to_string()
+    }
+}
+
+fn copy_vortex_array_build_bytes(
+    vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
+) -> String {
+    if vortex_report.manual_scalar_copy_avoided {
+        "not_measured_vortex_record_batch_conversion".to_string()
+    } else {
+        "not_measured_scalar_to_vortex_build".to_string()
+    }
+}
+
+fn copy_reopen_verify_bytes(
+    vortex_report: &shardloom_vortex::VortexPreparedStateWriteReport,
+) -> String {
+    if vortex_report.upstream_vortex_scan_called {
+        "not_measured_reopen_scan".to_string()
+    } else {
+        "not_performed".to_string()
+    }
+}
+
+fn copy_buffer_family(source: &VortexIngestSourceData) -> &'static str {
+    if source.columnar_source_preserved {
+        "source_bytes,arrow_record_batches,vortex_writer_buffer,reopen_scan_buffer"
+    } else {
+        "source_bytes,scalar_rows,vortex_writer_buffer,reopen_scan_buffer"
+    }
+}
+
 fn run_scalar_vortex_ingest_smoke(
     request: VortexIngestRequest,
 ) -> Result<VortexIngestReport, ShardLoomError> {
     let prepare_start = Instant::now();
     let source = read_local_source(&request.source_path)?;
+    let source_evidence = VortexIngestSourceData::from_scalar_source(source.clone());
+    let source_schema_digest = fnv64_digest(&source_evidence.header.join(","));
+    let source_state_id = source_state_id_for_source(&source_evidence);
+    let source_state_digest =
+        source_state_digest_for_source(&source_evidence, &source_schema_digest);
+    let scout_ingress = scout_ingress_report(
+        &source_evidence,
+        &request.source_path,
+        &source_state_id,
+        &source_state_digest,
+        &source_schema_digest,
+    );
+    let layout_write_advisor = layout_write_advisor_report(
+        &source_evidence,
+        &source_state_id,
+        &source_state_digest,
+        &source_schema_digest,
+        request.certification_level,
+    );
     let rows = ordered_source_rows(&source.header, &source.rows)?;
     let vortex_request = shardloom_vortex::VortexPreparedStateWriteRequest::new(
         &request.target_path,
@@ -2552,10 +2827,6 @@ fn run_scalar_vortex_ingest_smoke(
     let prepare_once_total_millis = prepare_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
-    let source = VortexIngestSourceData::from_scalar_source(source);
-    let source_schema_digest = fnv64_digest(&source.header.join(","));
-    let source_state_id = source_state_id_for_source(&source);
-    let source_state_digest = source_state_digest_for_source(&source, &source_schema_digest);
     let prepared_state_digest = fnv64_digest(&format!(
         "{}|{}|{}|{}",
         source_state_digest,
@@ -2568,18 +2839,26 @@ fn run_scalar_vortex_ingest_smoke(
         prepared_state_digest.replace(':', "-")
     );
     let capillary_preparation = capillary_preparation_report(
-        &source,
+        &source_evidence,
         &vortex_report,
         &source_state_id,
         &source_state_digest,
         &prepared_state_id,
         &prepared_state_digest,
     )?;
+    let copy_budget = copy_budget_report(
+        &source_evidence,
+        &vortex_report,
+        &source_state_id,
+        &source_state_digest,
+        &prepared_state_id,
+        &prepared_state_digest,
+    );
     let evidence_render_millis = evidence_start.elapsed().as_millis();
 
     Ok(VortexIngestReport {
         request,
-        source,
+        source: source_evidence,
         source_schema_digest,
         source_state_id,
         source_state_digest,
@@ -2588,7 +2867,10 @@ fn run_scalar_vortex_ingest_smoke(
         prepare_once_total_millis,
         evidence_render_millis,
         vortex_report,
+        scout_ingress,
+        layout_write_advisor,
         capillary_preparation,
+        copy_budget,
         differential_preparation: None,
     })
 }
@@ -2633,6 +2915,23 @@ fn run_columnar_vortex_ingest_smoke(
         read_millis,
         source_to_columnar_millis,
     );
+    let source_schema_digest = fnv64_digest(&source.header.join(","));
+    let source_state_id = source_state_id_for_source(&source);
+    let source_state_digest = source_state_digest_for_source(&source, &source_schema_digest);
+    let scout_ingress = scout_ingress_report(
+        &source,
+        &request.source_path,
+        &source_state_id,
+        &source_state_digest,
+        &source_schema_digest,
+    );
+    let layout_write_advisor = layout_write_advisor_report(
+        &source,
+        &source_state_id,
+        &source_state_digest,
+        &source_schema_digest,
+        request.certification_level,
+    );
     let vortex_request = shardloom_vortex::VortexPreparedStateColumnarWriteRequest::new(
         &request.target_path,
         columnar_source,
@@ -2644,9 +2943,6 @@ fn run_columnar_vortex_ingest_smoke(
     let prepare_once_total_millis = prepare_start.elapsed().as_millis();
 
     let evidence_start = Instant::now();
-    let source_schema_digest = fnv64_digest(&source.header.join(","));
-    let source_state_id = source_state_id_for_source(&source);
-    let source_state_digest = source_state_digest_for_source(&source, &source_schema_digest);
     let prepared_state_digest = fnv64_digest(&format!(
         "{}|{}|{}|{}",
         source_state_digest,
@@ -2666,6 +2962,14 @@ fn run_columnar_vortex_ingest_smoke(
         &prepared_state_id,
         &prepared_state_digest,
     )?;
+    let copy_budget = copy_budget_report(
+        &source,
+        &vortex_report,
+        &source_state_id,
+        &source_state_digest,
+        &prepared_state_id,
+        &prepared_state_digest,
+    );
     let evidence_render_millis = evidence_start.elapsed().as_millis();
 
     Ok(VortexIngestReport {
@@ -2679,7 +2983,10 @@ fn run_columnar_vortex_ingest_smoke(
         prepare_once_total_millis,
         evidence_render_millis,
         vortex_report,
+        scout_ingress,
+        layout_write_advisor,
         capillary_preparation,
+        copy_budget,
         differential_preparation: None,
     })
 }
@@ -3240,6 +3547,8 @@ impl VortexIngestReport {
                 "false".to_string(),
             ),
         ];
+        fields.extend(self.scout_ingress.evidence_fields());
+        fields.extend(self.layout_write_advisor.evidence_fields());
         fields.extend(self.vortex_report.preparation_spine.evidence_fields());
         fields.extend(self.preparation_spine_source_fields(certified_reopen));
         fields.extend(
@@ -3248,6 +3557,7 @@ impl VortexIngestReport {
                 .evidence_fields("vortex_ingest_output"),
         );
         fields.extend(self.capillary_preparation.evidence_fields());
+        fields.extend(self.copy_budget.evidence_fields());
         if let Some(report) = &self.differential_preparation {
             fields.extend(report.evidence_fields());
         }
@@ -3257,18 +3567,24 @@ impl VortexIngestReport {
     fn summary(&self) -> String {
         if let Some(report) = &self.differential_preparation {
             return format!(
-                "vortex_ingest prepared {} base row(s) into {} with capillary status {} and differential overlay status {}",
+                "vortex_ingest prepared {} base row(s) into {} with scout status {}, layout/write status {}, capillary status {}, copy-budget status {}, and differential overlay status {}",
                 self.vortex_report.row_count,
                 self.request.target_path.display(),
+                self.scout_ingress.status,
+                self.layout_write_advisor.status,
                 self.capillary_preparation.status,
+                self.copy_budget.status,
                 report.status
             );
         }
         format!(
-            "vortex_ingest prepared {} local row(s) into {} with capillary status {}",
+            "vortex_ingest prepared {} local row(s) into {} with scout status {}, layout/write status {}, capillary status {}, and copy-budget status {}",
             self.vortex_report.row_count,
             self.request.target_path.display(),
-            self.capillary_preparation.status
+            self.scout_ingress.status,
+            self.layout_write_advisor.status,
+            self.capillary_preparation.status,
+            self.copy_budget.status
         )
     }
 
@@ -3371,16 +3687,19 @@ impl VortexIngestReport {
 
     fn to_text(&self) -> String {
         let mut text = format!(
-            "ShardLoom vortex_ingest smoke\nsource: {}\ntarget: {}\nsource format: {}\nrows prepared: {}\ncolumns: {}\ncertification level: {}\nreopen verification: {}\nprepared state: {}\ncapillary preparation: {}\npulseweave: {}\nfallback execution: disabled",
+            "ShardLoom vortex_ingest smoke\nsource: {}\ntarget: {}\nsource format: {}\nrows prepared: {}\ncolumns: {}\ncertification level: {}\nscout ingress: {}\nlayout/write advisor: {}\nreopen verification: {}\nprepared state: {}\ncapillary preparation: {}\ncopy budget: {}\npulseweave: {}\nfallback execution: disabled",
             self.request.source_path.display(),
             self.request.target_path.display(),
             self.source.source_format.as_str(),
             self.vortex_report.row_count,
             self.source.header.join(","),
             self.vortex_report.certification_level,
+            self.scout_ingress.status,
+            self.layout_write_advisor.status,
             self.vortex_report.reopen_verification_status,
             self.prepared_state_id,
             self.capillary_preparation.status,
+            self.copy_budget.status,
             self.capillary_preparation.pulseweave_report.status
         );
         if let Some(report) = &self.differential_preparation {
@@ -3444,8 +3763,13 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
             "vortex_ingest.requires_vortex_write_feature".to_string(),
         ),
     ];
+    fields.extend(vortex_ingest_feature_blocked_scout_fields(request));
+    fields.extend(vortex_ingest_feature_blocked_layout_write_advisor_fields(
+        request,
+    ));
     fields.extend(vortex_ingest_feature_blocked_spine_fields());
     fields.extend(vortex_ingest_feature_blocked_capillary_fields());
+    fields.extend(vortex_ingest_feature_blocked_copy_budget_fields(request));
     fields.extend([
         ("prepared_state_created".to_string(), "false".to_string()),
         ("prepared_state_reused".to_string(), "false".to_string()),
@@ -3466,6 +3790,422 @@ fn vortex_ingest_feature_blocked_fields(request: &VortexIngestRequest) -> Vec<(S
         ("production_claim_allowed".to_string(), "false".to_string()),
     ]);
     fields
+}
+
+#[allow(clippy::too_many_lines)]
+fn vortex_ingest_scout_blocked_fields(
+    request: &VortexIngestRequest,
+    error: &ShardLoomError,
+) -> Option<Vec<(String, String)>> {
+    let error_text = error.to_string();
+    let classifier = classify_vortex_ingest_scout_error(&error_text)?;
+    let source_adapter = LocalInputAdapterSelection::infer_from_path(&request.source_path).ok();
+    let source_format = source_adapter
+        .as_ref()
+        .map_or("unknown".to_string(), |adapter| {
+            adapter.source_format.as_str().to_string()
+        });
+    let (source_bytes, source_digest) = fs::read(&request.source_path).map_or_else(
+        |_| (0, "not_available_source_read_failed".to_string()),
+        |bytes| {
+            (
+                u64::try_from(bytes.len()).unwrap_or(u64::MAX),
+                fnv64_digest_bytes(&bytes),
+            )
+        },
+    );
+    let source_state_id = format!("local-{source_format}-{}", source_digest.replace(':', "-"));
+    let source_state_digest = fnv64_digest(&format!(
+        "{source_format}|{}|{}|{}",
+        request.source_path.display(),
+        source_digest,
+        classifier.diagnostic_code
+    ));
+    let source_schema_digest = format!("blocked_before_schema_materialization:{source_digest}");
+    let scout_report = shardloom_vortex::evaluate_vortex_scout_ingress(
+        shardloom_vortex::VortexScoutIngressInput {
+            source_state_id,
+            source_state_digest,
+            source_format,
+            source_path: request.source_path.display().to_string(),
+            source_schema_digest,
+            row_count: 0,
+            source_byte_count: source_bytes,
+            column_count: 0,
+            read_plan: "blocked_before_full_preparation".to_string(),
+            metadata_range_refs: if source_bytes == 0 {
+                "not_available_source_read_failed".to_string()
+            } else {
+                format!(
+                    "{}:bytes=0..{}",
+                    request.source_path.display(),
+                    source_bytes
+                )
+            },
+            sampled_row_range_refs: classifier.malformed_row_refs.clone(),
+            anomaly_count: 1,
+            anomaly_families: classifier.anomaly_family.to_string(),
+            malformed_row_refs: classifier.malformed_row_refs,
+            schema_drift_status: classifier.schema_drift_status.to_string(),
+            unsupported_shape_status: classifier.unsupported_shape_status.to_string(),
+            nullability_status: "not_evaluated_blocked_before_preparation".to_string(),
+            small_file_pathology_status: "not_evaluated_blocked_before_preparation".to_string(),
+            quarantine_required: true,
+            quarantine_output_plan_status: "planned_not_emitted_no_quarantine_sink_requested"
+                .to_string(),
+            quarantine_output_ref: "not_emitted".to_string(),
+            quarantine_output_digest: "not_emitted".to_string(),
+            redaction_status: "malformed_row_refs_are_row_numbers_only".to_string(),
+            unsupported_diagnostic_code: classifier.diagnostic_code.to_string(),
+            correctness_policy: "fail_closed_no_silent_repair_or_row_drop".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+    );
+    let mut fields = vec![
+        (
+            "schema_version".to_string(),
+            VORTEX_INGEST_SCHEMA_VERSION.to_string(),
+        ),
+        ("execution_mode".to_string(), "prepared_vortex".to_string()),
+        (
+            "selected_execution_mode".to_string(),
+            "prepared_vortex".to_string(),
+        ),
+        ("engine_mode".to_string(), "batch".to_string()),
+        ("runtime_execution".to_string(), "false".to_string()),
+        ("support_status".to_string(), "blocked".to_string()),
+        (
+            "source_path".to_string(),
+            request.source_path.display().to_string(),
+        ),
+        (
+            "target_vortex_path".to_string(),
+            request.target_path.display().to_string(),
+        ),
+        ("source_io_performed".to_string(), "true".to_string()),
+        ("ingress_route".to_string(), "vortex_ingest".to_string()),
+        (
+            "ingress_route_label".to_string(),
+            "Vortex ingest / prepare once route".to_string(),
+        ),
+        ("vortex_ingest_performed".to_string(), "false".to_string()),
+        (
+            "vortex_ingest_status".to_string(),
+            "blocked_scout_ingress".to_string(),
+        ),
+        (
+            "certification_level".to_string(),
+            request.certification_level.as_str().to_string(),
+        ),
+        (
+            "certification_status".to_string(),
+            "blocked_scout_ingress".to_string(),
+        ),
+        (
+            "vortex_ingest_blocker_id".to_string(),
+            classifier.diagnostic_code.to_string(),
+        ),
+    ];
+    fields.extend(scout_report.evidence_fields());
+    fields.extend(vortex_ingest_scout_blocked_layout_write_advisor_fields(
+        &scout_report,
+        classifier.diagnostic_code,
+    ));
+    fields.extend(vortex_ingest_scout_blocked_copy_budget_fields(
+        &scout_report,
+        classifier.diagnostic_code,
+    ));
+    fields.extend([
+        ("prepared_state_created".to_string(), "false".to_string()),
+        ("prepared_state_reused".to_string(), "false".to_string()),
+        ("prepared_state_reuse_hit".to_string(), "false".to_string()),
+        ("timing_scope".to_string(), "scout_ingress_only".to_string()),
+        (
+            "claim_gate_status".to_string(),
+            "not_claim_grade".to_string(),
+        ),
+        ("fallback_attempted".to_string(), "false".to_string()),
+        (
+            "fallback_execution_allowed".to_string(),
+            "false".to_string(),
+        ),
+        ("external_engine_invoked".to_string(), "false".to_string()),
+        ("object_store_io".to_string(), "false".to_string()),
+        ("performance_claim_allowed".to_string(), "false".to_string()),
+        ("production_claim_allowed".to_string(), "false".to_string()),
+    ]);
+    Some(fields)
+}
+
+struct ScoutErrorClassifier {
+    diagnostic_code: &'static str,
+    anomaly_family: &'static str,
+    malformed_row_refs: String,
+    schema_drift_status: &'static str,
+    unsupported_shape_status: &'static str,
+}
+
+fn classify_vortex_ingest_scout_error(error_text: &str) -> Option<ScoutErrorClassifier> {
+    if error_text.contains("scalar values only")
+        || error_text.contains("flat object")
+        || error_text.contains("nested")
+    {
+        Some(ScoutErrorClassifier {
+            diagnostic_code: "vortex_scout_ingress.unsupported_nested_shape",
+            anomaly_family: "unsupported_nested_shape",
+            malformed_row_refs: scout_error_row_refs(error_text),
+            schema_drift_status: "not_detected_no_prior_schema_baseline",
+            unsupported_shape_status: "blocked_unsupported_nested_shape",
+        })
+    } else if error_text.contains("row width")
+        || error_text.contains("quoted field is not closed")
+        || error_text.contains("not valid UTF-8")
+        || error_text.contains("not admitted by this scoped source runtime")
+    {
+        Some(ScoutErrorClassifier {
+            diagnostic_code: "vortex_scout_ingress.malformed_source",
+            anomaly_family: "malformed_record",
+            malformed_row_refs: scout_error_row_refs(error_text),
+            schema_drift_status: "not_detected_no_prior_schema_baseline",
+            unsupported_shape_status: "not_detected",
+        })
+    } else if error_text.contains("SQL identifiers") || error_text.contains("header") {
+        Some(ScoutErrorClassifier {
+            diagnostic_code: "vortex_scout_ingress.schema_drift",
+            anomaly_family: "schema_drift",
+            malformed_row_refs: "none".to_string(),
+            schema_drift_status: "blocked_schema_or_header_drift",
+            unsupported_shape_status: "not_detected",
+        })
+    } else if error_text.contains("failed to read local")
+        || error_text.contains("local input adapter registry")
+    {
+        Some(ScoutErrorClassifier {
+            diagnostic_code: "vortex_scout_ingress.source_admission",
+            anomaly_family: "source_admission",
+            malformed_row_refs: "none".to_string(),
+            schema_drift_status: "not_evaluated_source_admission_blocked",
+            unsupported_shape_status: "not_detected",
+        })
+    } else {
+        None
+    }
+}
+
+fn scout_error_row_refs(error_text: &str) -> String {
+    let Some(row_pos) = error_text.find("row ") else {
+        return "unknown_row".to_string();
+    };
+    let after_row = &error_text[row_pos + "row ".len()..];
+    let row_number = after_row
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect::<String>();
+    if row_number.is_empty() {
+        "unknown_row".to_string()
+    } else {
+        format!("row={row_number}")
+    }
+}
+
+fn vortex_ingest_feature_blocked_scout_fields(
+    request: &VortexIngestRequest,
+) -> Vec<(String, String)> {
+    shardloom_vortex::evaluate_vortex_scout_ingress(shardloom_vortex::VortexScoutIngressInput {
+        source_state_id: "not_created_feature_gate_blocked".to_string(),
+        source_state_digest: "not_created_feature_gate_blocked".to_string(),
+        source_format: "unknown".to_string(),
+        source_path: request.source_path.display().to_string(),
+        source_schema_digest: "not_created_feature_gate_blocked".to_string(),
+        row_count: 0,
+        source_byte_count: 0,
+        column_count: 0,
+        read_plan: "not_started_feature_gate_blocked".to_string(),
+        metadata_range_refs: "not_reported_feature_gate_blocked".to_string(),
+        sampled_row_range_refs: "not_reported_feature_gate_blocked".to_string(),
+        anomaly_count: 0,
+        anomaly_families: "none".to_string(),
+        malformed_row_refs: "none".to_string(),
+        schema_drift_status: "not_evaluated_feature_gate_blocked".to_string(),
+        unsupported_shape_status: "not_detected".to_string(),
+        nullability_status: "not_evaluated_feature_gate_blocked".to_string(),
+        small_file_pathology_status: "not_evaluated_feature_gate_blocked".to_string(),
+        quarantine_required: false,
+        quarantine_output_plan_status: "not_started_feature_gate_blocked".to_string(),
+        quarantine_output_ref: "not_emitted".to_string(),
+        quarantine_output_digest: "not_emitted".to_string(),
+        redaction_status: "not_applicable_no_source_rows_read".to_string(),
+        unsupported_diagnostic_code: "vortex_ingest.requires_vortex_write_feature".to_string(),
+        correctness_policy: "blocked_before_scout_runtime".to_string(),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    })
+    .evidence_fields()
+}
+
+fn vortex_ingest_feature_blocked_layout_write_advisor_fields(
+    _request: &VortexIngestRequest,
+) -> Vec<(String, String)> {
+    shardloom_vortex::evaluate_vortex_layout_write_advisor(
+        shardloom_vortex::VortexLayoutWriteAdvisorInput {
+            source_state_id: "not_created_feature_gate_blocked".to_string(),
+            source_state_digest: "not_created_feature_gate_blocked".to_string(),
+            source_format: "unknown".to_string(),
+            source_schema_digest: "not_created_feature_gate_blocked".to_string(),
+            row_count: 0,
+            source_byte_count: 0,
+            column_count: 0,
+            workload_constitution: "not_evaluated_feature_gate_blocked".to_string(),
+            source_statistics_status: "not_evaluated_feature_gate_blocked".to_string(),
+            requested_pushdown_requirements: "not_evaluated_feature_gate_blocked".to_string(),
+            sink_requirements: "not_evaluated_feature_gate_blocked".to_string(),
+            layout_strategy: "not_admitted_feature_gate_blocked".to_string(),
+            chunking_strategy: "not_admitted_feature_gate_blocked".to_string(),
+            segmentation_strategy: "not_admitted_feature_gate_blocked".to_string(),
+            dictionary_strategy: "not_admitted_feature_gate_blocked".to_string(),
+            statistics_policy: "not_admitted_feature_gate_blocked".to_string(),
+            writer_provider_kind: "none_feature_gate_blocked".to_string(),
+            writer_provider_surface: "none_feature_gate_blocked".to_string(),
+            writer_admission_policy: "blocked_before_vortex_write_feature".to_string(),
+            write_reopen_verification_depth: "not_started_feature_gate_blocked".to_string(),
+            materialization_boundary_status: "not_started_feature_gate_blocked".to_string(),
+            decode_boundary_status: "not_started_feature_gate_blocked".to_string(),
+            expected_read_tradeoff: "not_evaluated_feature_gate_blocked".to_string(),
+            expected_write_tradeoff: "not_evaluated_feature_gate_blocked".to_string(),
+            strategy_admitted: false,
+            unsupported_diagnostic_code: "vortex_ingest.requires_vortex_write_feature".to_string(),
+            correctness_refs: "none_feature_gate_blocked".to_string(),
+            benchmark_refs: "none_feature_gate_blocked".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+    )
+    .evidence_fields()
+}
+
+fn vortex_ingest_feature_blocked_copy_budget_fields(
+    _request: &VortexIngestRequest,
+) -> Vec<(String, String)> {
+    shardloom_vortex::evaluate_vortex_copy_budget(shardloom_vortex::VortexCopyBudgetInput {
+        source_state_id: "not_created_feature_gate_blocked".to_string(),
+        source_state_digest: "not_created_feature_gate_blocked".to_string(),
+        prepared_state_id: "not_created_feature_gate_blocked".to_string(),
+        prepared_state_digest: "not_created_feature_gate_blocked".to_string(),
+        source_format: "unknown".to_string(),
+        row_count: 0,
+        source_byte_count: 0,
+        column_count: 0,
+        allocation_scope: "not_started_feature_gate_blocked".to_string(),
+        copy_scope: "not_started_feature_gate_blocked".to_string(),
+        measurement_status: "not_started_feature_gate_blocked".to_string(),
+        source_read_copy_bytes: "not_started".to_string(),
+        parse_normalization_copy_bytes: "not_started".to_string(),
+        columnar_handoff_copy_bytes: "not_started".to_string(),
+        vortex_array_build_copy_bytes: "not_started".to_string(),
+        writer_buffer_bytes: "not_started".to_string(),
+        reopen_verify_copy_bytes: "not_started".to_string(),
+        evidence_render_copy_bytes: "not_started".to_string(),
+        total_measured_copy_bytes: "0".to_string(),
+        buffer_family: "none_feature_gate_blocked".to_string(),
+        ownership_policy: "not_started_feature_gate_blocked".to_string(),
+        writer_buffering_status: "not_started_feature_gate_blocked".to_string(),
+        buffer_reuse_status: "not_started_feature_gate_blocked".to_string(),
+        buffer_reuse_count: 0,
+        unsafe_lifetime_shortcut_status: "blocked_no_unsafe_lifetime_shortcuts".to_string(),
+        correctness_parity_refs: "none_feature_gate_blocked".to_string(),
+        materialization_boundary_status: "not_started_feature_gate_blocked".to_string(),
+        decode_boundary_status: "not_started_feature_gate_blocked".to_string(),
+        unsupported_diagnostic_code: "vortex_ingest.requires_vortex_write_feature".to_string(),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    })
+    .evidence_fields()
+}
+
+fn vortex_ingest_scout_blocked_layout_write_advisor_fields(
+    scout_report: &shardloom_vortex::VortexScoutIngressReport,
+    blocker_code: &str,
+) -> Vec<(String, String)> {
+    shardloom_vortex::evaluate_vortex_layout_write_advisor(
+        shardloom_vortex::VortexLayoutWriteAdvisorInput {
+            source_state_id: scout_report.source_state_id.clone(),
+            source_state_digest: scout_report.source_state_digest.clone(),
+            source_format: scout_report.source_format.clone(),
+            source_schema_digest: scout_report.source_schema_digest_after.clone(),
+            row_count: scout_report.row_count,
+            source_byte_count: scout_report.source_byte_count,
+            column_count: scout_report.column_count,
+            workload_constitution: "blocked_by_scout_ingress".to_string(),
+            source_statistics_status: "not_evaluated_scout_ingress_blocked".to_string(),
+            requested_pushdown_requirements: "none_prepare_once_full_source".to_string(),
+            sink_requirements: "workspace_safe_local_vortex_file_sink".to_string(),
+            layout_strategy: "not_admitted_scout_ingress_blocked".to_string(),
+            chunking_strategy: "not_admitted_scout_ingress_blocked".to_string(),
+            segmentation_strategy: "not_admitted_scout_ingress_blocked".to_string(),
+            dictionary_strategy: "not_admitted_scout_ingress_blocked".to_string(),
+            statistics_policy: "not_admitted_scout_ingress_blocked".to_string(),
+            writer_provider_kind: "none_scout_ingress_blocked".to_string(),
+            writer_provider_surface: "none_scout_ingress_blocked".to_string(),
+            writer_admission_policy: "blocked_before_vortex_write_by_scout_ingress".to_string(),
+            write_reopen_verification_depth: "not_started_scout_ingress_blocked".to_string(),
+            materialization_boundary_status: "not_started_scout_ingress_blocked".to_string(),
+            decode_boundary_status: "not_started_scout_ingress_blocked".to_string(),
+            expected_read_tradeoff: "not_evaluated_scout_ingress_blocked".to_string(),
+            expected_write_tradeoff: "not_evaluated_scout_ingress_blocked".to_string(),
+            strategy_admitted: false,
+            unsupported_diagnostic_code: format!(
+                "vortex_layout_write_advisor.blocked_by_scout_ingress:{blocker_code}"
+            ),
+            correctness_refs: "none_scout_ingress_blocked".to_string(),
+            benchmark_refs: "none_scout_ingress_blocked".to_string(),
+            fallback_attempted: false,
+            external_engine_invoked: false,
+        },
+    )
+    .evidence_fields()
+}
+
+fn vortex_ingest_scout_blocked_copy_budget_fields(
+    scout_report: &shardloom_vortex::VortexScoutIngressReport,
+    blocker_code: &str,
+) -> Vec<(String, String)> {
+    shardloom_vortex::evaluate_vortex_copy_budget(shardloom_vortex::VortexCopyBudgetInput {
+        source_state_id: scout_report.source_state_id.clone(),
+        source_state_digest: scout_report.source_state_digest.clone(),
+        prepared_state_id: "not_created_scout_ingress_blocked".to_string(),
+        prepared_state_digest: "not_created_scout_ingress_blocked".to_string(),
+        source_format: scout_report.source_format.clone(),
+        row_count: scout_report.row_count,
+        source_byte_count: scout_report.source_byte_count,
+        column_count: scout_report.column_count,
+        allocation_scope: "blocked_before_copy_budget".to_string(),
+        copy_scope: "blocked_before_copy_budget".to_string(),
+        measurement_status: "blocked_before_copy_budget".to_string(),
+        source_read_copy_bytes: scout_report.source_byte_count.to_string(),
+        parse_normalization_copy_bytes: "blocked_before_parse_normalization".to_string(),
+        columnar_handoff_copy_bytes: "blocked_before_columnar_handoff".to_string(),
+        vortex_array_build_copy_bytes: "blocked_before_vortex_array_build".to_string(),
+        writer_buffer_bytes: "not_started".to_string(),
+        reopen_verify_copy_bytes: "not_started".to_string(),
+        evidence_render_copy_bytes: "not_measured".to_string(),
+        total_measured_copy_bytes: scout_report.source_byte_count.to_string(),
+        buffer_family: "source_bytes_only_scout_ingress_blocked".to_string(),
+        ownership_policy: "owned_source_bytes_no_prepared_buffers".to_string(),
+        writer_buffering_status: "not_started_scout_ingress_blocked".to_string(),
+        buffer_reuse_status: "blocked_scout_ingress".to_string(),
+        buffer_reuse_count: 0,
+        unsafe_lifetime_shortcut_status: "blocked_no_unsafe_lifetime_shortcuts".to_string(),
+        correctness_parity_refs: "none_scout_ingress_blocked".to_string(),
+        materialization_boundary_status: "not_started_scout_ingress_blocked".to_string(),
+        decode_boundary_status: "not_started_scout_ingress_blocked".to_string(),
+        unsupported_diagnostic_code: format!(
+            "vortex_copy_budget.blocked_by_scout_ingress:{blocker_code}"
+        ),
+        fallback_attempted: false,
+        external_engine_invoked: false,
+    })
+    .evidence_fields()
 }
 
 fn vortex_ingest_feature_blocked_spine_fields() -> Vec<(String, String)> {

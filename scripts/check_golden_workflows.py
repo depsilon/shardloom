@@ -550,6 +550,19 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "source_adapter_id": "local_csv_input_adapter",
                 "ingress_route": "vortex_ingest",
                 "vortex_ingest_status": "prepared_state_created",
+                "vortex_scout_ingress_status": "admitted_scout_ingress_clean",
+                "vortex_scout_ingress_anomaly_count": "0",
+                "vortex_scout_ingress_quarantine_required": "false",
+                "vortex_scout_ingress_no_standalone_lane_status": (
+                    "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+                ),
+                "vortex_layout_write_advisor_status": (
+                    "admitted_local_layout_write_strategy"
+                ),
+                "vortex_layout_write_advisor_strategy_admitted": "true",
+                "vortex_layout_write_advisor_no_standalone_lane_status": (
+                    "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+                ),
                 "prepared_state_created": "true",
                 "input_row_count": "3",
                 "writer_row_count": "3",
@@ -575,20 +588,40 @@ def workflow_local_csv_to_prepared_and_fanout(
                 "vortex_capillary_preparation_no_standalone_lane_status": (
                     "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
                 ),
+                "vortex_copy_budget_status": (
+                    "reported_copy_budget_with_unmeasured_segments"
+                ),
+                "vortex_copy_budget_buffer_reuse_status": (
+                    "blocked_until_correctness_parity"
+                ),
+                "vortex_copy_budget_unsafe_lifetime_shortcut_status": (
+                    "blocked_no_unsafe_lifetime_shortcuts"
+                ),
+                "vortex_copy_budget_no_standalone_lane_status": (
+                    "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+                ),
                 "claim_gate_status": "fixture_smoke_only",
             },
             prefix_fields={
                 "prepared_state_digest": "fnv64:",
                 "vortex_artifact_digest": "fnv64:",
+                "vortex_scout_ingress_source_state_id": "local-csv-",
+                "vortex_scout_ingress_metadata_range_refs": "local-csv-",
+                "vortex_layout_write_advisor_source_state_id": "local-csv-",
                 "vortex_preparation_spine_source_split_refs": "local-csv-",
                 "vortex_capillary_preparation_pulseweave_decision_digest": "fnv1a64:",
+                "vortex_copy_budget_source_state_id": "local-csv-",
+                "vortex_copy_budget_prepared_state_id": "vortex-prepared-state-",
             },
             artifact_paths=(target_vortex,),
             selected_field_keys=(
                 "prepared_state_id",
                 "target_vortex_path",
                 "certification_status",
+                "vortex_scout_ingress_status",
+                "vortex_layout_write_advisor_status",
                 "vortex_preparation_spine_native_io_certificate_status",
+                "vortex_copy_budget_status",
             ),
         ),
         run_cli_stage(

@@ -199,6 +199,34 @@ fn vortex_ingest_smoke_blocks_without_vortex_write_feature() {
         "vortex_ingest.requires_vortex_write_feature"
     )));
     assert!(stdout.contains(&field(
+        "vortex_scout_ingress_schema_version",
+        "shardloom.vortex_scout_ingress.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_status",
+        "blocked_feature_gate"
+    )));
+    assert!(stdout.contains(&field("vortex_scout_ingress_quarantine_required", "false")));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_unsupported_diagnostic_code",
+        "vortex_ingest.requires_vortex_write_feature"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_no_standalone_lane_status",
+        "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+    )));
+    assert!(stdout.contains(&field("vortex_scout_ingress_fallback_attempted", "false")));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_status",
+        "blocked_feature_gate"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_strategy_admitted",
+        "false"
+    )));
+    assert!(stdout.contains(&field("vortex_copy_budget_status", "blocked_feature_gate")));
+    assert!(stdout.contains(&field("vortex_copy_budget_fallback_attempted", "false")));
+    assert!(stdout.contains(&field(
         "vortex_preparation_spine_status",
         "blocked_feature_gate"
     )));
@@ -315,6 +343,46 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
         "shardloom.vortex_preparation_spine.v1"
     )));
     assert!(stdout.contains(&field(
+        "vortex_scout_ingress_schema_version",
+        "shardloom.vortex_scout_ingress.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_status",
+        "admitted_scout_ingress_clean"
+    )));
+    assert!(stdout.contains(&field("vortex_scout_ingress_anomaly_count", "0")));
+    assert!(stdout.contains(&field("vortex_scout_ingress_anomaly_families", "none")));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_schema_drift_status",
+        "not_detected_no_prior_schema_baseline"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_unsupported_shape_status",
+        "not_detected"
+    )));
+    assert!(stdout.contains(&field("vortex_scout_ingress_quarantine_required", "false")));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_no_standalone_lane_status",
+        "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+    )));
+    assert!(stdout.contains(&field("vortex_scout_ingress_fallback_attempted", "false")));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_schema_version",
+        "shardloom.vortex_layout_write_advisor.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_status",
+        "admitted_local_layout_write_strategy"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_strategy_admitted",
+        "true"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_no_standalone_lane_status",
+        "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+    )));
+    assert!(stdout.contains(&field(
         "vortex_preparation_spine_status",
         "admitted_local_preparation_spine"
     )));
@@ -379,6 +447,26 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
         "vortex_capillary_preparation_no_standalone_lane_status",
         "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
     )));
+    assert!(stdout.contains(&field(
+        "vortex_copy_budget_schema_version",
+        "shardloom.vortex_copy_budget.v1"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_copy_budget_status",
+        "reported_copy_budget_with_unmeasured_segments"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_copy_budget_buffer_reuse_status",
+        "blocked_until_correctness_parity"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_copy_budget_unsafe_lifetime_shortcut_status",
+        "blocked_no_unsafe_lifetime_shortcuts"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_copy_budget_no_standalone_lane_status",
+        "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+    )));
     assert!(stdout.contains(&field("input_row_count", "2")));
     assert!(stdout.contains(&field("source_columns", "id,label,amount,active")));
     assert!(stdout.contains(&field(
@@ -401,6 +489,88 @@ fn vortex_ingest_smoke_writes_reopens_vortex_prepared_state() {
 
     fs::remove_file(source_path).expect("remove source csv");
     fs::remove_file(target_path).expect("remove target vortex");
+}
+
+#[cfg(feature = "vortex-write")]
+#[test]
+fn vortex_ingest_smoke_blocks_nested_jsonl_with_scout_quarantine_plan() {
+    let source_path = unique_path("vortex-ingest-nested-source", "jsonl");
+    let target_path = unique_path("vortex-ingest-nested-target", "vortex");
+    fs::write(&source_path, "{\"id\":1,\"payload\":{\"nested\":true}}\n")
+        .expect("write nested source jsonl");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_shardloom"))
+        .args([
+            "vortex-ingest-smoke",
+            &source_path.display().to_string(),
+            &target_path.display().to_string(),
+            "--allow-overwrite",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("vortex-ingest-smoke command runs");
+
+    assert!(
+        !output.status.success(),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("\"command\":\"vortex-ingest-smoke\""));
+    assert!(stdout.contains("\"status\":\"unsupported\""));
+    assert!(stdout.contains(&field("vortex_ingest_status", "blocked_scout_ingress")));
+    assert!(stdout.contains(&field(
+        "vortex_ingest_blocker_id",
+        "vortex_scout_ingress.unsupported_nested_shape"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_status",
+        "blocked_unsupported_nested_shape"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_anomaly_families",
+        "unsupported_nested_shape"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_unsupported_shape_status",
+        "blocked_unsupported_nested_shape"
+    )));
+    assert!(stdout.contains(&field("vortex_scout_ingress_quarantine_required", "true")));
+    assert!(stdout.contains(&field(
+        "vortex_scout_ingress_quarantine_output_plan_status",
+        "planned_not_emitted_no_quarantine_sink_requested"
+    )));
+    assert!(stdout.contains(&field("vortex_scout_ingress_fallback_attempted", "false")));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_status",
+        "blocked_layout_write_strategy"
+    )));
+    assert!(stdout.contains(&field(
+        "vortex_layout_write_advisor_strategy_admitted",
+        "false"
+    )));
+    assert!(stdout.contains(&field("vortex_copy_budget_status", "blocked_copy_budget")));
+    assert!(stdout.contains(&field(
+        "vortex_copy_budget_prepared_state_id",
+        "not_created_scout_ingress_blocked"
+    )));
+    assert!(stdout.contains(&field("vortex_ingest_performed", "false")));
+    assert!(stdout.contains(&field("prepared_state_created", "false")));
+    assert!(
+        !target_path.exists(),
+        "scout blocker must not write {}",
+        target_path.display()
+    );
+
+    fs::remove_file(source_path).expect("remove nested source jsonl");
 }
 
 #[cfg(feature = "vortex-write")]

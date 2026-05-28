@@ -630,8 +630,9 @@ The cold ingestion/preparation outlier is now tracked as explicit follow-through
 benchmark interpretation shortcut. `GAR-IOREUSE-1H` owns cold-lane attribution and constitution
 checks; `GAR-IOREUSE-1I` owns Vortex-native source/sink/split preparation; `GAR-IOREUSE-1J` owns
 differential preparation; `GAR-IOREUSE-1K` owns capillary I/O plus PulseWeave cold-lane control;
-`GAR-IOREUSE-1L` owns scout ingress and quarantine triage. The adjacent `GAR-PERF-2J` and
-`GAR-PERF-2K` slices own layout/write advice and copy/allocation/buffer evidence.
+`GAR-IOREUSE-1L` owns scout ingress and quarantine triage; `GAR-PERF-2J` owns layout/write advice;
+and `GAR-PERF-2K` owns copy/allocation/buffer evidence. These surfaces remain inside
+`vortex_ingest` rather than creating standalone benchmark lanes.
 
 These slices may reduce cold-lane work only after they provide runtime evidence. Until then,
 compatibility-import-certified rows must keep source read, parse, Vortex preparation, write/reopen,

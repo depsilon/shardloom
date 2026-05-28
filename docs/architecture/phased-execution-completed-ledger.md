@@ -16,6 +16,85 @@ phase plan first.
 ## Completed
 
 ### Recent Completed Session Ledger
+- [x] Session label: GAR-IOREUSE-1L / GAR-PERF-2J / GAR-PERF-2K cold-lane ingress, layout/write, and copy-budget bundle
+  - Date: 2026-05-28
+  - Branch/PR: `ioreuse-1l-scout-ingress` / PR pending.
+  - Source:
+    - `GAR-IOREUSE-1L scout ingress, anomaly quarantine, and schema-drift triage`.
+    - `GAR-PERF-2J cold-lane Vortex layout/write advisor`.
+    - `GAR-PERF-2K cold-lane allocation, copy-budget, and buffer lifecycle`.
+    - Novel cold-lane research carry-forward,
+      `docs/architecture/cold-ingestion-preparation-research-carryforward.md`,
+      `docs/architecture/universal-input-contract.md`, RFC 0012, RFC 0015, and RFC 0033.
+  - Scope:
+    - Added `shardloom.vortex_scout_ingress.v1` evidence to the existing
+      `vortex_ingest` / `vortex-ingest-smoke` SourceState -> VortexPreparedState route instead of
+      adding a standalone scout lane.
+    - Evaluates scout ingress after local source admission and before Vortex write preparation,
+      recording source format/path, SourceState ID/digest, schema digest before/after, row/byte/
+      column counts, read plan, metadata/sample ranges, anomaly count/families, malformed row refs,
+      schema-drift posture, unsupported-shape posture, nullability posture, small-file pathology,
+      quarantine-output planning, redaction status, unsupported diagnostic code, correctness
+      policy, claim boundary, and no-fallback/no-external-engine fields.
+    - Blocks nested/unsupported shape, malformed source, schema-drift/header, source-admission, and
+      feature-gate failures before prepared-state creation with deterministic scout diagnostics and
+      `prepared_state_created=false`.
+    - Plans quarantine explicitly as `planned_not_emitted_no_quarantine_sink_requested` when a
+      source is rejected, with no row repair, no silent dropping, and no emitted quarantine file
+      unless a future sink is requested.
+    - Added `shardloom.vortex_layout_write_advisor.v1` evidence to the same route so local
+      preparation records workload constitution, SourceState statistics posture, requested pushdown
+      and sink requirements, layout/chunking/segmentation/dictionary/statistics policy, writer
+      provider kind/version/surface, admission policy, write/reopen verification depth,
+      materialization/decode boundary, correctness refs, benchmark refs, claim boundary, and
+      no-fallback/no-external-engine fields before treating a Vortex write strategy as admitted.
+    - Added `shardloom.vortex_copy_budget.v1` evidence to the same route so local preparation
+      records allocation/copy scope, measured source-read and writer bytes, explicit
+      `not_measured` parse/handoff/build/reopen/evidence segments, buffer family, ownership
+      policy, writer buffering posture, reuse status/count, unsafe-lifetime blocker status,
+      correctness parity refs, materialization/decode boundary, claim boundary, and
+      no-fallback/no-external-engine fields.
+    - Blocks unsupported layout/write strategies and unsafe lifetime reuse deterministically; scoped
+      buffer reuse remains blocked until correctness parity evidence admits it.
+    - Added CLI report wiring, Python typed accessors, focused Rust/Python tests, benchmark harness
+      contract/rendering/promotion support, source-of-truth docs, support matrix, and use-case
+      coverage for scout-ingress, layout/write advisor, and copy-budget evidence fields.
+    - Kept public benchmark measurement refresh deferred until after this benchmark-affecting
+      cold/preparation bundle merges; this PR updates runtime evidence, contract, and publication
+      schema only.
+  - Scout status behavior:
+    - `admitted_scout_ingress_clean` for admitted local flat sources with zero anomalies.
+    - `blocked_unsupported_nested_shape` for nested objects/arrays and unsupported source shapes.
+    - `blocked_malformed_source` for malformed row/encoding input.
+    - `blocked_schema_drift` for blocked header/schema posture.
+    - `blocked_feature_gate` for default builds without `vortex-write`.
+    - `quarantine_planned` when quarantine planning is required but no narrower blocker applies.
+  - Layout/write and copy-budget status behavior:
+    - `admitted_local_layout_write_strategy` for scoped local Vortex artifact writes whose strategy
+      and provider boundary are admitted.
+    - `blocked_layout_write_strategy` when a layout/write strategy is not admitted or carries an
+      unsupported diagnostic.
+    - `reported_copy_budget_with_unmeasured_segments` for current local preparation rows where
+      measured source/writer bytes coexist with explicit `not_measured` internal segments.
+    - `admitted_scoped_buffer_reuse` is reserved for future rows that prove ownership and
+      correctness parity; unsafe lifetime shortcuts remain blocked by
+      `blocked_no_unsafe_lifetime_shortcuts`.
+  - Claim boundary:
+    - This is scoped local source-triage evidence only. It does not claim automatic repair,
+      data-quality product behavior, broad nested-format support, object-store validation,
+      production readiness, performance, SQL/DataFrame parity, or Spark displacement.
+    - Layout/write advisor evidence is scoped local admission evidence only. It records provider,
+      strategy, and verification obligations without proving layout-driven speed, object-store/table
+      layout, production writer support, SQL/DataFrame parity, or Spark displacement.
+    - Copy-budget evidence is scoped local allocation/copy and buffer-lifecycle visibility only. It
+      records measured or not-measured copy scopes, ownership, reuse blockers, and unsafe-lifetime
+      posture without proving memory efficiency, performance, production readiness,
+      SQL/DataFrame parity, or Spark displacement.
+    - All evidence remains inside the Vortex preparation path; no external engine may parse, repair,
+      validate, quarantine, choose layout/write strategy, or avoid copies as ShardLoom runtime work.
+  - Verification:
+    - Focused Rust/Python and broader verification recorded in PR checks before merge.
+
 - [x] Session label: GAR-IOREUSE-1K capillary I/O and PulseWeave cold-lane control
   - Date: 2026-05-27
   - Branch/PR: `ioreuse-1k-capillary-pulseweave` / PR #973.
