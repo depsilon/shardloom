@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-5P Foundry dev-stack generated-output and transform proof
   - Date: 2026-05-28
-  - Branch/PR: `runtime-5p-foundry-dev-proof` / PR pending.
+  - Branch/PR: `runtime-5p-foundry-dev-proof` / PR #977.
   - Source:
     - `GAR-RUNTIME-IMPL-5P Foundry dev-stack generated-output and transform proof`.
     - RFC 0036 Foundry integration-pack availability surface.
