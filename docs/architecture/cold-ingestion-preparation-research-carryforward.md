@@ -1,7 +1,8 @@
 # Cold Ingestion And Preparation Research Carry-Forward
 
-Status: planned architecture inventory. Implementation is tracked by the detailed unchecked
-follow-up items in `docs/architecture/phased-execution-plan.md`.
+Status: implemented local cold-lane evidence inventory for the completed 1H-1L and 2J-2K bundle;
+remaining benchmark refresh and claim-grade gates are tracked by the detailed unchecked follow-up
+items in `docs/architecture/phased-execution-plan.md`.
 
 ## Summary
 
@@ -136,9 +137,19 @@ The detailed execution queue is intentionally split:
 - `GAR-PERF-2J`: cold-lane Vortex layout/write advisor.
 - `GAR-PERF-2K`: cold-lane allocation, copy-budget, and buffer lifecycle.
 
-`GAR-IOREUSE-1H` through `GAR-IOREUSE-1K` now have implemented evidence surfaces in the local
-`vortex_ingest` path. `GAR-IOREUSE-1L`, `GAR-PERF-2J`, and `GAR-PERF-2K` remain the next
-cold-lane follow-ups before refreshing benchmark measurements for the whole section.
+`GAR-IOREUSE-1H` through `GAR-IOREUSE-1L`, `GAR-PERF-2J`, and `GAR-PERF-2K` now have implemented
+evidence surfaces in the local `vortex_ingest` path. Public benchmark measurement refresh remains
+deferred until after this benchmark-affecting bundle merges. The scout ingress surface emits
+`vortex_scout_ingress_*` fields for source scope, metadata/sample ranges, schema digest before/
+after, anomaly families, malformed row refs where safe, quarantine planning, redaction status,
+unsupported diagnostic codes, correctness policy, no-fallback posture, and the explicit
+no-standalone-lane route. The layout/write advisor surface emits
+`vortex_layout_write_advisor_*` fields for workload constitution, source statistics, pushdown/sink
+requirements, strategy/provider posture, write/reopen verification depth, correctness refs,
+benchmark refs, and no-standalone-lane route. The copy-budget surface emits
+`vortex_copy_budget_*` fields for allocation/copy scope, measured or `not_measured` copy segments,
+ownership policy, buffer reuse blockers, unsafe-lifetime posture, correctness parity refs, and
+no-standalone-lane route.
 
 ## Claim Boundary
 

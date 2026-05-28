@@ -134,11 +134,11 @@ rows must preserve Native I/O, materialization/decode, output metadata, no-fallb
 evidence. Object-store runtime and table/lakehouse commits remain blocked unless separately
 admitted.
 
-The cold ingestion/preparation research carry-forward extends this follow-through with planned
-`GAR-IOREUSE-1H` through `GAR-IOREUSE-1L` slices for attribution, Vortex-native preparation,
-differential preparation, capillary I/O, and scout ingress/triage. Adjacent `GAR-PERF-2J` and
-`GAR-PERF-2K` slices cover Vortex layout/write advice and cold-lane copy/buffer evidence. These
-remain blocked until runtime/provider evidence exists; they do not authorize performance claims or
+The cold ingestion/preparation research carry-forward extends this follow-through with
+`GAR-IOREUSE-1H` through `GAR-IOREUSE-1L` plus adjacent `GAR-PERF-2J` and `GAR-PERF-2K` for
+attribution, Vortex-native preparation, differential preparation, capillary I/O, scout
+ingress/triage, Vortex layout/write advice, and cold-lane copy/buffer evidence. These surfaces
+remain scoped to local `vortex_ingest` evidence; they do not authorize performance claims or
 external fallback.
 
 `GAR-PERF-2C` is the planned Vortex Scan API pushdown completion pass. It turns existing

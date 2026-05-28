@@ -942,13 +942,13 @@ plan before coding.
   still match. `GAR-IOREUSE-1H` now adds cold-lane attribution with dedicated benchmark
   constitution blocking for full certified cold ingest, preparation-only, warm prepared query,
   sink/replay-heavy, evidence-heavy, process/harness-heavy, and external-baseline-only rows.
-  Remaining `GAR-IOREUSE-1` work is broader sink artifact proof, benchmark-family fanout
-  promotion, persistent cache/session promotion, Vortex-native source/sink/split preparation
+  Cold-lane follow-through now keeps Vortex-native source/sink/split preparation
   (`GAR-IOREUSE-1I`), differential preparation (`GAR-IOREUSE-1J`), capillary I/O with PulseWeave
-  control (`GAR-IOREUSE-1K`), scout ingress/triage (`GAR-IOREUSE-1L`), and claim-grade gates so
-  reuse cannot silently become production, cache-hit, or performance proof. Adjacent performance
-  follow-through is tracked as cold-lane layout/write advice (`GAR-PERF-2J`) and copy-budget/
-  buffer-lifecycle evidence (`GAR-PERF-2K`).
+  control (`GAR-IOREUSE-1K`), scout ingress/triage (`GAR-IOREUSE-1L`), layout/write advice
+  (`GAR-PERF-2J`), and copy-budget/buffer-lifecycle evidence (`GAR-PERF-2K`) inside
+  `vortex_ingest`. Remaining `GAR-IOREUSE-1` work is broader sink artifact proof,
+  benchmark-family fanout promotion, persistent cache/session promotion, and claim-grade gates so
+  reuse cannot silently become production, cache-hit, or performance proof.
 - [ ] `GAR-SCALE-1` adds the Spark-level scale contract and any-volume readiness follow-through.
   ShardLoom must not claim literal "any volume" support; future scale work must classify rows as
   `local_smoke`, `local_claim_grade`, `larger_than_memory_local`, `split_parallel_local`,

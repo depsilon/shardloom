@@ -2059,6 +2059,19 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "vortex_preparation_spine_source_byte_range_refs", "value": "source-state://abc:split=1:bytes=0..64"},
                         {"key": "vortex_preparation_spine_source_row_range_refs", "value": "source-state://abc:split=1:rows=0..2"},
                         {"key": "vortex_preparation_spine_native_io_certificate_status", "value": "certified_local_vortex_preparation_spine"},
+                        {"key": "vortex_scout_ingress_status", "value": "admitted_scout_ingress_clean"},
+                        {"key": "vortex_scout_ingress_anomaly_count", "value": "0"},
+                        {"key": "vortex_scout_ingress_anomaly_families", "value": "none"},
+                        {"key": "vortex_scout_ingress_schema_drift_status", "value": "not_detected_no_prior_schema_baseline"},
+                        {"key": "vortex_scout_ingress_unsupported_shape_status", "value": "not_detected"},
+                        {"key": "vortex_scout_ingress_quarantine_required", "value": "false"},
+                        {"key": "vortex_scout_ingress_quarantine_output_plan_status", "value": "not_required"},
+                        {"key": "vortex_scout_ingress_unsupported_diagnostic_code", "value": "none"},
+                        {"key": "vortex_scout_ingress_no_standalone_lane_status", "value": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"},
+                        {"key": "vortex_layout_write_advisor_status", "value": "admitted_local_layout_write_strategy"},
+                        {"key": "vortex_layout_write_advisor_strategy_admitted", "value": "true"},
+                        {"key": "vortex_layout_write_advisor_layout_strategy", "value": "single_local_vortex_artifact"},
+                        {"key": "vortex_layout_write_advisor_no_standalone_lane_status", "value": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"},
                         {"key": "vortex_capillary_preparation_status", "value": "applied_capillary_pulseweave_control"},
                         {"key": "vortex_capillary_preparation_task_count", "value": "6"},
                         {"key": "vortex_capillary_preparation_task_roles", "value": "source_split_discovery,read_chunk,columnarize_encode,vortex_segment_write,reopen_verify,sink_evidence"},
@@ -2068,6 +2081,11 @@ class ShardLoomClientTests(unittest.TestCase):
                         {"key": "vortex_capillary_preparation_pulseweave_decision_digest", "value": "fnv64:pulse"},
                         {"key": "vortex_capillary_preparation_proofbound_claim_allowed", "value": "true"},
                         {"key": "vortex_capillary_preparation_no_standalone_lane_status", "value": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"},
+                        {"key": "vortex_copy_budget_status", "value": "reported_copy_budget_with_unmeasured_segments"},
+                        {"key": "vortex_copy_budget_measurement_status", "value": "reported_with_not_measured_segments"},
+                        {"key": "vortex_copy_budget_buffer_reuse_status", "value": "blocked_until_correctness_parity"},
+                        {"key": "vortex_copy_budget_unsafe_lifetime_shortcut_status", "value": "blocked_no_unsafe_lifetime_shortcuts"},
+                        {"key": "vortex_copy_budget_no_standalone_lane_status", "value": "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"},
                         {"key": "source_io_performed", "value": "true"},
                         {"key": "prepared_state_created", "value": "true"},
                         {"key": "claim_gate_status", "value": "fixture_smoke_only"},
@@ -2172,6 +2190,46 @@ class ShardLoomClientTests(unittest.TestCase):
             "certified_local_vortex_preparation_spine",
         )
         self.assertEqual(
+            result.vortex_scout_ingress_status,
+            "admitted_scout_ingress_clean",
+        )
+        self.assertEqual(result.vortex_scout_ingress_anomaly_count, 0)
+        self.assertEqual(result.vortex_scout_ingress_anomaly_families, ())
+        self.assertEqual(
+            result.vortex_scout_ingress_schema_drift_status,
+            "not_detected_no_prior_schema_baseline",
+        )
+        self.assertEqual(
+            result.vortex_scout_ingress_unsupported_shape_status,
+            "not_detected",
+        )
+        self.assertFalse(result.vortex_scout_ingress_quarantine_required)
+        self.assertEqual(
+            result.vortex_scout_ingress_quarantine_output_plan_status,
+            "not_required",
+        )
+        self.assertEqual(
+            result.vortex_scout_ingress_unsupported_diagnostic_code,
+            "none",
+        )
+        self.assertEqual(
+            result.vortex_scout_ingress_no_standalone_lane_status,
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state",
+        )
+        self.assertEqual(
+            result.vortex_layout_write_advisor_status,
+            "admitted_local_layout_write_strategy",
+        )
+        self.assertTrue(result.vortex_layout_write_advisor_strategy_admitted)
+        self.assertEqual(
+            result.vortex_layout_write_advisor_layout_strategy,
+            "single_local_vortex_artifact",
+        )
+        self.assertEqual(
+            result.vortex_layout_write_advisor_no_standalone_lane_status,
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state",
+        )
+        self.assertEqual(
             result.vortex_capillary_preparation_status,
             "applied_capillary_pulseweave_control",
         )
@@ -2205,6 +2263,26 @@ class ShardLoomClientTests(unittest.TestCase):
         self.assertTrue(result.vortex_capillary_preparation_proofbound_claim_allowed)
         self.assertEqual(
             result.vortex_capillary_preparation_no_standalone_lane_status,
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state",
+        )
+        self.assertEqual(
+            result.vortex_copy_budget_status,
+            "reported_copy_budget_with_unmeasured_segments",
+        )
+        self.assertEqual(
+            result.vortex_copy_budget_measurement_status,
+            "reported_with_not_measured_segments",
+        )
+        self.assertEqual(
+            result.vortex_copy_budget_buffer_reuse_status,
+            "blocked_until_correctness_parity",
+        )
+        self.assertEqual(
+            result.vortex_copy_budget_unsafe_lifetime_shortcut_status,
+            "blocked_no_unsafe_lifetime_shortcuts",
+        )
+        self.assertEqual(
+            result.vortex_copy_budget_no_standalone_lane_status,
             "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state",
         )
         self.assertTrue(result.source_io_performed)

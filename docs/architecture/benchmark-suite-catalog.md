@@ -331,14 +331,14 @@ Current evidence-safe reuse-level rows expose the
 execution mode, evidence level, output format, and claim gate. Reuse hits or misses remain
 `not_claim_grade` visibility evidence only.
 
-The cold ingestion/preparation research carry-forward adds planned benchmark families for
+The cold ingestion/preparation research carry-forward adds schema-backed benchmark families for
 `cold_lane_attribution`, `vortex_native_preparation`, `differential_preparation`, `capillary_io`,
 `ingress_triage`, `cold_layout_advisor`, and `cold_copy_budget`. These families must preserve the
 existing execution-mode timing split and remain `not_claim_grade` until they attach correctness,
 Native I/O, benchmark, materialization/decode, no-fallback, and claim-gate evidence. They are
 tracked by `GAR-IOREUSE-1H` through `GAR-IOREUSE-1L` plus adjacent `GAR-PERF-2J` and
-`GAR-PERF-2K`; they do not authorize hidden warm-cache interpretation, persistent cache claims,
-object-store/table runtime, or performance claims.
+`GAR-PERF-2K` and funnel through `vortex_ingest`; they do not authorize hidden warm-cache
+interpretation, persistent cache claims, object-store/table runtime, or performance claims.
 
 `runtime-report --format json` now mirrors this timing vocabulary as the
 GAR-0018-A report-only runtime-introspection schema. That command is an

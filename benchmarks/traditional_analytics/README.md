@@ -320,8 +320,8 @@ posture, `vortex_preparation_spine_no_standalone_lane_status`,
 `vortex_preparation_spine_fallback_attempted=false`,
 `vortex_preparation_spine_external_engine_invoked=false`, and
 `vortex_preparation_spine_claim_gate_status=not_claim_grade`. This is internal local preparation
-plumbing only; the public benchmark data refresh is deferred until the remaining cold-lane
-preparation items have landed.
+plumbing only; the public benchmark data refresh is deferred until the directly related cold-lane
+evidence bundle is merged.
 `GAR-IOREUSE-1J` adds the VortexDifferentialPreparation contract to the benchmark harness. Future
 refreshed rows carry
 `vortex_differential_preparation_schema_version=shardloom.traditional_analytics.vortex_differential_preparation.v1`,
@@ -341,7 +341,25 @@ task manifest IDs/digests, source split refs, read byte ranges, row ranges, Vort
 writer sink refs, memory/sink pressure posture, execution and Native I/O certificate status,
 prefixed PulseWeave/FlowInventory/ScarcityLedger/EndoPulse/ProofBound fields, no-standalone-lane
 status, and no-fallback fields. This keeps cold-preparation capillaries inside `vortex_ingest` and
-does not rerun or republish benchmark measurements until the remaining cold-lane work lands.
+does not rerun or republish benchmark measurements before scout, layout/write, and copy-budget
+schema support exists.
+`GAR-IOREUSE-1L` adds the VortexScoutIngress contract to the benchmark harness. Future refreshed
+rows carry `vortex_scout_ingress_schema_version=shardloom.traditional_analytics.vortex_scout_ingress.v1`,
+source scope, metadata/sample ranges, schema digest before/after, anomaly families, malformed row
+refs where safe, quarantine planning, redaction status, unsupported diagnostics, correctness
+policy, no-standalone-lane status, and no-fallback fields.
+`GAR-PERF-2J` adds the VortexLayoutWriteAdvisor contract to the benchmark harness. Future refreshed
+rows carry
+`vortex_layout_write_advisor_schema_version=shardloom.traditional_analytics.vortex_layout_write_advisor.v1`,
+workload constitution, source statistics, pushdown/sink requirements, strategy/provider posture,
+write/reopen verification depth, correctness refs, benchmark refs, no-standalone-lane status, and
+no-fallback fields.
+`GAR-PERF-2K` adds the VortexCopyBudget contract to the benchmark harness. Future refreshed rows
+carry `vortex_copy_budget_schema_version=shardloom.traditional_analytics.vortex_copy_budget.v1`,
+allocation/copy scope, measured or explicit `not_measured` copy segments, ownership policy, buffer
+reuse blockers, unsafe-lifetime posture, correctness parity refs, no-standalone-lane status, and
+no-fallback fields. The public benchmark measurement refresh remains deferred until this
+benchmark-affecting cold-lane bundle merges.
 `GAR-IOREUSE-1C` adds a separate OutputPlan contract to the benchmark JSON/Markdown artifact with
 `output_plan_contract_schema_version=shardloom.traditional_analytics.output_plan.v1`,
 `output_plan_status_vocabulary`, `output_plan_status`, `output_plan_id`, `output_plan_digest`,

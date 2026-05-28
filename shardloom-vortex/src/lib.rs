@@ -541,14 +541,19 @@ pub use universal_format_io::{
     read_flat_parquet_source_with_projection,
 };
 pub use vortex_ingest::{
-    VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION, VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION,
+    VORTEX_CAPILLARY_PREPARATION_SCHEMA_VERSION, VORTEX_COPY_BUDGET_SCHEMA_VERSION,
+    VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION, VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION,
     VORTEX_PREPARATION_SPINE_SCHEMA_VERSION, VORTEX_PREPARATION_SPINE_VORTEX_CRATE_VERSION,
-    VortexCapillaryPreparationInput, VortexCapillaryPreparationReport,
+    VORTEX_SCOUT_INGRESS_SCHEMA_VERSION, VortexCapillaryPreparationInput,
+    VortexCapillaryPreparationReport, VortexCopyBudgetInput, VortexCopyBudgetReport,
     VortexDifferentialPreparationInput, VortexDifferentialPreparationReport,
-    VortexDifferentialUpdateMode, VortexIngestCertificationLevel, VortexPreparationSpineReport,
-    VortexPreparedStateWriteReport, VortexPreparedStateWriteRequest,
-    evaluate_vortex_capillary_preparation, evaluate_vortex_differential_preparation,
-    vortex_ingest_write_feature_enabled, write_flat_scalar_vortex_prepared_state,
+    VortexDifferentialUpdateMode, VortexIngestCertificationLevel, VortexLayoutWriteAdvisorInput,
+    VortexLayoutWriteAdvisorReport, VortexPreparationSpineReport, VortexPreparedStateWriteReport,
+    VortexPreparedStateWriteRequest, VortexScoutIngressInput, VortexScoutIngressReport,
+    evaluate_vortex_capillary_preparation, evaluate_vortex_copy_budget,
+    evaluate_vortex_differential_preparation, evaluate_vortex_layout_write_advisor,
+    evaluate_vortex_scout_ingress, vortex_ingest_write_feature_enabled,
+    write_flat_scalar_vortex_prepared_state,
 };
 #[cfg(all(feature = "vortex-write", feature = "universal-format-io"))]
 pub use vortex_ingest::{

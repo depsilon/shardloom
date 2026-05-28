@@ -36,10 +36,10 @@ runtime now exists for local-source SQL/Python and generated-output workflows, a
 `ShardLoomSession` can reuse matching local query-builder output/fanout reports. Persistent
 cross-process caches, object-store I/O, table/lakehouse commits, Foundry production support,
 performance claims, broad output-fidelity claims, and hidden fast modes remain out of scope.
-`GAR-IOREUSE-1H` through `GAR-IOREUSE-1L` are planned follow-through for cold-lane attribution,
-Vortex-native source/sink/split preparation, differential preparation, capillary I/O with
-PulseWeave control, and scout ingress/triage. `GAR-PERF-2J` and `GAR-PERF-2K` cover the adjacent
-cold-lane layout/write advisor and copy-budget/buffer-lifecycle evidence.
+`GAR-IOREUSE-1H` through `GAR-IOREUSE-1L` and the adjacent `GAR-PERF-2J` / `GAR-PERF-2K`
+items add cold-lane attribution, Vortex-native source/sink/split preparation, differential
+preparation, capillary I/O with PulseWeave control, scout ingress/triage, layout/write strategy
+admission, and copy-budget/buffer-lifecycle evidence to the same `vortex_ingest` route.
 
 ## Goals
 
@@ -266,13 +266,43 @@ vortex_capillary_preparation_fallback_attempted=false
 vortex_capillary_preparation_external_engine_invoked=false
 ```
 
-Planned `GAR-IOREUSE-1L` adds scout ingress and triage. A scout pass may inspect metadata, schema
-samples, parse anomalies, and layout/pathology signals before full preparation. It must fail closed
-or plan an explicit quarantine output; it must not silently repair or drop rows.
+`GAR-IOREUSE-1L` adds scout ingress and triage inside `vortex_ingest`. The same
+SourceState -> VortexPreparedState path now emits `vortex_scout_ingress_*` evidence for source
+format/path, SourceState ID/digest, schema digest before/after, row/byte/column counts, read plan,
+metadata and sampled row ranges, anomaly count/families, malformed row refs where safe, schema
+drift, unsupported shapes, nullability, small-file pathology, quarantine-output planning,
+redaction, unsupported diagnostic code, correctness policy, claim boundary, no-fallback posture,
+and `vortex_scout_ingress_no_standalone_lane_status`.
 
-The adjacent planned `GAR-PERF-2J` and `GAR-PERF-2K` slices keep layout/write advice, copy budget,
-allocation posture, buffer reuse, and unsafe-lifetime blockers visible before the cold lane is
-optimized. These are evidence and admission surfaces first, not performance claims.
+Scout ingress fails closed for malformed input, schema/header drift, unsupported nested shapes,
+source-admission failures, and feature-gated Vortex writes. Rejected rows plan quarantine as
+`planned_not_emitted_no_quarantine_sink_requested` unless a future explicit quarantine sink is
+requested; no source row is silently repaired or dropped.
+
+`GAR-PERF-2J` adds the cold-lane layout/write advisor inside `vortex_ingest`. The same
+SourceState -> VortexPreparedState path now emits `vortex_layout_write_advisor_*` evidence for
+workload constitution, source statistics posture, requested pushdown/output requirements,
+layout/chunking/segmentation/dictionary/statistics policy, writer provider kind/version/surface,
+writer admission policy, write/reopen verification depth, materialization/decode boundary,
+expected read/write tradeoff, admitted strategy status, unsupported diagnostic code, correctness
+refs, benchmark refs, claim boundary, no-fallback posture, and
+`vortex_layout_write_advisor_no_standalone_lane_status`.
+
+The layout/write advisor admits only scoped local Vortex artifact writes through the existing
+provider boundary. Unsupported or feature-gated strategies block before write; no row may claim
+layout-driven speed without workload-scoped benchmark evidence.
+
+`GAR-PERF-2K` adds the cold-lane copy-budget and buffer-lifecycle surface inside `vortex_ingest`.
+The same path now emits `vortex_copy_budget_*` evidence for SourceState and VortexPreparedState
+identity, allocation/copy scope, measured source-read and writer bytes, explicit `not_measured`
+parse/handoff/Vortex-array-build/reopen/evidence segments, total measured bytes, buffer family,
+ownership policy, writer buffering posture, buffer reuse status/count, unsafe-lifetime blocker
+status, correctness parity refs, materialization/decode boundary, unsupported diagnostic code,
+claim boundary, no-fallback posture, and `vortex_copy_budget_no_standalone_lane_status`.
+
+Copy-budget evidence is visibility and admission posture first. Scoped buffer reuse remains blocked
+until ownership and correctness parity evidence admits it, and unsafe lifetime shortcuts remain
+blocked.
 
 ### ExecutionPlan
 
@@ -645,9 +675,9 @@ external_engine_invoked=false
 - Compute-flow docs show the decoupled path:
   `InputAdapter -> SourceState -> VortexPreparedState -> ExecutionPlan -> OutputPlan -> SinkArtifact`.
 - The global architecture review mirrors unchecked follow-up items.
-- Cold-lane follow-through remains represented in the phase plan as `GAR-IOREUSE-1H` through
-  `GAR-IOREUSE-1L` plus adjacent `GAR-PERF-2J` and `GAR-PERF-2K` slices before implementation
-  begins.
+- Cold-lane follow-through through `GAR-IOREUSE-1L`, `GAR-PERF-2J`, and `GAR-PERF-2K` is
+  implemented in `vortex_ingest`; the next benchmark refresh should carry the new scout,
+  layout/write, and copy-budget evidence instead of rerunning measurements first.
 - Scoped local SQL/Python and generated-output writes/fanout emit OutputPlan, sink artifact,
   replay/fidelity, certificate, no-fallback, and no-external-engine evidence.
 - No package publication, object-store runtime, table commit, performance claim, production claim,

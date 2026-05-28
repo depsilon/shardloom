@@ -35,7 +35,7 @@ Concept groups:
   envelope`, `native I/O certificate`, `universal compatibility coverage scoreboard`,
   `UniversalIngress`, `vortex_ingest`, `VortexPreparedState`, `source-free generated output`,
   `GeneratedSourceCertificate`, `cold ingestion/preparation lane`, `differential preparation`,
-  `capillary I/O`, `scout ingress`.
+  `capillary I/O`, `scout ingress`, `cold layout/write advisor`, `cold copy budget`.
 - **Materialization and fidelity**: `MaterializationPolicy`, `MaterializationRequirement`,
   `MaterializationBoundary`, `FidelityLevel`, `VortexOutputFidelity`, `metadata_loss`,
   `fidelity_loss`.
@@ -581,12 +581,18 @@ candidates.
   typed split/read/columnarize/write/reopen/evidence units with byte/row ranges, pressure, retry,
   materialization, PulseWeave, and no-fallback evidence. It remains inside `vortex_ingest`; it is
   not distributed runtime or a performance claim by itself.
-- **scout ingress**: planned preflight SourceState-adjacent pass that inspects metadata, schema
-  samples, parse anomalies, and layout/pathology signals before full preparation. It may block or
-  plan explicit quarantine output; it must not silently repair or drop rows.
-- **cold layout/write advisor**: planned advisory surface for choosing or blocking Vortex
-  layout/write strategy before preparation, based on workload constitution, SourceState statistics,
-  pushdown/output requirements, and evidence. It cannot upgrade a performance claim by itself.
+- **scout ingress**: SourceState-adjacent preflight in the `vortex_ingest` route that inspects
+  metadata, schema samples, parse anomalies, unsupported source shapes, nullability posture, and
+  layout/pathology signals before full Vortex preparation. It may block or plan explicit quarantine
+  output; it must not silently repair or drop rows.
+- **cold layout/write advisor**: SourceState-adjacent advisory surface in `vortex_ingest` for
+  choosing or blocking scoped local Vortex layout/write strategy before preparation, based on
+  workload constitution, SourceState statistics, pushdown/output requirements, provider boundary,
+  write/reopen verification depth, and evidence. It cannot upgrade a performance claim by itself.
+- **cold copy budget**: `vortex_ingest` evidence surface for source-read, parse, handoff,
+  Vortex-array-build, writer, reopen, and evidence-render copy/allocation visibility. It records
+  measured or explicit `not_measured` segments, buffer ownership, reuse blockers, and unsafe
+  lifetime posture without claiming memory efficiency or performance.
 
 ## CG-21 user workflow terms
 - **user data workflow surface**: the end-to-end user journey from install/import through capability

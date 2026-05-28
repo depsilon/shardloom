@@ -621,6 +621,176 @@ PREPARED_STATE_CONTRACT_FIELDS = (
     "prepared_state_claim_gate_status",
     "prepared_state_claim_boundary",
 )
+VORTEX_SCOUT_INGRESS_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.vortex_scout_ingress.v1"
+)
+VORTEX_SCOUT_INGRESS_STATUS_VOCABULARY = (
+    "admitted_scout_ingress_clean",
+    "blocked_unsupported_nested_shape",
+    "blocked_malformed_source",
+    "blocked_schema_drift",
+    "quarantine_planned",
+    "blocked_feature_gate",
+    "not_requested",
+    "blocked",
+    "unsupported",
+    "report_only",
+    "external_baseline_only",
+)
+VORTEX_SCOUT_INGRESS_FIELDS = (
+    "vortex_scout_ingress_schema_version",
+    "vortex_scout_ingress_status",
+    "vortex_scout_ingress_route",
+    "vortex_scout_ingress_source_state_id",
+    "vortex_scout_ingress_source_state_digest",
+    "vortex_scout_ingress_source_format",
+    "vortex_scout_ingress_source_path",
+    "vortex_scout_ingress_source_schema_digest_before",
+    "vortex_scout_ingress_source_schema_digest_after",
+    "vortex_scout_ingress_row_count",
+    "vortex_scout_ingress_source_byte_count",
+    "vortex_scout_ingress_column_count",
+    "vortex_scout_ingress_read_plan",
+    "vortex_scout_ingress_metadata_range_refs",
+    "vortex_scout_ingress_sampled_row_range_refs",
+    "vortex_scout_ingress_anomaly_count",
+    "vortex_scout_ingress_anomaly_families",
+    "vortex_scout_ingress_malformed_row_refs",
+    "vortex_scout_ingress_schema_drift_status",
+    "vortex_scout_ingress_unsupported_shape_status",
+    "vortex_scout_ingress_nullability_status",
+    "vortex_scout_ingress_small_file_pathology_status",
+    "vortex_scout_ingress_quarantine_required",
+    "vortex_scout_ingress_quarantine_output_plan_status",
+    "vortex_scout_ingress_quarantine_output_ref",
+    "vortex_scout_ingress_quarantine_output_digest",
+    "vortex_scout_ingress_redaction_status",
+    "vortex_scout_ingress_unsupported_diagnostic_code",
+    "vortex_scout_ingress_correctness_policy",
+    "vortex_scout_ingress_no_standalone_lane_status",
+    "vortex_scout_ingress_claim_gate_status",
+    "vortex_scout_ingress_claim_boundary",
+    "vortex_scout_ingress_fallback_attempted",
+    "vortex_scout_ingress_external_engine_invoked",
+)
+VORTEX_SCOUT_INGRESS_BOOLEAN_FIELDS = (
+    "vortex_scout_ingress_quarantine_required",
+    "vortex_scout_ingress_fallback_attempted",
+    "vortex_scout_ingress_external_engine_invoked",
+)
+VORTEX_SCOUT_INGRESS_INTEGER_FIELDS = (
+    "vortex_scout_ingress_row_count",
+    "vortex_scout_ingress_source_byte_count",
+    "vortex_scout_ingress_column_count",
+    "vortex_scout_ingress_anomaly_count",
+)
+VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.vortex_layout_write_advisor.v1"
+)
+VORTEX_LAYOUT_WRITE_ADVISOR_STATUS_VOCABULARY = (
+    "admitted_local_layout_write_strategy",
+    "blocked_layout_write_strategy",
+    "blocked_feature_gate",
+    "not_requested",
+    "blocked",
+    "unsupported",
+    "report_only",
+    "external_baseline_only",
+)
+VORTEX_LAYOUT_WRITE_ADVISOR_FIELDS = (
+    "vortex_layout_write_advisor_schema_version",
+    "vortex_layout_write_advisor_status",
+    "vortex_layout_write_advisor_route",
+    "vortex_layout_write_advisor_source_state_id",
+    "vortex_layout_write_advisor_source_state_digest",
+    "vortex_layout_write_advisor_source_format",
+    "vortex_layout_write_advisor_source_schema_digest",
+    "vortex_layout_write_advisor_row_count",
+    "vortex_layout_write_advisor_source_byte_count",
+    "vortex_layout_write_advisor_column_count",
+    "vortex_layout_write_advisor_workload_constitution",
+    "vortex_layout_write_advisor_source_statistics_status",
+    "vortex_layout_write_advisor_requested_pushdown_requirements",
+    "vortex_layout_write_advisor_sink_requirements",
+    "vortex_layout_write_advisor_layout_strategy",
+    "vortex_layout_write_advisor_chunking_strategy",
+    "vortex_layout_write_advisor_segmentation_strategy",
+    "vortex_layout_write_advisor_dictionary_strategy",
+    "vortex_layout_write_advisor_statistics_policy",
+    "vortex_layout_write_advisor_writer_provider_kind",
+    "vortex_layout_write_advisor_writer_provider_version",
+    "vortex_layout_write_advisor_writer_provider_surface",
+    "vortex_layout_write_advisor_writer_admission_policy",
+    "vortex_layout_write_advisor_write_reopen_verification_depth",
+    "vortex_layout_write_advisor_materialization_boundary_status",
+    "vortex_layout_write_advisor_decode_boundary_status",
+    "vortex_layout_write_advisor_expected_read_tradeoff",
+    "vortex_layout_write_advisor_expected_write_tradeoff",
+    "vortex_layout_write_advisor_strategy_admitted",
+    "vortex_layout_write_advisor_unsupported_diagnostic_code",
+    "vortex_layout_write_advisor_correctness_refs",
+    "vortex_layout_write_advisor_benchmark_refs",
+    "vortex_layout_write_advisor_no_standalone_lane_status",
+    "vortex_layout_write_advisor_claim_gate_status",
+    "vortex_layout_write_advisor_claim_boundary",
+    "vortex_layout_write_advisor_fallback_attempted",
+    "vortex_layout_write_advisor_external_engine_invoked",
+)
+VORTEX_COPY_BUDGET_SCHEMA_VERSION = (
+    "shardloom.traditional_analytics.vortex_copy_budget.v1"
+)
+VORTEX_COPY_BUDGET_STATUS_VOCABULARY = (
+    "reported_copy_budget",
+    "reported_copy_budget_with_unmeasured_segments",
+    "admitted_scoped_buffer_reuse",
+    "blocked_unsafe_lifetime_shortcut",
+    "blocked_copy_budget",
+    "blocked_feature_gate",
+    "not_requested",
+    "blocked",
+    "unsupported",
+    "report_only",
+    "external_baseline_only",
+)
+VORTEX_COPY_BUDGET_FIELDS = (
+    "vortex_copy_budget_schema_version",
+    "vortex_copy_budget_status",
+    "vortex_copy_budget_route",
+    "vortex_copy_budget_source_state_id",
+    "vortex_copy_budget_source_state_digest",
+    "vortex_copy_budget_prepared_state_id",
+    "vortex_copy_budget_prepared_state_digest",
+    "vortex_copy_budget_source_format",
+    "vortex_copy_budget_row_count",
+    "vortex_copy_budget_source_byte_count",
+    "vortex_copy_budget_column_count",
+    "vortex_copy_budget_allocation_scope",
+    "vortex_copy_budget_copy_scope",
+    "vortex_copy_budget_measurement_status",
+    "vortex_copy_budget_source_read_copy_bytes",
+    "vortex_copy_budget_parse_normalization_copy_bytes",
+    "vortex_copy_budget_columnar_handoff_copy_bytes",
+    "vortex_copy_budget_vortex_array_build_copy_bytes",
+    "vortex_copy_budget_writer_buffer_bytes",
+    "vortex_copy_budget_reopen_verify_copy_bytes",
+    "vortex_copy_budget_evidence_render_copy_bytes",
+    "vortex_copy_budget_total_measured_copy_bytes",
+    "vortex_copy_budget_buffer_family",
+    "vortex_copy_budget_ownership_policy",
+    "vortex_copy_budget_writer_buffering_status",
+    "vortex_copy_budget_buffer_reuse_status",
+    "vortex_copy_budget_buffer_reuse_count",
+    "vortex_copy_budget_unsafe_lifetime_shortcut_status",
+    "vortex_copy_budget_correctness_parity_refs",
+    "vortex_copy_budget_materialization_boundary_status",
+    "vortex_copy_budget_decode_boundary_status",
+    "vortex_copy_budget_unsupported_diagnostic_code",
+    "vortex_copy_budget_no_standalone_lane_status",
+    "vortex_copy_budget_claim_gate_status",
+    "vortex_copy_budget_claim_boundary",
+    "vortex_copy_budget_fallback_attempted",
+    "vortex_copy_budget_external_engine_invoked",
+)
 VORTEX_PREPARATION_SPINE_SCHEMA_VERSION = (
     "shardloom.traditional_analytics.vortex_preparation_spine.v1"
 )
@@ -7280,6 +7450,625 @@ def prepared_state_contract_metadata(
     }
 
 
+def vortex_scout_ingress_metadata(
+    engine: str,
+    paths: DatasetPaths,
+    scenario: str,
+    data_format: str,
+    *,
+    status: str,
+    metrics: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+    selected_mode: str | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    selected_mode = selected_mode or str(evidence.get("selected_execution_mode") or "unknown")
+    prepared_mode = selected_mode in {
+        "prepared_vortex",
+        "native_vortex",
+        "compatibility_import_certified",
+    }
+    supported_format = data_format in FORMAT_ORDER
+    source_paths = source_state_paths(paths, scenario, data_format) if supported_format else ()
+    source_locations = [source_state_path_text(path) for path in source_paths]
+    source_sizes = [path.stat().st_size for path in source_paths if path.exists()]
+    source_byte_count = sum(source_sizes) if source_sizes else 0
+    source_state_id = str(metrics.get("source_state_id", "none"))
+    source_state_digest = str(metrics.get("source_state_digest", "none"))
+    schema_digest = str(metrics.get("schema_digest", "none"))
+    observed_status = first_meaningful_field(
+        evidence.get("vortex_scout_ingress_status"),
+        metrics.get("vortex_scout_ingress_status"),
+    )
+    if not is_shardloom:
+        scout_status = "external_baseline_only"
+    elif observed_status is not None:
+        scout_status = str(observed_status)
+    elif status in UNSUPPORTED_ROW_STATUSES:
+        scout_status = "unsupported"
+    elif shardloom_blocked_non_execution_status(status):
+        scout_status = "blocked"
+    elif engine == "shardloom-direct-transient" or data_format == SHARDLOOM_VORTEX_FORMAT:
+        scout_status = "not_requested"
+    elif prepared_mode and supported_format:
+        scout_status = "admitted_scout_ingress_clean"
+    else:
+        scout_status = "report_only"
+
+    source_path = first_meaningful_field(
+        evidence.get("vortex_scout_ingress_source_path"),
+        ";".join(source_locations) if source_locations else "none",
+    )
+    row_count = parse_optional_int(evidence.get("vortex_scout_ingress_row_count"))
+    if row_count is None:
+        row_count = rows_scanned(paths, scenario) if supported_format else 0
+    column_count = parse_optional_int(evidence.get("vortex_scout_ingress_column_count"))
+    if column_count is None:
+        source_columns = str(evidence.get("source_columns") or "")
+        column_count = (
+            len([column for column in source_columns.split(",") if column])
+            if source_columns
+            else 0
+        )
+    metadata_range_refs = first_meaningful_field(
+        evidence.get("vortex_scout_ingress_metadata_range_refs"),
+        ";".join(
+            f"{source_state_id}:split={index + 1}:bytes=0.."
+            f"{source_sizes[index] if index < len(source_sizes) else 'unknown'}"
+            for index, _location in enumerate(source_locations)
+        ),
+        "none",
+    )
+    sampled_row_range_refs = first_meaningful_field(
+        evidence.get("vortex_scout_ingress_sampled_row_range_refs"),
+        f"{source_state_id}:rows=0..{row_count}"
+        if row_count and scout_status == "admitted_scout_ingress_clean"
+        else "none",
+    )
+    quarantine_required = (
+        parse_optional_bool(evidence.get("vortex_scout_ingress_quarantine_required"))
+        is True
+        or scout_status
+        in {
+            "blocked_unsupported_nested_shape",
+            "blocked_malformed_source",
+            "blocked_schema_drift",
+            "quarantine_planned",
+        }
+    )
+    anomaly_count = parse_optional_int(evidence.get("vortex_scout_ingress_anomaly_count"))
+    if anomaly_count is None:
+        anomaly_count = 1 if quarantine_required else 0
+    return {
+        "vortex_scout_ingress_schema_version": VORTEX_SCOUT_INGRESS_SCHEMA_VERSION,
+        "vortex_scout_ingress_status": scout_status,
+        "vortex_scout_ingress_route": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_route"),
+            "vortex_ingest_source_state_scout_triage"
+            if is_shardloom and scout_status not in {"not_requested", "external_baseline_only"}
+            else scout_status,
+        ),
+        "vortex_scout_ingress_source_state_id": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_source_state_id"),
+            source_state_id,
+            "none",
+        ),
+        "vortex_scout_ingress_source_state_digest": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_source_state_digest"),
+            source_state_digest,
+            "none",
+        ),
+        "vortex_scout_ingress_source_format": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_source_format"),
+            data_format,
+        ),
+        "vortex_scout_ingress_source_path": source_path,
+        "vortex_scout_ingress_source_schema_digest_before": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_source_schema_digest_before"),
+            schema_digest,
+        ),
+        "vortex_scout_ingress_source_schema_digest_after": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_source_schema_digest_after"),
+            schema_digest,
+        ),
+        "vortex_scout_ingress_row_count": row_count,
+        "vortex_scout_ingress_source_byte_count": parse_optional_int(
+            evidence.get("vortex_scout_ingress_source_byte_count")
+        )
+        or source_byte_count,
+        "vortex_scout_ingress_column_count": column_count,
+        "vortex_scout_ingress_read_plan": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_read_plan"),
+            metrics.get("source_state_read_plan"),
+            "full_columns_benchmark_fixture"
+            if scout_status == "admitted_scout_ingress_clean"
+            else "not_evaluated",
+        ),
+        "vortex_scout_ingress_metadata_range_refs": metadata_range_refs,
+        "vortex_scout_ingress_sampled_row_range_refs": sampled_row_range_refs,
+        "vortex_scout_ingress_anomaly_count": anomaly_count,
+        "vortex_scout_ingress_anomaly_families": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_anomaly_families"),
+            "none" if anomaly_count == 0 else scout_status,
+        ),
+        "vortex_scout_ingress_malformed_row_refs": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_malformed_row_refs"),
+            "none" if anomaly_count == 0 else "source_row_refs_not_safe_to_emit",
+        ),
+        "vortex_scout_ingress_schema_drift_status": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_schema_drift_status"),
+            "not_detected_no_prior_schema_baseline"
+            if scout_status == "admitted_scout_ingress_clean"
+            else "not_evaluated",
+        ),
+        "vortex_scout_ingress_unsupported_shape_status": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_unsupported_shape_status"),
+            "not_detected"
+            if scout_status != "blocked_unsupported_nested_shape"
+            else "blocked_unsupported_nested_shape",
+        ),
+        "vortex_scout_ingress_nullability_status": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_nullability_status"),
+            "nullable_fields_admitted_as_scalar_nulls"
+            if scout_status == "admitted_scout_ingress_clean"
+            else "not_evaluated",
+        ),
+        "vortex_scout_ingress_small_file_pathology_status": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_small_file_pathology_status"),
+            "not_detected" if source_byte_count >= 4096 else "observed_tiny_fixture_not_blocking",
+        ),
+        "vortex_scout_ingress_quarantine_required": quarantine_required,
+        "vortex_scout_ingress_quarantine_output_plan_status": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_quarantine_output_plan_status"),
+            "planned_not_emitted_no_quarantine_sink_requested"
+            if quarantine_required
+            else "not_required",
+        ),
+        "vortex_scout_ingress_quarantine_output_ref": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_quarantine_output_ref"),
+            "not_emitted" if quarantine_required else "not_requested",
+        ),
+        "vortex_scout_ingress_quarantine_output_digest": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_quarantine_output_digest"),
+            "not_emitted" if quarantine_required else "not_requested",
+        ),
+        "vortex_scout_ingress_redaction_status": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_redaction_status"),
+            "malformed_row_refs_are_row_numbers_only"
+            if is_shardloom
+            else "external_baseline_only",
+        ),
+        "vortex_scout_ingress_unsupported_diagnostic_code": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_unsupported_diagnostic_code"),
+            "none" if scout_status == "admitted_scout_ingress_clean" else scout_status,
+        ),
+        "vortex_scout_ingress_correctness_policy": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_correctness_policy"),
+            "fail_closed_no_silent_repair_or_row_drop"
+            if is_shardloom
+            else "external_baseline_only",
+        ),
+        "vortex_scout_ingress_no_standalone_lane_status": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_no_standalone_lane_status"),
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+            if is_shardloom
+            else "external_baseline_only",
+        ),
+        "vortex_scout_ingress_claim_gate_status": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_claim_gate_status"),
+            "not_claim_grade" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_scout_ingress_claim_boundary": first_meaningful_field(
+            evidence.get("vortex_scout_ingress_claim_boundary"),
+            "VortexScoutIngress evidence covers scoped local source triage, anomaly "
+            "classification, schema-drift visibility, and quarantine planning inside "
+            "vortex_ingest only; it is not data-quality repair, object-store, "
+            "production, performance, SQL/DataFrame, or Spark-replacement evidence"
+            if is_shardloom
+            else "external baselines provide comparison timing only and cannot satisfy "
+            "ShardLoom scout-ingress evidence",
+        ),
+        "vortex_scout_ingress_fallback_attempted": (
+            parse_optional_bool(evidence.get("vortex_scout_ingress_fallback_attempted"))
+            is True
+        ),
+        "vortex_scout_ingress_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get("vortex_scout_ingress_external_engine_invoked")
+            )
+            is True
+        ),
+    }
+
+
+def vortex_layout_write_advisor_metadata(
+    engine: str,
+    status: str,
+    *,
+    metrics: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+    selected_mode: str | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    selected_mode = selected_mode or str(evidence.get("selected_execution_mode") or "unknown")
+    observed_status = first_meaningful_field(
+        evidence.get("vortex_layout_write_advisor_status"),
+        metrics.get("vortex_layout_write_advisor_status"),
+    )
+    if not is_shardloom:
+        advisor_status = "external_baseline_only"
+    elif observed_status is not None:
+        advisor_status = str(observed_status)
+    elif status in UNSUPPORTED_ROW_STATUSES:
+        advisor_status = "unsupported"
+    elif shardloom_blocked_non_execution_status(status):
+        advisor_status = "blocked"
+    elif selected_mode in {"prepared_vortex", "compatibility_import_certified"}:
+        advisor_status = "admitted_local_layout_write_strategy"
+    else:
+        advisor_status = "not_requested"
+    admitted = advisor_status == "admitted_local_layout_write_strategy"
+    return {
+        "vortex_layout_write_advisor_schema_version": (
+            VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION
+        ),
+        "vortex_layout_write_advisor_status": advisor_status,
+        "vortex_layout_write_advisor_route": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_route"),
+            "vortex_ingest_layout_write_advisor" if is_shardloom else "external_baseline_only",
+        ),
+        "vortex_layout_write_advisor_source_state_id": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_source_state_id"),
+            metrics.get("source_state_id"),
+            "none",
+        ),
+        "vortex_layout_write_advisor_source_state_digest": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_source_state_digest"),
+            metrics.get("source_state_digest"),
+            "none",
+        ),
+        "vortex_layout_write_advisor_source_format": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_source_format"),
+            metrics.get("source_format"),
+            "unknown",
+        ),
+        "vortex_layout_write_advisor_source_schema_digest": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_source_schema_digest"),
+            metrics.get("schema_digest"),
+            "none",
+        ),
+        "vortex_layout_write_advisor_row_count": parse_optional_int(
+            evidence.get("vortex_layout_write_advisor_row_count")
+        )
+        or parse_optional_int(metrics.get("vortex_scout_ingress_row_count"))
+        or 0,
+        "vortex_layout_write_advisor_source_byte_count": parse_optional_int(
+            evidence.get("vortex_layout_write_advisor_source_byte_count")
+        )
+        or parse_optional_int(metrics.get("vortex_scout_ingress_source_byte_count"))
+        or 0,
+        "vortex_layout_write_advisor_column_count": parse_optional_int(
+            evidence.get("vortex_layout_write_advisor_column_count")
+        )
+        or parse_optional_int(metrics.get("vortex_scout_ingress_column_count"))
+        or 0,
+        "vortex_layout_write_advisor_workload_constitution": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_workload_constitution"),
+            "traditional_analytics_local_prepare_once",
+        ),
+        "vortex_layout_write_advisor_source_statistics_status": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_source_statistics_status"),
+            metrics.get("vortex_scout_ingress_small_file_pathology_status"),
+            "local_file_stats_only",
+        ),
+        "vortex_layout_write_advisor_requested_pushdown_requirements": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_requested_pushdown_requirements"),
+            "none_prepare_once_full_source",
+        ),
+        "vortex_layout_write_advisor_sink_requirements": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_sink_requirements"),
+            "workspace_safe_local_vortex_file_sink",
+        ),
+        "vortex_layout_write_advisor_layout_strategy": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_layout_strategy"),
+            "single_local_vortex_artifact" if admitted else "not_admitted",
+        ),
+        "vortex_layout_write_advisor_chunking_strategy": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_chunking_strategy"),
+            "writer_default_chunking_no_performance_claim",
+        ),
+        "vortex_layout_write_advisor_segmentation_strategy": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_segmentation_strategy"),
+            "single_segment_local_fixture" if admitted else "not_admitted",
+        ),
+        "vortex_layout_write_advisor_dictionary_strategy": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_dictionary_strategy"),
+            "writer_default_no_dictionary_claim",
+        ),
+        "vortex_layout_write_advisor_statistics_policy": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_statistics_policy"),
+            "writer_default_statistics_no_pruning_claim",
+        ),
+        "vortex_layout_write_advisor_writer_provider_kind": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_writer_provider_kind"),
+            metrics.get("vortex_array_build_provider_kind"),
+            "not_applicable",
+        ),
+        "vortex_layout_write_advisor_writer_provider_version": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_writer_provider_version"),
+            "0.72" if admitted else "not_applicable",
+        ),
+        "vortex_layout_write_advisor_writer_provider_surface": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_writer_provider_surface"),
+            metrics.get("vortex_array_build_provider_surface"),
+            "not_applicable",
+        ),
+        "vortex_layout_write_advisor_writer_admission_policy": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_writer_admission_policy"),
+            "scoped_local_vortex_ingest_prepare_once" if admitted else "not_admitted",
+        ),
+        "vortex_layout_write_advisor_write_reopen_verification_depth": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_write_reopen_verification_depth"),
+            metrics.get("reopen_verification_status"),
+            "not_reported",
+        ),
+        "vortex_layout_write_advisor_materialization_boundary_status": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_materialization_boundary_status"),
+            metrics.get("source_state_materialization_layout"),
+            "not_reported",
+        ),
+        "vortex_layout_write_advisor_decode_boundary_status": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_decode_boundary_status"),
+            metrics.get("source_state_parse_normalization"),
+            "not_reported",
+        ),
+        "vortex_layout_write_advisor_expected_read_tradeoff": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_expected_read_tradeoff"),
+            "not_claimed_requires_benchmark_refresh",
+        ),
+        "vortex_layout_write_advisor_expected_write_tradeoff": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_expected_write_tradeoff"),
+            "not_claimed_requires_benchmark_refresh",
+        ),
+        "vortex_layout_write_advisor_strategy_admitted": (
+            parse_optional_bool(evidence.get("vortex_layout_write_advisor_strategy_admitted"))
+            if evidence.get("vortex_layout_write_advisor_strategy_admitted") is not None
+            else admitted
+        ),
+        "vortex_layout_write_advisor_unsupported_diagnostic_code": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_unsupported_diagnostic_code"),
+            "none" if admitted else advisor_status,
+        ),
+        "vortex_layout_write_advisor_correctness_refs": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_correctness_refs"),
+            "writer_row_count,reopen_row_count,artifact_digest" if admitted else "none",
+        ),
+        "vortex_layout_write_advisor_benchmark_refs": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_benchmark_refs"),
+            "not_claim_grade_benchmark_refresh_deferred",
+        ),
+        "vortex_layout_write_advisor_no_standalone_lane_status": first_meaningful_field(
+            evidence.get("vortex_layout_write_advisor_no_standalone_lane_status"),
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+            if is_shardloom
+            else "external_baseline_only",
+        ),
+        "vortex_layout_write_advisor_claim_gate_status": "not_claim_grade"
+        if is_shardloom
+        else "external_baseline_only",
+        "vortex_layout_write_advisor_claim_boundary": (
+            "VortexLayoutWriteAdvisor evidence is scoped local layout/write admission only; "
+            "it records provider boundary, strategy, verification depth, and benchmark-ref "
+            "posture without proving performance, object-store/table layout, production, "
+            "SQL/DataFrame, or Spark-replacement readiness"
+        )
+        if is_shardloom
+        else "external baselines cannot satisfy ShardLoom layout/write advisor evidence",
+        "vortex_layout_write_advisor_fallback_attempted": (
+            parse_optional_bool(
+                evidence.get("vortex_layout_write_advisor_fallback_attempted")
+            )
+            is True
+        ),
+        "vortex_layout_write_advisor_external_engine_invoked": (
+            parse_optional_bool(
+                evidence.get("vortex_layout_write_advisor_external_engine_invoked")
+            )
+            is True
+        ),
+    }
+
+
+def vortex_copy_budget_metadata(
+    engine: str,
+    status: str,
+    *,
+    metrics: dict[str, Any],
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    evidence = evidence or {}
+    is_shardloom = is_shardloom_engine(engine)
+    observed_status = first_meaningful_field(
+        evidence.get("vortex_copy_budget_status"),
+        metrics.get("vortex_copy_budget_status"),
+    )
+    if not is_shardloom:
+        copy_status = "external_baseline_only"
+    elif observed_status is not None:
+        copy_status = str(observed_status)
+    elif status in UNSUPPORTED_ROW_STATUSES:
+        copy_status = "unsupported"
+    elif shardloom_blocked_non_execution_status(status):
+        copy_status = "blocked"
+    elif metrics.get("prepared_state_id") not in {None, "none"}:
+        copy_status = "reported_copy_budget_with_unmeasured_segments"
+    else:
+        copy_status = "not_requested"
+    source_bytes = parse_optional_int(metrics.get("vortex_scout_ingress_source_byte_count")) or 0
+    writer_bytes = parse_optional_int(metrics.get("bytes_written")) or 0
+    return {
+        "vortex_copy_budget_schema_version": VORTEX_COPY_BUDGET_SCHEMA_VERSION,
+        "vortex_copy_budget_status": copy_status,
+        "vortex_copy_budget_route": first_meaningful_field(
+            evidence.get("vortex_copy_budget_route"),
+            "vortex_ingest_copy_budget_buffer_lifecycle"
+            if is_shardloom
+            else "external_baseline_only",
+        ),
+        "vortex_copy_budget_source_state_id": first_meaningful_field(
+            evidence.get("vortex_copy_budget_source_state_id"),
+            metrics.get("source_state_id"),
+            "none",
+        ),
+        "vortex_copy_budget_source_state_digest": first_meaningful_field(
+            evidence.get("vortex_copy_budget_source_state_digest"),
+            metrics.get("source_state_digest"),
+            "none",
+        ),
+        "vortex_copy_budget_prepared_state_id": first_meaningful_field(
+            evidence.get("vortex_copy_budget_prepared_state_id"),
+            metrics.get("prepared_state_id"),
+            "none",
+        ),
+        "vortex_copy_budget_prepared_state_digest": first_meaningful_field(
+            evidence.get("vortex_copy_budget_prepared_state_digest"),
+            metrics.get("prepared_state_digest"),
+            "none",
+        ),
+        "vortex_copy_budget_source_format": first_meaningful_field(
+            evidence.get("vortex_copy_budget_source_format"),
+            metrics.get("source_format"),
+            "unknown",
+        ),
+        "vortex_copy_budget_row_count": parse_optional_int(
+            evidence.get("vortex_copy_budget_row_count")
+        )
+        or parse_optional_int(metrics.get("vortex_scout_ingress_row_count"))
+        or 0,
+        "vortex_copy_budget_source_byte_count": parse_optional_int(
+            evidence.get("vortex_copy_budget_source_byte_count")
+        )
+        or source_bytes,
+        "vortex_copy_budget_column_count": parse_optional_int(
+            evidence.get("vortex_copy_budget_column_count")
+        )
+        or parse_optional_int(metrics.get("vortex_scout_ingress_column_count"))
+        or 0,
+        "vortex_copy_budget_allocation_scope": first_meaningful_field(
+            evidence.get("vortex_copy_budget_allocation_scope"),
+            "vortex_ingest_local_prepare_once",
+        ),
+        "vortex_copy_budget_copy_scope": first_meaningful_field(
+            evidence.get("vortex_copy_budget_copy_scope"),
+            "source_read,parse_normalization,columnar_handoff,vortex_array_build,writer,reopen,evidence",
+        ),
+        "vortex_copy_budget_measurement_status": first_meaningful_field(
+            evidence.get("vortex_copy_budget_measurement_status"),
+            "reported_with_not_measured_segments",
+        ),
+        "vortex_copy_budget_source_read_copy_bytes": first_meaningful_field(
+            evidence.get("vortex_copy_budget_source_read_copy_bytes"),
+            source_bytes,
+        ),
+        "vortex_copy_budget_parse_normalization_copy_bytes": first_meaningful_field(
+            evidence.get("vortex_copy_budget_parse_normalization_copy_bytes"),
+            "not_measured",
+        ),
+        "vortex_copy_budget_columnar_handoff_copy_bytes": first_meaningful_field(
+            evidence.get("vortex_copy_budget_columnar_handoff_copy_bytes"),
+            "not_measured",
+        ),
+        "vortex_copy_budget_vortex_array_build_copy_bytes": first_meaningful_field(
+            evidence.get("vortex_copy_budget_vortex_array_build_copy_bytes"),
+            "not_measured",
+        ),
+        "vortex_copy_budget_writer_buffer_bytes": first_meaningful_field(
+            evidence.get("vortex_copy_budget_writer_buffer_bytes"),
+            writer_bytes,
+        ),
+        "vortex_copy_budget_reopen_verify_copy_bytes": first_meaningful_field(
+            evidence.get("vortex_copy_budget_reopen_verify_copy_bytes"),
+            "not_measured",
+        ),
+        "vortex_copy_budget_evidence_render_copy_bytes": first_meaningful_field(
+            evidence.get("vortex_copy_budget_evidence_render_copy_bytes"),
+            "not_measured",
+        ),
+        "vortex_copy_budget_total_measured_copy_bytes": first_meaningful_field(
+            evidence.get("vortex_copy_budget_total_measured_copy_bytes"),
+            source_bytes + writer_bytes,
+        ),
+        "vortex_copy_budget_buffer_family": first_meaningful_field(
+            evidence.get("vortex_copy_budget_buffer_family"),
+            "source_bytes,prepared_state_buffers,vortex_writer_buffer,reopen_scan_buffer",
+        ),
+        "vortex_copy_budget_ownership_policy": first_meaningful_field(
+            evidence.get("vortex_copy_budget_ownership_policy"),
+            "owned_buffers_no_borrowed_lifetime_reuse",
+        ),
+        "vortex_copy_budget_writer_buffering_status": first_meaningful_field(
+            evidence.get("vortex_copy_budget_writer_buffering_status"),
+            "writer_bytes_reported_from_local_vortex_artifact",
+        ),
+        "vortex_copy_budget_buffer_reuse_status": first_meaningful_field(
+            evidence.get("vortex_copy_budget_buffer_reuse_status"),
+            "blocked_until_correctness_parity",
+        ),
+        "vortex_copy_budget_buffer_reuse_count": parse_optional_int(
+            evidence.get("vortex_copy_budget_buffer_reuse_count")
+        )
+        or 0,
+        "vortex_copy_budget_unsafe_lifetime_shortcut_status": first_meaningful_field(
+            evidence.get("vortex_copy_budget_unsafe_lifetime_shortcut_status"),
+            "blocked_no_unsafe_lifetime_shortcuts",
+        ),
+        "vortex_copy_budget_correctness_parity_refs": first_meaningful_field(
+            evidence.get("vortex_copy_budget_correctness_parity_refs"),
+            "source_state_digest,prepared_state_digest,writer_row_count,reopen_row_count",
+        ),
+        "vortex_copy_budget_materialization_boundary_status": first_meaningful_field(
+            evidence.get("vortex_copy_budget_materialization_boundary_status"),
+            metrics.get("vortex_layout_write_advisor_materialization_boundary_status"),
+            "not_reported",
+        ),
+        "vortex_copy_budget_decode_boundary_status": first_meaningful_field(
+            evidence.get("vortex_copy_budget_decode_boundary_status"),
+            metrics.get("vortex_layout_write_advisor_decode_boundary_status"),
+            "not_reported",
+        ),
+        "vortex_copy_budget_unsupported_diagnostic_code": first_meaningful_field(
+            evidence.get("vortex_copy_budget_unsupported_diagnostic_code"),
+            "none" if copy_status.startswith("reported") else copy_status,
+        ),
+        "vortex_copy_budget_no_standalone_lane_status": first_meaningful_field(
+            evidence.get("vortex_copy_budget_no_standalone_lane_status"),
+            "funnelled_through_vortex_ingest_source_state_to_vortex_prepared_state"
+            if is_shardloom
+            else "external_baseline_only",
+        ),
+        "vortex_copy_budget_claim_gate_status": "not_claim_grade"
+        if is_shardloom
+        else "external_baseline_only",
+        "vortex_copy_budget_claim_boundary": (
+            "VortexCopyBudget evidence is scoped local allocation/copy and buffer-lifecycle "
+            "visibility only; it records measured or not-measured copy scopes, ownership, "
+            "reuse blockers, and unsafe-lifetime posture without proving memory efficiency, "
+            "performance, production, SQL/DataFrame, or Spark-replacement readiness"
+        )
+        if is_shardloom
+        else "external baselines cannot satisfy ShardLoom copy-budget evidence",
+        "vortex_copy_budget_fallback_attempted": (
+            parse_optional_bool(evidence.get("vortex_copy_budget_fallback_attempted")) is True
+        ),
+        "vortex_copy_budget_external_engine_invoked": (
+            parse_optional_bool(evidence.get("vortex_copy_budget_external_engine_invoked"))
+            is True
+        ),
+    }
+
+
 def vortex_preparation_spine_metadata(
     engine: str,
     paths: DatasetPaths,
@@ -11644,6 +12433,128 @@ def vortex_preparation_spine_contract() -> dict[str, Any]:
     }
 
 
+def vortex_scout_ingress_contract() -> dict[str, Any]:
+    return {
+        "contract_id": VORTEX_SCOUT_INGRESS_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": (
+            "docs/architecture/cold-ingestion-preparation-research-carryforward.md"
+        ),
+        "status_vocabulary": list(VORTEX_SCOUT_INGRESS_STATUS_VOCABULARY),
+        "row_fields": list(VORTEX_SCOUT_INGRESS_FIELDS),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexScoutIngress -> "
+            "VortexPreparedState"
+        ),
+        "current_scope": (
+            "scoped local source triage, anomaly families, schema-drift visibility, "
+            "unsupported-shape diagnostics, quarantine-output planning, and "
+            "no-standalone-lane evidence inside vortex_ingest"
+        ),
+        "non_goals": [
+            "standalone scout benchmark lane",
+            "automatic source repair",
+            "data-quality product claim",
+            "object-store or external validation service",
+            "broad nested-type support",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Scout-ingress rows must preserve "
+            "vortex_scout_ingress_fallback_attempted=false and "
+            "vortex_scout_ingress_external_engine_invoked=false for ShardLoom rows."
+        ),
+        "claim_boundary": (
+            "VortexScoutIngress evidence is scoped local source-triage evidence only. "
+            "It makes malformed input, schema drift, unsupported shapes, nullability "
+            "posture, small-file pathology, and quarantine planning visible inside "
+            "vortex_ingest without proving repair, object-store, production, performance, "
+            "SQL/DataFrame, or Spark-replacement readiness."
+        ),
+    }
+
+
+def vortex_layout_write_advisor_contract() -> dict[str, Any]:
+    return {
+        "contract_id": VORTEX_LAYOUT_WRITE_ADVISOR_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": (
+            "docs/architecture/cold-ingestion-preparation-research-carryforward.md"
+        ),
+        "status_vocabulary": list(VORTEX_LAYOUT_WRITE_ADVISOR_STATUS_VOCABULARY),
+        "row_fields": list(VORTEX_LAYOUT_WRITE_ADVISOR_FIELDS),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexLayoutWriteAdvisor -> "
+            "VortexPreparedState"
+        ),
+        "current_scope": (
+            "scoped local layout/write strategy admission, SourceState statistics "
+            "posture, writer provider/version/surface visibility, write/reopen "
+            "verification depth, and no-standalone-lane evidence inside vortex_ingest"
+        ),
+        "non_goals": [
+            "standalone layout benchmark lane",
+            "automatic performance-optimized layout selection",
+            "object-store or table-layout support",
+            "broad nested or columnar layout support",
+            "production writer compatibility guarantee",
+            "performance or superiority claims",
+        ],
+        "no_fallback_rule": (
+            "Layout/write advisor rows must preserve "
+            "vortex_layout_write_advisor_fallback_attempted=false and "
+            "vortex_layout_write_advisor_external_engine_invoked=false for ShardLoom rows."
+        ),
+        "claim_boundary": (
+            "VortexLayoutWriteAdvisor evidence is scoped local layout/write admission "
+            "evidence only. It records strategy, provider, verification-depth, and "
+            "benchmark-ref posture without proving performance, object-store/table "
+            "runtime, production, SQL/DataFrame, or Spark-replacement readiness."
+        ),
+    }
+
+
+def vortex_copy_budget_contract() -> dict[str, Any]:
+    return {
+        "contract_id": VORTEX_COPY_BUDGET_SCHEMA_VERSION,
+        "canonical_reference": "docs/architecture/io-reuse-and-fanout-architecture.md",
+        "companion_reference": (
+            "docs/architecture/cold-ingestion-preparation-research-carryforward.md"
+        ),
+        "status_vocabulary": list(VORTEX_COPY_BUDGET_STATUS_VOCABULARY),
+        "row_fields": list(VORTEX_COPY_BUDGET_FIELDS),
+        "stable_path": (
+            "InputAdapter -> SourceState -> VortexPreparedState -> "
+            "VortexCopyBudget"
+        ),
+        "current_scope": (
+            "scoped local source-read, parse, handoff, Vortex-array-build, writer, "
+            "reopen, and evidence-render copy visibility with ownership, reuse, "
+            "and unsafe-lifetime posture inside vortex_ingest"
+        ),
+        "non_goals": [
+            "standalone memory benchmark lane",
+            "zero-copy performance claim",
+            "unsafe borrowed lifetime reuse",
+            "persistent buffer pool",
+            "object-store or distributed memory management",
+            "production memory-efficiency guarantee",
+        ],
+        "no_fallback_rule": (
+            "Copy-budget rows must preserve "
+            "vortex_copy_budget_fallback_attempted=false and "
+            "vortex_copy_budget_external_engine_invoked=false for ShardLoom rows."
+        ),
+        "claim_boundary": (
+            "VortexCopyBudget evidence is scoped local allocation/copy and "
+            "buffer-lifecycle visibility only. It records measured or not-measured "
+            "copy scopes, ownership, reuse blockers, and unsafe-lifetime posture "
+            "without proving memory efficiency, performance, production, "
+            "SQL/DataFrame, or Spark-replacement readiness."
+        ),
+    }
+
+
 def vortex_differential_preparation_contract() -> dict[str, Any]:
     return {
         "contract_id": VORTEX_DIFFERENTIAL_PREPARATION_SCHEMA_VERSION,
@@ -12210,6 +13121,231 @@ def prepared_state_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]
                 ),
                 "prepared_state_claim_boundary": metrics.get(
                     "prepared_state_claim_boundary"
+                ),
+            }
+        )
+    return rows
+
+
+def vortex_scout_ingress_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "vortex_scout_ingress_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "vortex_scout_ingress_status": metrics.get(
+                    "vortex_scout_ingress_status"
+                ),
+                "vortex_scout_ingress_source_format": metrics.get(
+                    "vortex_scout_ingress_source_format"
+                ),
+                "vortex_scout_ingress_source_path": metrics.get(
+                    "vortex_scout_ingress_source_path"
+                ),
+                "vortex_scout_ingress_row_count": metrics.get(
+                    "vortex_scout_ingress_row_count"
+                ),
+                "vortex_scout_ingress_source_byte_count": metrics.get(
+                    "vortex_scout_ingress_source_byte_count"
+                ),
+                "vortex_scout_ingress_column_count": metrics.get(
+                    "vortex_scout_ingress_column_count"
+                ),
+                "vortex_scout_ingress_anomaly_count": metrics.get(
+                    "vortex_scout_ingress_anomaly_count"
+                ),
+                "vortex_scout_ingress_anomaly_families": metrics.get(
+                    "vortex_scout_ingress_anomaly_families"
+                ),
+                "vortex_scout_ingress_schema_drift_status": metrics.get(
+                    "vortex_scout_ingress_schema_drift_status"
+                ),
+                "vortex_scout_ingress_unsupported_shape_status": metrics.get(
+                    "vortex_scout_ingress_unsupported_shape_status"
+                ),
+                "vortex_scout_ingress_quarantine_required": metrics.get(
+                    "vortex_scout_ingress_quarantine_required"
+                ),
+                "vortex_scout_ingress_quarantine_output_plan_status": metrics.get(
+                    "vortex_scout_ingress_quarantine_output_plan_status"
+                ),
+                "vortex_scout_ingress_no_standalone_lane_status": metrics.get(
+                    "vortex_scout_ingress_no_standalone_lane_status"
+                ),
+                "vortex_scout_ingress_claim_gate_status": metrics.get(
+                    "vortex_scout_ingress_claim_gate_status"
+                ),
+                "vortex_scout_ingress_fallback_attempted": metrics.get(
+                    "vortex_scout_ingress_fallback_attempted"
+                ),
+                "vortex_scout_ingress_external_engine_invoked": metrics.get(
+                    "vortex_scout_ingress_external_engine_invoked"
+                ),
+                "vortex_scout_ingress_claim_boundary": metrics.get(
+                    "vortex_scout_ingress_claim_boundary"
+                ),
+            }
+        )
+    return rows
+
+
+def vortex_layout_write_advisor_matrix(
+    results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "vortex_layout_write_advisor_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "vortex_layout_write_advisor_status": metrics.get(
+                    "vortex_layout_write_advisor_status"
+                ),
+                "vortex_layout_write_advisor_source_format": metrics.get(
+                    "vortex_layout_write_advisor_source_format"
+                ),
+                "vortex_layout_write_advisor_row_count": metrics.get(
+                    "vortex_layout_write_advisor_row_count"
+                ),
+                "vortex_layout_write_advisor_source_byte_count": metrics.get(
+                    "vortex_layout_write_advisor_source_byte_count"
+                ),
+                "vortex_layout_write_advisor_column_count": metrics.get(
+                    "vortex_layout_write_advisor_column_count"
+                ),
+                "vortex_layout_write_advisor_source_statistics_status": metrics.get(
+                    "vortex_layout_write_advisor_source_statistics_status"
+                ),
+                "vortex_layout_write_advisor_requested_pushdown_requirements": metrics.get(
+                    "vortex_layout_write_advisor_requested_pushdown_requirements"
+                ),
+                "vortex_layout_write_advisor_layout_strategy": metrics.get(
+                    "vortex_layout_write_advisor_layout_strategy"
+                ),
+                "vortex_layout_write_advisor_chunking_strategy": metrics.get(
+                    "vortex_layout_write_advisor_chunking_strategy"
+                ),
+                "vortex_layout_write_advisor_writer_provider_kind": metrics.get(
+                    "vortex_layout_write_advisor_writer_provider_kind"
+                ),
+                "vortex_layout_write_advisor_writer_provider_version": metrics.get(
+                    "vortex_layout_write_advisor_writer_provider_version"
+                ),
+                "vortex_layout_write_advisor_writer_provider_surface": metrics.get(
+                    "vortex_layout_write_advisor_writer_provider_surface"
+                ),
+                "vortex_layout_write_advisor_write_reopen_verification_depth": metrics.get(
+                    "vortex_layout_write_advisor_write_reopen_verification_depth"
+                ),
+                "vortex_layout_write_advisor_strategy_admitted": metrics.get(
+                    "vortex_layout_write_advisor_strategy_admitted"
+                ),
+                "vortex_layout_write_advisor_unsupported_diagnostic_code": metrics.get(
+                    "vortex_layout_write_advisor_unsupported_diagnostic_code"
+                ),
+                "vortex_layout_write_advisor_no_standalone_lane_status": metrics.get(
+                    "vortex_layout_write_advisor_no_standalone_lane_status"
+                ),
+                "vortex_layout_write_advisor_claim_gate_status": metrics.get(
+                    "vortex_layout_write_advisor_claim_gate_status"
+                ),
+                "vortex_layout_write_advisor_fallback_attempted": metrics.get(
+                    "vortex_layout_write_advisor_fallback_attempted"
+                ),
+                "vortex_layout_write_advisor_external_engine_invoked": metrics.get(
+                    "vortex_layout_write_advisor_external_engine_invoked"
+                ),
+                "vortex_layout_write_advisor_claim_boundary": metrics.get(
+                    "vortex_layout_write_advisor_claim_boundary"
+                ),
+            }
+        )
+    return rows
+
+
+def vortex_copy_budget_matrix(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for result in results:
+        metrics = result["metrics"]
+        if "vortex_copy_budget_schema_version" not in metrics:
+            continue
+        rows.append(
+            {
+                "scenario_name": result["scenario_name"],
+                "engine": result["engine"],
+                "status": result["status"],
+                "execution_mode": result.get("selected_execution_mode")
+                or result.get("execution_mode"),
+                "vortex_copy_budget_status": metrics.get("vortex_copy_budget_status"),
+                "vortex_copy_budget_source_format": metrics.get(
+                    "vortex_copy_budget_source_format"
+                ),
+                "vortex_copy_budget_row_count": metrics.get(
+                    "vortex_copy_budget_row_count"
+                ),
+                "vortex_copy_budget_source_byte_count": metrics.get(
+                    "vortex_copy_budget_source_byte_count"
+                ),
+                "vortex_copy_budget_column_count": metrics.get(
+                    "vortex_copy_budget_column_count"
+                ),
+                "vortex_copy_budget_measurement_status": metrics.get(
+                    "vortex_copy_budget_measurement_status"
+                ),
+                "vortex_copy_budget_source_read_copy_bytes": metrics.get(
+                    "vortex_copy_budget_source_read_copy_bytes"
+                ),
+                "vortex_copy_budget_parse_normalization_copy_bytes": metrics.get(
+                    "vortex_copy_budget_parse_normalization_copy_bytes"
+                ),
+                "vortex_copy_budget_columnar_handoff_copy_bytes": metrics.get(
+                    "vortex_copy_budget_columnar_handoff_copy_bytes"
+                ),
+                "vortex_copy_budget_vortex_array_build_copy_bytes": metrics.get(
+                    "vortex_copy_budget_vortex_array_build_copy_bytes"
+                ),
+                "vortex_copy_budget_writer_buffer_bytes": metrics.get(
+                    "vortex_copy_budget_writer_buffer_bytes"
+                ),
+                "vortex_copy_budget_reopen_verify_copy_bytes": metrics.get(
+                    "vortex_copy_budget_reopen_verify_copy_bytes"
+                ),
+                "vortex_copy_budget_total_measured_copy_bytes": metrics.get(
+                    "vortex_copy_budget_total_measured_copy_bytes"
+                ),
+                "vortex_copy_budget_buffer_reuse_status": metrics.get(
+                    "vortex_copy_budget_buffer_reuse_status"
+                ),
+                "vortex_copy_budget_unsafe_lifetime_shortcut_status": metrics.get(
+                    "vortex_copy_budget_unsafe_lifetime_shortcut_status"
+                ),
+                "vortex_copy_budget_no_standalone_lane_status": metrics.get(
+                    "vortex_copy_budget_no_standalone_lane_status"
+                ),
+                "vortex_copy_budget_claim_gate_status": metrics.get(
+                    "vortex_copy_budget_claim_gate_status"
+                ),
+                "vortex_copy_budget_fallback_attempted": metrics.get(
+                    "vortex_copy_budget_fallback_attempted"
+                ),
+                "vortex_copy_budget_external_engine_invoked": metrics.get(
+                    "vortex_copy_budget_external_engine_invoked"
+                ),
+                "vortex_copy_budget_claim_boundary": metrics.get(
+                    "vortex_copy_budget_claim_boundary"
                 ),
             }
         )
@@ -13808,6 +14944,25 @@ def failed_result(
         )
     )
     metrics.update(
+        vortex_scout_ingress_metadata(
+            engine,
+            paths,
+            scenario,
+            data_format,
+            status=status,
+            metrics=metrics,
+            selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
+    metrics.update(
+        vortex_layout_write_advisor_metadata(
+            engine,
+            status=status,
+            metrics=metrics,
+            selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
+    metrics.update(
         vortex_preparation_spine_metadata(
             engine,
             paths,
@@ -13827,6 +14982,13 @@ def failed_result(
     )
     metrics.update(
         vortex_capillary_preparation_metadata(
+            engine,
+            status=status,
+            metrics=metrics,
+        )
+    )
+    metrics.update(
+        vortex_copy_budget_metadata(
             engine,
             status=status,
             metrics=metrics,
@@ -14566,6 +15728,27 @@ def successful_result_from_iterations(
         )
     )
     metrics.update(
+        vortex_scout_ingress_metadata(
+            runner.name,
+            paths,
+            scenario,
+            data_format,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            evidence=evidence,
+            selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
+    metrics.update(
+        vortex_layout_write_advisor_metadata(
+            runner.name,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            evidence=evidence,
+            selected_mode=execution_mode["selected_execution_mode"],
+        )
+    )
+    metrics.update(
         vortex_preparation_spine_metadata(
             runner.name,
             paths,
@@ -14587,6 +15770,14 @@ def successful_result_from_iterations(
     )
     metrics.update(
         vortex_capillary_preparation_metadata(
+            runner.name,
+            status="success" if stable else "unstable_output",
+            metrics=metrics,
+            evidence=evidence,
+        )
+    )
+    metrics.update(
+        vortex_copy_budget_metadata(
             runner.name,
             status="success" if stable else "unstable_output",
             metrics=metrics,
@@ -15758,6 +16949,11 @@ def execution_mode_attribution_contract() -> dict[str, Any]:
         "prepared_native_vortex_lifecycle_fields": list(
             PREPARED_NATIVE_VORTEX_LIFECYCLE_FIELDS
         ),
+        "vortex_scout_ingress_fields": list(VORTEX_SCOUT_INGRESS_FIELDS),
+        "vortex_layout_write_advisor_fields": list(
+            VORTEX_LAYOUT_WRITE_ADVISOR_FIELDS
+        ),
+        "vortex_copy_budget_fields": list(VORTEX_COPY_BUDGET_FIELDS),
         "optimizer_trace_fields": list(OPTIMIZER_TRACE_FIELDS),
         "build_profile_fields": list(BUILD_PROFILE_FIELDS),
         "bayesian_advisor_fields": list(BAYESIAN_ADVISOR_FIELDS),
@@ -16692,6 +17888,69 @@ def render_prepared_state_contract(artifact: dict[str, Any]) -> str:
 
 def render_vortex_preparation_spine_contract(artifact: dict[str, Any]) -> str:
     contract = artifact["vortex_preparation_spine_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
+def render_vortex_scout_ingress_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["vortex_scout_ingress_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
+def render_vortex_layout_write_advisor_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["vortex_layout_write_advisor_contract"]
+    rows = [
+        ["Contract", str(contract["contract_id"])],
+        ["Canonical reference", str(contract["canonical_reference"])],
+        ["Companion reference", str(contract["companion_reference"])],
+        ["Status vocabulary", ", ".join(contract["status_vocabulary"])],
+        ["Row fields", ", ".join(contract["row_fields"])],
+        ["Stable path", str(contract["stable_path"])],
+        ["Current scope", str(contract["current_scope"])],
+        ["No-fallback rule", str(contract["no_fallback_rule"])],
+        ["Claim boundary", str(contract["claim_boundary"])],
+    ]
+    non_goal_rows = [["Non-goal", value] for value in contract["non_goals"]]
+    return (
+        markdown_table(["Field", "Value"], rows)
+        + "\n\n"
+        + markdown_table(["Type", "Boundary"], non_goal_rows)
+    )
+
+
+def render_vortex_copy_budget_contract(artifact: dict[str, Any]) -> str:
+    contract = artifact["vortex_copy_budget_contract"]
     rows = [
         ["Contract", str(contract["contract_id"])],
         ["Canonical reference", str(contract["canonical_reference"])],
@@ -18291,6 +19550,266 @@ def render_scale_benchmark_profile_matrix(artifact: dict[str, Any]) -> str:
     )
 
 
+def render_vortex_scout_ingress_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["vortex_scout_ingress_matrix"]:
+        rows.append(
+            [
+                row.get("scenario_name", "unknown"),
+                row.get("engine", "unknown"),
+                row.get("status", "unknown"),
+                str(row.get("execution_mode", "unknown")),
+                str(row.get("vortex_scout_ingress_status", "unknown")),
+                str(row.get("vortex_scout_ingress_source_format", "unknown")),
+                str(row.get("vortex_scout_ingress_source_path", "none")).replace("|", "\\|"),
+                str(row.get("vortex_scout_ingress_row_count", 0)),
+                format_metric(row.get("vortex_scout_ingress_source_byte_count"), " B"),
+                str(row.get("vortex_scout_ingress_column_count", 0)),
+                str(row.get("vortex_scout_ingress_anomaly_count", 0)),
+                str(row.get("vortex_scout_ingress_anomaly_families", "none")),
+                str(row.get("vortex_scout_ingress_schema_drift_status", "unknown")),
+                str(row.get("vortex_scout_ingress_unsupported_shape_status", "unknown")),
+                str(row.get("vortex_scout_ingress_quarantine_required", False)),
+                str(
+                    row.get(
+                        "vortex_scout_ingress_quarantine_output_plan_status",
+                        "not_reported",
+                    )
+                ),
+                str(row.get("vortex_scout_ingress_no_standalone_lane_status", "unknown")),
+                str(row.get("vortex_scout_ingress_claim_gate_status", "not_claim_grade")),
+                str(row.get("vortex_scout_ingress_fallback_attempted", False)),
+                str(row.get("vortex_scout_ingress_external_engine_invoked", False)),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "report_only",
+                "none",
+                "none",
+                "0",
+                "n/a",
+                "0",
+                "0",
+                "none",
+                "not_reported",
+                "not_reported",
+                "false",
+                "not_reported",
+                "not_reported",
+                "not_claim_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Scout status",
+            "Source format",
+            "Source path",
+            "Rows",
+            "Bytes",
+            "Columns",
+            "Anomalies",
+            "Families",
+            "Schema drift",
+            "Unsupported shape",
+            "Quarantine",
+            "Quarantine plan",
+            "Lane status",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
+def render_vortex_layout_write_advisor_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["vortex_layout_write_advisor_matrix"]:
+        rows.append(
+            [
+                row.get("scenario_name", "unknown"),
+                row.get("engine", "unknown"),
+                row.get("status", "unknown"),
+                str(row.get("execution_mode", "unknown")),
+                str(row.get("vortex_layout_write_advisor_status", "unknown")),
+                str(row.get("vortex_layout_write_advisor_source_format", "unknown")),
+                str(row.get("vortex_layout_write_advisor_row_count", 0)),
+                format_bytes(row.get("vortex_layout_write_advisor_source_byte_count")),
+                str(row.get("vortex_layout_write_advisor_column_count", 0)),
+                str(row.get("vortex_layout_write_advisor_source_statistics_status", "unknown")),
+                str(row.get("vortex_layout_write_advisor_requested_pushdown_requirements", "none")),
+                str(row.get("vortex_layout_write_advisor_layout_strategy", "none")),
+                str(row.get("vortex_layout_write_advisor_chunking_strategy", "none")),
+                str(row.get("vortex_layout_write_advisor_writer_provider_kind", "none")),
+                str(row.get("vortex_layout_write_advisor_writer_provider_version", "none")),
+                str(row.get("vortex_layout_write_advisor_writer_provider_surface", "none")),
+                str(row.get("vortex_layout_write_advisor_write_reopen_verification_depth", "none")),
+                str(row.get("vortex_layout_write_advisor_strategy_admitted", False)),
+                str(row.get("vortex_layout_write_advisor_unsupported_diagnostic_code", "none")),
+                str(row.get("vortex_layout_write_advisor_no_standalone_lane_status", "unknown")),
+                str(row.get("vortex_layout_write_advisor_claim_gate_status", "not_claim_grade")),
+                str(row.get("vortex_layout_write_advisor_fallback_attempted", False)),
+                str(row.get("vortex_layout_write_advisor_external_engine_invoked", False)),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "report_only",
+                "none",
+                "0",
+                "n/a",
+                "0",
+                "not_reported",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "none",
+                "false",
+                "not_reported",
+                "not_reported",
+                "not_claim_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Advisor status",
+            "Source format",
+            "Rows",
+            "Bytes",
+            "Columns",
+            "Stats",
+            "Pushdown reqs",
+            "Layout strategy",
+            "Chunking",
+            "Provider",
+            "Provider version",
+            "Provider surface",
+            "Reopen proof",
+            "Admitted",
+            "Diagnostic",
+            "Lane status",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
+def render_vortex_copy_budget_matrix(artifact: dict[str, Any]) -> str:
+    rows = []
+    for row in artifact["vortex_copy_budget_matrix"]:
+        rows.append(
+            [
+                row.get("scenario_name", "unknown"),
+                row.get("engine", "unknown"),
+                row.get("status", "unknown"),
+                str(row.get("execution_mode", "unknown")),
+                str(row.get("vortex_copy_budget_status", "unknown")),
+                str(row.get("vortex_copy_budget_source_format", "unknown")),
+                str(row.get("vortex_copy_budget_row_count", 0)),
+                format_bytes(row.get("vortex_copy_budget_source_byte_count")),
+                str(row.get("vortex_copy_budget_column_count", 0)),
+                str(row.get("vortex_copy_budget_measurement_status", "unknown")),
+                format_bytes(row.get("vortex_copy_budget_source_read_copy_bytes")),
+                format_bytes(row.get("vortex_copy_budget_parse_normalization_copy_bytes")),
+                format_bytes(row.get("vortex_copy_budget_columnar_handoff_copy_bytes")),
+                format_bytes(row.get("vortex_copy_budget_vortex_array_build_copy_bytes")),
+                format_bytes(row.get("vortex_copy_budget_writer_buffer_bytes")),
+                format_bytes(row.get("vortex_copy_budget_reopen_verify_copy_bytes")),
+                format_bytes(row.get("vortex_copy_budget_total_measured_copy_bytes")),
+                str(row.get("vortex_copy_budget_buffer_reuse_status", "unknown")),
+                str(row.get("vortex_copy_budget_unsafe_lifetime_shortcut_status", "unknown")),
+                str(row.get("vortex_copy_budget_no_standalone_lane_status", "unknown")),
+                str(row.get("vortex_copy_budget_claim_gate_status", "not_claim_grade")),
+                str(row.get("vortex_copy_budget_fallback_attempted", False)),
+                str(row.get("vortex_copy_budget_external_engine_invoked", False)),
+            ]
+        )
+    if not rows:
+        rows.append(
+            [
+                "none",
+                "none",
+                "missing",
+                "none",
+                "report_only",
+                "none",
+                "0",
+                "n/a",
+                "0",
+                "not_reported",
+                "n/a",
+                "not_measured",
+                "not_measured",
+                "not_measured",
+                "n/a",
+                "not_measured",
+                "n/a",
+                "not_reported",
+                "not_reported",
+                "not_reported",
+                "not_claim_grade",
+                "false",
+                "false",
+            ]
+        )
+    return markdown_table(
+        [
+            "Scenario",
+            "Engine",
+            "Status",
+            "Mode",
+            "Copy status",
+            "Source format",
+            "Rows",
+            "Source bytes",
+            "Columns",
+            "Measurement",
+            "Source read",
+            "Parse",
+            "Handoff",
+            "Vortex array",
+            "Writer",
+            "Reopen",
+            "Measured total",
+            "Reuse status",
+            "Unsafe shortcut",
+            "Lane status",
+            "Claim gate",
+            "Fallback",
+            "External engine",
+        ],
+        rows,
+    )
+
+
 def render_vortex_preparation_spine_matrix(artifact: dict[str, Any]) -> str:
     rows = []
     for row in artifact["vortex_preparation_spine_matrix"]:
@@ -19567,6 +21086,24 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "",
         render_vortex_preparation_spine_contract(artifact),
         "",
+        "## VortexScoutIngress Contract",
+        "",
+        "This contract makes source triage, anomaly families, schema-drift status, and quarantine planning visible inside vortex_ingest without creating a standalone benchmark lane.",
+        "",
+        render_vortex_scout_ingress_contract(artifact),
+        "",
+        "## VortexLayoutWriteAdvisor Contract",
+        "",
+        "This contract makes scoped local layout/write strategy admission, provider boundary, and verification-depth posture visible inside vortex_ingest without creating a standalone benchmark lane.",
+        "",
+        render_vortex_layout_write_advisor_contract(artifact),
+        "",
+        "## VortexCopyBudget Contract",
+        "",
+        "This contract makes scoped local copy-budget, ownership, buffer-reuse, and unsafe-lifetime posture visible inside vortex_ingest without creating a standalone benchmark lane.",
+        "",
+        render_vortex_copy_budget_contract(artifact),
+        "",
         "## VortexDifferentialPreparation Contract",
         "",
         "This contract makes scoped append-only delta overlay posture visible without implying broad CDC, table transaction, update/delete/upsert, or performance support.",
@@ -19702,6 +21239,24 @@ def render_markdown_report(artifact: dict[str, Any]) -> str:
         "VortexPreparationSpine rows show how local SourceState splits flow into VortexPreparedState writes through admitted provider surfaces. They are internal preparation evidence only, not a separate runtime lane or performance claim.",
         "",
         render_vortex_preparation_spine_matrix(artifact),
+        "",
+        "## ShardLoom VortexScoutIngress Evidence Matrix",
+        "",
+        "VortexScoutIngress rows show source triage, anomaly, and quarantine-planning posture inside vortex_ingest. They are not a separate runtime lane and do not upgrade claim status.",
+        "",
+        render_vortex_scout_ingress_matrix(artifact),
+        "",
+        "## ShardLoom VortexLayoutWriteAdvisor Evidence Matrix",
+        "",
+        "VortexLayoutWriteAdvisor rows show scoped local layout/write admission, provider boundary, and verification-depth posture inside vortex_ingest. They are not a separate runtime lane and do not upgrade claim status.",
+        "",
+        render_vortex_layout_write_advisor_matrix(artifact),
+        "",
+        "## ShardLoom VortexCopyBudget Evidence Matrix",
+        "",
+        "VortexCopyBudget rows show scoped copy-budget, ownership, buffer-reuse, and unsafe-lifetime posture inside vortex_ingest. They are not a separate runtime lane and do not upgrade claim status.",
+        "",
+        render_vortex_copy_budget_matrix(artifact),
         "",
         "## ShardLoom VortexDifferentialPreparation Evidence Matrix",
         "",
@@ -20042,6 +21597,11 @@ def main() -> int:
         "source_state_contract": source_state_contract(),
         "prepared_state_contract": prepared_state_contract(),
         "vortex_preparation_spine_contract": vortex_preparation_spine_contract(),
+        "vortex_scout_ingress_contract": vortex_scout_ingress_contract(),
+        "vortex_layout_write_advisor_contract": (
+            vortex_layout_write_advisor_contract()
+        ),
+        "vortex_copy_budget_contract": vortex_copy_budget_contract(),
         "vortex_differential_preparation_contract": (
             vortex_differential_preparation_contract()
         ),
@@ -20074,6 +21634,11 @@ def main() -> int:
         "source_state_matrix": source_state_matrix(results),
         "scan_pushdown_matrix": scan_pushdown_matrix(results),
         "prepared_state_matrix": prepared_state_matrix(results),
+        "vortex_scout_ingress_matrix": vortex_scout_ingress_matrix(results),
+        "vortex_layout_write_advisor_matrix": (
+            vortex_layout_write_advisor_matrix(results)
+        ),
+        "vortex_copy_budget_matrix": vortex_copy_budget_matrix(results),
         "vortex_preparation_spine_matrix": vortex_preparation_spine_matrix(results),
         "vortex_differential_preparation_matrix": (
             vortex_differential_preparation_matrix(results)

@@ -240,7 +240,7 @@ SQL/DataFrame runtime, or performance evidence.
 The next full data refresh will carry Vortex-first provider decisions, source split refs, byte/row
 range refs, Vortex sink refs, prepared-artifact segment evidence, Native I/O posture,
 no-standalone-lane status, and no-fallback fields. The refresh is intentionally tabled until the
-remaining cold-lane preparation work lands so published data does not churn between directly
+directly related cold-lane evidence bundle is merged so published data does not churn between
 related items.
 
 `GAR-IOREUSE-1J` extends the harness schema with
@@ -259,7 +259,26 @@ Vortex segment write, reopen verification, and sink evidence capillary tasks thr
 `vortex_ingest` route. Rows carry task manifest IDs/digests, byte/row range refs, Vortex segment
 refs, writer sink refs, memory/sink pressure posture, Native I/O and execution certificates,
 prefixed PulseWeave evidence, no-standalone-lane status, and no-fallback fields. Benchmark
-measurement refresh remains tabled until the remaining cold-lane plan items are complete.
+measurement refresh remains tabled until the directly related cold-lane bundle is merged.
+
+`GAR-IOREUSE-1L` extends the harness schema with
+`vortex_scout_ingress_schema_version=shardloom.traditional_analytics.vortex_scout_ingress.v1`.
+The next full data refresh will carry source scope, metadata/sample ranges, schema digest before/
+after, anomaly families, malformed row refs where safe, quarantine planning, redaction status,
+unsupported diagnostics, correctness policy, no-standalone-lane status, and no-fallback fields.
+
+`GAR-PERF-2J` extends the harness schema with
+`vortex_layout_write_advisor_schema_version=shardloom.traditional_analytics.vortex_layout_write_advisor.v1`.
+The next full data refresh will carry workload constitution, source statistics, pushdown/sink
+requirements, strategy/provider posture, write/reopen verification depth, correctness refs,
+benchmark refs, no-standalone-lane status, and no-fallback fields.
+
+`GAR-PERF-2K` extends the harness schema with
+`vortex_copy_budget_schema_version=shardloom.traditional_analytics.vortex_copy_budget.v1`. The next
+full data refresh will carry allocation/copy scope, measured or explicit `not_measured` copy
+segments, ownership policy, buffer reuse blockers, unsafe-lifetime posture, correctness parity
+refs, no-standalone-lane status, and no-fallback fields. These are schema and evidence-surface
+updates only until the public benchmark measurement refresh runs.
 
 `GAR-IOREUSE-1C` adds a companion OutputPlan row contract to the benchmark artifact. Rows now carry
 `output_plan_contract_schema_version=shardloom.traditional_analytics.output_plan.v1`,
