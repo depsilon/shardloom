@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder
   - Date: 2026-05-28
-  - Branch/PR: `runtime-5b-sql-ladder` / PR pending.
+  - Branch/PR: `runtime-5b-sql-ladder` / PR #975.
   - Source:
     - `GAR-RUNTIME-IMPL-5B SQL frontend runtime ladder`.
     - `docs/architecture/sql-parser-binder-readiness.md`, RFC 0032, and the completed
