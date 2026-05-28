@@ -23,7 +23,7 @@
   "fallback_attempted": false,
   "external_engine_invoked": false,
   "public_foundry_claim_allowed": false,
-  "claim_boundary": "Local Foundry-style smoke and local certificate JSON proof only. No shardloom-foundry package, Artifact Repository publication, service invocation, Compute Module, virtual-table native execution, dataset transaction runtime, F10 deployment, Spark fallback, or production Foundry claim is supported.",
+  "claim_boundary": "Local Foundry-style smoke, local result/evidence dataset-shaped outputs, and local certificate JSON proof only. No shardloom-foundry package, Artifact Repository publication, service invocation, Compute Module, virtual-table native execution, real Foundry dataset transaction runtime, F10 deployment, Spark fallback, or production Foundry claim is supported.",
   "rows": [
     {
       "row_id": "local_style_transform_fixture",
@@ -60,7 +60,9 @@
       "required_evidence": [
         "local_certificate_json",
         "local_benchmark_metrics_json",
-        "no_foundry_dataset_write"
+        "local_foundry_style_result_dataset",
+        "local_foundry_style_evidence_dataset",
+        "no_real_foundry_dataset_write"
       ],
       "blocker_id": "none_local_certificate_json_only",
       "local_style_claim_allowed": true,

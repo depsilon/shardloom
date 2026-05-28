@@ -2,8 +2,8 @@
 
 # Foundry Proof-Of-Use Certification
 
-Status: P9.6 local proof. This proof is Foundry-style only; it does not import Foundry packages or
-invoke Foundry services.
+Status: `GAR-RUNTIME-IMPL-5P` local proof. This proof is Foundry-style only; it does not import
+Foundry packages or invoke Foundry services.
 
 For the user-facing local dev-stack path, see
 [`docs/foundry/dev-stack-starter-kit.md`](dev-stack-starter-kit.md). The starter kit records
@@ -27,7 +27,16 @@ The generated `shardloom.foundry_proof_of_use_report.v1` report includes:
 - `no_dataset_smoke_performed`
 - `staged_dataset_path_explicit`
 - `supported_local_native_execution_smoke_performed`
+- `generated_output_execution_performed`
+- `generated_source_created`
+- `generated_source_certificate_status`
+- `staged_input_transform_execution_performed`
+- `foundry_style_output_api_invoked`
+- `foundry_style_result_dataset_written`
+- `foundry_style_evidence_dataset_written`
 - `certificate_metrics_dataset_output_written`
+- `result_dataset_output_ref`
+- `evidence_dataset_output_ref`
 - `materialization_staging_boundary_report_ref`
 - `foundry_dev_stack_starter_kit_status`
 - `foundry_dev_stack_starter_kit_ref`
@@ -52,11 +61,13 @@ The generated `shardloom.foundry_proof_of_use_report.v1` report includes:
 - `foundry_spark_invoked=false`
 - `foundry_input_dataset_count=0`
 - `foundry_output_dataset_count=0`
+- `foundry_style_input_dataset_count=1`
+- `foundry_style_output_dataset_count=2`
 - `staged_input_bytes`
-- `shardloom_execution_mode=local_foundry_style_smoke_only`
+- `shardloom_execution_mode=local_foundry_style_generated_and_staged_transform_smoke`
 - `split_count=0`
 - `memory_budget_bytes=null`
-- `output_evidence_dataset_written=false`
+- `output_evidence_dataset_written=true`
 - `snowflake_databricks_bigquery_invoked=false`
 - `virtual_tables_native_execution_claimed=false`
 - `fallback_attempted=false`
@@ -69,7 +80,7 @@ The generated `shardloom.foundry_proof_of_use_report.v1` report includes:
 The only allowed claim from this proof is:
 
 ```text
-local_foundry_style_transform_and_local_vortex_execution_smoke_only
+local_foundry_style_generated_output_and_staged_transform_smoke_only
 ```
 
 It is not a Foundry production claim, Foundry package publication claim, Foundry virtual-table native
@@ -201,48 +212,48 @@ through Foundry output APIs, not direct S3/object-store paths. This document doe
 credential resolution, network probes, S3 reads, S3 writes, object-store commits, lakehouse output,
 Foundry production claims, package publication, or external engine fallback.
 
-`GAR-IOREUSE-1G` extends this posture with report-only output fanout evidence. The intended future
-runtime smoke is:
+`GAR-RUNTIME-IMPL-5P` promotes the local/dev-stack shape from report-only posture to a local
+Foundry-style runtime proof:
 
 ```text
 no input dataset
 generate deterministic source
 prepare through ShardLoom/Vortex
-write result dataset
-write evidence dataset
+write local result dataset through the dev-stack Foundry-style output API
+write local evidence dataset through the dev-stack Foundry-style output API
 ```
 
-The current report now includes a report-only
-`shardloom.foundry_generated_output_fanout_posture.v1` object. It records the required field
-vocabulary without pretending a generated-output runtime path executed:
+The current report includes a `shardloom.foundry_generated_output_fanout_posture.v1` object. It
+records local-style runtime evidence without pretending real Foundry output APIs or Foundry runtime
+executed:
 
 ```text
-support_status=report_only
-admission_status=blocked_until_generated_source_and_foundry_output_api_evidence
-generated_output_execution_performed=false
+support_status=local_style_smoke_supported
+admission_status=local_style_generated_output_and_foundry_style_output_api_evidence_written
+generated_output_execution_performed=true
 no_dataset_smoke_separate_from_generated_output=true
 input_dataset_count=0
 source_io_performed=false
-generated_source_created=false
-generated_source_kind=planned_deterministic_literal_table
-generated_source_certificate_status=not_emitted_report_only
+generated_source_created=true
+generated_source_certificate_status=present
 source_native_io_certificate_status=not_applicable_no_source_dataset
-output_plan_id=null
-output_plan_reuse_hit=false
-fanout_output_count=0
-output_io_performed=false
-output_native_io_certificate_status=not_emitted_report_only
-result_dataset_output_status=not_written_report_only
-evidence_dataset_output_status=not_written_report_only
+output_io_performed=true
+output_native_io_certificate_status=certified_local_file_sink
+result_dataset_output_status=written_local_foundry_style_dataset
+evidence_dataset_output_status=written_local_foundry_style_dataset
 foundry_output_api_required=true
+foundry_style_output_api_invoked=true
+foundry_style_result_dataset_written=true
+foundry_style_evidence_dataset_written=true
 foundry_runtime_invoked=false
 foundry_compute_invoked=false
 foundry_spark_invoked=false
+foundry_output_api_invoked=false
 direct_s3_write_invoked=false
 object_store_write_invoked=false
 fallback_attempted=false
 external_engine_invoked=false
-claim_gate_status=not_claim_grade
+claim_gate_status=fixture_smoke_only
 ```
 
 Future admitted runtime fields must include:
@@ -261,9 +272,9 @@ fallback_attempted=false
 external_engine_invoked=false
 ```
 
-No-input smoke and generated-output execution remain separate. A Foundry-style generated-output
-fanout row is not a Foundry production claim, Foundry package publication claim, direct S3/object
-store write claim, or Spark fallback claim.
+No-input smoke and generated-output execution remain separate. A local Foundry-style
+generated-output fanout row is not a real Foundry runtime claim, Foundry production claim, Foundry
+package publication claim, direct S3/object-store write claim, or Spark fallback claim.
 
 ## Foundry Generated-Output Proof Boundary
 
@@ -271,16 +282,19 @@ store write claim, or Spark fallback claim.
 
 ```text
 schema_version=shardloom.foundry_generated_output_boundary.v1
-support_status=report_only
-boundary_status=blocked_until_real_foundry_output_api_evidence
+support_status=local_style_smoke_supported
+boundary_status=local_style_dataset_output_written_real_foundry_blocked
 no_dataset_smoke_separate_from_generated_output=true
-generated_output_execution_performed=false
-generated_source_certificate_status=not_emitted_report_only
-output_native_io_certificate_status=not_emitted_report_only
+generated_output_execution_performed=true
+generated_source_certificate_status=present
+output_native_io_certificate_status=certified_local_file_sink
 foundry_output_api_required=true
 foundry_output_api_invoked=false
 foundry_result_dataset_written=false
 foundry_evidence_dataset_written=false
+foundry_style_output_api_invoked=true
+foundry_style_result_dataset_written=true
+foundry_style_evidence_dataset_written=true
 direct_s3_read_invoked=false
 direct_s3_write_invoked=false
 object_store_read_invoked=false
@@ -293,7 +307,7 @@ foundry_spark_invoked=false
 fallback_attempted=false
 external_engine_invoked=false
 public_foundry_generated_output_claim_allowed=false
-claim_gate_status=not_claim_grade
+claim_gate_status=fixture_smoke_only
 ```
 
 A future admitted Foundry generated-output smoke must write both the result dataset and evidence
@@ -313,22 +327,25 @@ preserves `fallback_attempted=false` and `external_engine_invoked=false`.
 
 ```text
 schema_version=shardloom.foundry_scale_proof_boundary.v1
-support_status=report_only
-proof_boundary_status=blocked_until_real_foundry_runtime_and_evidence_dataset
+support_status=local_style_smoke_supported
+proof_boundary_status=local_style_staged_transform_and_evidence_dataset_written_real_foundry_blocked
 foundry_runtime_invoked=false
 foundry_compute_invoked=false
 foundry_spark_invoked=false
 foundry_input_dataset_count=0
 foundry_output_dataset_count=0
+foundry_style_input_dataset_count=1
+foundry_style_output_dataset_count=2
 staged_input_bytes
-shardloom_execution_mode=local_foundry_style_smoke_only
+staged_input_transform_execution_performed=true
+shardloom_execution_mode=local_foundry_style_generated_and_staged_transform_smoke
 split_count=0
 memory_budget_bytes=null
-output_evidence_dataset_written=false
+output_evidence_dataset_written=true
 fallback_attempted=false
 external_engine_invoked=false
 public_foundry_claim_allowed=false
-claim_gate_status=not_foundry_scale_grade
+claim_gate_status=fixture_smoke_only
 ```
 
 A real Foundry scale proof must distinguish Foundry orchestration from ShardLoom execution. Foundry

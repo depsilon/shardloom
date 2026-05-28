@@ -162,7 +162,8 @@ Release and package posture:
 - public packages are not yet released;
 - package-channel evidence is still gated by
   [`docs/release/package-channel-readiness-matrix.md`](docs/release/package-channel-readiness-matrix.md);
-- Foundry docs describe local/dev-stack proof boundaries, not production Foundry support.
+- Foundry docs describe local/dev-stack generated-output and staged-transform proof boundaries,
+  not production Foundry support.
 
 ## Development
 

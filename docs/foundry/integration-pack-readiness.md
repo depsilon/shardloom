@@ -28,7 +28,8 @@ execution.
 | F9 | release artifact install proof |
 | F10 | workload-certified Foundry deployment |
 
-Current state is F3-F5 local proof only. F10 remains future.
+Current state is F5 local proof plus local Foundry-style result/evidence dataset output. F10 remains
+future.
 
 ## Required Report Schemas
 
@@ -128,12 +129,14 @@ target/foundry-proof-of-use/local-vortex-benchmark-smoke.json
 ```
 
 This covers local package/import posture, deterministic CLI binary resolution, no-dataset smoke,
-explicit staged dataset path, local ShardLoom execution smoke, certificate output, benchmark metrics
-output, materialization/staging boundary refs, and no-fallback evidence.
+source-free generated output, a staged local CSV transform, local Foundry-style result/evidence
+dataset output, local ShardLoom execution smoke, certificate output, benchmark metrics output,
+materialization/staging boundary refs, and no-fallback evidence.
 
-The same report includes a report-only
-`shardloom.foundry_generated_output_boundary.v1` object. That boundary keeps future Foundry
-generated-output proof separate from current no-dataset smoke: `foundry_output_api_required=true`,
+The same report includes `shardloom.foundry_generated_output_boundary.v1`. That boundary keeps
+local dev-stack generated-output proof separate from current no-dataset smoke and real Foundry
+runtime claims: `foundry_output_api_required=true`, `foundry_style_output_api_invoked=true`,
+`foundry_style_result_dataset_written=true`, `foundry_style_evidence_dataset_written=true`,
 `foundry_output_api_invoked=false`, `foundry_result_dataset_written=false`,
 `foundry_evidence_dataset_written=false`, `direct_s3_read_invoked=false`,
 `direct_s3_write_invoked=false`, `object_store_write_invoked=false`,

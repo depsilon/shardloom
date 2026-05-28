@@ -6,9 +6,9 @@
 
 - **Audience:** Foundry-adjacent user who wants to see the local transform shape
 - **Status:** `smoke_supported`
-- **Execution mode:** `no_dataset_smoke`
+- **Execution mode:** `local_foundry_style_generated_and_staged_transform_smoke`
 - **Engine mode:** `batch_status`
-- **Claim boundary:** Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.
+- **Claim boundary:** Local Foundry-style generated-output and staged-transform proof only; no real Foundry runtime/output API, production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.
 
 ## Can ShardLoom Do This?
 
@@ -16,7 +16,7 @@ Foundry-style local proof boundary has a scoped local path. Treat it as technica
 
 ## Claim Boundary
 
-Local Foundry-style proof only; no Foundry production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.
+Local Foundry-style generated-output and staged-transform proof only; no real Foundry runtime/output API, production, package publication, Marketplace, virtual table, direct object-store, Spark, or external compute claim.
 
 ## How To Try It
 
@@ -30,13 +30,22 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Internal Flow
 
-`none, local_style_fixture -> no_dataset_smoke -> batch_status -> local_foundry_style_report, certificate_metrics_dataset_output -> evidence -> claim gate`
+`none, local_style_fixture, staged_local_csv_fixture -> local_foundry_style_generated_and_staged_transform_smoke -> batch_status -> local_foundry_style_report, generated_output_artifact, staged_transform_output, local_foundry_style_result_dataset, local_foundry_style_evidence_dataset, certificate_metrics_dataset_output -> evidence -> claim gate`
 
 ## Evidence You Should See
 
 - `no_dataset_smoke_performed`
 - `transform_import_proven`
 - `cli_binary_resolved`
+- `generated_output_execution_performed`
+- `generated_source_created`
+- `generated_source_certificate_status`
+- `staged_input_transform_execution_performed`
+- `foundry_style_output_api_invoked=true`
+- `foundry_style_result_dataset_written=true`
+- `foundry_style_evidence_dataset_written=true`
+- `output_evidence_dataset_written=true`
+- `foundry_output_api_invoked=false`
 - `foundry_runtime_invoked=false`
 - `foundry_compute_invoked=false`
 - `foundry_spark_invoked=false`
@@ -47,7 +56,7 @@ No current blocker is attached to this supported local smoke path beyond the cla
 
 ## Expected Output Or Evidence
 
-A local proof report showing Foundry and external compute were not invoked.
+A local proof report plus local result/evidence dataset-shaped artifacts showing ShardLoom generated/staged execution and no Foundry or external compute invocation.
 
 ## Common Mistakes
 

@@ -2743,14 +2743,19 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "foundry_package_proof_boundary_matrix_status",
         "foundry_package_proof_boundary_matrix_ref",
         "foundry_package_proof_boundary_matrix",
-        "generated_output_execution_performed=false",
+        "generated_output_execution_performed=true",
+        "generated_source_created=true",
         "generated_source_certificate_status=not_applicable_no_generated_rows",
-        "generated_source_certificate_status=not_emitted_report_only",
-        "output_native_io_certificate_status=not_emitted_report_only",
+        "generated_source_certificate_status=present",
+        "output_native_io_certificate_status=certified_local_file_sink",
+        "staged_input_transform_execution_performed=true",
         "foundry_output_api_required=true",
         "foundry_output_api_invoked=false",
         "foundry_result_dataset_written=false",
         "foundry_evidence_dataset_written=false",
+        "foundry_style_output_api_invoked=true",
+        "foundry_style_result_dataset_written=true",
+        "foundry_style_evidence_dataset_written=true",
         "direct_s3_read_invoked=false",
         "direct_s3_write_invoked=false",
         "object_store_read_invoked=false",
@@ -2759,9 +2764,11 @@ fn foundry_integration_pack_and_proof_docs_are_present() {
         "foundry_compute_invoked=false",
         "foundry_input_dataset_count=0",
         "foundry_output_dataset_count=0",
-        "shardloom_execution_mode=local_foundry_style_smoke_only",
-        "output_evidence_dataset_written=false",
-        "claim_gate_status=not_foundry_scale_grade",
+        "foundry_style_input_dataset_count=1",
+        "foundry_style_output_dataset_count=2",
+        "shardloom_execution_mode=local_foundry_style_generated_and_staged_transform_smoke",
+        "output_evidence_dataset_written=true",
+        "claim_gate_status=fixture_smoke_only",
         "fallback_attempted=false",
         "external_engine_invoked=false",
         "public_foundry_generated_output_claim_allowed=false",
@@ -3085,7 +3092,8 @@ fn external_examples_include_fixtures_expected_outputs_and_boundaries() {
     assert!(foundry.contains("foundry_compute_invoked"));
     assert!(foundry.contains("external_compute_invoked"));
     assert!(foundry.contains("fallback_attempted"));
-    assert!(foundry.contains("not_emitted_no_dataset_smoke"));
+    assert!(foundry.contains("staged_input_transform_execution_performed"));
+    assert!(foundry.contains("local_foundry_style_result_and_evidence_datasets"));
 
     let boundary = read_repo_file("docs/benchmarks/baseline-comparison-boundary.md");
     assert!(boundary.contains("external_baseline_only"));
@@ -3095,7 +3103,7 @@ fn external_examples_include_fixtures_expected_outputs_and_boundaries() {
 }
 
 #[test]
-fn foundry_dev_stack_starter_remains_local_style_report_only() {
+fn foundry_dev_stack_starter_records_local_style_runtime_proof() {
     let doc = read_repo_file("docs/foundry/dev-stack-starter-kit.md");
     for required in [
         "shardloom.foundry_dev_stack_starter_kit.v1",
@@ -3104,18 +3112,25 @@ fn foundry_dev_stack_starter_remains_local_style_report_only() {
         "python examples\\foundry-lightweight-transform\\run.py --repo-root .",
         "python scripts\\foundry_proof_of_use.py --rows 64 --iterations 1",
         "no_dataset_smoke_separate_from_generated_output=true",
-        "generated_output_execution_performed=false",
+        "generated_output_execution_performed=true",
+        "generated_source_created=true",
+        "generated_source_certificate_status=present",
+        "output_native_io_certificate_status=certified_local_file_sink",
+        "staged_input_transform_execution_performed=true",
         "foundry_runtime_invoked=false",
         "foundry_compute_invoked=false",
         "foundry_spark_invoked=false",
         "foundry_output_api_invoked=false",
         "foundry_result_dataset_written=false",
         "foundry_evidence_dataset_written=false",
+        "foundry_style_output_api_invoked=true",
+        "foundry_style_result_dataset_written=true",
+        "foundry_style_evidence_dataset_written=true",
         "direct_s3_write_invoked=false",
         "object_store_write_invoked=false",
         "fallback_attempted=false",
         "external_engine_invoked=false",
-        "local_foundry_style_transform_and_local_vortex_execution_smoke_only",
+        "local_foundry_style_generated_output_and_staged_transform_smoke_only",
     ] {
         assert!(
             doc.contains(required),
@@ -3127,8 +3142,9 @@ fn foundry_dev_stack_starter_remains_local_style_report_only() {
     for required in [
         "\"schema_version\": \"shardloom.foundry_dev_stack_starter_kit.v1\"",
         "\"gar_id\": \"GAR-COMMERCIAL-1E\"",
-        "\"status\": \"local_style_report_only\"",
+        "\"status\": \"local_style_runtime_proof\"",
         "\"claim_gate_status\": \"not_claim_grade\"",
+        "\"starter_runtime_supported\": true",
         "\"real_foundry_runtime_supported\": false",
         "\"foundry_runtime_invoked\": false",
         "\"foundry_compute_invoked\": false",
@@ -3136,6 +3152,10 @@ fn foundry_dev_stack_starter_remains_local_style_report_only() {
         "\"foundry_output_api_invoked\": false",
         "\"foundry_result_dataset_written\": false",
         "\"foundry_evidence_dataset_written\": false",
+        "\"foundry_style_output_api_invoked\": true",
+        "\"foundry_style_result_dataset_written\": true",
+        "\"foundry_style_evidence_dataset_written\": true",
+        "\"output_evidence_dataset_written\": true",
         "\"direct_s3_write_invoked\": false",
         "\"object_store_write_invoked\": false",
         "\"credential_resolution_performed\": false",
@@ -3145,7 +3165,9 @@ fn foundry_dev_stack_starter_remains_local_style_report_only() {
         "\"public_foundry_claim_allowed\": false",
         "\"foundry_marketplace_claim_allowed\": false",
         "\"no_dataset_smoke_separate_from_generated_output\": true",
-        "\"generated_source_certificate_status\": \"not_emitted_report_only\"",
+        "\"generated_output_execution_performed\": true",
+        "\"generated_source_certificate_status\": \"present\"",
+        "\"output_native_io_certificate_status\": \"certified_local_file_sink\"",
         "\"deterministic_blocker\": \"blocked_until_real_foundry_output_api_evidence\"",
     ] {
         assert!(
@@ -3159,6 +3181,7 @@ fn foundry_dev_stack_starter_remains_local_style_report_only() {
         "shardloom.foundry_dev_stack_starter_kit.v1",
         "shardloom.foundry_dev_stack_starter_kit_report.v1",
         "REQUIRED_FALSE_FIELDS",
+        "REQUIRED_TRUE_FIELDS",
         "EXPECTED_COMMAND_IDS",
         "foundry_runtime_invoked",
         "foundry_compute_invoked",

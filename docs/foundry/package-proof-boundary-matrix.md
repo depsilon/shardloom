@@ -27,7 +27,7 @@ public_foundry_claim_allowed=false
 | Row | Status | Meaning |
 | --- | --- | --- |
 | `local_style_transform_fixture` | `smoke_supported` | Local source-checkout transform shape; not real Foundry runtime. |
-| `local_certificate_metrics_output` | `smoke_supported` | Local certificate/metrics JSON output; not a Foundry dataset write. |
+| `local_certificate_metrics_output` | `smoke_supported` | Local certificate/metrics JSON plus local result/evidence dataset-shaped outputs; not a real Foundry dataset write. |
 | `shardloom_foundry_package` | `blocked` | No `shardloom-foundry` package publication or install proof exists. |
 | `artifact_repository_publication` | `blocked` | No Foundry Artifact Repository upload/install/rollback proof exists. |
 | `foundry_service_invocation` | `blocked` | No Foundry service invocation or runtime context proof exists. |
@@ -66,7 +66,7 @@ external_engine_invoked=false
 Allowed current claim:
 
 ```text
-local_foundry_style_transform_and_local_certificate_json_smoke_only
+local_foundry_style_generated_output_and_staged_transform_smoke_only
 ```
 
 Not allowed:
