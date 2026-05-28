@@ -1609,10 +1609,11 @@ source-free API admission rows classify:
 - SQL source-free projection, broad DataFrame source-free projection, and expression-backed
   generated `with_column` forms as `report_only` with deterministic blocker IDs.
 
-Admission capability discovery does not parse SQL, bind names, plan a query,
-generate rows, write output, probe object stores, invoke Foundry, or invoke
-external engines for report-only rows. Current
-no-dataset smoke rows report
+Admission capability discovery separates scoped runtime rows from report-only or blocked rows.
+Scoped SQL `VALUES`, literal `SELECT`, `generate_series`/`range`, and local-source SQL ladder rows
+carry parser/binder/planner/runtime evidence when they execute. Report-only or blocked admission
+rows still do not parse SQL, bind names, plan a query, generate rows, write output, probe object
+stores, invoke Foundry, or invoke external engines. Current no-dataset smoke rows report
 `input_dataset_count=0`, `source_io_performed=false`,
 `generated_source_created=false`, `output_io_performed=false`, and
 `generated_source_certificate_status=not_applicable_no_generated_rows`.
