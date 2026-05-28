@@ -18,7 +18,7 @@ phase plan first.
 ### Recent Completed Session Ledger
 - [x] Session label: GAR-IOREUSE-1L / GAR-PERF-2J / GAR-PERF-2K cold-lane ingress, layout/write, and copy-budget bundle
   - Date: 2026-05-28
-  - Branch/PR: `ioreuse-1l-scout-ingress` / PR pending.
+  - Branch/PR: `ioreuse-1l-scout-ingress` / PR #974.
   - Source:
     - `GAR-IOREUSE-1L scout ingress, anomaly quarantine, and schema-drift triage`.
     - `GAR-PERF-2J cold-lane Vortex layout/write advisor`.
